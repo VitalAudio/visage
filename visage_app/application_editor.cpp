@@ -51,8 +51,8 @@ namespace visage {
 
     window->setDrawCallback([this](double time) {
       canvas_->updateTime(time);
-      drawWindow();
       EventManager::getInstance().checkEventTimers();
+      drawWindow();
     });
 
     drawWindow();

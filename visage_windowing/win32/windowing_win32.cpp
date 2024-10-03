@@ -227,6 +227,8 @@ namespace visage {
     }
 
     void run() override {
+      // TODO get correct monitor for vblank notifications.
+
       if (FAILED(DxgiFactory::factory()->EnumAdapters(0, &dxgi_adapter_)))
         return;
 
@@ -1039,10 +1041,6 @@ namespace visage {
     switch (msg) {
     case WM_VBLANK: {
       drawCallback(v_blank_thread_->getVBlankTime());
-      return 0;
-    }
-    case WM_TIMER: {
-      timerCallback();
       return 0;
     }
     case WM_SYSKEYDOWN:
