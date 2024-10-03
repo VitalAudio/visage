@@ -17,6 +17,7 @@
 #pragma once
 
 #include <chrono>
+#include <ctime>
 #include <string>
 
 namespace visage::time {
@@ -46,8 +47,12 @@ namespace visage::time {
 
     auto time_t = std::chrono::system_clock::to_time_t(time);
     char buffer[kMaxLength];
-    struct tm time_info;
-    localtime_s(&time_info, &time_t);
+    tm time_info {};
+#if VISAGE_WINDOWS
+    localtime_r(&time_info, &time_t);
+#else
+    localtime_r(&time_t, &time_info);
+#endif
     std::strftime(buffer, kMaxLength, format_string, &time_info);
     return buffer;
   }

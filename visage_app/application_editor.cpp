@@ -52,7 +52,7 @@ namespace visage {
     window->setDrawCallback([this](double time) {
       canvas_->updateTime(time);
       drawWindow();
-      visage::EventManager::getInstance().checkEventTimers();
+      EventManager::getInstance().checkEventTimers();
     });
 
     drawWindow();
@@ -134,19 +134,19 @@ namespace visage {
 
   void WindowedEditor::show(float window_scale) {
     removeFromWindow();
-    window_ = visage::createScaledWindow(getDefaultAspectRatio(), window_scale);
+    window_ = createScaledWindow(getDefaultAspectRatio(), window_scale);
     showWindow();
   }
 
   void WindowedEditor::show(int width, int height) {
     removeFromWindow();
-    window_ = visage::createWindow(width, height);
+    window_ = createWindow(width, height);
     showWindow();
   }
 
   void WindowedEditor::show(int x, int y, int width, int height) {
     removeFromWindow();
-    window_ = visage::createWindow(x, y, width, height);
+    window_ = createWindow(x, y, width, height);
     showWindow();
   }
 

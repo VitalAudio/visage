@@ -21,7 +21,7 @@
 #include <csignal>
 #include <iostream>
 
-namespace va {
+namespace visage {
   inline void debugLogString(const String& log_message) {
     std::cerr << log_message.toUtf8() << "\n";
   }

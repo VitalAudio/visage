@@ -14,10 +14,10 @@
  * along with visage.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#if VA_LINUX
+#if VISAGE_LINUX
 #include "windowing_x11.h"
 
-#include "va_utils/thread_utils.h"
+#include "visage_utils/thread_utils.h"
 
 #include <cstring>
 #include <sstream>
@@ -25,7 +25,7 @@
 #include <X11/extensions/Xrandr.h>
 #include <X11/Xutil.h>
 
-namespace va {
+namespace visage {
   static std::string _clipboard_text;
 
   std::string getClipboardText() {
@@ -46,7 +46,7 @@ namespace va {
     if (selection_owner == window_handle)
       return _clipboard_text;
 
-    Atom selection_property = XInternAtom(display, "VA_SELECT", False);
+    Atom selection_property = XInternAtom(display, "VISAGE_SELECT", False);
     XConvertSelection(display, x11.clipboard(), x11.utf8String(), selection_property, window_handle,
                       CurrentTime);
 
@@ -255,7 +255,7 @@ namespace va {
 
     XFontStruct* font = XLoadQueryFont(display, "-misc-fixed-medium-r-*-*-24-*-*-*-*-*-*-*");
     if (!font) {
-      VA_LOG("Unable to load font");
+      VISAGE_LOG("Unable to load font");
       return;
     }
 
@@ -390,14 +390,14 @@ namespace va {
   }
 
   void WindowX11::createWindow(Bounds bounds) {
-    VA_ASSERT(bounds.width() && bounds.height());
+    VISAGE_ASSERT(bounds.width() && bounds.height());
 
     ::Display* display = x11_.display();
     int screen = DefaultScreen(display);
     window_handle_ = XCreateSimpleWindow(display, x11_.rootWindow(), bounds.x(), bounds.y(),
                                          bounds.width(), bounds.height(), 0,
                                          BlackPixel(display, screen), BlackPixel(display, screen));
-    XStoreName(display, window_handle_, VA_STRING_PLUGIN_NAME);
+    XStoreName(display, window_handle_, VISAGE_APPLICATION_NAME);
 
     unsigned char blank = 0;
     XChangeProperty(display, window_handle_, x11_.dndTypeList(), XA_ATOM, 32, PropModeReplace,
@@ -438,6 +438,7 @@ namespace va {
 
     XSelectInput(display, window_handle_, kEventMask);
     XFlush(display);
+    start_draw_microseconds_ = time::getMicroSeconds();
   }
 
   static void threadTimerCallback(WindowX11* window) {
@@ -489,6 +490,7 @@ namespace va {
 
     timer_thread_running_ = true;
     timer_thread_ = std::make_unique<std::thread>(threadTimerCallback, this);
+    start_draw_microseconds_ = time::getMicroSeconds();
   }
 
   WindowX11::~WindowX11() {
@@ -521,7 +523,7 @@ namespace va {
     XFree(size_hints);
   }
 
-  va::Point WindowX11::retrieveWindowDimensions() {
+  visage::Point WindowX11::retrieveWindowDimensions() {
     X11Connection::DisplayLock lock(x11_);
     XWindowAttributes attributes;
     XGetWindowAttributes(x11_.display(), window_handle_, &attributes);
@@ -904,7 +906,8 @@ namespace va {
                event.xclient.message_type == x11_.timerEvent()) {
         if (!timer_fired) {
           timer_fired = true;
-          timerCallback();
+          long long microseconds = time::getMicroSeconds() - start_draw_microseconds_;
+          drawCallback(microseconds / 1000000.0);
         }
       }
       else if (event.xany.window == window_handle_ || event.xany.window == parent_handle_)
@@ -1106,7 +1109,7 @@ namespace va {
       break;
     }
     case ConfigureNotify: {
-      va::Point dimensions = retrieveWindowDimensions();
+      visage::Point dimensions = retrieveWindowDimensions();
       handleResized(dimensions.x, dimensions.y);
       break;
     }
@@ -1158,13 +1161,13 @@ namespace va {
     Atom wm_delete_message = XInternAtom(display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(x11_.display(), window_handle_, &wm_delete_message, 1);
 
-    struct timeval timeout;
+    timeval timeout {};
     timeout.tv_sec = 0;
     timeout.tv_usec = 0;
     fd_set read_fds;
     unsigned int fd = ConnectionNumber(display);
 
-    long long last_timer_ms = 0;
+    long long last_timer_microseconds = 0;
 
     XEvent event;
     bool running = true;
@@ -1173,7 +1176,7 @@ namespace va {
       FD_SET(fd, &read_fds);
 
       timeout.tv_sec = 0;
-      long long ms_to_timer = timer_ms_ - (time::getMilliseconds() - last_timer_ms);
+      long long ms_to_timer = timer_microseconds_ - (time::getMicroSeconds() - last_timer_microseconds);
       int result = 0;
       if (ms_to_timer > 0) {
         timeout.tv_usec = ms_to_timer * 1000;
@@ -1182,8 +1185,10 @@ namespace va {
       if (result == -1)
         running = false;
       else if (result == 0) {
-        last_timer_ms = time::getMilliseconds();
-        timerCallback();
+        long long new_microseconds = time::getMicroSeconds();
+        long long delta = new_microseconds - last_timer_microseconds;
+        last_timer_microseconds = new_microseconds;
+        drawCallback(delta / 1000000.0);
       }
       else if (FD_ISSET(fd, &read_fds)) {
         while (running && XPending(x11_.display())) {
@@ -1199,10 +1204,6 @@ namespace va {
         }
       }
     }
-  }
-
-  void WindowX11::startTimer(float frequency) {
-    timer_ms_ = std::max<int>(1, std::floor(1000.0f * frequency));
   }
 
   void WindowX11::windowContentsResized(int width, int height) {

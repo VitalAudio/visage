@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include <vector>
 
-namespace va {
+namespace visage {
   bool spawnChildProcess(const std::string& command, int timeout_ms) {
     std::istringstream stream(command);
     std::vector<std::string> arguments;

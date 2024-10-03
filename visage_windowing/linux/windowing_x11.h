@@ -16,8 +16,8 @@
 
 #pragma once
 
-#if VA_LINUX
-#include "va_utils/string_utils.h"
+#if VISAGE_LINUX
+#include "visage_utils/string_utils.h"
 #include "windowing.h"
 
 #include <atomic>
@@ -26,7 +26,7 @@
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 
-namespace va {
+namespace visage {
   class X11Connection {
   public:
     static constexpr int kDndVersion = 5;
@@ -34,7 +34,7 @@ namespace va {
     static constexpr int kNumDndTypes = 6;
 
     static int xErrorHandler(Display* display, XErrorEvent* error_event) {
-      VA_LOG(String("X11 Error: ") + static_cast<int>(error_event->error_code));
+      VISAGE_LOG(String("X11 Error: ") + static_cast<int>(error_event->error_code));
       return 0;
     }
 
@@ -54,7 +54,7 @@ namespace va {
     };
 
     struct Cursors {
-      Cursors(Display* display);
+      explicit Cursors(Display* display);
 
       Cursor no_cursor;
       Cursor arrow_cursor;
@@ -80,7 +80,7 @@ namespace va {
       clipboard_ = XInternAtom(display_, "CLIPBOARD", False);
       utf8_string_ = XInternAtom(display_, "UTF8_STRING", False);
       targets_ = XInternAtom(display_, "TARGETS", False);
-      timer_event_ = XInternAtom(display_, "VA_TIMER_EVENT", False);
+      timer_event_ = XInternAtom(display_, "VISAGE_TIMER_EVENT", False);
       dnd_aware_ = XInternAtom(display_, "XdndAware", False);
       dnd_proxy_ = XInternAtom(display_, "XdndProxy", False);
       dnd_enter_ = XInternAtom(display_, "XdndEnter", False);
@@ -189,7 +189,6 @@ namespace va {
     ~WindowX11() override;
 
     void runEventThread() override;
-    void startTimer(float frequency) override;
     void processPluginFdEvents() override;
     void processEvent(XEvent& event);
 
@@ -212,7 +211,7 @@ namespace va {
     MonitorInfo monitorInfo() { return monitor_info_; }
     X11Connection& x11Connection() { return x11_; }
     bool timerThreadRunning() { return timer_thread_running_.load(); }
-    int timerMs() const { return timer_ms_.load(); }
+    int timerMs() const { return timer_microseconds_.load() / 1000; }
 
   private:
     static WindowX11* last_active_window_;
@@ -245,12 +244,13 @@ namespace va {
     DragDropOutState drag_drop_out_state_;
     std::vector<std::string> drag_drop_files_;
 
+    long long start_draw_microseconds_ = 0;
     Point mouse_down_position_;
     MonitorInfo monitor_info_;
     ::Window window_handle_ = 0;
     ::Window parent_handle_ = 0;
     std::map<KeySym, bool> pressed_;
-    std::atomic<int> timer_ms_ = 100;
+    std::atomic<int> timer_microseconds_ = 16667;
     std::atomic<bool> timer_thread_running_ = false;
     std::unique_ptr<std::thread> timer_thread_;
   };

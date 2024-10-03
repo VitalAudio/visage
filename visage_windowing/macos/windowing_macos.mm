@@ -14,12 +14,12 @@
  * along with visage.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#if VA_MAC
+#if VISAGE_MAC
 #include "windowing_macos.h"
 
-#include "va_utils/file_system.h"
+#include "visage_utils/file_system.h"
 
-namespace va {
+namespace visage {
   std::string getClipboardText() {
     NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
     NSString* clipboard_text = [pasteboard stringForType:NSPasteboardTypeString];
@@ -306,7 +306,7 @@ CAMetalLayer* metal_layer_;
 }
 
 - (void)timerCallback:(NSTimer*)timer {
-  self.va_window->timerCallback();
+  self.visage_window->timerCallback();
 }
 
 - (void)keyDown:(NSEvent*)event {
@@ -320,17 +320,17 @@ CAMetalLayer* metal_layer_;
   }
 
   int modifiers = [self getKeyboardModifiers:event];
-  if ((modifiers & va::kModifierCmd) == 0)
+  if ((modifiers & visage::kModifierCmd) == 0)
     [self interpretKeyEvents:[NSArray arrayWithObject:event]];
 
-  va::KeyCode key_code = va::translateKeyCode([event keyCode]);
-  if (!self.va_window->handleKeyDown(key_code, modifiers, [event isARepeat]))
+  visage::KeyCode key_code = visage::translateKeyCode([event keyCode]);
+  if (!self.visage_window->handleKeyDown(key_code, modifiers, [event isARepeat]))
     [super keyDown:event];
 }
 
 - (void)keyUp:(NSEvent*)event {
-  va::KeyCode key_code = va::translateKeyCode([event keyCode]);
-  if (!self.va_window->handleKeyUp(key_code, [self getKeyboardModifiers:event]))
+  visage::KeyCode key_code = visage::translateKeyCode([event keyCode]);
+  if (!self.visage_window->handleKeyUp(key_code, [self getKeyboardModifiers:event]))
     [super keyUp:event];
 }
 
@@ -338,7 +338,7 @@ CAMetalLayer* metal_layer_;
 }
 
 - (void)insertText:(id)string {
-  self.va_window->handleTextInput([string UTF8String]);
+  self.visage_window->handleTextInput([string UTF8String]);
 }
 
 - (void)moveLeft:(id)sender {
@@ -370,17 +370,17 @@ CAMetalLayer* metal_layer_;
 - (void)moveToEndOfDocument:(id)sender {
 }
 
-- (va::Point)getEventPosition:(NSEvent*)event {
+- (visage::Point)getEventPosition:(NSEvent*)event {
   NSPoint location = [event locationInWindow];
   NSPoint view_location = [self convertPoint:location fromView:nil];
   CGFloat view_height = self.frame.size.height;
-  return va::Point(view_location.x, view_height - view_location.y);
+  return visage::Point(view_location.x, view_height - view_location.y);
 }
 
-- (va::Point)getDragPosition:(id<NSDraggingInfo>)sender {
+- (visage::Point)getDragPosition:(id<NSDraggingInfo>)sender {
   NSPoint drag_point = [self convertPoint:[sender draggingLocation] fromView:nil];
   CGFloat view_height = self.frame.size.height;
-  return va::Point(drag_point.x, view_height - drag_point.y);
+  return visage::Point(drag_point.x, view_height - drag_point.y);
 }
 
 - (NSPoint)getMouseScreenPosition {
@@ -396,11 +396,11 @@ CAMetalLayer* metal_layer_;
   NSUInteger buttons = [NSEvent pressedMouseButtons];
   int result = 0;
   if (buttons & (1 << 0))
-    result = result | va::kMouseButtonLeft;
+    result = result | visage::kMouseButtonLeft;
   if (buttons & (1 << 1))
-    result = result | va::kMouseButtonRight;
+    result = result | visage::kMouseButtonRight;
   if (buttons & (1 << 2))
-    result = result | va::kMouseButtonMiddle;
+    result = result | visage::kMouseButtonMiddle;
   return result;
 }
 
@@ -408,18 +408,18 @@ CAMetalLayer* metal_layer_;
   NSUInteger flags = [event modifierFlags];
   int result = 0;
   if (flags & NSEventModifierFlagCommand)
-    result = result | va::kModifierCmd;
+    result = result | visage::kModifierCmd;
   if (flags & NSEventModifierFlagControl)
-    result = result | va::kModifierMacCtrl;
+    result = result | visage::kModifierMacCtrl;
   if (flags & NSEventModifierFlagOption)
-    result = result | va::kModifierOption;
+    result = result | visage::kModifierOption;
   if (flags & NSEventModifierFlagShift)
-    result = result | va::kModifierShift;
+    result = result | visage::kModifierShift;
   return result;
 }
 
 - (void)checkRelativeMode {
-  if (self.va_window->getMouseRelativeMode()) {
+  if (self.visage_window->getMouseRelativeMode()) {
     CGAssociateMouseAndMouseCursorPosition(false);
     CGWarpMouseCursorPosition(mouse_down_screen_position_);
     CGAssociateMouseAndMouseCursorPosition(true);
@@ -428,7 +428,7 @@ CAMetalLayer* metal_layer_;
 
 - (void)scrollWheel:(NSEvent*)event {
   static constexpr float kPreciseScrollingScale = 0.02f;
-  va::Point point = [self getEventPosition:event];
+  visage::Point point = [self getEventPosition:event];
   float delta_x = [event deltaX];
   float precise_x = delta_x;
   float delta_y = [event deltaY];
@@ -437,35 +437,35 @@ CAMetalLayer* metal_layer_;
     precise_x = [event scrollingDeltaX] * kPreciseScrollingScale;
     precise_y = [event scrollingDeltaY] * kPreciseScrollingScale;
   }
-  self.va_window->handleMouseWheel(delta_x, delta_y, precise_x, precise_y, point.x, point.y,
+  self.visage_window->handleMouseWheel(delta_x, delta_y, precise_x, precise_y, point.x, point.y,
                                    [self getMouseButtonState], [self getKeyboardModifiers:event],
                                    [event momentumPhase] != NSEventPhaseNone);
 }
 
 - (void)mouseMoved:(NSEvent*)event {
-  va::Point point = [self getEventPosition:event];
-  self.va_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
+  visage::Point point = [self getEventPosition:event];
+  self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
                                   [self getKeyboardModifiers:event]);
 }
 
 - (void)mouseEntered:(NSEvent*)event {
-  va::Point point = [self getEventPosition:event];
-  self.va_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
+  visage::Point point = [self getEventPosition:event];
+  self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
                                   [self getKeyboardModifiers:event]);
 }
 
 - (void)mouseExited:(NSEvent*)event {
-  self.va_window->handleMouseLeave([self getMouseButtonState], [self getKeyboardModifiers:event]);
+  self.visage_window->handleMouseLeave([self getMouseButtonState], [self getKeyboardModifiers:event]);
 }
 
 - (void)mouseDown:(NSEvent*)event {
-  va::Point point = [self getEventPosition:event];
+  visage::Point point = [self getEventPosition:event];
   mouse_down_screen_position_ = [self getMouseScreenPosition];
-  self.va_window->handleMouseDown(va::kMouseButtonLeft, point.x, point.y,
+  self.visage_window->handleMouseDown(visage::kMouseButtonLeft, point.x, point.y,
                                   [self getMouseButtonState], [self getKeyboardModifiers:event]);
   [self.window makeKeyWindow];
-  if (self.va_window->isDragDropSource()) {
-    va::File file = self.va_window->startDragDropSource();
+  if (self.visage_window->isDragDropSource()) {
+    visage::File file = self.visage_window->startDragDropSource();
     NSString* path = [NSString stringWithUTF8String:file.string().c_str()];
     NSURL* url = [NSURL fileURLWithPath:path];
 
@@ -488,35 +488,35 @@ CAMetalLayer* metal_layer_;
 }
 
 - (void)mouseUp:(NSEvent*)event {
-  va::Point point = [self getEventPosition:event];
-  self.va_window->handleMouseUp(va::kMouseButtonLeft, point.x, point.y, [self getMouseButtonState],
+  visage::Point point = [self getEventPosition:event];
+  self.visage_window->handleMouseUp(visage::kMouseButtonLeft, point.x, point.y, [self getMouseButtonState],
                                 [self getKeyboardModifiers:event]);
 }
 
 - (void)mouseDragged:(NSEvent*)event {
-  va::Point point = [self getEventPosition:event];
-  self.va_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
+  visage::Point point = [self getEventPosition:event];
+  self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
                                   [self getKeyboardModifiers:event]);
   [self checkRelativeMode];
 }
 
 - (void)rightMouseDown:(NSEvent*)event {
-  va::Point point = [self getEventPosition:event];
+  visage::Point point = [self getEventPosition:event];
   mouse_down_screen_position_ = [self getMouseScreenPosition];
-  self.va_window->handleMouseDown(va::kMouseButtonRight, point.x, point.y,
+  self.visage_window->handleMouseDown(visage::kMouseButtonRight, point.x, point.y,
                                   [self getMouseButtonState], [self getKeyboardModifiers:event]);
   [self.window makeKeyWindow];
 }
 
 - (void)rightMouseUp:(NSEvent*)event {
-  va::Point point = [self getEventPosition:event];
-  self.va_window->handleMouseUp(va::kMouseButtonRight, point.x, point.y, [self getMouseButtonState],
+  visage::Point point = [self getEventPosition:event];
+  self.visage_window->handleMouseUp(visage::kMouseButtonRight, point.x, point.y, [self getMouseButtonState],
                                 [self getKeyboardModifiers:event]);
 }
 
 - (void)rightMouseDragged:(NSEvent*)event {
-  va::Point point = [self getEventPosition:event];
-  self.va_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
+  visage::Point point = [self getEventPosition:event];
+  self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
                                   [self getKeyboardModifiers:event]);
   [self checkRelativeMode];
 }
@@ -525,9 +525,9 @@ CAMetalLayer* metal_layer_;
   if ([event buttonNumber] != 2)
     return;
 
-  va::Point point = [self getEventPosition:event];
+  visage::Point point = [self getEventPosition:event];
   mouse_down_screen_position_ = [self getMouseScreenPosition];
-  self.va_window->handleMouseDown(va::kMouseButtonMiddle, point.x, point.y,
+  self.visage_window->handleMouseDown(visage::kMouseButtonMiddle, point.x, point.y,
                                   [self getMouseButtonState], [self getKeyboardModifiers:event]);
   [self.window makeKeyWindow];
 }
@@ -536,14 +536,14 @@ CAMetalLayer* metal_layer_;
   if ([event buttonNumber] != 2)
     return;
 
-  va::Point point = [self getEventPosition:event];
-  self.va_window->handleMouseUp(va::kMouseButtonMiddle, point.x, point.y,
+  visage::Point point = [self getEventPosition:event];
+  self.visage_window->handleMouseUp(visage::kMouseButtonMiddle, point.x, point.y,
                                 [self getMouseButtonState], [self getKeyboardModifiers:event]);
 }
 
 - (void)otherMouseDragged:(NSEvent*)event {
-  va::Point point = [self getEventPosition:event];
-  self.va_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
+  visage::Point point = [self getEventPosition:event];
+  self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
                                   [self getKeyboardModifiers:event]);
   [self checkRelativeMode];
 }
@@ -555,8 +555,8 @@ CAMetalLayer* metal_layer_;
     [new_window setAcceptsMouseMovedEvents:YES];
     [new_window setIgnoresMouseEvents:NO];
     [new_window makeFirstResponder:self];
-    self.va_window->setPixelScale([new_window backingScaleFactor]);
-    self.va_window->setNativeWindowHandle(new_window);
+    self.visage_window->setPixelScale([new_window backingScaleFactor]);
+    self.visage_window->setNativeWindowHandle(new_window);
 
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(windowOcclusionChanged:)
@@ -567,7 +567,7 @@ CAMetalLayer* metal_layer_;
 
 - (void)windowOcclusionChanged:(NSNotification*)notification {
   NSWindow* window = notification.object;
-  self.va_window->setVisible(window.occlusionState & NSWindowOcclusionStateVisible);
+  self.visage_window->setVisible(window.occlusionState & NSWindowOcclusionStateVisible);
 }
 
 - (std::vector<std::string>)getDropFiles:(id<NSDraggingInfo>)sender {
@@ -585,9 +585,9 @@ CAMetalLayer* metal_layer_;
 }
 
 - (NSDragOperation)dragFiles:(id<NSDraggingInfo>)sender {
-  va::Point drag_point = [self getDragPosition:sender];
+  visage::Point drag_point = [self getDragPosition:sender];
   std::vector<std::string> files = [self getDropFiles:sender];
-  if (self.va_window->handleFileDrag(drag_point.x, drag_point.y, files))
+  if (self.visage_window->handleFileDrag(drag_point.x, drag_point.y, files))
     return NSDragOperationCopy;
   return NSDragOperationNone;
 }
@@ -601,9 +601,9 @@ CAMetalLayer* metal_layer_;
 }
 
 - (BOOL)performDragOperation:(id<NSDraggingInfo>)sender {
-  va::Point drag_point = [self getDragPosition:sender];
+  visage::Point drag_point = [self getDragPosition:sender];
   std::vector<std::string> files = [self getDropFiles:sender];
-  if (self.va_window->handleFileDrop(drag_point.x, drag_point.y, files))
+  if (self.visage_window->handleFileDrop(drag_point.x, drag_point.y, files))
     return NSDragOperationCopy;
   return NSDragOperationNone;
 }
@@ -613,7 +613,7 @@ CAMetalLayer* metal_layer_;
 }
 
 - (void)draggingExited:(id<NSDraggingInfo>)sender {
-  self.va_window->handleFileDragLeave();
+  self.visage_window->handleFileDragLeave();
 }
 
 @end
@@ -634,12 +634,12 @@ bool resizing_vertical_ = false;
 
 - (void)windowDidEndLiveResize:(NSNotification*)notification {
   NSSize current_frame = [self.window_handle frame].size;
-  va::Point borders = va::getWindowBorderSize(self.window_handle);
-  self.va_window->handleNativeResize(current_frame.width - borders.x, current_frame.height - borders.y);
+  visage::Point borders = visage::getWindowBorderSize(self.window_handle);
+  self.visage_window->handleNativeResize(current_frame.width - borders.x, current_frame.height - borders.y);
 }
 
 - (NSSize)windowWillResize:(NSWindow*)sender toSize:(NSSize)frame_size {
-  if (!self.va_window->isFixedAspectRatio())
+  if (!self.visage_window->isFixedAspectRatio())
     return frame_size;
 
   NSSize current_frame = [self.window_handle frame].size;
@@ -648,12 +648,12 @@ bool resizing_vertical_ = false;
   if (current_frame.height != frame_size.height)
     resizing_vertical_ = true;
 
-  va::Point max_dimensions = self.va_window->getMaxWindowDimensions();
-  va::Point min_dimensions = self.va_window->getMinWindowDimensions();
-  va::Point borders = va::getWindowBorderSize(self.window_handle);
-  va::Point dimensions = va::Point(std::round(frame_size.width - borders.x),
+  visage::Point max_dimensions = self.visage_window->getMaxWindowDimensions();
+  visage::Point min_dimensions = self.visage_window->getMinWindowDimensions();
+  visage::Point borders = visage::getWindowBorderSize(self.window_handle);
+  visage::Point dimensions = visage::Point(std::round(frame_size.width - borders.x),
                                    std::round(frame_size.height - borders.y));
-  float aspect_ratio = self.va_window->getAspectRatio();
+  float aspect_ratio = self.visage_window->getAspectRatio();
   dimensions = adjustBoundsForAspectRatio(dimensions, min_dimensions, max_dimensions, aspect_ratio,
                                           resizing_horizontal_, resizing_vertical_);
 
@@ -666,7 +666,7 @@ bool resizing_vertical_ = false;
 
 - (void)applicationDidFinishLaunching:(NSNotification*)notification {
   self.window_delegate = [[AppWindowDelegate alloc] init];
-  self.window_delegate.va_window = self.va_window;
+  self.window_delegate.visage_window = self.visage_window;
   self.window_delegate.window_handle = self.window_handle;
   [self.window_handle setDelegate:self.window_delegate];
 
@@ -693,12 +693,12 @@ bool resizing_vertical_ = false;
 
 @end
 
-namespace va {
+namespace visage {
   void WindowMac::runEventThread() {
     @autoreleasepool {
       NSApplication* app = [NSApplication sharedApplication];
       AppDelegate* delegate = [[[AppDelegate alloc] init] autorelease];
-      delegate.va_window = this;
+      delegate.visage_window = this;
       delegate.window_handle = window_handle_;
       [app setDelegate:delegate];
       [app run];
@@ -786,7 +786,7 @@ namespace va {
     content_rect.origin.x = 0;
     content_rect.origin.y = 0;
     view_ = [[AppView alloc] initWithFrame:content_rect];
-    view_.va_window = this;
+    view_.visage_window = this;
     view_.allow_quit = true;
 
     setPixelScale([window_handle_ backingScaleFactor]);
@@ -809,7 +809,7 @@ namespace va {
     CGRect view_frame = CGRectMake(0.0f, 0.0f, width / getPixelScale(), height / getPixelScale());
 
     view_ = [[AppView alloc] initWithFrame:view_frame];
-    view_.va_window = this;
+    view_.visage_window = this;
     view_.allow_quit = false;
     [parent_view_ addSubview:view_];
 

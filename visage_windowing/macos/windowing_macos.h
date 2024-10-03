@@ -16,14 +16,14 @@
 
 #pragma once
 
-#if VA_MAC
+#if VISAGE_MAC
 #include "windowing.h"
 
 #include <Carbon/Carbon.h>
 #include <Cocoa/Cocoa.h>
 #include <QuartzCore/QuartzCore.h>
 
-namespace va {
+namespace visage {
   class WindowMac;
 }
 
@@ -31,7 +31,7 @@ namespace va {
 @end
 
 @interface AppView : NSView <NSDraggingDestination>
-@property(nonatomic) va::WindowMac* va_window;
+@property(nonatomic) visage::WindowMac* visage_window;
 @property(strong) NSTimer* timer;
 @property(strong) DraggingSource* drag_source_;
 
@@ -40,17 +40,17 @@ namespace va {
 @end
 
 @interface AppWindowDelegate : NSObject <NSWindowDelegate>
-@property(nonatomic) va::WindowMac* va_window;
+@property(nonatomic) visage::WindowMac* visage_window;
 @property(nonatomic, retain) NSWindow* window_handle;
 @end
 
 @interface AppDelegate : NSObject <NSApplicationDelegate>
 @property(nonatomic, retain) NSWindow* window_handle;
 @property(nonatomic, assign) AppWindowDelegate* window_delegate;
-@property va::WindowMac* va_window;
+@property visage::WindowMac* visage_window;
 @end
 
-namespace va {
+namespace visage {
   class WindowMac : public Window {
   public:
     WindowMac(int x, int y, int width, int height);

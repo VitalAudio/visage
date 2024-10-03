@@ -65,7 +65,6 @@ namespace visage {
 
 #if VISAGE_WINDOWS
     bgfx_init.type = bgfx::RendererType::Direct3D11;
-    // bgfx_init.platformData.nwh = window_handle;
 #if USE_DIRECTX12
     for (int i = 0; i < num_supported; ++i) {
       if (supported_renderers[i] == bgfx::RendererType::Direct3D12)
@@ -73,13 +72,9 @@ namespace visage {
     }
 #endif
 #elif VISAGE_MAC
-    VISAGE_ASSERT(window_handle);
     bgfx_init.type = bgfx::RendererType::Metal;
-    bgfx_init.platformData.nwh = window_handle;
 #elif VISAGE_LINUX
-    VISAGE_ASSERT(window_handle && display);
     bgfx_init.platformData.ndt = display;
-    bgfx_init.platformData.nwh = window_handle;
     bgfx_init.type = bgfx::RendererType::OpenGL;
 #elif VISAGE_EMSCRIPTEN
     VISAGE_ASSERT(window_handle);
@@ -99,8 +94,10 @@ namespace visage {
     bgfx::init(bgfx_init);
 
     bool swap_chain_supported = bgfx::getCaps()->supported & BGFX_CAPS_SWAP_CHAIN;
-    if (!swap_chain_supported)
+    if (!swap_chain_supported) {
+      VISAGE_ASSERT(false);
       error_message_ = "Swap chain rendering is required.";
+    }
 
     supported_ = backend_supported && swap_chain_supported;
   }

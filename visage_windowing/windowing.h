@@ -97,11 +97,6 @@ namespace visage {
         draw_callback_(time);
     }
 
-    void timerCallback() const {
-      if (timer_callback_)
-        timer_callback_();
-    }
-
     void setMinimumWindowScale(float scale) { min_window_scale_ = scale; }
     float getMinimumWindowScale() const { return min_window_scale_; }
     virtual void setFixedAspectRatio(bool fixed) { fixed_aspect_ratio_ = fixed; }
@@ -173,7 +168,6 @@ namespace visage {
     RepeatClick mouse_repeat_clicks_;
 
     std::function<void(double)> draw_callback_ = nullptr;
-    std::function<void()> timer_callback_ = nullptr;
     float pixel_scale_ = 1.0f;
     float min_window_scale_ = kDefaultMinWindowScale;
     bool visible_ = true;

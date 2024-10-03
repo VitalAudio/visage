@@ -22,7 +22,7 @@ public:
   void draw(visage::Canvas& canvas) {
     canvas.clearArea(0, 0, getWidth(), getHeight());
     canvas.setColor(0xff00ffff);
-    canvas.circle(500 + cos(canvas.time()) * 300.0f, 500 + sin(canvas.time()) * 300.0f, 100);
+    canvas.circle(200.0f + cosf(canvas.time()) * 200.0f, 500.0f + sinf(canvas.time()) * 200.0f, 100.0f);
 
     redraw();
   };

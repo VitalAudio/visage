@@ -31,7 +31,8 @@
 #include <cstdlib>
 #include <dlfcn.h>
 #include <unistd.h>
-static File getXdgFolder(const char* env_var, const char* default_folder) {
+
+static visage::File getXdgFolder(const char* env_var, const char* default_folder) {
   const char* xdg_folder = getenv(env_var);
   if (xdg_folder)
     return xdg_folder;
@@ -169,7 +170,7 @@ namespace visage {
 #else
     Dl_info info;
     visage::File file;
-    if (dladdr((void*)getPluginFile, &info))
+    if (dladdr((void*)getAudioPluginFile, &info))
       file = info.dli_fname;
 
 #if VISAGE_MAC
@@ -194,10 +195,10 @@ namespace visage {
     }
     return path;
 #elif VISAGE_MAC
-    return "~/Music/" VISAGE_STRING_PLUGIN_NAME;
+    return "~/Music/" VISAGE_APPLICATION_NAME;
 #elif VISAGE_LINUX
     File path = getXdgFolder("XDG_DOCUMENTS_DIR", "~/Documents");
-    return path / VISAGE_STRING_PLUGIN_NAME;
+    return path / VISAGE_APPLICATION_NAME;
 #else
     return {};
 #endif

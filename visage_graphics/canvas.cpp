@@ -236,7 +236,8 @@ namespace visage {
 
     bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
     bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
-    bgfx::setViewFrameBuffer(submit_pass, frame_buffer_data_->handle);
+    if (bgfx::isValid(frame_buffer_data_->handle))
+      bgfx::setViewFrameBuffer(submit_pass, frame_buffer_data_->handle);
 
     std::vector<RegionPosition> region_positions;
     std::vector<RegionPosition> overlapping_regions;
