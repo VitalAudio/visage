@@ -1,0 +1,44 @@
+name: Emscripten Deploy
+on: [workflow_dispatch]
+jobs:
+  Deploy-Emscripten:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: 'recursive'
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ secrets.KNOWN_HOSTS }}
+
+      - name: Build and Package
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git
+          ./emsdk/emsdk install latest
+          ./emsdk/emsdk activate latest
+          source emsdk/emsdk_env.sh
+          mkdir cmake_build
+          cd cmake_build
+          emcmake cmake -DCMAKE_BUILD_TYPE=Release ..
+          emmake make -j$(nproc)
+          cd ..
+          mkdir cmake_package
+          cp cmake_build/plugin_framework/va_standalone/*.html cmake_package
+          cp cmake_build/plugin_framework/va_standalone/*.js cmake_package
+          cp cmake_build/plugin_framework/va_standalone/*.wasm cmake_package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EmscriptenBuilds
+          path: cmake_package/
+
+      - name: Upload to S3
+        run: |
+          export AWS_ACCESS_KEY_ID=${{ secrets.R2_KEY_ID }}
+          export AWS_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET }}
+          export AWS_DEFAULT_REGION=auto
+          PRODUCT_VERSION=$(cat ./cmake_build/version.txt)
+          aws --endpoint-url ${{ secrets.R2_ENDPOINT }} s3 cp cmake_package/*.html s3://vitalpublic/$GITHUB_REPOSITORY/$PRODUCT_VERSION/
+          aws --endpoint-url ${{ secrets.R2_ENDPOINT }} s3 cp cmake_package/*.wasm s3://vitalpublic/$GITHUB_REPOSITORY/$PRODUCT_VERSION/
+          aws --endpoint-url ${{ secrets.R2_ENDPOINT }} s3 cp cmake_package/*.js s3://vitalpublic/$GITHUB_REPOSITORY/$PRODUCT_VERSION/

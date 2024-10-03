@@ -1,0 +1,5 @@
+file(GLOB HEADERS *.h)
+file(GLOB SOURCE_FILES *.cpp)
+add_library(VisageUi OBJECT ${SOURCE_FILES} ${HEADERS})
+target_include_directories(VisageUi PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VISAGE_INCLUDE_PATH})
+set_target_properties(VisageUi PROPERTIES FOLDER "visage")

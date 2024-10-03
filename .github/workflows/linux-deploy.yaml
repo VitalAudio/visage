@@ -1,0 +1,41 @@
+name: Linux Deploy
+on: [workflow_dispatch]
+jobs:
+  Deploy-Linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install rpm cmake devscripts debhelper mesa-common-dev libasound2-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxcomposite-dev libjack-dev libcurl4-gnutls-dev libsecret-1-0 libglib2.0-0
+
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: 'recursive'
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: ${{ secrets.KNOWN_HOSTS }}
+
+      - name: Build, Package and Test
+        run: |
+          mkdir cmake_build
+          cd cmake_build
+          cmake -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G "Unix Makefiles" ..
+          cmake --build . --target package --parallel
+          ctest --output-on-failure
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LinuxBuilds
+          path: cmake_build/package/
+
+      - name: Upload to S3
+        run: |
+          export AWS_ACCESS_KEY_ID=${{ secrets.R2_KEY_ID }}
+          export AWS_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET }}
+          export AWS_DEFAULT_REGION=auto
+          PRODUCT_VERSION=$(cat ./cmake_build/version.txt)
+          aws --endpoint-url ${{ secrets.R2_ENDPOINT }} s3 cp cmake_build/package/*.zip s3://vitalaudiobuilds/$GITHUB_REPOSITORY/$PRODUCT_VERSION/
+          aws --endpoint-url ${{ secrets.R2_ENDPOINT }} s3 cp cmake_build/package/*.deb s3://vitalaudiobuilds/$GITHUB_REPOSITORY/$PRODUCT_VERSION/
+          aws --endpoint-url ${{ secrets.R2_ENDPOINT }} s3 cp cmake_build/package/*.rpm s3://vitalaudiobuilds/$GITHUB_REPOSITORY/$PRODUCT_VERSION/
