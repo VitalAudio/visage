@@ -4,6 +4,7 @@ if (EMSCRIPTEN)
 elseif (WIN32)
   file(GLOB PLATFORM_SOURCE_FILES win32/*.cpp)
   file(GLOB PLATFORM_HEADER_FILES win32/*.h)
+  set(DXGI_LIB dxgi)
 elseif (APPLE)
   file(GLOB PLATFORM_SOURCE_FILES macos/*.mm)
   file(GLOB PLATFORM_HEADER_FILES macos/*.h)
@@ -28,4 +29,4 @@ target_include_directories(VisageWindowing
 )
 set_target_properties(VisageWindowing PROPERTIES FOLDER "visage")
 
-set(VisageWindowingDependencies ${X11_LIBS} PARENT_SCOPE)
+set(VisageWindowingDependencies ${X11_LIBS} ${DXGI_LIB} PARENT_SCOPE)

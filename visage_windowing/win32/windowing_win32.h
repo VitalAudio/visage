@@ -91,7 +91,6 @@ namespace visage {
     HMODULE module_handle_ = nullptr;
     HMONITOR monitor_ = nullptr;
     WNDPROC parent_window_proc_ = nullptr;
-    DWORD occlusion_cookie_ = 0;
     std::unique_ptr<EventHooks> event_hooks_;
     DragDropTarget* drag_drop_target_ = nullptr;
     std::unique_ptr<VBlankThread> v_blank_thread_;

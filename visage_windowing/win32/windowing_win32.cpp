@@ -34,7 +34,6 @@
 #pragma comment(lib, "dxgi.lib")
 
 #define WM_VBLANK (WM_USER + 1)
-#define WM_OCCLUSION (WM_USER + 2)
 
 typedef DPI_AWARENESS_CONTEXT(WINAPI* GetWindowDpiAwarenessContext_t)(HWND);
 typedef DPI_AWARENESS_CONTEXT(WINAPI* GetThreadDpiAwarenessContext_t)();
@@ -200,23 +199,11 @@ namespace visage {
       return instance;
     }
 
-    static IDXGIFactory2* factory() { return getInstance().dxgi_factory_; }
-
-    static DWORD registerOcclusionCallback(WindowWin32* window) {
-      DWORD cookie = 0;
-      auto result = factory()->RegisterOcclusionStatusWindow(window->getWindowHandle(),
-                                                             WM_OCCLUSION, &cookie);
-      return cookie;
-    }
-
-    static void unregisterOcclusionCallback(DWORD cookie) {
-      if (cookie)
-        factory()->UnregisterOcclusionStatus(cookie);
-    }
+    static IDXGIFactory* factory() { return getInstance().dxgi_factory_; }
 
   private:
     DxgiFactory() {
-      if (FAILED(CreateDXGIFactory2(0, IID_PPV_ARGS(&dxgi_factory_))))
+      if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&dxgi_factory_))))
         dxgi_factory_ = nullptr;
     }
 
@@ -225,7 +212,7 @@ namespace visage {
         dxgi_factory_->Release();
     }
 
-    IDXGIFactory4* dxgi_factory_ = nullptr;
+    IDXGIFactory* dxgi_factory_ = nullptr;
   };
 
   class VBlankThread : public Thread {
@@ -1054,10 +1041,6 @@ namespace visage {
       drawCallback(v_blank_thread_->getVBlankTime());
       return 0;
     }
-    case WM_OCCLUSION: {
-      setVisible(w_param);
-      return 0;
-    }
     case WM_TIMER: {
       timerCallback();
       return 0;
@@ -1455,8 +1438,6 @@ namespace visage {
       drag_drop_target_->Release();
     }
 
-    DxgiFactory::unregisterOcclusionCallback(occlusion_cookie_);
-
     if (parent_handle_) {
       SetWindowLongPtr(parent_handle_, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(parent_window_proc_));
       NativeWindowLookup::getInstance().removeWindow(parent_handle_);
@@ -1495,10 +1476,6 @@ namespace visage {
       v_blank_thread_ = std::make_unique<VBlankThread>(this);
       v_blank_thread_->start();
     }
-
-    // TODO: for some reason this event isn't working and always returns 0
-    // if (occlusion_cookie_ == 0)
-    //   occlusion_cookie_ = DxgiFactory::registerOcclusionCallback(this);
   }
 
   void WindowWin32::hide() {
