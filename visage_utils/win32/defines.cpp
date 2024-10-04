@@ -56,6 +56,10 @@ namespace visage {
     debugLogString(log_message);
   }
 
+  void debugLog(double log_message) {
+    debugLogString(log_message);
+  }
+
   void debugLog(char log_message) {
     debugLogString(log_message);
   }

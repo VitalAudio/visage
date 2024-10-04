@@ -205,6 +205,15 @@ namespace visage {
     String(unsigned long long value) : String(std::to_string(value)) { }
     String(float value) : String(std::to_string(value)) { removeTrailingZeros(); }
     String(float value, int precision) : String(std::to_string(value)) {
+      trimToPrecision(precision);
+    }
+
+    String(double value) : String(std::to_string(value)) { removeTrailingZeros(); }
+    String(double value, int precision) : String(std::to_string(value)) {
+      trimToPrecision(precision);
+    }
+
+    void trimToPrecision(int precision) {
       size_t pos = find('.');
 
       if (pos != std::string::npos) {
@@ -216,9 +225,7 @@ namespace visage {
     }
 
     std::wstring toWide() const { return convertToWide(string_); }
-
     std::string toUtf8() const { return convertToUtf8(string_); }
-
     std::u32string toUtf32() const { return string_; }
 
     void removeTrailingZeros() {
@@ -275,7 +282,9 @@ namespace visage {
 
     visage::String operator+(const visage::String& other) const { return string_ + other.string_; }
     visage::String operator+(const std::u32string& other) const { return string_ + other; }
-    visage::String operator+(const std::string& other) const { return string_ + convertToUtf32(other); }
+    visage::String operator+(const std::string& other) const {
+      return string_ + convertToUtf32(other);
+    }
     visage::String operator+(const char32_t* other) const { return string_ + other; }
     visage::String operator+(const char* other) const { return string_ + convertToUtf32(other); }
     visage::String& operator+=(const visage::String& other) {

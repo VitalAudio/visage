@@ -25,6 +25,7 @@ namespace visage {
   void debugLog(int log_message);
   void debugLog(unsigned int log_message);
   void debugLog(float log_message);
+  void debugLog(double log_message);
   void debugLog(char log_message);
   void debugAssert(bool condition);
   void forceCrash();

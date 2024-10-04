@@ -182,10 +182,6 @@ namespace visage {
     return { root_x, root_y };
   }
 
-  bool shouldWindowDraw(void* window_handle) {
-    return true;
-  }
-
   float getWindowPixelScale() {
     return 1.0f;
   }
@@ -1167,7 +1163,8 @@ namespace visage {
     fd_set read_fds;
     unsigned int fd = ConnectionNumber(display);
 
-    long long last_timer_microseconds = 0;
+    long long start_timer_microseconds = time::getMicroSeconds();
+    long long last_timer_microseconds = start_timer_microseconds;
 
     XEvent event;
     bool running = true;
@@ -1176,18 +1173,18 @@ namespace visage {
       FD_SET(fd, &read_fds);
 
       timeout.tv_sec = 0;
-      long long ms_to_timer = timer_microseconds_ - (time::getMicroSeconds() - last_timer_microseconds);
+      long long microseconds_to_timer = timer_microseconds_ -
+                                        (time::getMicroSeconds() - last_timer_microseconds);
       int result = 0;
-      if (ms_to_timer > 0) {
-        timeout.tv_usec = ms_to_timer * 1000;
+      if (microseconds_to_timer > 0) {
+        timeout.tv_usec = microseconds_to_timer;
         result = select(fd + 1, &read_fds, nullptr, nullptr, &timeout);
       }
       if (result == -1)
         running = false;
       else if (result == 0) {
-        long long new_microseconds = time::getMicroSeconds();
-        long long delta = new_microseconds - last_timer_microseconds;
-        last_timer_microseconds = new_microseconds;
+        last_timer_microseconds = time::getMicroSeconds();
+        long long delta = last_timer_microseconds - start_timer_microseconds;
         drawCallback(delta / 1000000.0);
       }
       else if (FD_ISSET(fd, &read_fds)) {
