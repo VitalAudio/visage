@@ -28,6 +28,26 @@
 namespace visage {
   static std::string _clipboard_text;
 
+  class DummyWindow {
+  public:
+    static ::Window handle() {
+      static DummyWindow dummy;
+      return dummy.window_handle_;
+    }
+
+  private:
+    DummyWindow() {
+      X11Connection& x11 = X11Connection::getGlobalInstance();
+      ::Display* display = x11.display();
+      window_handle_ = XCreateSimpleWindow(display, x11.rootWindow(), -100, -100, 1, 1, 0, 0, 0);
+      XFlush(display);
+    }
+
+    ~DummyWindow() { XDestroyWindow(X11Connection::getGlobalInstance().display(), window_handle_); }
+
+    ::Window window_handle_ = 0;
+  };
+
   std::string getClipboardText() {
     static constexpr int kSleepWait = 5;
     static constexpr int kMaxWaitTime = 250;
@@ -499,6 +519,10 @@ namespace visage {
     X11Connection::DisplayLock lock(x11_);
     if (window_handle_)
       XDestroyWindow(x11_.display(), window_handle_);
+  }
+
+  void* WindowX11::getModelWindow() {
+    return (void*)DummyWindow::handle();
   }
 
   void WindowX11::setFixedAspectRatio(bool fixed) {

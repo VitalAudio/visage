@@ -20,8 +20,9 @@
 int runExample() {
   std::unique_ptr<visage::Window> window = visage::createScaledWindow(1.0f);
   visage::Canvas canvas;
-  canvas.pairToWindow(window->getNativeHandle(), window->getGlobalDisplay(), window->clientWidth(),
-                      window->clientHeight());
+
+  canvas.pairToWindow(window->getNativeHandle(), window->getModelWindow(),
+                      window->getGlobalDisplay(), window->clientWidth(), window->clientHeight());
   canvas.setColor(0xff223333);
   canvas.fill(0, 0, window->clientWidth(), window->clientHeight());
   canvas.setColor(0xffaa99ff);

@@ -57,8 +57,8 @@ namespace visage {
     invalid_rects_.emplace_back(0, 0, width_, height_);
   }
 
-  void Canvas::pairToWindow(void* window_handle, void* display, int width, int height) {
-    Renderer::getInstance().checkInitialization(window_handle, display, width, height);
+  void Canvas::pairToWindow(void* window_handle, void* model_window, void* display, int width, int height) {
+    Renderer::getInstance().checkInitialization(model_window, display, width, height);
     window_handle_ = window_handle;
     setDimensions(width, height);
     destroyFrameBuffer();

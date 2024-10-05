@@ -75,6 +75,7 @@ namespace visage {
     bgfx_init.type = bgfx::RendererType::Metal;
 #elif VISAGE_LINUX
     bgfx_init.platformData.ndt = display;
+    bgfx_init.platformData.nwh = window_handle;
     bgfx_init.type = bgfx::RendererType::OpenGL;
 #elif VISAGE_EMSCRIPTEN
     VISAGE_ASSERT(window_handle);
