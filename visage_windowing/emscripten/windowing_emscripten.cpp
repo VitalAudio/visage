@@ -14,16 +14,16 @@
  * along with visage.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#if VA_EMSCRIPTEN
+#if VISAGE_EMSCRIPTEN
 #include "windowing_emscripten.h"
 
-#include "va_utils/time_utils.h"
+#include "visage_utils/time_utils.h"
 
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
 #include <map>
 
-namespace va {
+namespace visage {
   std::string getClipboardText() {
     return "";
   }
@@ -78,7 +78,7 @@ namespace va {
   }
 
   std::unique_ptr<Window> createPluginWindow(int width, int height, void* parent_handle) {
-    VA_ASSERT(false);
+    VISAGE_ASSERT(false);
     return nullptr;
   }
 
@@ -98,17 +98,22 @@ namespace va {
   }
 
   void runLoop() {
-    WindowEmscripten::runningInstance()->timerCallback();
+    WindowEmscripten::runningInstance()->runLoopCallback();
+  }
+
+  void WindowEmscripten::runLoopCallback() {
+    long long delta = time::getMicroseconds() - start_microseconds_;
+    drawCallback(delta / 1000000.0);
   }
 
   WindowEmscripten* WindowEmscripten::running_instance_ = nullptr;
 
   Bounds getScaledWindowBounds(float aspect_ratio, float display_scale, int x, int y) {
     float scale = getWindowPixelScale();
-    int display_width = EM_ASM_INT({ return screen.width; }) * scale;
-    int display_height = EM_ASM_INT({ return screen.height; }) * scale;
+    int display_width = EM_ASM_INT({ return window.innerWidth; }) * scale;
+    int display_height = EM_ASM_INT({ return window.innerHeight; }) * scale;
 
-    int height = std::min(display_height * display_scale, display_width / aspect_ratio);
+    int height = std::min(display_height * display_scale, display_width * display_scale / aspect_ratio);
     int width = height * aspect_ratio + 0.5f;
     return { 0, 0, width, height };
   }
@@ -117,6 +122,7 @@ namespace va {
       Window(width, height), initial_width_(width), initial_height_(height) {
     WindowEmscripten::running_instance_ = this;
     setPixelScale(getWindowPixelScale());
+    start_microseconds_ = time::getMicroseconds();
   }
 
   static MouseButton getMouseButton(const EmscriptenMouseEvent* event) {
@@ -506,8 +512,19 @@ namespace va {
     if (event == nullptr || window == nullptr)
       return false;
 
-    window->handleWindowResize(event->windowInnerWidth * (1.0f - kWindowPadding),
-                               event->windowInnerHeight * (1.0f - kWindowPadding));
+    int new_width = event->windowInnerWidth * (1.0f - kWindowPadding);
+    int new_height = event->windowInnerHeight * (1.0f - kWindowPadding);
+
+    std::string print1 = std::to_string(new_width);
+    emscripten_log(EM_LOG_CONSOLE, print1.c_str());
+
+    new_width = std::min<int>(window->initialWidth() / window->getPixelScale(), new_width);
+    new_height = std::min<int>(window->initialHeight() / window->getPixelScale(), new_height);
+
+    std::string print2 = std::to_string(window->initialWidth());
+    emscripten_log(EM_LOG_CONSOLE, print2.c_str());
+
+    window->handleWindowResize(new_width, new_height);
     return true;
   }
 
@@ -528,6 +545,8 @@ namespace va {
     setPixelScale(getWindowPixelScale());
     emscripten_set_element_css_size("canvas", clientWidth() / getPixelScale(),
                                     clientHeight() / getPixelScale());
+    VISAGE_LOG(clientWidth());
+    VISAGE_LOG(clientHeight());
     emscripten_set_canvas_element_size("canvas", clientWidth(), clientHeight());
     emscripten_set_main_loop(runLoop, 0, 1);
   }

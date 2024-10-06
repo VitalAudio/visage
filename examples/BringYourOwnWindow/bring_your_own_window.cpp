@@ -15,14 +15,15 @@
  */
 
 #include <visage_graphics/canvas.h>
+#include <visage_graphics/renderer.h>
 #include <visage_windowing/windowing.h>
 
 int runExample() {
   std::unique_ptr<visage::Window> window = visage::createScaledWindow(1.0f);
   visage::Canvas canvas;
 
-  canvas.pairToWindow(window->getNativeHandle(), window->getModelWindow(),
-                      window->getGlobalDisplay(), window->clientWidth(), window->clientHeight());
+  visage::Renderer::getInstance().checkInitialization(window->getInitWindow(), window->getGlobalDisplay());
+  canvas.pairToWindow(window->getNativeHandle(), window->clientWidth(), window->clientHeight());
   canvas.setColor(0xff223333);
   canvas.fill(0, 0, window->clientWidth(), window->clientHeight());
   canvas.setColor(0xffaa99ff);

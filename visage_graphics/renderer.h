@@ -26,7 +26,7 @@ namespace visage {
     Renderer() : Thread("Renderer Thread") { }
     ~Renderer() override;
 
-    void checkInitialization(void* window_handle, void* display, int width, int height);
+    void checkInitialization(void* model_window, void* display);
 
     const std::string& getErrorMessage() const { return error_message_; }
     bool supported() const { return supported_; }

@@ -38,7 +38,7 @@ public:
     });
   }
 
-  void draw(visage::Canvas& canvas) {
+  void draw(visage::Canvas& canvas) override {
     int font_size = kFontHeightRatio * getHeight();
     visage::Font font(font_size, resources::fonts::Lato_Regular_ttf);
     canvas.setColor(0xff2a2a33);

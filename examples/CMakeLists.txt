@@ -25,6 +25,20 @@ foreach(EXAMPLE ${EXAMPLES})
     add_executable(Example${EXAMPLE} main.cpp ${SOURCE_FILES} ${HEADERS_FILE})
     if (WIN32)
       set_target_properties(Example${EXAMPLE} PROPERTIES WIN32_EXECUTABLE YES)
+    elseif(EMSCRIPTEN)
+      target_link_options(Example${EXAMPLE}
+        PRIVATE
+        --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/emscripten_template.html
+        -sGL_ENABLE_GET_PROC_ADDRESS
+        -sALLOW_MEMORY_GROWTH
+        --bind
+        "-sEXPORTED_FUNCTIONS=['_main']"
+        "-sEXPORTED_RUNTIME_METHODS=['ccall', 'cwrap']"
+      )
+
+      set_target_properties(Example${EXAMPLE} PROPERTIES
+        SUFFIX ".html"
+      )
     endif()
 
     target_link_libraries(Example${EXAMPLE} PRIVATE

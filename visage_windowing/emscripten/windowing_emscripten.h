@@ -16,10 +16,10 @@
 
 #pragma once
 
-#if VA_EMSCRIPTEN
+#if VISAGE_EMSCRIPTEN
 #include "windowing.h"
 
-namespace va {
+namespace visage {
   class WindowEmscripten : public Window {
   public:
     static WindowEmscripten* running_instance_;
@@ -27,11 +27,11 @@ namespace va {
 
     WindowEmscripten(int width, int height);
 
+    void* getInitWindow() const override { return (void*)"#canvas"; }
     void* getNativeHandle() const override { return (void*)"#canvas"; }
 
     void runEventThread() override;
     void windowContentsResized(int width, int height) override;
-    void startTimer(float frequency) override { }
     void show() override { }
     void hide() override { }
     void setWindowTitle(const std::string& title) override;
@@ -43,9 +43,12 @@ namespace va {
     }
     int getMouseX() const { return mouse_x_; }
     int getMouseY() const { return mouse_x_; }
+    int initialWidth() const { return initial_width_; }
+    int initialHeight() const { return initial_height_; }
     bool getMouseRelativeMode() const override { return false; }
 
     void handleWindowResize(int window_width, int window_height);
+    void runLoopCallback();
 
   private:
     int initial_width_ = 0;
@@ -53,6 +56,7 @@ namespace va {
     float display_scale_ = 1.0f;
     int mouse_x_ = 0;
     int mouse_y_ = 0;
+    long long start_microseconds_ = 0;
   };
 }
 

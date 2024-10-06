@@ -17,6 +17,7 @@
 #include "application_editor.h"
 
 #include "visage_graphics/canvas.h"
+#include "visage_graphics/renderer.h"
 #include "visage_windowing/windowing.h"
 #include "window_event_handler.h"
 
@@ -43,8 +44,8 @@ namespace visage {
 
   void ApplicationEditor::addToWindow(Window* window) {
     window_ = window;
-    canvas_->pairToWindow(window_->getNativeHandle(), window_->getModelWindow(),
-                          window->getGlobalDisplay(), window->clientWidth(), window->clientHeight());
+    Renderer::getInstance().checkInitialization(window_->getInitWindow(), window->getGlobalDisplay());
+    canvas_->pairToWindow(window_->getNativeHandle(), window->clientWidth(), window->clientHeight());
     setBounds(0, 0, window->clientWidth(), window->clientHeight());
 
     window_event_handler_ = std::make_unique<WindowEventHandler>(window, this);

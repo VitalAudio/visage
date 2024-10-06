@@ -454,7 +454,7 @@ namespace visage {
 
     XSelectInput(display, window_handle_, kEventMask);
     XFlush(display);
-    start_draw_microseconds_ = time::getMicroSeconds();
+    start_draw_microseconds_ = time::getMicroseconds();
   }
 
   static void threadTimerCallback(WindowX11* window) {
@@ -506,7 +506,7 @@ namespace visage {
 
     timer_thread_running_ = true;
     timer_thread_ = std::make_unique<std::thread>(threadTimerCallback, this);
-    start_draw_microseconds_ = time::getMicroSeconds();
+    start_draw_microseconds_ = time::getMicroseconds();
   }
 
   WindowX11::~WindowX11() {
@@ -521,7 +521,7 @@ namespace visage {
       XDestroyWindow(x11_.display(), window_handle_);
   }
 
-  void* WindowX11::getModelWindow() {
+  void* WindowX11::getInitWindow() const {
     return (void*)DummyWindow::handle();
   }
 
@@ -926,7 +926,7 @@ namespace visage {
                event.xclient.message_type == x11_.timerEvent()) {
         if (!timer_fired) {
           timer_fired = true;
-          long long microseconds = time::getMicroSeconds() - start_draw_microseconds_;
+          long long microseconds = time::getMicroseconds() - start_draw_microseconds_;
           drawCallback(microseconds / 1000000.0);
         }
       }
@@ -1187,7 +1187,7 @@ namespace visage {
     fd_set read_fds;
     unsigned int fd = ConnectionNumber(display);
 
-    long long start_timer_microseconds = time::getMicroSeconds();
+    long long start_timer_microseconds = time::getMicroseconds();
     long long last_timer_microseconds = start_timer_microseconds;
 
     XEvent event;
@@ -1198,7 +1198,7 @@ namespace visage {
 
       timeout.tv_sec = 0;
       long long microseconds_to_timer = timer_microseconds_ -
-                                        (time::getMicroSeconds() - last_timer_microseconds);
+                                        (time::getMicroseconds() - last_timer_microseconds);
       int result = 0;
       if (microseconds_to_timer > 0) {
         timeout.tv_usec = microseconds_to_timer;
@@ -1207,7 +1207,7 @@ namespace visage {
       if (result == -1)
         running = false;
       else if (result == 0) {
-        last_timer_microseconds = time::getMicroSeconds();
+        last_timer_microseconds = time::getMicroseconds();
         long long delta = last_timer_microseconds - start_timer_microseconds;
         drawCallback(delta / 1000000.0);
       }

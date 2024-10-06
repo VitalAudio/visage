@@ -139,7 +139,7 @@ namespace visage {
     int submit(int submit_pass = 0);
     void render();
 
-    void pairToWindow(void* window_handle, void* model_window, void* display, int width, int height);
+    void pairToWindow(void* window_handle, int width, int height);
     void clearWindowHandle();
 
     void setHdr(bool hdr);

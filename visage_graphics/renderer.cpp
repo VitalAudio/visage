@@ -46,8 +46,7 @@ namespace visage {
       bgfx::renderFrame(kRenderTimeout);
   }
 
-  void Renderer::checkInitialization(void* window_handle, void* display, int width, int height) {
-    VISAGE_ASSERT(width && height);
+  void Renderer::checkInitialization(void* model_window, void* display) {
     if (initialized_)
       return;
 
@@ -55,10 +54,13 @@ namespace visage {
     startRenderThread();
 
     bgfx::Init bgfx_init;
-    bgfx_init.resolution.maxFrameLatency = 1;
+    bgfx_init.resolution.maxFrameLatency = 0;
     bgfx_init.resolution.numBackBuffers = 1;
     bgfx_init.resolution.width = 0;
     bgfx_init.resolution.height = 0;
+
+    bgfx_init.platformData.ndt = display;
+    bgfx_init.platformData.nwh = model_window;
 
     bgfx::RendererType::Enum supported_renderers[bgfx::RendererType::Count];
     uint8_t num_supported = bgfx::getSupportedRenderers(bgfx::RendererType::Count, supported_renderers);
@@ -74,13 +76,9 @@ namespace visage {
 #elif VISAGE_MAC
     bgfx_init.type = bgfx::RendererType::Metal;
 #elif VISAGE_LINUX
-    bgfx_init.platformData.ndt = display;
-    bgfx_init.platformData.nwh = window_handle;
     bgfx_init.type = bgfx::RendererType::OpenGL;
 #elif VISAGE_EMSCRIPTEN
-    VISAGE_ASSERT(window_handle);
     bgfx_init.type = bgfx::RendererType::OpenGLES;
-    bgfx_init.platformData.nwh = window_handle;
 #endif
 
     bool backend_supported = false;

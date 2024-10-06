@@ -79,8 +79,8 @@ namespace visage {
     virtual void* getNativeHandle() const = 0;
     virtual void windowContentsResized(int width, int height) = 0;
 
-    virtual void* getModelWindow() { return nullptr; }
-    virtual void* getGlobalDisplay() { return nullptr; }
+    virtual void* getInitWindow() const { return nullptr; }
+    virtual void* getGlobalDisplay() const { return nullptr; }
     virtual void* getGlobalRootWindowHandle() { return nullptr; }
     virtual void processPluginFdEvents() { }
     virtual int getPosixFd() const { return 0; }

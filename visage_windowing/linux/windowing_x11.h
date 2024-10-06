@@ -194,8 +194,8 @@ namespace visage {
 
     void* getNativeHandle() const override { return (void*)window_handle_; }
 
-    void* getModelWindow() override;
-    void* getGlobalDisplay() override { return X11Connection::getGlobalInstance().display(); }
+    void* getInitWindow() const override;
+    void* getGlobalDisplay() const override { return X11Connection::getGlobalInstance().display(); }
     void* getGlobalRootWindowHandle() override {
       return (void*)X11Connection::getGlobalInstance().rootWindow();
     }

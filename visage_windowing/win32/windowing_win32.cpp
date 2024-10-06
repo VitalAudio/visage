@@ -235,11 +235,11 @@ namespace visage {
       if (FAILED(dxgi_adapter_->EnumOutputs(0, &dxgi_output_)))
         return;
 
-      start_us_ = time::getMicroSeconds();
+      start_us_ = time::getMicroseconds();
 
       while (shouldRun()) {
         if (SUCCEEDED(dxgi_output_->WaitForVBlank())) {
-          long long us = time::getMicroSeconds() - start_us_;
+          long long us = time::getMicroseconds() - start_us_;
           time_ = us * (1.0 / 1000000.0);
           PostMessage(window_->getWindowHandle(), WM_VBLANK, 0, 0);
         }
