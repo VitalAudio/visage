@@ -21,10 +21,17 @@ foreach(EXAMPLE ${EXAMPLES})
   file(GLOB SOURCE_FILES ${EXAMPLE}/*.cpp)
   file(GLOB HEADER_FILES ${EXAMPLE}/*.h)
 
-  if (SOURCE_FILES)
+  if (IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${EXAMPLE}" AND SOURCE_FILES)
     add_executable(Example${EXAMPLE} main.cpp ${SOURCE_FILES} ${HEADERS_FILE})
     if (WIN32)
       set_target_properties(Example${EXAMPLE} PROPERTIES WIN32_EXECUTABLE YES)
+    elseif(APPLE)
+      set(EXAMPLE_NAME Example${EXAMPLE})
+      configure_file(Info.plist.in ${CMAKE_CURRENT_BINARY_DIR}/${EXAMPLE}/ExampleInfo.plist)
+      set_target_properties(Example${EXAMPLE} PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_BINARY_DIR}/${EXAMPLE}/ExampleInfo.plist
+      )
     elseif(EMSCRIPTEN)
       target_link_options(Example${EXAMPLE}
         PRIVATE
