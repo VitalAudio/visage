@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
-project(visage)
+project(visage VERSION 0.1.0)
 
 if (NOT DEFINED CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
@@ -13,13 +13,12 @@ endif ()
 option(VISAGE_ENABLE_WIDGETS "Add widgets library" ON)
 option(VISAGE_ENABLE_BACKGROUND_GRAPHICS_THREAD "Offloads graphics rendering to a background thread" ON)
 option(VISAGE_ENABLE_GRAPHICS_DEBUG_LOGGING "Shows graphics debug log in console in debug mode" OFF)
+option(VISAGE_BUILD_TESTS "Build tests" OFF)
 set(VISAGE_APPLICATION_NAME ${CMAKE_PROJECT_NAME} CACHE STRING "Application name used for default window title")
 
 if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-  option(VISAGE_BUILD_TESTS "Build tests" ON)
   option(VISAGE_BUILD_EXAMPLES "Build examples" ON)
 else()
-  option(VISAGE_BUILD_TESTS "Build tests" OFF)
   option(VISAGE_BUILD_EXAMPLES "Build examples" OFF)
 endif()
 
