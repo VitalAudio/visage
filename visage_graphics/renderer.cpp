@@ -47,6 +47,7 @@ namespace visage {
   }
 
   void Renderer::checkInitialization(void* model_window, void* display) {
+    return;
     if (initialized_)
       return;
 

@@ -18,8 +18,29 @@
 #include "windowing_macos.h"
 
 #include "visage_utils/file_system.h"
+#include "visage_utils/time_utils.h"
+
+#include <QuartzCore/CVDisplayLink.h>
 
 namespace visage {
+  class InitialMetalLayer {
+  public:
+    static CAMetalLayer* layer() { return getInstance().metal_layer_; }
+
+  private:
+    static InitialMetalLayer& getInstance() {
+      static InitialMetalLayer instance;
+      return instance;
+    }
+
+    InitialMetalLayer() {
+      metal_layer_ = [CAMetalLayer layer];
+      metal_layer_.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
+    }
+
+    CAMetalLayer* metal_layer_ = nullptr;
+  };
+
   std::string getClipboardText() {
     NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
     NSString* clipboard_text = [pasteboard stringForType:NSPasteboardTypeString];
@@ -254,6 +275,28 @@ namespace visage {
   }
 }
 
+@interface AppViewDelegate : NSObject <MTKViewDelegate>
+@property(nonatomic, retain) AppView* app_view;
+@end
+
+@implementation AppViewDelegate
+
+- (instancetype)initWithView:(AppView*)view {
+  self = [super init];
+  self.app_view = view;
+  return self;
+}
+
+- (void)mtkView:(MTKView*)view drawableSizeWillChange:(CGSize)size {
+  NSLog(@"Drawable size changed: %f x %f", size.width, size.height);
+}
+
+// Called every frame to render the view's contents
+- (void)drawInMTKView:(MTKView*)view {
+  [self.app_view doRender];
+}
+@end
+
 @implementation DraggingSource
 - (NSDragOperation)draggingSession:(NSDraggingSession*)session
     sourceOperationMaskForDraggingContext:(NSDraggingContext)context {
@@ -261,52 +304,147 @@ namespace visage {
 }
 @end
 
+class DisplayLink {
+public:
+  explicit DisplayLink(AppView* view) : view_(view) { }
+
+  ~DisplayLink() {
+    if (display_)
+      CVDisplayLinkRelease(display_);
+  }
+
+  void start() {
+    if (display_)
+      return;
+    if (CVDisplayLinkCreateWithActiveCGDisplays(&display_) != kCVReturnSuccess)
+      return;
+    if (CVDisplayLinkSetOutputCallback(display_, &DisplayLink::callback, this) != kCVReturnSuccess)
+      return;
+
+    CVDisplayLinkStart(display_);
+  }
+
+  void stop() {
+    if (display_)
+      CVDisplayLinkStop(display_);
+    display_ = nullptr;
+  }
+
+private:
+  static CVReturn callback(CVDisplayLinkRef display_link, const CVTimeStamp* now,
+                           const CVTimeStamp* output_time, CVOptionFlags flags_in,
+                           CVOptionFlags* flags_out, void* display_link_context) {
+    auto* handler = static_cast<DisplayLink*>(display_link_context);
+    handler->renderFrame(output_time);
+    return kCVReturnSuccess;
+  }
+
+  void renderFrame(const CVTimeStamp* output_time) {
+    if (start_time_ == 0)
+      start_time_ = output_time->videoTime;
+
+    uint64_t delta = output_time->videoTime - start_time_;
+    double time = delta * 1.0 / output_time->videoTimeScale;
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+      if ([view_ setDrawTime:time])
+        [view_ draw];
+    });
+  }
+
+  uint64_t start_time_ = 0;
+  AppView* view_ = nullptr;
+  CVDisplayLinkRef display_ = nullptr;
+};
+
 @implementation AppView
 NSPoint mouse_down_screen_position_;
-CAMetalLayer* metal_layer_;
+double draw_time_ = 0.0;
 
 - (instancetype)initWithFrame:(NSRect)frame_rect {
   self = [super initWithFrame:frame_rect];
+  self.device = MTLCreateSystemDefaultDevice();
+  self.paused = YES;
+
   [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
 
-  [self setWantsLayer:YES];
-  metal_layer_ = [CAMetalLayer layer];
-  [self setLayer:metal_layer_];
-  metal_layer_.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
-
   self.drag_source_ = [[DraggingSource alloc] init];
+  // TESTING
+  NSString* shaderSource = @R"(
+#include <metal_stdlib>
+using namespace metal;
 
-  return self;
+struct Uniforms {
+  float2 offset;
+};
+
+vertex float4 vertexShader(uint vertexID [[vertex_id]], constant Uniforms& uniforms [[buffer(0)]]) {
+    float4 positions[3] = {
+        float4(-0.15, -0.15, 0, 1),
+        float4( 0.15, -0.15, 0, 1),
+        float4( 0.0,  0.125, 0, 1)
+    };
+    return positions[vertexID] + float4(uniforms.offset, 0, 0);
 }
 
-- (void)dealloc {
-  [self stopTimer];
-  [super dealloc];
+fragment float4 fragmentShader() {
+    return float4(1, 0, 0, 1); // Red color
+}
+)";
+  self.device = MTLCreateSystemDefaultDevice();
+  self.commandQueue = [self.device newCommandQueue];
+
+  NSError* error = nil;
+  self.uniformBuffer = [self.device newBufferWithLength:sizeof(vector_float2)
+                                                options:MTLResourceStorageModeShared];
+  id<MTLLibrary> library = [self.device newLibraryWithSource:shaderSource options:nil error:&error];
+  id<MTLFunction> vertexFunction = [library newFunctionWithName:@"vertexShader"];
+  id<MTLFunction> fragmentFunction = [library newFunctionWithName:@"fragmentShader"];
+
+  MTLRenderPipelineDescriptor* pipelineDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
+  pipelineDescriptor.vertexFunction = vertexFunction;
+  pipelineDescriptor.fragmentFunction = fragmentFunction;
+  pipelineDescriptor.colorAttachments[0].pixelFormat = self.colorPixelFormat;
+
+  self.renderPipelineState = [self.device newRenderPipelineStateWithDescriptor:pipelineDescriptor
+                                                                         error:&error];
+  self.framebufferOnly = NO;
+  // END TESTING
+
+  return self;
 }
 
 - (BOOL)acceptsFirstResponder {
   return YES;
 }
 
-- (void)startTimer:(float)frequency {
-  if (self.timer)
-    [self stopTimer];
-
-  self.timer = [NSTimer scheduledTimerWithTimeInterval:frequency
-                                                target:self
-                                              selector:@selector(timerCallback:)
-                                              userInfo:nil
-                                               repeats:YES];
-  [[NSRunLoop currentRunLoop] addTimer:self.timer forMode:NSRunLoopCommonModes];
+- (bool)setDrawTime:(double)time {
+  draw_time_ = time;
+  return true;
 }
 
-- (void)stopTimer {
-  [self.timer invalidate];
-  self.timer = nil;
-}
+- (void)doRender {
+  if (!self.currentDrawable || !self.currentRenderPassDescriptor)
+    return;
 
-- (void)timerCallback:(NSTimer*)timer {
-  self.visage_window->timerCallback();
+  float radius = 0.5;
+  float x = radius * cosf(1.5f * draw_time_);
+  float y = radius * sinf(1.5f * draw_time_);
+
+  vector_float2* uniformData = (vector_float2*)[self.uniformBuffer contents];
+  uniformData[0] = (vector_float2) { x, y };
+
+  id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
+  id<MTLRenderCommandEncoder> renderEncoder = [commandBuffer
+      renderCommandEncoderWithDescriptor:self.currentRenderPassDescriptor];
+
+  [renderEncoder setRenderPipelineState:self.renderPipelineState];
+  [renderEncoder setVertexBuffer:self.uniformBuffer offset:0 atIndex:0];
+  [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+  [renderEncoder endEncoding];
+
+  [commandBuffer presentDrawable:self.currentDrawable];
+  [commandBuffer commit];
 }
 
 - (void)keyDown:(NSEvent*)event {
@@ -314,7 +452,6 @@ CAMetalLayer* metal_layer_;
   bool q_or_w = [[event charactersIgnoringModifiers] isEqualToString:@"q"] ||
                 [[event charactersIgnoringModifiers] isEqualToString:@"w"];
   if (self.allow_quit && command && q_or_w) {
-    [self stopTimer];
     [NSApp stop:nil];
     return;
   }
@@ -438,20 +575,20 @@ CAMetalLayer* metal_layer_;
     precise_y = [event scrollingDeltaY] * kPreciseScrollingScale;
   }
   self.visage_window->handleMouseWheel(delta_x, delta_y, precise_x, precise_y, point.x, point.y,
-                                   [self getMouseButtonState], [self getKeyboardModifiers:event],
-                                   [event momentumPhase] != NSEventPhaseNone);
+                                       [self getMouseButtonState], [self getKeyboardModifiers:event],
+                                       [event momentumPhase] != NSEventPhaseNone);
 }
 
 - (void)mouseMoved:(NSEvent*)event {
   visage::Point point = [self getEventPosition:event];
   self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
-                                  [self getKeyboardModifiers:event]);
+                                      [self getKeyboardModifiers:event]);
 }
 
 - (void)mouseEntered:(NSEvent*)event {
   visage::Point point = [self getEventPosition:event];
   self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
-                                  [self getKeyboardModifiers:event]);
+                                      [self getKeyboardModifiers:event]);
 }
 
 - (void)mouseExited:(NSEvent*)event {
@@ -462,7 +599,7 @@ CAMetalLayer* metal_layer_;
   visage::Point point = [self getEventPosition:event];
   mouse_down_screen_position_ = [self getMouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonLeft, point.x, point.y,
-                                  [self getMouseButtonState], [self getKeyboardModifiers:event]);
+                                      [self getMouseButtonState], [self getKeyboardModifiers:event]);
   [self.window makeKeyWindow];
   if (self.visage_window->isDragDropSource()) {
     visage::File file = self.visage_window->startDragDropSource();
@@ -489,14 +626,14 @@ CAMetalLayer* metal_layer_;
 
 - (void)mouseUp:(NSEvent*)event {
   visage::Point point = [self getEventPosition:event];
-  self.visage_window->handleMouseUp(visage::kMouseButtonLeft, point.x, point.y, [self getMouseButtonState],
-                                [self getKeyboardModifiers:event]);
+  self.visage_window->handleMouseUp(visage::kMouseButtonLeft, point.x, point.y,
+                                    [self getMouseButtonState], [self getKeyboardModifiers:event]);
 }
 
 - (void)mouseDragged:(NSEvent*)event {
   visage::Point point = [self getEventPosition:event];
   self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
-                                  [self getKeyboardModifiers:event]);
+                                      [self getKeyboardModifiers:event]);
   [self checkRelativeMode];
 }
 
@@ -504,20 +641,20 @@ CAMetalLayer* metal_layer_;
   visage::Point point = [self getEventPosition:event];
   mouse_down_screen_position_ = [self getMouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonRight, point.x, point.y,
-                                  [self getMouseButtonState], [self getKeyboardModifiers:event]);
+                                      [self getMouseButtonState], [self getKeyboardModifiers:event]);
   [self.window makeKeyWindow];
 }
 
 - (void)rightMouseUp:(NSEvent*)event {
   visage::Point point = [self getEventPosition:event];
-  self.visage_window->handleMouseUp(visage::kMouseButtonRight, point.x, point.y, [self getMouseButtonState],
-                                [self getKeyboardModifiers:event]);
+  self.visage_window->handleMouseUp(visage::kMouseButtonRight, point.x, point.y,
+                                    [self getMouseButtonState], [self getKeyboardModifiers:event]);
 }
 
 - (void)rightMouseDragged:(NSEvent*)event {
   visage::Point point = [self getEventPosition:event];
   self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
-                                  [self getKeyboardModifiers:event]);
+                                      [self getKeyboardModifiers:event]);
   [self checkRelativeMode];
 }
 
@@ -528,7 +665,7 @@ CAMetalLayer* metal_layer_;
   visage::Point point = [self getEventPosition:event];
   mouse_down_screen_position_ = [self getMouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonMiddle, point.x, point.y,
-                                  [self getMouseButtonState], [self getKeyboardModifiers:event]);
+                                      [self getMouseButtonState], [self getKeyboardModifiers:event]);
   [self.window makeKeyWindow];
 }
 
@@ -538,13 +675,13 @@ CAMetalLayer* metal_layer_;
 
   visage::Point point = [self getEventPosition:event];
   self.visage_window->handleMouseUp(visage::kMouseButtonMiddle, point.x, point.y,
-                                [self getMouseButtonState], [self getKeyboardModifiers:event]);
+                                    [self getMouseButtonState], [self getKeyboardModifiers:event]);
 }
 
 - (void)otherMouseDragged:(NSEvent*)event {
   visage::Point point = [self getEventPosition:event];
   self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
-                                  [self getKeyboardModifiers:event]);
+                                      [self getKeyboardModifiers:event]);
   [self checkRelativeMode];
 }
 
@@ -635,7 +772,8 @@ bool resizing_vertical_ = false;
 - (void)windowDidEndLiveResize:(NSNotification*)notification {
   NSSize current_frame = [self.window_handle frame].size;
   visage::Point borders = visage::getWindowBorderSize(self.window_handle);
-  self.visage_window->handleNativeResize(current_frame.width - borders.x, current_frame.height - borders.y);
+  self.visage_window->handleNativeResize(current_frame.width - borders.x,
+                                         current_frame.height - borders.y);
 }
 
 - (NSSize)windowWillResize:(NSWindow*)sender toSize:(NSSize)frame_size {
@@ -652,7 +790,7 @@ bool resizing_vertical_ = false;
   visage::Point min_dimensions = self.visage_window->getMinWindowDimensions();
   visage::Point borders = visage::getWindowBorderSize(self.window_handle);
   visage::Point dimensions = visage::Point(std::round(frame_size.width - borders.x),
-                                   std::round(frame_size.height - borders.y));
+                                           std::round(frame_size.height - borders.y));
   float aspect_ratio = self.visage_window->getAspectRatio();
   dimensions = adjustBoundsForAspectRatio(dimensions, min_dimensions, max_dimensions, aspect_ratio,
                                           resizing_horizontal_, resizing_vertical_);
@@ -705,28 +843,12 @@ namespace visage {
     }
   }
 
-  void WindowMac::startTimer(float frequency) {
-    [view_ startTimer:frequency];
+  void* WindowMac::getInitWindow() const {
+    return InitialMetalLayer::layer();
   }
 
   void WindowMac::setNativeWindowHandle(NSWindow* handle) {
     window_handle_ = handle;
-  }
-
-  int getDisplayFps() {
-    static constexpr int kDefaultFps = 60;
-    CGDirectDisplayID display_id = CGMainDisplayID();
-    CGDisplayModeRef display_mode = CGDisplayCopyDisplayMode(display_id);
-
-    if (display_mode == nullptr)
-      return kDefaultFps;
-
-    double refresh_rate = CGDisplayModeGetRefreshRate(display_mode);
-    CGDisplayModeRelease(display_mode);
-
-    if (refresh_rate)
-      return std::round(refresh_rate);
-    return kDefaultFps;
   }
 
   void showMessageBox(std::string title, std::string message) {
@@ -786,6 +908,9 @@ namespace visage {
     content_rect.origin.x = 0;
     content_rect.origin.y = 0;
     view_ = [[AppView alloc] initWithFrame:content_rect];
+    view_.delegate = [[AppViewDelegate alloc] initWithView:view_];
+    display_link_ = std::make_unique<DisplayLink>(view_);
+
     view_.visage_window = this;
     view_.allow_quit = true;
 
@@ -820,7 +945,7 @@ namespace visage {
   }
 
   WindowMac::~WindowMac() {
-    [view_ stopTimer];
+    display_link_->stop();
     if (parent_view_ == nullptr)
       [window_handle_ release];
 
@@ -844,6 +969,8 @@ namespace visage {
   }
 
   void WindowMac::show() {
+    display_link_->start();
+
     if (parent_view_ && parent_view_.window) {
       [parent_view_.window makeKeyWindow];
       [parent_view_.window makeKeyAndOrderFront:nil];
@@ -858,7 +985,7 @@ namespace visage {
     [window_handle_ orderOut:nil];
   }
 
-  void WindowMac::setWindowTitle(const std::string &title) {
+  void WindowMac::setWindowTitle(const std::string& title) {
     [window_handle_ setTitle:[NSString stringWithUTF8String:title.c_str()]];
   }
 

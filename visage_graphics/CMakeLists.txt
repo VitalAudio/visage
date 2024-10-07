@@ -2,7 +2,11 @@ file(GLOB HEADERS *.h)
 file(GLOB SOURCE_FILES *.cpp)
 add_library(VisageGraphics OBJECT ${SOURCE_FILES} ${HEADERS})
 
-if (UNIX AND NOT APPLE)
+if (APPLE)
+  find_library(METAL_LIBRARY Metal)
+  find_library(METALKIT_LIBRARY MetalKit)
+  set(METAL_LIBS ${METAL_LIBRARY} ${METALKIT_LIBRARY})
+elseif (UNIX)
   add_definitions(-D_LARGEFILE64_SOURCE)
 endif ()
 
@@ -64,6 +68,7 @@ set(VisageGraphicsDependencies
   bx
   nanosvg
   nanosvgrast
+  ${METAL_LIBS}
   PARENT_SCOPE
 )
 

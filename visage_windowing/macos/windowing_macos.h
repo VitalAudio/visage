@@ -21,8 +21,10 @@
 
 #include <Carbon/Carbon.h>
 #include <Cocoa/Cocoa.h>
+#include <MetalKit/MetalKit.h>
 #include <QuartzCore/QuartzCore.h>
 
+class DisplayLink;
 namespace visage {
   class WindowMac;
 }
@@ -30,12 +32,20 @@ namespace visage {
 @interface DraggingSource : NSObject <NSDraggingSource>
 @end
 
-@interface AppView : NSView <NSDraggingDestination>
+@interface AppView : MTKView <NSDraggingDestination>
+// TESTING
+@property(nonatomic, strong) id<MTLCommandQueue> commandQueue;
+@property(nonatomic, strong) id<MTLRenderPipelineState> renderPipelineState;
+@property(nonatomic, strong) id<MTLBuffer> uniformBuffer;
+// END TESTING
+
 @property(nonatomic) visage::WindowMac* visage_window;
 @property(strong) NSTimer* timer;
 @property(strong) DraggingSource* drag_source_;
 
+- (bool)setDrawTime:(double)time;
 - (instancetype)initWithFrame:(NSRect)frame_rect;
+- (void)doRender;
 @property bool allow_quit;
 @end
 
@@ -59,16 +69,16 @@ namespace visage {
     ~WindowMac() override;
 
     void* getNativeHandle() const override { return view_; }
+    void* getInitWindow() const override;
 
     void setNativeWindowHandle(NSWindow* window);
     AppView* getView() { return view_; }
 
     void runEventThread() override;
-    void startTimer(float frequency) override;
     void windowContentsResized(int width, int height) override;
     void show() override;
     void hide() override;
-    void setWindowTitle(const std::string& title);
+    void setWindowTitle(const std::string& title) override;
     Point getMaxWindowDimensions() const override;
     Point getMinWindowDimensions() const override;
 
@@ -78,6 +88,7 @@ namespace visage {
     NSWindow* window_handle_ = nullptr;
     NSView* parent_view_ = nullptr;
     AppView* view_ = nullptr;
+    std::unique_ptr<DisplayLink> display_link_;
   };
 
 }

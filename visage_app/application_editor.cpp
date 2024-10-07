@@ -66,6 +66,7 @@ namespace visage {
   }
 
   void ApplicationEditor::drawWindow() {
+    return;
     if (window_ == nullptr || !window_->isVisible())
       return;
 
