@@ -64,11 +64,6 @@ namespace visage {
 
   void setCursorScreenPosition(Point screen_position) { }
 
-  int getDisplayFps() {
-    static constexpr int kDefaultFps = 60;
-    return kDefaultFps;
-  }
-
   float getWindowPixelScale() {
     return EM_ASM_DOUBLE({ return window.devicePixelRatio; });
   }

@@ -81,7 +81,6 @@ namespace visage {
 
     virtual void* getInitWindow() const { return nullptr; }
     virtual void* getGlobalDisplay() const { return nullptr; }
-    virtual void* getGlobalRootWindowHandle() { return nullptr; }
     virtual void processPluginFdEvents() { }
     virtual int getPosixFd() const { return 0; }
 
@@ -186,7 +185,6 @@ namespace visage {
   Point getCursorPosition();
   void setCursorPosition(Point window_position);
   void setCursorScreenPosition(Point screen_position);
-  int getDisplayFps();
   float getWindowPixelScale();
   void showMessageBox(std::string title, std::string message);
   std::string getClipboardText();

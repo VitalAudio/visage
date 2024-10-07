@@ -702,17 +702,6 @@ namespace visage {
     WindowWin32* window_ = nullptr;
   };
 
-  int getDisplayFps() {
-    static constexpr int kDefaultFps = 60;
-    DEVMODE dev_mode = {};
-    dev_mode.dmSize = sizeof(dev_mode);
-
-    if (EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &dev_mode))
-      return dev_mode.dmDisplayFrequency;
-
-    return kDefaultFps;
-  }
-
   float getWindowPixelScale() {
     DpiAwareness dpi_awareness;
     return dpi_awareness.getConversionFactor();

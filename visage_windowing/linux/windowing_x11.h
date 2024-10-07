@@ -196,9 +196,6 @@ namespace visage {
 
     void* getInitWindow() const override;
     void* getGlobalDisplay() const override { return X11Connection::getGlobalInstance().display(); }
-    void* getGlobalRootWindowHandle() override {
-      return (void*)X11Connection::getGlobalInstance().rootWindow();
-    }
     int getPosixFd() const override { return x11_.fd(); }
 
     void setFixedAspectRatio(bool fixed) override;
