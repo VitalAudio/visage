@@ -33,19 +33,12 @@ namespace visage {
 @end
 
 @interface AppView : MTKView <NSDraggingDestination>
-// TESTING
-@property(nonatomic, strong) id<MTLCommandQueue> commandQueue;
-@property(nonatomic, strong) id<MTLRenderPipelineState> renderPipelineState;
-@property(nonatomic, strong) id<MTLBuffer> uniformBuffer;
-// END TESTING
-
 @property(nonatomic) visage::WindowMac* visage_window;
 @property(strong) NSTimer* timer;
 @property(strong) DraggingSource* drag_source_;
-
-- (bool)setDrawTime:(double)time;
 - (instancetype)initWithFrame:(NSRect)frame_rect;
-- (void)doRender;
+- (void)setDrawTime:(double)time;
+- (void)drawView;
 @property bool allow_quit;
 @end
 

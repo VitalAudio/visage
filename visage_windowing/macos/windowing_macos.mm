@@ -36,6 +36,7 @@ namespace visage {
     InitialMetalLayer() {
       metal_layer_ = [CAMetalLayer layer];
       metal_layer_.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
+      metal_layer_.displaySyncEnabled = NO;
     }
 
     CAMetalLayer* metal_layer_ = nullptr;
@@ -277,6 +278,7 @@ namespace visage {
 
 @interface AppViewDelegate : NSObject <MTKViewDelegate>
 @property(nonatomic, retain) AppView* app_view;
+
 @end
 
 @implementation AppViewDelegate
@@ -288,12 +290,10 @@ namespace visage {
 }
 
 - (void)mtkView:(MTKView*)view drawableSizeWillChange:(CGSize)size {
-  NSLog(@"Drawable size changed: %f x %f", size.width, size.height);
 }
 
-// Called every frame to render the view's contents
 - (void)drawInMTKView:(MTKView*)view {
-  [self.app_view doRender];
+  [self.app_view drawView];
 }
 @end
 
@@ -347,8 +347,8 @@ private:
     double time = delta * 1.0 / output_time->videoTimeScale;
 
     dispatch_async(dispatch_get_main_queue(), ^{
-      if ([view_ setDrawTime:time])
-        [view_ draw];
+      [view_ setDrawTime:time];
+      [view_ draw];
     });
   }
 
@@ -365,51 +365,14 @@ double draw_time_ = 0.0;
   self = [super initWithFrame:frame_rect];
   self.device = MTLCreateSystemDefaultDevice();
   self.paused = YES;
+  CAMetalLayer* layer = (CAMetalLayer*)self.layer;
+  layer.displaySyncEnabled = NO;
+  self.framebufferOnly = YES;
 
   [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
-
   self.drag_source_ = [[DraggingSource alloc] init];
-  // TESTING
-  NSString* shaderSource = @R"(
-#include <metal_stdlib>
-using namespace metal;
 
-struct Uniforms {
-  float2 offset;
-};
-
-vertex float4 vertexShader(uint vertexID [[vertex_id]], constant Uniforms& uniforms [[buffer(0)]]) {
-    float4 positions[3] = {
-        float4(-0.15, -0.15, 0, 1),
-        float4( 0.15, -0.15, 0, 1),
-        float4( 0.0,  0.125, 0, 1)
-    };
-    return positions[vertexID] + float4(uniforms.offset, 0, 0);
-}
-
-fragment float4 fragmentShader() {
-    return float4(1, 0, 0, 1); // Red color
-}
-)";
-  self.device = MTLCreateSystemDefaultDevice();
-  self.commandQueue = [self.device newCommandQueue];
-
-  NSError* error = nil;
-  self.uniformBuffer = [self.device newBufferWithLength:sizeof(vector_float2)
-                                                options:MTLResourceStorageModeShared];
-  id<MTLLibrary> library = [self.device newLibraryWithSource:shaderSource options:nil error:&error];
-  id<MTLFunction> vertexFunction = [library newFunctionWithName:@"vertexShader"];
-  id<MTLFunction> fragmentFunction = [library newFunctionWithName:@"fragmentShader"];
-
-  MTLRenderPipelineDescriptor* pipelineDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
-  pipelineDescriptor.vertexFunction = vertexFunction;
-  pipelineDescriptor.fragmentFunction = fragmentFunction;
-  pipelineDescriptor.colorAttachments[0].pixelFormat = self.colorPixelFormat;
-
-  self.renderPipelineState = [self.device newRenderPipelineStateWithDescriptor:pipelineDescriptor
-                                                                         error:&error];
-  self.framebufferOnly = NO;
-  // END TESTING
+  // [self testSetup];
 
   return self;
 }
@@ -418,33 +381,15 @@ fragment float4 fragmentShader() {
   return YES;
 }
 
-- (bool)setDrawTime:(double)time {
+- (void)setDrawTime:(double)time {
   draw_time_ = time;
-  return true;
 }
 
-- (void)doRender {
+- (void)drawView {
   if (!self.currentDrawable || !self.currentRenderPassDescriptor)
     return;
 
-  float radius = 0.5;
-  float x = radius * cosf(1.5f * draw_time_);
-  float y = radius * sinf(1.5f * draw_time_);
-
-  vector_float2* uniformData = (vector_float2*)[self.uniformBuffer contents];
-  uniformData[0] = (vector_float2) { x, y };
-
-  id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
-  id<MTLRenderCommandEncoder> renderEncoder = [commandBuffer
-      renderCommandEncoderWithDescriptor:self.currentRenderPassDescriptor];
-
-  [renderEncoder setRenderPipelineState:self.renderPipelineState];
-  [renderEncoder setVertexBuffer:self.uniformBuffer offset:0 atIndex:0];
-  [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
-  [renderEncoder endEncoding];
-
-  [commandBuffer presentDrawable:self.currentDrawable];
-  [commandBuffer commit];
+  self.visage_window->drawCallback(draw_time_);
 }
 
 - (void)keyDown:(NSEvent*)event {

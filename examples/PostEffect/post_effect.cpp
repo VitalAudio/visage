@@ -44,7 +44,7 @@ static void drawRotatingCircles(visage::Canvas& canvas, int width, int height) {
   canvas.setColor(0xffffffff);
   float radius_increment = height * 0.5f / kNumRings;
   float circle_diameter = height * 0.4f / kNumRings;
-  double phase_offset = canvas.time() * 0.03;
+  float phase_offset = canvas.time() * 0.03f;
   for (int i = 0; i < kNumRings; ++i) {
     drawRing(canvas, width, height, i * radius_increment, circle_diameter, i * kIncrement,
              phase_offset * (kNumRings - i));
