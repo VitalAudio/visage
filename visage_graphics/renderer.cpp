@@ -54,7 +54,6 @@ namespace visage {
     startRenderThread();
 
     bgfx::Init bgfx_init;
-    bgfx_init.resolution.maxFrameLatency = 0;
     bgfx_init.resolution.numBackBuffers = 1;
     bgfx_init.resolution.width = 0;
     bgfx_init.resolution.height = 0;
@@ -75,6 +74,9 @@ namespace visage {
 #endif
 #elif VISAGE_MAC
     bgfx_init.type = bgfx::RendererType::Metal;
+    bgfx_init.resolution.width = 1;
+    bgfx_init.resolution.height = 1;
+    bgfx_init.resolution.reset = BGFX_RESET_VSYNC;
 #elif VISAGE_LINUX
     bgfx_init.type = bgfx::RendererType::OpenGL;
 #elif VISAGE_EMSCRIPTEN

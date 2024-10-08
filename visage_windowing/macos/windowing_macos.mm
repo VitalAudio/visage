@@ -20,8 +20,6 @@
 #include "visage_utils/file_system.h"
 #include "visage_utils/time_utils.h"
 
-#include <QuartzCore/CVDisplayLink.h>
-
 namespace visage {
   class InitialMetalLayer {
   public:
@@ -36,7 +34,6 @@ namespace visage {
     InitialMetalLayer() {
       metal_layer_ = [CAMetalLayer layer];
       metal_layer_.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
-      metal_layer_.displaySyncEnabled = NO;
     }
 
     CAMetalLayer* metal_layer_ = nullptr;
@@ -276,27 +273,6 @@ namespace visage {
   }
 }
 
-@interface AppViewDelegate : NSObject <MTKViewDelegate>
-@property(nonatomic, retain) AppView* app_view;
-
-@end
-
-@implementation AppViewDelegate
-
-- (instancetype)initWithView:(AppView*)view {
-  self = [super init];
-  self.app_view = view;
-  return self;
-}
-
-- (void)mtkView:(MTKView*)view drawableSizeWillChange:(CGSize)size {
-}
-
-- (void)drawInMTKView:(MTKView*)view {
-  [self.app_view drawView];
-}
-@end
-
 @implementation DraggingSource
 - (NSDragOperation)draggingSession:(NSDraggingSession*)session
     sourceOperationMaskForDraggingContext:(NSDraggingContext)context {
@@ -304,75 +280,38 @@ namespace visage {
 }
 @end
 
-class DisplayLink {
-public:
-  explicit DisplayLink(AppView* view) : view_(view) { }
+@implementation AppViewDelegate
+AppView* app_view_;
 
-  ~DisplayLink() {
-    if (display_)
-      CVDisplayLinkRelease(display_);
-  }
+- (instancetype)initWithView:(AppView*)view {
+  self = [super init];
+  app_view_ = view;
+  return self;
+}
 
-  void start() {
-    if (display_)
-      return;
-    if (CVDisplayLinkCreateWithActiveCGDisplays(&display_) != kCVReturnSuccess)
-      return;
-    if (CVDisplayLinkSetOutputCallback(display_, &DisplayLink::callback, this) != kCVReturnSuccess)
-      return;
+- (void)mtkView:(MTKView*)view drawableSizeWillChange:(CGSize)size {
+}
 
-    CVDisplayLinkStart(display_);
-  }
-
-  void stop() {
-    if (display_)
-      CVDisplayLinkStop(display_);
-    display_ = nullptr;
-  }
-
-private:
-  static CVReturn callback(CVDisplayLinkRef display_link, const CVTimeStamp* now,
-                           const CVTimeStamp* output_time, CVOptionFlags flags_in,
-                           CVOptionFlags* flags_out, void* display_link_context) {
-    auto* handler = static_cast<DisplayLink*>(display_link_context);
-    handler->renderFrame(output_time);
-    return kCVReturnSuccess;
-  }
-
-  void renderFrame(const CVTimeStamp* output_time) {
-    if (start_time_ == 0)
-      start_time_ = output_time->videoTime;
-
-    uint64_t delta = output_time->videoTime - start_time_;
-    double time = delta * 1.0 / output_time->videoTimeScale;
-
-    dispatch_async(dispatch_get_main_queue(), ^{
-      [view_ setDrawTime:time];
-      [view_ draw];
-    });
-  }
-
-  uint64_t start_time_ = 0;
-  AppView* view_ = nullptr;
-  CVDisplayLinkRef display_ = nullptr;
-};
+- (void)drawInMTKView:(MTKView*)view {
+  [app_view_ drawView];
+}
+@end
 
 @implementation AppView
 NSPoint mouse_down_screen_position_;
 double draw_time_ = 0.0;
+long long start_microseconds_ = 0;
 
-- (instancetype)initWithFrame:(NSRect)frame_rect {
+- (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window {
   self = [super initWithFrame:frame_rect];
+  self.visage_window = window;
   self.device = MTLCreateSystemDefaultDevice();
-  self.paused = YES;
   CAMetalLayer* layer = (CAMetalLayer*)self.layer;
-  layer.displaySyncEnabled = NO;
+  self.enableSetNeedsDisplay = NO;
   self.framebufferOnly = YES;
 
   [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
   self.drag_source_ = [[DraggingSource alloc] init];
-
-  // [self testSetup];
 
   return self;
 }
@@ -852,11 +791,9 @@ namespace visage {
     setNativeWindowHandle(window);
     content_rect.origin.x = 0;
     content_rect.origin.y = 0;
-    view_ = [[AppView alloc] initWithFrame:content_rect];
-    view_.delegate = [[AppViewDelegate alloc] initWithView:view_];
-    display_link_ = std::make_unique<DisplayLink>(view_);
-
-    view_.visage_window = this;
+    view_ = [[AppView alloc] initWithFrame:content_rect inWindow:this];
+    view_delegate_ = [[AppViewDelegate alloc] initWithView:view_];
+    view_.delegate = view_delegate_;
     view_.allow_quit = true;
 
     setPixelScale([window_handle_ backingScaleFactor]);
@@ -878,8 +815,9 @@ namespace visage {
 
     CGRect view_frame = CGRectMake(0.0f, 0.0f, width / getPixelScale(), height / getPixelScale());
 
-    view_ = [[AppView alloc] initWithFrame:view_frame];
-    view_.visage_window = this;
+    view_ = [[AppView alloc] initWithFrame:view_frame inWindow:this];
+    view_delegate_ = [[AppViewDelegate alloc] initWithView:view_];
+    view_.delegate = view_delegate_;
     view_.allow_quit = false;
     [parent_view_ addSubview:view_];
 
@@ -890,10 +828,10 @@ namespace visage {
   }
 
   WindowMac::~WindowMac() {
-    display_link_->stop();
     if (parent_view_ == nullptr)
       [window_handle_ release];
 
+    [view_delegate_ release];
     [view_ release];
   }
 
@@ -914,8 +852,6 @@ namespace visage {
   }
 
   void WindowMac::show() {
-    display_link_->start();
-
     if (parent_view_ && parent_view_.window) {
       [parent_view_.window makeKeyWindow];
       [parent_view_.window makeKeyAndOrderFront:nil];

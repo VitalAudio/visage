@@ -23,7 +23,7 @@
 #include <vector>
 
 namespace visage {
-  bool spawnChildProcess(const std::string& command, int timeout_ms) {
+  bool spawnChildProcess(const std::string& command, std::string& output, int timeout_ms) {
     std::istringstream stream(command);
     std::vector<std::string> arguments;
     std::string segment;

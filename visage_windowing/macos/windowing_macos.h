@@ -22,9 +22,7 @@
 #include <Carbon/Carbon.h>
 #include <Cocoa/Cocoa.h>
 #include <MetalKit/MetalKit.h>
-#include <QuartzCore/QuartzCore.h>
 
-class DisplayLink;
 namespace visage {
   class WindowMac;
 }
@@ -32,12 +30,13 @@ namespace visage {
 @interface DraggingSource : NSObject <NSDraggingSource>
 @end
 
+@interface AppViewDelegate : NSObject <MTKViewDelegate>
+@end
+
 @interface AppView : MTKView <NSDraggingDestination>
 @property(nonatomic) visage::WindowMac* visage_window;
-@property(strong) NSTimer* timer;
 @property(strong) DraggingSource* drag_source_;
-- (instancetype)initWithFrame:(NSRect)frame_rect;
-- (void)setDrawTime:(double)time;
+- (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window;
 - (void)drawView;
 @property bool allow_quit;
 @end
@@ -81,7 +80,7 @@ namespace visage {
     NSWindow* window_handle_ = nullptr;
     NSView* parent_view_ = nullptr;
     AppView* view_ = nullptr;
-    std::unique_ptr<DisplayLink> display_link_;
+    AppViewDelegate* view_delegate_ = nullptr;
   };
 
 }

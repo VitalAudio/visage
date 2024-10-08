@@ -11,16 +11,16 @@ if (APPLE)
 endif ()
 
 option(VISAGE_ENABLE_WIDGETS "Add widgets library" ON)
-option(VISAGE_ENABLE_BACKGROUND_GRAPHICS_THREAD "Offloads graphics rendering to a background thread" ON)
+option(VISAGE_ENABLE_BACKGROUND_GRAPHICS_THREAD "Offloads graphics rendering to a background thread" OFF)
 option(VISAGE_ENABLE_GRAPHICS_DEBUG_LOGGING "Shows graphics debug log in console in debug mode" OFF)
 option(VISAGE_BUILD_TESTS "Build tests" OFF)
 set(VISAGE_APPLICATION_NAME ${CMAKE_PROJECT_NAME} CACHE STRING "Application name used for default window title")
 
 if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   option(VISAGE_BUILD_EXAMPLES "Build examples" ON)
-else()
+else ()
   option(VISAGE_BUILD_EXAMPLES "Build examples" OFF)
-endif()
+endif ()
 
 set(VISAGE_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -46,9 +46,9 @@ add_subdirectory(visage_windowing)
 add_subdirectory(visage_app)
 
 set(DUMMY_FILE ${CMAKE_CURRENT_BINARY_DIR}/dummy.cpp)
-if(NOT EXISTS ${DUMMY_FILE})
+if (NOT EXISTS ${DUMMY_FILE})
   file(WRITE ${DUMMY_FILE} "")
-endif()
+endif ()
 
 add_library(visage STATIC
   ${DUMMY_FILE}
@@ -71,4 +71,4 @@ set_target_properties(visage PROPERTIES FOLDER "visage")
 
 if (VISAGE_BUILD_EXAMPLES)
   add_subdirectory(examples)
-endif()
+endif ()
