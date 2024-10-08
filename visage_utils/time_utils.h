@@ -49,7 +49,7 @@ namespace visage::time {
     char buffer[kMaxLength];
     tm time_info {};
 #if VISAGE_WINDOWS
-    localtime_r(&time_info, &time_t);
+    localtime_s(&time_info, &time_t);
 #else
     localtime_r(&time_t, &time_info);
 #endif
