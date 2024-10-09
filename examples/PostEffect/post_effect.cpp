@@ -62,11 +62,11 @@ public:
       shapes_.redraw();
     });
 
-    post_effect_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_test,
-                                                              resources::shaders::fs_test);
+    post_effect_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_warp,
+                                                              resources::shaders::fs_warp);
 
-    shader_editor_.setShader(resources::shaders::vs_test, resources::shaders::fs_test,
-                             resources::shaders::fs_test_sc);
+    shader_editor_.setShader(resources::shaders::vs_warp, resources::shaders::fs_warp,
+                             resources::shaders::fs_warp_sc);
 
     addDrawableComponent(&shapes_, post_effect_.get());
     addDrawableComponent(&shader_editor_);

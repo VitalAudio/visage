@@ -24,7 +24,7 @@ vec4 passthrough(vec2 coordinates) {
 }
 
 vec4 warp(vec2 coordinates) {
-  coordinates = coordinates + 0.01 * sin(u_time.x + coordinates * 100.0);
+  coordinates = coordinates + 0.01 * sin(u_time.x + coordinates * 20.0);
   vec4 color = texture2D(s_texture, coordinates)  * hueRainbow(coordinates + vec2(-0.5, -0.5));
   return color;
 }
