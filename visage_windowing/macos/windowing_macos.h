@@ -38,6 +38,7 @@ namespace visage {
 @property(strong) DraggingSource* drag_source_;
 - (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window;
 - (void)drawView;
+- (void)resize:(CGSize)size;
 @property bool allow_quit;
 @end
 

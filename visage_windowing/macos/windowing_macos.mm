@@ -290,6 +290,7 @@ AppView* app_view_;
 }
 
 - (void)mtkView:(MTKView*)view drawableSizeWillChange:(CGSize)size {
+  [app_view_ resize:size];
 }
 
 - (void)drawInMTKView:(MTKView*)view {
@@ -299,19 +300,22 @@ AppView* app_view_;
 
 @implementation AppView
 NSPoint mouse_down_screen_position_;
-double draw_time_ = 0.0;
 long long start_microseconds_ = 0;
 
 - (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window {
   self = [super initWithFrame:frame_rect];
   self.visage_window = window;
   self.device = MTLCreateSystemDefaultDevice();
+  self.clearColor = MTLClearColorMake(0.1, 0.1, 0.1, 1.0);
+
   CAMetalLayer* layer = (CAMetalLayer*)self.layer;
   self.enableSetNeedsDisplay = NO;
-  self.framebufferOnly = YES;
+  self.framebufferOnly = NO;
 
   [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
   self.drag_source_ = [[DraggingSource alloc] init];
+
+  start_microseconds_ = visage::time::getMicroseconds();
 
   return self;
 }
@@ -320,15 +324,16 @@ long long start_microseconds_ = 0;
   return YES;
 }
 
-- (void)setDrawTime:(double)time {
-  draw_time_ = time;
+- (void)resize:(CGSize)size {
+  self.visage_window->handleNativeResize(size.width, size.height);
 }
 
 - (void)drawView {
   if (!self.currentDrawable || !self.currentRenderPassDescriptor)
     return;
 
-  self.visage_window->drawCallback(draw_time_);
+  long long ms = visage::time::getMicroseconds();
+  self.visage_window->drawCallback((ms - start_microseconds_) / 1000000.0);
 }
 
 - (void)keyDown:(NSEvent*)event {
@@ -653,13 +658,6 @@ bool resizing_vertical_ = false;
   resizing_horizontal_ = false;
 }
 
-- (void)windowDidEndLiveResize:(NSNotification*)notification {
-  NSSize current_frame = [self.window_handle frame].size;
-  visage::Point borders = visage::getWindowBorderSize(self.window_handle);
-  self.visage_window->handleNativeResize(current_frame.width - borders.x,
-                                         current_frame.height - borders.y);
-}
-
 - (NSSize)windowWillResize:(NSWindow*)sender toSize:(NSSize)frame_size {
   if (!self.visage_window->isFixedAspectRatio())
     return frame_size;
@@ -898,7 +896,7 @@ namespace visage {
   }
 
   void WindowMac::handleNativeResize(int width, int height) {
-    handleResized(std::round(width * getPixelScale()), std::round(height * getPixelScale()));
+    handleResized(width, height);
   }
 }
 

@@ -36,8 +36,15 @@ namespace visage {
   }
 
   ShaderCompiler::ShaderCompiler() : Thread("Shader Compiler") {
-    VISAGE_LOG(std::filesystem::current_path().string());
-    compiler_path_ = getShaderExecutable();
+    compiler_path_ = std::filesystem::current_path() / getShaderExecutable();
+#if VISAGE_MAC
+    if (!std::filesystem::exists(File(compiler_path_))) {
+      std::filesystem::path app_path = std::filesystem::current_path().parent_path().parent_path().parent_path() /
+                                       getShaderExecutable();
+      if (std::filesystem::exists(app_path))
+        compiler_path_ = app_path;
+    }
+#endif
   }
 
   void ShaderCompiler::run() {
@@ -92,13 +99,12 @@ namespace visage {
     File temporary_shader = compile_path / original.name;
     replaceFileWithText(temporary_shader, code);
 
-    std::string command = std::string("\"") + compiler_path_ + std::string("\"") + " -f " +
-                          temporary_shader.string() + " -i " + include_path.string() + " -o " +
-                          output_file.string() + " --type " + type + " --platform " + platform +
-                          " -p " + profile;
+    std::string arguments = "-f " + temporary_shader.string() + " -i " + include_path.string() +
+                            " -o " + output_file.string() + " --type " + type + " --platform " +
+                            platform + " -p " + profile;
 
     std::string output;
-    if (!spawnChildProcess(command, output)) {
+    if (!spawnChildProcess(compiler_path_, arguments, output)) {
       if (output.empty())
         output = "Failed to compile shader";
       runOnEventThread([this, output]() { setError(output); });
@@ -154,6 +160,9 @@ namespace visage {
   }
 
   void ShaderEditor::textEditorChanged(TextEditor* editor) {
+    if (editor != &editor_)
+      return;
+    
     if (fragment_.data) {
       std::string text = editor->getText().toUtf8();
       compiler_.setCodeAndCompile(vertex_, fragment_, original_fragment_, text);

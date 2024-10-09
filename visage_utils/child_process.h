@@ -21,6 +21,6 @@
 namespace visage {
   static constexpr int kDefaultChildProcessTimeoutMs = 10000;
 
-  bool spawnChildProcess(const std::string& command, std::string& output,
-                         int timeout_ms = kDefaultChildProcessTimeoutMs);
+  bool spawnChildProcess(const std::string& command, const std::string& arguments,
+                         std::string& output, int timeout_ms = kDefaultChildProcessTimeoutMs);
 }

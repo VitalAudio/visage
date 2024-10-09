@@ -16,17 +16,20 @@
 
 #pragma once
 
+#include <cstdarg>
+
 namespace visage {
   class String;
-  void debugLog(const String& log_message);
-  void debugLog(const char* log_message);
-  void debugLog(long long log_message);
-  void debugLog(unsigned long long log_message);
-  void debugLog(int log_message);
-  void debugLog(unsigned int log_message);
-  void debugLog(float log_message);
-  void debugLog(double log_message);
-  void debugLog(char log_message);
+  void debugLog(const char* file, unsigned int line, const String& log_message);
+  void debugLog(const char* file, unsigned int line, const char* format, va_list arg_list);
+  void debugLog(const char* file, unsigned int line, const char* format, ...);
+  void debugLog(const char* file, unsigned int line, long long log_message, ...);
+  void debugLog(const char* file, unsigned int line, unsigned long long log_message, ...);
+  void debugLog(const char* file, unsigned int line, int log_message, ...);
+  void debugLog(const char* file, unsigned int line, unsigned int log_message, ...);
+  void debugLog(const char* file, unsigned int line, float log_message, ...);
+  void debugLog(const char* file, unsigned int line, double log_message, ...);
+  void debugLog(const char* file, unsigned int line, char log_message, ...);
   void debugAssert(bool condition);
   void forceCrash();
 }
@@ -34,7 +37,10 @@ namespace visage {
 #define VISAGE_FORCE_CRASH() visage::forceCrash()
 
 #ifndef NDEBUG
-#define VISAGE_LOG(log) visage::debugLog(log)
+
+#define VISAGE_LOG(log, ...) \
+  visage::debugLog(__FILE__, int(__LINE__), log __VA_OPT__(, __VA_ARGS__))
+
 #define VISAGE_ASSERT(condition) visage::debugAssert((condition))
 #define no_except
 

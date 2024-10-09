@@ -23,7 +23,8 @@
 #include <windows.h>
 
 namespace visage {
-  bool spawnChildProcess(const std::string& command, std::string& output, int timeout_ms) {
+  bool spawnChildProcess(const std::string& command, const std::string& arguments,
+                         std::string& output, int timeout_ms) {
     STARTUPINFO si;
     PROCESS_INFORMATION pi;
 
@@ -52,7 +53,8 @@ namespace visage {
     si.dwFlags |= STARTF_USESTDHANDLES;
     ZeroMemory(&pi, sizeof(pi));
 
-    if (!CreateProcess(nullptr, const_cast<LPSTR>(command.c_str()), nullptr, nullptr, TRUE,
+    std::string full_command = "\"" + command + "\" " + arguments;
+    if (!CreateProcess(nullptr, const_cast<LPSTR>(full_command.c_str()), nullptr, nullptr, TRUE,
                        CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
       CloseHandle(std_out_read);
       CloseHandle(std_out_write);
