@@ -37,22 +37,22 @@ namespace visage {
 
   private:
     DummyWindow() {
-      X11Connection& x11 = X11Connection::getGlobalInstance();
+      X11Connection& x11 = X11Connection::globalInstance();
       ::Display* display = x11.display();
       window_handle_ = XCreateSimpleWindow(display, x11.rootWindow(), -100, -100, 1, 1, 0, 0, 0);
       XFlush(display);
     }
 
-    ~DummyWindow() { XDestroyWindow(X11Connection::getGlobalInstance().display(), window_handle_); }
+    ~DummyWindow() { XDestroyWindow(X11Connection::globalInstance().display(), window_handle_); }
 
     ::Window window_handle_ = 0;
   };
 
-  std::string getClipboardText() {
+  std::string readClipboardText() {
     static constexpr int kSleepWait = 5;
     static constexpr int kMaxWaitTime = 250;
     static constexpr int kTries = kMaxWaitTime / kSleepWait;
-    X11Connection& x11 = X11Connection::getGlobalInstance();
+    X11Connection& x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
 
     WindowX11* window = WindowX11::lastActiveWindow();
@@ -105,7 +105,7 @@ namespace visage {
     if (window == nullptr)
       return;
 
-    X11Connection& x11 = X11Connection::getGlobalInstance();
+    X11Connection& x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
     XSetSelectionOwner(x11.display(), x11.clipboard(), (::Window)window->nativeHandle(), CurrentTime);
     XFlush(x11.display());
@@ -146,8 +146,8 @@ namespace visage {
       setCursorStyle(MouseCursor::Invisible);
   }
 
-  Point getCursorPosition(::Window window_handle) {
-    X11Connection& x11 = X11Connection::getGlobalInstance();
+  Point cursorPosition(::Window window_handle) {
+    X11Connection& x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
     ::Window root_return, child_return;
     int root_x = 0, root_y = 0;
@@ -159,12 +159,12 @@ namespace visage {
     return { win_x, win_y };
   }
 
-  Point getCursorPosition() {
+  Point cursorPosition() {
     WindowX11* window = WindowX11::lastActiveWindow();
     if (window == nullptr)
       return { 0, 0 };
 
-    return getCursorPosition((::Window)window->nativeHandle());
+    return cursorPosition((::Window)window->nativeHandle());
   }
 
   void setCursorPosition(Point window_position) {
@@ -180,7 +180,7 @@ namespace visage {
   }
 
   void setCursorScreenPosition(Point window_position) {
-    X11Connection& x11 = X11Connection::getGlobalInstance();
+    X11Connection& x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
 
     XWarpPointer(x11.display(), None, x11.rootWindow(), 0, 0, 0, 0, window_position.x,
@@ -188,8 +188,8 @@ namespace visage {
     XFlush(x11.display());
   }
 
-  Point getCursorScreenPosition() {
-    X11Connection& x11 = X11Connection::getGlobalInstance();
+  Point cursorScreenPosition() {
+    X11Connection& x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
 
     ::Window root_return, child_return;
@@ -202,11 +202,15 @@ namespace visage {
     return { root_x, root_y };
   }
 
-  float getWindowPixelScale() {
+  bool shouldWindowDraw(void* window_handle) {
+    return true;
+  }
+
+  float windowPixelScale() {
     return 1.0f;
   }
 
-  double getRefreshRate(XRRScreenResources* screen_resources, XRRCrtcInfo* info) {
+  double refreshRate(XRRScreenResources* screen_resources, XRRCrtcInfo* info) {
     for (int i = 0; i < screen_resources->nmode; ++i) {
       if (screen_resources->modes[i].id == info->mode)
         return screen_resources->modes[i].dotClock * 1.0 /
@@ -215,8 +219,8 @@ namespace visage {
     return MonitorInfo::kDefaultRefreshRate;
   }
 
-  MonitorInfo getMonitorInfoForPosition(Point point) {
-    X11Connection& x11 = X11Connection::getGlobalInstance();
+  MonitorInfo monitorInfoForPosition(Point point) {
+    X11Connection& x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
     Display* display = x11.display();
 
@@ -241,7 +245,7 @@ namespace visage {
         Bounds bounds(info->x, info->y, info->width, info->height);
         if (result.bounds.width() == 0 || bounds.contains(point)) {
           result.bounds = bounds;
-          result.refresh_rate = getRefreshRate(screen_resources, info);
+          result.refresh_rate = refreshRate(screen_resources, info);
         }
         XRRFreeCrtcInfo(info);
       }
@@ -252,11 +256,11 @@ namespace visage {
     return result;
   }
 
-  MonitorInfo getActiveMonitorInfo() {
-    return getMonitorInfoForPosition(getCursorScreenPosition());
+  MonitorInfo activeMonitorInfo() {
+    return monitorInfoForPosition(cursorScreenPosition());
   }
 
-  Bounds getBoundsInDisplay(MonitorInfo monitor_info, float aspect_ratio, float display_scale) {
+  Bounds boundsInDisplay(MonitorInfo monitor_info, float aspect_ratio, float display_scale) {
     int scale_width = monitor_info.bounds.width() * display_scale;
     int height = std::min(monitor_info.bounds.height() * display_scale, scale_width / aspect_ratio);
     int width = height * aspect_ratio + 0.5f;
@@ -296,10 +300,10 @@ namespace visage {
     constexpr float kAspectRatio = 1.5f;
     constexpr float kDisplayScale = 0.2f;
 
-    MonitorInfo monitor_info = getActiveMonitorInfo();
-    Bounds bounds = getBoundsInDisplay(monitor_info, kAspectRatio, kDisplayScale);
+    MonitorInfo monitor_info = activeMonitorInfo();
+    Bounds bounds = boundsInDisplay(monitor_info, kAspectRatio, kDisplayScale);
 
-    X11Connection& x11 = X11Connection::getGlobalInstance();
+    X11Connection& x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
     Display* display = x11.display();
     int screen = DefaultScreen(display);
@@ -393,12 +397,12 @@ namespace visage {
     XUnlockDisplay(display);
   }
 
-  Bounds getDefaultEditorBounds(float aspect_ratio, float display_scale) {
-    MonitorInfo monitor_info = getActiveMonitorInfo();
-    return getBoundsInDisplay(monitor_info, aspect_ratio, display_scale);
+  Bounds defaultEditorBounds(float aspect_ratio, float display_scale) {
+    MonitorInfo monitor_info = activeMonitorInfo();
+    return boundsInDisplay(monitor_info, aspect_ratio, display_scale);
   }
 
-  int getDisplayFps() {
+  int displayFps() {
     WindowX11* window = WindowX11::lastActiveWindow();
     if (window)
       return std::round(window->monitorInfo().refresh_rate);
@@ -428,12 +432,12 @@ namespace visage {
 
   WindowX11* WindowX11::last_active_window_ = nullptr;
 
-  Bounds getScaledWindowBounds(float aspect_ratio, float display_scale, int x, int y) {
-    return getBoundsInDisplay(getActiveMonitorInfo(), aspect_ratio, display_scale);
+  Bounds scaledWindowBounds(float aspect_ratio, float display_scale, int x, int y) {
+    return boundsInDisplay(activeMonitorInfo(), aspect_ratio, display_scale);
   }
 
   WindowX11::WindowX11(int x, int y, int width, int height) : Window(width, height) {
-    monitor_info_ = getActiveMonitorInfo();
+    monitor_info_ = activeMonitorInfo();
     X11Connection::DisplayLock lock(x11_);
     ::Display* display = x11_.display();
     Bounds bounds(x, y, width, height);
@@ -454,7 +458,7 @@ namespace visage {
 
     XSelectInput(display, window_handle_, kEventMask);
     XFlush(display);
-    start_draw_microseconds_ = time::getMicroseconds();
+    start_draw_microseconds_ = time::microseconds();
   }
 
   static void threadTimerCallback(WindowX11* window) {
@@ -506,7 +510,7 @@ namespace visage {
 
     timer_thread_running_ = true;
     timer_thread_ = std::make_unique<std::thread>(threadTimerCallback, this);
-    start_draw_microseconds_ = time::getMicroseconds();
+    start_draw_microseconds_ = time::microseconds();
   }
 
   WindowX11::~WindowX11() {
@@ -521,7 +525,7 @@ namespace visage {
       XDestroyWindow(x11_.display(), window_handle_);
   }
 
-  void* WindowX11::getInitWindow() const {
+  void* WindowX11::initWindow() const {
     return (void*)DummyWindow::handle();
   }
 
@@ -570,7 +574,7 @@ namespace visage {
     XFlush(display);
   }
 
-  int WindowX11::getMouseButtonState() const {
+  int WindowX11::mouseButtonState() const {
     X11Connection::DisplayLock lock(x11_);
 
     ::Window root_return = 0, child_return = 0;
@@ -589,7 +593,7 @@ namespace visage {
     return result;
   }
 
-  int WindowX11::getModifierState() const {
+  int WindowX11::modifierState() const {
     X11Connection::DisplayLock lock(x11_);
 
     ::Window root_return, child_return;
@@ -610,7 +614,7 @@ namespace visage {
     return result;
   }
 
-  MouseButton getButtonFromEvent(XEvent& event) {
+  MouseButton buttonFromEvent(XEvent& event) {
     if (event.xbutton.button == Button1)
       return kMouseButtonLeft;
     if (event.xbutton.button == Button2)
@@ -747,21 +751,21 @@ namespace visage {
     }
   }
 
-  ::Window WindowX11::getWindowUnderCursor(::Window inside) {
+  ::Window WindowX11::windowUnderCursor(::Window inside) {
     ::Window root_return, child_return;
     int root_x, root_y, win_x, win_y;
     unsigned int mask_return;
     if (XQueryPointer(x11_.display(), inside, &root_return, &child_return, &root_x, &root_y, &win_x,
                       &win_y, &mask_return)) {
       if (child_return != None)
-        return getWindowUnderCursor(child_return);
+        return windowUnderCursor(child_return);
     }
 
     return inside;
   }
 
-  ::Window WindowX11::getWindowUnderCursor() {
-    return getWindowUnderCursor(x11_.rootWindow());
+  ::Window WindowX11::windowUnderCursor() {
+    return windowUnderCursor(x11_.rootWindow());
   }
 
   void WindowX11::sendDragDropEnter(::Window source, ::Window target) const {
@@ -811,7 +815,7 @@ namespace visage {
     XSendEvent(x11_.display(), drag_drop_out_state_.target, False, 0, &message);
   }
 
-  ::Window WindowX11::getDragDropProxy(::Window window) const {
+  ::Window WindowX11::dragDropProxy(::Window window) const {
     Atom actual_type;
     int actual_format;
     unsigned long num_items = 0, bytes_after = 0;
@@ -824,7 +828,7 @@ namespace visage {
   }
 
   void WindowX11::sendDragDropStatus(::Window source, ::Window target, bool accept_drag) const {
-    ::Window proxy = getDragDropProxy(target);
+    ::Window proxy = dragDropProxy(target);
     ::Window receiver = proxy ? proxy : target;
 
     XEvent message { 0 };
@@ -887,7 +891,7 @@ namespace visage {
   }
 
   void WindowX11::sendDragDropFinished(::Window source, ::Window target, bool accepted_drag) const {
-    ::Window proxy = getDragDropProxy(target);
+    ::Window proxy = dragDropProxy(target);
     ::Window receiver = proxy ? proxy : target;
 
     XEvent message;
@@ -926,7 +930,7 @@ namespace visage {
                event.xclient.message_type == x11_.timerEvent()) {
         if (!timer_fired) {
           timer_fired = true;
-          long long microseconds = time::getMicroseconds() - start_draw_microseconds_;
+          long long microseconds = time::microseconds() - start_draw_microseconds_;
           drawCallback(microseconds / 1000000.0);
         }
       }
@@ -949,12 +953,12 @@ namespace visage {
         handleFileDragLeave();
       }
       else if (event.xclient.message_type == x11_.dndDrop()) {
-        Point position = getCursorPosition(window_handle_);
+        Point position = cursorPosition(window_handle_);
         bool accepted = handleFileDrop(position.x, position.y, drag_drop_files_);
         sendDragDropFinished(event.xclient.window, event.xclient.data.l[0], accepted);
       }
       else if (event.xclient.message_type == x11_.dndPosition()) {
-        Point position = getCursorPosition(event.xclient.window);
+        Point position = cursorPosition(event.xclient.window);
         bool accepts = handleFileDrag(position.x, position.y, drag_drop_files_);
         sendDragDropStatus(event.xclient.window, event.xclient.data.l[0], accepts);
       }
@@ -1020,7 +1024,7 @@ namespace visage {
           if (drag_drop_out_state_.target == 0)
             handleFileDragLeave();
 
-          drag_drop_out_state_.target = getWindowUnderCursor();
+          drag_drop_out_state_.target = windowUnderCursor();
         }
         if (last_target != drag_drop_out_state_.target) {
           XSetSelectionOwner(x11_.display(), x11_.dndSelection(), window_handle_, event.xmotion.time);
@@ -1034,11 +1038,11 @@ namespace visage {
                                event.xmotion.y_root, event.xmotion.time);
         break;
       }
-      if (getMouseRelativeMode() && mouse_down_position_ == Point(event.xmotion.x, event.xmotion.y))
+      if (mouseRelativeMode() && mouse_down_position_ == Point(event.xmotion.x, event.xmotion.y))
         break;
 
-      handleMouseMove(event.xmotion.x, event.xmotion.y, getMouseButtonState(), getModifierState());
-      if (getMouseRelativeMode())
+      handleMouseMove(event.xmotion.x, event.xmotion.y, mouseButtonState(), modifierState());
+      if (mouseRelativeMode())
         setCursorPosition(mouse_down_position_);
       break;
     }
@@ -1046,16 +1050,14 @@ namespace visage {
       if (event.xbutton.button >= 4 && event.xbutton.button <= 7) {
         float y = (event.xbutton.button == 4 ? 1.0f : 0.0f) - (event.xbutton.button == 5 ? 1.0f : 0.0f);
         float x = (event.xbutton.button == 7 ? 1.0f : 0.0f) - (event.xbutton.button == 6 ? 1.0f : 0.0f);
-        handleMouseWheel(x, y, event.xbutton.x, event.xbutton.y, getMouseButtonState(),
-                         getModifierState());
+        handleMouseWheel(x, y, event.xbutton.x, event.xbutton.y, mouseButtonState(), modifierState());
       }
       else {
-        MouseButton button = getButtonFromEvent(event);
+        MouseButton button = buttonFromEvent(event);
         if (button == kMouseButtonNone)
           passEventToParent(event);
         else
-          handleMouseDown(button, event.xbutton.x, event.xbutton.y, getMouseButtonState(),
-                          getModifierState());
+          handleMouseDown(button, event.xbutton.x, event.xbutton.y, mouseButtonState(), modifierState());
         mouse_down_position_ = { event.xbutton.x, event.xbutton.y };
 
         drag_drop_out_state_.dragging = isDragDropSource();
@@ -1068,7 +1070,7 @@ namespace visage {
       break;
     }
     case ButtonRelease: {
-      MouseButton button = getButtonFromEvent(event);
+      MouseButton button = buttonFromEvent(event);
       if (drag_drop_out_state_.dragging && button == kMouseButtonLeft) {
         if (event.xbutton.x >= 0 && event.xbutton.x < clientWidth() && event.xbutton.y >= 0 &&
             event.xbutton.y < clientHeight()) {
@@ -1082,8 +1084,8 @@ namespace visage {
       if (button == kMouseButtonNone)
         passEventToParent(event);
       else
-        handleMouseUp(getButtonFromEvent(event), event.xbutton.x, event.xbutton.y,
-                      getMouseButtonState(), getModifierState());
+        handleMouseUp(buttonFromEvent(event), event.xbutton.x, event.xbutton.y, mouseButtonState(),
+                      modifierState());
       break;
     }
     case EnterNotify: {
@@ -1093,12 +1095,12 @@ namespace visage {
     case LeaveNotify: {
       if (event.xbutton.x < 0 || event.xbutton.x >= clientWidth() || event.xbutton.y < 0 ||
           event.xbutton.y >= clientHeight())
-        handleMouseLeave(getMouseButtonState(), getModifierState());
+        handleMouseLeave(mouseButtonState(), modifierState());
       break;
     }
     case KeyPress: {
       static constexpr int kMaxCharacters = 32;
-      int modifier_state = getModifierState();
+      int modifier_state = modifierState();
       char buffer[kMaxCharacters] {};
       KeySym keysym;
       int length = XLookupString(&event.xkey, buffer, sizeof(buffer), &keysym, nullptr);
@@ -1122,7 +1124,7 @@ namespace visage {
       KeyCode key_code = translateKeyCode(keysym);
       bool used = false;
       if (key_code != KeyCode::Unknown)
-        used = handleKeyUp(key_code, getModifierState());
+        used = handleKeyUp(key_code, modifierState());
 
       if (!used)
         passEventToParent(event);
@@ -1187,8 +1189,7 @@ namespace visage {
     fd_set read_fds;
     unsigned int fd = ConnectionNumber(display);
 
-    long long start_timer_microseconds = time::getMicroseconds();
-    long long last_timer_microseconds = start_timer_microseconds;
+    long long last_timer_microseconds = 0;
 
     XEvent event;
     bool running = true;
@@ -1197,18 +1198,18 @@ namespace visage {
       FD_SET(fd, &read_fds);
 
       timeout.tv_sec = 0;
-      long long microseconds_to_timer = timer_microseconds_ -
-                                        (time::getMicroseconds() - last_timer_microseconds);
+      long long ms_to_timer = timer_microseconds_ - (time::microseconds() - last_timer_microseconds);
       int result = 0;
-      if (microseconds_to_timer > 0) {
-        timeout.tv_usec = microseconds_to_timer;
+      if (ms_to_timer > 0) {
+        timeout.tv_usec = ms_to_timer * 1000;
         result = select(fd + 1, &read_fds, nullptr, nullptr, &timeout);
       }
       if (result == -1)
         running = false;
       else if (result == 0) {
-        last_timer_microseconds = time::getMicroseconds();
-        long long delta = last_timer_microseconds - start_timer_microseconds;
+        long long new_microseconds = time::microseconds();
+        long long delta = new_microseconds - last_timer_microseconds;
+        last_timer_microseconds = new_microseconds;
         drawCallback(delta / 1000000.0);
       }
       else if (FD_ISSET(fd, &read_fds)) {
@@ -1251,23 +1252,23 @@ namespace visage {
     XStoreName(x11_.display(), window_handle_, title.c_str());
   }
 
-  Point WindowX11::getMaxWindowDimensions() const {
-    MonitorInfo monitor_info = getActiveMonitorInfo();
+  Point WindowX11::maxWindowDimensions() const {
+    MonitorInfo monitor_info = activeMonitorInfo();
 
     int display_width = monitor_info.bounds.width();
     int display_height = monitor_info.bounds.height();
-    float aspect_ratio = getAspectRatio();
+    float aspect_ratio = aspectRatio();
     return { std::min<int>(display_width, display_height * aspect_ratio),
              std::min<int>(display_height, display_width / aspect_ratio) };
   }
 
-  Point WindowX11::getMinWindowDimensions() const {
-    MonitorInfo monitor_info = getActiveMonitorInfo();
-    float minimum_scale = getMinimumWindowScale();
+  Point WindowX11::minWindowDimensions() const {
+    MonitorInfo monitor_info = activeMonitorInfo();
+    float minimum_scale = minimumWindowScale();
 
     int min_display_width = minimum_scale * monitor_info.bounds.width();
     int min_display_height = minimum_scale * monitor_info.bounds.height();
-    float aspect_ratio = getAspectRatio();
+    float aspect_ratio = aspectRatio();
 
     return { std::max<int>(min_display_width, min_display_height * aspect_ratio),
              std::max<int>(min_display_height, min_display_width / aspect_ratio) };

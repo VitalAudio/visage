@@ -169,13 +169,13 @@ namespace visage {
     return dest;
 #else
     Dl_info info;
-    visage::File file;
-    if (dladdr((void*)getAudioPluginFile, &info))
+    File file;
+    if (dladdr((void*)audioPluginFile, &info))
       file = info.dli_fname;
 
 #if VISAGE_MAC
     if (file.has_parent_path()) {
-      visage::File parent = file.parent_path();
+      File parent = file.parent_path();
       if (parent.filename() == "MacOS" && parent.parent_path().filename() == "Contents")
         return parent.parent_path().parent_path();
     }

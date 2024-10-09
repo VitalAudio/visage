@@ -38,7 +38,7 @@ namespace visage {
       return 0;
     }
 
-    static X11Connection& getGlobalInstance() {
+    static X11Connection& globalInstance() {
       static X11Connection connection;
       return connection;
     }
@@ -194,9 +194,9 @@ namespace visage {
 
     void* nativeHandle() const override { return (void*)window_handle_; }
 
-    void* getInitWindow() const override;
-    void* getGlobalDisplay() const override { return X11Connection::getGlobalInstance().display(); }
-    int getPosixFd() const override { return x11_.fd(); }
+    void* initWindow() const override;
+    void* globalDisplay() const override { return X11Connection::globalInstance().display(); }
+    int posixFd() const override { return x11_.fd(); }
 
     void setFixedAspectRatio(bool fixed) override;
 
@@ -204,8 +204,8 @@ namespace visage {
     void show() override;
     void hide() override;
     void setWindowTitle(const std::string& title) override;
-    Point getMaxWindowDimensions() const override;
-    Point getMinWindowDimensions() const override;
+    Point maxWindowDimensions() const override;
+    Point minWindowDimensions() const override;
     MonitorInfo monitorInfo() { return monitor_info_; }
     X11Connection& x11Connection() { return x11_; }
     bool timerThreadRunning() { return timer_thread_running_.load(); }
@@ -219,17 +219,17 @@ namespace visage {
       ::Window target = 0;
     };
 
-    ::Window getParentHandle() const { return parent_handle_; }
+    ::Window parentHandle() const { return parent_handle_; }
 
     void createWindow(Bounds bounds);
     Point retrieveWindowDimensions();
     void passEventToParent(XEvent& event);
-    int getMouseButtonState() const;
-    int getModifierState() const;
+    int mouseButtonState() const;
+    int modifierState() const;
 
-    ::Window getWindowUnderCursor(::Window inside);
-    ::Window getWindowUnderCursor();
-    ::Window getDragDropProxy(::Window window) const;
+    ::Window windowUnderCursor(::Window inside);
+    ::Window windowUnderCursor();
+    ::Window dragDropProxy(::Window window) const;
     void sendDragDropEnter(::Window source, ::Window target) const;
     void sendDragDropLeave(::Window source, ::Window target) const;
     void sendDragDropPosition(::Window source, ::Window target, int x, int y, unsigned long time) const;
