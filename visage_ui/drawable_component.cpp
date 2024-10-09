@@ -32,7 +32,7 @@ namespace visage {
 
   namespace {
     QuadColor colorForSampledComponent(const DrawableComponent* parent, DrawableComponent* child,
-                                          const QuadColor& background) {
+                                       const QuadColor& background) {
       Bounds bounds = parent->relativeBounds(child);
       float width = parent->width();
       float height = parent->height();

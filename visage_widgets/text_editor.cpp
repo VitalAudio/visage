@@ -194,9 +194,9 @@ namespace visage {
     std::pair<int, int> range = lineRange(line);
 
     int pre_width = font().stringWidth(text_.text().c_str() + range.first, index - range.first,
-                                          text_.characterOverride());
+                                       text_.characterOverride());
     int full_width = font().stringWidth(text_.text().c_str() + range.first,
-                                           range.second - range.first, text_.characterOverride());
+                                        range.second - range.first, text_.characterOverride());
     int line_x = (width() - full_width + 1) / 2;
     if (justification() & Font::kLeft)
       line_x = x_margin_;
@@ -229,16 +229,15 @@ namespace visage {
     std::pair<int, int> range = lineRange(line);
 
     float full_width = font().stringWidth(text_.text().c_str() + range.first,
-                                             range.second - range.first, text_.characterOverride());
+                                          range.second - range.first, text_.characterOverride());
     float line_x = (width() - full_width) * 0.5f;
     if (justification() & Font::kLeft)
       line_x = x_margin_;
     else if (justification() & Font::kRight)
       line_x = width() - x_margin_ - full_width;
 
-    int index = font().widthOverflowIndex(text_.text().c_str() + range.first,
-                                             range.second - range.first, position.first - line_x,
-                                             true, text_.characterOverride());
+    int index = font().widthOverflowIndex(text_.text().c_str() + range.first, range.second - range.first,
+                                          position.first - line_x, true, text_.characterOverride());
     return std::min(range.first + index, range.second);
   }
 
@@ -313,8 +312,7 @@ namespace visage {
         setYPosition(caret_location.second - height() + font().lineHeight());
     }
     else {
-      int line_width = font().stringWidth(text_.text().c_str(), textLength(),
-                                             text_.characterOverride());
+      int line_width = font().stringWidth(text_.text().c_str(), textLength(), text_.characterOverride());
       int min_view = x_position_ + x_margin_;
       int max_view = x_position_ + width() - x_margin_;
 
@@ -395,8 +393,7 @@ namespace visage {
     else if (click == 2)
       doubleClick(e);
     else if (!mouse_focus_) {
-      caret_position_ = positionToIndex({ e.position.x + x_position_,
-                                          e.position.y + yPosition() });
+      caret_position_ = positionToIndex({ e.position.x + x_position_, e.position.y + yPosition() });
       if (!e.isShiftDown())
         selection_position_ = caret_position_;
       makeCaretVisible();
@@ -411,8 +408,7 @@ namespace visage {
 
   void TextEditor::onMouseDrag(const MouseEvent& e) {
     if (!mouse_focus_)
-      caret_position_ = positionToIndex({ e.position.x + x_position_,
-                                          e.position.y + yPosition() });
+      caret_position_ = positionToIndex({ e.position.x + x_position_, e.position.y + yPosition() });
     makeCaretVisible();
     redraw();
   }

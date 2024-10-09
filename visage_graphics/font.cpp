@@ -185,8 +185,8 @@ namespace visage {
       FontCache::returnPackedFont(packed_font_);
   }
 
-  int Font::widthOverflowIndex(const char32_t* string, int string_length, float width,
-                                  bool round, int character_override) const {
+  int Font::widthOverflowIndex(const char32_t* string, int string_length, float width, bool round,
+                               int character_override) const {
     static constexpr stbtt_packedchar kNullPackedChar = { 0, 0, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f };
 
     char32_t last_character = 0;
@@ -319,8 +319,7 @@ namespace visage {
     std::vector<int> line_breaks;
     int break_index = 0;
     while (break_index < length) {
-      int overflow_index = widthOverflowIndex(string + break_index, length - break_index, width) +
-                           break_index;
+      int overflow_index = widthOverflowIndex(string + break_index, length - break_index, width) + break_index;
       if (overflow_index == length && !hasNewLine(string + break_index, overflow_index - break_index))
         break;
 

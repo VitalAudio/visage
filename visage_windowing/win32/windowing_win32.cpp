@@ -1156,8 +1156,7 @@ namespace visage {
       ScreenToClient(hwnd, &position);
       float delta_x = msg == WM_MOUSEHWHEEL ? delta : 0.0f;
       float delta_y = msg == WM_MOUSEWHEEL ? delta : 0.0f;
-      handleMouseWheel(delta_x, delta_y, position.x, position.y, mouseButtonState(),
-                       keyboardModifiers());
+      handleMouseWheel(delta_x, delta_y, position.x, position.y, mouseButtonState(), keyboardModifiers());
       return 0;
     }
     case WM_KILLFOCUS: {

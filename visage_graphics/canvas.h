@@ -37,7 +37,9 @@ namespace visage {
 
       Region() = default;
 
-      SubmitBatch* submitBatchAtPosition(int position) const { return shape_batcher_.batchAtIndex(position); }
+      SubmitBatch* submitBatchAtPosition(int position) const {
+        return shape_batcher_.batchAtIndex(position);
+      }
       int numSubmitBatches() const { return shape_batcher_.numBatches(); }
       bool isEmpty() const { return shape_batcher_.isEmpty(); }
       const std::vector<Region*>& subRegions() const { return sub_regions_; }
