@@ -19,11 +19,13 @@
 #include "visage_utils/thread_utils.h"
 
 namespace visage {
+  class GraphicsCallbackHandler;
+
   class Renderer : public Thread {
   public:
     static Renderer& getInstance();
 
-    Renderer() : Thread("Renderer Thread") { }
+    Renderer();
     ~Renderer() override;
 
     void checkInitialization(void* model_window, void* display);
@@ -41,5 +43,6 @@ namespace visage {
     bool supported_ = false;
     std::string error_message_;
     std::atomic<bool> render_thread_started_ = false;
+    std::unique_ptr<GraphicsCallbackHandler> callback_handler_;
   };
 }

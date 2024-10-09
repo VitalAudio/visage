@@ -17,13 +17,39 @@
 #include "renderer.h"
 
 #include "graphics_libs.h"
+#include "visage_utils/string_utils.h"
 
 namespace visage {
+  class GraphicsCallbackHandler : public bgfx::CallbackI {
+    void fatal(const char* file_path, uint16_t line, bgfx::Fatal::Enum _code, const char* error) override {
+      VISAGE_LOG("Graphics fatal error");
+      VISAGE_ASSERT(false);
+    }
+
+    void traceVargs(const char* file_path, uint16_t line, const char* format, va_list arg_list) override {
+#if VISAGE_GRAPHICS_DEBUG_LOGGING
+      visage::debugLog(file_path, line, format, arg_list);
+#endif
+    }
+
+    void profilerBegin(const char*, uint32_t, const char*, uint16_t) override { }
+    void profilerBeginLiteral(const char*, uint32_t, const char*, uint16_t) override { }
+    void profilerEnd() override { }
+    uint32_t cacheReadSize(uint64_t) override { return 0; }
+    bool cacheRead(uint64_t, void*, uint32_t) override { return false; }
+    void cacheWrite(uint64_t, const void*, uint32_t) override { }
+    void screenShot(const char*, uint32_t, uint32_t, uint32_t, const void*, uint32_t, bool) override { }
+    void captureBegin(uint32_t, uint32_t, uint32_t, bgfx::TextureFormat::Enum, bool) override { }
+    void captureEnd() override { }
+    void captureFrame(const void*, uint32_t) override { }
+  };
+
   Renderer& Renderer::getInstance() {
     static Renderer renderer;
     return renderer;
   }
 
+  Renderer::Renderer() : Thread("Renderer Thread") { }
   Renderer::~Renderer() = default;
 
   void Renderer::startRenderThread() {
@@ -50,6 +76,7 @@ namespace visage {
     if (initialized_)
       return;
 
+    callback_handler_ = std::make_unique<GraphicsCallbackHandler>();
     initialized_ = true;
     startRenderThread();
 
@@ -57,6 +84,7 @@ namespace visage {
     bgfx_init.resolution.numBackBuffers = 1;
     bgfx_init.resolution.width = 0;
     bgfx_init.resolution.height = 0;
+    bgfx_init.callback = callback_handler_.get();
 
     bgfx_init.platformData.ndt = display;
     bgfx_init.platformData.nwh = model_window;
