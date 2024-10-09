@@ -21,7 +21,7 @@ class TestEditor : public visage::WindowedEditor {
 public:
   void draw(visage::Canvas& canvas) override {
     static constexpr float kRadius = 50.0f;
-    canvas.clearArea(0, 0, getWidth(), getHeight());
+    canvas.clearArea(0, 0, width(), height());
     if (down_)
       canvas.setColor(0xff00ffff);
     else
@@ -55,7 +55,7 @@ private:
 
 int runExample() {
   TestEditor editor;
-  editor.show(0.5f);
+  editor.showWithEventLoop(0.5f);
 
   return 0;
 }

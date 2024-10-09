@@ -44,7 +44,7 @@ namespace visage {
     void captureFrame(const void*, uint32_t) override { }
   };
 
-  Renderer& Renderer::getInstance() {
+  Renderer& Renderer::instance() {
     static Renderer renderer;
     return renderer;
   }

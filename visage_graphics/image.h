@@ -43,8 +43,8 @@ namespace visage {
   class Image {
   public:
     virtual ~Image() = default;
-    virtual int getWidth() const = 0;
-    virtual int getHeight() const = 0;
+    virtual int width() const = 0;
+    virtual int height() const = 0;
     virtual bool needsRedraw() const = 0;
     virtual void draw(Canvas& canvas) = 0;
   };
@@ -64,7 +64,7 @@ namespace visage {
     int atlasWidth() const { return atlas_.width(); }
     bgfx::TextureHandle atlasTexture() const;
 
-    int getImageIndex(const Image* image) const {
+    int imageIndex(const Image* image) const {
       if (image_lookup_.count(image))
         return image_lookup_.at(image);
       return -1;

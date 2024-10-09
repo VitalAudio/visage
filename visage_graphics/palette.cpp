@@ -55,14 +55,14 @@ namespace visage {
     value_map_.clear();
     int num_value_ids = theme::ValueId::numValueIds();
     for (int i = 0; i < num_value_ids; ++i)
-      value_map_[0][i] = theme::ValueId::getDefaultValue(i);
+      value_map_[0][i] = theme::ValueId::defaultValue(i);
 
     color_map_.clear();
 
     int num_ids = theme::ColorId::numColorIds();
     std::map<unsigned int, int> existing_colors;
     for (int i = 0; i < num_ids; ++i) {
-      unsigned int default_color = theme::ColorId::getDefaultColor(i);
+      unsigned int default_color = theme::ColorId::defaultColor(i);
       if (existing_colors.count(default_color) == 0)
         existing_colors[default_color] = existing_colors.size();
 
@@ -110,17 +110,17 @@ namespace visage {
     }
   }
 
-  std::map<std::string, std::vector<unsigned int>> Palette::getColorIdList(int override_id) {
+  std::map<std::string, std::vector<unsigned int>> Palette::colorIdList(int override_id) {
     std::map<std::string, std::vector<unsigned int>> results;
     for (const auto& color : color_map_[override_id])
-      results[theme::ColorId::getGroupName(color.first)].push_back(color.first);
+      results[theme::ColorId::groupName(color.first)].push_back(color.first);
     return results;
   }
 
-  std::map<std::string, std::vector<unsigned int>> Palette::getValueIdList(int override_id) {
+  std::map<std::string, std::vector<unsigned int>> Palette::valueIdList(int override_id) {
     std::map<std::string, std::vector<unsigned int>> results;
     for (const auto& value : value_map_[override_id])
-      results[theme::ValueId::getGroupName(value.first)].push_back(value.first);
+      results[theme::ValueId::groupName(value.first)].push_back(value.first);
     return results;
   }
 
@@ -146,9 +146,9 @@ namespace visage {
     stream << std::setprecision(std::numeric_limits<float>::max_digits10);
 
     for (const auto& override_group : color_map_) {
-      stream << theme::OverrideId::getOverrideName(override_group.first) << std::endl;
+      stream << theme::OverrideId::name(override_group.first) << std::endl;
       for (const auto& color_assignment : override_group.second) {
-        stream << theme::ColorId::getColorName(color_assignment.first) << kEncodingSeparator
+        stream << theme::ColorId::name(color_assignment.first) << kEncodingSeparator
                << color_assignment.second << std::endl;
       }
       stream << std::endl;
@@ -156,9 +156,9 @@ namespace visage {
     stream << std::endl;
 
     for (const auto& override_group : value_map_) {
-      stream << theme::OverrideId::getOverrideName(override_group.first) << std::endl;
+      stream << theme::OverrideId::name(override_group.first) << std::endl;
       for (const auto& value_assignment : override_group.second) {
-        stream << theme::ValueId::getValueName(value_assignment.first) << kEncodingSeparator
+        stream << theme::ValueId::name(value_assignment.first) << kEncodingSeparator
                << value_assignment.second << std::endl;
       }
       stream << std::endl;
@@ -173,9 +173,9 @@ namespace visage {
 
   void Palette::decode(const std::string& data) {
     std::istringstream stream(data);
-    std::map<std::string, unsigned int> override_name_map = theme::OverrideId::getNameIdMap();
-    std::map<std::string, unsigned int> color_name_map = theme::ColorId::getNameIdMap();
-    std::map<std::string, unsigned int> value_name_map = theme::ValueId::getNameIdMap();
+    std::map<std::string, unsigned int> override_name_map = theme::OverrideId::nameIdMap();
+    std::map<std::string, unsigned int> color_name_map = theme::ColorId::nameIdMap();
+    std::map<std::string, unsigned int> value_name_map = theme::ValueId::nameIdMap();
 
     color_map_.clear();
     std::string override_name;

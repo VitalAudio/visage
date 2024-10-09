@@ -26,10 +26,10 @@ namespace visage {
   }
 
   void BarComponent::draw(Canvas& canvas) {
-    QuadColor bar_color = canvas.getColor(kBarColor);
+    QuadColor bar_color = canvas.color(kBarColor);
 
-    float width_scale = 1.0f / getWidth();
-    float height_scale = 1.0f / getHeight();
+    float width_scale = 1.0f / width();
+    float height_scale = 1.0f / height();
     for (int i = 0; i < num_bars_; ++i) {
       const Bar& bar = bars_[i];
       float left = bar.left * width_scale;

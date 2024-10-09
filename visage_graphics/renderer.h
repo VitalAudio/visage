@@ -23,14 +23,14 @@ namespace visage {
 
   class Renderer : public Thread {
   public:
-    static Renderer& getInstance();
+    static Renderer& instance();
 
     Renderer();
     ~Renderer() override;
 
     void checkInitialization(void* model_window, void* display);
 
-    const std::string& getErrorMessage() const { return error_message_; }
+    const std::string& errorMessage() const { return error_message_; }
     bool supported() const { return supported_; }
     bool initialized() const { return initialized_; }
 

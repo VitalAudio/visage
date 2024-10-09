@@ -29,32 +29,32 @@ namespace visage {
   THEME_VALUE(PopupFontSize, 15.0f, ScaledHeight, true);
   THEME_VALUE(PopupSelectionPadding, 4.0f, ScaledHeight, true);
 
-  int PopupList::getRenderHeight() {
-    int popup_height = getValue(kPopupOptionHeight);
-    int selection_padding = getValue(kPopupSelectionPadding);
+  int PopupList::renderHeight() {
+    int popup_height = paletteValue(kPopupOptionHeight);
+    int selection_padding = paletteValue(kPopupSelectionPadding);
     return options_.size() * popup_height + 2 * selection_padding;
   }
 
-  int PopupList::getRenderWidth() {
-    int width = getValue(kPopupMinWidth);
-    int x_padding = getValue(kPopupSelectionPadding) + getValue(kPopupTextPadding);
+  int PopupList::renderWidth() {
+    int width = paletteValue(kPopupMinWidth);
+    int x_padding = paletteValue(kPopupSelectionPadding) + paletteValue(kPopupTextPadding);
     for (const PopupOptions& option : options_) {
-      int string_width = font_.getStringWidth(option.name.c_str(), option.name.size()) + 2 * x_padding;
+      int string_width = font_.stringWidth(option.name.c_str(), option.name.size()) + 2 * x_padding;
       width = std::max<int>(width, string_width);
     }
 
     return width;
   }
 
-  int PopupList::getYForIndex(int index) {
-    return (getValue(kPopupSelectionPadding) + index * getValue(kPopupOptionHeight));
+  int PopupList::yForIndex(int index) {
+    return (paletteValue(kPopupSelectionPadding) + index * paletteValue(kPopupOptionHeight));
   }
 
   void PopupList::selectHoveredIndex() {
     if (hover_index_ >= 0 && hover_index_ < options_.size()) {
       if (!options_[hover_index_].sub_options.empty()) {
         for (Listener* listener : listeners_)
-          listener->subMenuSelected(options_[hover_index_], getYForIndex(hover_index_), this);
+          listener->subMenuSelected(options_[hover_index_], yForIndex(hover_index_), this);
         menu_open_index_ = hover_index_;
       }
       else {
@@ -65,9 +65,9 @@ namespace visage {
   }
 
   void PopupList::setHoverFromPosition(Point position) {
-    int y = getValue(kPopupSelectionPadding);
+    int y = paletteValue(kPopupSelectionPadding);
 
-    int option_height = getValue(kPopupOptionHeight);
+    int option_height = paletteValue(kPopupOptionHeight);
     for (int i = 0; i < options_.size(); ++i) {
       if (!options_[i].is_break && position.y >= y && position.y < y + option_height) {
         hover_index_ = i;
@@ -89,43 +89,43 @@ namespace visage {
     static constexpr float kTriangleWidthRatio = 0.25f;
     int dpi_scale = canvas.dpiScale();
 
-    QuadColor background = canvas.getColor(kPopupMenuBackground).withMultipliedAlpha(opacity_);
-    QuadColor border = canvas.getColor(kPopupMenuBorder).withMultipliedAlpha(opacity_);
+    QuadColor background = canvas.color(kPopupMenuBackground).withMultipliedAlpha(opacity_);
+    QuadColor border = canvas.color(kPopupMenuBorder).withMultipliedAlpha(opacity_);
     canvas.setColor(background);
-    canvas.roundedRectangle(0, 0, getWidth(), getHeight(), 8 * dpi_scale);
+    canvas.roundedRectangle(0, 0, width(), height(), 8 * dpi_scale);
 
     canvas.setColor(border);
-    canvas.roundedRectangleBorder(0, 0, getWidth(), getHeight(), 8 * dpi_scale, 1);
+    canvas.roundedRectangleBorder(0, 0, width(), height(), 8 * dpi_scale, 1);
 
     canvas.setPaletteColor(kPopupMenuText);
-    int selection_padding = getValue(kPopupSelectionPadding);
-    int x_padding = selection_padding + getValue(kPopupTextPadding);
-    int option_height = getValue(kPopupOptionHeight);
+    int selection_padding = paletteValue(kPopupSelectionPadding);
+    int x_padding = selection_padding + paletteValue(kPopupTextPadding);
+    int option_height = paletteValue(kPopupOptionHeight);
     int y = selection_padding - yPosition();
 
-    QuadColor text = canvas.getColor(kPopupMenuText).withMultipliedAlpha(opacity_);
-    QuadColor selected_text = canvas.getColor(kPopupMenuSelectionText).withMultipliedAlpha(opacity_);
+    QuadColor text = canvas.color(kPopupMenuText).withMultipliedAlpha(opacity_);
+    QuadColor selected_text = canvas.color(kPopupMenuSelectionText).withMultipliedAlpha(opacity_);
     for (int i = 0; i < options_.size(); ++i) {
-      if (y + option_height > 0 && y < getHeight()) {
+      if (y + option_height > 0 && y < height()) {
         if (options_[i].is_break)
-          canvas.rectangle(x_padding, y + option_height / 2, getWidth() - 2 * x_padding, 1);
+          canvas.rectangle(x_padding, y + option_height / 2, width() - 2 * x_padding, 1);
         else {
           if (i == hover_index_) {
-            QuadColor selected = canvas.getColor(kPopupMenuSelection).withMultipliedAlpha(opacity_);
+            QuadColor selected = canvas.color(kPopupMenuSelection).withMultipliedAlpha(opacity_);
             canvas.setColor(selected);
-            canvas.roundedRectangle(selection_padding, y, getWidth() - 2 * selection_padding,
+            canvas.roundedRectangle(selection_padding, y, width() - 2 * selection_padding,
                                     option_height, 4 * dpi_scale);
             canvas.setColor(selected_text);
           }
           else
             canvas.setColor(text);
 
-          Font font(getValue(kPopupFontSize), font_.fontData());
-          canvas.text(options_[i].name, font, Font::kLeft, x_padding, y, getWidth(), option_height);
+          Font font(paletteValue(kPopupFontSize), font_.fontData());
+          canvas.text(options_[i].name, font, Font::kLeft, x_padding, y, width(), option_height);
 
           if (!options_[i].sub_options.empty()) {
             int triangle_width = font.size() * kTriangleWidthRatio;
-            int triangle_x = getWidth() - x_padding - triangle_width;
+            int triangle_x = width() - x_padding - triangle_width;
             int triangle_y = y + option_height / 2 - triangle_width;
             canvas.triangleRight(triangle_x, triangle_y, triangle_width);
           }
@@ -137,15 +137,15 @@ namespace visage {
 
   void PopupList::resized() {
     ScrollableComponent::resized();
-    setScrollableHeight(getRenderHeight(), getHeight());
+    setScrollableHeight(renderHeight(), height());
   }
 
   void PopupList::onMouseDown(const MouseEvent& e) {
-    Point position = e.relativeTo(this).getPosition();
-    if (!isVisible() || !getLocalBounds().contains(position))
+    Point position = e.relativeTo(this).position;
+    if (!isVisible() || !localBounds().contains(position))
       return;
 
-    setHoverFromPosition(e.relativeTo(this).getPosition() + Point(0, yPosition()));
+    setHoverFromPosition(e.relativeTo(this).position + Point(0, yPosition()));
 
     if (hover_index_ < options_.size() && hover_index_ >= 0 && !options_[hover_index_].sub_options.empty())
       selectHoveredIndex();
@@ -159,7 +159,7 @@ namespace visage {
 
     hover_index_ = menu_open_index_;
     for (Listener* listener : listeners_)
-      listener->mouseMovedOnMenu(e.relativeTo(this).getPosition(), this);
+      listener->mouseMovedOnMenu(e.relativeTo(this).position, this);
 
     redraw();
   }
@@ -169,7 +169,7 @@ namespace visage {
       return;
 
     for (Listener* listener : listeners_)
-      listener->mouseMovedOnMenu(e.relativeTo(this).getPosition(), this);
+      listener->mouseMovedOnMenu(e.relativeTo(this).position, this);
 
     redraw();
   }
@@ -179,7 +179,7 @@ namespace visage {
       return;
 
     for (Listener* listener : listeners_)
-      listener->mouseDraggedOnMenu(e.relativeTo(this).getPosition(), this);
+      listener->mouseDraggedOnMenu(e.relativeTo(this).position, this);
 
     redraw();
   }
@@ -188,8 +188,8 @@ namespace visage {
     if (!isVisible())
       return;
 
-    Point position = e.relativeTo(this).getPosition();
-    if (getLocalBounds().contains(position) == 0) {
+    Point position = e.relativeTo(this).position;
+    if (localBounds().contains(position) == 0) {
       for (Listener* listener : listeners_)
         listener->mouseUpOutside(position, this);
       return;
@@ -226,26 +226,26 @@ namespace visage {
     for (int i = 1; i < kMaxSubMenus; ++i)
       lists_[i].setVisible(false);
 
-    setListFonts(Font(getValue(kPopupFontSize), font_.fontData()));
+    setListFonts(Font(paletteValue(kPopupFontSize), font_.fontData()));
     lists_[0].setOptions(options.sub_options);
-    int height = std::min(getHeight(), lists_[0].getRenderHeight());
-    int width = lists_[0].getRenderWidth();
+    int h = std::min(height(), lists_[0].renderHeight());
+    int w = lists_[0].renderWidth();
 
     int y = bounds.y();
     int x = bounds.x();
-    int bottom = y + height;
-    int right = x + width;
-    if (bottom > getHeight())
-      y = std::max(0, bounds.y() - height);
-    if (right > getWidth())
-      x = std::max(0, bounds.x() - width);
+    int bottom = y + h;
+    int right = x + w;
+    if (bottom > height())
+      y = std::max(0, bounds.y() - h);
+    if (right > width())
+      x = std::max(0, bounds.x() - w);
 
     for (auto& list : lists_) {
       list.resetOpenMenu();
       list.setNoHover();
     }
 
-    lists_[0].setBounds(x, y, width, height);
+    lists_[0].setBounds(x, y, w, h);
     lists_[0].setVisible(true);
     lists_[0].redraw();
     setVisible(true);
@@ -276,10 +276,10 @@ namespace visage {
     for (auto& list : lists_)
       list.enableMouseUp(true);
 
-    if (hover_list_ && hover_index_ >= 0 && hover_index_ < hover_list_->getNumOptions()) {
+    if (hover_list_ && hover_index_ >= 0 && hover_index_ < hover_list_->numOptions()) {
       const PopupOptions& option = hover_list_->option(hover_index_);
       if (!option.sub_options.empty()) {
-        subMenuSelected(option, hover_list_->getHoverY(), hover_list_);
+        subMenuSelected(option, hover_list_->hoverY(), hover_list_);
         return;
       }
     }
@@ -324,21 +324,21 @@ namespace visage {
         source_index = i;
     }
 
-    lists_[source_index].setOpenMenu(lists_[source_index].getHoverIndex());
+    lists_[source_index].setOpenMenu(lists_[source_index].hoverIndex());
     if (source_index < kMaxSubMenus - 1) {
       lists_[source_index + 1].setOptions(option.sub_options);
-      int height = lists_[source_index + 1].getRenderHeight();
-      int width = lists_[source_index + 1].getRenderWidth();
-      int y = list->getY() + selection_y;
-      int bottom = y + height;
-      int x = lists_[source_index].getRight();
-      int right = x + width;
-      if (bottom > getHeight())
-        y = getHeight() - height;
-      if (right > getWidth())
-        x = lists_[source_index].getX() - width;
+      int h = lists_[source_index + 1].renderHeight();
+      int w = lists_[source_index + 1].renderWidth();
+      int y = list->y() + selection_y;
+      int bottom = y + h;
+      int x = lists_[source_index].right();
+      int right = x + w;
+      if (bottom > height())
+        y = height() - h;
+      if (right > width())
+        x = lists_[source_index].x() - w;
 
-      lists_[source_index + 1].setBounds(x, y, width, height);
+      lists_[source_index + 1].setBounds(x, y, w, h);
       lists_[source_index + 1].setNoHover();
       lists_[source_index + 1].setVisible(true);
     }
@@ -347,15 +347,15 @@ namespace visage {
   void PopupMenu::moveHover(Point position, const PopupList* list) {
     PopupList* last_hover_list = hover_list_;
     int last_hover_index = hover_index_;
-    position += list->getPosition();
+    position += list->position();
     hover_list_ = nullptr;
     hover_index_ = -1;
     for (auto& sub_list : lists_) {
-      if (sub_list.isVisible() && sub_list.getBounds().contains(position)) {
-        sub_list.setHoverFromPosition(position - sub_list.getPosition() + Point(0, list->yPosition()));
+      if (sub_list.isVisible() && sub_list.bounds().contains(position)) {
+        sub_list.setHoverFromPosition(position - sub_list.position() + Point(0, list->yPosition()));
 
         hover_list_ = &sub_list;
-        hover_index_ = hover_list_->getHoverIndex();
+        hover_index_ = hover_list_->hoverIndex();
       }
     }
     if (hover_list_ != last_hover_list || hover_index_ != last_hover_index) {
@@ -365,10 +365,10 @@ namespace visage {
   }
 
   void PopupMenu::mouseUpOutside(Point position, PopupList* list) {
-    position += list->getPosition();
+    position += list->position();
     for (auto& sub_list : lists_) {
-      if (sub_list.isVisible() && sub_list.getBounds().contains(position)) {
-        sub_list.selectFromPosition(position - sub_list.getPosition());
+      if (sub_list.isVisible() && sub_list.bounds().contains(position)) {
+        sub_list.selectFromPosition(position - sub_list.position());
         return;
       }
     }
@@ -386,10 +386,10 @@ namespace visage {
 
     text_ = text;
 
-    Font font(getValue(kPopupFontSize), font_->fontData());
-    int x_padding = getValue(kPopupSelectionPadding) + getValue(kPopupTextPadding);
-    int width = font.getStringWidth(text.c_str(), text.length()) + 2 * x_padding;
-    int height = getValue(kPopupOptionHeight);
+    Font font(paletteValue(kPopupFontSize), font_->fontData());
+    int x_padding = paletteValue(kPopupSelectionPadding) + paletteValue(kPopupTextPadding);
+    int width = font.stringWidth(text.c_str(), text.length()) + 2 * x_padding;
+    int height = paletteValue(kPopupOptionHeight);
     int x = bounds.xCenter() - width / 2;
     int y = bounds.yCenter() - height / 2;
     if (justification & Font::kLeft)
@@ -406,16 +406,16 @@ namespace visage {
   }
 
   void ValueDisplay::draw(Canvas& canvas) {
-    Font font(canvas.getValue(kPopupFontSize), font_->fontData());
+    Font font(canvas.value(kPopupFontSize), font_->fontData());
     float pixel_scale = canvas.dpiScale();
     canvas.setPaletteColor(kPopupMenuBackground);
-    canvas.roundedRectangle(0, 0, getWidth(), getHeight(), 8 * pixel_scale);
+    canvas.roundedRectangle(0, 0, width(), height(), 8 * pixel_scale);
 
     canvas.setPaletteColor(kPopupMenuBorder);
-    canvas.roundedRectangleBorder(0, 0, getWidth(), getHeight(), 8 * pixel_scale, 1);
+    canvas.roundedRectangleBorder(0, 0, width(), height(), 8 * pixel_scale, 1);
 
     canvas.setPaletteColor(kPopupMenuText);
-    canvas.setColor(canvas.getColor(kPopupMenuText));
-    canvas.text(text_, font, Font::kCenter, 0, 0, getWidth(), getHeight());
+    canvas.setColor(canvas.color(kPopupMenuText));
+    canvas.text(text_, font, Font::kCenter, 0, 0, width(), height());
   }
 }

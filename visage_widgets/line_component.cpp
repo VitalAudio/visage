@@ -107,14 +107,14 @@ namespace visage {
     DrawableComponent::init();
   }
 
-  int LineComponent::getFillLocation() const {
+  int LineComponent::fillLocation() const {
     if (fill_center_ == kBottom)
-      return getHeight();
+      return height();
     if (fill_center_ == kTop)
       return 0;
     if (fill_center_ == kCustom)
       return custom_fill_center_;
-    return getHeight() / 2;
+    return height() / 2;
   }
 
   void LineComponent::draw(Canvas& canvas) {
@@ -127,26 +127,26 @@ namespace visage {
   }
 
   void LineComponent::drawLine(Canvas& canvas, unsigned int color_id) {
-    line_.line_value_scale = canvas.getValue(kLineColorBoost);
+    line_.line_value_scale = canvas.value(kLineColorBoost);
     canvas.setPaletteColor(color_id);
-    canvas.line(&line_, 0.0f, 0.0f, getWidth(), getHeight(), line_width_);
+    canvas.line(&line_, 0.0f, 0.0f, width(), height(), line_width_);
   }
 
   void LineComponent::drawFill(Canvas& canvas, unsigned int color_id) {
-    QuadColor color = canvas.getColor(color_id);
-    line_.fill_value_scale = canvas.getValue(kLineFillBoost);
+    QuadColor color = canvas.color(color_id);
+    line_.fill_value_scale = canvas.value(kLineFillBoost);
     canvas.setColor(color.withMultipliedAlpha(fill_alpha_mult_));
-    canvas.lineFill(&line_, 0.0f, 0.0f, getWidth(), getHeight(), getFillLocation());
+    canvas.lineFill(&line_, 0.0f, 0.0f, width(), height(), fillLocation());
   }
 
   void LineComponent::drawPosition(Canvas& canvas, float x, float y) {
-    float marker_width = canvas.getValue(kPositionBulbWidth);
-    canvas.setColor(canvas.getColor(kLineColor).withMultipliedHdr(1.0f + canvas.getValue(kLineColorBoost)));
+    float marker_width = canvas.value(kPositionBulbWidth);
+    canvas.setColor(canvas.color(kLineColor).withMultipliedHdr(1.0f + canvas.value(kLineColorBoost)));
     canvas.circle(x - marker_width * 0.5f, y - marker_width * 0.5f, marker_width);
   }
 
   void LineComponent::resized() {
-    line_width_ = getValue(kLineWidth);
+    line_width_ = paletteValue(kLineWidth);
     DrawableComponent::resized();
   }
 

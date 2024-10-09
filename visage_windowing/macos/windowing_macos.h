@@ -61,13 +61,13 @@ namespace visage {
 
     ~WindowMac() override;
 
-    void* getNativeHandle() const override { return view_; }
+    void* nativeHandle() const override { return view_; }
     void* getInitWindow() const override;
 
     void setNativeWindowHandle(NSWindow* window);
     AppView* getView() { return view_; }
 
-    void runEventThread() override;
+    void runEventLoop() override;
     void windowContentsResized(int width, int height) override;
     void show() override;
     void hide() override;

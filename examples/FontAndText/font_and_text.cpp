@@ -32,29 +32,29 @@ public:
       canvas.setColor(0xffffffff);
       std::ostringstream format;
       format << "Monospace: " << std::fixed << std::setprecision(2) << incrment_value_;
-      canvas.text(format.str(), increment_font_, visage::Font::kRight, 0, 0, increment_.getWidth(),
-                  increment_.getHeight());
+      canvas.text(format.str(), increment_font_, visage::Font::kRight, 0, 0, increment_.width(),
+                  increment_.height());
       increment_.redraw();
     });
   }
 
   void draw(visage::Canvas& canvas) override {
-    int font_size = kFontHeightRatio * getHeight();
+    int font_size = kFontHeightRatio * height();
     visage::Font font(font_size, resources::fonts::Lato_Regular_ttf);
     canvas.setColor(0xff2a2a33);
-    canvas.fill(0, 0, getWidth(), getHeight());
+    canvas.fill(0, 0, width(), height());
 
     canvas.setColor(0xffffffff);
-    canvas.text("Hello, world!", font, visage::Font::kCenter, 0.0f, 0.0f, getWidth(), getHeight());
+    canvas.text("Hello, world!", font, visage::Font::kCenter, 0.0f, 0.0f, width(), height());
 
     visage::Font emoji(font_size, resources::fonts::NotoEmoji_Medium_ttf);
-    canvas.text(U"\U0001F525", emoji, visage::Font::kLeft, 0.0f, 0.0f, getWidth(), getHeight());
+    canvas.text(U"\U0001F525", emoji, visage::Font::kLeft, 0.0f, 0.0f, width(), height());
   }
 
   void editorResized() override {
-    int font_size = kFontHeightRatio * getHeight();
+    int font_size = kFontHeightRatio * height();
 
-    increment_.setBounds(0, 0, getWidth() - font_size, 2 * font_size);
+    increment_.setBounds(0, 0, width() - font_size, 2 * font_size);
     increment_font_ = visage::Font(font_size, resources::fonts::DroidSansMono_ttf);
   }
 
@@ -67,7 +67,7 @@ private:
 
 int runExample() {
   TestEditor editor;
-  editor.show(0.5f);
+  editor.showWithEventLoop(0.5f);
 
   return 0;
 }

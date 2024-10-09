@@ -523,7 +523,7 @@ namespace visage {
     return true;
   }
 
-  void WindowEmscripten::runEventThread() {
+  void WindowEmscripten::runEventLoop() {
     static const char* canvas = "#canvas";
     emscripten_set_mousedown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, mouseCallback);
     emscripten_set_mouseup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, mouseCallback);

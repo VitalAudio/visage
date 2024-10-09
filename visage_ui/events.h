@@ -47,7 +47,7 @@ namespace visage {
 
   class EventManager {
   public:
-    static EventManager& getInstance() {
+    static EventManager& instance() {
       static EventManager instance;
       return instance;
     }
@@ -66,13 +66,12 @@ namespace visage {
   };
 
   static void runOnEventThread(std::function<void()> function) {
-    EventManager::getInstance().addCallback(function);
+    EventManager::instance().addCallback(function);
   }
 
   struct MouseEvent {
-    Point getPosition() const { return position; }
-    Point getRelativePosition() const { return relative_position; }
-    Point getWindowPosition() const { return window_position; }
+    Point relativePosition() const { return relative_position; }
+    Point windowPosition() const { return window_position; }
     bool isAltDown() const { return modifiers & kModifierAlt; }
     bool isShiftDown() const { return modifiers & kModifierShift; }
     bool isRegCtrlDown() const { return modifiers & kModifierRegCtrl; }
@@ -87,7 +86,7 @@ namespace visage {
     bool isMouse() const { return !isTouch(); }
     bool isTouch() const { return button_state & kMouseButtonTouch; }
     bool hasWheelMomentum() const { return wheel_momentum; }
-    int getRepeatClickCount() const { return repeat_click_count; }
+    int repeatClickCount() const { return repeat_click_count; }
 
     bool isLeftButtonCurrentlyDown() const { return button_state & kMouseButtonLeft; }
     bool isMiddleButtonCurrentlyDown() const { return button_state & kMouseButtonMiddle; }
@@ -126,7 +125,7 @@ namespace visage {
     KeyEvent(KeyCode key, int mods, bool is_down, bool repeat = false) :
         key_code(key), modifiers(mods), key_down(is_down), is_repeat(repeat) { }
 
-    KeyCode getKeyCode() const { return key_code; }
+    KeyCode keyCode() const { return key_code; }
     bool isAltDown() const { return modifiers & kModifierAlt; }
     bool isShiftDown() const { return modifiers & kModifierShift; }
     bool isRegCtrlDown() const { return modifiers & kModifierRegCtrl; }
@@ -135,7 +134,7 @@ namespace visage {
     bool isCmdDown() const { return modifiers & kModifierCmd; }
     bool isMetaDown() const { return modifiers & kModifierMeta; }
     bool isOptionDown() const { return modifiers & kModifierAlt; }
-    int getModifierMask() const { return modifiers; }
+    int modifierMask() const { return modifiers; }
     bool isMainModifier() const { return isRegCtrlDown() || isCmdDown(); }
     bool isRepeat() const { return is_repeat; }
 

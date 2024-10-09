@@ -30,14 +30,14 @@ namespace visage {
 
     float y_ratio = position_ / range_;
     float height_ratio = view_height_ * 1.0f / range_;
-    int height = getHeight();
+    int h = height();
 
     canvas.setBlendedPaletteColor(kScrollBarDefault, kScrollBarDown, color_.update());
-    float width = width_.update();
+    float w = width_.update();
 
     float rounding = std::min(width_.setSourceValue() / 2.0f, rounding_);
-    float x = left_ ? 0.0f : getWidth() - width;
-    canvas.roundedRectangle(x, y_ratio * height, width, height_ratio * height, rounding);
+    float x = left_ ? 0.0f : width() - w;
+    canvas.roundedRectangle(x, y_ratio * h, w, height_ratio * h, rounding);
 
     if (width_.isAnimating() || color_.isAnimating())
       redraw();
@@ -61,7 +61,7 @@ namespace visage {
     if (!active_ || max_value <= 0 || range_ <= 0)
       return;
 
-    last_drag_ = e.getPosition().y;
+    last_drag_ = e.position.y;
   }
 
   void ScrollBar::onMouseUp(const MouseEvent& e) {
@@ -70,9 +70,8 @@ namespace visage {
   }
 
   void ScrollBar::onMouseDrag(const MouseEvent& e) {
-    float height = getHeight();
-    float delta = range_ * (e.getPosition().y - last_drag_) / height;
-    last_drag_ = e.getPosition().y;
+    float delta = range_ * (e.position.y - last_drag_) / height();
+    last_drag_ = e.position.y;
 
     position_ += delta;
     position_ = std::min<float>(range_ - view_height_, std::max(0.0f, position_));
@@ -83,11 +82,11 @@ namespace visage {
   }
 
   void ScrollableComponent::resized() {
-    int old_height = std::max(1, scroll_bar_.getHeight());
-    int scroll_bar_width = getValue(kScrollBarWidth);
-    int x = scroll_bar_left_ ? 0 : getWidth() - scroll_bar_width;
-    scroll_bar_.setBounds(x, 0, scroll_bar_width, getHeight());
-    container_.setBounds(0, -y_position_, getWidth(), scroll_bar_.viewHeight());
-    setYPosition(getHeight() * float_position_ / old_height);
+    int old_height = std::max(1, scroll_bar_.height());
+    int scroll_bar_width = paletteValue(kScrollBarWidth);
+    int x = scroll_bar_left_ ? 0 : width() - scroll_bar_width;
+    scroll_bar_.setBounds(x, 0, scroll_bar_width, height());
+    container_.setBounds(0, -y_position_, width(), scroll_bar_.viewHeight());
+    setYPosition(height() * float_position_ / old_height);
   }
 }

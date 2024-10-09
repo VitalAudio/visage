@@ -71,9 +71,9 @@ namespace visage {
     void setThreadTask(std::function<void()> task) { task_ = task; }
 
     bool waitForEnd(int ms_timeout) {
-      long long ms_start = time::getMilliseconds();
+      long long ms_start = time::milliseconds();
       while (!completed()) {
-        if (time::getMilliseconds() - ms_start > ms_timeout)
+        if (time::milliseconds() - ms_start > ms_timeout)
           return false;
 
         yield();

@@ -33,6 +33,9 @@ namespace visage {
     static constexpr int kNotSet = INT_MAX;
     static constexpr float kDefaultMinWindowScale = 0.1f;
 
+    static void setDoubleClickSpeed(int ms) { double_click_speed_ = ms; }
+    static int doubleClickSpeed() { return double_click_speed_; }
+
     class EventHandler {
     public:
       virtual ~EventHandler() = default;
@@ -64,7 +67,7 @@ namespace visage {
 
       virtual bool isDragDropSource() = 0;
       virtual std::string startDragDropSource() = 0;
-      virtual visage::Bounds getDragDropSourceBounds() = 0;
+      virtual visage::Bounds dragDropSourceBounds() = 0;
       virtual void cleanupDragDropSource() = 0;
     };
 
@@ -75,20 +78,20 @@ namespace visage {
     Window(int width, int height);
     virtual ~Window() = default;
 
-    virtual void runEventThread() = 0;
-    virtual void* getNativeHandle() const = 0;
+    virtual void runEventLoop() = 0;
+    virtual void* nativeHandle() const = 0;
     virtual void windowContentsResized(int width, int height) = 0;
 
-    virtual void* getInitWindow() const { return nullptr; }
-    virtual void* getGlobalDisplay() const { return nullptr; }
+    virtual void* initWindow() const { return nullptr; }
+    virtual void* globalDisplay() const { return nullptr; }
     virtual void processPluginFdEvents() { }
-    virtual int getPosixFd() const { return 0; }
+    virtual int posixFd() const { return 0; }
 
     virtual void show() = 0;
     virtual void hide() = 0;
     virtual void setWindowTitle(const std::string& title) = 0;
-    virtual Point getMaxWindowDimensions() const = 0;
-    virtual Point getMinWindowDimensions() const = 0;
+    virtual Point maxWindowDimensions() const = 0;
+    virtual Point minWindowDimensions() const = 0;
 
     void setDrawCallback(std::function<void(double)> callback) { draw_callback_ = callback; }
 
@@ -98,13 +101,13 @@ namespace visage {
     }
 
     void setMinimumWindowScale(float scale) { min_window_scale_ = scale; }
-    float getMinimumWindowScale() const { return min_window_scale_; }
+    float minimumWindowScale() const { return min_window_scale_; }
     virtual void setFixedAspectRatio(bool fixed) { fixed_aspect_ratio_ = fixed; }
     bool isFixedAspectRatio() const { return fixed_aspect_ratio_; }
-    float getAspectRatio() const { return aspect_ratio_; }
+    float aspectRatio() const { return aspect_ratio_; }
     bool isVisible() const { return visible_; }
 
-    Point getLastWindowMousePosition() const { return last_window_mouse_position_; }
+    Point lastWindowMousePosition() const { return last_window_mouse_position_; }
     Point convertPointToWindowPosition(const Point& point) const {
       return { static_cast<int>(std::round(point.x / pixel_scale_)),
                static_cast<int>(std::round(point.y / pixel_scale_)) };
@@ -117,9 +120,9 @@ namespace visage {
     void setWindowSize(int width, int height);
     void setInternalWindowSize(int width, int height);
     void setPixelScale(float scale) { pixel_scale_ = scale; }
-    float getPixelScale() const { return pixel_scale_; }
+    float pixelScale() const { return pixel_scale_; }
     void setMouseRelativeMode(bool relative) { mouse_relative_mode_ = relative; }
-    virtual bool getMouseRelativeMode() const { return mouse_relative_mode_; }
+    virtual bool mouseRelativeMode() const { return mouse_relative_mode_; }
 
     int clientWidth() const { return client_width_; }
     int clientHeight() const { return client_height_; }
@@ -153,11 +156,13 @@ namespace visage {
 
     bool isDragDropSource() const;
     std::string startDragDropSource() const;
-    Bounds getDragDropSourceBounds();
+    Bounds dragDropSourceBounds();
     void cleanupDragDropSource() const;
     void setVisible(bool visible) { visible_ = visible; }
 
   private:
+    static int double_click_speed_;
+
     struct RepeatClick {
       int click_count = 0;
       long long last_click_ms = 0;
@@ -182,19 +187,19 @@ namespace visage {
 
   void setCursorStyle(MouseCursor style);
   void setCursorVisible(bool visible);
-  Point getCursorPosition();
+  Point cursorPosition();
   void setCursorPosition(Point window_position);
   void setCursorScreenPosition(Point screen_position);
-  float getWindowPixelScale();
+  float windowPixelScale();
   void showMessageBox(std::string title, std::string message);
-  std::string getClipboardText();
+  std::string readClipboardText();
   void setClipboardText(const std::string& text);
 
-  int getDoubleClickSpeed();
+  int doubleClickSpeed();
   void setDoubleClickSpeed(int ms);
 
-  Bounds getScaledWindowBounds(float aspect_ratio, float display_scale, int x = Window::kNotSet,
-                               int y = Window::kNotSet);
+  Bounds scaledWindowBounds(float aspect_ratio, float display_scale, int x = Window::kNotSet,
+                            int y = Window::kNotSet);
   std::unique_ptr<Window> createWindow(int x, int y, int width, int height);
   std::unique_ptr<Window> createPluginWindow(int width, int height, void* parent_handle);
 
@@ -204,7 +209,7 @@ namespace visage {
 
   inline std::unique_ptr<Window> createScaledWindow(float aspect_ratio, float display_scale = 0.7f,
                                                     int x = Window::kNotSet, int y = Window::kNotSet) {
-    Bounds bounds = getScaledWindowBounds(aspect_ratio, display_scale, x, y);
+    Bounds bounds = scaledWindowBounds(aspect_ratio, display_scale, x, y);
     return createWindow(bounds.x(), bounds.y(), bounds.width(), bounds.height());
   }
 }

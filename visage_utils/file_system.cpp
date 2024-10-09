@@ -32,7 +32,7 @@
 #include <dlfcn.h>
 #include <unistd.h>
 
-static visage::File getXdgFolder(const char* env_var, const char* default_folder) {
+static visage::File xdgFolder(const char* env_var, const char* default_folder) {
   const char* xdg_folder = getenv(env_var);
   if (xdg_folder)
     return xdg_folder;
@@ -87,7 +87,7 @@ namespace visage {
     return { std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>() };
   }
 
-  File getHostExecutable() {
+  File hostExecutable() {
 #if VISAGE_WINDOWS
     static File path;
     if (path.empty()) {
@@ -117,7 +117,7 @@ namespace visage {
 #endif
   }
 
-  File getAppDataDirectory() {
+  File appDataDirectory() {
 #if VISAGE_WINDOWS
     static File path;
     if (path.empty()) {
@@ -129,13 +129,13 @@ namespace visage {
 #elif VISAGE_MAC
     return "~/Library";
 #elif VISAGE_LINUX
-    return getXdgFolder("XDG_DATA_HOME", "~/.config");
+    return xdgFolder("XDG_DATA_HOME", "~/.config");
 #else
     return {};
 #endif
   }
 
-  File getUserDocumentsDirectory() {
+  File userDocumentsDirectory() {
 #if VISAGE_WINDOWS
     static File path;
     if (path.empty()) {
@@ -147,17 +147,17 @@ namespace visage {
 #elif VISAGE_MAC
     return "~/Documents";
 #elif VISAGE_LINUX
-    return getXdgFolder("XDG_DOCUMENTS_DIR", "~/Documents");
+    return xdgFolder("XDG_DOCUMENTS_DIR", "~/Documents");
 #else
     return {};
 #endif
   }
 
-  File getAudioPluginFile() {
+  File audioPluginFile() {
 #if VISAGE_WINDOWS
     HMODULE module = nullptr;
     auto flags = GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT;
-    auto status = GetModuleHandleExA(flags, reinterpret_cast<LPCSTR>(&getAudioPluginFile), &module);
+    auto status = GetModuleHandleExA(flags, reinterpret_cast<LPCSTR>(&audioPluginFile), &module);
     if (status == 0 || module == nullptr)
       module = GetModuleHandleA(nullptr);
 
@@ -184,7 +184,7 @@ namespace visage {
 #endif
   }
 
-  File getAudioPluginDataFolder() {
+  File audioPluginDataFolder() {
 #if VISAGE_WINDOWS
     static File path;
     if (path.empty()) {
@@ -197,7 +197,7 @@ namespace visage {
 #elif VISAGE_MAC
     return "~/Music/" VISAGE_APPLICATION_NAME;
 #elif VISAGE_LINUX
-    File path = getXdgFolder("XDG_DOCUMENTS_DIR", "~/Documents");
+    File path = xdgFolder("XDG_DOCUMENTS_DIR", "~/Documents");
     return path / VISAGE_APPLICATION_NAME;
 #else
     return {};
@@ -211,16 +211,16 @@ namespace visage {
     return std::filesystem::temp_directory_path() / unique_file;
   }
 
-  std::string getFileName(const File& file) {
+  std::string fileName(const File& file) {
     return file.filename().string();
   }
 
-  std::string getFileStem(const File& file) {
+  std::string fileStem(const File& file) {
     return file.stem().string();
   }
 
-  std::string getHostName() {
-    return getFileStem(getHostExecutable());
+  std::string hostName() {
+    return fileStem(hostExecutable());
   }
 
   std::vector<File> searchForFiles(const File& directory, const std::string& regex) {

@@ -32,12 +32,12 @@ namespace visage {
     bool auto_select = true;
     std::vector<PopupOptions> sub_options;
 
-    PopupOptions* getById(int search_id) {
+    PopupOptions* subOption(int search_id) {
       for (PopupOptions& option : sub_options) {
         if (option.id == search_id)
           return &option;
 
-        PopupOptions* sub_option = option.getById(search_id);
+        PopupOptions* sub_option = option.subOption(search_id);
         if (sub_option)
           return sub_option;
       }
@@ -120,52 +120,52 @@ namespace visage {
 
     virtual bool requestRedraw(DrawableComponent* component) { return false; }
 
-    virtual float getWidthScale() {
+    virtual float widthScale() {
       if (parent_)
-        return getTopParentComponent()->getWidthScale();
+        return topParentComponent()->widthScale();
       return 1.0f;
     }
 
-    virtual float getHeightScale() {
+    virtual float heightScale() {
       if (parent_)
-        return getTopParentComponent()->getHeightScale();
+        return topParentComponent()->heightScale();
       return 1.0f;
     }
 
-    virtual float getDpiScale() {
+    virtual float dpiScale() {
       if (parent_)
-        return getTopParentComponent()->getDpiScale();
+        return topParentComponent()->dpiScale();
       return 1.0f;
     }
 
     virtual void setCursorStyle(MouseCursor style) {
       if (parent_)
-        getTopParentComponent()->setCursorStyle(style);
+        topParentComponent()->setCursorStyle(style);
     }
 
     virtual void setCursorVisible(bool visible) {
       if (parent_)
-        getTopParentComponent()->setCursorVisible(visible);
+        topParentComponent()->setCursorVisible(visible);
     }
 
-    virtual std::string getClipboardText() {
+    virtual std::string readClipboardText() {
       if (parent_)
-        return getTopParentComponent()->getClipboardText();
+        return topParentComponent()->readClipboardText();
       return "";
     }
 
     virtual void setClipboardText(const std::string& text) {
       if (parent_)
-        getTopParentComponent()->setClipboardText(text);
+        topParentComponent()->setClipboardText(text);
     }
 
     virtual void setMouseRelativeMode(bool relative) {
       if (parent_)
-        getTopParentComponent()->setMouseRelativeMode(relative);
+        topParentComponent()->setMouseRelativeMode(relative);
     }
 
-    float getValue(unsigned int value_id);
-    QuadColor getPaletteColor(unsigned int color_id);
+    float paletteValue(unsigned int value_id);
+    QuadColor paletteColor(unsigned int color_id);
 
     bool isPopupVisible() const;
     void showPopupMenu(const PopupOptions& options, Bounds bounds,
@@ -184,7 +184,7 @@ namespace visage {
       return isVisible() && (parent_ == nullptr || parent_->visibleInParents());
     }
 
-    DrawableComponent* getTopParentComponent() {
+    DrawableComponent* topParentComponent() {
       DrawableComponent* parent = this;
       while (parent->parent_)
         parent = parent->parent_;
@@ -218,10 +218,10 @@ namespace visage {
       if (post_effect_canvas_ == nullptr)
         return;
 
-      post_effect_canvas_->setDimensions(getWidth(), getHeight());
-      post_effect_canvas_->setWidthScale(getWidthScale());
-      post_effect_canvas_->setHeightScale(getHeightScale());
-      post_effect_canvas_->setDpiScale(getDpiScale());
+      post_effect_canvas_->setDimensions(width(), height());
+      post_effect_canvas_->setWidthScale(widthScale());
+      post_effect_canvas_->setHeightScale(heightScale());
+      post_effect_canvas_->setDpiScale(dpiScale());
     }
 
     void addDrawableComponent(DrawableComponent* component, PostEffect* post_effect,
@@ -265,7 +265,7 @@ namespace visage {
     bool initialized() const { return initialized_; }
     void redraw() {
       if (isVisible() && isDrawing() && !redrawing_) {
-        redrawing_ = getTopParentComponent()->requestRedraw(this);
+        redrawing_ = topParentComponent()->requestRedraw(this);
         region_.invalidate();
       }
     }
@@ -323,8 +323,8 @@ namespace visage {
       void redraw() { need_redraw_ = true; }
       bool needsRedraw() const override { return need_redraw_; }
 
-      int getWidth() const override { return component_->getWidth(); }
-      int getHeight() const override { return component_->getHeight(); }
+      int width() const override { return component_->width(); }
+      int height() const override { return component_->height(); }
 
     private:
       CachedDrawableComponent* component_ = nullptr;

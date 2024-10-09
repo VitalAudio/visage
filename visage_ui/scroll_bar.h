@@ -31,8 +31,8 @@ namespace visage {
     void draw(Canvas& canvas) override;
     void resized() override {
       DrawableComponent::resized();
-      width_.setSourceValue(getWidth() / 2);
-      width_.setTargetValue(getWidth());
+      width_.setSourceValue(width() / 2);
+      width_.setTargetValue(width());
     }
 
     void onMouseEnter(const MouseEvent& e) override;
@@ -113,21 +113,21 @@ namespace visage {
     }
 
     bool scrollUp() {
-      setYPosition(std::max(0, y_position_ - getHeight() / 8));
+      setYPosition(std::max(0, y_position_ - height() / 8));
       return true;
     }
 
     bool scrollDown() {
-      setYPosition(y_position_ + getHeight() / 8);
+      setYPosition(y_position_ + height() / 8);
       return true;
     }
 
     void setScrollBarRounding(float rounding) { scroll_bar_.setRounding(rounding); }
-    int getScrollableHeight() const { return container_.getHeight(); }
+    int scrollableHeight() const { return container_.height(); }
     void setScrollableHeight(int total_height, int view_height = 0) {
       if (view_height == 0)
-        view_height = getHeight();
-      container_.setBounds(0, -y_position_, getWidth(), total_height);
+        view_height = height();
+      container_.setBounds(0, -y_position_, width(), total_height);
       setYPosition(std::max(0, std::min(y_position_, total_height - view_height)));
       scroll_bar_.setViewPosition(total_height, view_height, y_position_);
     }
@@ -139,7 +139,7 @@ namespace visage {
     void setYPosition(float position) {
       float_position_ = position;
       y_position_ = position;
-      container_.setTopLeft(container_.getX(), -y_position_);
+      container_.setTopLeft(container_.x(), -y_position_);
       scroll_bar_.setPosition(position);
       redraw();
     }
@@ -148,7 +148,7 @@ namespace visage {
     void onMouseWheel(const MouseEvent& e) override {
       static constexpr float kScale = 30.0f;
 
-      float y = float_position_ - kScale * e.precise_wheel_delta_y * getHeightScale();
+      float y = float_position_ - kScale * e.precise_wheel_delta_y * heightScale();
       float max = scroll_bar_.viewRange() - scroll_bar_.viewHeight();
       y = std::min(max, y);
       y = std::max(0.0f, y);

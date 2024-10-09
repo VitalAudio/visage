@@ -23,20 +23,6 @@
 #include <map>
 
 namespace visage {
-  static std::string getRendererString() {
-    switch (bgfx::getRendererType()) {
-    case bgfx::RendererType::Direct3D11:
-    case bgfx::RendererType::Direct3D12: return "dx";
-    case bgfx::RendererType::Gnm: return "pssl";
-    case bgfx::RendererType::Metal: return "metal";
-    case bgfx::RendererType::Nvn: return "nvn";
-    case bgfx::RendererType::OpenGL: return "glsl";
-    case bgfx::RendererType::OpenGLES: return "essl";
-    case bgfx::RendererType::Vulkan:
-    default: return "";
-    }
-  }
-
   struct ShaderCacheMap {
     std::map<const char*, bgfx::ShaderHandle> cache;
     std::map<const char*, bgfx::ShaderHandle> originals;
@@ -51,7 +37,7 @@ namespace visage {
       bgfx::destroy(shader.second);
   }
 
-  bgfx::ShaderHandle& ShaderCache::get(const EmbeddedFile& file) const {
+  bgfx::ShaderHandle& ShaderCache::handle(const EmbeddedFile& file) const {
     if (cache_->cache.count(file.data))
       return cache_->cache[file.data];
 
@@ -87,7 +73,7 @@ namespace visage {
     }
   }
 
-  std::vector<ProgramCache::ShaderPair> ProgramCache::programList() const {
+  std::vector<ProgramCache::ShaderPair> ProgramCache::listPrograms() const {
     std::vector<ProgramCache::ShaderPair> results;
     for (const auto& vertex : cache_->shader_lookup) {
       for (const auto& fragment : vertex.second)
@@ -96,12 +82,12 @@ namespace visage {
     return results;
   }
 
-  bgfx::ProgramHandle& ProgramCache::get(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
+  bgfx::ProgramHandle& ProgramCache::handle(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
     if (cache_->cache.count(vertex.data) && cache_->cache[vertex.data].count(fragment.data))
       return cache_->cache[vertex.data][fragment.data];
 
-    bgfx::ProgramHandle program = bgfx::createProgram(ShaderCache::getShader(vertex),
-                                                      ShaderCache::getShader(fragment), false);
+    bgfx::ProgramHandle program = bgfx::createProgram(ShaderCache::shaderHandle(vertex),
+                                                      ShaderCache::shaderHandle(fragment), false);
     cache_->cache[vertex.data][fragment.data] = program;
     cache_->shader_lookup[vertex.data][fragment.data] = { vertex, fragment };
 
@@ -110,8 +96,8 @@ namespace visage {
   }
 
   bgfx::ProgramHandle& ProgramCache::reload(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
-    cache_->cache[vertex.data][fragment.data] = bgfx::createProgram(ShaderCache::getShader(vertex),
-                                                                    ShaderCache::getShader(fragment),
+    cache_->cache[vertex.data][fragment.data] = bgfx::createProgram(ShaderCache::shaderHandle(vertex),
+                                                                    ShaderCache::shaderHandle(fragment),
                                                                     false);
     return cache_->cache[vertex.data][fragment.data];
   }
@@ -134,7 +120,7 @@ namespace visage {
       bgfx::destroy(uniform.second);
   }
 
-  bgfx::UniformHandle& UniformCache::get(const char* name, Type type, int size) const {
+  bgfx::UniformHandle& UniformCache::handle(const char* name, Type type, int size) const {
     if (cache_->cache.count(name))
       return cache_->cache[name];
 

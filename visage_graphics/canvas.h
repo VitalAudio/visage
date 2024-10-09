@@ -37,7 +37,7 @@ namespace visage {
 
       Region() = default;
 
-      SubmitBatch* getSubmitBatch(int position) const { return shape_batcher_.getBatch(position); }
+      SubmitBatch* submitBatchAtPosition(int position) const { return shape_batcher_.batchAtIndex(position); }
       int numSubmitBatches() const { return shape_batcher_.numBatches(); }
       bool isEmpty() const { return shape_batcher_.isEmpty(); }
       const std::vector<Region*>& subRegions() const { return sub_regions_; }
@@ -135,7 +135,7 @@ namespace visage {
 
     ~Canvas();
 
-    void clear();
+    void clearDrawnShapes();
     int submit(int submit_pass = 0);
     void render();
 
@@ -170,10 +170,10 @@ namespace visage {
 
     void setColor(unsigned int color) { state_.color = color; }
     void setColor(const QuadColor& color) { state_.color = color; }
-    void setPaletteColor(int color_id) { state_.color = getColor(color_id); }
+    void setPaletteColor(int color_id) { state_.color = color(color_id); }
 
     void setBlendedPaletteColor(int color_from, int color_to, float t) {
-      state_.color = getBlendedColor(color_from, color_to, t);
+      state_.color = blendedColor(color_from, color_to, t);
     }
 
     void fill(float x, float y, float width, float height) {
@@ -447,7 +447,7 @@ namespace visage {
     void image(Image* image, float x, float y) {
       images_.insert(image);
       addShape(ImageWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y,
-                            image->getWidth() * 1.0f, image->getHeight() * 1.0f, image));
+                            image->width() * 1.0f, image->height() * 1.0f, image));
     }
 
     void shader(Shader* shader, float x, float y, float width, float height) {
@@ -528,22 +528,22 @@ namespace visage {
       state_.clamp.bottom += y_offset;
     }
 
-    const ClampBounds& getClampBounds() const { return state_.clamp; }
+    const ClampBounds& currentClampBounds() const { return state_.clamp; }
 
     bool totallyClamped() const {
       return state_.clamp.bottom <= state_.clamp.top || state_.clamp.right <= state_.clamp.left;
     }
 
-    int getX() const { return state_.x; }
-    int getY() const { return state_.y; }
+    int x() const { return state_.x; }
+    int y() const { return state_.y; }
 
-    QuadColor getColor(unsigned int color_id);
-    QuadColor getBlendedColor(int color_from, int color_to, float t) {
-      return getColor(color_from).interpolate(getColor(color_to), t);
+    QuadColor color(unsigned int color_id);
+    QuadColor blendedColor(int color_from, int color_to, float t) {
+      return color(color_from).interpolate(color(color_to), t);
     }
 
-    float getValue(unsigned int value_id);
-    std::vector<std::string> getDebugInfo() const;
+    float value(unsigned int value_id);
+    std::vector<std::string> debugInfo() const;
 
     ImageGroup* imageGroup() {
       if (image_group_ == nullptr)
@@ -557,7 +557,7 @@ namespace visage {
       return icon_group_.get();
     }
 
-    State* getState() { return &state_; }
+    State* state() { return &state_; }
 
   private:
     void roundedCorner(float x, float y, float width, Corner corner) {

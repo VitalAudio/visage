@@ -88,7 +88,7 @@ namespace visage {
     int atlasWidth() const { return atlas_.width(); }
     const bgfx::TextureHandle& textureHandle() const;
 
-    int getIconIndex(const Icon& icon) const {
+    int iconIndex(const Icon& icon) const {
       if (icon_lookup_.count(icon))
         return icon_lookup_.at(icon);
       return -1;

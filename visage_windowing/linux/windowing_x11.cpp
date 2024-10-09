@@ -59,7 +59,7 @@ namespace visage {
     if (window == nullptr)
       return "";
 
-    ::Window window_handle = (::Window)window->getNativeHandle();
+    ::Window window_handle = (::Window)window->nativeHandle();
     Display* display = x11.display();
 
     ::Window selection_owner = XGetSelectionOwner(display, x11.clipboard());
@@ -107,7 +107,7 @@ namespace visage {
 
     X11Connection& x11 = X11Connection::getGlobalInstance();
     X11Connection::DisplayLock lock(x11);
-    XSetSelectionOwner(x11.display(), x11.clipboard(), (::Window)window->getNativeHandle(), CurrentTime);
+    XSetSelectionOwner(x11.display(), x11.clipboard(), (::Window)window->nativeHandle(), CurrentTime);
     XFlush(x11.display());
   }
 
@@ -135,7 +135,7 @@ namespace visage {
     default: return;
     }
 
-    XDefineCursor(x11.display(), (::Window)window->getNativeHandle(), cursor);
+    XDefineCursor(x11.display(), (::Window)window->nativeHandle(), cursor);
     XFlush(x11.display());
   }
 
@@ -164,7 +164,7 @@ namespace visage {
     if (window == nullptr)
       return { 0, 0 };
 
-    return getCursorPosition((::Window)window->getNativeHandle());
+    return getCursorPosition((::Window)window->nativeHandle());
   }
 
   void setCursorPosition(Point window_position) {
@@ -174,7 +174,7 @@ namespace visage {
 
     X11Connection& x11 = window->x11Connection();
     X11Connection::DisplayLock lock(x11);
-    XWarpPointer(x11.display(), None, (::Window)window->getNativeHandle(), 0, 0, 0, 0,
+    XWarpPointer(x11.display(), None, (::Window)window->nativeHandle(), 0, 0, 0, 0,
                  window_position.x, window_position.y);
     XFlush(x11.display());
   }
@@ -463,7 +463,7 @@ namespace visage {
 
       X11Connection& x11 = window->x11Connection();
       X11Connection::DisplayLock lock(x11);
-      ::Window window_handle = (::Window)window->getNativeHandle();
+      ::Window window_handle = (::Window)window->nativeHandle();
 
       XEvent event;
       memset(&event, 0, sizeof(event));
@@ -1176,7 +1176,7 @@ namespace visage {
     }
   }
 
-  void WindowX11::runEventThread() {
+  void WindowX11::runEventLoop() {
     Display* display = x11_.display();
     Atom wm_delete_message = XInternAtom(display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(x11_.display(), window_handle_, &wm_delete_message, 1);

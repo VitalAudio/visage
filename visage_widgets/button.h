@@ -141,19 +141,14 @@ namespace visage {
       setIconSizes();
     }
 
-    int getMargin() const {
-      int width = std::min(getWidth(), getHeight());
-      return width * margin_ratio_;
-    }
-
-    int getIconX() const { return getMargin() + std::max(0, getWidth() - getHeight()) / 2; }
-
-    int getIconY() const { return getMargin() + std::max(0, getHeight() - getWidth()) / 2; }
+    int getMargin() const { return std::min(width(), height()) * margin_ratio_; }
+    int getIconX() const { return getMargin() + std::max(0, width() - height()) / 2; }
+    int getIconY() const { return getMargin() + std::max(0, height() - width()) / 2; }
 
     void setIconSizes() {
-      int margin = std::min(getWidth(), getHeight()) * margin_ratio_;
-      icon_.width = getWidth() - 2 * margin;
-      icon_.height = getHeight() - 2 * margin;
+      int margin = std::min(width(), height()) * margin_ratio_;
+      icon_.width = width() - 2 * margin;
+      icon_.height = height() - 2 * margin;
       shadow_.width = icon_.width;
       shadow_.height = icon_.height;
       shadow_.blur_radius = shadow_ratio_ * std::min(icon_.width, icon_.height);
@@ -266,18 +261,14 @@ namespace visage {
       setIconSizes();
     }
 
-    int getMargin() const {
-      int width = std::min(getWidth(), getHeight());
-      return width * margin_ratio_;
-    }
-
-    int getIconX() const { return getMargin() + std::max(0, getWidth() - getHeight()) / 2; }
-    int getIconY() const { return getMargin() + std::max(0, getHeight() - getWidth()) / 2; }
+    int getMargin() const { return std::min(width(), height()) * margin_ratio_; }
+    int getIconX() const { return getMargin() + std::max(0, width() - height()) / 2; }
+    int getIconY() const { return getMargin() + std::max(0, height() - width()) / 2; }
 
     void setIconSizes() {
-      int margin = std::min(getWidth(), getHeight()) * margin_ratio_;
-      icon_.width = getWidth() - 2 * margin;
-      icon_.height = getHeight() - 2 * margin;
+      int margin = std::min(width(), height()) * margin_ratio_;
+      icon_.width = width() - 2 * margin;
+      icon_.height = height() - 2 * margin;
       shadow_.width = icon_.width;
       shadow_.height = icon_.height;
       shadow_.blur_radius = shadow_ratio_ * std::min(icon_.width, icon_.height);

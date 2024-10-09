@@ -120,7 +120,7 @@ namespace visage {
 
     event_handler_->handleMouseMove(x, y, button_state, modifiers);
 
-    if (!getMouseRelativeMode())
+    if (!mouseRelativeMode())
       last_window_mouse_position_ = { x, y };
   }
 
@@ -129,9 +129,9 @@ namespace visage {
       return;
 
     setMouseRelativeMode(false);
-    long long current_ms = time::getMilliseconds();
+    long long current_ms = time::milliseconds();
     long long delta_ms = current_ms - mouse_repeat_clicks_.last_click_ms;
-    if (delta_ms > 0 && delta_ms < getDoubleClickSpeed())
+    if (delta_ms > 0 && delta_ms < doubleClickSpeed())
       mouse_repeat_clicks_.click_count++;
     else
       mouse_repeat_clicks_.click_count = 1;
@@ -186,11 +186,11 @@ namespace visage {
     return event_handler_->startDragDropSource();
   }
 
-  visage::Bounds Window::getDragDropSourceBounds() {
+  visage::Bounds Window::dragDropSourceBounds() {
     if (event_handler_ == nullptr)
       return { 0, 0, client_width_, client_height_ };
 
-    return event_handler_->getDragDropSourceBounds();
+    return event_handler_->dragDropSourceBounds();
   }
 
   void Window::cleanupDragDropSource() const {
@@ -198,16 +198,13 @@ namespace visage {
       event_handler_->cleanupDragDropSource();
   }
 
-  int& doubleClickSpeed() {
-    static int double_click_speed = 500;
-    return double_click_speed;
-  }
+  int Window::double_click_speed_ = 500;
 
-  int getDoubleClickSpeed() {
-    return doubleClickSpeed();
+  int doubleClickSpeed() {
+    return Window::doubleClickSpeed();
   }
 
   void setDoubleClickSpeed(int ms) {
-    doubleClickSpeed() = ms;
+    Window::setDoubleClickSpeed(ms);
   }
 }

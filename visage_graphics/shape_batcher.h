@@ -38,7 +38,7 @@ namespace visage {
   using BatchVector = std::vector<DrawBatch<T>>;
 
   template<typename T>
-  inline int getNumShapes(const BatchVector<T>& batches) {
+  int numShapes(const BatchVector<T>& batches) {
     int total_size = 0;
     for (const auto& batch : batches)
       total_size += batch.shapes->size();
@@ -73,7 +73,7 @@ namespace visage {
 
   template<class T>
   static void submitShapes(const BatchVector<T>& batches, Canvas& canvas, int submit_pass) {
-    auto vertices = reinterpret_cast<typename T::Vertex*>(initQuadVertices(getNumShapes(batches),
+    auto vertices = reinterpret_cast<typename T::Vertex*>(initQuadVertices(numShapes(batches),
                                                                            T::Vertex::layout()));
     if (vertices == nullptr)
       return;
@@ -246,7 +246,7 @@ namespace visage {
         batch->submit(canvas, submit_pass, {});
     }
 
-    int getAutoBatchIndex(const BaseShape& shape) {
+    int autoBatchIndex(const BaseShape& shape) {
       int match = batches_.size();
       int insert = batches_.size();
       for (int i = batches_.size() - 1; i >= 0; --i) {
@@ -263,17 +263,17 @@ namespace visage {
       return insert;
     }
 
-    int getManualBatchIndex(const BaseShape& shape) {
+    int manualBatchIndex(const BaseShape& shape) {
       if (batches_.empty())
         return 0;
 
       return batches_.size() - 1;
     }
 
-    int getBatchIndex(const BaseShape& shape) {
+    int batchIndex(const BaseShape& shape) {
       if (manual_batching_)
-        return getManualBatchIndex(shape);
-      return getAutoBatchIndex(shape);
+        return manualBatchIndex(shape);
+      return autoBatchIndex(shape);
     }
 
     template<class T>
@@ -291,7 +291,7 @@ namespace visage {
 
     template<class T>
     void addShape(T shape) {
-      int batch_index = getBatchIndex(shape);
+      int batch_index = batchIndex(shape);
       ShapeBatch<T>* batch = nullptr;
       if (batch_index < batches_.size() && batches_[batch_index]->id() == shape.batch_id)
         batch = reinterpret_cast<ShapeBatch<T>*>(batches_[batch_index].get());
@@ -305,7 +305,7 @@ namespace visage {
 
     int numBatches() const { return batches_.size(); }
     bool isEmpty() const { return batches_.empty(); }
-    SubmitBatch* getBatch(int index) const { return batches_[index].get(); }
+    SubmitBatch* batchAtIndex(int index) const { return batches_[index].get(); }
 
   private:
     std::vector<std::unique_ptr<SubmitBatch>> batches_;

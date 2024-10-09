@@ -116,9 +116,9 @@ namespace visage {
 
     int numColors() const { return num_colors_; }
 
-    EditColor getColorIndex(int index) const { return colors_[index]; }
+    EditColor colorIndex(int index) const { return colors_[index]; }
 
-    std::vector<EditColor> getColorList() const {
+    std::vector<EditColor> colorList() const {
       std::vector<EditColor> results;
       results.reserve(num_colors_);
       for (int i = 0; i < num_colors_; ++i)
@@ -129,8 +129,8 @@ namespace visage {
     void initWithDefaults();
     void sortColors();
 
-    std::map<std::string, std::vector<unsigned int>> getColorIdList(int override_id);
-    std::map<std::string, std::vector<unsigned int>> getValueIdList(int override_id);
+    std::map<std::string, std::vector<unsigned int>> colorIdList(int override_id);
+    std::map<std::string, std::vector<unsigned int>> valueIdList(int override_id);
 
     void setEditColor(int index, const EditColor& color) {
       colors_[index] = color;
@@ -147,7 +147,7 @@ namespace visage {
       computed_colors_[index] = colors_[index].toQuadColor();
     }
 
-    bool getColor(unsigned int override_id, int color_id, QuadColor& color) {
+    bool color(unsigned int override_id, int color_id, QuadColor& color) {
       if (color_map_[override_id].count(color_id) == 0)
         color_map_[override_id][color_id] = kNotSetId;
 
@@ -181,15 +181,15 @@ namespace visage {
 
     void setName(std::string name) { name_ = std::move(name); }
 
-    std::string getName() { return name_; }
+    std::string name() { return name_; }
 
     void removeValue(int value_id) { value_map_.erase(value_id); }
 
-    int getColorMap(unsigned int override_id, unsigned int color_id) {
+    int colorMap(unsigned int override_id, unsigned int color_id) {
       return color_map_[override_id][color_id];
     }
 
-    bool getValue(unsigned int override_id, unsigned int value_id, float& result) {
+    bool value(unsigned int override_id, unsigned int value_id, float& result) {
       if (value_map_[override_id].count(value_id) == 0)
         value_map_[override_id][value_id] = kNotSetValue;
 

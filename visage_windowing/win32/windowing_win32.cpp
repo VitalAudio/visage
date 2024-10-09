@@ -43,11 +43,11 @@ typedef UINT(WINAPI* GetDpiForSystem_t)();
 
 namespace visage {
   template<class T>
-  static T getProcedure(HMODULE module, LPCSTR proc_name) {
+  static T procedure(HMODULE module, LPCSTR proc_name) {
     return reinterpret_cast<T>(GetProcAddress(module, proc_name));
   }
 
-  std::string getClipboardText() {
+  std::string readClipboardText() {
     if (!OpenClipboard(nullptr))
       return "";
 
@@ -119,7 +119,7 @@ namespace visage {
     ShowCursor(visible);
   }
 
-  static float getPixelScale() {
+  static float pixelScale() {
     HWND hwnd = GetActiveWindow();
     if (hwnd == nullptr)
       return 1.0f;
@@ -128,43 +128,43 @@ namespace visage {
     if (user32 == nullptr)
       return 1.0f;
 
-    auto getWindowDpiAwarenessContext =
-        getProcedure<GetWindowDpiAwarenessContext_t>(user32, "GetWindowDpiAwarenessContext");
+    auto windowDpiAwarenessContext =
+        procedure<GetWindowDpiAwarenessContext_t>(user32, "GetWindowDpiAwarenessContext");
     auto setThreadDpiAwarenessContext =
-        getProcedure<SetThreadDpiAwarenessContext_t>(user32, "SetWindowDpiAwarenessContext");
-    auto getDpiForWindow = getProcedure<GetDpiForWindow_t>(user32, "GetDpiForWindow");
+        procedure<SetThreadDpiAwarenessContext_t>(user32, "SetWindowDpiAwarenessContext");
+    auto dpiForWindow = procedure<GetDpiForWindow_t>(user32, "GetDpiForWindow");
 
-    if (getWindowDpiAwarenessContext == nullptr || setThreadDpiAwarenessContext == nullptr ||
-        getDpiForWindow == nullptr) {
+    if (windowDpiAwarenessContext == nullptr || setThreadDpiAwarenessContext == nullptr ||
+        dpiForWindow == nullptr) {
       return 1.0f;
     }
 
-    DPI_AWARENESS_CONTEXT dpi_context = getWindowDpiAwarenessContext(hwnd);
+    DPI_AWARENESS_CONTEXT dpi_context = windowDpiAwarenessContext(hwnd);
     if (!setThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2))
       setThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
 
-    int scaled_dpi = getDpiForWindow(hwnd);
+    int scaled_dpi = dpiForWindow(hwnd);
     setThreadDpiAwarenessContext(dpi_context);
-    return scaled_dpi * 1.0f / getDpiForWindow(hwnd);
+    return scaled_dpi * 1.0f / dpiForWindow(hwnd);
   }
 
   static Point convertToSystemPosition(Point frame_position) {
-    float scaling = getPixelScale();
+    float scaling = pixelScale();
     return { static_cast<int>(frame_position.x * scaling), static_cast<int>(frame_position.y * scaling) };
   }
 
   static Point convertToFramePosition(Point frame_position) {
-    float scaling = getPixelScale();
+    float scaling = pixelScale();
     return { static_cast<int>(frame_position.x / scaling), static_cast<int>(frame_position.y / scaling) };
   }
 
-  static Point getCursorScreenPosition() {
+  static Point cursorScreenPosition() {
     POINT cursor_position;
     GetCursorPos(&cursor_position);
     return convertToFramePosition(Point(cursor_position.x, cursor_position.y));
   }
 
-  Point getCursorPosition() {
+  Point cursorPosition() {
     POINT cursor_position;
     GetCursorPos(&cursor_position);
 
@@ -194,12 +194,12 @@ namespace visage {
 
   class DxgiFactory {
   public:
-    static DxgiFactory& getInstance() {
+    static DxgiFactory& instance() {
       static DxgiFactory instance;
       return instance;
     }
 
-    static IDXGIFactory* factory() { return getInstance().dxgi_factory_; }
+    static IDXGIFactory* factory() { return instance().dxgi_factory_; }
 
   private:
     DxgiFactory() {
@@ -235,20 +235,20 @@ namespace visage {
       if (FAILED(dxgi_adapter_->EnumOutputs(0, &dxgi_output_)))
         return;
 
-      start_us_ = time::getMicroseconds();
+      start_us_ = time::microseconds();
 
       while (shouldRun()) {
         if (SUCCEEDED(dxgi_output_->WaitForVBlank())) {
-          long long us = time::getMicroseconds() - start_us_;
+          long long us = time::microseconds() - start_us_;
           time_ = us * (1.0 / 1000000.0);
-          PostMessage(window_->getWindowHandle(), WM_VBLANK, 0, 0);
+          PostMessage(window_->windowHandle(), WM_VBLANK, 0, 0);
         }
         else
           sleep(1);
       }
     }
 
-    double getVBlankTime() const { return time_.load(); }
+    double vBlankTime() const { return time_.load(); }
 
   private:
     WindowWin32* window_ = nullptr;
@@ -263,19 +263,19 @@ namespace visage {
 
   class NativeWindowLookup {
   public:
-    static NativeWindowLookup& getInstance() {
+    static NativeWindowLookup& instance() {
       static NativeWindowLookup instance;
       return instance;
     }
 
     void addWindow(HWND parent, WindowWin32* window) {
       parent_window_lookup_[parent] = window;
-      native_window_lookup_[window->getNativeHandle()] = window;
+      native_window_lookup_[window->nativeHandle()] = window;
     }
 
     void removeWindow(HWND parent) {
       if (parent_window_lookup_.count(parent)) {
-        void* handle = parent_window_lookup_[parent]->getNativeHandle();
+        void* handle = parent_window_lookup_[parent]->nativeHandle();
         if (native_window_lookup_.count(handle))
           native_window_lookup_.erase(handle);
 
@@ -316,18 +316,18 @@ namespace visage {
       if (user32 == nullptr)
         return;
 
-      getThreadDpiAwarenessContext_ =
-          getProcedure<GetThreadDpiAwarenessContext_t>(user32, "GetThreadDpiAwarenessContext");
+      threadDpiAwarenessContext_ =
+          procedure<GetThreadDpiAwarenessContext_t>(user32, "GetThreadDpiAwarenessContext");
       setThreadDpiAwarenessContext_ =
-          getProcedure<SetThreadDpiAwarenessContext_t>(user32, "SetThreadDpiAwarenessContext");
-      getDpiForWindow_ = getProcedure<GetDpiForWindow_t>(user32, "GetDpiForWindow");
-      getDpiForSystem_ = getProcedure<GetDpiForSystem_t>(user32, "GetDpiForSystem");
-      if (getThreadDpiAwarenessContext_ == nullptr || setThreadDpiAwarenessContext_ == nullptr ||
-          getDpiForWindow_ == nullptr || getDpiForSystem_ == nullptr) {
+          procedure<SetThreadDpiAwarenessContext_t>(user32, "SetThreadDpiAwarenessContext");
+      dpiForWindow_ = procedure<GetDpiForWindow_t>(user32, "GetDpiForWindow");
+      dpiForSystem_ = procedure<GetDpiForSystem_t>(user32, "GetDpiForSystem");
+      if (threadDpiAwarenessContext_ == nullptr || setThreadDpiAwarenessContext_ == nullptr ||
+          dpiForWindow_ == nullptr || dpiForSystem_ == nullptr) {
         return;
       }
 
-      previous_dpi_awareness_ = getThreadDpiAwarenessContext_();
+      previous_dpi_awareness_ = threadDpiAwarenessContext_();
       dpi_awareness_ = DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
       if (!setThreadDpiAwarenessContext_(dpi_awareness_)) {
         dpi_awareness_ = DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE;
@@ -340,33 +340,33 @@ namespace visage {
         setThreadDpiAwarenessContext_(previous_dpi_awareness_);
     }
 
-    float getConversionFactor() const {
+    float conversionFactor() const {
       if (dpi_awareness_ == nullptr)
         return 1.0f;
 
       setThreadDpiAwarenessContext_(previous_dpi_awareness_);
-      unsigned int previous_dpi = getDpiForSystem_();
+      unsigned int previous_dpi = dpiForSystem_();
       setThreadDpiAwarenessContext_(dpi_awareness_);
-      return getDpiForSystem_() * 1.0f / previous_dpi;
+      return dpiForSystem_() * 1.0f / previous_dpi;
     }
 
-    float getConversionFactor(HWND hwnd) const {
+    float conversionFactor(HWND hwnd) const {
       if (dpi_awareness_ == nullptr)
         return 1.0f;
 
       setThreadDpiAwarenessContext_(previous_dpi_awareness_);
-      unsigned int previous_dpi = getDpiForWindow_(hwnd);
+      unsigned int previous_dpi = dpiForWindow_(hwnd);
       setThreadDpiAwarenessContext_(dpi_awareness_);
-      return getDpiForWindow_(hwnd) * 1.0f / previous_dpi;
+      return dpiForWindow_(hwnd) * 1.0f / previous_dpi;
     }
 
   private:
     DPI_AWARENESS_CONTEXT dpi_awareness_ = nullptr;
     DPI_AWARENESS_CONTEXT previous_dpi_awareness_ = nullptr;
-    GetThreadDpiAwarenessContext_t getThreadDpiAwarenessContext_ = nullptr;
+    GetThreadDpiAwarenessContext_t threadDpiAwarenessContext_ = nullptr;
     SetThreadDpiAwarenessContext_t setThreadDpiAwarenessContext_ = nullptr;
-    GetDpiForWindow_t getDpiForWindow_ = nullptr;
-    GetDpiForSystem_t getDpiForSystem_ = nullptr;
+    GetDpiForWindow_t dpiForWindow_ = nullptr;
+    GetDpiForSystem_t dpiForSystem_ = nullptr;
   };
 
   class DragDropSource : public IDropSource {
@@ -623,24 +623,24 @@ namespace visage {
       return count;
     }
 
-    static float getConversion() {
+    static float conversionFactor() {
       DpiAwareness dpi_awareness;
-      return dpi_awareness.getConversionFactor();
+      return dpi_awareness.conversionFactor();
     }
 
-    Point getDragPosition(POINTL point) const {
-      float conversion = getConversion() / window_->getPixelScale();
+    Point dragPosition(POINTL point) const {
+      float conversion = conversionFactor() / window_->pixelScale();
       POINT position = { static_cast<int>(std::round(point.x / conversion)),
                          static_cast<int>(std::round(point.y / conversion)) };
-      ScreenToClient(static_cast<HWND>(window_->getNativeHandle()), &position);
+      ScreenToClient(static_cast<HWND>(window_->nativeHandle()), &position);
       return { static_cast<int>(std::round(position.x * conversion)),
                static_cast<int>(std::round(position.y * conversion)) };
     }
 
     HRESULT __stdcall DragEnter(IDataObject* data_object, DWORD key_state, POINTL point,
                                 DWORD* effect) override {
-      Point position = getDragPosition(point);
-      files_ = getDropFiles(data_object);
+      Point position = dragPosition(point);
+      files_ = dropFileList(data_object);
       if (window_->handleFileDrag(position.x, position.y, files_))
         *effect = DROPEFFECT_COPY;
       else
@@ -649,7 +649,7 @@ namespace visage {
     }
 
     HRESULT __stdcall DragOver(DWORD key_state, POINTL point, DWORD* effect) override {
-      Point position = getDragPosition(point);
+      Point position = dragPosition(point);
       if (window_->handleFileDrag(position.x, position.y, files_))
         *effect = DROPEFFECT_COPY;
       else
@@ -663,8 +663,8 @@ namespace visage {
     }
 
     HRESULT __stdcall Drop(IDataObject* data_object, DWORD key_state, POINTL point, DWORD* effect) override {
-      Point position = getDragPosition(point);
-      files_ = getDropFiles(data_object);
+      Point position = dragPosition(point);
+      files_ = dropFileList(data_object);
       if (window_->handleFileDrop(position.x, position.y, files_))
         *effect = DROPEFFECT_COPY;
       else
@@ -672,7 +672,7 @@ namespace visage {
       return S_OK;
     }
 
-    static std::vector<std::string> getDropFiles(IDataObject* data_object) {
+    static std::vector<std::string> dropFileList(IDataObject* data_object) {
       std::vector<std::string> files;
       FORMATETC format = { CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL };
       STGMEDIUM storage = { TYMED_HGLOBAL };
@@ -702,16 +702,16 @@ namespace visage {
     WindowWin32* window_ = nullptr;
   };
 
-  float getWindowPixelScale() {
+  float windowPixelScale() {
     DpiAwareness dpi_awareness;
-    return dpi_awareness.getConversionFactor();
+    return dpi_awareness.conversionFactor();
   }
 
   void showMessageBox(std::string title, std::string message) {
     MessageBox(nullptr, message.c_str(), title.c_str(), MB_OK);
   }
 
-  static KeyCode getKeyCodeFromScanCode(WPARAM w_param, LPARAM l_param) {
+  static KeyCode keyCodeFromScanCode(WPARAM w_param, LPARAM l_param) {
     static constexpr int kCodeTableSize = 128;
 
     static constexpr KeyCode kWin32KeyCodeTable[kCodeTableSize] = {
@@ -892,7 +892,7 @@ namespace visage {
     return GetModuleHandle(nullptr);
   }
 
-  static int getKeyboardModifiers() {
+  static int keyboardModifiers() {
     int modifiers = 0;
     if (GetKeyState(VK_SHIFT) & 0x8000)
       modifiers |= kModifierShift;
@@ -905,7 +905,7 @@ namespace visage {
     return modifiers;
   }
 
-  static int getKeyboardModifiers(WPARAM w_param) {
+  static int keyboardModifiers(WPARAM w_param) {
     int modifiers = 0;
     if (w_param & MK_SHIFT)
       modifiers |= kModifierShift;
@@ -918,7 +918,7 @@ namespace visage {
     return modifiers;
   }
 
-  static int getMouseButtonState() {
+  static int mouseButtonState() {
     int state = 0;
     if (GetKeyState(VK_LBUTTON) & 0x8000)
       state |= kMouseButtonLeft;
@@ -933,7 +933,7 @@ namespace visage {
     return (GetMessageExtraInfo() & 0xFFFFFF00) == 0xFF515700;
   }
 
-  static int getMouseButtonState(WPARAM w_param) {
+  static int mouseButtonState(WPARAM w_param) {
     int state = 0;
     if (w_param & MK_LBUTTON)
       state |= kMouseButtonLeft;
@@ -955,7 +955,7 @@ namespace visage {
     if (!GetWindowRect(hwnd, &rect))
       return false;
 
-    auto getNextX = [](HWND hit_hwnd, LONG x, LONG right) -> LONG {
+    auto next_x = [](HWND hit_hwnd, LONG x, LONG right) -> LONG {
       if (hit_hwnd == nullptr)
         return right;
 
@@ -966,7 +966,7 @@ namespace visage {
       return std::min(right, std::max(x, window_rect.right + 1));
     };
 
-    auto getNextY = [](HWND hit_hwnd, LONG y, LONG bottom) -> LONG {
+    auto next_y = [](HWND hit_hwnd, LONG y, LONG bottom) -> LONG {
       if (hit_hwnd == nullptr)
         return bottom;
 
@@ -983,7 +983,7 @@ namespace visage {
       if (hit_hwnd == hwnd || IsChild(hwnd, hit_hwnd))
         return false;
 
-      x = getNextX(hit_hwnd, x, rect.right);
+      x = next_x(hit_hwnd, x, rect.right);
     }
 
     x = rect.left;
@@ -992,7 +992,7 @@ namespace visage {
       if (hit_hwnd == hwnd || IsChild(hwnd, hit_hwnd))
         return false;
 
-      x = getNextX(hit_hwnd, x, rect.right);
+      x = next_x(hit_hwnd, x, rect.right);
     }
 
     LONG y = rect.top;
@@ -1001,7 +1001,7 @@ namespace visage {
       if (hit_hwnd == hwnd || IsChild(hwnd, hit_hwnd))
         return false;
 
-      y = getNextY(hit_hwnd, y, rect.bottom);
+      y = next_y(hit_hwnd, y, rect.bottom);
     }
 
     y = rect.top;
@@ -1010,7 +1010,7 @@ namespace visage {
       if (hit_hwnd == hwnd || IsChild(hwnd, hit_hwnd))
         return false;
 
-      y = getNextY(hit_hwnd, y, rect.bottom);
+      y = next_y(hit_hwnd, y, rect.bottom);
     }
 
     return true;
@@ -1029,21 +1029,21 @@ namespace visage {
   LRESULT WindowWin32::handleWindowProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
     switch (msg) {
     case WM_VBLANK: {
-      drawCallback(v_blank_thread_->getVBlankTime());
+      drawCallback(v_blank_thread_->vBlankTime());
       return 0;
     }
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN: {
-      KeyCode key_code = getKeyCodeFromScanCode(w_param, l_param);
+      KeyCode key_code = keyCodeFromScanCode(w_param, l_param);
       bool is_repeat = (l_param & (1LL << 30LL)) != 0;
-      if (!handleKeyDown(key_code, getKeyboardModifiers(), is_repeat))
+      if (!handleKeyDown(key_code, keyboardModifiers(), is_repeat))
         postMessageToParent(hwnd, msg, w_param, l_param);
       return 0;
     }
     case WM_SYSKEYUP:
     case WM_KEYUP: {
-      KeyCode key_code = getKeyCodeFromScanCode(w_param, l_param);
-      if (!handleKeyUp(key_code, getKeyboardModifiers()))
+      KeyCode key_code = keyCodeFromScanCode(w_param, l_param);
+      if (!handleKeyUp(key_code, keyboardModifiers()))
         postMessageToParent(hwnd, msg, w_param, l_param);
       return 0;
     }
@@ -1066,9 +1066,9 @@ namespace visage {
         TrackMouseEvent(&track);
       }
 
-      handleMouseMove(x, y, getMouseButtonState(w_param), getKeyboardModifiers());
-      if (getMouseRelativeMode()) {
-        Point last_position = getLastWindowMousePosition();
+      handleMouseMove(x, y, mouseButtonState(w_param), keyboardModifiers());
+      if (mouseRelativeMode()) {
+        Point last_position = lastWindowMousePosition();
         POINT client_position = { last_position.x, last_position.y };
         ClientToScreen(hwnd, &client_position);
         SetCursorPos(client_position.x, client_position.y);
@@ -1078,14 +1078,14 @@ namespace visage {
     }
     case WM_MOUSELEAVE: {
       setMouseTracked(false);
-      handleMouseLeave(getMouseButtonState(0), getKeyboardModifiers());
+      handleMouseLeave(mouseButtonState(0), keyboardModifiers());
       return 0;
     }
     case WM_LBUTTONDOWN: {
-      SetFocus(static_cast<HWND>(getNativeHandle()));
+      SetFocus(static_cast<HWND>(nativeHandle()));
       SetFocus(hwnd);
       handleMouseDown(kMouseButtonLeft, GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param),
-                      getMouseButtonState(w_param), getKeyboardModifiers());
+                      mouseButtonState(w_param), keyboardModifiers());
 
       if (isDragDropSource()) {
         visage::File file = startDragDropSource();
@@ -1105,9 +1105,9 @@ namespace visage {
       return 0;
     }
     case WM_LBUTTONUP: {
-      int button_state = getMouseButtonState(w_param);
+      int button_state = mouseButtonState(w_param);
       handleMouseUp(kMouseButtonLeft, GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param), button_state,
-                    getKeyboardModifiers());
+                    keyboardModifiers());
       if (button_state == 0 && GetCapture() == hwnd)
         ReleaseCapture();
       return 0;
@@ -1116,13 +1116,13 @@ namespace visage {
       SetFocus(hwnd);
       SetCapture(hwnd);
       handleMouseDown(kMouseButtonRight, GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param),
-                      getMouseButtonState(w_param), getKeyboardModifiers());
+                      mouseButtonState(w_param), keyboardModifiers());
       return 0;
     }
     case WM_RBUTTONUP: {
-      int button_state = getMouseButtonState(w_param);
+      int button_state = mouseButtonState(w_param);
       handleMouseUp(kMouseButtonRight, GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param), button_state,
-                    getKeyboardModifiers());
+                    keyboardModifiers());
       if (button_state == 0 && GetCapture() == hwnd)
         ReleaseCapture();
       return 0;
@@ -1131,20 +1131,20 @@ namespace visage {
       SetFocus(hwnd);
       SetCapture(hwnd);
       handleMouseDown(kMouseButtonMiddle, GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param),
-                      getMouseButtonState(w_param), getKeyboardModifiers());
+                      mouseButtonState(w_param), keyboardModifiers());
       return 0;
     }
     case WM_MBUTTONUP: {
-      int button_state = getMouseButtonState(w_param);
+      int button_state = mouseButtonState(w_param);
       handleMouseUp(kMouseButtonMiddle, GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param), button_state,
-                    getKeyboardModifiers());
+                    keyboardModifiers());
       if (button_state == 0 && GetCapture() == hwnd)
         ReleaseCapture();
       return 0;
     }
     case WM_SETCURSOR: {
       if (LOWORD(l_param) == HTCLIENT) {
-        SetCursor(WindowWin32::getCursor());
+        SetCursor(WindowWin32::cursor());
         return TRUE;
       }
       break;
@@ -1156,8 +1156,8 @@ namespace visage {
       ScreenToClient(hwnd, &position);
       float delta_x = msg == WM_MOUSEHWHEEL ? delta : 0.0f;
       float delta_y = msg == WM_MOUSEWHEEL ? delta : 0.0f;
-      handleMouseWheel(delta_x, delta_y, position.x, position.y, getMouseButtonState(),
-                       getKeyboardModifiers());
+      handleMouseWheel(delta_x, delta_y, position.x, position.y, mouseButtonState(),
+                       keyboardModifiers());
       return 0;
     }
     case WM_KILLFOCUS: {
@@ -1194,7 +1194,7 @@ namespace visage {
   }
 
   static LRESULT WINAPI pluginParentWindowProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
-    WindowWin32* child_window = NativeWindowLookup::getInstance().findWindow(hwnd);
+    WindowWin32* child_window = NativeWindowLookup::instance().findWindow(hwnd);
     if (child_window == nullptr)
       return 0;
 
@@ -1217,13 +1217,13 @@ namespace visage {
     return windowProcedure(hwnd, msg, w_param, l_param);
   }
 
-  static HMONITOR getMonitorFromMousePosition() {
+  static HMONITOR monitorFromMousePosition() {
     POINT cursor_position;
     GetCursorPos(&cursor_position);
     return MonitorFromPoint(cursor_position, MONITOR_DEFAULTTONEAREST);
   }
 
-  static Bounds getBoundsInMonitor(HMONITOR monitor, float aspect_ratio, float display_scale) {
+  static Bounds boundsInMonitor(HMONITOR monitor, float aspect_ratio, float display_scale) {
     MONITORINFO monitor_info {};
     monitor_info.cbSize = sizeof(MONITORINFO);
     GetMonitorInfo(monitor, &monitor_info);
@@ -1239,7 +1239,7 @@ namespace visage {
     return { x, y, width, height };
   }
 
-  static Point getWindowBorderSize(HWND hwnd) {
+  static Point windowBorderSize(HWND hwnd) {
     WINDOWINFO info {};
     info.cbSize = sizeof(info);
     if (GetWindowInfo(hwnd, &info)) {
@@ -1250,14 +1250,14 @@ namespace visage {
     return { 0, 0 };
   }
 
-  Bounds getScaledWindowBounds(float aspect_ratio, float display_scale, int x, int y) {
+  Bounds scaledWindowBounds(float aspect_ratio, float display_scale, int x, int y) {
     DpiAwareness dpi_awareness;
     Bounds bounds;
     if (x == Window::kNotSet || y == Window::kNotSet)
-      bounds = getBoundsInMonitor(getMonitorFromMousePosition(), aspect_ratio, display_scale);
+      bounds = boundsInMonitor(monitorFromMousePosition(), aspect_ratio, display_scale);
     else {
       HMONITOR monitor = MonitorFromPoint({ x, y }, MONITOR_DEFAULTTONEAREST);
-      bounds = getBoundsInMonitor(monitor, aspect_ratio, display_scale);
+      bounds = boundsInMonitor(monitor, aspect_ratio, display_scale);
     }
 
     if (x != Window::kNotSet)
@@ -1276,7 +1276,7 @@ namespace visage {
   LRESULT CALLBACK EventHooks::eventHook(int code, WPARAM w_param, LPARAM l_param) {
     if (code == HC_ACTION && w_param == PM_REMOVE) {
       MSG* message = reinterpret_cast<MSG*>(l_param);
-      WindowWin32* window = NativeWindowLookup::getInstance().findByNativeHandle(message->hwnd);
+      WindowWin32* window = NativeWindowLookup::instance().findByNativeHandle(message->hwnd);
 
       if (window && window->handleHookedMessage(message)) {
         clearMessage(message);
@@ -1305,7 +1305,7 @@ namespace visage {
     }
   }
 
-  void WindowWin32::runEventThread() {
+  void WindowWin32::runEventLoop() {
     MSG message = {};
     while (GetMessage(&message, nullptr, 0, 0)) {
       TranslateMessage(&message);
@@ -1373,7 +1373,7 @@ namespace visage {
       return;
     }
 
-    Point borders = getWindowBorderSize(window_handle_);
+    Point borders = windowBorderSize(window_handle_);
     SetWindowPos(window_handle_, nullptr, x, y, width + borders.x, height + borders.y,
                  SWP_NOZORDER | SWP_NOMOVE);
 
@@ -1403,10 +1403,10 @@ namespace visage {
     auto parent_proc = SetWindowLongPtr(parent_handle_, GWLP_WNDPROC,
                                         reinterpret_cast<LONG_PTR>(pluginParentWindowProc));
     parent_window_proc_ = reinterpret_cast<WNDPROC>(parent_proc);
-    NativeWindowLookup::getInstance().addWindow(parent_handle_, this);
+    NativeWindowLookup::instance().addWindow(parent_handle_, this);
 
     DpiAwareness dpi_awareness;
-    setPixelScale(dpi_awareness.getConversionFactor());
+    setPixelScale(dpi_awareness.conversionFactor());
     event_hooks_ = std::make_unique<EventHooks>();
     finishWindowSetup();
   }
@@ -1427,7 +1427,7 @@ namespace visage {
 
     if (parent_handle_) {
       SetWindowLongPtr(parent_handle_, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(parent_window_proc_));
-      NativeWindowLookup::getInstance().removeWindow(parent_handle_);
+      NativeWindowLookup::instance().removeWindow(parent_handle_);
     }
 
     KillTimer(window_handle_, kTimerId);
@@ -1445,12 +1445,12 @@ namespace visage {
     GetWindowRect(window_handle_, &rect);
     int x = rect.left;
     int y = rect.top;
-    LONG rect_width = static_cast<LONG>(std::round(width * getPixelScale()));
-    LONG rect_height = static_cast<LONG>(std::round(height * getPixelScale()));
+    LONG rect_width = static_cast<LONG>(std::round(width * pixelScale()));
+    LONG rect_height = static_cast<LONG>(std::round(height * pixelScale()));
     rect.right = rect.left + rect_width;
     rect.bottom = rect.top + rect_height;
 
-    Point borders = getWindowBorderSize(window_handle_);
+    Point borders = windowBorderSize(window_handle_);
     SetWindowPos(window_handle_, nullptr, x, y, rect.right - rect.left + borders.x,
                  rect.bottom - rect.top + borders.y, SWP_NOZORDER | SWP_NOMOVE);
   }
@@ -1473,10 +1473,10 @@ namespace visage {
     SetWindowText(window_handle_, title.c_str());
   }
 
-  Point WindowWin32::getMaxWindowDimensions() const {
-    Point borders = getWindowBorderSize(window_handle_);
+  Point WindowWin32::maxWindowDimensions() const {
+    Point borders = windowBorderSize(window_handle_);
     if (borders.x == 0 && borders.y == 0 && parent_handle_)
-      borders = getWindowBorderSize(parent_handle_);
+      borders = windowBorderSize(parent_handle_);
 
     MONITORINFO monitor_info {};
     monitor_info.cbSize = sizeof(MONITORINFO);
@@ -1485,22 +1485,22 @@ namespace visage {
     int display_width = monitor_info.rcWork.right - monitor_info.rcWork.left - borders.x;
     int display_height = monitor_info.rcWork.bottom - monitor_info.rcWork.top - borders.y;
 
-    float aspect_ratio = getAspectRatio();
+    float aspect_ratio = aspectRatio();
     int width_from_height = static_cast<int>(display_height * aspect_ratio);
     int height_from_width = static_cast<int>(display_width / aspect_ratio);
     return { std::min<int>(display_width, width_from_height),
              std::min<int>(display_height, height_from_width) };
   }
 
-  Point WindowWin32::getMinWindowDimensions() const {
-    float scale = getMinimumWindowScale();
+  Point WindowWin32::minWindowDimensions() const {
+    float scale = minimumWindowScale();
     MONITORINFO monitor_info {};
     monitor_info.cbSize = sizeof(MONITORINFO);
     GetMonitorInfo(monitor_, &monitor_info);
 
     int min_width = static_cast<int>(scale * (monitor_info.rcWork.right - monitor_info.rcWork.left));
     int min_height = static_cast<int>(scale * (monitor_info.rcWork.bottom - monitor_info.rcWork.top));
-    float aspect_ratio = getAspectRatio();
+    float aspect_ratio = aspectRatio();
     return { std::max<int>(min_width, static_cast<int>(min_height * aspect_ratio)),
              std::max<int>(min_height, static_cast<int>(min_width / aspect_ratio)) };
   }
@@ -1542,22 +1542,22 @@ namespace visage {
     if (hasActiveTextEntry()) {
       TranslateMessage(message);
       MSG peek {};
-      if (PeekMessage(&peek, getParentHandle(), WM_CHAR, WM_DEADCHAR, PM_REMOVE) ||
-          PeekMessage(&peek, getParentHandle(), WM_SYSCHAR, WM_SYSDEADCHAR, PM_REMOVE)) {
+      if (PeekMessage(&peek, parentHandle(), WM_CHAR, WM_DEADCHAR, PM_REMOVE) ||
+          PeekMessage(&peek, parentHandle(), WM_SYSCHAR, WM_SYSDEADCHAR, PM_REMOVE)) {
         used = true;
       }
     }
 
-    KeyCode key_code = getKeyCodeFromScanCode(message->wParam, message->lParam);
+    KeyCode key_code = keyCodeFromScanCode(message->wParam, message->lParam);
     if (key_down) {
       bool is_repeat = (message->lParam & (1LL << 30LL)) != 0;
-      return handleKeyDown(key_code, getKeyboardModifiers(), is_repeat) || used;
+      return handleKeyDown(key_code, keyboardModifiers(), is_repeat) || used;
     }
-    return handleKeyUp(key_code, getKeyboardModifiers()) || used;
+    return handleKeyUp(key_code, keyboardModifiers()) || used;
   }
 
   void WindowWin32::handleResizing(HWND hwnd, LPARAM l_param, WPARAM w_param) {
-    Point borders = getWindowBorderSize(hwnd);
+    Point borders = windowBorderSize(hwnd);
     RECT* rect = reinterpret_cast<RECT*>(l_param);
     int width = rect->right - rect->left - borders.x;
     int height = rect->bottom - rect->top - borders.y;
@@ -1567,7 +1567,7 @@ namespace visage {
       return;
     }
 
-    float aspect_ratio = getAspectRatio();
+    float aspect_ratio = aspectRatio();
     VISAGE_ASSERT(aspect_ratio > 0.0f);
 
     bool horizontal_resize = w_param == WMSZ_LEFT || w_param == WMSZ_RIGHT ||
@@ -1575,8 +1575,8 @@ namespace visage {
     bool vertical_resize = w_param == WMSZ_TOP || w_param == WMSZ_BOTTOM ||
                            w_param == WMSZ_TOPLEFT || w_param == WMSZ_TOPRIGHT;
 
-    Point max_dimensions = getMaxWindowDimensions();
-    Point min_dimensions = getMinWindowDimensions();
+    Point max_dimensions = maxWindowDimensions();
+    Point min_dimensions = minWindowDimensions();
     Point adjusted_dimensions = adjustBoundsForAspectRatio({ width, height }, min_dimensions,
                                                            max_dimensions, aspect_ratio,
                                                            horizontal_resize, vertical_resize);
@@ -1619,10 +1619,10 @@ namespace visage {
   }
 
   void WindowWin32::handleResizeEnd(HWND hwnd) {
-    float aspect_ratio = getAspectRatio();
+    float aspect_ratio = aspectRatio();
     VISAGE_ASSERT(aspect_ratio > 0.0f);
 
-    Point borders = getWindowBorderSize(hwnd);
+    Point borders = windowBorderSize(hwnd);
 
     RECT rect;
     GetWindowRect(hwnd, &rect);
@@ -1632,14 +1632,14 @@ namespace visage {
   }
 
   void WindowWin32::handleDpiChange(HWND hwnd, LPARAM l_param, WPARAM w_param) {
-    Point max_dimensions = getMaxWindowDimensions();
-    Point min_dimensions = getMinWindowDimensions();
-    Point borders = getWindowBorderSize(hwnd);
+    Point max_dimensions = maxWindowDimensions();
+    Point min_dimensions = minWindowDimensions();
+    Point borders = windowBorderSize(hwnd);
     RECT* suggested = reinterpret_cast<RECT*>(l_param);
     Point point(suggested->right - suggested->left - borders.x,
                 suggested->bottom - suggested->top - borders.y);
     Point adjusted_dimensions = adjustBoundsForAspectRatio(point, min_dimensions, max_dimensions,
-                                                           getAspectRatio(), true, true);
+                                                           aspectRatio(), true, true);
 
     int width = adjusted_dimensions.x;
     int height = adjusted_dimensions.y;

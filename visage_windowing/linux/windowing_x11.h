@@ -188,11 +188,11 @@ namespace visage {
 
     ~WindowX11() override;
 
-    void runEventThread() override;
+    void runEventLoop() override;
     void processPluginFdEvents() override;
     void processEvent(XEvent& event);
 
-    void* getNativeHandle() const override { return (void*)window_handle_; }
+    void* nativeHandle() const override { return (void*)window_handle_; }
 
     void* getInitWindow() const override;
     void* getGlobalDisplay() const override { return X11Connection::getGlobalInstance().display(); }

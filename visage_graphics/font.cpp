@@ -94,7 +94,7 @@ namespace visage {
 #endif
     }
 
-    inline const FontRange* getFontRange(char32_t character) const {
+    const FontRange* fontRange(char32_t character) const {
       const FontRange* result = &font_ranges_[0];
       for (const FontRange& range : font_ranges_) {
         if (range.start_range > character)
@@ -107,14 +107,14 @@ namespace visage {
       return result;
     }
 
-    inline const stbtt_packedchar* getPackedChar(char32_t character) const {
-      const FontRange* range = getFontRange(character);
+    const stbtt_packedchar* packedChar(char32_t character) const {
+      const FontRange* range = fontRange(character);
       if (range == nullptr)
         return &font_ranges_[0].packed_chars['\n'];
       return &range->packed_chars[character - range->start_range];
     }
 
-    inline int getKerningAdvance(char32_t from, char32_t to) const {
+    int kerningAdvance(char32_t from, char32_t to) const {
       if (from >= kKerningRange || to >= kKerningRange)
         return 0;
       return kerning_lookup_[from * kKerningRange + to];
@@ -185,7 +185,7 @@ namespace visage {
       FontCache::returnPackedFont(packed_font_);
   }
 
-  int Font::getWidthOverflowIndex(const char32_t* string, int string_length, float width,
+  int Font::widthOverflowIndex(const char32_t* string, int string_length, float width,
                                   bool round, int character_override) const {
     static constexpr stbtt_packedchar kNullPackedChar = { 0, 0, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f };
 
@@ -197,9 +197,9 @@ namespace visage {
         character = character_override;
       const stbtt_packedchar* packed_char = &kNullPackedChar;
       if (!isIgnored(character))
-        packed_char = packed_font_->getPackedChar(character);
+        packed_char = packed_font_->packedChar(character);
 
-      float advance = packed_char->xadvance + packed_font_->getKerningAdvance(last_character, character);
+      float advance = packed_char->xadvance + packed_font_->kerningAdvance(last_character, character);
       if (isNewLine(character))
         advance = 0.0f;
 
@@ -217,13 +217,13 @@ namespace visage {
     return string_length;
   }
 
-  float Font::getStringWidth(const char32_t* string, int length, int character_override) const {
+  float Font::stringWidth(const char32_t* string, int length, int character_override) const {
     if (length <= 0)
       return 0.0f;
 
     if (character_override) {
-      float advance = packed_font_->getPackedChar(character_override)->xadvance;
-      float kerning = packed_font_->getKerningAdvance(character_override, character_override);
+      float advance = packed_font_->packedChar(character_override)->xadvance;
+      float kerning = packed_font_->kerningAdvance(character_override, character_override);
       return (advance + kerning) * length - kerning;
     }
 
@@ -231,32 +231,32 @@ namespace visage {
     char32_t last_character = 0;
     for (int i = 0; i < length; ++i) {
       if (!isNewLine(string[i]) && !isIgnored(string[i]))
-        width += packed_font_->getPackedChar(string[i])->xadvance +
-                 packed_font_->getKerningAdvance(last_character, string[i]);
+        width += packed_font_->packedChar(string[i])->xadvance +
+                 packed_font_->kerningAdvance(last_character, string[i]);
       last_character = string[i];
     }
 
     return width;
   }
 
-  float Font::getStringTop(const char32_t* string, int length) const {
+  float Font::stringTop(const char32_t* string, int length) const {
     if (length <= 0)
       return 0.0f;
 
-    float top = packed_font_->getPackedChar(string[0])->yoff;
+    float top = packed_font_->packedChar(string[0])->yoff;
     for (int i = 0; i < length; ++i)
-      top = std::min(top, packed_font_->getPackedChar(string[i])->yoff);
+      top = std::min(top, packed_font_->packedChar(string[i])->yoff);
 
     return top;
   }
 
-  float Font::getStringBottom(const char32_t* string, int length) const {
+  float Font::stringBottom(const char32_t* string, int length) const {
     if (length <= 0)
       return 0.0f;
 
-    float bottom = packed_font_->getPackedChar(string[0])->yoff2;
+    float bottom = packed_font_->packedChar(string[0])->yoff2;
     for (int i = 0; i < length; ++i)
-      bottom = std::max(bottom, packed_font_->getPackedChar(string[i])->yoff2);
+      bottom = std::max(bottom, packed_font_->packedChar(string[i])->yoff2);
 
     return bottom;
   }
@@ -269,9 +269,9 @@ namespace visage {
     if (length <= 0)
       return;
 
-    float string_width = getStringWidth(text, length, character_override);
+    float string_width = stringWidth(text, length, character_override);
     float pen_x = x + (width - string_width) * 0.5f;
-    float pen_y = y + static_cast<int>((getCapitalHeight() + height) * 0.5f);
+    float pen_y = y + static_cast<int>((capitalHeight() + height) * 0.5f);
 
     if (justification & kLeft)
       pen_x = x;
@@ -279,9 +279,9 @@ namespace visage {
       pen_x = x + width - string_width;
 
     if (justification & kTop)
-      pen_y = y + static_cast<int>((getCapitalHeight() + getLineHeight()) * 0.5f);
+      pen_y = y + static_cast<int>((capitalHeight() + lineHeight()) * 0.5f);
     else if (justification & kBottom)
-      pen_y = y + static_cast<int>(height - (getCapitalHeight() + getLineHeight()) * 0.5f);
+      pen_y = y + static_cast<int>(height - (capitalHeight() + lineHeight()) * 0.5f);
 
     pen_x = std::round(pen_x);
     pen_y = std::round(pen_y);
@@ -294,12 +294,12 @@ namespace visage {
       if (character_override)
         character = character_override;
 
-      pen_x += packed_font_->getKerningAdvance(last_character, character);
+      pen_x += packed_font_->kerningAdvance(last_character, character);
       last_character = character;
 
       const stbtt_packedchar* packed_char = &kNullPackedChar;
       if (!isIgnored(character) && !isNewLine(character))
-        packed_char = packed_font_->getPackedChar(character);
+        packed_char = packed_font_->packedChar(character);
 
       quads[i].left_coordinate = packed_char->x0 * atlas_scale;
       quads[i].right_coordinate = packed_char->x1 * atlas_scale;
@@ -315,11 +315,11 @@ namespace visage {
     }
   }
 
-  std::vector<int> Font::getLineBreaks(const char32_t* string, int length, float width) const {
+  std::vector<int> Font::lineBreaks(const char32_t* string, int length, float width) const {
     std::vector<int> line_breaks;
     int break_index = 0;
     while (break_index < length) {
-      int overflow_index = getWidthOverflowIndex(string + break_index, length - break_index, width) +
+      int overflow_index = widthOverflowIndex(string + break_index, length - break_index, width) +
                            break_index;
       if (overflow_index == length && !hasNewLine(string + break_index, overflow_index - break_index))
         break;
@@ -348,8 +348,8 @@ namespace visage {
   void Font::setMultiLineVertexPositions(FontAtlasQuad* quads, const char32_t* text, int length,
                                          float x, float y, float width, float height,
                                          Justification justification) const {
-    int line_height = getLineHeight();
-    std::vector<int> line_breaks = getLineBreaks(text, length, width);
+    int line_height = lineHeight();
+    std::vector<int> line_breaks = lineBreaks(text, length, width);
     line_breaks.push_back(length);
 
     Justification line_justification = kTop;
@@ -375,19 +375,19 @@ namespace visage {
     }
   }
 
-  int Font::getLineHeight() const {
+  int Font::lineHeight() const {
     int ascent, descent, line_gap;
     stbtt_GetFontVMetrics(packed_font_->info(), &ascent, &descent, &line_gap);
     float scale = stbtt_ScaleForMappingEmToPixels(packed_font_->info(), size_);
     return scale * (ascent - descent + line_gap);
   }
 
-  float Font::getCapitalHeight() const {
-    return -packed_font_->getPackedChar('T')->yoff;
+  float Font::capitalHeight() const {
+    return -packed_font_->packedChar('T')->yoff;
   }
 
-  float Font::getLowerDip() const {
-    return packed_font_->getPackedChar('y')->yoff2;
+  float Font::lowerDipHeight() const {
+    return packed_font_->packedChar('y')->yoff2;
   }
 
   int Font::atlasWidth() const {

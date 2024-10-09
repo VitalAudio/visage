@@ -31,12 +31,12 @@ namespace visage {
   ApplicationEditor::~ApplicationEditor() = default;
 
   void ApplicationEditor::resized() {
-    canvas_->setDimensions(getWidth(), getHeight());
-    canvas_->setWidthScale(getWidth() * 1.0f / getDefaultWidth());
-    canvas_->setHeightScale(getHeight() * 1.0f / getDefaultHeight());
+    canvas_->setDimensions(width(), height());
+    canvas_->setWidthScale(width() * 1.0f / defaultWidth());
+    canvas_->setHeightScale(height() * 1.0f / defaultHeight());
 
     if (window_)
-      canvas_->setDpiScale(window_->getPixelScale());
+      canvas_->setDpiScale(window_->pixelScale());
     editorResized();
 
     drawWindow();
@@ -44,15 +44,15 @@ namespace visage {
 
   void ApplicationEditor::addToWindow(Window* window) {
     window_ = window;
-    Renderer::getInstance().checkInitialization(window_->getInitWindow(), window->getGlobalDisplay());
-    canvas_->pairToWindow(window_->getNativeHandle(), window->clientWidth(), window->clientHeight());
+    Renderer::instance().checkInitialization(window_->initWindow(), window->globalDisplay());
+    canvas_->pairToWindow(window_->nativeHandle(), window->clientWidth(), window->clientHeight());
     setBounds(0, 0, window->clientWidth(), window->clientHeight());
 
     window_event_handler_ = std::make_unique<WindowEventHandler>(window, this);
 
     window->setDrawCallback([this](double time) {
       canvas_->updateTime(time);
-      EventManager::getInstance().checkEventTimers();
+      EventManager::instance().checkEventTimers();
       drawWindow();
     });
 
@@ -94,10 +94,10 @@ namespace visage {
     canvas_->render();
   }
 
-  float ApplicationEditor::getDpiScale() {
+  float ApplicationEditor::dpiScale() {
     if (window_ == nullptr)
       return 1.0f;
-    return window_->getPixelScale();
+    return window_->pixelScale();
   }
 
   void ApplicationEditor::requestKeyboardFocus(UiFrame* frame) {
@@ -113,8 +113,8 @@ namespace visage {
     visage::setCursorVisible(visible);
   }
 
-  std::string ApplicationEditor::getClipboardText() {
-    return visage::getClipboardText();
+  std::string ApplicationEditor::readClipboardText() {
+    return visage::readClipboardText();
   }
 
   void ApplicationEditor::setClipboardText(const std::string& text) {
@@ -136,7 +136,7 @@ namespace visage {
 
   void WindowedEditor::show(float window_scale) {
     removeFromWindow();
-    window_ = createScaledWindow(getDefaultAspectRatio(), window_scale);
+    window_ = createScaledWindow(defaultAspectRatio(), window_scale);
     showWindow();
   }
 
@@ -152,12 +152,26 @@ namespace visage {
     showWindow();
   }
 
+  void WindowedEditor::showWithEventLoop(float window_scale) {
+    show(window_scale);
+    window_->runEventLoop();
+  }
+
+  void WindowedEditor::showWithEventLoop(int x, int y, int width, int height) {
+    show(x, y, width, height);
+    window_->runEventLoop();
+  }
+
+  void WindowedEditor::showWithEventLoop(int width, int height) {
+    show(width, height);
+    window_->runEventLoop();
+  }
+
   void WindowedEditor::showWindow() {
     if (!title_.empty())
       window_->setWindowTitle(title_);
 
     addToWindow(window_.get());
     window_->show();
-    window_->runEventThread();
   }
 }

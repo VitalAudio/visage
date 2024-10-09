@@ -26,7 +26,7 @@
 
 namespace visage {
   namespace {
-    std::string getShaderExecutable() {
+    std::string shaderExecutable() {
 #if VISAGE_WINDOWS
       return "shaderc.exe";
 #else
@@ -36,11 +36,11 @@ namespace visage {
   }
 
   ShaderCompiler::ShaderCompiler() : Thread("Shader Compiler") {
-    compiler_path_ = (std::filesystem::current_path() / getShaderExecutable()).string();
+    compiler_path_ = (std::filesystem::current_path() / shaderExecutable()).string();
 #if VISAGE_MAC
     if (!std::filesystem::exists(File(compiler_path_))) {
       std::filesystem::path app_path = std::filesystem::current_path().parent_path().parent_path().parent_path() /
-                                       getShaderExecutable();
+                                       shaderExecutable();
       if (std::filesystem::exists(app_path))
         compiler_path_ = app_path;
     }
@@ -53,7 +53,7 @@ namespace visage {
   }
 
   void ShaderCompiler::setCompilerPath(const std::string& string_path) {
-    File path = File(string_path) / getShaderExecutable();
+    File path = File(string_path) / shaderExecutable();
     compiler_path_ = path.string();
   }
 
@@ -76,19 +76,19 @@ namespace visage {
     std::string code;
     loadCode(vertex, fragment, original, code);
 
-    std::string type = getTypeArgument(kFragment);
+    std::string type = typeArgument(kFragment);
 #if VISAGE_WINDOWS
-    std::string platform = getPlatformArgument(kWindows);
-    std::string profile = getProfileArgument(kDx11, kFragment);
+    std::string platform = platformArgument(kWindows);
+    std::string profile = profileArgument(kDx11, kFragment);
 #elif VISAGE_LINUX
-    std::string platform = getPlatformArgument(kLinux);
-    std::string profile = getProfileArgument(kGlsl, kFragment);
+    std::string platform = platformArgument(kLinux);
+    std::string profile = profileArgument(kGlsl, kFragment);
 #elif VISAGE_MAC
-    std::string platform = getPlatformArgument(kMac);
-    std::string profile = getProfileArgument(kMetal, kFragment);
+    std::string platform = platformArgument(kMac);
+    std::string profile = profileArgument(kMetal, kFragment);
 #elif VISAGE_EMSCRIPTEN
-    std::string platform = getPlatformArgument(kLinux);
-    std::string profile = getProfileArgument(kGlsl, kFragment);
+    std::string platform = platformArgument(kLinux);
+    std::string profile = profileArgument(kGlsl, kFragment);
 #endif
 
     if (!std::filesystem::exists(File(compiler_path_))) {
@@ -148,13 +148,13 @@ namespace visage {
     });
 
     status_.setDrawFunction([this](Canvas& canvas) {
-      if (error_.getText().isEmpty()) {
+      if (error_.text().isEmpty()) {
         canvas.setColor(0xff66ff66);
-        canvas.icon(icons::check_circle_svg, 0, 0, status_.getWidth(), status_.getHeight());
+        canvas.icon(icons::check_circle_svg, 0, 0, status_.width(), status_.height());
       }
       else {
         canvas.setColor(0xffff6666);
-        canvas.icon(icons::x_circle_svg, 0, 0, status_.getWidth(), status_.getHeight());
+        canvas.icon(icons::x_circle_svg, 0, 0, status_.width(), status_.height());
       }
     });
   }
@@ -164,26 +164,26 @@ namespace visage {
       return;
 
     if (fragment_.data) {
-      std::string text = editor->getText().toUtf8();
+      std::string text = editor->text().toUtf8();
       compiler_.setCodeAndCompile(vertex_, fragment_, original_fragment_, text);
     }
   }
 
   void ShaderEditor::draw(Canvas& canvas) {
     canvas.setColor(0xff222222);
-    canvas.fill(0, 0, getWidth(), getHeight());
+    canvas.fill(0, 0, width(), height());
   }
 
   void ShaderEditor::resized() {
-    int info_height = getHeight() * kInfoHeightRatio;
-    int padding = getHeight() * kPaddingHeightRatio;
+    int info_height = height() * kInfoHeightRatio;
+    int padding = height() * kPaddingHeightRatio;
 
-    int editor_width = getWidth() - 2 * padding;
-    error_.setBounds(padding, getHeight() - info_height - padding, editor_width, info_height);
-    editor_.setBounds(padding, padding, editor_width, error_.getY() - 2 * padding);
+    int editor_width = width() - 2 * padding;
+    error_.setBounds(padding, height() - info_height - padding, editor_width, info_height);
+    editor_.setBounds(padding, padding, editor_width, error_.y() - 2 * padding);
 
-    int font_size = getHeightScale() * 14.0f;
-    status_.setBounds(error_.getRight() - font_size - padding, error_.getY() + padding, font_size, font_size);
+    int font_size = heightScale() * 14.0f;
+    status_.setBounds(error_.right() - font_size - padding, error_.y() + padding, font_size, font_size);
     editor_.setFont(Font(font_size, fonts::DroidSansMono_ttf));
     error_.setFont(editor_.font());
   }

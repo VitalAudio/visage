@@ -44,17 +44,17 @@ namespace visage {
 
     void drawWindow();
 
-    virtual int getDefaultWidth() const { return 800; }
-    virtual int getDefaultHeight() const { return 600; }
-    float getDefaultAspectRatio() const { return getDefaultWidth() * 1.0f / getDefaultHeight(); }
-    float getWidthScale() override { return getWidth() * 1.0f / getDefaultWidth(); }
-    float getHeightScale() override { return getHeight() * 1.0f / getDefaultHeight(); }
-    float getDpiScale() override;
+    virtual int defaultWidth() const { return 800; }
+    virtual int defaultHeight() const { return 600; }
+    float defaultAspectRatio() const { return defaultWidth() * 1.0f / defaultHeight(); }
+    float widthScale() override { return width() * 1.0f / defaultWidth(); }
+    float heightScale() override { return height() * 1.0f / defaultHeight(); }
+    float dpiScale() override;
 
     void requestKeyboardFocus(UiFrame* frame) override;
     void setCursorStyle(MouseCursor style) override;
     void setCursorVisible(bool visible) override;
-    std::string getClipboardText() override;
+    std::string readClipboardText() override;
     void setClipboardText(const std::string& text) override;
     void setMouseRelativeMode(bool relative) override;
 
@@ -87,6 +87,10 @@ namespace visage {
     void show(float window_scale);
     void show(int x, int y, int width, int height);
     void show(int width, int height);
+
+    void showWithEventLoop(float window_scale);
+    void showWithEventLoop(int x, int y, int width, int height);
+    void showWithEventLoop(int width, int height);
 
   private:
     void showWindow();

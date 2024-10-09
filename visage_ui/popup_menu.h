@@ -40,13 +40,13 @@ namespace visage {
     void setOptions(std::vector<PopupOptions> options) { options_ = std::move(options); }
     void setFont(const Font& font) { font_ = font; }
 
-    int getRenderHeight();
-    int getRenderWidth();
+    int renderHeight();
+    int renderWidth();
 
-    int getYForIndex(int index);
-    int getHoverY() { return getYForIndex(hover_index_); }
-    int getHoverIndex() const { return hover_index_; }
-    int getNumOptions() const { return options_.size(); }
+    int yForIndex(int index);
+    int hoverY() { return yForIndex(hover_index_); }
+    int hoverIndex() const { return hover_index_; }
+    int numOptions() const { return options_.size(); }
     const PopupOptions& option(int index) const { return options_[index]; }
     void selectHoveredIndex();
     void setHoverFromPosition(Point position);
@@ -67,7 +67,7 @@ namespace visage {
       ScrollableComponent::onMouseWheel(e);
       if (isVisible()) {
         for (Listener* listener : listeners_)
-          listener->mouseMovedOnMenu(e.relativeTo(this).getPosition(), this);
+          listener->mouseMovedOnMenu(e.relativeTo(this).position, this);
       }
     }
     void addListener(Listener* listener) { listeners_.push_back(listener); }
@@ -131,7 +131,7 @@ namespace visage {
     void mouseDraggedOnMenu(Point position, PopupList* list) override { moveHover(position, list); }
     void mouseUpOutside(Point position, PopupList* list) override;
     void moveHover(Point position, const PopupList* list);
-    float getOpacity() const { return opacity_animation_.value(); }
+    float opacity() const { return opacity_animation_.value(); }
 
   private:
     Animation<float> opacity_animation_;

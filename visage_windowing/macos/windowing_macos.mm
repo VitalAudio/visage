@@ -714,7 +714,7 @@ bool resizing_vertical_ = false;
 @end
 
 namespace visage {
-  void WindowMac::runEventThread() {
+  void WindowMac::runEventLoop() {
     @autoreleasepool {
       NSApplication* app = [NSApplication sharedApplication];
       AppDelegate* delegate = [[[AppDelegate alloc] init] autorelease];

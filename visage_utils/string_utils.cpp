@@ -45,7 +45,7 @@ namespace visage {
     int write_index = 0;
 
     std::unique_ptr<char[]> result = std::make_unique<char[]>(groups * 3);
-    auto getBase64Value = [](char character) {
+    auto base64_value = [](char character) {
       if (character >= 'A' && character <= 'Z')
         return character - 'A';
       if (character >= 'a' && character <= 'z')
@@ -63,10 +63,10 @@ namespace visage {
     };
 
     for (int i = 0; i < string.length(); i += 4) {
-      unsigned char value0 = getBase64Value(string[i]);
-      unsigned char value1 = getBase64Value(string[i + 1]);
-      unsigned char value2 = getBase64Value(string[i + 2]);
-      unsigned char value3 = getBase64Value(string[i + 3]);
+      unsigned char value0 = base64_value(string[i]);
+      unsigned char value1 = base64_value(string[i + 1]);
+      unsigned char value2 = base64_value(string[i + 2]);
+      unsigned char value3 = base64_value(string[i + 3]);
 
       if (value0 > 64 || value1 > 64 || value2 > 64 || value3 > 64)
         return nullptr;

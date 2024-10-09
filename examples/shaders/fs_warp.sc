@@ -31,5 +31,7 @@ vec4 warp(vec2 coordinates) {
 
 void main() {
   gl_FragColor = warp(v_coordinates);
+
+  // Uncomment to see raw shapes without post effect
   // gl_FragColor = passthrough(v_coordinates);
 }

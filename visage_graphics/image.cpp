@@ -54,7 +54,7 @@ namespace visage {
     int index = images_.size();
     images_.push_back(image);
     image_lookup_[image] = index;
-    return atlas_.addPackedRect(index, image->getWidth(), image->getHeight());
+    return atlas_.addPackedRect(index, image->width(), image->height());
   }
 
   int ImageGroup::addImages(const std::set<Image*>& images, int submit_pass) {
@@ -88,20 +88,20 @@ namespace visage {
       drawImage(*canvas_, i);
 
     int new_submit_pass = canvas_->submit(submit_pass);
-    canvas_->clear();
+    canvas_->clearDrawnShapes();
     return new_submit_pass;
   }
 
   void ImageGroup::drawImage(Canvas& canvas, int index) const {
     Image* image = images_[index];
-    int image_width = image->getWidth();
-    int image_height = image->getHeight();
+    int image_width = image->width();
+    int image_height = image->height();
 
     if (image_width == 0 || image_height == 0)
       return;
 
     canvas.saveState();
-    PackedAtlas::Rect rect = atlas_.getRect(index);
+    PackedAtlas::Rect rect = atlas_.rectAtIndex(index);
     canvas.setPosition(rect.x, rect.y);
     canvas.setClampBounds(0, 0, image_width, image_height);
     canvas.clearArea(0, 0, image_width, image_height);
@@ -115,14 +115,14 @@ namespace visage {
 
   void ImageGroup::setImagePositions(ImageVertex* vertices, const Image* image,
                                      const QuadColor& color, float x, float y) const {
-    int index = getImageIndex(image);
+    int index = imageIndex(image);
 
     VISAGE_ASSERT(index >= 0);
     if (index < 0)
       return;
 
     float atlas_scale = 1.0f / atlas_.width();
-    PackedAtlas::Rect packed_rect = atlas_.getRect(index);
+    PackedAtlas::Rect packed_rect = atlas_.rectAtIndex(index);
 
     float packed_width = packed_rect.w;
     float packed_height = packed_rect.h;

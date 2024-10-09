@@ -567,12 +567,12 @@ namespace visage {
   template<typename T>
   class VectorPool {
   public:
-    static VectorPool<T>& getInstance() {
+    static VectorPool<T>& instance() {
       static VectorPool instance;
       return instance;
     }
 
-    std::vector<T> getVector(int size) {
+    std::vector<T> vector(int size) {
       std::vector<T> vector = removeVector(size);
       vector.resize(size);
       return vector;
@@ -619,7 +619,7 @@ namespace visage {
               float height, Text* text, Direction direction) :
         Shape(text->font().packedFont(), clamp, color, x, y, width, height), text(text),
         direction(direction) {
-      quads = VectorPool<FontAtlasQuad>::getInstance().getVector(text->text().length() * kVerticesPerQuad);
+      quads = VectorPool<FontAtlasQuad>::instance().vector(text->text().length() * kVerticesPerQuad);
 
       const char32_t* c_str = text->text().c_str();
       int length = text->text().length();
@@ -679,7 +679,7 @@ namespace visage {
     TextBlock(TextBlock&&) = default;
     TextBlock& operator=(TextBlock&&) = default;
 
-    ~TextBlock() { VectorPool<FontAtlasQuad>::getInstance().returnVector(std::move(quads)); }
+    ~TextBlock() { VectorPool<FontAtlasQuad>::instance().returnVector(std::move(quads)); }
 
     std::vector<FontAtlasQuad> quads;
     Text* text = nullptr;

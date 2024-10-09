@@ -37,13 +37,13 @@ namespace visage {
     int x = 0;
     int y = 0;
 
-    SubmitBatch* getBatch() const { return region->getSubmitBatch(position); }
+    SubmitBatch* currentBatch() const { return region->submitBatchAtPosition(position); }
     bool isDone() const { return position >= region->numSubmitBatches(); }
   };
 
   Canvas::Canvas() {
     frame_buffer_data_ = std::make_unique<FrameBufferData>();
-    start_ms_ = time::getMilliseconds();
+    start_ms_ = time::milliseconds();
     state_.current_region = &base_region_;
   }
 
@@ -51,7 +51,7 @@ namespace visage {
     destroyFrameBuffer();
   }
 
-  void Canvas::clear() {
+  void Canvas::clearDrawnShapes() {
     base_region_.clearAll();
     invalid_rects_.clear();
     invalid_rects_.emplace_back(0, 0, width_, height_);
@@ -166,10 +166,10 @@ namespace visage {
     return frame_buffer_data_->format;
   }
 
-  const void* getNextBatchId(const std::vector<RegionPosition> positions, const void* current_batch_id) {
-    const void* next_batch_id = positions[0].getBatch()->id();
+  const void* nextBatchId(const std::vector<RegionPosition> positions, const void* current_batch_id) {
+    const void* next_batch_id = positions[0].currentBatch()->id();
     for (auto& position : positions) {
-      const void* batch_id = position.getBatch()->id();
+      const void* batch_id = position.currentBatch()->id();
       if (batch_id < next_batch_id) {
         if (batch_id > current_batch_id || next_batch_id < current_batch_id)
           next_batch_id = batch_id;
@@ -250,9 +250,9 @@ namespace visage {
     std::vector<RegionPosition> done_regions;
 
     while (!region_positions.empty()) {
-      const void* next_batch_id = getNextBatchId(region_positions, current_batch_id);
+      const void* next_batch_id = nextBatchId(region_positions, current_batch_id);
       for (auto& region_position : region_positions) {
-        SubmitBatch* batch = region_position.getBatch();
+        SubmitBatch* batch = region_position.currentBatch();
         if (batch->id() != next_batch_id)
           continue;
 
@@ -286,26 +286,26 @@ namespace visage {
     bgfx::frame();
   }
 
-  QuadColor Canvas::getColor(unsigned int color_id) {
+  QuadColor Canvas::color(unsigned int color_id) {
     QuadColor result;
     if (palette_) {
       int last_check = -1;
       for (auto it = state_memory_.rbegin(); it != state_memory_.rend(); ++it) {
         int override_id = it->palette_override;
-        if (override_id != last_check && palette_->getColor(override_id, color_id, result))
+        if (override_id != last_check && palette_->color(override_id, color_id, result))
           return result;
         last_check = override_id;
       }
-      if (palette_->getColor(0, color_id, result))
+      if (palette_->color(0, color_id, result))
         return result;
     }
 
-    return theme::ColorId::getDefaultColor(color_id);
+    return theme::ColorId::defaultColor(color_id);
   }
 
-  float Canvas::getValue(unsigned int value_id) {
+  float Canvas::value(unsigned int value_id) {
     float scale = 1.0f;
-    theme::ValueId::ValueIdInfo info = theme::ValueId::getInfo(value_id);
+    theme::ValueId::ValueIdInfo info = theme::ValueId::info(value_id);
     if (info.scale_type == theme::ValueId::kScaledWidth)
       scale = width_scale_;
     else if (info.scale_type == theme::ValueId::kScaledHeight)
@@ -318,19 +318,19 @@ namespace visage {
       int last_check = -1;
       for (auto it = state_memory_.rbegin(); it != state_memory_.rend(); ++it) {
         int override_id = it->palette_override;
-        if (override_id != last_check && palette_->getValue(override_id, value_id, result))
+        if (override_id != last_check && palette_->value(override_id, value_id, result))
           return scale * result;
 
         last_check = override_id;
       }
-      if (palette_->getValue(0, value_id, result))
+      if (palette_->value(0, value_id, result))
         return scale * result;
     }
 
-    return scale * theme::ValueId::getDefaultValue(value_id);
+    return scale * theme::ValueId::defaultValue(value_id);
   }
 
-  std::vector<std::string> Canvas::getDebugInfo() const {
+  std::vector<std::string> Canvas::debugInfo() const {
     static const std::vector<std::pair<unsigned long long, std::string>> caps_list {
       { BGFX_CAPS_ALPHA_TO_COVERAGE, "Alpha to coverage is supported." },
       { BGFX_CAPS_BLEND_INDEPENDENT, "Blend independent is supported." },

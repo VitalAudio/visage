@@ -31,7 +31,7 @@ namespace visage {
 
     virtual ~UiFrame() = default;
 
-    const std::string& getName() const { return name_; }
+    const std::string& name() const { return name_; }
     void setName(std::string name) { name_ = std::move(name); }
 
     bool isVisible() const { return visible_; }
@@ -79,10 +79,10 @@ namespace visage {
       return nullptr;
     }
 
-    UiFrame* getParent() const { return parent_; }
+    UiFrame* parent() const { return parent_; }
 
-    Point getPosition() const { return { bounds_.x(), bounds_.y() }; }
-    const Bounds& getBounds() const { return bounds_; }
+    Point position() const { return { bounds_.x(), bounds_.y() }; }
+    const Bounds& bounds() const { return bounds_; }
     virtual void setBounds(Bounds bounds) {
       if (bounds_ != bounds) {
         bounds_ = bounds;
@@ -96,39 +96,39 @@ namespace visage {
       setBounds({ x, y, width, height });
     }
 
-    void setTopLeft(int x, int y) { setBounds(x, y, getWidth(), getHeight()); }
+    void setTopLeft(int x, int y) { setBounds(x, y, width(), height()); }
 
     bool isOnTop() const { return on_top_; }
     void setOnTop(bool on_top) { on_top_ = on_top; }
 
     virtual void resized() { }
 
-    int getX() const { return bounds_.x(); }
-    int getY() const { return bounds_.y(); }
-    int getWidth() const { return bounds_.width(); }
-    int getHeight() const { return bounds_.height(); }
-    int getRight() const { return bounds_.right(); }
-    int getBottom() const { return bounds_.bottom(); }
-    float getAspectRatio() const { return bounds_.width() * 1.0f / bounds_.height(); }
+    int x() const { return bounds_.x(); }
+    int y() const { return bounds_.y(); }
+    int width() const { return bounds_.width(); }
+    int height() const { return bounds_.height(); }
+    int right() const { return bounds_.right(); }
+    int bottom() const { return bounds_.bottom(); }
+    float aspectRatio() const { return bounds_.width() * 1.0f / bounds_.height(); }
 
-    Bounds getLocalBounds() const { return { 0, 0, getWidth(), getHeight() }; }
+    Bounds localBounds() const { return { 0, 0, width(), height() }; }
 
-    Point getPositionInWindow() const {
-      Point global_position = getPosition();
+    Point positionInWindow() const {
+      Point global_position = position();
       UiFrame* frame = parent_;
       while (frame) {
-        global_position = global_position + frame->getPosition();
+        global_position = global_position + frame->position();
         frame = frame->parent_;
       }
 
       return global_position;
     }
 
-    Bounds getRelativeBounds(const UiFrame* other) const {
-      Point position = getPositionInWindow();
-      Point other_position = other->getPositionInWindow();
-      int width = other->getBounds().width();
-      int height = other->getBounds().height();
+    Bounds relativeBounds(const UiFrame* other) const {
+      Point position = positionInWindow();
+      Point other_position = other->positionInWindow();
+      int width = other->bounds().width();
+      int height = other->bounds().height();
       return { other_position.x - position.x, other_position.y - position.y, width, height };
     }
 
@@ -197,7 +197,7 @@ namespace visage {
     virtual void onTextInput(const std::string& text) { }
 
     virtual bool receivesDragDropFiles() { return false; }
-    virtual std::string getDragDropFileExtensionRegex() { return ".*"; }
+    virtual std::string dragDropFileExtensionRegex() { return ".*"; }
     virtual bool receivesMultipleDragDropFiles() { return false; }
     virtual void dragFilesEnter(const std::vector<std::string>& paths) { }
     virtual void dragFilesExit() { }
@@ -236,8 +236,8 @@ namespace visage {
 
     bool containsPoint(Point point) const { return bounds_.contains(point); }
 
-    UiFrame* getFrameAtPoint(Point point);
-    UiFrame* getTopParentFrame() {
+    UiFrame* frameAtPoint(Point point);
+    UiFrame* topParentFrame() {
       UiFrame* frame = this;
       while (frame->parent_)
         frame = frame->parent_;
@@ -246,7 +246,7 @@ namespace visage {
 
     virtual void requestKeyboardFocus(UiFrame* frame) {
       if (parent_)
-        getTopParentFrame()->requestKeyboardFocus(frame);
+        topParentFrame()->requestKeyboardFocus(frame);
     }
 
     void requestKeyboardFocus() { requestKeyboardFocus(this); }

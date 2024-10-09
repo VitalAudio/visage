@@ -67,7 +67,7 @@ namespace visage {
     int width() const { return width_; }
     void setPadding(int padding) { padding_ = padding; }
     bool packed() const { return packed_; }
-    const Rect& getRect(int index) const {
+    const Rect& rectAtIndex(int index) const {
       VISAGE_ASSERT(index >= 0 && index < packed_rects_.size());
       return packed_rects_[index];
     }

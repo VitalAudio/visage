@@ -2,12 +2,12 @@ file(GLOB EXAMPLES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} */)
 
 file(GLOB_RECURSE EXAMPLE_SHADERS shaders/[vf]s_*.sc)
 
-visage_embed_shaders(ExampleEmbeddedShaders "example_shaders.h" "resources::shaders" "${EXAMPLE_SHADERS}")
+visage_embed_shaders(EmbeddedShaderResources "example_shaders.h" "resources::shaders" "${EXAMPLE_SHADERS}")
 file(GLOB_RECURSE FONT_TTF_FILES fonts/*.ttf)
 file(GLOB_RECURSE ICON_FILES icons/*.svg)
 
-add_embedded_resources(ExampleEmbeddedFonts "fonts.h" "resources::fonts" "${FONT_TTF_FILES}")
-add_embedded_resources(ExampleEmbeddedIcons "icons.h" "resources::icons" "${ICON_FILES}")
+add_embedded_resources(EmbeddedFontResources "fonts.h" "resources::fonts" "${FONT_TTF_FILES}")
+add_embedded_resources(EmbeddedIconResources "icons.h" "resources::icons" "${ICON_FILES}")
 
 if (WIN32)
   file(COPY "${CMAKE_SOURCE_DIR}/visage_graphics/bin/win32/shaderc.exe" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
@@ -50,9 +50,9 @@ foreach (EXAMPLE ${EXAMPLES})
 
     target_link_libraries(Example${EXAMPLE} PRIVATE
       visage
-      ExampleEmbeddedShaders
-      ExampleEmbeddedFonts
-      ExampleEmbeddedIcons
+      EmbeddedShaderResources
+      EmbeddedFontResources
+      EmbeddedIconResources
     )
   endif ()
 endforeach ()

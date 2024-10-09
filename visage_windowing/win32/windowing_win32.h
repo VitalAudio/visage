@@ -45,7 +45,7 @@ namespace visage {
     static HCURSOR cursor_;
 
     static void setCursor(HCURSOR cursor);
-    static HCURSOR getCursor() { return cursor_; }
+    static HCURSOR cursor() { return cursor_; }
 
     WindowWin32(int x, int y, int width, int height);
     WindowWin32(int width, int height, void* parent_handle);
@@ -54,19 +54,19 @@ namespace visage {
 
     void finishWindowSetup();
 
-    void runEventThread() override;
+    void runEventLoop() override;
     LRESULT handleWindowProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param);
 
-    HWND getWindowHandle() const { return window_handle_; }
-    void* getNativeHandle() const override { return window_handle_; }
-    HWND getParentHandle() const { return parent_handle_; }
+    HWND windowHandle() const { return window_handle_; }
+    void* nativeHandle() const override { return window_handle_; }
+    HWND parentHandle() const { return parent_handle_; }
 
     void windowContentsResized(int width, int height) override;
     void show() override;
     void hide() override;
     void setWindowTitle(const std::string& title) override;
-    Point getMaxWindowDimensions() const override;
-    Point getMinWindowDimensions() const override;
+    Point maxWindowDimensions() const override;
+    Point minWindowDimensions() const override;
 
     bool isMouseTracked() const { return mouse_tracked_; }
 

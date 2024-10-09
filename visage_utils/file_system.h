@@ -30,15 +30,15 @@ namespace visage {
   std::unique_ptr<char[]> loadFileData(const File& file, int& size);
   std::string loadFileAsString(const File& file);
 
-  File getHostExecutable();
-  File getAppDataDirectory();
-  File getUserDocumentsDirectory();
-  File getAudioPluginDataFolder();
-  File getAudioPluginFile();
+  File hostExecutable();
+  File appDataDirectory();
+  File userDocumentsDirectory();
+  File audioPluginDataFolder();
+  File audioPluginFile();
   File createTemporaryFile(const std::string& extension);
-  std::string getFileName(const File& file);
-  std::string getFileStem(const File& file);
-  std::string getHostName();
+  std::string fileName(const File& file);
+  std::string fileStem(const File& file);
+  std::string hostName();
   std::vector<File> searchForFiles(const File& directory, const std::string& regex);
   std::vector<File> searchForDirectories(const File& directory, const std::string& regex);
 }

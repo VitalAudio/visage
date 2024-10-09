@@ -50,7 +50,7 @@ namespace visage {
       kWebGl,
     };
 
-    static constexpr const char* getPlatformArgument(Platform platform) {
+    static constexpr const char* platformArgument(Platform platform) {
       switch (platform) {
       case kLinux: return "linux";
       case kMac: return "osx";
@@ -60,7 +60,7 @@ namespace visage {
       }
     }
 
-    static constexpr const char* getTypeArgument(ShaderType type) {
+    static constexpr const char* typeArgument(ShaderType type) {
       switch (type) {
       case kVertex: return "v";
       case kFragment: return "f";
@@ -68,7 +68,7 @@ namespace visage {
       }
     }
 
-    static constexpr const char* getProfileArgument(Backend backend, ShaderType type) {
+    static constexpr const char* profileArgument(Backend backend, ShaderType type) {
       switch (backend) {
       case kGlsl: return "120";
       case kVulkan: return "spirv";

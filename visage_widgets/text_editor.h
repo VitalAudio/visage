@@ -87,7 +87,7 @@ namespace visage {
     void draw(Canvas& canvas) override;
 
     std::pair<int, int> indexToPosition(int index) const;
-    std::pair<int, int> getLineRange(int line) const;
+    std::pair<int, int> lineRange(int line) const;
     int positionToIndex(std::pair<int, int> position) const;
 
     void cancel();
@@ -96,17 +96,17 @@ namespace visage {
     void deleteSelected();
     void makeCaretVisible();
     void setViewBounds();
-    inline int selectionStart() const { return std::min(caret_position_, selection_position_); }
-    inline int selectionEnd() const { return std::max(caret_position_, selection_position_); }
-    String getSelection() const;
+    int selectionStart() const { return std::min(caret_position_, selection_position_); }
+    int selectionEnd() const { return std::max(caret_position_, selection_position_); }
+    String selection() const;
 
-    int getBeginningOfWord() const;
-    int getEndOfWord() const;
+    int beginningOfWord() const;
+    int endOfWord() const;
 
     void resized() override {
       ScrollableComponent::resized();
-      setBackgroundRounding(getValue(kTextEditorRounding));
-      setMargin(getValue(kTextEditorMarginX), getValue(kTextEditorMarginY));
+      setBackgroundRounding(paletteValue(kTextEditorRounding));
+      setMargin(paletteValue(kTextEditorMarginX), paletteValue(kTextEditorMarginY));
       setLineBreaks();
       makeCaretVisible();
     }
@@ -174,12 +174,12 @@ namespace visage {
 
     void setLineBreaks() {
       if (text_.multiLine() && text_.font().packedFont())
-        line_breaks_ = text_.font().getLineBreaks(text_.text().c_str(), text_.text().length(),
-                                                  getWidth() - 2 * x_margin_);
+        line_breaks_ = text_.font().lineBreaks(text_.text().c_str(), text_.text().length(),
+                                                  width() - 2 * x_margin_);
     }
     void setText(const String& text) {
       if (max_characters_)
-        text_.setText(text.getSubstring(0, max_characters_));
+        text_.setText(text.substring(0, max_characters_));
       else
         text_.setText(text);
       caret_position_ = text_.text().length();
@@ -211,7 +211,7 @@ namespace visage {
     void setNumberEntry();
     void setTextFieldEntry();
 
-    const String& getText() const { return text_.text(); }
+    const String& text() const { return text_.text(); }
     int textLength() const { return text_.text().length(); }
     const Font& font() const { return text_.font(); }
     Font::Justification justification() const { return text_.justification(); }

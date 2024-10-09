@@ -35,7 +35,7 @@ namespace visage {
   }
 
   void WindowEventHandler::onFrameResize(UiFrame* frame) {
-    window_->setInternalWindowSize(frame->getWidth(), frame->getHeight());
+    window_->setInternalWindowSize(frame->width(), frame->height());
   }
 
   void WindowEventHandler::setKeyboardFocus(UiFrame* frame) {
@@ -78,9 +78,9 @@ namespace visage {
     while (!used && keyboard_frame) {
       used = keyboard_frame->keyPress(e);
 
-      keyboard_frame = keyboard_frame->getParent();
+      keyboard_frame = keyboard_frame->parent();
       while (keyboard_frame && !keyboard_frame->acceptsKeystrokes())
-        keyboard_frame = keyboard_frame->getParent();
+        keyboard_frame = keyboard_frame->parent();
     }
     return used;
   }
@@ -98,9 +98,9 @@ namespace visage {
     while (!used && keyboard_frame) {
       used = keyboard_frame->keyRelease(e);
 
-      keyboard_frame = keyboard_frame->getParent();
+      keyboard_frame = keyboard_frame->parent();
       while (keyboard_frame && !keyboard_frame->acceptsKeystrokes())
-        keyboard_frame = keyboard_frame->getParent();
+        keyboard_frame = keyboard_frame->parent();
     }
     return used;
   }
@@ -170,11 +170,11 @@ namespace visage {
     MouseEvent mouse_event;
     Point original_window_position = { x, y };
     mouse_event.window_position = convertPointToFramePosition(original_window_position);
-    mouse_event.relative_position = original_window_position - window_->getLastWindowMousePosition();
-    float pixel_scale = window_->getPixelScale();
+    mouse_event.relative_position = original_window_position - window_->lastWindowMousePosition();
+    float pixel_scale = window_->pixelScale();
     mouse_event.relative_position.x = std::round(mouse_event.relative_position.x * pixel_scale);
     mouse_event.relative_position.y = std::round(mouse_event.relative_position.y * pixel_scale);
-    if (!window_->getMouseRelativeMode())
+    if (!window_->mouseRelativeMode())
       last_mouse_position_ = mouse_event.window_position;
 
     mouse_event.button_state = button_state;
@@ -192,33 +192,33 @@ namespace visage {
 
   void WindowEventHandler::handleMouseMove(int x, int y, int button_state, int modifiers) {
     MouseEvent mouse_event = getMouseEvent(x, y, button_state, modifiers);
-    if (window_->getMouseRelativeMode() && mouse_event.relative_position == Point(0, 0))
+    if (window_->mouseRelativeMode() && mouse_event.relative_position == Point(0, 0))
       return;
 
     if (mouse_down_frame_) {
-      mouse_event.position = mouse_event.window_position - mouse_down_frame_->getPositionInWindow();
+      mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
       mouse_event.frame = mouse_down_frame_;
       mouse_down_frame_->mouseDrag(mouse_event);
       return;
     }
 
-    UiFrame* new_hovered_frame = content_frame_->getFrameAtPoint(mouse_event.window_position);
+    UiFrame* new_hovered_frame = content_frame_->frameAtPoint(mouse_event.window_position);
     if (new_hovered_frame != mouse_hovered_frame_) {
       if (mouse_hovered_frame_) {
-        mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->getPositionInWindow();
+        mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
         mouse_event.frame = mouse_hovered_frame_;
         mouse_hovered_frame_->mouseExit(mouse_event);
       }
 
       if (new_hovered_frame) {
-        mouse_event.position = mouse_event.window_position - new_hovered_frame->getPositionInWindow();
+        mouse_event.position = mouse_event.window_position - new_hovered_frame->positionInWindow();
         mouse_event.frame = new_hovered_frame;
         new_hovered_frame->mouseEnter(mouse_event);
       }
       mouse_hovered_frame_ = new_hovered_frame;
     }
     else if (mouse_hovered_frame_) {
-      mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->getPositionInWindow();
+      mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
       mouse_event.frame = mouse_hovered_frame_;
       mouse_hovered_frame_->mouseMove(mouse_event);
     }
@@ -229,10 +229,10 @@ namespace visage {
     MouseEvent mouse_event = getButtonMouseEvent(button_id, x, y, button_state, modifiers);
     mouse_event.repeat_click_count = repeat;
 
-    mouse_down_frame_ = content_frame_->getFrameAtPoint(mouse_event.window_position);
+    mouse_down_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
     UiFrame* new_keyboard_frame = mouse_down_frame_;
     while (new_keyboard_frame && !new_keyboard_frame->acceptsKeystrokes())
-      new_keyboard_frame = new_keyboard_frame->getParent();
+      new_keyboard_frame = new_keyboard_frame->parent();
 
     if (keyboard_focused_frame_ && new_keyboard_frame != keyboard_focused_frame_)
       keyboard_focused_frame_->focusChanged(false, true);
@@ -242,7 +242,7 @@ namespace visage {
       keyboard_focused_frame_->focusChanged(true, true);
 
     if (mouse_down_frame_) {
-      mouse_event.position = mouse_event.window_position - mouse_down_frame_->getPositionInWindow();
+      mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
       mouse_event.frame = mouse_down_frame_;
       mouse_down_frame_->mouseDown(mouse_event);
     }
@@ -253,11 +253,11 @@ namespace visage {
     MouseEvent mouse_event = getButtonMouseEvent(button_id, x, y, button_state, modifiers);
     mouse_event.repeat_click_count = repeat;
 
-    mouse_hovered_frame_ = content_frame_->getFrameAtPoint(mouse_event.window_position);
+    mouse_hovered_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
     bool exited = mouse_hovered_frame_ != mouse_down_frame_;
 
     if (mouse_down_frame_) {
-      mouse_event.position = mouse_event.window_position - mouse_down_frame_->getPositionInWindow();
+      mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
       mouse_event.frame = mouse_down_frame_;
       mouse_down_frame_->mouseUp(mouse_event);
       if (exited)
@@ -278,7 +278,7 @@ namespace visage {
     if (mouse_hovered_frame_) {
       MouseEvent mouse_event = getMouseEvent(last_mouse_position_.x, last_mouse_position_.y,
                                              button_state, modifiers);
-      mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->getPositionInWindow();
+      mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
       mouse_event.frame = mouse_hovered_frame_;
       mouse_hovered_frame_->mouseExit(mouse_event);
       mouse_hovered_frame_ = nullptr;
@@ -295,9 +295,9 @@ namespace visage {
     mouse_event.precise_wheel_delta_y = precise_y;
     mouse_event.wheel_momentum = momentum;
 
-    mouse_hovered_frame_ = content_frame_->getFrameAtPoint(mouse_event.window_position);
+    mouse_hovered_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
     if (mouse_hovered_frame_) {
-      mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->getPositionInWindow();
+      mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
       mouse_hovered_frame_->mouseWheel(mouse_event);
     }
   }
@@ -312,10 +312,10 @@ namespace visage {
     return mouse_down_frame_->startDragDropSource();
   }
 
-  visage::Bounds WindowEventHandler::getDragDropSourceBounds() {
+  visage::Bounds WindowEventHandler::dragDropSourceBounds() {
     if (mouse_down_frame_ == nullptr)
-      return content_frame_->getLocalBounds();
-    return mouse_down_frame_->getRelativeBounds(content_frame_);
+      return content_frame_->localBounds();
+    return mouse_down_frame_->relativeBounds(content_frame_);
   }
 
   void WindowEventHandler::cleanupDragDropSource() {
@@ -329,7 +329,7 @@ namespace visage {
       if (!frame->receivesDragDropFiles() || (num_files > 1 && !frame->receivesMultipleDragDropFiles()))
         return false;
 
-      std::regex regex(frame->getDragDropFileExtensionRegex());
+      std::regex regex(frame->dragDropFileExtensionRegex());
       for (auto& path : files) {
         size_t extension_position = path.find_last_of('.');
         std::string extension;
@@ -342,9 +342,9 @@ namespace visage {
       return true;
     };
 
-    UiFrame* drag_drop_frame = content_frame_->getFrameAtPoint(point);
+    UiFrame* drag_drop_frame = content_frame_->frameAtPoint(point);
     while (drag_drop_frame && !receives_files(drag_drop_frame, files))
-      drag_drop_frame = drag_drop_frame->getParent();
+      drag_drop_frame = drag_drop_frame->parent();
 
     return drag_drop_frame;
   }

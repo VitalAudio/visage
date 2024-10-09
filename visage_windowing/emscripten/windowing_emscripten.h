@@ -28,9 +28,9 @@ namespace visage {
     WindowEmscripten(int width, int height);
 
     void* getInitWindow() const override { return (void*)"#canvas"; }
-    void* getNativeHandle() const override { return (void*)"#canvas"; }
+    void* nativeHandle() const override { return (void*)"#canvas"; }
 
-    void runEventThread() override;
+    void runEventLoop() override;
     void windowContentsResized(int width, int height) override;
     void show() override { }
     void hide() override { }

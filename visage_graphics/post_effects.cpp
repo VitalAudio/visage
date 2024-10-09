@@ -206,16 +206,20 @@ namespace visage {
           float limit_mult_val = std::min(limit_mult, 1.0f);
           float limit_mults[4] = { limit_mult_val, limit_mult_val, limit_mult_val, limit_mult_val };
           setUniform<Uniforms::kLimitMult>(limit_mults);
-          bgfx::submit(submit_pass, visage::ProgramCache::getProgram(visage::shaders::vs_resample,
-                                                                     visage::shaders::fs_split_threshold));
+          auto handle = visage::ProgramCache::programHandle(visage::shaders::vs_resample,
+                                                            visage::shaders::fs_split_threshold);
+          bgfx::submit(submit_pass, handle);
         }
-        else
-          bgfx::submit(submit_pass, visage::ProgramCache::getProgram(visage::shaders::vs_resample,
-                                                                     visage::shaders::fs_mult_threshold));
+        else {
+          auto handle = visage::ProgramCache::programHandle(visage::shaders::vs_resample,
+                                                            visage::shaders::fs_mult_threshold);
+          bgfx::submit(submit_pass, handle);
+        }
       }
-      else
-        bgfx::submit(submit_pass, visage::ProgramCache::getProgram(visage::shaders::vs_resample,
-                                                                   visage::shaders::fs_sample));
+      else {
+        bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_resample,
+                                                                      visage::shaders::fs_sample));
+      }
 
       submit_pass++;
 
@@ -231,8 +235,8 @@ namespace visage {
         setUniform<Uniforms::kResampleValues>(downsample_values);
         setUniform<Uniforms::kPixelSize>(blur_scale1);
 
-        bgfx::submit(submit_pass, visage::ProgramCache::getProgram(visage::shaders::vs_full_screen_texture,
-                                                                   visage::shaders::fs_blur));
+        bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_full_screen_texture,
+                                                                      visage::shaders::fs_blur));
         submit_pass++;
 
         setBlendState(BlendState::Opaque);
@@ -243,8 +247,8 @@ namespace visage {
         bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
         setUniform<Uniforms::kResampleValues>(downsample_values);
         setUniform<Uniforms::kPixelSize>(blur_scale2);
-        bgfx::submit(submit_pass, visage::ProgramCache::getProgram(visage::shaders::vs_full_screen_texture,
-                                                                   visage::shaders::fs_blur));
+        bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_full_screen_texture,
+                                                                      visage::shaders::fs_blur));
         submit_pass++;
       }
 
@@ -279,11 +283,11 @@ namespace visage {
       bgfx::setViewFrameBuffer(submit_pass, destination);
       bgfx::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
       if (i < cutoff_ - 1.0f)
-        bgfx::submit(submit_pass, visage::ProgramCache::getProgram(visage::shaders::vs_resample,
-                                                                   visage::shaders::fs_sample));
+        bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_resample,
+                                                                      visage::shaders::fs_sample));
       else
-        bgfx::submit(submit_pass, visage::ProgramCache::getProgram(visage::shaders::vs_resample,
-                                                                   visage::shaders::fs_mult));
+        bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_resample,
+                                                                      visage::shaders::fs_mult));
       submit_pass++;
     }
 
@@ -325,8 +329,8 @@ namespace visage {
       float mult_values[4] = { passthrough_mult, passthrough_mult, passthrough_mult, passthrough_mult };
       setUniform<Uniforms::kColorMult>(mult_values);
       setUniformDimensions(destination.width(), destination.height());
-      bgfx::submit(submit_pass, visage::ProgramCache::getProgram(visage::shaders::vs_image_sample,
-                                                                 visage::shaders::fs_image_sample));
+      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_image_sample,
+                                                                    visage::shaders::fs_image_sample));
     }
   }
 
@@ -376,8 +380,8 @@ namespace visage {
     bgfx::setVertexBuffer(0, &vertex_buffer);
     bgfx::setIndexBuffer(&index_buffer);
     setUniformDimensions(destination.width(), destination.height());
-    bgfx::submit(submit_pass, visage::ProgramCache::getProgram(visage::shaders::vs_image_sample,
-                                                               visage::shaders::fs_image_sample));
+    bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_image_sample,
+                                                                  visage::shaders::fs_image_sample));
   }
 
   void ShaderPostEffect::submit(const CanvasWrapper& source, Canvas& destination, int submit_pass) {
@@ -407,11 +411,11 @@ namespace visage {
     setUniformDimensions(destination.width(), destination.height());
 
     for (const auto& uniform : uniforms_)
-      bgfx::setUniform(visage::UniformCache::getUniform(uniform.first.c_str()), uniform.second.data);
+      bgfx::setUniform(visage::UniformCache::uniformHandle(uniform.first.c_str()), uniform.second.data);
 
     float mult_values[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
     setUniform<Uniforms::kColorMult>(mult_values);
-    bgfx::ProgramHandle program = ProgramCache::getProgram(vertexShader(), fragmentShader());
+    bgfx::ProgramHandle program = ProgramCache::programHandle(vertexShader(), fragmentShader());
     bgfx::submit(submit_pass, program);
   }
 }

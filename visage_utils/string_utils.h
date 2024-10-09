@@ -351,7 +351,7 @@ namespace visage {
     void clear() { string_.clear(); }
     bool isEmpty() const { return string_.empty(); }
 
-    visage::String getSubstring(size_t position = 0, size_t count = std::string::npos) const {
+    visage::String substring(size_t position = 0, size_t count = std::string::npos) const {
       return string_.substr(position, count);
     }
 

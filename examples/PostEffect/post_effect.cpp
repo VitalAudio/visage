@@ -56,9 +56,9 @@ public:
   TestEditor() {
     shapes_.setDrawFunction([this](visage::Canvas& canvas) {
       canvas.setColor(0xff000000);
-      canvas.fill(0, 0, shapes_.getWidth(), shapes_.getHeight());
+      canvas.fill(0, 0, shapes_.width(), shapes_.height());
 
-      drawRotatingCircles(canvas, shapes_.getWidth(), shapes_.getHeight());
+      drawRotatingCircles(canvas, shapes_.width(), shapes_.height());
       shapes_.redraw();
     });
 
@@ -73,12 +73,12 @@ public:
   }
 
   void editorResized() override {
-    shapes_.setBounds(0, 0, getWidth() / 2, getHeight());
-    shader_editor_.setBounds(shapes_.getWidth(), 0, getWidth() - shapes_.getRight(), getHeight());
+    shapes_.setBounds(0, 0, width() / 2, height());
+    shader_editor_.setBounds(shapes_.width(), 0, width() - shapes_.right(), height());
   }
 
-  int getDefaultWidth() const override { return 1000; }
-  int getDefaultHeight() const override { return 500; }
+  int defaultWidth() const override { return 1000; }
+  int defaultHeight() const override { return 500; }
 
 private:
   DrawableComponent shapes_;
@@ -88,7 +88,7 @@ private:
 
 int runExample() {
   TestEditor editor;
-  editor.show(0.6f);
+  editor.showWithEventLoop(0.6f);
 
   return 0;
 }

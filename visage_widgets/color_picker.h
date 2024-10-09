@@ -36,7 +36,7 @@ namespace visage {
     void setHue(const MouseEvent& e) {
       static constexpr float kHueRange = Color::kHueRange;
 
-      hue_ = std::max(0.0f, std::min(kHueRange, kHueRange * e.getPosition().y / getHeight()));
+      hue_ = std::max(0.0f, std::min(kHueRange, kHueRange * e.position.y / height()));
       for (Listener* listener : listeners_)
         listener->hueChanged(hue_);
 
@@ -74,8 +74,8 @@ namespace visage {
     void draw(Canvas& canvas) override;
 
     void setValueSaturation(const MouseEvent& e) {
-      value_ = std::max(0.0f, std::min(1.0f, 1.0f - e.getPosition().y * 1.0f / getHeight()));
-      saturation_ = std::max(0.0f, std::min(1.0f, e.getPosition().x * 1.0f / getWidth()));
+      value_ = std::max(0.0f, std::min(1.0f, 1.0f - e.position.y * 1.0f / height()));
+      saturation_ = std::max(0.0f, std::min(1.0f, e.position.x * 1.0f / width()));
       for (Listener* listener : listeners_)
         listener->valueSaturationChanged(value_, saturation_);
 

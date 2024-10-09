@@ -47,7 +47,7 @@ namespace visage {
   template<class T>
   class InstanceCounter {
   public:
-    static InstanceCounter<T>& getInstance() {
+    static InstanceCounter<T>& instance() {
       static InstanceCounter<T> instance;
       return instance;
     }
@@ -64,11 +64,11 @@ namespace visage {
   template<class T>
   class LeakChecker {
   public:
-    LeakChecker() { InstanceCounter<T>::getInstance().add(); }
+    LeakChecker() { InstanceCounter<T>::instance().add(); }
 
-    LeakChecker(const LeakChecker& other) { InstanceCounter<T>::getInstance().add(); }
+    LeakChecker(const LeakChecker& other) { InstanceCounter<T>::instance().add(); }
 
-    ~LeakChecker() { InstanceCounter<T>::getInstance().remove(); }
+    ~LeakChecker() { InstanceCounter<T>::instance().remove(); }
   };
 }
 

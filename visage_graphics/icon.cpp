@@ -58,7 +58,7 @@ namespace visage {
 
   class Rasterizer {
   public:
-    static Rasterizer& getInstance() {
+    static Rasterizer& instance() {
       static Rasterizer instance;
       return instance;
     }
@@ -198,9 +198,9 @@ namespace visage {
     if (icon.width == 0)
       return;
 
-    std::unique_ptr<unsigned char[]> data = Rasterizer::getInstance().rasterize(icon);
+    std::unique_ptr<unsigned char[]> data = Rasterizer::instance().rasterize(icon);
 
-    PackedAtlas::Rect packed_rect = atlas_.getRect(index);
+    PackedAtlas::Rect packed_rect = atlas_.rectAtIndex(index);
     int atlas_offset = packed_rect.x + packed_rect.y * atlas_.width();
     unsigned char* texture_ref = texture_->data() + atlas_offset;
     for (int y = 0; y < icon.height; ++y) {
@@ -240,12 +240,12 @@ namespace visage {
 
   void IconGroup::setIconPositions(IconVertex* vertices, const Icon& icon, const QuadColor& color,
                                    float x, float y) const {
-    int index = getIconIndex(icon);
+    int index = iconIndex(icon);
     if (index < 0)
       return;
 
     float atlas_scale = 1.0f / atlasWidth();
-    PackedAtlas::Rect packed_rect = atlas_.getRect(index);
+    PackedAtlas::Rect packed_rect = atlas_.rectAtIndex(index);
 
     float packed_width = packed_rect.w;
     float packed_height = packed_rect.h;

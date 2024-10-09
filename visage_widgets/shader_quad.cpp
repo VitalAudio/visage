@@ -28,7 +28,7 @@ namespace visage {
 
   void ShaderQuad::draw(Canvas& canvas) {
     canvas.setPaletteColor(kShaderQuadColor);
-    canvas.shader(&shader_, 0.0f, 0.0f, getWidth(), getHeight());
+    canvas.shader(&shader_, 0.0f, 0.0f, width(), height());
     redraw();
   }
 }

@@ -77,7 +77,7 @@ namespace visage {
     }
   };
 
-  static inline constexpr uint64_t getBlendStateValue(BlendState draw_state) {
+  static constexpr uint64_t blendStateValue(BlendState draw_state) {
     switch (draw_state) {
     case BlendState::Opaque: return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A;
     case BlendState::Additive:
@@ -96,7 +96,7 @@ namespace visage {
   }
 
   void setBlendState(BlendState draw_state) {
-    bgfx::setState(getBlendStateValue(draw_state));
+    bgfx::setState(blendStateValue(draw_state));
   }
 
   template<const char* name>
@@ -337,7 +337,7 @@ namespace visage {
     setUniformDimensions(canvas.width(), canvas.height());
     setColorMult(canvas.hdr());
     setOriginFlipUniform(canvas.bottomLeftOrigin());
-    bgfx::submit(submit_pass, ProgramCache::getProgram(vertex_shader, fragment_shader));
+    bgfx::submit(submit_pass, ProgramCache::programHandle(vertex_shader, fragment_shader));
   }
 
   void submitLine(const LineWrapper& line_wrapper, const Canvas& canvas, int submit_pass) {
@@ -364,7 +364,7 @@ namespace visage {
     bgfx::allocTransientVertexBuffer(&vertex_buffer, line->num_line_vertices, LineVertex::layout());
     setLineVertices(line_wrapper, vertex_buffer);
 
-    bgfx::setState(getBlendStateValue(BlendState::Alpha) | BGFX_STATE_PT_TRISTRIP);
+    bgfx::setState(blendStateValue(BlendState::Alpha) | BGFX_STATE_PT_TRISTRIP);
     setUniform<Uniforms::kScale>(scale);
     setUniform<Uniforms::kDimensions>(dimensions);
     setUniform<Uniforms::kTopLeftColor>(&top_left_line);
@@ -380,7 +380,7 @@ namespace visage {
     bgfx::setIndexBuffer(line->indexBuffer());
     setUniformBounds(line_wrapper.x, line_wrapper.y, canvas.width(), canvas.height());
     setScissor(line_wrapper, canvas.width(), canvas.height());
-    auto program = ProgramCache::getProgram(LineWrapper::vertexShader(), LineWrapper::fragmentShader());
+    auto program = ProgramCache::programHandle(LineWrapper::vertexShader(), LineWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
   }
 
@@ -434,7 +434,7 @@ namespace visage {
     bgfx::allocTransientVertexBuffer(&fill_vertex_buffer, line->num_fill_vertices, LineVertex::layout());
     setFillVertices(line_fill_wrapper, fill_vertex_buffer);
 
-    bgfx::setState(getBlendStateValue(BlendState::Alpha) | BGFX_STATE_PT_TRISTRIP);
+    bgfx::setState(blendStateValue(BlendState::Alpha) | BGFX_STATE_PT_TRISTRIP);
     setUniform<Uniforms::kScale>(scale);
     setUniform<Uniforms::kDimensions>(dimensions);
     setUniform<Uniforms::kTopLeftColor>(&top_left_fill);
@@ -449,15 +449,15 @@ namespace visage {
     bgfx::setIndexBuffer(line->fillIndexBuffer());
     setUniformBounds(line_fill_wrapper.x, line_fill_wrapper.y, canvas.width(), canvas.height());
     setScissor(line_fill_wrapper, canvas.width(), canvas.height());
-    auto program = ProgramCache::getProgram(LineFillWrapper::vertexShader(),
-                                            LineFillWrapper::fragmentShader());
+    auto program = ProgramCache::programHandle(LineFillWrapper::vertexShader(),
+                                               LineFillWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
   }
 
   void submitIcons(const BatchVector<IconWrapper>& batches, Canvas& canvas, int submit_pass) {
     bgfx::TransientVertexBuffer vertex_buffer {};
     bgfx::TransientIndexBuffer index_buffer {};
-    if (!initTransientQuadBuffers(getNumShapes(batches), IconVertex::layout(), &vertex_buffer, &index_buffer))
+    if (!initTransientQuadBuffers(numShapes(batches), IconVertex::layout(), &vertex_buffer, &index_buffer))
       return;
 
     std::set<Icon> insert_set;
@@ -505,14 +505,14 @@ namespace visage {
     setUniformDimensions(canvas.width(), canvas.height());
     setColorMult(canvas.hdr());
 
-    auto program = ProgramCache::getProgram(IconWrapper::vertexShader(), IconWrapper::fragmentShader());
+    auto program = ProgramCache::programHandle(IconWrapper::vertexShader(), IconWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
   }
 
   void submitImages(const BatchVector<ImageWrapper>& batches, Canvas& canvas, int submit_pass) {
     bgfx::TransientVertexBuffer vertex_buffer {};
     bgfx::TransientIndexBuffer index_buffer {};
-    if (!initTransientQuadBuffers(getNumShapes(batches), ImageVertex::layout(), &vertex_buffer, &index_buffer))
+    if (!initTransientQuadBuffers(numShapes(batches), ImageVertex::layout(), &vertex_buffer, &index_buffer))
       return;
 
     ImageVertex* vertices = reinterpret_cast<ImageVertex*>(vertex_buffer.data);
@@ -545,7 +545,8 @@ namespace visage {
     bgfx::setIndexBuffer(&index_buffer);
     setUniformDimensions(canvas.width(), canvas.height());
     setColorMult(canvas.hdr());
-    auto program = ProgramCache::getProgram(ImageWrapper::vertexShader(), ImageWrapper::fragmentShader());
+    auto program = ProgramCache::programHandle(ImageWrapper::vertexShader(),
+                                               ImageWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
   }
 
@@ -668,7 +669,7 @@ namespace visage {
     setUniformDimensions(canvas.width(), canvas.height());
     setColorMult(canvas.hdr());
     bgfx::submit(submit_pass,
-                 ProgramCache::getProgram(shaders::vs_tinted_texture, shaders::fs_tinted_texture));
+                 ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_tinted_texture));
   }
 
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Canvas& canvas, int submit_pass) {
@@ -678,7 +679,7 @@ namespace visage {
     Shader* shader = batches[0].shapes->at(0).shader;
     bgfx::TransientVertexBuffer vertex_buffer {};
     bgfx::TransientIndexBuffer index_buffer {};
-    if (!initTransientQuadBuffers(getNumShapes(batches), ShapeVertex::layout(), &vertex_buffer, &index_buffer))
+    if (!initTransientQuadBuffers(numShapes(batches), ShapeVertex::layout(), &vertex_buffer, &index_buffer))
       return;
 
     ShapeVertex* vertices = reinterpret_cast<ShapeVertex*>(vertex_buffer.data);
@@ -701,6 +702,7 @@ namespace visage {
 
     setUniformDimensions(canvas.width(), canvas.height());
     setColorMult(canvas.hdr());
-    bgfx::submit(submit_pass, ProgramCache::getProgram(shader->vertexShader(), shader->fragmentShader()));
+    bgfx::submit(submit_pass,
+                 ProgramCache::programHandle(shader->vertexShader(), shader->fragmentShader()));
   }
 }

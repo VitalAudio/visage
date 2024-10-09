@@ -65,28 +65,28 @@ namespace visage {
     Font operator=(const Font& other);
     ~Font();
 
-    int getWidthOverflowIndex(const char32_t* string, int string_length, float width,
-                              bool round = false, int character_override = 0) const;
-    float getStringWidth(const char32_t* string, int length, int character_override = 0) const;
-    float getStringWidth(const std::u32string& string, int character_override = 0) const {
-      return getStringWidth(string.c_str(), string.size(), character_override);
+    int widthOverflowIndex(const char32_t* string, int string_length, float width,
+                           bool round = false, int character_override = 0) const;
+    float stringWidth(const char32_t* string, int length, int character_override = 0) const;
+    float stringWidth(const std::u32string& string, int character_override = 0) const {
+      return stringWidth(string.c_str(), string.size(), character_override);
     }
-    float getStringTop(const char32_t* string, int length) const;
-    float getStringBottom(const char32_t* string, int length) const;
-    int getLineHeight() const;
-    float getCapitalHeight() const;
-    float getLowerDip() const;
+    float stringTop(const char32_t* string, int length) const;
+    float stringBottom(const char32_t* string, int length) const;
+    int lineHeight() const;
+    float capitalHeight() const;
+    float lowerDipHeight() const;
 
     int atlasWidth() const;
-    inline int size() const { return size_; }
-    inline const char* fontData() const { return font_data_; }
+    int size() const { return size_; }
+    const char* fontData() const { return font_data_; }
     const bgfx::TextureHandle& textureHandle() const;
 
     void setVertexPositions(FontAtlasQuad* quads, const char32_t* string, int length, float x, float y,
                             float width, float height, Justification justification = Justification::kCenter,
                             int character_override = 0) const;
 
-    std::vector<int> getLineBreaks(const char32_t* string, int length, float width) const;
+    std::vector<int> lineBreaks(const char32_t* string, int length, float width) const;
 
     void setMultiLineVertexPositions(FontAtlasQuad* quads, const char32_t* string, int length,
                                      float x, float y, float width, float height,
@@ -108,21 +108,21 @@ namespace visage {
     ~FontCache();
 
   private:
-    static FontCache* getInstance() {
+    static FontCache* instance() {
       static FontCache cache;
       return &cache;
     }
 
     static PackedFont* loadPackedFont(int size, const EmbeddedFile& font) {
-      return getInstance()->createOrLoadPackedFont(size, font.data);
+      return instance()->createOrLoadPackedFont(size, font.data);
     }
 
     static PackedFont* loadPackedFont(int size, const char* font_data) {
-      return getInstance()->createOrLoadPackedFont(size, font_data);
+      return instance()->createOrLoadPackedFont(size, font_data);
     }
 
     static void returnPackedFont(PackedFont* packed_font) {
-      getInstance()->decrementPackedFont(packed_font);
+      instance()->decrementPackedFont(packed_font);
     }
 
     FontCache();

@@ -31,16 +31,16 @@ namespace visage {
 
     if (ms > 0) {
       if (!isRunning())
-        EventManager::getInstance().addTimer(this);
+        EventManager::instance().addTimer(this);
 
-      last_run_time_ = time::getMilliseconds();
+      last_run_time_ = time::milliseconds();
       ms_ = ms;
     }
   }
 
   void EventTimer::stopTimer() {
     if (isRunning()) {
-      EventManager::getInstance().removeTimer(this);
+      EventManager::instance().removeTimer(this);
       ms_ = 0;
     }
   }
@@ -72,7 +72,7 @@ namespace visage {
   }
 
   void EventManager::checkEventTimers() {
-    long long current_time = time::getMilliseconds();
+    long long current_time = time::milliseconds();
     std::vector<EventTimer*> timers = timers_;
     std::vector<std::function<void()>> callbacks = std::move(callbacks_);
 
@@ -85,7 +85,7 @@ namespace visage {
 
   MouseEvent MouseEvent::relativeTo(const UiFrame* new_frame) const {
     MouseEvent copy = *this;
-    copy.position = copy.window_position - new_frame->getPositionInWindow();
+    copy.position = copy.window_position - new_frame->positionInWindow();
     copy.frame = new_frame;
     return copy;
   }

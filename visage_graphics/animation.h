@@ -75,7 +75,7 @@ namespace visage {
         forward_easing_(forward_easing), backward_easing_(backward_easing) { }
 
     void target(bool target, bool jump = false) {
-      last_ms_ = time::getMilliseconds();
+      last_ms_ = time::milliseconds();
 
       targeting_ = target;
       if (jump)
@@ -108,7 +108,7 @@ namespace visage {
     }
 
     T update() {
-      long long ms = time::getMilliseconds();
+      long long ms = time::milliseconds();
       float delta = (ms - last_ms_) / time_;
       last_ms_ = ms;
 

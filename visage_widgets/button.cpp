@@ -90,7 +90,7 @@ namespace visage {
     if (!active_)
       return;
 
-    if (getLocalBounds().contains(e.getPosition())) {
+    if (localBounds().contains(e.position)) {
       hover_amount_.target(true, true);
       if (!toggle_on_mouse_down_)
         notify(toggle());
@@ -109,16 +109,16 @@ namespace visage {
     else
       canvas.setBlendedPaletteColor(kUiButtonBackground, kUiButtonBackgroundHover, hover_amount);
 
-    int width = getWidth();
-    int height = getHeight();
-    float rounding = canvas.getValue(kUiButtonRounding);
+    int w = width();
+    int h = height();
+    float rounding = canvas.value(kUiButtonRounding);
 
     if (isActive() || !border_when_inactive_) {
-      float mult = hover_amount * canvas.getValue(kUiButtonHoverRoundingMult) + (1.0f - hover_amount);
-      canvas.roundedRectangle(0, 0, width, height, rounding * mult);
+      float mult = hover_amount * canvas.value(kUiButtonHoverRoundingMult) + (1.0f - hover_amount);
+      canvas.roundedRectangle(0, 0, w, h, rounding * mult);
     }
     else
-      canvas.roundedRectangleBorder(0, 0, width, height, rounding, 2.0f);
+      canvas.roundedRectangleBorder(0, 0, w, h, rounding, 2.0f);
   }
 
   void UiButton::draw(Canvas& canvas, float hover_amount) {
@@ -134,7 +134,7 @@ namespace visage {
       canvas.setBlendedPaletteColor(kUiActionButtonText, kUiActionButtonTextHover, hover_amount);
     else
       canvas.setBlendedPaletteColor(kUiButtonText, kUiButtonTextHover, hover_amount);
-    canvas.text(&text_, 0, 0, getWidth(), getHeight());
+    canvas.text(&text_, 0, 0, width(), height());
   }
 
   void IconButton::draw(Canvas& canvas, float hover_amount) {
@@ -195,8 +195,8 @@ namespace visage {
     else
       canvas.setBlendedPaletteColor(kTextButtonBackgroundOff, kTextButtonBackgroundOffHover, hover_amount);
 
-    float rounding = canvas.getValue(kTextButtonRounding);
-    canvas.roundedRectangle(0, 0, getWidth(), getHeight(), rounding);
+    float rounding = canvas.value(kTextButtonRounding);
+    canvas.roundedRectangle(0, 0, width(), height(), rounding);
   }
 
   void ToggleTextButton::draw(Canvas& canvas, float hover_amount) {
@@ -207,12 +207,12 @@ namespace visage {
       canvas.setBlendedPaletteColor(kTextButtonTextOn, kTextButtonTextOnHover, hover_amount);
     else
       canvas.setBlendedPaletteColor(kTextButtonTextOff, kTextButtonTextOffHover, hover_amount);
-    canvas.text(&text_, 0, 0, getWidth(), getHeight());
+    canvas.text(&text_, 0, 0, width(), height());
   }
 
   void ToggleTextButton::resized() {
     ToggleButton::resized();
-    float height = getValue(kButtonTextHeight);
+    float height = paletteValue(kButtonTextHeight);
     setFont(Font(height, fonts::Lato_Regular_ttf));
   }
 }

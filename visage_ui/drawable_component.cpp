@@ -31,11 +31,11 @@ namespace visage {
   THEME_IMPLEMENT_VALUE(DrawableComponent, WidgetOverlayAlpha, 0.7f, Constant, false);
 
   namespace {
-    QuadColor getColorForSampledComponent(const DrawableComponent* parent, DrawableComponent* child,
+    QuadColor colorForSampledComponent(const DrawableComponent* parent, DrawableComponent* child,
                                           const QuadColor& background) {
-      Bounds bounds = parent->getRelativeBounds(child);
-      float width = parent->getWidth();
-      float height = parent->getHeight();
+      Bounds bounds = parent->relativeBounds(child);
+      float width = parent->width();
+      float height = parent->height();
       return { background.sampleColor(bounds.x() / width, bounds.y() / height),
                background.sampleColor(bounds.right() / width, bounds.y() / height),
                background.sampleColor(bounds.x() / width, bounds.bottom() / height),
@@ -58,7 +58,7 @@ namespace visage {
   void DrawableComponent::drawToRegion() {
     if (redrawing_) {
       redrawing_ = false;
-      canvas_->beginRegion(&region_, getX(), getY(), getWidth(), getHeight());
+      canvas_->beginRegion(&region_, x(), y(), width(), height());
 
       if (palette_override_)
         canvas_->setPaletteOverride(palette_override_);
@@ -79,8 +79,8 @@ namespace visage {
   void DrawableComponent::drawChildSubcanvas(DrawableComponent* child, Canvas& canvas) {
     if (child->isVisible() && child->post_effect_) {
       Canvas* child_canvas = child->post_effect_canvas_.get();
-      canvas.subcanvas(child_canvas, child->getX(), child->getY(), child->getWidth(),
-                       child->getHeight(), child->post_effect_);
+      canvas.subcanvas(child_canvas, child->x(), child->y(), child->width(), child->height(),
+                       child->post_effect_);
     }
   }
 
@@ -108,47 +108,47 @@ namespace visage {
     }
   }
 
-  float DrawableComponent::getValue(unsigned int value_id) {
+  float DrawableComponent::paletteValue(unsigned int value_id) {
     float scale = 1.0f;
-    theme::ValueId::ValueIdInfo info = theme::ValueId::getInfo(value_id);
+    theme::ValueId::ValueIdInfo info = theme::ValueId::info(value_id);
     if (info.scale_type == theme::ValueId::kScaledWidth)
-      scale = getWidthScale();
+      scale = widthScale();
     else if (info.scale_type == theme::ValueId::kScaledHeight)
-      scale = getHeightScale();
+      scale = heightScale();
     else if (info.scale_type == theme::ValueId::kScaledDpi)
-      scale = getDpiScale();
+      scale = dpiScale();
 
     float result;
     if (palette_) {
       DrawableComponent* component = this;
       while (component) {
         int override_id = component->palette_override_;
-        if (override_id && palette_->getValue(override_id, value_id, result))
+        if (override_id && palette_->value(override_id, value_id, result))
           return scale * result;
         component = component->parent_;
       }
-      if (palette_->getValue(0, value_id, result))
+      if (palette_->value(0, value_id, result))
         return scale * result;
     }
 
-    return scale * theme::ValueId::getDefaultValue(value_id);
+    return scale * theme::ValueId::defaultValue(value_id);
   }
 
-  QuadColor DrawableComponent::getPaletteColor(unsigned int color_id) {
+  QuadColor DrawableComponent::paletteColor(unsigned int color_id) {
     QuadColor result;
     if (palette_) {
       DrawableComponent* component = this;
       while (component) {
         int override_id = component->palette_override_;
-        if (override_id && palette_->getColor(override_id, color_id, result))
+        if (override_id && palette_->color(override_id, color_id, result))
           return result;
         component = component->parent_;
       }
-      if (palette_->getColor(0, color_id, result))
+      if (palette_->color(0, color_id, result))
         return result;
     }
 
-    return theme::ColorId::getDefaultColor(color_id);
+    return theme::ColorId::defaultColor(color_id);
   }
 
   bool DrawableComponent::isPopupVisible() const {

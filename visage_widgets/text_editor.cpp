@@ -33,7 +33,7 @@ namespace visage {
   THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginX, 9.0f, ScaledHeight, true);
   THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginY, 9.0f, ScaledHeight, true);
 
-  char32_t getAcuteAccentDeadKey(char32_t original) {
+  char32_t acuteAccentDeadKey(char32_t original) {
     static const std::map<char32_t, char32_t> lookup_map = {
       { U'a', U'\u00E1' }, { U'A', U'\u00C1' }, { U'c', U'\u0107' }, { U'C', U'\u0106' },
       { U'l', U'\u013A' }, { U'L', U'\u0139' }, { U'e', U'\u00E9' }, { U'E', U'\u00C9' },
@@ -46,7 +46,7 @@ namespace visage {
     return original;
   }
 
-  char32_t getGraveAccentDeadKey(char32_t original) {
+  char32_t graveAccentDeadKey(char32_t original) {
     static const std::map<char32_t, char32_t> lookup_map = {
       { U'a', U'\u00E0' }, { U'A', U'\u00C0' }, { U'e', U'\u00E8' }, { U'E', U'\u00C8' },
       { U'i', U'\u00EC' }, { U'I', U'\u00CC' }, { U'o', U'\u00F2' }, { U'O', U'\u00D2' },
@@ -58,7 +58,7 @@ namespace visage {
     return original;
   }
 
-  char32_t getTildeDeadKey(char32_t original) {
+  char32_t tildeDeadKey(char32_t original) {
     static const std::map<char32_t, char32_t> lookup_map = {
       { U'a', U'\u00E3' }, { U'A', U'\u00C3' }, { U'n', U'\u00F1' },
       { U'N', U'\u00D1' }, { U'o', U'\u00F5' }, { U'O', U'\u00D5' },
@@ -69,7 +69,7 @@ namespace visage {
     return original;
   }
 
-  char32_t getUmlautDeadKey(char32_t original) {
+  char32_t umlautDeadKey(char32_t original) {
     static const std::map<char32_t, char32_t> lookup_map = {
       { U'a', U'\u00E4' }, { U'A', U'\u00C4' }, { U'e', U'\u00EB' }, { U'E', U'\u00CB' },
       { U'i', U'\u00EF' }, { U'I', U'\u00CF' }, { U'o', U'\u00F6' }, { U'O', U'\u00D6' },
@@ -81,7 +81,7 @@ namespace visage {
     return original;
   }
 
-  char32_t getCircumflexDeadKey(char32_t original) {
+  char32_t circumflexDeadKey(char32_t original) {
     static const std::map<char32_t, char32_t> lookup_map = {
       { U'a', U'\u00E2' }, { U'A', U'\u00C2' }, { U'e', U'\u00EA' }, { U'E', U'\u00CA' },
       { U'i', U'\u00EE' }, { U'I', U'\u00CE' }, { U'o', U'\u00F4' }, { U'O', U'\u00D4' },
@@ -104,24 +104,22 @@ namespace visage {
 
   void TextEditor::drawBackground(Canvas& canvas) const {
     canvas.setPaletteColor(background_color_id_);
-    canvas.roundedRectangle(0, 0, getWidth(), getHeight(), background_rounding_);
+    canvas.roundedRectangle(0, 0, width(), height(), background_rounding_);
     canvas.setPaletteColor(kTextEditorBorder);
-    canvas.roundedRectangleBorder(0, 0, getWidth(), getHeight(), background_rounding_, 2.0f);
+    canvas.roundedRectangleBorder(0, 0, width(), height(), background_rounding_, 2.0f);
   }
 
   void TextEditor::selectionRectangle(Canvas& canvas, int x, int y, int w, int h) const {
-    int width = getWidth();
-    int height = getHeight();
-    int left = std::max(0, std::min(width, x));
-    int top = std::max(0, std::min(height, y));
-    int right = std::max(0, std::min(width, x + w));
-    int bottom = std::max(0, std::min(height, y + h));
+    int left = std::max(0, std::min(width(), x));
+    int top = std::max(0, std::min(height(), y));
+    int right = std::max(0, std::min(width(), x + w));
+    int bottom = std::max(0, std::min(height(), y + h));
     canvas.rectangle(left, top, right - left, bottom - top);
   }
 
   void TextEditor::drawSelection(Canvas& canvas) const {
     int selection_start = selectionStart();
-    int line_height = font().getLineHeight();
+    int line_height = font().lineHeight();
 
     std::pair<int, int> start_position = selection_start_point_;
     std::pair<int, int> end_position = selection_end_point_;
@@ -133,7 +131,7 @@ namespace visage {
       y_offset = yPosition();
     else {
       int num_lines = line_breaks_.size() + 1;
-      y_offset = (getHeight() - num_lines * line_height) * 0.5f - yPosition();
+      y_offset = (height() - num_lines * line_height) * 0.5f - yPosition();
     }
 
     canvas.setPaletteColor(kTextEditorCaret);
@@ -151,7 +149,7 @@ namespace visage {
                          start_position.second + y_offset, width, line_height);
     }
     else {
-      int total_width = getWidth();
+      int total_width = width();
       int start_width = total_width - start_position.first - x_margin_;
       selectionRectangle(canvas, start_position.first - x_position_,
                          start_position.second + y_offset, start_width, line_height);
@@ -167,8 +165,7 @@ namespace visage {
 
   void TextEditor::draw(Canvas& canvas) {
     drawBackground(canvas);
-    Bounds text_bounds(x_margin_, 0, getWidth() - 2 * x_margin_,
-                       std::max(getHeight(), getScrollableHeight()));
+    Bounds text_bounds(x_margin_, 0, width() - 2 * x_margin_, std::max(height(), scrollableHeight()));
 
     if (hasKeyboardFocus())
       drawSelection(canvas);
@@ -189,27 +186,27 @@ namespace visage {
 
   std::pair<int, int> TextEditor::indexToPosition(int index) const {
     int line = 0;
-    int line_height = font().getLineHeight();
+    int line_height = font().lineHeight();
 
     while (line < line_breaks_.size() && index >= line_breaks_[line])
       line++;
 
-    std::pair<int, int> range = getLineRange(line);
+    std::pair<int, int> range = lineRange(line);
 
-    int pre_width = font().getStringWidth(text_.text().c_str() + range.first, index - range.first,
+    int pre_width = font().stringWidth(text_.text().c_str() + range.first, index - range.first,
                                           text_.characterOverride());
-    int full_width = font().getStringWidth(text_.text().c_str() + range.first,
+    int full_width = font().stringWidth(text_.text().c_str() + range.first,
                                            range.second - range.first, text_.characterOverride());
-    int line_x = (getWidth() - full_width + 1) / 2;
+    int line_x = (width() - full_width + 1) / 2;
     if (justification() & Font::kLeft)
       line_x = x_margin_;
     else if (justification() & Font::kRight)
-      line_x = getWidth() - x_margin_ - full_width;
+      line_x = width() - x_margin_ - full_width;
 
     return { line_x + pre_width, line_height * line + y_margin_ };
   }
 
-  std::pair<int, int> TextEditor::getLineRange(int line) const {
+  std::pair<int, int> TextEditor::lineRange(int line) const {
     int start_index = 0;
     int end_index = textLength();
     line = std::max(line, 0);
@@ -227,19 +224,19 @@ namespace visage {
   }
 
   int TextEditor::positionToIndex(std::pair<int, int> position) const {
-    int line_height = font().getLineHeight();
+    int line_height = font().lineHeight();
     int line = std::min<int>(line_breaks_.size(), (position.second - y_margin_) / line_height);
-    std::pair<int, int> range = getLineRange(line);
+    std::pair<int, int> range = lineRange(line);
 
-    float full_width = font().getStringWidth(text_.text().c_str() + range.first,
+    float full_width = font().stringWidth(text_.text().c_str() + range.first,
                                              range.second - range.first, text_.characterOverride());
-    float line_x = (getWidth() - full_width) * 0.5f;
+    float line_x = (width() - full_width) * 0.5f;
     if (justification() & Font::kLeft)
       line_x = x_margin_;
     else if (justification() & Font::kRight)
-      line_x = getWidth() - x_margin_ - full_width;
+      line_x = width() - x_margin_ - full_width;
 
-    int index = font().getWidthOverflowIndex(text_.text().c_str() + range.first,
+    int index = font().widthOverflowIndex(text_.text().c_str() + range.first,
                                              range.second - range.first, position.first - line_x,
                                              true, text_.characterOverride());
     return std::min(range.first + index, range.second);
@@ -289,8 +286,8 @@ namespace visage {
       addUndoPosition();
     action_state_ = kDeleting;
 
-    String before = text_.text().getSubstring(0, selectionStart());
-    String after = text_.text().getSubstring(selectionEnd());
+    String before = text_.text().substring(0, selectionStart());
+    String after = text_.text().substring(selectionEnd());
     text_.setText(before + after);
     setLineBreaks();
     caret_position_ = selectionStart();
@@ -307,35 +304,35 @@ namespace visage {
 
     if (text_.multiLine()) {
       int min_view = y_margin_ + yPosition();
-      int max_view = yPosition() + getHeight() - font().getLineHeight();
+      int max_view = yPosition() + height() - font().lineHeight();
 
       std::pair<int, int> caret_location = indexToPosition(caret_position_);
       if (caret_location.second < min_view)
         setYPosition(caret_location.second);
       else if (caret_location.second > max_view)
-        setYPosition(caret_location.second - getHeight() + font().getLineHeight());
+        setYPosition(caret_location.second - height() + font().lineHeight());
     }
     else {
-      int line_width = font().getStringWidth(text_.text().c_str(), textLength(),
+      int line_width = font().stringWidth(text_.text().c_str(), textLength(),
                                              text_.characterOverride());
       int min_view = x_position_ + x_margin_;
-      int max_view = x_position_ + getWidth() - x_margin_;
+      int max_view = x_position_ + width() - x_margin_;
 
-      if (line_width <= getWidth() - 2 * x_margin_) {
+      if (line_width <= width() - 2 * x_margin_) {
         min_view = x_margin_;
-        max_view = getWidth() - x_margin_;
+        max_view = width() - x_margin_;
         x_position_ = 0;
       }
       else {
-        int max = (line_width - getWidth()) / 2 + x_margin_ + 1;
-        int min = (getWidth() - line_width) / 2 - x_margin_;
+        int max = (line_width - width()) / 2 + x_margin_ + 1;
+        int min = (width() - line_width) / 2 - x_margin_;
         if (justification() & Font::kLeft) {
-          max = line_width - getWidth() + 2 * x_margin_ + 1;
+          max = line_width - width() + 2 * x_margin_ + 1;
           min = 0;
         }
         else if (justification() & Font::kRight) {
           min = -line_width - 2 * x_margin_;
-          max = getWidth() + 1;
+          max = width() + 1;
         }
         x_position_ = std::min(x_position_, max);
         x_position_ = std::max(x_position_, min);
@@ -345,7 +342,7 @@ namespace visage {
       if (caret_location.first < min_view)
         x_position_ = caret_location.first - x_margin_;
       else if (caret_location.first > max_view)
-        x_position_ = caret_location.first - getWidth() + x_margin_ + 1;
+        x_position_ = caret_location.first - width() + x_margin_ + 1;
     }
 
     setViewBounds();
@@ -356,24 +353,24 @@ namespace visage {
 
   void TextEditor::setViewBounds() {
     int num_lines = line_breaks_.size() + 1;
-    int total_height = num_lines * font().getLineHeight() + 2 * y_margin_;
+    int total_height = num_lines * font().lineHeight() + 2 * y_margin_;
     setScrollableHeight(total_height);
   }
 
-  String TextEditor::getSelection() const {
+  String TextEditor::selection() const {
     int start = selectionStart();
     int end = selectionEnd();
-    return text_.text().getSubstring(start, end - start);
+    return text_.text().substring(start, end - start);
   }
 
-  int TextEditor::getBeginningOfWord() const {
+  int TextEditor::beginningOfWord() const {
     int index = caret_position_ - 1;
     while (index > 0 && isVariableCharacter(text_.text()[index - 1]))
       --index;
     return std::max(0, index);
   }
 
-  int TextEditor::getEndOfWord() const {
+  int TextEditor::endOfWord() const {
     int string_length = textLength();
     int index = caret_position_ + 1;
     while (index < string_length && isVariableCharacter(text_.text()[index]))
@@ -392,14 +389,14 @@ namespace visage {
   void TextEditor::onMouseDown(const MouseEvent& e) {
     dead_key_entry_ = DeadKey::None;
     action_state_ = kNone;
-    int click = e.getRepeatClickCount() % 3;
+    int click = e.repeatClickCount() % 3;
     if (click == 0)
       tripleClick(e);
     else if (click == 2)
       doubleClick(e);
     else if (!mouse_focus_) {
-      caret_position_ = positionToIndex({ e.getPosition().x + x_position_,
-                                          e.getPosition().y + yPosition() });
+      caret_position_ = positionToIndex({ e.position.x + x_position_,
+                                          e.position.y + yPosition() });
       if (!e.isShiftDown())
         selection_position_ = caret_position_;
       makeCaretVisible();
@@ -414,8 +411,8 @@ namespace visage {
 
   void TextEditor::onMouseDrag(const MouseEvent& e) {
     if (!mouse_focus_)
-      caret_position_ = positionToIndex({ e.getPosition().x + x_position_,
-                                          e.getPosition().y + yPosition() });
+      caret_position_ = positionToIndex({ e.position.x + x_position_,
+                                          e.position.y + yPosition() });
     makeCaretVisible();
     redraw();
   }
@@ -429,16 +426,16 @@ namespace visage {
       return;
     }
 
-    caret_position_ = positionToIndex({ e.getPosition().x + x_position_, e.getPosition().y + yPosition() });
-    selection_position_ = getBeginningOfWord();
-    caret_position_ = getEndOfWord();
+    caret_position_ = positionToIndex({ e.position.x + x_position_, e.position.y + yPosition() });
+    selection_position_ = beginningOfWord();
+    caret_position_ = endOfWord();
     makeCaretVisible();
   }
 
   void TextEditor::tripleClick(const MouseEvent& e) {
     int line = std::min<int>(line_breaks_.size(),
-                             (e.getPosition().y - y_margin_ + yPosition()) / font().getLineHeight());
-    std::pair<int, int> range = getLineRange(line);
+                             (e.position.y - y_margin_ + yPosition()) / font().lineHeight());
+    std::pair<int, int> range = lineRange(line);
     selection_position_ = range.first;
     caret_position_ = range.second;
     makeCaretVisible();
@@ -486,7 +483,7 @@ namespace visage {
       return !modifier;
     }
 
-    KeyCode code = key.getKeyCode();
+    KeyCode code = key.keyCode();
     bool shift = key.isShiftDown();
     bool just_modifier = modifier && !shift;
     bool just_shift = shift && !modifier;
@@ -565,7 +562,7 @@ namespace visage {
     if (code == KeyCode::Escape)
       return escapePressed();
 
-    return key.getModifierMask() == 0 || key.getModifierMask() == kModifierShift;
+    return key.modifierMask() == 0 || key.modifierMask() == kModifierShift;
   }
 
   String TextEditor::translateDeadKeyText(const String& text) const {
@@ -574,11 +571,11 @@ namespace visage {
 
     char32_t character = text[0];
     switch (dead_key_entry_) {
-    case DeadKey::AcuteAccent: return getAcuteAccentDeadKey(character);
-    case DeadKey::GraveAccent: return getGraveAccentDeadKey(character);
-    case DeadKey::Tilde: return getTildeDeadKey(character);
-    case DeadKey::Umlaut: return getUmlautDeadKey(character);
-    case DeadKey::Circumflex: return getCircumflexDeadKey(character);
+    case DeadKey::AcuteAccent: return acuteAccentDeadKey(character);
+    case DeadKey::GraveAccent: return graveAccentDeadKey(character);
+    case DeadKey::Tilde: return tildeDeadKey(character);
+    case DeadKey::Umlaut: return umlautDeadKey(character);
+    case DeadKey::Circumflex: return circumflexDeadKey(character);
     default: return text;
     }
   }
@@ -621,7 +618,7 @@ namespace visage {
     if (caret_position_ != selection_position_ && !shift)
       caret_position_ = selection_position_ = selectionStart();
     else if (modifier)
-      caret_position_ = getBeginningOfWord();
+      caret_position_ = beginningOfWord();
     else
       caret_position_ = std::max(0, caret_position_ - 1);
 
@@ -636,7 +633,7 @@ namespace visage {
     if (caret_position_ != selection_position_ && !shift)
       caret_position_ = selection_position_ = selectionEnd();
     else if (modifier)
-      caret_position_ = getEndOfWord();
+      caret_position_ = endOfWord();
     else
       caret_position_ = std::min<int>(textLength(), caret_position_ + 1);
 
@@ -649,7 +646,7 @@ namespace visage {
 
   void TextEditor::moveCaretVertically(bool shift, float y_offset) {
     std::pair<int, int> position = indexToPosition(caret_position_);
-    position.second += y_offset + font().getLineHeight() * 0.5f;
+    position.second += y_offset + font().lineHeight() * 0.5f;
     caret_position_ = positionToIndex(position);
 
     if (!shift)
@@ -659,12 +656,12 @@ namespace visage {
   }
 
   bool TextEditor::moveCaretUp(bool shift) {
-    moveCaretVertically(shift, -font().getLineHeight());
+    moveCaretVertically(shift, -font().lineHeight());
     return true;
   }
 
   bool TextEditor::moveCaretDown(bool shift) {
-    moveCaretVertically(shift, font().getLineHeight());
+    moveCaretVertically(shift, font().lineHeight());
     return true;
   }
 
@@ -702,7 +699,7 @@ namespace visage {
 
   bool TextEditor::moveCaretToEndOfLine(bool shift) {
     std::pair<int, int> position = indexToPosition(caret_position_);
-    position.first = getWidth();
+    position.first = width();
     caret_position_ = positionToIndex(position);
 
     if (!shift)
@@ -716,7 +713,7 @@ namespace visage {
     if (!text_.multiLine())
       return false;
 
-    moveCaretVertically(shift, -getHeight());
+    moveCaretVertically(shift, -height());
     return true;
   }
 
@@ -724,7 +721,7 @@ namespace visage {
     if (!text_.multiLine())
       return false;
 
-    moveCaretVertically(shift, getHeight());
+    moveCaretVertically(shift, height());
     return true;
   }
 
@@ -732,7 +729,7 @@ namespace visage {
     if (text_.characterOverride())
       return false;
 
-    String selected = getSelection();
+    String selected = selection();
 
     if (!selected.isEmpty())
       setClipboardText(selected.toUtf8());
@@ -751,14 +748,14 @@ namespace visage {
   bool TextEditor::pasteFromClipboard() {
     addUndoPosition();
     action_state_ = kInserting;
-    insertTextAtCaret(getClipboardText());
+    insertTextAtCaret(readClipboardText());
     return true;
   }
 
   bool TextEditor::deleteBackwards(bool modifier) {
     if (caret_position_ == selection_position_) {
       if (modifier)
-        selection_position_ = getBeginningOfWord();
+        selection_position_ = beginningOfWord();
       else
         selection_position_ = std::max(0, selectionEnd() - 1);
     }
@@ -770,7 +767,7 @@ namespace visage {
   bool TextEditor::deleteForwards(bool modifier) {
     if (caret_position_ == selection_position_) {
       if (modifier)
-        selection_position_ = getEndOfWord();
+        selection_position_ = endOfWord();
       else
         selection_position_ = std::min<int>(textLength(), selectionStart() + 1);
     }
@@ -830,13 +827,13 @@ namespace visage {
       addUndoPosition();
     action_state_ = kInserting;
 
-    String before = text_.text().getSubstring(0, selectionStart());
-    String after = text_.text().getSubstring(selectionEnd());
+    String before = text_.text().substring(0, selectionStart());
+    String after = text_.text().substring(selectionEnd());
     int max_text = text.length();
     if (max_characters_)
       max_text = std::max(0, std::min<int>(max_text, max_characters_ - before.length() - after.length()));
 
-    String trimmed = text.getSubstring(0, max_text);
+    String trimmed = text.substring(0, max_text);
     text_.setText(before + trimmed + after);
     setLineBreaks();
     caret_position_ = before.length() + max_text;

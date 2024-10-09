@@ -108,7 +108,7 @@ namespace visage {
       custom_fill_center_ = center;
       fill_center_ = kCustom;
     }
-    int getFillLocation() const;
+    int fillLocation() const;
 
     int numPoints() const { return line_.num_points; }
     BoostBuffer& boost() { return boost_; }

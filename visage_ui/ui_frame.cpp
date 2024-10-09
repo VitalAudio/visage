@@ -116,12 +116,12 @@ namespace visage {
     return false;
   }
 
-  UiFrame* UiFrame::getFrameAtPoint(Point point) {
+  UiFrame* UiFrame::frameAtPoint(Point point) {
     if (pass_mouse_events_to_children_) {
       for (auto it = children_.rbegin(); it != children_.rend(); ++it) {
         auto& child = *it;
         if (child->isOnTop() && child->isVisible() && child->containsPoint(point)) {
-          UiFrame* result = child->getFrameAtPoint(point - child->getPosition());
+          UiFrame* result = child->frameAtPoint(point - child->position());
           if (result)
             return result;
         }
@@ -129,7 +129,7 @@ namespace visage {
       for (auto it = children_.rbegin(); it != children_.rend(); ++it) {
         auto& child = *it;
         if (!child->isOnTop() && child->isVisible() && child->containsPoint(point)) {
-          UiFrame* result = child->getFrameAtPoint(point - child->getPosition());
+          UiFrame* result = child->frameAtPoint(point - child->position());
           if (result)
             return result;
         }

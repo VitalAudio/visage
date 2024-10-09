@@ -38,7 +38,7 @@ namespace visage {
       return std::round(std::max(0.0f, std::min(1.0f, value)) * 0xff);
     }
 
-    static char getHexCharacter(int value) {
+    static char hexCharacter(int value) {
       if (value < 10)
         return '0' + value;
       return 'A' + value - 10;
@@ -46,8 +46,8 @@ namespace visage {
 
     static std::string floatToHexString(float value) {
       unsigned int hex_value = floatToHex(value);
-      char first_digit = getHexCharacter(hex_value & 0xf);
-      char second_digit = getHexCharacter(hex_value >> 4);
+      char first_digit = hexCharacter(hex_value & 0xf);
+      char second_digit = hexCharacter(hex_value >> 4);
       return std::string(1, second_digit) + std::string(1, first_digit);
     }
 
