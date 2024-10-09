@@ -77,7 +77,11 @@ namespace visage {
     if (condition)
       return;
 
+#if defined(__clang__)
     __builtin_debugtrap();
+#else
+    __builtin_trap();
+#endif
   }
 
   void forceCrash() {

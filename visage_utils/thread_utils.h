@@ -32,7 +32,7 @@ namespace visage {
 
     static void setAsMainThread() { main_thread_id_ = std::this_thread::get_id(); }
     static bool isMainThread() {
-      return main_thread_id_ == std::thread::id() || std::this_thread::get_id() == main_thread_id_;
+      return main_thread_id_ == std::thread::id() || main_thread_id_ == std::this_thread::get_id();
     }
 
     explicit Thread(std::string name) : name_(std::move(name)) { }

@@ -20,7 +20,7 @@
 
 namespace visage {
   class String;
-  void debugLog(const char* file, unsigned int line, const String& log_message);
+  void debugLog(const char* file, unsigned int line, const String& log_message, ...);
   void debugLog(const char* file, unsigned int line, const char* format, va_list arg_list);
   void debugLog(const char* file, unsigned int line, const char* format, ...);
   void debugLog(const char* file, unsigned int line, long long log_message, ...);
