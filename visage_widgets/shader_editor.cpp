@@ -36,7 +36,7 @@ namespace visage {
   }
 
   ShaderCompiler::ShaderCompiler() : Thread("Shader Compiler") {
-    compiler_path_ = std::filesystem::current_path() / getShaderExecutable();
+    compiler_path_ = (std::filesystem::current_path() / getShaderExecutable()).string();
 #if VISAGE_MAC
     if (!std::filesystem::exists(File(compiler_path_))) {
       std::filesystem::path app_path = std::filesystem::current_path().parent_path().parent_path().parent_path() /
@@ -162,7 +162,7 @@ namespace visage {
   void ShaderEditor::textEditorChanged(TextEditor* editor) {
     if (editor != &editor_)
       return;
-    
+
     if (fragment_.data) {
       std::string text = editor->getText().toUtf8();
       compiler_.setCodeAndCompile(vertex_, fragment_, original_fragment_, text);

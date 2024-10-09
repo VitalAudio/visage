@@ -557,7 +557,7 @@ namespace visage {
     int total_length = 0;
     for (const auto& batch : batches) {
       for (const TextBlock& text_block : *batch.shapes)
-        total_length += text_block.text->text().length();
+        total_length += text_block.quads.size();
     }
 
     if (total_length == 0)
@@ -577,8 +577,7 @@ namespace visage {
     int letter_offset = 0;
     for (const auto& batch : batches) {
       for (const TextBlock& text_block : *batch.shapes) {
-        const String& string = text_block.text->text();
-        int length = string.length();
+        int length = text_block.quads.size();
         if (length == 0)
           continue;
 
@@ -586,42 +585,58 @@ namespace visage {
         int x = text_block.x + batch.x;
         int y = text_block.y + batch.y;
 
-        for (int i = 0; i < length * kVerticesPerQuad; ++i) {
-          vertices[vertex_index + i].x = text_block.vertices[i].x + x;
-          vertices[vertex_index + i].y = text_block.vertices[i].y + y;
-          vertices[vertex_index + i].coordinate_x = text_block.vertices[i].coordinate_x;
-          vertices[vertex_index + i].coordinate_y = text_block.vertices[i].coordinate_y;
-        }
-
         for (int i = 0; i < length; ++i) {
-          vertices[vertex_index + i * kVerticesPerQuad].color = text_block.color.corners[0];
-          vertices[vertex_index + i * kVerticesPerQuad].hdr = text_block.color.hdr[0];
-          vertices[vertex_index + i * kVerticesPerQuad + 1].color = text_block.color.corners[1];
-          vertices[vertex_index + i * kVerticesPerQuad + 1].hdr = text_block.color.hdr[1];
-          vertices[vertex_index + i * kVerticesPerQuad + 2].color = text_block.color.corners[2];
-          vertices[vertex_index + i * kVerticesPerQuad + 2].hdr = text_block.color.hdr[2];
-          vertices[vertex_index + i * kVerticesPerQuad + 3].color = text_block.color.corners[3];
-          vertices[vertex_index + i * kVerticesPerQuad + 3].hdr = text_block.color.hdr[3];
+          float left = x + text_block.quads[i].left_position;
+          float right = x + text_block.quads[i].right_position;
+          float top = y + text_block.quads[i].top_position;
+          float bottom = y + text_block.quads[i].bottom_position;
+
+          int index = vertex_index + i * kVerticesPerQuad;
+          vertices[index].x = left;
+          vertices[index].y = top;
+          vertices[index].coordinate_x = text_block.quads[i].left_coordinate;
+          vertices[index].coordinate_y = text_block.quads[i].top_coordinate;
+          vertices[index].color = text_block.color.corners[0];
+          vertices[index].hdr = text_block.color.hdr[0];
+
+          vertices[index + 1].x = right;
+          vertices[index + 1].y = top;
+          vertices[index + 1].coordinate_x = text_block.quads[i].right_coordinate;
+          vertices[index + 1].coordinate_y = text_block.quads[i].top_coordinate;
+          vertices[index + 1].color = text_block.color.corners[1];
+          vertices[index + 1].hdr = text_block.color.hdr[1];
+
+          vertices[index + 2].x = left;
+          vertices[index + 2].y = bottom;
+          vertices[index + 2].coordinate_x = text_block.quads[i].left_coordinate;
+          vertices[index + 2].coordinate_y = text_block.quads[i].bottom_coordinate;
+          vertices[index + 2].color = text_block.color.corners[2];
+          vertices[index + 2].hdr = text_block.color.hdr[2];
+
+          vertices[index + 3].x = right;
+          vertices[index + 3].y = bottom;
+          vertices[index + 3].coordinate_x = text_block.quads[i].right_coordinate;
+          vertices[index + 3].coordinate_y = text_block.quads[i].bottom_coordinate;
+          vertices[index + 3].color = text_block.color.corners[3];
+          vertices[index + 3].hdr = text_block.color.hdr[3];
         }
 
+        int end_vertex = vertex_index + length * kVerticesPerQuad;
         if (text_block.direction == Direction::Left || text_block.direction == Direction::Right) {
           float direction = text_block.direction == Direction::Left ? -1.0f : 1.0f;
-          for (int i = 0; i < num_vertices; ++i) {
-            GlyphVertex& vertex = vertices[vertex_index + i];
-            vertex.direction_y = direction;
-            vertex.direction_x = 0.0f;
+          for (int i = vertex_index; i < end_vertex; ++i) {
+            vertices[i].direction_y = direction;
+            vertices[i].direction_x = 0.0f;
           }
         }
         else {
           float direction = text_block.direction == Direction::Up ? 1.0f : -1.0f;
-          for (int i = 0; i < num_vertices; ++i) {
-            GlyphVertex& vertex = vertices[vertex_index + i];
-            vertex.direction_x = direction;
-            vertex.direction_y = 0.0f;
+          for (int i = vertex_index; i < end_vertex; ++i) {
+            vertices[i].direction_x = direction;
+            vertices[i].direction_y = 0.0f;
           }
         }
 
-        int end_vertex = vertex_index + length * kVerticesPerQuad;
         int left = text_block.clamp.left + batch.x;
         int top = text_block.clamp.top + batch.y;
         int right = text_block.clamp.right + batch.x;

@@ -38,8 +38,7 @@ namespace visage {
 
 #ifndef NDEBUG
 
-#define VISAGE_LOG(log, ...) \
-  visage::debugLog(__FILE__, int(__LINE__), log __VA_OPT__(, __VA_ARGS__))
+#define VISAGE_LOG(log, ...) visage::debugLog(__FILE__, int(__LINE__), log, ##__VA_ARGS__)
 
 #define VISAGE_ASSERT(condition) visage::debugAssert((condition))
 #define no_except

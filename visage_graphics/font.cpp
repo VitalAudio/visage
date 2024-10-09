@@ -261,9 +261,9 @@ namespace visage {
     return bottom;
   }
 
-  void Font::setVertexPositions(FontAtlasVertex* vertices, const char32_t* text, int length,
-                                float x, float y, float width, float height,
-                                Justification justification, int character_override) const {
+  void Font::setVertexPositions(FontAtlasQuad* quads, const char32_t* text, int length, float x,
+                                float y, float width, float height, Justification justification,
+                                int character_override) const {
     static constexpr stbtt_packedchar kNullPackedChar = { 0, 0, 0, 0, 0.0f, 0.0f, 0.0f, 0.0f };
 
     if (length <= 0)
@@ -297,28 +297,19 @@ namespace visage {
       pen_x += packed_font_->getKerningAdvance(last_character, character);
       last_character = character;
 
-      int vertex_index = i * kVerticesPerQuad;
       const stbtt_packedchar* packed_char = &kNullPackedChar;
       if (!isIgnored(character) && !isNewLine(character))
         packed_char = packed_font_->getPackedChar(character);
 
-      vertices[vertex_index].coordinate_x = packed_char->x0 * atlas_scale;
-      vertices[vertex_index].coordinate_y = packed_char->y0 * atlas_scale;
-      vertices[vertex_index + 1].coordinate_x = packed_char->x1 * atlas_scale;
-      vertices[vertex_index + 1].coordinate_y = packed_char->y0 * atlas_scale;
-      vertices[vertex_index + 2].coordinate_x = packed_char->x0 * atlas_scale;
-      vertices[vertex_index + 2].coordinate_y = packed_char->y1 * atlas_scale;
-      vertices[vertex_index + 3].coordinate_x = packed_char->x1 * atlas_scale;
-      vertices[vertex_index + 3].coordinate_y = packed_char->y1 * atlas_scale;
+      quads[i].left_coordinate = packed_char->x0 * atlas_scale;
+      quads[i].right_coordinate = packed_char->x1 * atlas_scale;
+      quads[i].top_coordinate = packed_char->y0 * atlas_scale;
+      quads[i].bottom_coordinate = packed_char->y1 * atlas_scale;
 
-      vertices[vertex_index].x = pen_x + packed_char->xoff;
-      vertices[vertex_index].y = pen_y + packed_char->yoff;
-      vertices[vertex_index + 1].x = pen_x + packed_char->xoff2;
-      vertices[vertex_index + 1].y = pen_y + packed_char->yoff;
-      vertices[vertex_index + 2].x = pen_x + packed_char->xoff;
-      vertices[vertex_index + 2].y = pen_y + packed_char->yoff2;
-      vertices[vertex_index + 3].x = pen_x + packed_char->xoff2;
-      vertices[vertex_index + 3].y = pen_y + packed_char->yoff2;
+      quads[i].left_position = pen_x + packed_char->xoff;
+      quads[i].right_position = pen_x + packed_char->xoff2;
+      quads[i].top_position = pen_y + packed_char->yoff;
+      quads[i].bottom_position = pen_y + packed_char->yoff2;
 
       pen_x += packed_char->xadvance;
     }
@@ -354,8 +345,8 @@ namespace visage {
     return line_breaks;
   }
 
-  void Font::setMultiLineVertexPositions(FontAtlasVertex* vertices, const char32_t* text,
-                                         int length, float x, float y, float width, float height,
+  void Font::setMultiLineVertexPositions(FontAtlasQuad* quads, const char32_t* text, int length,
+                                         float x, float y, float width, float height,
                                          Justification justification) const {
     int line_height = getLineHeight();
     std::vector<int> line_breaks = getLineBreaks(text, length, width);
@@ -377,8 +368,8 @@ namespace visage {
     int last_break = 0;
     for (int line_break : line_breaks) {
       int line_length = line_break - last_break;
-      setVertexPositions(vertices + last_break * kVerticesPerQuad, text + last_break, line_length,
-                         x, line_y, width, height, line_justification);
+      setVertexPositions(quads + last_break, text + last_break, line_length, x, line_y, width,
+                         height, line_justification);
       last_break = line_break;
       line_y += line_height;
     }

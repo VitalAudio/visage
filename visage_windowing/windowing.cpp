@@ -23,6 +23,7 @@ namespace visage {
   Window::Window(float aspect_ratio) : aspect_ratio_(aspect_ratio) {
     Thread::setAsMainThread();
   }
+
   Window::Window(int width, int height) :
       aspect_ratio_(width * 1.0f / height), client_width_(width), client_height_(height) {
     Thread::setAsMainThread();

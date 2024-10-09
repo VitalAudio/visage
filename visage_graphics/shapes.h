@@ -34,7 +34,6 @@ namespace visage {
   class Font;
   class PostEffect;
   class Shader;
-  struct FontAtlasVertex;
   struct Line;
 
   enum class Direction {
@@ -620,40 +619,59 @@ namespace visage {
               float height, Text* text, Direction direction) :
         Shape(text->font().packedFont(), clamp, color, x, y, width, height), text(text),
         direction(direction) {
-      vertices = VectorPool<FontAtlasVertex>::getInstance().getVector(text->text().length() * kVerticesPerQuad);
+      quads = VectorPool<FontAtlasQuad>::getInstance().getVector(text->text().length() * kVerticesPerQuad);
 
       const char32_t* c_str = text->text().c_str();
       int length = text->text().length();
-      int w = width;
-      int h = height;
+      float w = width;
+      float h = height;
       if (direction == Direction::Left || direction == Direction::Right)
         std::swap(w, h);
       if (text->multiLine()) {
-        text->font().setMultiLineVertexPositions(vertices.data(), c_str, length, 0, 0, w, h,
+        text->font().setMultiLineVertexPositions(quads.data(), c_str, length, 0, 0, w, h,
                                                  text->justification());
       }
       else {
-        text->font().setVertexPositions(vertices.data(), c_str, length, 0, 0, w, h,
+        text->font().setVertexPositions(quads.data(), c_str, length, 0, 0, w, h,
                                         text->justification(), text->characterOverride());
       }
       if (direction == Direction::Down) {
-        for (int i = 0; i < length * kVerticesPerQuad; ++i) {
-          vertices[i].y = height - vertices[i].y;
-          vertices[i].x = width - vertices[i].x;
+        for (int i = 0; i < length; ++i) {
+          quads[i].top_position = height - quads[i].top_position;
+          quads[i].bottom_position = height - quads[i].bottom_position;
+          quads[i].left_position = width - quads[i].left_position;
+          quads[i].right_position = width - quads[i].right_position;
         }
       }
       else if (direction == Direction::Left) {
-        for (int i = 0; i < length * kVerticesPerQuad; ++i) {
-          std::swap(vertices[i].x, vertices[i].y);
-          vertices[i].y = height - vertices[i].y;
+        for (int i = 0; i < length; ++i) {
+          std::swap(quads[i].left_position, quads[i].top_position);
+          std::swap(quads[i].right_position, quads[i].bottom_position);
+          quads[i].top_position = height - quads[i].top_position;
+          quads[i].bottom_position = height - quads[i].bottom_position;
         }
       }
       else if (direction == Direction::Right) {
-        for (int i = 0; i < length * kVerticesPerQuad; ++i) {
-          std::swap(vertices[i].x, vertices[i].y);
-          vertices[i].x = width - vertices[i].x;
+        for (int i = 0; i < length; ++i) {
+          std::swap(quads[i].left_position, quads[i].top_position);
+          std::swap(quads[i].right_position, quads[i].bottom_position);
+          quads[i].left_position = width - quads[i].left_position;
+          quads[i].right_position = width - quads[i].right_position;
         }
       }
+
+      float clamp_left = clamp.left - x;
+      float clamp_right = clamp.right - x;
+      float clamp_top = clamp.top - y;
+      float clamp_bottom = clamp.bottom - y;
+      auto check = [&](const FontAtlasQuad& quad) {
+        return quad.right_position < clamp_left || quad.left_position > clamp_right ||
+               quad.bottom_position < clamp_top || quad.top_position > clamp_bottom ||
+               quad.left_position == quad.right_position;
+      };
+
+      auto it = std::remove_if(quads.begin(), quads.end(), check);
+      quads.erase(it, quads.end());
     }
 
     TextBlock(const TextBlock&) = delete;
@@ -661,9 +679,9 @@ namespace visage {
     TextBlock(TextBlock&&) = default;
     TextBlock& operator=(TextBlock&&) = default;
 
-    ~TextBlock() { VectorPool<FontAtlasVertex>::getInstance().returnVector(std::move(vertices)); }
+    ~TextBlock() { VectorPool<FontAtlasQuad>::getInstance().returnVector(std::move(quads)); }
 
-    std::vector<FontAtlasVertex> vertices;
+    std::vector<FontAtlasQuad> quads;
     Text* text = nullptr;
     Direction direction = Direction::Up;
   };

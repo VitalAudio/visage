@@ -24,11 +24,15 @@
 #include <vector>
 
 namespace visage {
-  struct FontAtlasVertex {
-    float x;
-    float y;
-    float coordinate_x;
-    float coordinate_y;
+  struct FontAtlasQuad {
+    float left_position;
+    float left_coordinate;
+    float right_position;
+    float right_coordinate;
+    float top_position;
+    float top_coordinate;
+    float bottom_position;
+    float bottom_coordinate;
   };
 
   class PackedFont;
@@ -78,14 +82,13 @@ namespace visage {
     inline const char* fontData() const { return font_data_; }
     const bgfx::TextureHandle& textureHandle() const;
 
-    void setVertexPositions(FontAtlasVertex* vertices, const char32_t* string, int length, float x,
-                            float y, float width, float height,
-                            Justification justification = Justification::kCenter,
+    void setVertexPositions(FontAtlasQuad* quads, const char32_t* string, int length, float x, float y,
+                            float width, float height, Justification justification = Justification::kCenter,
                             int character_override = 0) const;
 
     std::vector<int> getLineBreaks(const char32_t* string, int length, float width) const;
 
-    void setMultiLineVertexPositions(FontAtlasVertex* vertices, const char32_t* string, int length,
+    void setMultiLineVertexPositions(FontAtlasQuad* quads, const char32_t* string, int length,
                                      float x, float y, float width, float height,
                                      Justification justification = Justification::kCenter) const;
 
