@@ -385,7 +385,7 @@ namespace visage {
   }
 
   static void setFillVertices(const LineFillWrapper& line_fill_wrapper,
-                              bgfx::TransientVertexBuffer vertex_buffer) {
+                              const bgfx::TransientVertexBuffer& vertex_buffer) {
     LineVertex* fill_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
     Line* line = line_fill_wrapper.line;
 
