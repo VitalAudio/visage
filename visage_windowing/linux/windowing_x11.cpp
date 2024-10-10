@@ -397,11 +397,6 @@ namespace visage {
     XUnlockDisplay(display);
   }
 
-  Bounds defaultEditorBounds(float aspect_ratio, float display_scale) {
-    MonitorInfo monitor_info = activeMonitorInfo();
-    return boundsInDisplay(monitor_info, aspect_ratio, display_scale);
-  }
-
   int displayFps() {
     WindowX11* window = WindowX11::lastActiveWindow();
     if (window)

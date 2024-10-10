@@ -132,28 +132,6 @@ namespace visage {
     return [NSScreen.mainScreen backingScaleFactor];
   }
 
-  Bounds defaultEditorBounds(float aspect_ratio, float display_scale) {
-    if (NSScreen.mainScreen == nullptr) {
-      static constexpr int kDefaultHeight = 100;
-      int default_width = std::round(aspect_ratio * kDefaultHeight);
-      return { 0, 0, default_width, kDefaultHeight };
-    }
-
-    NSRect screen_frame = [NSScreen.mainScreen frame];
-    int display_width = screen_frame.size.width;
-    int display_height = screen_frame.size.height;
-    int scaled_width = display_width * display_scale;
-    int scaled_height = display_height * display_scale;
-    int width = std::min<int>(scaled_width, scaled_height * aspect_ratio);
-    int height = std::min<int>(scaled_height, scaled_width / aspect_ratio);
-    int x = (display_width - width) / 2;
-    int y = (display_height - height) / 2;
-
-    float pixel_scale = windowPixelScale();
-    return { static_cast<int>(x * pixel_scale), static_cast<int>(y * pixel_scale),
-             static_cast<int>(width * pixel_scale), static_cast<int>(height * pixel_scale) };
-  }
-
   KeyCode translateKeyCode(int mac_key_code) {
     switch (mac_key_code) {
     case kVK_ANSI_A: return KeyCode::A;
