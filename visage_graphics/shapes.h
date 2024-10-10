@@ -520,7 +520,7 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     IconWrapper(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-                float height, Icon icon) :
+                float height, const Icon& icon) :
         Shape(batchId(), clamp, color, x, y, width, height), icon(icon) { }
 
     Icon icon;
