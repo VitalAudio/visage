@@ -442,8 +442,6 @@ namespace visage {
     }
 
     bottom_left_origin_ = bgfx::getCaps()->originBottomLeft;
-    bgfx::frame();
-    bgfx::frame();
   }
 
   void Canvas::destroyFrameBuffer() const {

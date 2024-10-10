@@ -62,18 +62,18 @@ namespace visage {
     ~WindowMac() override;
 
     void* nativeHandle() const override { return view_; }
-    void* getInitWindow() const override;
+    void* initWindow() const override;
 
     void setNativeWindowHandle(NSWindow* window);
-    AppView* getView() { return view_; }
+    AppView* appView() { return view_; }
 
     void runEventLoop() override;
     void windowContentsResized(int width, int height) override;
     void show() override;
     void hide() override;
     void setWindowTitle(const std::string& title) override;
-    Point getMaxWindowDimensions() const override;
-    Point getMinWindowDimensions() const override;
+    Point maxWindowDimensions() const override;
+    Point minWindowDimensions() const override;
 
     void handleNativeResize(int width, int height);
 

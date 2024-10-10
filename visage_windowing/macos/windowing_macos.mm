@@ -23,10 +23,10 @@
 namespace visage {
   class InitialMetalLayer {
   public:
-    static CAMetalLayer* layer() { return getInstance().metal_layer_; }
+    static CAMetalLayer* layer() { return instance().metal_layer_; }
 
   private:
-    static InitialMetalLayer& getInstance() {
+    static InitialMetalLayer& instance() {
       static InitialMetalLayer instance;
       return instance;
     }
@@ -39,7 +39,7 @@ namespace visage {
     CAMetalLayer* metal_layer_ = nullptr;
   };
 
-  std::string getClipboardText() {
+  std::string readClipboardText() {
     NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
     NSString* clipboard_text = [pasteboard stringForType:NSPasteboardTypeString];
     if (clipboard_text != nil)
@@ -77,7 +77,7 @@ namespace visage {
     [cursor set];
   }
 
-  Point getCursorPosition() {
+  Point cursorPosition() {
     CGEventRef event = CGEventCreate(nullptr);
     CGPoint cursor = CGEventGetLocation(event);
     CFRelease(event);
@@ -91,7 +91,7 @@ namespace visage {
       [NSCursor hide];
   }
 
-  CGRect getActiveWindowBounds() {
+  CGRect activeWindowBounds() {
     NSArray* windows = [NSApp windows];
 
     for (NSWindow* window in windows) {
@@ -110,13 +110,13 @@ namespace visage {
   }
 
   void setCursorPosition(Point window_position) {
-    CGRect window_bounds = getActiveWindowBounds();
+    CGRect window_bounds = activeWindowBounds();
     int x = window_bounds.origin.x + window_position.x;
     int y = window_bounds.origin.y + window_position.y;
     setCursorScreenPosition({ x, y });
   }
 
-  Point getWindowBorderSize(NSWindow* window_handle) {
+  Point windowBorderSize(NSWindow* window_handle) {
     if (window_handle == nullptr)
       return { 0, 0 };
     NSRect frame = [window_handle frame];
@@ -125,14 +125,14 @@ namespace visage {
              (int)std::round(frame.size.height - content_rect.size.height) };
   }
 
-  float getWindowPixelScale() {
+  float windowPixelScale() {
     if (NSScreen.mainScreen == nullptr)
       return 1.0f;
 
     return [NSScreen.mainScreen backingScaleFactor];
   }
 
-  Bounds getDefaultEditorBounds(float aspect_ratio, float display_scale) {
+  Bounds defaultEditorBounds(float aspect_ratio, float display_scale) {
     if (NSScreen.mainScreen == nullptr) {
       static constexpr int kDefaultHeight = 100;
       int default_width = std::round(aspect_ratio * kDefaultHeight);
@@ -149,7 +149,7 @@ namespace visage {
     int x = (display_width - width) / 2;
     int y = (display_height - height) / 2;
 
-    float pixel_scale = getWindowPixelScale();
+    float pixel_scale = windowPixelScale();
     return { static_cast<int>(x * pixel_scale), static_cast<int>(y * pixel_scale),
              static_cast<int>(width * pixel_scale), static_cast<int>(height * pixel_scale) };
   }
@@ -315,7 +315,7 @@ long long start_microseconds_ = 0;
   [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
   self.drag_source_ = [[DraggingSource alloc] init];
 
-  start_microseconds_ = visage::time::getMicroseconds();
+  start_microseconds_ = visage::time::microseconds();
 
   return self;
 }
@@ -332,7 +332,7 @@ long long start_microseconds_ = 0;
   if (!self.currentDrawable || !self.currentRenderPassDescriptor)
     return;
 
-  long long ms = visage::time::getMicroseconds();
+  long long ms = visage::time::microseconds();
   self.visage_window->drawCallback((ms - start_microseconds_) / 1000000.0);
 }
 
@@ -345,7 +345,7 @@ long long start_microseconds_ = 0;
     return;
   }
 
-  int modifiers = [self getKeyboardModifiers:event];
+  int modifiers = [self keyboardModifiers:event];
   if ((modifiers & visage::kModifierCmd) == 0)
     [self interpretKeyEvents:[NSArray arrayWithObject:event]];
 
@@ -356,7 +356,7 @@ long long start_microseconds_ = 0;
 
 - (void)keyUp:(NSEvent*)event {
   visage::KeyCode key_code = visage::translateKeyCode([event keyCode]);
-  if (!self.visage_window->handleKeyUp(key_code, [self getKeyboardModifiers:event]))
+  if (!self.visage_window->handleKeyUp(key_code, [self keyboardModifiers:event]))
     [super keyUp:event];
 }
 
@@ -396,20 +396,20 @@ long long start_microseconds_ = 0;
 - (void)moveToEndOfDocument:(id)sender {
 }
 
-- (visage::Point)getEventPosition:(NSEvent*)event {
+- (visage::Point)eventPosition:(NSEvent*)event {
   NSPoint location = [event locationInWindow];
   NSPoint view_location = [self convertPoint:location fromView:nil];
   CGFloat view_height = self.frame.size.height;
   return visage::Point(view_location.x, view_height - view_location.y);
 }
 
-- (visage::Point)getDragPosition:(id<NSDraggingInfo>)sender {
+- (visage::Point)dragPosition:(id<NSDraggingInfo>)sender {
   NSPoint drag_point = [self convertPoint:[sender draggingLocation] fromView:nil];
   CGFloat view_height = self.frame.size.height;
   return visage::Point(drag_point.x, view_height - drag_point.y);
 }
 
-- (NSPoint)getMouseScreenPosition {
+- (NSPoint)mouseScreenPosition {
   NSPoint result = [NSEvent mouseLocation];
   if ([[NSScreen screens] count] == 0)
     return result;
@@ -418,7 +418,7 @@ long long start_microseconds_ = 0;
   return result;
 }
 
-- (int)getMouseButtonState {
+- (int)mouseButtonState {
   NSUInteger buttons = [NSEvent pressedMouseButtons];
   int result = 0;
   if (buttons & (1 << 0))
@@ -430,7 +430,7 @@ long long start_microseconds_ = 0;
   return result;
 }
 
-- (int)getKeyboardModifiers:(NSEvent*)event {
+- (int)keyboardModifiers:(NSEvent*)event {
   NSUInteger flags = [event modifierFlags];
   int result = 0;
   if (flags & NSEventModifierFlagCommand)
@@ -445,7 +445,7 @@ long long start_microseconds_ = 0;
 }
 
 - (void)checkRelativeMode {
-  if (self.visage_window->getMouseRelativeMode()) {
+  if (self.visage_window->mouseRelativeMode()) {
     CGAssociateMouseAndMouseCursorPosition(false);
     CGWarpMouseCursorPosition(mouse_down_screen_position_);
     CGAssociateMouseAndMouseCursorPosition(true);
@@ -454,7 +454,7 @@ long long start_microseconds_ = 0;
 
 - (void)scrollWheel:(NSEvent*)event {
   static constexpr float kPreciseScrollingScale = 0.02f;
-  visage::Point point = [self getEventPosition:event];
+  visage::Point point = [self eventPosition:event];
   float delta_x = [event deltaX];
   float precise_x = delta_x;
   float delta_y = [event deltaY];
@@ -464,31 +464,31 @@ long long start_microseconds_ = 0;
     precise_y = [event scrollingDeltaY] * kPreciseScrollingScale;
   }
   self.visage_window->handleMouseWheel(delta_x, delta_y, precise_x, precise_y, point.x, point.y,
-                                       [self getMouseButtonState], [self getKeyboardModifiers:event],
+                                       [self mouseButtonState], [self keyboardModifiers:event],
                                        [event momentumPhase] != NSEventPhaseNone);
 }
 
 - (void)mouseMoved:(NSEvent*)event {
-  visage::Point point = [self getEventPosition:event];
-  self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
-                                      [self getKeyboardModifiers:event]);
+  visage::Point point = [self eventPosition:event];
+  self.visage_window->handleMouseMove(point.x, point.y, [self mouseButtonState],
+                                      [self keyboardModifiers:event]);
 }
 
 - (void)mouseEntered:(NSEvent*)event {
-  visage::Point point = [self getEventPosition:event];
-  self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
-                                      [self getKeyboardModifiers:event]);
+  visage::Point point = [self eventPosition:event];
+  self.visage_window->handleMouseMove(point.x, point.y, [self mouseButtonState],
+                                      [self keyboardModifiers:event]);
 }
 
 - (void)mouseExited:(NSEvent*)event {
-  self.visage_window->handleMouseLeave([self getMouseButtonState], [self getKeyboardModifiers:event]);
+  self.visage_window->handleMouseLeave([self mouseButtonState], [self keyboardModifiers:event]);
 }
 
 - (void)mouseDown:(NSEvent*)event {
-  visage::Point point = [self getEventPosition:event];
-  mouse_down_screen_position_ = [self getMouseScreenPosition];
+  visage::Point point = [self eventPosition:event];
+  mouse_down_screen_position_ = [self mouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonLeft, point.x, point.y,
-                                      [self getMouseButtonState], [self getKeyboardModifiers:event]);
+                                      [self mouseButtonState], [self keyboardModifiers:event]);
   [self.window makeKeyWindow];
   if (self.visage_window->isDragDropSource()) {
     visage::File file = self.visage_window->startDragDropSource();
@@ -514,36 +514,36 @@ long long start_microseconds_ = 0;
 }
 
 - (void)mouseUp:(NSEvent*)event {
-  visage::Point point = [self getEventPosition:event];
+  visage::Point point = [self eventPosition:event];
   self.visage_window->handleMouseUp(visage::kMouseButtonLeft, point.x, point.y,
-                                    [self getMouseButtonState], [self getKeyboardModifiers:event]);
+                                    [self mouseButtonState], [self keyboardModifiers:event]);
 }
 
 - (void)mouseDragged:(NSEvent*)event {
-  visage::Point point = [self getEventPosition:event];
-  self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
-                                      [self getKeyboardModifiers:event]);
+  visage::Point point = [self eventPosition:event];
+  self.visage_window->handleMouseMove(point.x, point.y, [self mouseButtonState],
+                                      [self keyboardModifiers:event]);
   [self checkRelativeMode];
 }
 
 - (void)rightMouseDown:(NSEvent*)event {
-  visage::Point point = [self getEventPosition:event];
-  mouse_down_screen_position_ = [self getMouseScreenPosition];
+  visage::Point point = [self eventPosition:event];
+  mouse_down_screen_position_ = [self mouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonRight, point.x, point.y,
-                                      [self getMouseButtonState], [self getKeyboardModifiers:event]);
+                                      [self mouseButtonState], [self keyboardModifiers:event]);
   [self.window makeKeyWindow];
 }
 
 - (void)rightMouseUp:(NSEvent*)event {
-  visage::Point point = [self getEventPosition:event];
+  visage::Point point = [self eventPosition:event];
   self.visage_window->handleMouseUp(visage::kMouseButtonRight, point.x, point.y,
-                                    [self getMouseButtonState], [self getKeyboardModifiers:event]);
+                                    [self mouseButtonState], [self keyboardModifiers:event]);
 }
 
 - (void)rightMouseDragged:(NSEvent*)event {
-  visage::Point point = [self getEventPosition:event];
-  self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
-                                      [self getKeyboardModifiers:event]);
+  visage::Point point = [self eventPosition:event];
+  self.visage_window->handleMouseMove(point.x, point.y, [self mouseButtonState],
+                                      [self keyboardModifiers:event]);
   [self checkRelativeMode];
 }
 
@@ -551,10 +551,10 @@ long long start_microseconds_ = 0;
   if ([event buttonNumber] != 2)
     return;
 
-  visage::Point point = [self getEventPosition:event];
-  mouse_down_screen_position_ = [self getMouseScreenPosition];
+  visage::Point point = [self eventPosition:event];
+  mouse_down_screen_position_ = [self mouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonMiddle, point.x, point.y,
-                                      [self getMouseButtonState], [self getKeyboardModifiers:event]);
+                                      [self mouseButtonState], [self keyboardModifiers:event]);
   [self.window makeKeyWindow];
 }
 
@@ -562,15 +562,15 @@ long long start_microseconds_ = 0;
   if ([event buttonNumber] != 2)
     return;
 
-  visage::Point point = [self getEventPosition:event];
+  visage::Point point = [self eventPosition:event];
   self.visage_window->handleMouseUp(visage::kMouseButtonMiddle, point.x, point.y,
-                                    [self getMouseButtonState], [self getKeyboardModifiers:event]);
+                                    [self mouseButtonState], [self keyboardModifiers:event]);
 }
 
 - (void)otherMouseDragged:(NSEvent*)event {
-  visage::Point point = [self getEventPosition:event];
-  self.visage_window->handleMouseMove(point.x, point.y, [self getMouseButtonState],
-                                      [self getKeyboardModifiers:event]);
+  visage::Point point = [self eventPosition:event];
+  self.visage_window->handleMouseMove(point.x, point.y, [self mouseButtonState],
+                                      [self keyboardModifiers:event]);
   [self checkRelativeMode];
 }
 
@@ -596,7 +596,7 @@ long long start_microseconds_ = 0;
   self.visage_window->setVisible(window.occlusionState & NSWindowOcclusionStateVisible);
 }
 
-- (std::vector<std::string>)getDropFiles:(id<NSDraggingInfo>)sender {
+- (std::vector<std::string>)dropFileList:(id<NSDraggingInfo>)sender {
   NSPasteboard* pasteboard = [sender draggingPasteboard];
   NSArray* classes = @[[NSURL class]];
   NSDictionary* options = @{ NSPasteboardURLReadingFileURLsOnlyKey: @YES };
@@ -611,8 +611,8 @@ long long start_microseconds_ = 0;
 }
 
 - (NSDragOperation)dragFiles:(id<NSDraggingInfo>)sender {
-  visage::Point drag_point = [self getDragPosition:sender];
-  std::vector<std::string> files = [self getDropFiles:sender];
+  visage::Point drag_point = [self dragPosition:sender];
+  std::vector<std::string> files = [self dropFileList:sender];
   if (self.visage_window->handleFileDrag(drag_point.x, drag_point.y, files))
     return NSDragOperationCopy;
   return NSDragOperationNone;
@@ -627,8 +627,8 @@ long long start_microseconds_ = 0;
 }
 
 - (BOOL)performDragOperation:(id<NSDraggingInfo>)sender {
-  visage::Point drag_point = [self getDragPosition:sender];
-  std::vector<std::string> files = [self getDropFiles:sender];
+  visage::Point drag_point = [self dragPosition:sender];
+  std::vector<std::string> files = [self dropFileList:sender];
   if (self.visage_window->handleFileDrop(drag_point.x, drag_point.y, files))
     return NSDragOperationCopy;
   return NSDragOperationNone;
@@ -668,12 +668,12 @@ bool resizing_vertical_ = false;
   if (current_frame.height != frame_size.height)
     resizing_vertical_ = true;
 
-  visage::Point max_dimensions = self.visage_window->getMaxWindowDimensions();
-  visage::Point min_dimensions = self.visage_window->getMinWindowDimensions();
-  visage::Point borders = visage::getWindowBorderSize(self.window_handle);
+  visage::Point max_dimensions = self.visage_window->maxWindowDimensions();
+  visage::Point min_dimensions = self.visage_window->minWindowDimensions();
+  visage::Point borders = visage::windowBorderSize(self.window_handle);
   visage::Point dimensions = visage::Point(std::round(frame_size.width - borders.x),
                                            std::round(frame_size.height - borders.y));
-  float aspect_ratio = self.visage_window->getAspectRatio();
+  float aspect_ratio = self.visage_window->aspectRatio();
   dimensions = adjustBoundsForAspectRatio(dimensions, min_dimensions, max_dimensions, aspect_ratio,
                                           resizing_horizontal_, resizing_vertical_);
 
@@ -725,7 +725,7 @@ namespace visage {
     }
   }
 
-  void* WindowMac::getInitWindow() const {
+  void* WindowMac::initWindow() const {
     return InitialMetalLayer::layer();
   }
 
@@ -753,7 +753,7 @@ namespace visage {
     return std::make_unique<WindowMac>(width, height, parent_handle);
   }
 
-  Bounds getScaledWindowBounds(float aspect_ratio, float display_scale, int x, int y) {
+  Bounds scaledWindowBounds(float aspect_ratio, float display_scale, int x, int y) {
     NSScreen* screen = [NSScreen mainScreen];
     if (x != Window::kNotSet && y != Window::kNotSet) {
       for (NSScreen* s in [NSScreen screens]) {
@@ -795,8 +795,8 @@ namespace visage {
     view_.allow_quit = true;
 
     setPixelScale([window_handle_ backingScaleFactor]);
-    int client_width = std::round(content_rect.size.width * getPixelScale());
-    int client_height = std::round(content_rect.size.height * getPixelScale());
+    int client_width = std::round(content_rect.size.width * pixelScale());
+    int client_height = std::round(content_rect.size.height * pixelScale());
     handleResized(client_width, client_height);
 
     [window_handle_ setContentView:view_];
@@ -811,7 +811,7 @@ namespace visage {
       setNativeWindowHandle(parent_view_.window);
     }
 
-    CGRect view_frame = CGRectMake(0.0f, 0.0f, width / getPixelScale(), height / getPixelScale());
+    CGRect view_frame = CGRectMake(0.0f, 0.0f, width / pixelScale(), height / pixelScale());
 
     view_ = [[AppView alloc] initWithFrame:view_frame inWindow:this];
     view_delegate_ = [[AppViewDelegate alloc] initWithView:view_];
@@ -838,7 +838,7 @@ namespace visage {
     int x = frame.origin.x;
     int y = frame.origin.y;
 
-    Point borders = getWindowBorderSize(window_handle_);
+    Point borders = windowBorderSize(window_handle_);
     frame.size.width = width + borders.x;
     frame.size.height = height + borders.y;
 
@@ -868,28 +868,28 @@ namespace visage {
     [window_handle_ setTitle:[NSString stringWithUTF8String:title.c_str()]];
   }
 
-  Point WindowMac::getMaxWindowDimensions() const {
-    Point borders = getWindowBorderSize(window_handle_);
+  Point WindowMac::maxWindowDimensions() const {
+    Point borders = windowBorderSize(window_handle_);
 
     NSScreen* screen = [window_handle_ screen];
     NSRect visible_frame = [screen visibleFrame];
 
     int display_width = visible_frame.size.width - borders.x;
     int display_height = visible_frame.size.height - borders.y;
-    float aspect_ratio = getAspectRatio();
+    float aspect_ratio = aspectRatio();
 
     return { std::min<int>(display_width, display_height * aspect_ratio),
              std::min<int>(display_height, display_width / aspect_ratio) };
   }
 
-  Point WindowMac::getMinWindowDimensions() const {
-    float minimum_scale = getMinimumWindowScale();
+  Point WindowMac::minWindowDimensions() const {
+    float minimum_scale = minimumWindowScale();
     NSScreen* screen = [window_handle_ screen];
     NSRect visible_frame = [screen visibleFrame];
 
     int min_display_width = minimum_scale * visible_frame.size.width;
     int min_display_height = minimum_scale * visible_frame.size.height;
-    float aspect_ratio = getAspectRatio();
+    float aspect_ratio = aspectRatio();
 
     return { std::max<int>(min_display_width, min_display_height * aspect_ratio),
              std::max<int>(min_display_height, min_display_width / aspect_ratio) };
