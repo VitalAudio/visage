@@ -42,7 +42,7 @@ namespace visage {
       };
 
       EditColor() = default;
-      EditColor(const Color& color) {
+      explicit EditColor(const Color& color) {
         for (auto& i : colors)
           i = color;
       }
@@ -165,7 +165,7 @@ namespace visage {
       color_map_[override_id][color_id] = index;
     }
 
-    void setColor(unsigned int override_id, int color_id, Color color) {
+    void setColor(unsigned int override_id, int color_id, const Color& color) {
       int index = addColor(color);
       color_map_[override_id][color_id] = index;
     }
@@ -197,7 +197,7 @@ namespace visage {
       return result != kNotSetValue;
     }
 
-    int addColor(Color color = 0xffff00ff) { return addColorInternal(color); }
+    int addColor(const Color& color = 0xffff00ff) { return addColorInternal(color); }
 
     int addVerticalGradient(const VerticalGradient& gradient) {
       return addVerticalGradientInternal(gradient);
@@ -215,14 +215,14 @@ namespace visage {
     void decode(const std::string& data);
 
   private:
-    int addColorInternal(Color color = 0xffff00ff) {
-      colors_[num_colors_] = Color(color);
+    int addColorInternal(const Color& color = 0xffff00ff) {
+      colors_[num_colors_] = EditColor(color);
       computed_colors_[num_colors_] = color;
       return num_colors_++;
     }
 
     int addVerticalGradientInternal(const VerticalGradient& gradient) {
-      EditColor color = gradient.top();
+      EditColor color(gradient.top());
       color.style = EditColor::kVertical;
       color.colors[1] = gradient.bottom();
       color.colors[2] = gradient.bottom();

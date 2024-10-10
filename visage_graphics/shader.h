@@ -19,18 +19,14 @@
 #include "graphics_utils.h"
 #include "visage_file_embed/embedded_file.h"
 
-#include <string>
-#include <utility>
-
 namespace visage {
   class Canvas;
 
   class Shader {
   public:
     Shader() = delete;
-    Shader(EmbeddedFile vertex_shader, EmbeddedFile fragment_shader, BlendState state) :
-        vertex_shader_(std::move(vertex_shader)), fragment_shader_(std::move(fragment_shader)),
-        state_(state) { }
+    Shader(const EmbeddedFile& vertex_shader, const EmbeddedFile& fragment_shader, BlendState state) :
+        vertex_shader_(vertex_shader), fragment_shader_(fragment_shader), state_(state) { }
     virtual ~Shader() = default;
 
     const EmbeddedFile& vertexShader() const { return vertex_shader_; }

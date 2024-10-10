@@ -81,8 +81,8 @@ namespace visage {
       float data[4];
     };
 
-    ShaderPostEffect(EmbeddedFile vertex_shader, EmbeddedFile fragment_shader) :
-        vertex_shader_(std::move(vertex_shader)), fragment_shader_(std::move(fragment_shader)) { }
+    ShaderPostEffect(const EmbeddedFile& vertex_shader, const EmbeddedFile& fragment_shader) :
+        vertex_shader_(vertex_shader), fragment_shader_(fragment_shader) { }
 
     void submit(const CanvasWrapper& source, Canvas& destination, int submit_pass) override;
 

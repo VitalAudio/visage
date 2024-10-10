@@ -47,10 +47,10 @@ namespace visage {
 
     void draw(Canvas& canvas) override;
 
-    int listLength(const std::map<std::string, std::vector<unsigned int>>& color_ids);
+    int listLength(const std::map<std::string, std::vector<unsigned int>>& color_ids) const;
     void colorChanged(ColorPicker* picker, Color color) override;
     int colorIndex(const MouseEvent& e);
-    int colorIdIndex(const MouseEvent& e);
+    int colorIdIndex(const MouseEvent& e) const;
     void toggleGroup(const MouseEvent& e);
     void onMouseMove(const MouseEvent& e) override {
       checkScrollHeight();
@@ -138,7 +138,7 @@ namespace visage {
 
     void textEditorChanged(TextEditor* editor) override;
 
-    int listLength(const std::map<std::string, std::vector<unsigned int>>& value_ids);
+    int listLength(const std::map<std::string, std::vector<unsigned int>>& value_ids) const;
     void toggleGroup(const MouseEvent& e);
     void onMouseMove(const MouseEvent& e) override { checkScrollHeight(); }
     void onMouseDown(const MouseEvent& e) override { toggleGroup(e); }

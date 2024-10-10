@@ -30,7 +30,7 @@ namespace visage {
     WindowEventHandler(Window* window, UiFrame* frame);
     ~WindowEventHandler() override;
 
-    void onFrameResize(UiFrame* frame);
+    void onFrameResize(const UiFrame* frame) const;
 
     UiFrame* getContentFrame() const { return content_frame_; }
     void setKeyboardFocus(UiFrame* frame);
@@ -82,7 +82,9 @@ namespace visage {
   private:
     UiFrame* getDragDropFrame(Point point, const std::vector<std::string>& files) const;
 
-    std::function<void(UiFrame*)> resize_callback_ = [this](UiFrame* frame) { onFrameResize(frame); };
+    std::function<void(UiFrame*)> resize_callback_ = [this](const UiFrame* frame) {
+      onFrameResize(frame);
+    };
     Window* window_ = nullptr;
     UiFrame* content_frame_ = nullptr;
     UiFrame* mouse_hovered_frame_ = nullptr;

@@ -18,7 +18,6 @@
 
 #include "embedded/shaders.h"
 #include "graphics_libs.h"
-#include "visage_utils/defines.h"
 
 #include <map>
 

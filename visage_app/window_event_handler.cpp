@@ -34,7 +34,7 @@ namespace visage {
       content_frame_->removeResizeCallback(resize_callback_);
   }
 
-  void WindowEventHandler::onFrameResize(UiFrame* frame) {
+  void WindowEventHandler::onFrameResize(const UiFrame* frame) const {
     window_->setInternalWindowSize(frame->width(), frame->height());
   }
 

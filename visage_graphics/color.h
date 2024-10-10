@@ -284,7 +284,7 @@ namespace visage {
 
   class HorizontalGradient {
   public:
-    HorizontalGradient(Color left, Color right) : left_(left), right_(right) { }
+    HorizontalGradient(const Color& left, const Color& right) : left_(left), right_(right) { }
 
     const Color& left() const { return left_; }
     const Color& right() const { return right_; }
@@ -296,7 +296,7 @@ namespace visage {
 
   class VerticalGradient {
   public:
-    VerticalGradient(Color top, Color bottom) : top_(top), bottom_(bottom) { }
+    VerticalGradient(const Color& top, const Color& bottom) : top_(top), bottom_(bottom) { }
 
     const Color& top() const { return top_; }
     const Color& bottom() const { return bottom_; }

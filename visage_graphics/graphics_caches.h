@@ -19,8 +19,6 @@
 #include "embedded_file.h"
 #include "graphics_utils.h"
 
-#include <string>
-
 namespace visage {
   struct ShaderCacheMap;
   struct ProgramCacheMap;

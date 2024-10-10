@@ -31,8 +31,8 @@ namespace visage {
   THEME_IMPLEMENT_VALUE(DrawableComponent, WidgetOverlayAlpha, 0.7f, Constant, false);
 
   namespace {
-    QuadColor colorForSampledComponent(const DrawableComponent* parent, DrawableComponent* child,
-                                       const QuadColor& background) {
+    QuadColor colorForSampledComponent(const DrawableComponent* parent,
+                                       const DrawableComponent* child, const QuadColor& background) {
       Bounds bounds = parent->relativeBounds(child);
       float width = parent->width();
       float height = parent->height();
@@ -76,7 +76,7 @@ namespace visage {
     }
   }
 
-  void DrawableComponent::drawChildSubcanvas(DrawableComponent* child, Canvas& canvas) {
+  void DrawableComponent::drawChildSubcanvas(const DrawableComponent* child, Canvas& canvas) {
     if (child->isVisible() && child->post_effect_) {
       Canvas* child_canvas = child->post_effect_canvas_.get();
       canvas.subcanvas(child_canvas, child->x(), child->y(), child->width(), child->height(),
@@ -118,9 +118,9 @@ namespace visage {
     else if (info.scale_type == theme::ValueId::kScaledDpi)
       scale = dpiScale();
 
-    float result;
     if (palette_) {
       DrawableComponent* component = this;
+      float result = 0.0f;
       while (component) {
         int override_id = component->palette_override_;
         if (override_id && palette_->value(override_id, value_id, result))
@@ -135,8 +135,8 @@ namespace visage {
   }
 
   QuadColor DrawableComponent::paletteColor(unsigned int color_id) {
-    QuadColor result;
     if (palette_) {
+      QuadColor result;
       DrawableComponent* component = this;
       while (component) {
         int override_id = component->palette_override_;

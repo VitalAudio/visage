@@ -105,12 +105,11 @@ namespace visage {
     if (remaining.bottom() > new_rect.bottom()) {
       breaks[index++] = { remaining.x(), new_rect.bottom(), remaining.width(),
                           remaining.bottom() - new_rect.bottom() };
-      remaining = { remaining.x(), remaining.y(), remaining.width(), new_rect.bottom() - remaining.y() };
     }
     VISAGE_ASSERT(index == 2);
 
-    old_rect = std::move(breaks[0]);
-    pieces.push_back(std::move(breaks[1]));
+    old_rect = breaks[0];
+    pieces.push_back(breaks[1]);
   }
 
   inline void moveToVector(std::vector<Bounds>& rects, std::vector<Bounds>& pieces) {
@@ -131,7 +130,7 @@ namespace visage {
         continue;
       }
       breakRectangles(rect, invalid_rect, invalid_rect_pieces_);
-      it++;
+      ++it;
     }
 
     invalid_rects_.push_back(rect);
@@ -166,7 +165,7 @@ namespace visage {
     return frame_buffer_data_->format;
   }
 
-  const void* nextBatchId(const std::vector<RegionPosition> positions, const void* current_batch_id) {
+  const void* nextBatchId(const std::vector<RegionPosition>& positions, const void* current_batch_id) {
     const void* next_batch_id = positions[0].currentBatch()->id();
     for (auto& position : positions) {
       const void* batch_id = position.currentBatch()->id();
@@ -182,7 +181,7 @@ namespace visage {
   }
 
   void addSubRegions(std::vector<RegionPosition>& positions,
-                     std::vector<RegionPosition>& overlapping, RegionPosition done_position) {
+                     std::vector<RegionPosition>& overlapping, const RegionPosition& done_position) {
     auto begin = done_position.region->subRegions().cbegin();
     auto end = done_position.region->subRegions().cend();
     for (auto it = begin; it != end; ++it) {
@@ -287,8 +286,8 @@ namespace visage {
   }
 
   QuadColor Canvas::color(unsigned int color_id) {
-    QuadColor result;
     if (palette_) {
+      QuadColor result;
       int last_check = -1;
       for (auto it = state_memory_.rbegin(); it != state_memory_.rend(); ++it) {
         int override_id = it->palette_override;
@@ -313,8 +312,8 @@ namespace visage {
     else if (info.scale_type == theme::ValueId::kScaledDpi)
       scale = dpi_scale_;
 
-    float result = 0.0f;
     if (palette_) {
+      float result = 0.0f;
       int last_check = -1;
       for (auto it = state_memory_.rbegin(); it != state_memory_.rend(); ++it) {
         int override_id = it->palette_override;

@@ -98,7 +98,7 @@ namespace visage {
     }
     float saturation() const { return saturation_; }
 
-    void setHueColor(Color hue_color) {
+    void setHueColor(const Color& hue_color) {
       hue_color_ = hue_color;
       redraw();
     }

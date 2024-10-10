@@ -93,7 +93,9 @@ namespace visage {
     virtual Point maxWindowDimensions() const = 0;
     virtual Point minWindowDimensions() const = 0;
 
-    void setDrawCallback(std::function<void(double)> callback) { draw_callback_ = callback; }
+    void setDrawCallback(std::function<void(double)> callback) {
+      draw_callback_ = std::move(callback);
+    }
 
     void drawCallback(double time) const {
       if (draw_callback_)

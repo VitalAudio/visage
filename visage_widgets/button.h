@@ -127,7 +127,7 @@ namespace visage {
     }
 
     void setIcon(Icon icon, bool shadow = false) {
-      icon_ = std::move(icon);
+      icon_ = icon;
       if (shadow) {
         shadow_ratio_ = kDefaultShadowRatio;
         shadow_ = icon_;

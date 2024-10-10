@@ -22,6 +22,24 @@
 
 #include <algorithm>
 
+#ifndef NDEBUG
+#include <random>
+
+inline int randomInt(int min, int max) {
+  static std::random_device random_device;
+  static std::mt19937 generator(random_device());
+  std::uniform_int_distribution distribution(min, max);
+  return distribution(generator);
+}
+
+template<class T>
+static void debugVertices(T* vertices, int num_vertices) {
+  for (int i = 0; i < num_vertices; ++i)
+    vertices[i].color = (vertices[i].color & ~0xff) + randomInt(0, 0xff);
+}
+
+#endif
+
 namespace visage {
   class Shader;
 
@@ -63,13 +81,6 @@ namespace visage {
   void submitImages(const BatchVector<ImageWrapper>& batches, Canvas& canvas, int submit_pass);
   void submitText(const BatchVector<TextBlock>& batches, const Canvas& canvas, int submit_pass);
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Canvas& canvas, int submit_pass);
-
-  template<class T>
-  static void debugVertices(T* vertices, int num_vertices) {
-    int random_offset = rand() & 0xff;
-    for (int i = 0; i < num_vertices; ++i)
-      vertices[i].color = (vertices[i].color & ~0xff) + random_offset;
-  }
 
   template<class T>
   static void submitShapes(const BatchVector<T>& batches, Canvas& canvas, int submit_pass) {
@@ -246,7 +257,7 @@ namespace visage {
         batch->submit(canvas, submit_pass, {});
     }
 
-    int autoBatchIndex(const BaseShape& shape) {
+    int autoBatchIndex(const BaseShape& shape) const {
       int match = batches_.size();
       int insert = batches_.size();
       for (int i = batches_.size() - 1; i >= 0; --i) {
@@ -263,14 +274,14 @@ namespace visage {
       return insert;
     }
 
-    int manualBatchIndex(const BaseShape& shape) {
+    int manualBatchIndex(const BaseShape& shape) const {
       if (batches_.empty())
         return 0;
 
       return batches_.size() - 1;
     }
 
-    int batchIndex(const BaseShape& shape) {
+    int batchIndex(const BaseShape& shape) const {
       if (manual_batching_)
         return manualBatchIndex(shape);
       return autoBatchIndex(shape);
@@ -292,11 +303,9 @@ namespace visage {
     template<class T>
     void addShape(T shape) {
       int batch_index = batchIndex(shape);
-      ShapeBatch<T>* batch = nullptr;
-      if (batch_index < batches_.size() && batches_[batch_index]->id() == shape.batch_id)
-        batch = reinterpret_cast<ShapeBatch<T>*>(batches_[batch_index].get());
-      else
-        batch = createNewBatch<T>(shape.batch_id, batch_index);
+      bool match = batch_index < batches_.size() && batches_[batch_index]->id() == shape.batch_id;
+      ShapeBatch<T>* batch = match ? reinterpret_cast<ShapeBatch<T>*>(batches_[batch_index].get()) :
+                                     createNewBatch<T>(shape.batch_id, batch_index);
 
       batch->addShape(std::move(shape));
     }

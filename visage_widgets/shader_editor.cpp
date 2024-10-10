@@ -22,8 +22,6 @@
 #include "visage_utils/child_process.h"
 #include "visage_utils/file_system.h"
 
-#include <sstream>
-
 namespace visage {
   namespace {
     std::string shaderExecutable() {
@@ -92,7 +90,7 @@ namespace visage {
 #endif
 
     if (!std::filesystem::exists(File(compiler_path_))) {
-      setError("Shader compiler not found");
+      runOnEventThread([this]() { setError("Shader compiler not found"); });
       return false;
     }
 

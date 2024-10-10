@@ -112,7 +112,7 @@ namespace visage {
     virtual void init() { initChildren(); }
     virtual void draw(Canvas& canvas) { }
     void setDrawFunction(std::function<void(Canvas&)> draw_function) {
-      draw_function_ = draw_function;
+      draw_function_ = std::move(draw_function);
     }
     void drawToRegion();
     virtual void destroy() { destroyChildren(); }
@@ -237,6 +237,8 @@ namespace visage {
 
     void removeDrawableComponent(DrawableComponent* component) {
       VISAGE_ASSERT(component && component != this);
+      if (component == nullptr)
+        return;
 
       region_.removeRegion(component->region());
       children_.erase(std::find(children_.begin(), children_.end(), component));
@@ -284,7 +286,7 @@ namespace visage {
 
   private:
     void initChildren();
-    void drawChildSubcanvas(DrawableComponent* child, Canvas& canvas);
+    static void drawChildSubcanvas(const DrawableComponent* child, Canvas& canvas);
     void drawChildrenSubcanvases(Canvas& canvas);
     void destroyChildren();
     void notifyChildrenColorsChanged();
@@ -331,7 +333,7 @@ namespace visage {
       bool need_redraw_ = false;
     };
 
-    void redraw() { cached_image_.redraw(); }
+    void redrawCache() { cached_image_.redraw(); }
 
     virtual void drawToCache(Canvas& canvas) = 0;
     virtual void drawCachedImage(Canvas& canvas) {

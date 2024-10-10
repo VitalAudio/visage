@@ -46,7 +46,7 @@ namespace visage {
       int numRegions() const { return sub_regions_.size(); }
 
       void addRegion(Region* region) { sub_regions_.push_back(region); }
-      void removeRegion(Region* region) {
+      void removeRegion(const Region* region) {
         sub_regions_.erase(std::find(sub_regions_.begin(), sub_regions_.end(), region));
       }
 

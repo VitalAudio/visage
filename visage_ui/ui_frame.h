@@ -158,39 +158,39 @@ namespace visage {
     virtual void onFocusChange(bool is_focused, bool was_clicked) { }
 
     void setOnMouseEnter(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_enter_ = callback;
+      on_mouse_enter_ = std::move(callback);
     }
 
     void setOnMouseExit(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_exit_ = callback;
+      on_mouse_exit_ = std::move(callback);
     }
 
     void setOnMouseDown(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_down_ = callback;
+      on_mouse_down_ = std::move(callback);
     }
 
     void setOnMouseUp(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_up_ = callback;
+      on_mouse_up_ = std::move(callback);
     }
 
     void setOnMouseMove(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_move_ = callback;
+      on_mouse_move_ = std::move(callback);
     }
 
     void setOnMouseDrag(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_drag_ = callback;
+      on_mouse_drag_ = std::move(callback);
     }
 
     void setOnMouseWheel(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_wheel_ = callback;
+      on_mouse_wheel_ = std::move(callback);
     }
 
     void setOnKeyPress(std::function<bool(const KeyEvent& e)> callback) {
-      on_key_press_ = callback;
+      on_key_press_ = std::move(callback);
     }
 
     void setOnKeyRelease(std::function<bool(const KeyEvent& e)> callback) {
-      on_key_release_ = callback;
+      on_key_release_ = std::move(callback);
     }
 
     virtual bool receivesTextInput() { return false; }
@@ -252,10 +252,10 @@ namespace visage {
     void requestKeyboardFocus() { requestKeyboardFocus(this); }
 
     void addResizeCallback(std::function<void(UiFrame*)> callback) {
-      resize_callbacks_.push_back(callback);
+      resize_callbacks_.push_back(std::move(callback));
     }
 
-    void removeResizeCallback(std::function<void(UiFrame*)> callback) {
+    void removeResizeCallback(const std::function<void(UiFrame*)>& callback) {
       auto compare = [&](const std::function<void(UiFrame*)>& other) {
         return other.target_type() == callback.target_type();
       };

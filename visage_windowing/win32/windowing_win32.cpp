@@ -217,7 +217,7 @@ namespace visage {
 
   class VBlankThread : public Thread {
   public:
-    VBlankThread(WindowWin32* window) : window_(window) { }
+    explicit VBlankThread(WindowWin32* window) : window_(window) { }
 
     ~VBlankThread() override {
       if (dxgi_output_)
@@ -512,7 +512,9 @@ namespace visage {
       return drop;
     }
 
-    explicit DragDropSourceObject(File file) { drop_ = DragDropSourceObject::createHDrop(file); }
+    explicit DragDropSourceObject(const File& file) {
+      drop_ = DragDropSourceObject::createHDrop(file);
+    }
     virtual ~DragDropSourceObject() = default;
 
     HRESULT __stdcall QueryInterface(REFIID riid, void** ppv_object) override {
@@ -905,19 +907,6 @@ namespace visage {
     return modifiers;
   }
 
-  static int keyboardModifiers(WPARAM w_param) {
-    int modifiers = 0;
-    if (w_param & MK_SHIFT)
-      modifiers |= kModifierShift;
-    if (w_param & MK_CONTROL)
-      modifiers |= kModifierRegCtrl;
-    if (GetKeyState(VK_MENU) & 0x8000)
-      modifiers |= kModifierAlt;
-    if (GetKeyState(VK_LWIN) & 0x8000 || GetKeyState(VK_RWIN) & 0x8000)
-      modifiers |= kModifierMeta;
-    return modifiers;
-  }
-
   static int mouseButtonState() {
     int state = 0;
     if (GetKeyState(VK_LBUTTON) & 0x8000)
@@ -929,7 +918,7 @@ namespace visage {
     return state;
   }
 
-  static bool isTouchEvent() {
+  static bool isTouchEvent() {  // TODO check if mouse down is touch
     return (GetMessageExtraInfo() & 0xFFFFFF00) == 0xFF515700;
   }
 
@@ -1022,8 +1011,6 @@ namespace visage {
       return DefWindowProc(hwnd, msg, w_param, l_param);
 
     return window->handleWindowProc(hwnd, msg, w_param, l_param);
-
-    return 0;
   }
 
   LRESULT WindowWin32::handleWindowProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
@@ -1179,10 +1166,7 @@ namespace visage {
       handleDpiChange(hwnd, l_param, w_param);
       return 0;
     }
-    case WM_MOVE: {
-      updateMonitor();
-      return 0;
-    }
+    case WM_MOVE:
     case WM_DISPLAYCHANGE: {
       updateMonitor();
       return 0;

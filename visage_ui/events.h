@@ -61,12 +61,12 @@ namespace visage {
     EventManager() = default;
     ~EventManager() = default;
 
-    std::vector<EventTimer*> timers_;
-    std::vector<std::function<void()>> callbacks_;
+    std::vector<EventTimer*> timers_ {};
+    std::vector<std::function<void()>> callbacks_ {};
   };
 
   static void runOnEventThread(std::function<void()> function) {
-    EventManager::instance().addCallback(function);
+    EventManager::instance().addCallback(std::move(function));
   }
 
   struct MouseEvent {

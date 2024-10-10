@@ -51,18 +51,18 @@ namespace visage {
       kBottomRight = kBottom | kRight,
     };
 
-    static inline bool isPrintable(char32_t character) {
+    static bool isPrintable(char32_t character) {
       return character != ' ' && character != '\t' && character != '\n';
     }
-    static inline bool isNewLine(char32_t character) { return character == '\n'; }
-    static inline bool isIgnored(char32_t character) { return character == '\r'; }
+    static bool isNewLine(char32_t character) { return character == '\n'; }
+    static bool isIgnored(char32_t character) { return character == '\r'; }
     static bool hasNewLine(const char32_t* string, int length);
 
     Font() = default;
     Font(int size, const char* font_data);
     Font(int size, const EmbeddedFile& file);
     Font(const Font& other);
-    Font operator=(const Font& other);
+    Font& operator=(const Font& other);
     ~Font();
 
     int widthOverflowIndex(const char32_t* string, int string_length, float width,

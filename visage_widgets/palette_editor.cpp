@@ -197,7 +197,7 @@ namespace visage {
     return index;
   }
 
-  int PaletteColorEditor::listLength(const std::map<std::string, std::vector<unsigned int>>& color_ids) {
+  int PaletteColorEditor::listLength(const std::map<std::string, std::vector<unsigned int>>& color_ids) const {
     int length = color_ids.size();
     for (const auto& group : color_ids) {
       if (isExpanded(group.first))
@@ -206,7 +206,7 @@ namespace visage {
     return length;
   }
 
-  int PaletteColorEditor::colorIdIndex(const MouseEvent& e) {
+  int PaletteColorEditor::colorIdIndex(const MouseEvent& e) const {
     std::map<std::string, std::vector<unsigned int>> color_ids = palette_->colorIdList(current_override_id_);
     int w = width();
     int palette_width = w * kPaletteWidthRatio;
@@ -417,7 +417,7 @@ namespace visage {
     }
   }
 
-  int PaletteValueEditor::listLength(const std::map<std::string, std::vector<unsigned int>>& value_ids) {
+  int PaletteValueEditor::listLength(const std::map<std::string, std::vector<unsigned int>>& value_ids) const {
     int length = value_ids.size();
     for (const auto& group : value_ids) {
       if (isExpanded(group.first))

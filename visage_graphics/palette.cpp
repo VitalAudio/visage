@@ -70,7 +70,7 @@ namespace visage {
     }
 
     for (const auto& color : existing_colors) {
-      colors_[color.second] = Color(color.first);
+      colors_[color.second] = EditColor(color.first);
       computed_colors_[color.second] = colors_[color.second].toQuadColor();
     }
     num_colors_ = existing_colors.size();

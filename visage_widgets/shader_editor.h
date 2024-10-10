@@ -79,31 +79,29 @@ namespace visage {
     }
 
     ShaderCompiler();
-    ~ShaderCompiler() override {
-      std::lock_guard<std::mutex> lock(error_mutex_);
-      callbacks_.clear();
-    }
+    ~ShaderCompiler() override { callbacks_.clear(); }
 
-    void setCodeAndCompile(EmbeddedFile vertex, EmbeddedFile fragment, EmbeddedFile original,
-                           std::string code) {
-      setCode(std::move(vertex), std::move(fragment), std::move(original), std::move(code));
+    void setCodeAndCompile(const EmbeddedFile& vertex, const EmbeddedFile& fragment,
+                           const EmbeddedFile& original, std::string code) {
+      setCode(vertex, fragment, original, std::move(code));
       if (completed()) {
         stop();
         start();
       }
     }
 
-    void setCode(EmbeddedFile vertex, EmbeddedFile fragment, EmbeddedFile original, std::string code) {
-      std::lock_guard<std::mutex> lock(code_mutex_);
-      vertex_ = std::move(vertex);
-      fragment_ = std::move(fragment);
-      original_ = std::move(original);
+    void setCode(const EmbeddedFile& vertex, const EmbeddedFile& fragment,
+                 const EmbeddedFile& original, std::string code) {
+      std::lock_guard lock(code_mutex_);
+      vertex_ = vertex;
+      fragment_ = fragment;
+      original_ = original;
       shader_code_ = std::move(code);
       new_code_ = true;
     }
 
     void loadCode(EmbeddedFile& vertex, EmbeddedFile& fragment, EmbeddedFile& original, std::string& code) {
-      std::lock_guard<std::mutex> lock(code_mutex_);
+      std::lock_guard lock(code_mutex_);
       vertex = vertex_;
       fragment = fragment_;
       original = original_;
@@ -112,7 +110,6 @@ namespace visage {
     }
 
     void setError(std::string error) {
-      std::lock_guard<std::mutex> lock(error_mutex_);
       for (auto& callback : callbacks_)
         callback(error);
 
@@ -120,8 +117,7 @@ namespace visage {
     }
 
     void addCompileCallback(std::function<void(const std::string&)> callback) {
-      std::lock_guard<std::mutex> lock(error_mutex_);
-      callbacks_.push_back(callback);
+      callbacks_.push_back(std::move(callback));
     }
 
     void run() override;
@@ -135,7 +131,6 @@ namespace visage {
     std::atomic<bool> new_code_ = false;
     std::string compiler_path_;
     std::mutex code_mutex_;
-    std::mutex error_mutex_;
     EmbeddedFile vertex_;
     EmbeddedFile fragment_;
     EmbeddedFile original_;

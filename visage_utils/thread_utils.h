@@ -68,7 +68,7 @@ namespace visage {
     static void sleepUs(int us) { std::this_thread::sleep_for(std::chrono::microseconds(us)); }
     static void yield() { std::this_thread::yield(); }
 
-    void setThreadTask(std::function<void()> task) { task_ = task; }
+    void setThreadTask(std::function<void()> task) { task_ = std::move(task); }
 
     bool waitForEnd(int ms_timeout) {
       long long ms_start = time::milliseconds();

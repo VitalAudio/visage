@@ -19,23 +19,21 @@
 #include "font.h"
 #include "visage_utils/string_utils.h"
 
-#include <utility>
-
 namespace visage {
   class Canvas;
 
   class Text {
   public:
     Text() = default;
-    explicit Text(String text, Font font, Font::Justification justification = Font::kCenter,
-                  bool multi_line = false) :
-        text_(text), font_(std::move(font)), justification_(justification), multi_line_(multi_line) { }
+    explicit Text(const String& text, const Font& font,
+                  Font::Justification justification = Font::kCenter, bool multi_line = false) :
+        text_(text), font_(font), justification_(justification), multi_line_(multi_line) { }
     virtual ~Text() = default;
 
-    void setText(String text) { text_ = std::move(text); }
+    void setText(const String& text) { text_ = text; }
     const String& text() const { return text_; }
 
-    void setFont(Font font) { font_ = font; }
+    void setFont(const Font& font) { font_ = font; }
     const Font& font() const { return font_; }
 
     void setJustification(Font::Justification justification) { justification_ = justification; }

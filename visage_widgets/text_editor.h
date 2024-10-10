@@ -78,7 +78,7 @@ namespace visage {
       virtual void textEditorChanged(TextEditor* editor) { }
     };
 
-    explicit TextEditor(std::string name = "");
+    explicit TextEditor(const std::string& name = "");
     ~TextEditor() override = default;
 
     void drawBackground(Canvas& canvas) const;
@@ -88,7 +88,7 @@ namespace visage {
 
     std::pair<int, int> indexToPosition(int index) const;
     std::pair<int, int> lineRange(int line) const;
-    int positionToIndex(std::pair<int, int> position) const;
+    int positionToIndex(const std::pair<int, int>& position) const;
 
     void cancel();
     void deselect();

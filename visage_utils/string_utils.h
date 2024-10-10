@@ -182,8 +182,8 @@ namespace visage {
     String() = default;
 
     String(std::u32string string) : string_(std::move(string)) { }
-    String(std::string string) : string_(convertToUtf32(string)) { }
-    String(std::wstring string) : string_(convertToUtf32(string)) { }
+    String(const std::string& string) : string_(convertToUtf32(string)) { }
+    String(const std::wstring& string) : string_(convertToUtf32(string)) { }
     String(const char32_t* string) : string_(string) { }
     String(const wchar_t* string) : string_(convertToUtf32(string)) { }
     String(const char* string) : string_(convertToUtf32(string)) { }

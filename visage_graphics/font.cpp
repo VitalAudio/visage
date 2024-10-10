@@ -171,7 +171,10 @@ namespace visage {
     packed_font_ = FontCache::loadPackedFont(size_, font_data_);
   }
 
-  Font Font::operator=(const Font& other) {
+  Font& Font::operator=(const Font& other) {
+    if (this == &other)
+      return *this;
+
     if (packed_font_)
       FontCache::returnPackedFont(packed_font_);
     size_ = other.size_;

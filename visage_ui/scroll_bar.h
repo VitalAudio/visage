@@ -41,7 +41,9 @@ namespace visage {
     void onMouseUp(const MouseEvent& e) override;
     void onMouseDrag(const MouseEvent& e) override;
 
-    void addScrollCallback(std::function<void(int)> callback) { callbacks_.push_back(callback); }
+    void addScrollCallback(std::function<void(int)> callback) {
+      callbacks_.push_back(std::move(callback));
+    }
 
     void setRounding(float rounding) {
       rounding_ = rounding;
@@ -162,8 +164,10 @@ namespace visage {
     }
 
     void addScrollCallback(std::function<void(ScrollableComponent*)> callback) {
-      callbacks_.push_back(callback);
+      callbacks_.push_back(std::move(callback));
     }
+
+    ScrollBar& scrollBar() { return scroll_bar_; }
 
   private:
     std::vector<std::function<void(ScrollableComponent*)>> callbacks_;

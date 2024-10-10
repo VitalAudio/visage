@@ -41,8 +41,6 @@ namespace visage {
   }
 
   void Color::decode(std::istringstream& stream) {
-    size_t start = 0;
-
     for (auto& value : values_)
       stream >> value;
 

@@ -19,7 +19,6 @@
 #include "drawable_component.h"
 #include "events.h"
 #include "scroll_bar.h"
-#include "visage_graphics/color.h"
 #include "visage_graphics/font.h"
 
 namespace visage {

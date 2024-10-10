@@ -93,7 +93,7 @@ namespace visage {
     return original;
   }
 
-  TextEditor::TextEditor(std::string name) : ScrollableComponent(name) {
+  TextEditor::TextEditor(const std::string& name) : ScrollableComponent(name) {
     undo_history_.reserve(kMaxUndoHistory);
     undone_history_.reserve(kMaxUndoHistory);
 
@@ -223,7 +223,7 @@ namespace visage {
     return { start_index, end_index };
   }
 
-  int TextEditor::positionToIndex(std::pair<int, int> position) const {
+  int TextEditor::positionToIndex(const std::pair<int, int>& position) const {
     int line_height = font().lineHeight();
     int line = std::min<int>(line_breaks_.size(), (position.second - y_margin_) / line_height);
     std::pair<int, int> range = lineRange(line);
