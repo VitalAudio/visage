@@ -259,27 +259,27 @@ namespace visage {
 @end
 
 @implementation AppViewDelegate
-AppView* app_view_;
-
-- (instancetype)initWithView:(AppView*)view {
+- (instancetype)initWithWindow:(visage::WindowMac*)window {
   self = [super init];
-  app_view_ = view;
+  self.visage_window = window;
+  self.start_microseconds = visage::time::microseconds();
   return self;
 }
 
 - (void)mtkView:(MTKView*)view drawableSizeWillChange:(CGSize)size {
-  [app_view_ resize:size];
+  self.visage_window->handleNativeResize(size.width, size.height);
 }
 
 - (void)drawInMTKView:(MTKView*)view {
-  [app_view_ drawView];
+  if (!view.currentDrawable || !view.currentRenderPassDescriptor)
+    return;
+
+  long long ms = visage::time::microseconds();
+  self.visage_window->drawCallback((ms - self.start_microseconds) / 1000000.0);
 }
 @end
 
 @implementation AppView
-NSPoint mouse_down_screen_position_;
-long long start_microseconds_ = 0;
-
 - (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window {
   self = [super initWithFrame:frame_rect];
   self.visage_window = window;
@@ -291,27 +291,13 @@ long long start_microseconds_ = 0;
   self.framebufferOnly = NO;
 
   [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
-  self.drag_source_ = [[DraggingSource alloc] init];
-
-  start_microseconds_ = visage::time::microseconds();
+  self.drag_source = [[DraggingSource alloc] init];
 
   return self;
 }
 
 - (BOOL)acceptsFirstResponder {
   return YES;
-}
-
-- (void)resize:(CGSize)size {
-  self.visage_window->handleNativeResize(size.width, size.height);
-}
-
-- (void)drawView {
-  if (!self.currentDrawable || !self.currentRenderPassDescriptor)
-    return;
-
-  long long ms = visage::time::microseconds();
-  self.visage_window->drawCallback((ms - start_microseconds_) / 1000000.0);
 }
 
 - (void)keyDown:(NSEvent*)event {
@@ -425,7 +411,7 @@ long long start_microseconds_ = 0;
 - (void)checkRelativeMode {
   if (self.visage_window->mouseRelativeMode()) {
     CGAssociateMouseAndMouseCursorPosition(false);
-    CGWarpMouseCursorPosition(mouse_down_screen_position_);
+    CGWarpMouseCursorPosition(self.mouse_down_screen_position);
     CGAssociateMouseAndMouseCursorPosition(true);
   }
 }
@@ -464,7 +450,7 @@ long long start_microseconds_ = 0;
 
 - (void)mouseDown:(NSEvent*)event {
   visage::Point point = [self eventPosition:event];
-  mouse_down_screen_position_ = [self mouseScreenPosition];
+  self.mouse_down_screen_position = [self mouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonLeft, point.x, point.y,
                                       [self mouseButtonState], [self keyboardModifiers:event]);
   [self.window makeKeyWindow];
@@ -487,7 +473,7 @@ long long start_microseconds_ = 0;
 
     [self beginDraggingSessionWithItems:[NSArray arrayWithObject:dragging_item]
                                   event:event
-                                 source:self.drag_source_];
+                                 source:self.drag_source];
   }
 }
 
@@ -506,7 +492,7 @@ long long start_microseconds_ = 0;
 
 - (void)rightMouseDown:(NSEvent*)event {
   visage::Point point = [self eventPosition:event];
-  mouse_down_screen_position_ = [self mouseScreenPosition];
+  self.mouse_down_screen_position = [self mouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonRight, point.x, point.y,
                                       [self mouseButtonState], [self keyboardModifiers:event]);
   [self.window makeKeyWindow];
@@ -530,7 +516,7 @@ long long start_microseconds_ = 0;
     return;
 
   visage::Point point = [self eventPosition:event];
-  mouse_down_screen_position_ = [self mouseScreenPosition];
+  self.mouse_down_screen_position = [self mouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonMiddle, point.x, point.y,
                                       [self mouseButtonState], [self keyboardModifiers:event]);
   [self.window makeKeyWindow];
@@ -560,7 +546,6 @@ long long start_microseconds_ = 0;
     [new_window setIgnoresMouseEvents:NO];
     [new_window makeFirstResponder:self];
     self.visage_window->setPixelScale([new_window backingScaleFactor]);
-    self.visage_window->setNativeWindowHandle(new_window);
 
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(windowOcclusionChanged:)
@@ -623,17 +608,13 @@ long long start_microseconds_ = 0;
 @end
 
 @implementation AppWindowDelegate
-
-bool resizing_horizontal_ = false;
-bool resizing_vertical_ = false;
-
 - (void)windowWillClose:(NSNotification*)notification {
   [NSApp stop:nil];
 }
 
 - (void)windowWillStartLiveResize:(NSNotification*)notification {
-  resizing_vertical_ = false;
-  resizing_horizontal_ = false;
+  self.resizing_vertical = false;
+  self.resizing_horizontal = false;
 }
 
 - (NSSize)windowWillResize:(NSWindow*)sender toSize:(NSSize)frame_size {
@@ -642,9 +623,9 @@ bool resizing_vertical_ = false;
 
   NSSize current_frame = [self.window_handle frame].size;
   if (current_frame.width != frame_size.width)
-    resizing_horizontal_ = true;
+    self.resizing_horizontal = true;
   if (current_frame.height != frame_size.height)
-    resizing_vertical_ = true;
+    self.resizing_vertical = true;
 
   visage::Point max_dimensions = self.visage_window->maxWindowDimensions();
   visage::Point min_dimensions = self.visage_window->minWindowDimensions();
@@ -653,7 +634,7 @@ bool resizing_vertical_ = false;
                                            std::round(frame_size.height - borders.y));
   float aspect_ratio = self.visage_window->aspectRatio();
   dimensions = adjustBoundsForAspectRatio(dimensions, min_dimensions, max_dimensions, aspect_ratio,
-                                          resizing_horizontal_, resizing_vertical_);
+                                          self.resizing_horizontal, self.resizing_vertical);
 
   return NSMakeSize(dimensions.x + borders.x, dimensions.y + borders.y);
 }
@@ -661,7 +642,6 @@ bool resizing_vertical_ = false;
 @end
 
 @implementation AppDelegate
-
 - (void)applicationDidFinishLaunching:(NSNotification*)notification {
   self.window_delegate = [[AppWindowDelegate alloc] init];
   self.window_delegate.visage_window = self.visage_window;
@@ -669,12 +649,6 @@ bool resizing_vertical_ = false;
   [self.window_handle setDelegate:self.window_delegate];
 
   [NSApp activateIgnoringOtherApps:YES];
-}
-
-- (void)dealloc {
-  [self.window_delegate release];
-  [self.window_handle release];
-  [super dealloc];
 }
 
 - (void)applicationWillTerminate:(NSNotification*)notification {
@@ -695,7 +669,7 @@ namespace visage {
   void WindowMac::runEventLoop() {
     @autoreleasepool {
       NSApplication* app = [NSApplication sharedApplication];
-      AppDelegate* delegate = [[[AppDelegate alloc] init] autorelease];
+      AppDelegate* delegate = [[AppDelegate alloc] init];
       delegate.visage_window = this;
       delegate.window_handle = window_handle_;
       [app setDelegate:delegate];
@@ -704,11 +678,7 @@ namespace visage {
   }
 
   void* WindowMac::initWindow() const {
-    return InitialMetalLayer::layer();
-  }
-
-  void WindowMac::setNativeWindowHandle(NSWindow* handle) {
-    window_handle_ = handle;
+    return (__bridge void*)InitialMetalLayer::layer();
   }
 
   void showMessageBox(std::string title, std::string message) {
@@ -760,15 +730,15 @@ namespace visage {
                                                NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskClosable;
 
     NSRect content_rect = NSMakeRect(x, y, width, height);
-    NSWindow* window = [[[NSWindow alloc] initWithContentRect:content_rect
-                                                    styleMask:kWindowStyleMask
-                                                      backing:NSBackingStoreBuffered
-                                                        defer:NO] autorelease];
-    setNativeWindowHandle(window);
+    NSWindow* window = [[NSWindow alloc] initWithContentRect:content_rect
+                                                   styleMask:kWindowStyleMask
+                                                     backing:NSBackingStoreBuffered
+                                                       defer:NO];
+    window_handle_ = window;
     content_rect.origin.x = 0;
     content_rect.origin.y = 0;
     view_ = [[AppView alloc] initWithFrame:content_rect inWindow:this];
-    view_delegate_ = [[AppViewDelegate alloc] initWithView:view_];
+    view_delegate_ = [[AppViewDelegate alloc] initWithWindow:this];
     view_.delegate = view_delegate_;
     view_.allow_quit = true;
 
@@ -782,17 +752,17 @@ namespace visage {
   }
 
   WindowMac::WindowMac(int width, int height, void* parent_handle) : Window(width, height) {
-    parent_view_ = (NSView*)parent_handle;
+    parent_view_ = (__bridge NSView*)parent_handle;
 
     if (parent_view_.window) {
       setPixelScale([parent_view_.window backingScaleFactor]);
-      setNativeWindowHandle(parent_view_.window);
+      window_handle_ = parent_view_.window;
     }
 
     CGRect view_frame = CGRectMake(0.0f, 0.0f, width / pixelScale(), height / pixelScale());
 
     view_ = [[AppView alloc] initWithFrame:view_frame inWindow:this];
-    view_delegate_ = [[AppViewDelegate alloc] initWithView:view_];
+    view_delegate_ = [[AppViewDelegate alloc] initWithWindow:this];
     view_.delegate = view_delegate_;
     view_.allow_quit = false;
     [parent_view_ addSubview:view_];
@@ -803,13 +773,7 @@ namespace visage {
     [NSApp activateIgnoringOtherApps:YES];
   }
 
-  WindowMac::~WindowMac() {
-    if (parent_view_ == nullptr)
-      [window_handle_ release];
-
-    [view_delegate_ release];
-    [view_ release];
-  }
+  WindowMac::~WindowMac() = default;
 
   void WindowMac::windowContentsResized(int width, int height) {
     NSRect frame = [window_handle_ frame];

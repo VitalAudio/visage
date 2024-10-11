@@ -31,25 +31,29 @@ namespace visage {
 @end
 
 @interface AppViewDelegate : NSObject <MTKViewDelegate>
+@property(nonatomic) visage::WindowMac* visage_window;
+@property long long start_microseconds;
 @end
 
 @interface AppView : MTKView <NSDraggingDestination>
 @property(nonatomic) visage::WindowMac* visage_window;
-@property(strong) DraggingSource* drag_source_;
-- (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window;
-- (void)drawView;
-- (void)resize:(CGSize)size;
+@property(strong) DraggingSource* drag_source;
 @property bool allow_quit;
+@property NSPoint mouse_down_screen_position;
+
+- (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window;
 @end
 
 @interface AppWindowDelegate : NSObject <NSWindowDelegate>
 @property(nonatomic) visage::WindowMac* visage_window;
 @property(nonatomic, retain) NSWindow* window_handle;
+@property bool resizing_horizontal;
+@property bool resizing_vertical;
 @end
 
 @interface AppDelegate : NSObject <NSApplicationDelegate>
 @property(nonatomic, retain) NSWindow* window_handle;
-@property(nonatomic, assign) AppWindowDelegate* window_delegate;
+@property(nonatomic, strong) AppWindowDelegate* window_delegate;
 @property visage::WindowMac* visage_window;
 @end
 
@@ -61,10 +65,9 @@ namespace visage {
 
     ~WindowMac() override;
 
-    void* nativeHandle() const override { return view_; }
+    void* nativeHandle() const override { return (__bridge void*)view_; }
     void* initWindow() const override;
 
-    void setNativeWindowHandle(NSWindow* window);
     AppView* appView() { return view_; }
 
     void runEventLoop() override;
