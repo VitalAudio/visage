@@ -24,13 +24,13 @@
 #include <map>
 
 namespace visage {
-  std::string getClipboardText() {
+  std::string readClipboardText() {
     return "";
   }
 
   void setClipboardText(const std::string& text) { }
 
-  std::string getCursorString(MouseCursor cursor) {
+  std::string cursorString(MouseCursor cursor) {
     switch (cursor) {
     case MouseCursor::Arrow: return "default";
     case MouseCursor::IBeam: return "text";
@@ -45,7 +45,7 @@ namespace visage {
   }
 
   void setCursorStyle(MouseCursor style) {
-    std::string cursor_string = getCursorString(style);
+    std::string cursor_string = cursorString(style);
     if (cursor_string.empty())
       return;
 
@@ -54,7 +54,7 @@ namespace visage {
 
   void setCursorVisible(bool visible) { }
 
-  Point getCursorPosition() {
+  Point cursorPosition() {
     EmscriptenMouseEvent event;
     emscripten_get_mouse_status(&event);
     return { event.targetX, event.targetY };
@@ -64,7 +64,7 @@ namespace visage {
 
   void setCursorScreenPosition(Point screen_position) { }
 
-  float getWindowPixelScale() {
+  float windowPixelScale() {
     return EM_ASM_DOUBLE({ return window.devicePixelRatio; });
   }
 
@@ -97,14 +97,14 @@ namespace visage {
   }
 
   void WindowEmscripten::runLoopCallback() {
-    long long delta = time::getMicroseconds() - start_microseconds_;
+    long long delta = time::microseconds() - start_microseconds_;
     drawCallback(delta / 1000000.0);
   }
 
   WindowEmscripten* WindowEmscripten::running_instance_ = nullptr;
 
-  Bounds getScaledWindowBounds(float aspect_ratio, float display_scale, int x, int y) {
-    float scale = getWindowPixelScale();
+  Bounds scaledWindowBounds(float aspect_ratio, float display_scale, int x, int y) {
+    float scale = windowPixelScale();
     int display_width = EM_ASM_INT({ return window.innerWidth; }) * scale;
     int display_height = EM_ASM_INT({ return window.innerHeight; }) * scale;
 
@@ -116,11 +116,11 @@ namespace visage {
   WindowEmscripten::WindowEmscripten(int width, int height) :
       Window(width, height), initial_width_(width), initial_height_(height) {
     WindowEmscripten::running_instance_ = this;
-    setPixelScale(getWindowPixelScale());
-    start_microseconds_ = time::getMicroseconds();
+    setPixelScale(windowPixelScale());
+    start_microseconds_ = time::microseconds();
   }
 
-  static MouseButton getMouseButton(const EmscriptenMouseEvent* event) {
+  static MouseButton mouseButton(const EmscriptenMouseEvent* event) {
     if (event->button == 0)
       return kMouseButtonLeft;
     if (event->button == 1)
@@ -130,7 +130,7 @@ namespace visage {
     return kMouseButtonNone;
   }
 
-  static int getMouseButtonState(const EmscriptenMouseEvent* event) {
+  static int mouseButtonState(const EmscriptenMouseEvent* event) {
     int state = 0;
     if (event->buttons & 1)
       state |= kMouseButtonLeft;
@@ -141,7 +141,7 @@ namespace visage {
     return state;
   }
 
-  static int getKeyboardModifiers(const EmscriptenMouseEvent* event) {
+  static int keyboardModifiers(const EmscriptenMouseEvent* event) {
     int state = 0;
     if (event->ctrlKey)
       state |= Modifiers::kModifierRegCtrl;
@@ -154,7 +154,7 @@ namespace visage {
     return state;
   }
 
-  static int getKeyboardModifiers(const EmscriptenKeyboardEvent* event) {
+  static int keyboardModifiers(const EmscriptenKeyboardEvent* event) {
     int state = 0;
     if (event->ctrlKey)
       state |= Modifiers::kModifierRegCtrl;
@@ -185,9 +185,9 @@ namespace visage {
               return rect.top;
             });
 
-    MouseButton button = getMouseButton(event);
-    int button_state = getMouseButtonState(event);
-    int modifier_state = getKeyboardModifiers(event);
+    MouseButton button = mouseButton(event);
+    int button_state = mouseButtonState(event);
+    int modifier_state = keyboardModifiers(event);
     switch (event_type) {
     case EMSCRIPTEN_EVENT_MOUSEDOWN:
       window->handleMouseDown(button, x, y, button_state, modifier_state);
@@ -217,7 +217,7 @@ namespace visage {
       delta_y *= kPreciseScrollingScale;
     }
     window->handleMouseWheel(delta_x, delta_y, delta_x, delta_y, event->mouse.targetX, event->mouse.targetY,
-                             getMouseButtonState(&event->mouse), getKeyboardModifiers(&event->mouse));
+                             mouseButtonState(&event->mouse), keyboardModifiers(&event->mouse));
     return true;
   }
 
@@ -480,7 +480,7 @@ namespace visage {
     if (event == nullptr || window == nullptr)
       return false;
 
-    int modifier_state = getKeyboardModifiers(event);
+    int modifier_state = keyboardModifiers(event);
     KeyCode code = translateKeyCode(event);
 
     switch (event_type) {
@@ -513,8 +513,8 @@ namespace visage {
     std::string print1 = std::to_string(new_width);
     emscripten_log(EM_LOG_CONSOLE, print1.c_str());
 
-    new_width = std::min<int>(window->initialWidth() / window->getPixelScale(), new_width);
-    new_height = std::min<int>(window->initialHeight() / window->getPixelScale(), new_height);
+    new_width = std::min<int>(window->initialWidth() / window->pixelScale(), new_width);
+    new_height = std::min<int>(window->initialHeight() / window->pixelScale(), new_height);
 
     std::string print2 = std::to_string(window->initialWidth());
     emscripten_log(EM_LOG_CONSOLE, print2.c_str());
@@ -537,9 +537,8 @@ namespace visage {
 
     emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, resizeCallback);
 
-    setPixelScale(getWindowPixelScale());
-    emscripten_set_element_css_size("canvas", clientWidth() / getPixelScale(),
-                                    clientHeight() / getPixelScale());
+    setPixelScale(windowPixelScale());
+    emscripten_set_element_css_size("canvas", clientWidth() / pixelScale(), clientHeight() / pixelScale());
     VISAGE_LOG(clientWidth());
     VISAGE_LOG(clientHeight());
     emscripten_set_canvas_element_size("canvas", clientWidth(), clientHeight());
@@ -548,31 +547,31 @@ namespace visage {
 
   void WindowEmscripten::windowContentsResized(int width, int height) {
     emscripten_set_element_css_size("canvas", width, height);
-    emscripten_set_canvas_element_size("canvas", width * getPixelScale(), height * getPixelScale());
+    emscripten_set_canvas_element_size("canvas", width * pixelScale(), height * pixelScale());
   }
 
   void WindowEmscripten::setWindowTitle(const std::string& title) {
     emscripten_run_script(("document.title = '" + title + "';").c_str());
   }
 
-  Point WindowEmscripten::getMaxWindowDimensions() const {
+  Point WindowEmscripten::maxWindowDimensions() const {
     int display_width = EM_ASM_INT({ return screen.width; });
     int display_height = EM_ASM_INT({ return screen.height; });
 
-    float aspect_ratio = getAspectRatio();
+    float aspect_ratio = aspectRatio();
     return { std::min<int>(display_width, display_height * aspect_ratio),
              std::min<int>(display_height, display_width / aspect_ratio) };
   }
 
-  Point WindowEmscripten::getMinWindowDimensions() const {
+  Point WindowEmscripten::minWindowDimensions() const {
     return { 0, 0 };
   }
 
   void WindowEmscripten::handleWindowResize(int window_width, int window_height) {
-    float aspect_ratio = getAspectRatio();
+    float aspect_ratio = aspectRatio();
     int width = std::min<int>(window_width, window_height * aspect_ratio);
     int height = std::min<int>(window_height, window_width / aspect_ratio);
-    handleResized(width * getPixelScale(), height * getPixelScale());
+    handleResized(width * pixelScale(), height * pixelScale());
     emscripten_set_element_css_size("canvas", width, height);
     emscripten_set_canvas_element_size("canvas", clientWidth(), clientHeight());
   }

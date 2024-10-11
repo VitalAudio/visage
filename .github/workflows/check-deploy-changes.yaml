@@ -2,7 +2,7 @@ name: Check should deploy
 on:
   workflow_dispatch:
   schedule:
-    - cron: "43 2 * * *"
+    - cron: "43 1 * * *"
 jobs:
   Check-Deploy:
     runs-on: ubuntu-20.04
