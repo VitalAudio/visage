@@ -22,24 +22,52 @@
 #include "window_event_handler.h"
 
 namespace visage {
+  void TopLevelComponent::drawStaleChildren() {
+    drawing_children_.clear();
+    std::swap(stale_children_, drawing_children_);
+    for (DrawableComponent* child : drawing_children_) {
+      if (child->isDrawing())
+        child->drawToRegion();
+    }
+    for (auto it = stale_children_.begin(); it != stale_children_.end();) {
+      DrawableComponent* child = *it;
+      if (drawing_children_.count(child) == 0) {
+        child->drawToRegion();
+        it = stale_children_.erase(it);
+      }
+      else
+        ++it;
+    }
+    drawing_children_.clear();
+  }
+
   ApplicationEditor::ApplicationEditor() {
     canvas_ = std::make_unique<Canvas>();
-    setCanvas(canvas_.get());
-    canvas_->addRegion(region());
+    top_level_.setCanvas(canvas_.get());
+    top_level_.addDrawableComponent(this);
+    canvas_->addRegion(top_level_.region());
   }
 
   ApplicationEditor::~ApplicationEditor() = default;
 
-  void ApplicationEditor::resized() {
+  void ApplicationEditor::setCanvasDetails() {
     canvas_->setDimensions(width(), height());
     canvas_->setWidthScale(width() * 1.0f / defaultWidth());
     canvas_->setHeightScale(height() * 1.0f / defaultHeight());
 
     if (window_)
       canvas_->setDpiScale(window_->pixelScale());
-    editorResized();
+  }
 
-    drawWindow();
+  void ApplicationEditor::resized() {
+    top_level_.setBounds(0, 0, width(), height());
+    setCanvasDetails();
+
+    float dpi_scale = window_ ? window_->pixelScale() : 1.0f;
+    float width_scale = width() * 1.0f / defaultWidth();
+    float height_scale = height() * 1.0f / defaultHeight();
+    setDimensionScaling(dpi_scale, width_scale, height_scale);
+    editorResized();
   }
 
   void ApplicationEditor::addToWindow(Window* window) {
@@ -63,7 +91,7 @@ namespace visage {
   void ApplicationEditor::removeFromWindow() {
     window_event_handler_ = nullptr;
     window_ = nullptr;
-    canvas_->clearWindowHandle();
+    canvas_->removeFromWindow();
   }
 
   void ApplicationEditor::drawWindow() {
@@ -73,31 +101,9 @@ namespace visage {
     if (!initialized())
       init();
 
-    drawing_children_.clear();
-    std::swap(stale_children_, drawing_children_);
-    for (DrawableComponent* child : drawing_children_) {
-      if (child->isDrawing())
-        child->drawToRegion();
-    }
-    for (auto it = stale_children_.begin(); it != stale_children_.end();) {
-      DrawableComponent* child = *it;
-      if (drawing_children_.count(child) == 0) {
-        child->drawToRegion();
-        it = stale_children_.erase(it);
-      }
-      else
-        ++it;
-    }
-    drawing_children_.clear();
-
+    top_level_.drawStaleChildren();
     canvas_->submit();
     canvas_->render();
-  }
-
-  float ApplicationEditor::dpiScale() {
-    if (window_ == nullptr)
-      return 1.0f;
-    return window_->pixelScale();
   }
 
   void ApplicationEditor::requestKeyboardFocus(UiFrame* frame) {
@@ -123,11 +129,6 @@ namespace visage {
 
   void ApplicationEditor::setMouseRelativeMode(bool relative) {
     window_->setMouseRelativeMode(relative);
-  }
-
-  bool ApplicationEditor::requestRedraw(DrawableComponent* component) {
-    stale_children_.insert(component);
-    return true;
   }
 
   WindowedEditor::~WindowedEditor() {

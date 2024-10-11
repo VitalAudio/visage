@@ -17,7 +17,7 @@
 #include <visage_app/application_editor.h>
 #include <visage_windowing/windowing.h>
 
-class TestEditor : public visage::WindowedEditor {
+class ExampleEditor : public visage::WindowedEditor {
 public:
   void draw(visage::Canvas& canvas) override {
     static constexpr float kRadius = 50.0f;
@@ -54,7 +54,7 @@ private:
 };
 
 int runExample() {
-  TestEditor editor;
+  ExampleEditor editor;
   editor.showWithEventLoop(0.5f);
 
   return 0;

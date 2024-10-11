@@ -51,9 +51,9 @@ static void drawRotatingCircles(visage::Canvas& canvas, int width, int height) {
   }
 }
 
-class TestEditor : public visage::WindowedEditor {
+class ExampleEditor : public visage::WindowedEditor {
 public:
-  TestEditor() {
+  ExampleEditor() {
     shapes_.setDrawFunction([this](visage::Canvas& canvas) {
       canvas.setColor(0xff000000);
       canvas.fill(0, 0, shapes_.width(), shapes_.height());
@@ -68,7 +68,8 @@ public:
     shader_editor_.setShader(resources::shaders::vs_warp, resources::shaders::fs_warp,
                              resources::shaders::fs_warp_sc);
 
-    addDrawableComponent(&shapes_, post_effect_.get());
+    shapes_.setPostEffect(post_effect_.get());
+    addDrawableComponent(&shapes_);
     addDrawableComponent(&shader_editor_);
   }
 
@@ -87,7 +88,7 @@ private:
 };
 
 int runExample() {
-  TestEditor editor;
+  ExampleEditor editor;
   editor.showWithEventLoop(0.6f);
 
   return 0;

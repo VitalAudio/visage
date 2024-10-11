@@ -120,23 +120,18 @@ namespace visage {
 
     virtual bool requestRedraw(DrawableComponent* component) { return false; }
 
-    virtual float widthScale() {
-      if (parent_)
-        return topParentComponent()->widthScale();
-      return 1.0f;
+    void setDimensionScaling(float dpi_scale, float width_scale, float height_scale) {
+      dpi_scale_ = dpi_scale;
+      width_scale_ = width_scale;
+      height_scale_ = height_scale;
+
+      for (DrawableComponent* child : children_)
+        child->setDimensionScaling(dpi_scale, width_scale, height_scale);
     }
 
-    virtual float heightScale() {
-      if (parent_)
-        return topParentComponent()->heightScale();
-      return 1.0f;
-    }
-
-    virtual float dpiScale() {
-      if (parent_)
-        return topParentComponent()->dpiScale();
-      return 1.0f;
-    }
+    float dpiScale() { return dpi_scale_; }
+    float widthScale() { return width_scale_; }
+    float heightScale() { return height_scale_; }
 
     virtual void setCursorStyle(MouseCursor style) {
       if (parent_)
@@ -209,6 +204,7 @@ namespace visage {
         component->setCanvas(canvas_);
       }
 
+      component->setDimensionScaling(dpi_scale_, width_scale_, height_scale_);
       addChild(component);
       if (initialized_)
         component->init();
@@ -224,15 +220,26 @@ namespace visage {
       post_effect_canvas_->setDpiScale(dpiScale());
     }
 
-    void addDrawableComponent(DrawableComponent* component, PostEffect* post_effect,
-                              bool make_visible = true) {
-      component->post_effect_ = post_effect;
-      component->post_effect_canvas_ = std::make_unique<Canvas>();
-      component->post_effect_canvas_->addRegion(component->region());
-      component->post_effect_canvas_->setHdr(post_effect->hdr());
-      component->setCanvas(component->post_effect_canvas_.get());
-      addDrawableComponent(component, make_visible);
-      setPostEffectCanvasSettings();
+    void setPostEffect(PostEffect* post_effect) {
+      post_effect_ = post_effect;
+      post_effect_canvas_ = std::make_unique<Canvas>();
+      post_effect_canvas_->addRegion(region());
+      post_effect_canvas_->setHdr(post_effect->hdr());
+      setCanvas(post_effect_canvas_.get());
+
+      if (parent_)
+        parent_->region_.removeRegion(region());
+    }
+
+    void removePostEffect() {
+      VISAGE_ASSERT(post_effect_);
+      post_effect_canvas_ = nullptr;
+      post_effect_ = nullptr;
+
+      if (parent_) {
+        parent_->region_.addRegion(region());
+        setCanvas(parent_->canvas());
+      }
     }
 
     void removeDrawableComponent(DrawableComponent* component) {
@@ -260,6 +267,8 @@ namespace visage {
     }
 
     Palette* palette() const { return palette_; }
+    Canvas* postEffectCanvas() const { return post_effect_canvas_.get(); }
+    Canvas* canvas() const { return canvas_; }
 
     void setPaletteOverride(int override_id) { palette_override_ = override_id; }
     int paletteOverride() const { return palette_override_; }
@@ -272,7 +281,6 @@ namespace visage {
       }
     }
 
-  protected:
     void setCanvas(Canvas* canvas) {
       if (post_effect_canvas_ && post_effect_canvas_.get() != canvas)
         return;
@@ -295,6 +303,9 @@ namespace visage {
     ViewBounds view_bounds_;
     std::vector<DrawableComponent*> children_;
     DrawableComponent* parent_ = nullptr;
+    float dpi_scale_ = 1.0f;
+    float width_scale_ = 1.0f;
+    float height_scale_ = 1.0f;
     Palette* palette_ = nullptr;
     int palette_override_ = 0;
     bool initialized_ = false;

@@ -35,6 +35,5 @@ int runExample() {
   });
 
   editor.showWithEventLoop(0.5f);
-
   return 0;
 }

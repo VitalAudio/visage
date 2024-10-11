@@ -23,11 +23,26 @@ namespace visage {
   class Window;
   class WindowEventHandler;
 
+  class TopLevelComponent : public DrawableComponent {
+  public:
+    bool requestRedraw(DrawableComponent* component) override {
+      stale_children_.insert(component);
+      return true;
+    }
+
+    void drawStaleChildren();
+
+  private:
+    std::set<DrawableComponent*> stale_children_;
+    std::set<DrawableComponent*> drawing_children_;
+  };
+
   class ApplicationEditor : public DrawableComponent {
   public:
     ApplicationEditor();
     ~ApplicationEditor() override;
 
+    void setCanvasDetails();
     void resized() final;
     virtual void editorResized() { }
 
@@ -47,9 +62,6 @@ namespace visage {
     virtual int defaultWidth() const { return 800; }
     virtual int defaultHeight() const { return 600; }
     float defaultAspectRatio() const { return defaultWidth() * 1.0f / defaultHeight(); }
-    float widthScale() override { return width() * 1.0f / defaultWidth(); }
-    float heightScale() override { return height() * 1.0f / defaultHeight(); }
-    float dpiScale() override;
 
     void requestKeyboardFocus(UiFrame* frame) override;
     void setCursorStyle(MouseCursor style) override;
@@ -58,8 +70,6 @@ namespace visage {
     void setClipboardText(const std::string& text) override;
     void setMouseRelativeMode(bool relative) override;
 
-    bool requestRedraw(DrawableComponent* component) override;
-
     bool isFixedAspectRatio() const { return fixed_aspect_ratio_; }
     void setFixedAspectRatio(bool fixed) { fixed_aspect_ratio_ = fixed; }
 
@@ -67,10 +77,8 @@ namespace visage {
     Window* window() const { return window_; }
 
   private:
-    std::set<DrawableComponent*> stale_children_;
-    std::set<DrawableComponent*> drawing_children_;
-
     Window* window_ = nullptr;
+    TopLevelComponent top_level_;
     std::unique_ptr<Canvas> canvas_;
     std::unique_ptr<WindowEventHandler> window_event_handler_;
     bool fixed_aspect_ratio_ = false;

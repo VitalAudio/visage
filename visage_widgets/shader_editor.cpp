@@ -180,7 +180,7 @@ namespace visage {
     error_.setBounds(padding, height() - info_height - padding, editor_width, info_height);
     editor_.setBounds(padding, padding, editor_width, error_.y() - 2 * padding);
 
-    int font_size = heightScale() * 14.0f;
+    int font_size = dpiScale() * 16.0f;
     status_.setBounds(error_.right() - font_size - padding, error_.y() + padding, font_size, font_size);
     editor_.setFont(Font(font_size, fonts::DroidSansMono_ttf));
     error_.setFont(editor_.font());

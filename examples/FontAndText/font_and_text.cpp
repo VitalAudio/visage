@@ -21,11 +21,11 @@
 #include <visage_app/application_editor.h>
 #include <visage_windowing/windowing.h>
 
-class TestEditor : public visage::WindowedEditor {
+class ExampleEditor : public visage::WindowedEditor {
 public:
   static constexpr float kFontHeightRatio = 0.1f;
 
-  TestEditor() {
+  ExampleEditor() {
     addDrawableComponent(&increment_);
     increment_.setDrawFunction([this](visage::Canvas& canvas) {
       incrment_value_ += 0.01;
@@ -66,7 +66,7 @@ private:
 };
 
 int runExample() {
-  TestEditor editor;
+  ExampleEditor editor;
   editor.showWithEventLoop(0.5f);
 
   return 0;

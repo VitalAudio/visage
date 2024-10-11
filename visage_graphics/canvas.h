@@ -142,7 +142,7 @@ namespace visage {
     void render();
 
     void pairToWindow(void* window_handle, int width, int height);
-    void clearWindowHandle();
+    void removeFromWindow();
 
     void setHdr(bool hdr);
     void setDimensions(int width, int height);
@@ -165,6 +165,7 @@ namespace visage {
     bool bottomLeftOrigin() const { return bottom_left_origin_; }
     void updateTime(double time);
     double time() const { return render_time_; }
+    double deltaTime() const { return delta_time_; }
     int frameCount() const { return render_frame_; }
 
     bgfx::FrameBufferHandle& frameBuffer() const;
@@ -586,8 +587,8 @@ namespace visage {
     float width_scale_ = 1.0f;
     float height_scale_ = 1.0f;
     float dpi_scale_ = 1.0f;
-    long long start_ms_ = 0;
     double render_time_ = 0.0;
+    double delta_time_ = 0.0;
     int render_frame_ = 0;
 
     std::vector<State> state_memory_;

@@ -43,7 +43,6 @@ namespace visage {
 
   Canvas::Canvas() {
     frame_buffer_data_ = std::make_unique<FrameBufferData>();
-    start_ms_ = time::milliseconds();
     state_.current_region = &base_region_;
   }
 
@@ -63,7 +62,7 @@ namespace visage {
     destroyFrameBuffer();
   }
 
-  void Canvas::clearWindowHandle() {
+  void Canvas::removeFromWindow() {
     window_handle_ = nullptr;
     destroyFrameBuffer();
   }
@@ -410,9 +409,9 @@ namespace visage {
 
   void Canvas::updateTime(double time) {
     static constexpr float kRefreshRateSlew = 0.3f;
-    double delta = time - render_time_;
+    delta_time_ = std::max(0.0, time - render_time_);
     render_time_ = time;
-    refresh_rate_ = (std::min(delta, 1.0) - refresh_rate_) * kRefreshRateSlew + refresh_rate_;
+    refresh_rate_ = (std::min(delta_time_, 1.0) - refresh_rate_) * kRefreshRateSlew + refresh_rate_;
   }
 
   void Canvas::checkFrameBuffer() {
