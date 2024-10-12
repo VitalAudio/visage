@@ -22,29 +22,11 @@
 #include "window_event_handler.h"
 
 namespace visage {
-  void TopLevelComponent::drawStaleChildren() {
-    drawing_children_.clear();
-    std::swap(stale_children_, drawing_children_);
-    for (DrawableComponent* child : drawing_children_) {
-      if (child->isDrawing())
-        child->drawToRegion();
-    }
-    for (auto it = stale_children_.begin(); it != stale_children_.end();) {
-      DrawableComponent* child = *it;
-      if (drawing_children_.count(child) == 0) {
-        child->drawToRegion();
-        it = stale_children_.erase(it);
-      }
-      else
-        ++it;
-    }
-    drawing_children_.clear();
-  }
-
   ApplicationEditor::ApplicationEditor() {
     canvas_ = std::make_unique<Canvas>();
     top_level_.setCanvas(canvas_.get());
     top_level_.addDrawableComponent(this);
+    setParent(nullptr);
     canvas_->addRegion(top_level_.region());
   }
 
@@ -101,9 +83,28 @@ namespace visage {
     if (!initialized())
       init();
 
-    top_level_.drawStaleChildren();
+    drawStaleChildren();
     canvas_->submit();
     canvas_->render();
+  }
+
+  void ApplicationEditor::drawStaleChildren() {
+    drawing_children_.clear();
+    std::swap(stale_children_, drawing_children_);
+    for (DrawableComponent* child : drawing_children_) {
+      if (child->isDrawing())
+        child->drawToRegion();
+    }
+    for (auto it = stale_children_.begin(); it != stale_children_.end();) {
+      DrawableComponent* child = *it;
+      if (drawing_children_.count(child) == 0) {
+        child->drawToRegion();
+        it = stale_children_.erase(it);
+      }
+      else
+        ++it;
+    }
+    drawing_children_.clear();
   }
 
   void ApplicationEditor::requestKeyboardFocus(UiFrame* frame) {

@@ -285,8 +285,6 @@ namespace visage {
   self.visage_window = window;
   self.device = MTLCreateSystemDefaultDevice();
   self.clearColor = MTLClearColorMake(0.1, 0.1, 0.1, 1.0);
-
-  CAMetalLayer* layer = (CAMetalLayer*)self.layer;
   self.enableSetNeedsDisplay = NO;
   self.framebufferOnly = NO;
 

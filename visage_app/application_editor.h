@@ -23,20 +23,6 @@ namespace visage {
   class Window;
   class WindowEventHandler;
 
-  class TopLevelComponent : public DrawableComponent {
-  public:
-    bool requestRedraw(DrawableComponent* component) override {
-      stale_children_.insert(component);
-      return true;
-    }
-
-    void drawStaleChildren();
-
-  private:
-    std::set<DrawableComponent*> stale_children_;
-    std::set<DrawableComponent*> drawing_children_;
-  };
-
   class ApplicationEditor : public DrawableComponent {
   public:
     ApplicationEditor();
@@ -46,23 +32,25 @@ namespace visage {
     void resized() final;
     virtual void editorResized() { }
 
-    virtual bool loadPresetFile(const std::string& preset) { return false; }
-    virtual void loadInitPreset() { }
-    virtual void setAsDefaultPreset() { }
-    virtual void saveTheme() { }
-    virtual void showThemeEditor(int editor) { }
-    virtual bool loadTheme(const std::string& theme_path) { return false; }
-    virtual std::string browseForTheme() { return ""; }
-    virtual void loadDefaultTheme() { }
     void addToWindow(Window* handle);
     void removeFromWindow();
-
     void drawWindow();
 
     virtual int defaultWidth() const { return 800; }
     virtual int defaultHeight() const { return 600; }
     float defaultAspectRatio() const { return defaultWidth() * 1.0f / defaultHeight(); }
 
+    bool isFixedAspectRatio() const { return fixed_aspect_ratio_; }
+    void setFixedAspectRatio(bool fixed) { fixed_aspect_ratio_ = fixed; }
+
+    Window* window() const { return window_; }
+
+    bool requestRedraw(DrawableComponent* component) override {
+      stale_children_.insert(component);
+      return true;
+    }
+
+    void drawStaleChildren();
     void requestKeyboardFocus(UiFrame* frame) override;
     void setCursorStyle(MouseCursor style) override;
     void setCursorVisible(bool visible) override;
@@ -70,18 +58,15 @@ namespace visage {
     void setClipboardText(const std::string& text) override;
     void setMouseRelativeMode(bool relative) override;
 
-    bool isFixedAspectRatio() const { return fixed_aspect_ratio_; }
-    void setFixedAspectRatio(bool fixed) { fixed_aspect_ratio_ = fixed; }
-
-    virtual void applicationStateLoaded() { }
-    Window* window() const { return window_; }
-
   private:
     Window* window_ = nullptr;
-    TopLevelComponent top_level_;
+    DrawableComponent top_level_;
     std::unique_ptr<Canvas> canvas_;
     std::unique_ptr<WindowEventHandler> window_event_handler_;
     bool fixed_aspect_ratio_ = false;
+
+    std::set<DrawableComponent*> stale_children_;
+    std::set<DrawableComponent*> drawing_children_;
 
     VISAGE_LEAK_CHECKER(ApplicationEditor)
   };
