@@ -29,7 +29,7 @@
 #include <vector>
 
 namespace visage {
-  class UiFrame;
+  class Frame;
 
   struct PopupOptions {
     String name;
@@ -63,8 +63,8 @@ namespace visage {
   };
 
   struct FrameEventHandler {
-    std::function<void(UiFrame*)> request_redraw = nullptr;
-    std::function<void(UiFrame*)> request_keyboard_focus = nullptr;
+    std::function<void(Frame*)> request_redraw = nullptr;
+    std::function<void(Frame*)> request_keyboard_focus = nullptr;
     std::function<void(bool)> set_mouse_relative_mode = nullptr;
     std::function<void(MouseCursor)> set_cursor_style = nullptr;
     std::function<void(bool)> set_cursor_visible = nullptr;
@@ -72,11 +72,11 @@ namespace visage {
     std::function<void(std::string)> set_clipboard_text = nullptr;
   };
 
-  class UiFrame {
+  class Frame {
   public:
-    UiFrame() = default;
-    explicit UiFrame(std::string name) : name_(std::move(name)) { }
-    virtual ~UiFrame() = default;
+    Frame() = default;
+    explicit Frame(std::string name) : name_(std::move(name)) { }
+    virtual ~Frame() = default;
 
     virtual void onVisibilityChange() { }
     virtual void onHierarchyChanged() { }
@@ -88,7 +88,7 @@ namespace visage {
 
     void setPalette(Palette* palette) {
       palette_ = palette;
-      for (UiFrame* child : children_)
+      for (Frame* child : children_)
         child->setPalette(palette);
     }
 
@@ -112,12 +112,12 @@ namespace visage {
         return;
 
       canvas_ = canvas;
-      for (UiFrame* child : children_)
+      for (Frame* child : children_)
         child->setCanvas(canvas);
     }
 
     Canvas::Region* region() { return &region_; }
-    
+
     void setPostEffectCanvasSettings();
     void setPostEffect(PostEffect* post_effect);
     void removePostEffect();
@@ -155,28 +155,28 @@ namespace visage {
     void setDrawing(bool drawing);
     bool isDrawing() const { return drawing_; }
 
-    void addChild(UiFrame* child, bool make_visible = true);
-    void removeChild(UiFrame* child);
-    int indexOfChild(const UiFrame* child) const;
-    void setParent(UiFrame* parent) {
+    void addChild(Frame* child, bool make_visible = true);
+    void removeChild(Frame* child);
+    int indexOfChild(const Frame* child) const;
+    void setParent(Frame* parent) {
       VISAGE_ASSERT(parent != this);
 
       parent_ = parent;
       if (parent && parent->palette())
         setPalette(parent->palette());
     }
-    UiFrame* parent() const { return parent_; }
+    Frame* parent() const { return parent_; }
 
     void setEventHandler(FrameEventHandler* handler) {
       event_handler_ = handler;
-      for (UiFrame* child : children_)
+      for (Frame* child : children_)
         child->setEventHandler(handler);
     }
     FrameEventHandler* eventHandler() const { return event_handler_; }
 
     template<class T>
     T* findParent() const {
-      UiFrame* frame = parent_;
+      Frame* frame = parent_;
       while (frame) {
         T* casted = dynamic_cast<T*>(frame);
         if (casted)
@@ -189,8 +189,8 @@ namespace visage {
     }
 
     bool containsPoint(Point point) const { return bounds_.contains(point); }
-    UiFrame* frameAtPoint(Point point);
-    UiFrame* topParentFrame();
+    Frame* frameAtPoint(Point point);
+    Frame* topParentFrame();
 
     void setBounds(Bounds bounds);
     void setBounds(int x, int y, int width, int height) { setBounds({ x, y, width, height }); }
@@ -209,7 +209,7 @@ namespace visage {
     float aspectRatio() const { return bounds_.width() * 1.0f / bounds_.height(); }
     Bounds localBounds() const { return { 0, 0, width(), height() }; }
     Point positionInWindow() const;
-    Bounds relativeBounds(const UiFrame* other) const;
+    Bounds relativeBounds(const Frame* other) const;
 
     bool acceptsKeystrokes() const { return accepts_keystrokes_; }
     void setAcceptsKeystrokes(bool accepts_keystrokes) { accepts_keystrokes_ = accepts_keystrokes; }
@@ -222,8 +222,8 @@ namespace visage {
 
     bool hasKeyboardFocus() const { return keyboard_focus_; }
     bool tryFocusTextReceiver();
-    bool focusNextTextReceiver(const UiFrame* starting_child = nullptr) const;
-    bool focusPreviousTextReceiver(const UiFrame* starting_child = nullptr) const;
+    bool focusNextTextReceiver(const Frame* starting_child = nullptr) const;
+    bool focusPreviousTextReceiver(const Frame* starting_child = nullptr) const;
 
     void drawToRegion();
 
@@ -272,7 +272,7 @@ namespace visage {
       width_scale_ = width_scale;
       height_scale_ = height_scale;
 
-      for (UiFrame* child : children_)
+      for (Frame* child : children_)
         child->setDimensionScaling(dpi_scale, width_scale, height_scale);
     }
 
@@ -346,12 +346,12 @@ namespace visage {
 
     void textInput(const std::string& text) { return onTextInput(text); }
 
-    void addResizeCallback(std::function<void(UiFrame*)> callback) {
+    void addResizeCallback(std::function<void(Frame*)> callback) {
       resize_callbacks_.push_back(std::move(callback));
     }
 
-    void removeResizeCallback(const std::function<void(UiFrame*)>& callback) {
-      auto compare = [&](const std::function<void(UiFrame*)>& other) {
+    void removeResizeCallback(const std::function<void(Frame*)>& callback) {
+      auto compare = [&](const std::function<void(Frame*)>& other) {
         return other.target_type() == callback.target_type();
       };
 
@@ -379,18 +379,18 @@ namespace visage {
   private:
     void notifyHierarchyChanged() {
       onHierarchyChanged();
-      for (UiFrame* child : children_)
+      for (Frame* child : children_)
         child->notifyHierarchyChanged();
     }
 
     void initChildren();
-    static void drawChildSubcanvas(const UiFrame* child, Canvas& canvas);
+    static void drawChildSubcanvas(const Frame* child, Canvas& canvas);
     void drawChildrenSubcanvases(Canvas& canvas);
     void destroyChildren();
 
     std::string name_;
     Bounds bounds_;
-    std::vector<std::function<void(UiFrame*)>> resize_callbacks_;
+    std::vector<std::function<void(Frame*)>> resize_callbacks_;
 
     std::function<void(const MouseEvent& e)> on_mouse_enter_ = nullptr;
     std::function<void(const MouseEvent& e)> on_mouse_exit_ = nullptr;
@@ -411,8 +411,8 @@ namespace visage {
     bool ignores_mouse_events_ = false;
     bool pass_mouse_events_to_children_ = true;
 
-    std::vector<UiFrame*> children_;
-    UiFrame* parent_ = nullptr;
+    std::vector<Frame*> children_;
+    Frame* parent_ = nullptr;
     FrameEventHandler* event_handler_ = nullptr;
 
     float dpi_scale_ = 1.0f;
@@ -430,11 +430,11 @@ namespace visage {
     bool redrawing_ = false;
   };
 
-  class CachedUiFrame : public UiFrame {
+  class CachedFrame : public Frame {
   public:
     class CachedImage : public Image {
     public:
-      explicit CachedImage(CachedUiFrame* component) : component_(component) { }
+      explicit CachedImage(CachedFrame* component) : component_(component) { }
 
       void draw(visage::Canvas& canvas) override {
         need_redraw_ = false;
@@ -448,7 +448,7 @@ namespace visage {
       int height() const override { return component_->height(); }
 
     private:
-      CachedUiFrame* component_ = nullptr;
+      CachedFrame* component_ = nullptr;
       bool need_redraw_ = false;
     };
 
@@ -460,7 +460,7 @@ namespace visage {
       canvas.image(&cached_image_, 0, 0);
     }
 
-    CachedUiFrame() : cached_image_(this) { }
+    CachedFrame() : cached_image_(this) { }
 
     void draw(Canvas& canvas) final { drawCachedImage(canvas); }
 

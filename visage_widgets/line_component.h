@@ -18,10 +18,10 @@
 
 #include "visage_graphics/line.h"
 #include "visage_graphics/theme.h"
-#include "visage_ui/ui_frame.h"
+#include "visage_ui/frame.h"
 
 namespace visage {
-  class LineComponent : public UiFrame {
+  class LineComponent : public Frame {
   public:
     class BoostBuffer {
     public:

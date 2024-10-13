@@ -20,20 +20,20 @@
 #include "visage_windowing/windowing.h"
 
 namespace visage {
-  class UiFrame;
+  class Frame;
 
   class WindowEventHandler : public Window::EventHandler {
   public:
     WindowEventHandler() = delete;
     WindowEventHandler(const WindowEventHandler&) = delete;
 
-    WindowEventHandler(Window* window, UiFrame* frame);
+    WindowEventHandler(Window* window, Frame* frame);
     ~WindowEventHandler() override;
 
-    void onFrameResize(const UiFrame* frame) const;
+    void onFrameResize(const Frame* frame) const;
 
-    UiFrame* getContentFrame() const { return content_frame_; }
-    void setKeyboardFocus(UiFrame* frame);
+    Frame* getContentFrame() const { return content_frame_; }
+    void setKeyboardFocus(Frame* frame);
 
     Point getLastMousePosition() const { return last_mouse_position_; }
     Point convertPointToWindowPosition(const Point& point) const {
@@ -80,17 +80,17 @@ namespace visage {
     void cleanupDragDropSource() override;
 
   private:
-    UiFrame* getDragDropFrame(Point point, const std::vector<std::string>& files) const;
+    Frame* getDragDropFrame(Point point, const std::vector<std::string>& files) const;
 
-    std::function<void(UiFrame*)> resize_callback_ = [this](const UiFrame* frame) {
+    std::function<void(Frame*)> resize_callback_ = [this](const Frame* frame) {
       onFrameResize(frame);
     };
     Window* window_ = nullptr;
-    UiFrame* content_frame_ = nullptr;
-    UiFrame* mouse_hovered_frame_ = nullptr;
-    UiFrame* mouse_down_frame_ = nullptr;
-    UiFrame* keyboard_focused_frame_ = nullptr;
-    UiFrame* drag_drop_target_frame_ = nullptr;
+    Frame* content_frame_ = nullptr;
+    Frame* mouse_hovered_frame_ = nullptr;
+    Frame* mouse_down_frame_ = nullptr;
+    Frame* keyboard_focused_frame_ = nullptr;
+    Frame* drag_drop_target_frame_ = nullptr;
 
     Point last_mouse_position_ = { 0, 0 };
 

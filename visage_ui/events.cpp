@@ -16,7 +16,7 @@
 
 #include "events.h"
 
-#include "ui_frame.h"
+#include "frame.h"
 #include "visage_utils/time_utils.h"
 
 namespace visage {
@@ -83,7 +83,7 @@ namespace visage {
       callback();
   }
 
-  MouseEvent MouseEvent::relativeTo(const UiFrame* new_frame) const {
+  MouseEvent MouseEvent::relativeTo(const Frame* new_frame) const {
     MouseEvent copy = *this;
     copy.position = copy.window_position - new_frame->positionInWindow();
     copy.frame = new_frame;

@@ -24,7 +24,7 @@
 #include <string>
 
 namespace visage {
-  class UiFrame;
+  class Frame;
 
   class EventTimer {
   public:
@@ -96,13 +96,13 @@ namespace visage {
     bool isMiddleButton() const { return button_id == kMouseButtonMiddle; }
     bool isRightButton() const { return button_id == kMouseButtonRight; }
 
-    MouseEvent relativeTo(const UiFrame* new_frame) const;
+    MouseEvent relativeTo(const Frame* new_frame) const;
 
     bool shouldTriggerPopup() const {
       return isRightButton() || (isLeftButton() && isMainModifier());
     }
 
-    const UiFrame* frame = nullptr;
+    const Frame* frame = nullptr;
     Point position;
     Point relative_position;
     Point window_position;

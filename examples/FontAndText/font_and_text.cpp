@@ -62,7 +62,7 @@ private:
   double incrment_value_ = 0.0;
   visage::Font increment_font_;
 
-  visage::UiFrame increment_;
+  visage::Frame increment_;
 };
 
 int runExample() {

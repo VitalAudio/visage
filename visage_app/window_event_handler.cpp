@@ -16,13 +16,13 @@
 
 #include "window_event_handler.h"
 
-#include "visage_ui/ui_frame.h"
+#include "visage_ui/frame.h"
 #include "visage_utils/time_utils.h"
 
 #include <regex>
 
 namespace visage {
-  WindowEventHandler::WindowEventHandler(Window* window, UiFrame* frame) :
+  WindowEventHandler::WindowEventHandler(Window* window, Frame* frame) :
       window_(window), content_frame_(frame) {
     window->setEventHandler(this);
     content_frame_->addResizeCallback(resize_callback_);
@@ -34,11 +34,11 @@ namespace visage {
       content_frame_->removeResizeCallback(resize_callback_);
   }
 
-  void WindowEventHandler::onFrameResize(const UiFrame* frame) const {
+  void WindowEventHandler::onFrameResize(const Frame* frame) const {
     window_->setInternalWindowSize(frame->width(), frame->height());
   }
 
-  void WindowEventHandler::setKeyboardFocus(UiFrame* frame) {
+  void WindowEventHandler::setKeyboardFocus(Frame* frame) {
     if (keyboard_focused_frame_)
       keyboard_focused_frame_->focusChanged(false, false);
 
@@ -73,7 +73,7 @@ namespace visage {
     if (keyboard_focused_frame_ == nullptr)
       return false;
 
-    UiFrame* keyboard_frame = keyboard_focused_frame_;
+    Frame* keyboard_frame = keyboard_focused_frame_;
     bool used = false;
     while (!used && keyboard_frame) {
       used = keyboard_frame->keyPress(e);
@@ -93,7 +93,7 @@ namespace visage {
     if (keyboard_focused_frame_ == nullptr)
       return false;
 
-    UiFrame* keyboard_frame = keyboard_focused_frame_;
+    Frame* keyboard_frame = keyboard_focused_frame_;
     bool used = false;
     while (!used && keyboard_frame) {
       used = keyboard_frame->keyRelease(e);
@@ -125,7 +125,7 @@ namespace visage {
     if (files.empty())
       return false;
 
-    UiFrame* new_drag_drop_frame = getDragDropFrame(convertPointToFramePosition(Point(x, y)), files);
+    Frame* new_drag_drop_frame = getDragDropFrame(convertPointToFramePosition(Point(x, y)), files);
     if (mouse_down_frame_ == new_drag_drop_frame && new_drag_drop_frame)
       return true;
 
@@ -151,7 +151,7 @@ namespace visage {
     if (files.empty())
       return false;
 
-    UiFrame* drag_drop_frame = getDragDropFrame(convertPointToFramePosition(Point(x, y)), files);
+    Frame* drag_drop_frame = getDragDropFrame(convertPointToFramePosition(Point(x, y)), files);
     if (mouse_down_frame_ == drag_drop_frame && drag_drop_frame)
       return false;
 
@@ -202,7 +202,7 @@ namespace visage {
       return;
     }
 
-    UiFrame* new_hovered_frame = content_frame_->frameAtPoint(mouse_event.window_position);
+    Frame* new_hovered_frame = content_frame_->frameAtPoint(mouse_event.window_position);
     if (new_hovered_frame != mouse_hovered_frame_) {
       if (mouse_hovered_frame_) {
         mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
@@ -230,7 +230,7 @@ namespace visage {
     mouse_event.repeat_click_count = repeat;
 
     mouse_down_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
-    UiFrame* new_keyboard_frame = mouse_down_frame_;
+    Frame* new_keyboard_frame = mouse_down_frame_;
     while (new_keyboard_frame && !new_keyboard_frame->acceptsKeystrokes())
       new_keyboard_frame = new_keyboard_frame->parent();
 
@@ -323,8 +323,8 @@ namespace visage {
       mouse_down_frame_->cleanupDragDropSource();
   }
 
-  UiFrame* WindowEventHandler::getDragDropFrame(Point point, const std::vector<std::string>& files) const {
-    auto receives_files = [](UiFrame* frame, const std::vector<std::string>& files) {
+  Frame* WindowEventHandler::getDragDropFrame(Point point, const std::vector<std::string>& files) const {
+    auto receives_files = [](Frame* frame, const std::vector<std::string>& files) {
       int num_files = files.size();
       if (!frame->receivesDragDropFiles() || (num_files > 1 && !frame->receivesMultipleDragDropFiles()))
         return false;
@@ -342,7 +342,7 @@ namespace visage {
       return true;
     };
 
-    UiFrame* drag_drop_frame = content_frame_->frameAtPoint(point);
+    Frame* drag_drop_frame = content_frame_->frameAtPoint(point);
     while (drag_drop_frame && !receives_files(drag_drop_frame, files))
       drag_drop_frame = drag_drop_frame->parent();
 

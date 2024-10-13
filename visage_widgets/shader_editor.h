@@ -18,7 +18,7 @@
 
 #include "text_editor.h"
 #include "visage_graphics/graphics_caches.h"
-#include "visage_ui/ui_frame.h"
+#include "visage_ui/frame.h"
 #include "visage_utils/thread_utils.h"
 #include "visage_widgets/button.h"
 
@@ -139,7 +139,7 @@ namespace visage {
     std::unique_ptr<char[]> shader_memory_;
   };
 
-  class ShaderEditor : public UiFrame,
+  class ShaderEditor : public Frame,
                        public TextEditor::Listener {
   public:
     static constexpr float kPaddingHeightRatio = 0.012f;
@@ -169,6 +169,6 @@ namespace visage {
     TextEditor error_;
     TextEditor editor_;
     ShaderCompiler compiler_;
-    UiFrame status_;
+    Frame status_;
   };
 }

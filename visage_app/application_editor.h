@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include "visage_ui/ui_frame.h"
+#include "visage_ui/frame.h"
 
 namespace visage {
   class Canvas;
   class Window;
   class WindowEventHandler;
 
-  class ApplicationEditor : public UiFrame {
+  class ApplicationEditor : public Frame {
   public:
     ApplicationEditor();
     ~ApplicationEditor() override;
@@ -49,14 +49,14 @@ namespace visage {
 
   private:
     Window* window_ = nullptr;
-    UiFrame top_level_;
+    Frame top_level_;
     FrameEventHandler event_handler_;
     std::unique_ptr<Canvas> canvas_;
     std::unique_ptr<WindowEventHandler> window_event_handler_;
     bool fixed_aspect_ratio_ = false;
 
-    std::set<UiFrame*> stale_children_;
-    std::set<UiFrame*> drawing_children_;
+    std::set<Frame*> stale_children_;
+    std::set<Frame*> drawing_children_;
 
     VISAGE_LEAK_CHECKER(ApplicationEditor)
   };

@@ -18,10 +18,10 @@
 
 #include "text_editor.h"
 #include "visage_graphics/color.h"
-#include "visage_ui/ui_frame.h"
+#include "visage_ui/frame.h"
 
 namespace visage {
-  class HueEditor : public UiFrame {
+  class HueEditor : public Frame {
   public:
     HueEditor() = default;
 
@@ -61,7 +61,7 @@ namespace visage {
     VISAGE_LEAK_CHECKER(HueEditor)
   };
 
-  class ValueSaturationEditor : public UiFrame {
+  class ValueSaturationEditor : public Frame {
   public:
     class Listener {
     public:
@@ -114,7 +114,7 @@ namespace visage {
     VISAGE_LEAK_CHECKER(ValueSaturationEditor)
   };
 
-  class ColorPicker : public UiFrame,
+  class ColorPicker : public Frame,
                       public TextEditor::Listener,
                       public HueEditor::Listener,
                       public ValueSaturationEditor::Listener {

@@ -14,13 +14,12 @@
  * along with visage.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ui_frame.h"
-
+#include "frame.h"
 #include "popup_menu.h"
 #include "visage_graphics/theme.h"
 
 namespace visage {
-  void UiFrame::setVisible(bool visible) {
+  void Frame::setVisible(bool visible) {
     if (visible_ != visible) {
       visible_ = visible;
       onVisibilityChange();
@@ -33,7 +32,7 @@ namespace visage {
     setDrawing(visible && (parent_ == nullptr || parent_->isDrawing()));
   }
 
-  void UiFrame::setDrawing(bool drawing) {
+  void Frame::setDrawing(bool drawing) {
     if (drawing == drawing_)
       return;
 
@@ -41,13 +40,13 @@ namespace visage {
     if (drawing_)
       redraw();
 
-    for (UiFrame* child : children_) {
+    for (Frame* child : children_) {
       if (child->isVisible() && child->isDrawing() != drawing_)
         child->setDrawing(drawing_);
     }
   }
 
-  void UiFrame::addChild(UiFrame* child, bool make_visible) {
+  void Frame::addChild(Frame* child, bool make_visible) {
     VISAGE_ASSERT(child && child != this);
     if (child == nullptr)
       return;
@@ -71,7 +70,7 @@ namespace visage {
       child->init();
   }
 
-  void UiFrame::removeChild(UiFrame* child) {
+  void Frame::removeChild(Frame* child) {
     VISAGE_ASSERT(child && child != this);
     if (child == nullptr)
       return;
@@ -81,7 +80,7 @@ namespace visage {
     children_.erase(std::find(children_.begin(), children_.end(), child));
   }
 
-  int UiFrame::indexOfChild(const UiFrame* child) const {
+  int Frame::indexOfChild(const Frame* child) const {
     for (int i = 0; i < children_.size(); ++i) {
       if (children_[i] == child)
         return i;
@@ -89,12 +88,12 @@ namespace visage {
     return -1;
   }
 
-  UiFrame* UiFrame::frameAtPoint(Point point) {
+  Frame* Frame::frameAtPoint(Point point) {
     if (pass_mouse_events_to_children_) {
       for (auto it = children_.rbegin(); it != children_.rend(); ++it) {
         auto& child = *it;
         if (child->isOnTop() && child->isVisible() && child->containsPoint(point)) {
-          UiFrame* result = child->frameAtPoint(point - child->topLeft());
+          Frame* result = child->frameAtPoint(point - child->topLeft());
           if (result)
             return result;
         }
@@ -102,7 +101,7 @@ namespace visage {
       for (auto it = children_.rbegin(); it != children_.rend(); ++it) {
         auto& child = *it;
         if (!child->isOnTop() && child->isVisible() && child->containsPoint(point)) {
-          UiFrame* result = child->frameAtPoint(point - child->topLeft());
+          Frame* result = child->frameAtPoint(point - child->topLeft());
           if (result)
             return result;
         }
@@ -114,14 +113,14 @@ namespace visage {
     return nullptr;
   }
 
-  UiFrame* UiFrame::topParentFrame() {
-    UiFrame* frame = this;
+  Frame* Frame::topParentFrame() {
+    Frame* frame = this;
     while (frame->parent_)
       frame = frame->parent_;
     return frame;
   }
 
-  void UiFrame::setBounds(Bounds bounds) {
+  void Frame::setBounds(Bounds bounds) {
     if (bounds_ != bounds) {
       bounds_ = bounds;
       resized();
@@ -134,9 +133,9 @@ namespace visage {
     redraw();
   }
 
-  Point UiFrame::positionInWindow() const {
+  Point Frame::positionInWindow() const {
     Point global_position = topLeft();
-    UiFrame* frame = parent_;
+    Frame* frame = parent_;
     while (frame) {
       global_position = global_position + frame->topLeft();
       frame = frame->parent_;
@@ -145,7 +144,7 @@ namespace visage {
     return global_position;
   }
 
-  Bounds UiFrame::relativeBounds(const UiFrame* other) const {
+  Bounds Frame::relativeBounds(const Frame* other) const {
     Point position = positionInWindow();
     Point other_position = other->positionInWindow();
     int width = other->bounds().width();
@@ -153,56 +152,56 @@ namespace visage {
     return { other_position.x - position.x, other_position.y - position.y, width, height };
   }
 
-  void UiFrame::mouseEnter(const MouseEvent& e) {
+  void Frame::mouseEnter(const MouseEvent& e) {
     if (on_mouse_enter_)
       on_mouse_enter_(e);
     else
       onMouseEnter(e);
   }
 
-  void UiFrame::mouseExit(const MouseEvent& e) {
+  void Frame::mouseExit(const MouseEvent& e) {
     if (on_mouse_exit_)
       on_mouse_exit_(e);
     else
       onMouseExit(e);
   }
 
-  void UiFrame::mouseDown(const MouseEvent& e) {
+  void Frame::mouseDown(const MouseEvent& e) {
     if (on_mouse_down_)
       on_mouse_down_(e);
     else
       onMouseDown(e);
   }
 
-  void UiFrame::mouseUp(const MouseEvent& e) {
+  void Frame::mouseUp(const MouseEvent& e) {
     if (on_mouse_up_)
       on_mouse_up_(e);
     else
       onMouseUp(e);
   }
 
-  void UiFrame::mouseMove(const MouseEvent& e) {
+  void Frame::mouseMove(const MouseEvent& e) {
     if (on_mouse_move_)
       on_mouse_move_(e);
     else
       onMouseMove(e);
   }
 
-  void UiFrame::mouseDrag(const MouseEvent& e) {
+  void Frame::mouseDrag(const MouseEvent& e) {
     if (on_mouse_drag_)
       on_mouse_drag_(e);
     else
       onMouseDrag(e);
   }
 
-  void UiFrame::mouseWheel(const MouseEvent& e) {
+  void Frame::mouseWheel(const MouseEvent& e) {
     if (on_mouse_wheel_)
       on_mouse_wheel_(e);
     else
       onMouseWheel(e);
   }
 
-  bool UiFrame::tryFocusTextReceiver() {
+  bool Frame::tryFocusTextReceiver() {
     if (!isVisible())
       return false;
 
@@ -218,7 +217,7 @@ namespace visage {
     return false;
   }
 
-  bool UiFrame::focusNextTextReceiver(const UiFrame* starting_child) const {
+  bool Frame::focusNextTextReceiver(const Frame* starting_child) const {
     int index = std::max(0, indexOfChild(starting_child));
     for (int i = index + 1; i < children_.size(); ++i) {
       if (children_[i]->tryFocusTextReceiver())
@@ -235,7 +234,7 @@ namespace visage {
     return false;
   }
 
-  bool UiFrame::focusPreviousTextReceiver(const UiFrame* starting_child) const {
+  bool Frame::focusPreviousTextReceiver(const Frame* starting_child) const {
     int index = std::max(0, indexOfChild(starting_child));
     for (int i = index - 1; i >= 0; --i) {
       if (children_[i]->tryFocusTextReceiver())
@@ -252,7 +251,7 @@ namespace visage {
     return false;
   }
 
-  inline QuadColor colorForSampledComponent(const UiFrame* parent, const UiFrame* child,
+  inline QuadColor colorForSampledComponent(const Frame* parent, const Frame* child,
                                             const QuadColor& background) {
     Bounds bounds = parent->relativeBounds(child);
     float width = parent->width();
@@ -267,15 +266,15 @@ namespace visage {
              background.sampleHdr(bounds.right() / width, bounds.bottom() / height) };
   }
 
-  void UiFrame::initChildren() {
+  void Frame::initChildren() {
     VISAGE_ASSERT(!initialized_);
 
     initialized_ = true;
-    for (UiFrame* child : children_)
+    for (Frame* child : children_)
       child->init();
   }
 
-  void UiFrame::drawToRegion() {
+  void Frame::drawToRegion() {
     if (redrawing_) {
       redrawing_ = false;
       canvas_->beginRegion(&region_, x(), y(), width(), height());
@@ -296,7 +295,7 @@ namespace visage {
     }
   }
 
-  void UiFrame::drawChildSubcanvas(const UiFrame* child, Canvas& canvas) {
+  void Frame::drawChildSubcanvas(const Frame* child, Canvas& canvas) {
     if (child->isVisible() && child->post_effect_) {
       Canvas* child_canvas = child->post_effect_canvas_.get();
       canvas.subcanvas(child_canvas, child->x(), child->y(), child->width(), child->height(),
@@ -304,24 +303,24 @@ namespace visage {
     }
   }
 
-  void UiFrame::drawChildrenSubcanvases(Canvas& canvas) {
-    for (UiFrame* child : children_) {
+  void Frame::drawChildrenSubcanvases(Canvas& canvas) {
+    for (Frame* child : children_) {
       if (!child->isOnTop())
         drawChildSubcanvas(child, canvas);
     }
-    for (UiFrame* child : children_) {
+    for (Frame* child : children_) {
       if (child->isOnTop())
         drawChildSubcanvas(child, canvas);
     }
   }
 
-  void UiFrame::destroyChildren() {
+  void Frame::destroyChildren() {
     initialized_ = false;
-    for (UiFrame* child : children_)
+    for (Frame* child : children_)
       child->destroy();
   }
 
-  void UiFrame::setPostEffectCanvasSettings() {
+  void Frame::setPostEffectCanvasSettings() {
     if (post_effect_canvas_ == nullptr)
       return;
 
@@ -331,7 +330,7 @@ namespace visage {
     post_effect_canvas_->setDpiScale(dpiScale());
   }
 
-  void UiFrame::setPostEffect(PostEffect* post_effect) {
+  void Frame::setPostEffect(PostEffect* post_effect) {
     post_effect_ = post_effect;
     post_effect_canvas_ = std::make_unique<Canvas>();
     post_effect_canvas_->addRegion(region());
@@ -342,7 +341,7 @@ namespace visage {
       parent_->region_.removeRegion(region());
   }
 
-  void UiFrame::removePostEffect() {
+  void Frame::removePostEffect() {
     VISAGE_ASSERT(post_effect_);
     post_effect_canvas_ = nullptr;
     post_effect_ = nullptr;
@@ -353,7 +352,7 @@ namespace visage {
     }
   }
 
-  float UiFrame::paletteValue(unsigned int value_id) {
+  float Frame::paletteValue(unsigned int value_id) {
     float scale = 1.0f;
     theme::ValueId::ValueIdInfo info = theme::ValueId::info(value_id);
     if (info.scale_type == theme::ValueId::kScaledWidth)
@@ -364,7 +363,7 @@ namespace visage {
       scale = dpiScale();
 
     if (palette_) {
-      UiFrame* component = this;
+      Frame* component = this;
       float result = 0.0f;
       while (component) {
         int override_id = component->palette_override_;
@@ -379,10 +378,10 @@ namespace visage {
     return scale * theme::ValueId::defaultValue(value_id);
   }
 
-  QuadColor UiFrame::paletteColor(unsigned int color_id) {
+  QuadColor Frame::paletteColor(unsigned int color_id) {
     if (palette_) {
       QuadColor result;
-      UiFrame* component = this;
+      Frame* component = this;
       while (component) {
         int override_id = component->palette_override_;
         if (override_id && palette_->color(override_id, color_id, result))
@@ -396,64 +395,64 @@ namespace visage {
     return theme::ColorId::defaultColor(color_id);
   }
 
-  bool UiFrame::isPopupVisible() const {
+  bool Frame::isPopupVisible() const {
     PopupDisplayer* displayer = findParent<PopupDisplayer>();
     if (displayer)
       return displayer->isPopupVisible();
     return false;
   }
 
-  void UiFrame::showPopupMenu(const PopupOptions& options, Bounds bounds,
-                              std::function<void(int)> callback, std::function<void()> cancel) {
+  void Frame::showPopupMenu(const PopupOptions& options, Bounds bounds,
+                            std::function<void(int)> callback, std::function<void()> cancel) {
     PopupDisplayer* displayer = findParent<PopupDisplayer>();
     if (displayer)
       displayer->showPopup(options, this, bounds, std::move(callback), std::move(cancel));
   }
 
-  void UiFrame::showPopupMenu(const PopupOptions& options, Point position,
-                              std::function<void(int)> callback, std::function<void()> cancel) {
+  void Frame::showPopupMenu(const PopupOptions& options, Point position,
+                            std::function<void(int)> callback, std::function<void()> cancel) {
     showPopupMenu(options, Bounds(position.x, position.y, 0, 0), std::move(callback), std::move(cancel));
   }
 
-  void UiFrame::showValueDisplay(const std::string& text, Bounds bounds,
-                                 Font::Justification justification, bool primary) {
+  void Frame::showValueDisplay(const std::string& text, Bounds bounds,
+                               Font::Justification justification, bool primary) {
     PopupDisplayer* displayer = findParent<PopupDisplayer>();
     if (displayer)
       displayer->showValueDisplay(text, this, bounds, justification, primary);
   }
 
-  void UiFrame::hideValueDisplay(bool primary) const {
+  void Frame::hideValueDisplay(bool primary) const {
     PopupDisplayer* displayer = findParent<PopupDisplayer>();
     if (displayer)
       displayer->hideValueDisplay(primary);
   }
 
-  void UiFrame::addUndoableAction(std::unique_ptr<UndoableAction> action) const {
+  void Frame::addUndoableAction(std::unique_ptr<UndoableAction> action) const {
     UndoHistory* history = findParent<UndoHistory>();
     if (history)
       history->push(std::move(action));
   }
 
-  void UiFrame::triggerUndo() const {
+  void Frame::triggerUndo() const {
     UndoHistory* history = findParent<UndoHistory>();
     if (history)
       history->undo();
   }
 
-  void UiFrame::triggerRedo() const {
+  void Frame::triggerRedo() const {
     UndoHistory* history = findParent<UndoHistory>();
     if (history)
       history->redo();
   }
 
-  bool UiFrame::canUndo() const {
+  bool Frame::canUndo() const {
     UndoHistory* history = findParent<UndoHistory>();
     if (history)
       return history->canUndo();
     return false;
   }
 
-  bool UiFrame::canRedo() const {
+  bool Frame::canRedo() const {
     UndoHistory* history = findParent<UndoHistory>();
     if (history)
       return history->canRedo();

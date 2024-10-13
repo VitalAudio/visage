@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include "visage_ui/ui_frame.h"
+#include "visage_ui/frame.h"
 
 namespace visage {
-  class BarComponent : public UiFrame {
+  class BarComponent : public Frame {
   public:
     THEME_DEFINE_COLOR(BarColor);
 

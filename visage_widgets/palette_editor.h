@@ -20,8 +20,8 @@
 #include "embedded/fonts.h"
 #include "shader_editor.h"
 #include "text_editor.h"
+#include "visage_ui/frame.h"
 #include "visage_ui/scroll_bar.h"
-#include "visage_ui/ui_frame.h"
 
 namespace visage {
   class PaletteColorEditor : public ScrollableComponent,

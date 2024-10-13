@@ -68,7 +68,7 @@ namespace visage {
   }
 
   void ColorPicker::resized() {
-    UiFrame::resized();
+    Frame::resized();
     int widget_height = height() - kEditHeight - kPadding;
     hue_.setBounds(width() - kHueWidth, 0, kHueWidth, widget_height);
     value_saturation_.setBounds(0, 0, width() - kHueWidth - kPadding, widget_height);

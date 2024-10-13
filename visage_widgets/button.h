@@ -21,12 +21,12 @@
 #include "visage_graphics/icon.h"
 #include "visage_graphics/text.h"
 #include "visage_graphics/theme.h"
-#include "visage_ui/ui_frame.h"
+#include "visage_ui/frame.h"
 
 #include <functional>
 
 namespace visage {
-  class Button : public UiFrame {
+  class Button : public Frame {
   public:
     class Listener {
     public:
@@ -36,7 +36,7 @@ namespace visage {
 
     Button() { hover_amount_.setTargetValue(1.0f); }
 
-    explicit Button(const std::string& name) : UiFrame(name) { hover_amount_.setTargetValue(1.0f); }
+    explicit Button(const std::string& name) : Frame(name) { hover_amount_.setTargetValue(1.0f); }
 
     void draw(Canvas& canvas) final;
     virtual void draw(Canvas& canvas, float hover_amount) { }

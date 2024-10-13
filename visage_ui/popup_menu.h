@@ -17,8 +17,8 @@
 #pragma once
 
 #include "events.h"
+#include "frame.h"
 #include "scroll_bar.h"
-#include "ui_frame.h"
 #include "visage_graphics/font.h"
 
 namespace visage {
@@ -87,7 +87,7 @@ namespace visage {
     Font font_;
   };
 
-  class PopupMenu : public UiFrame,
+  class PopupMenu : public Frame,
                     public PopupList::Listener,
                     public EventTimer {
   public:
@@ -146,7 +146,7 @@ namespace visage {
     VISAGE_LEAK_CHECKER(PopupMenu)
   };
 
-  class ValueDisplay : public UiFrame {
+  class ValueDisplay : public Frame {
   public:
     ValueDisplay() { setIgnoresMouseEvents(true, false); }
 
@@ -166,9 +166,9 @@ namespace visage {
   public:
     virtual ~PopupDisplayer() = default;
     virtual bool isPopupVisible() = 0;
-    virtual void showPopup(const PopupOptions& options, UiFrame* frame, Bounds bounds,
+    virtual void showPopup(const PopupOptions& options, Frame* frame, Bounds bounds,
                            std::function<void(int)> callback, std::function<void()> cancel) = 0;
-    virtual void showValueDisplay(const std::string& text, UiFrame* frame, Bounds bounds,
+    virtual void showValueDisplay(const std::string& text, Frame* frame, Bounds bounds,
                                   Font::Justification justification, bool primary) = 0;
     virtual void hideValueDisplay(bool primary) = 0;
   };

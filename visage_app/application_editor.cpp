@@ -28,8 +28,8 @@ namespace visage {
     canvas_->addRegion(top_level_.region());
     top_level_.addChild(this);
 
-    event_handler_.request_redraw = [this](UiFrame* component) { stale_children_.insert(component); };
-    event_handler_.request_keyboard_focus = [this](UiFrame* frame) {
+    event_handler_.request_redraw = [this](Frame* component) { stale_children_.insert(component); };
+    event_handler_.request_keyboard_focus = [this](Frame* frame) {
       if (window_event_handler_)
         window_event_handler_->setKeyboardFocus(frame);
     };
@@ -104,12 +104,12 @@ namespace visage {
   void ApplicationEditor::drawStaleChildren() {
     drawing_children_.clear();
     std::swap(stale_children_, drawing_children_);
-    for (UiFrame* child : drawing_children_) {
+    for (Frame* child : drawing_children_) {
       if (child->isDrawing())
         child->drawToRegion();
     }
     for (auto it = stale_children_.begin(); it != stale_children_.end();) {
-      UiFrame* child = *it;
+      Frame* child = *it;
       if (drawing_children_.count(child) == 0) {
         child->drawToRegion();
         it = stale_children_.erase(it);

@@ -82,7 +82,7 @@ public:
   int defaultHeight() const override { return 500; }
 
 private:
-  UiFrame shapes_;
+  Frame shapes_;
   std::unique_ptr<visage::ShaderPostEffect> post_effect_;
   visage::ShaderEditor shader_editor_;
 };
