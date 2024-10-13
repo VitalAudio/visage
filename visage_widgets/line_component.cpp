@@ -104,7 +104,7 @@ namespace visage {
 
   void LineComponent::init() {
     line_.init();
-    DrawableComponent::init();
+    UiFrame::init();
   }
 
   int LineComponent::fillLocation() const {
@@ -147,11 +147,11 @@ namespace visage {
 
   void LineComponent::resized() {
     line_width_ = paletteValue(kLineWidth);
-    DrawableComponent::resized();
+    UiFrame::resized();
   }
 
   void LineComponent::destroy() {
     line_.destroy();
-    DrawableComponent::destroy();
+    UiFrame::destroy();
   }
 }

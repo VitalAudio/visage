@@ -18,8 +18,8 @@
 
 #include "visage_graphics/color.h"
 #include "visage_graphics/font.h"
-#include "visage_ui/drawable_component.h"
 #include "visage_ui/scroll_bar.h"
+#include "visage_ui/ui_frame.h"
 
 namespace visage {
   class TextEditor : public ScrollableComponent {

@@ -16,6 +16,8 @@
 
 #include "popup_menu.h"
 
+#include "visage_graphics/theme.h"
+
 namespace visage {
   THEME_COLOR(PopupMenuBackground, 0xff262a2e);
   THEME_COLOR(PopupMenuBorder, 0xff606265);
@@ -347,12 +349,12 @@ namespace visage {
   void PopupMenu::moveHover(Point position, const PopupList* list) {
     PopupList* last_hover_list = hover_list_;
     int last_hover_index = hover_index_;
-    position += list->position();
+    position += list->topLeft();
     hover_list_ = nullptr;
     hover_index_ = -1;
     for (auto& sub_list : lists_) {
       if (sub_list.isVisible() && sub_list.bounds().contains(position)) {
-        sub_list.setHoverFromPosition(position - sub_list.position() + Point(0, list->yPosition()));
+        sub_list.setHoverFromPosition(position - sub_list.topLeft() + Point(0, list->yPosition()));
 
         hover_list_ = &sub_list;
         hover_index_ = hover_list_->hoverIndex();
@@ -365,10 +367,10 @@ namespace visage {
   }
 
   void PopupMenu::mouseUpOutside(Point position, PopupList* list) {
-    position += list->position();
+    position += list->topLeft();
     for (auto& sub_list : lists_) {
       if (sub_list.isVisible() && sub_list.bounds().contains(position)) {
-        sub_list.selectFromPosition(position - sub_list.position());
+        sub_list.selectFromPosition(position - sub_list.topLeft());
         return;
       }
     }

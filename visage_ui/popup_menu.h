@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "drawable_component.h"
 #include "events.h"
 #include "scroll_bar.h"
+#include "ui_frame.h"
 #include "visage_graphics/font.h"
 
 namespace visage {
@@ -87,7 +87,7 @@ namespace visage {
     Font font_;
   };
 
-  class PopupMenu : public DrawableComponent,
+  class PopupMenu : public UiFrame,
                     public PopupList::Listener,
                     public EventTimer {
   public:
@@ -101,7 +101,7 @@ namespace visage {
       setIgnoresMouseEvents(true, true);
 
       for (auto& list : lists_) {
-        addDrawableComponent(&list);
+        addChild(&list);
         list.setVisible(false);
         list.addListener(this);
       }
@@ -146,7 +146,7 @@ namespace visage {
     VISAGE_LEAK_CHECKER(PopupMenu)
   };
 
-  class ValueDisplay : public DrawableComponent {
+  class ValueDisplay : public UiFrame {
   public:
     ValueDisplay() { setIgnoresMouseEvents(true, false); }
 

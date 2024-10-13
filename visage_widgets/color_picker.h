@@ -18,10 +18,10 @@
 
 #include "text_editor.h"
 #include "visage_graphics/color.h"
-#include "visage_ui/drawable_component.h"
+#include "visage_ui/ui_frame.h"
 
 namespace visage {
-  class HueEditor : public DrawableComponent {
+  class HueEditor : public UiFrame {
   public:
     HueEditor() = default;
 
@@ -61,7 +61,7 @@ namespace visage {
     VISAGE_LEAK_CHECKER(HueEditor)
   };
 
-  class ValueSaturationEditor : public DrawableComponent {
+  class ValueSaturationEditor : public UiFrame {
   public:
     class Listener {
     public:
@@ -114,7 +114,7 @@ namespace visage {
     VISAGE_LEAK_CHECKER(ValueSaturationEditor)
   };
 
-  class ColorPicker : public DrawableComponent,
+  class ColorPicker : public UiFrame,
                       public TextEditor::Listener,
                       public HueEditor::Listener,
                       public ValueSaturationEditor::Listener {
@@ -148,11 +148,11 @@ namespace visage {
       hdr_text_.setMargin(5, 0);
       hdr_text_.setMaxCharacters(kDecimalSigFigs + 1);
 
-      addDrawableComponent(&hue_);
-      addDrawableComponent(&value_saturation_);
-      addDrawableComponent(&hex_text_);
-      addDrawableComponent(&alpha_text_);
-      addDrawableComponent(&hdr_text_);
+      addChild(&hue_);
+      addChild(&value_saturation_);
+      addChild(&hex_text_);
+      addChild(&alpha_text_);
+      addChild(&hdr_text_);
       value_saturation_.setHueColor(Color::fromAHSV(1.0f, hue_.hue(), 1.0f, 1.0f));
       updateColor();
     }

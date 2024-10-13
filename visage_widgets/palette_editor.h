@@ -20,8 +20,8 @@
 #include "embedded/fonts.h"
 #include "shader_editor.h"
 #include "text_editor.h"
-#include "visage_ui/drawable_component.h"
 #include "visage_ui/scroll_bar.h"
+#include "visage_ui/ui_frame.h"
 
 namespace visage {
   class PaletteColorEditor : public ScrollableComponent,
@@ -35,14 +35,14 @@ namespace visage {
     explicit PaletteColorEditor(Palette* palette) : palette_(palette) {
       setAcceptsKeystrokes(true);
       for (int i = 0; i < QuadColor::kNumCorners; ++i) {
-        addDrawableComponent(&color_pickers_[i]);
+        addChild(&color_pickers_[i]);
         color_pickers_[i].addListener(this);
         color_pickers_[i].setVisible(i == 0);
       }
 
       color_list_.setIgnoresMouseEvents(true, true);
       color_list_.setScrollBarLeft(true);
-      addDrawableComponent(&color_list_);
+      addChild(&color_list_);
     }
 
     void draw(Canvas& canvas) override;

@@ -69,8 +69,8 @@ public:
                              resources::shaders::fs_warp_sc);
 
     shapes_.setPostEffect(post_effect_.get());
-    addDrawableComponent(&shapes_);
-    addDrawableComponent(&shader_editor_);
+    addChild(&shapes_);
+    addChild(&shader_editor_);
   }
 
   void editorResized() override {
@@ -82,7 +82,7 @@ public:
   int defaultHeight() const override { return 500; }
 
 private:
-  DrawableComponent shapes_;
+  UiFrame shapes_;
   std::unique_ptr<visage::ShaderPostEffect> post_effect_;
   visage::ShaderEditor shader_editor_;
 };

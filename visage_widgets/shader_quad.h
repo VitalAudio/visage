@@ -17,10 +17,10 @@
 #pragma once
 
 #include "visage_graphics/shader.h"
-#include "visage_ui/drawable_component.h"
+#include "visage_ui/ui_frame.h"
 
 namespace visage {
-  class ShaderQuad : public DrawableComponent {
+  class ShaderQuad : public UiFrame {
   public:
     ShaderQuad(const EmbeddedFile& vertex_shader, const EmbeddedFile& fragment_shader, BlendState state);
     ~ShaderQuad() override = default;

@@ -25,9 +25,22 @@ namespace visage {
   ApplicationEditor::ApplicationEditor() {
     canvas_ = std::make_unique<Canvas>();
     top_level_.setCanvas(canvas_.get());
-    top_level_.addDrawableComponent(this);
-    setParent(nullptr);
     canvas_->addRegion(top_level_.region());
+    top_level_.addChild(this);
+
+    event_handler_.request_redraw = [this](UiFrame* component) { stale_children_.insert(component); };
+    event_handler_.request_keyboard_focus = [this](UiFrame* frame) {
+      if (window_event_handler_)
+        window_event_handler_->setKeyboardFocus(frame);
+    };
+    event_handler_.set_mouse_relative_mode = [this](bool relative) {
+      window_->setMouseRelativeMode(relative);
+    };
+    event_handler_.set_cursor_style = visage::setCursorStyle;
+    event_handler_.set_cursor_visible = visage::setCursorVisible;
+    event_handler_.read_clipboard_text = visage::readClipboardText;
+    event_handler_.set_clipboard_text = visage::setClipboardText;
+    top_level_.setEventHandler(&event_handler_);
   }
 
   ApplicationEditor::~ApplicationEditor() = default;
@@ -91,12 +104,12 @@ namespace visage {
   void ApplicationEditor::drawStaleChildren() {
     drawing_children_.clear();
     std::swap(stale_children_, drawing_children_);
-    for (DrawableComponent* child : drawing_children_) {
+    for (UiFrame* child : drawing_children_) {
       if (child->isDrawing())
         child->drawToRegion();
     }
     for (auto it = stale_children_.begin(); it != stale_children_.end();) {
-      DrawableComponent* child = *it;
+      UiFrame* child = *it;
       if (drawing_children_.count(child) == 0) {
         child->drawToRegion();
         it = stale_children_.erase(it);
@@ -105,31 +118,6 @@ namespace visage {
         ++it;
     }
     drawing_children_.clear();
-  }
-
-  void ApplicationEditor::requestKeyboardFocus(UiFrame* frame) {
-    if (window_event_handler_)
-      window_event_handler_->setKeyboardFocus(frame);
-  }
-
-  void ApplicationEditor::setCursorStyle(MouseCursor style) {
-    visage::setCursorStyle(style);
-  }
-
-  void ApplicationEditor::setCursorVisible(bool visible) {
-    visage::setCursorVisible(visible);
-  }
-
-  std::string ApplicationEditor::readClipboardText() {
-    return visage::readClipboardText();
-  }
-
-  void ApplicationEditor::setClipboardText(const std::string& text) {
-    visage::setClipboardText(text);
-  }
-
-  void ApplicationEditor::setMouseRelativeMode(bool relative) {
-    window_->setMouseRelativeMode(relative);
   }
 
   WindowedEditor::~WindowedEditor() {

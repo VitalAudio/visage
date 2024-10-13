@@ -26,7 +26,7 @@ public:
   static constexpr float kFontHeightRatio = 0.1f;
 
   ExampleEditor() {
-    addDrawableComponent(&increment_);
+    addChild(&increment_);
     increment_.setDrawFunction([this](visage::Canvas& canvas) {
       incrment_value_ += 0.01;
       canvas.setColor(0xffffffff);
@@ -62,7 +62,7 @@ private:
   double incrment_value_ = 0.0;
   visage::Font increment_font_;
 
-  visage::DrawableComponent increment_;
+  visage::UiFrame increment_;
 };
 
 int runExample() {

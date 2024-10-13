@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include "visage_ui/drawable_component.h"
+#include "visage_ui/ui_frame.h"
 
 namespace visage {
   class Canvas;
   class Window;
   class WindowEventHandler;
 
-  class ApplicationEditor : public DrawableComponent {
+  class ApplicationEditor : public UiFrame {
   public:
     ApplicationEditor();
     ~ApplicationEditor() override;
@@ -45,28 +45,18 @@ namespace visage {
 
     Window* window() const { return window_; }
 
-    bool requestRedraw(DrawableComponent* component) override {
-      stale_children_.insert(component);
-      return true;
-    }
-
     void drawStaleChildren();
-    void requestKeyboardFocus(UiFrame* frame) override;
-    void setCursorStyle(MouseCursor style) override;
-    void setCursorVisible(bool visible) override;
-    std::string readClipboardText() override;
-    void setClipboardText(const std::string& text) override;
-    void setMouseRelativeMode(bool relative) override;
 
   private:
     Window* window_ = nullptr;
-    DrawableComponent top_level_;
+    UiFrame top_level_;
+    FrameEventHandler event_handler_;
     std::unique_ptr<Canvas> canvas_;
     std::unique_ptr<WindowEventHandler> window_event_handler_;
     bool fixed_aspect_ratio_ = false;
 
-    std::set<DrawableComponent*> stale_children_;
-    std::set<DrawableComponent*> drawing_children_;
+    std::set<UiFrame*> stale_children_;
+    std::set<UiFrame*> drawing_children_;
 
     VISAGE_LEAK_CHECKER(ApplicationEditor)
   };

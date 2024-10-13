@@ -122,9 +122,9 @@ namespace visage {
   }
 
   ShaderEditor::ShaderEditor() {
-    addDrawableComponent(&editor_);
-    addDrawableComponent(&error_);
-    addDrawableComponent(&status_);
+    addChild(&editor_);
+    addChild(&error_);
+    addChild(&status_);
     editor_.addListener(this);
     editor_.setMultiLine(true);
     editor_.setMargin(15, 10);

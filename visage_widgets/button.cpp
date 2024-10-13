@@ -20,6 +20,8 @@
 #include "visage_graphics/theme.h"
 
 namespace visage {
+  THEME_COLOR(ButtonShadow, 0x88000000);
+
   THEME_COLOR(TextButtonBackgroundOff, 0xff2c3033);
   THEME_COLOR(TextButtonBackgroundOffHover, 0xff3e4245);
   THEME_COLOR(TextButtonBackgroundOn, 0xff2c3033);
@@ -142,7 +144,7 @@ namespace visage {
     int y = getIconY();
 
     if (shadow_.blur_radius) {
-      canvas.setPaletteColor(kShadowColor);
+      canvas.setPaletteColor(kButtonShadow);
       canvas.icon(shadow_, x, y);
     }
 
@@ -172,7 +174,7 @@ namespace visage {
     int x = getIconX();
     int y = getIconY();
     if (shadow_.blur_radius) {
-      canvas.setPaletteColor(kShadowColor);
+      canvas.setPaletteColor(kButtonShadow);
       canvas.icon(shadow_, x, y);
     }
 

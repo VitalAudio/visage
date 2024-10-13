@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include "drawable_component.h"
+#include "ui_frame.h"
 #include "visage_graphics/animation.h"
 
 namespace visage {
-  class ScrollBar : public DrawableComponent {
+  class ScrollBar : public UiFrame {
   public:
     ScrollBar() :
         color_(Animation<float>::kRegularTime, Animation<float>::kEaseOut, Animation<float>::kEaseOut),
@@ -30,7 +30,7 @@ namespace visage {
 
     void draw(Canvas& canvas) override;
     void resized() override {
-      DrawableComponent::resized();
+      UiFrame::resized();
       width_.setSourceValue(width() / 2);
       width_.setTargetValue(width());
     }
@@ -88,23 +88,23 @@ namespace visage {
     VISAGE_LEAK_CHECKER(ScrollBar)
   };
 
-  class ScrollableComponent : public DrawableComponent {
+  class ScrollableComponent : public UiFrame {
   public:
-    explicit ScrollableComponent(const std::string& name = "") : DrawableComponent(name) {
-      addDrawableComponent(&scroll_bar_);
+    explicit ScrollableComponent(const std::string& name = "") : UiFrame(name) {
+      addChild(&scroll_bar_);
       scroll_bar_.addScrollCallback([this](int position) { scrollPositionChanged(position); });
       scroll_bar_.setOnTop(true);
 
-      addDrawableComponent(&container_);
+      addChild(&container_);
       container_.setIgnoresMouseEvents(true, true);
       container_.setVisible(false);
     }
 
     void resized() override;
 
-    void addScrolledComponent(DrawableComponent* component, bool make_visible = true) {
+    void addScrolledComponent(UiFrame* component, bool make_visible = true) {
       container_.setVisible(true);
-      container_.addDrawableComponent(component);
+      container_.addChild(component);
       component->setVisible(make_visible);
     }
 
@@ -174,7 +174,7 @@ namespace visage {
     float float_position_ = 0.0f;
     int y_position_ = 0;
     bool scroll_bar_left_ = false;
-    DrawableComponent container_;
+    UiFrame container_;
     ScrollBar scroll_bar_;
 
     VISAGE_LEAK_CHECKER(ScrollableComponent)
