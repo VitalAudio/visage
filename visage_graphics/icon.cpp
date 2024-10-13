@@ -118,15 +118,15 @@ namespace visage {
     ~IconGroupTexture() { destroyHandle(); }
 
     void destroyHandle() {
-      if (bgfx::isValid(texture_handle_)) {
+      if (bgfx::isValid(texture_handle_))
         bgfx::destroy(texture_handle_);
-        bgfx::frame();
-        bgfx::frame();
-      }
       texture_handle_ = BGFX_INVALID_HANDLE;
     }
 
     void createHandle() {
+      if (bgfx::isValid(texture_handle_))
+        bgfx::destroy(texture_handle_);
+
       const bgfx::Memory* texture_ref = bgfx::makeRef(texture_.get(),
                                                       width_ * width_ * sizeof(unsigned char));
       texture_handle_ = bgfx::createTexture2D(width_, width_, false, 1, bgfx::TextureFormat::A8,
@@ -134,7 +134,6 @@ namespace visage {
     }
 
     bgfx::TextureHandle& handle() { return texture_handle_; }
-
     unsigned char* data() const { return texture_.get(); }
 
   private:

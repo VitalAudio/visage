@@ -266,6 +266,11 @@ namespace visage {
   return self;
 }
 
+- (void)drawWindow {
+  long long ms = visage::time::microseconds();
+  self.visage_window->drawCallback((ms - self.start_microseconds) / 1000000.0);
+}
+
 - (void)mtkView:(MTKView*)view drawableSizeWillChange:(CGSize)size {
   self.visage_window->handleNativeResize(size.width, size.height);
 }
@@ -274,8 +279,7 @@ namespace visage {
   if (!view.currentDrawable || !view.currentRenderPassDescriptor)
     return;
 
-  long long ms = visage::time::microseconds();
-  self.visage_window->drawCallback((ms - self.start_microseconds) / 1000000.0);
+  [self drawWindow];
 }
 @end
 
@@ -286,7 +290,7 @@ namespace visage {
   self.device = MTLCreateSystemDefaultDevice();
   self.clearColor = MTLClearColorMake(0.1, 0.1, 0.1, 1.0);
   self.enableSetNeedsDisplay = NO;
-  self.framebufferOnly = NO;
+  self.framebufferOnly = YES;
 
   [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
   self.drag_source = [[DraggingSource alloc] init];

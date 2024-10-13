@@ -70,11 +70,8 @@ namespace visage {
     }
 
     ~PackedFont() {
-      if (bgfx::isValid(texture_handle_)) {
+      if (bgfx::isValid(texture_handle_))
         bgfx::destroy(texture_handle_);
-        bgfx::frame();
-        bgfx::frame();
-      }
     }
 
     int addFallbackFonts() {
@@ -122,8 +119,8 @@ namespace visage {
 
     void checkInit() {
       if (!bgfx::isValid(texture_handle_)) {
-        const bgfx::Memory* texture_ref = bgfx::makeRef(texture_.get(), atlas_width_ * atlas_width_ *
-                                                                            sizeof(unsigned char));
+        int size = atlas_width_ * atlas_width_ * sizeof(unsigned char);
+        const bgfx::Memory* texture_ref = bgfx::makeRef(texture_.get(), size);
         texture_handle_ = bgfx::createTexture2D(atlas_width_, atlas_width_, false, 1,
                                                 bgfx::TextureFormat::A8,
                                                 BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE, texture_ref);
@@ -397,13 +394,8 @@ namespace visage {
   }
 
   const bgfx::TextureHandle& Font::textureHandle() const {
-    if (!bgfx::isValid(packed_font_->textureHandle()))
-      packed_font_->checkInit();
-    return packed_font_->textureHandle();
-  }
-
-  void Font::checkInit() const {
     packed_font_->checkInit();
+    return packed_font_->textureHandle();
   }
 
   FontCache::FontCache() = default;

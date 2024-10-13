@@ -30,9 +30,6 @@ namespace visage {
         bgfx::destroy(line);
       if (bgfx::isValid(fill))
         bgfx::destroy(fill);
-
-      bgfx::frame();
-      bgfx::frame();
     }
   };
 
