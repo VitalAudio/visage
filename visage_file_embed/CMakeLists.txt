@@ -1,23 +1,7 @@
-add_library(VisageEmbeddedFile INTERFACE)
-
-if (UNIX AND NOT APPLE)
-  file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/bin/linux/VisageFileEmbed DESTINATION ${CMAKE_BINARY_DIR}/VisageFileEmbed)
-else ()
-  add_executable(VisageFileEmbed embed.cpp)
-  set_target_properties(VisageFileEmbed PROPERTIES FOLDER "visage")
-endif ()
-
 add_library(VisageFileEmbedInclude INTERFACE)
 target_include_directories(VisageFileEmbedInclude INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 function(add_embedded_resources project include_filename namespace files)
-  if (UNIX AND NOT APPLE)
-    set(FILE_EMBEDDER_EXECUTABLE ${CMAKE_BINARY_DIR}/VisageFileEmbed/VisageFileEmbed)
-  else ()
-    set(FILE_EMBEDDER_LIB VisageFileEmbed)
-    set(FILE_EMBEDDER_EXECUTABLE VisageFileEmbed)
-  endif ()
-
   get_filename_component(current_dir_name ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 
   set(generated_path ${CMAKE_CURRENT_BINARY_DIR}/${project}_generated)
@@ -36,17 +20,21 @@ function(add_embedded_resources project include_filename namespace files)
     list(APPEND source_files ${source_file})
     add_custom_command(
       OUTPUT ${source_file}
-      COMMAND ${FILE_EMBEDDER_EXECUTABLE} ARGS "--embed" ${destination_path} ${include_filename} ${namespace} ${file} ${index}
-      DEPENDS ${FILE_EMBEDDER_LIB} ${file}
+      COMMAND ${CMAKE_COMMAND} -DDEST_FILE=${source_file} -DORIGINAL_FILE=${file} -DVAR_NAMESPACE=${namespace} -P ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/embed_file.cmake
+      DEPENDS ${file} ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/embed_file.cmake
       COMMENT "Generating ${source_file} for ${file}"
     )
     math(EXPR index "${index} + 1")
   endforeach ()
 
+  string(REPLACE ";" "\\;" escaped_files "${files}")
   add_custom_command(
     OUTPUT ${destination_path}/${include_filename} ${lookup_file}
-    COMMAND ${FILE_EMBEDDER_EXECUTABLE} ARGS "--header" ${destination_path} ${include_filename} ${namespace} ${files}
-    DEPENDS ${FILE_EMBEDDER_LIB} ${files}
+    COMMAND ${CMAKE_COMMAND} -DDEST_FILE=${destination_path}/${include_filename} -DFILE_LIST="${escaped_files}"
+    -DVAR_NAMESPACE=${namespace} -P "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/create_embed_header.cmake"
+    COMMAND ${CMAKE_COMMAND} -DDEST_FILE=${lookup_file} -DINCLUDE_FILE=${include_filename} -DFILE_LIST="${escaped_files}"
+    -DVAR_NAMESPACE=${namespace} -P "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/create_file_lookup.cmake"
+    DEPENDS ${FILE_EMBEDDER_LIB} ${files} "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/create_embed_header.cmake"
     COMMENT "Generating C++ for embedded files..."
   )
 
@@ -58,6 +46,5 @@ function(add_embedded_resources project include_filename namespace files)
   target_link_libraries(${project}
     PUBLIC
     VisageFileEmbedInclude
-    VisageEmbeddedFile
   )
 endfunction()
