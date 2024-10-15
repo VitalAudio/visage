@@ -291,6 +291,7 @@ namespace visage {
   self.clearColor = MTLClearColorMake(0.1, 0.1, 0.1, 1.0);
   self.enableSetNeedsDisplay = NO;
   self.framebufferOnly = YES;
+  self.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
 
   [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
   self.drag_source = [[DraggingSource alloc] init];

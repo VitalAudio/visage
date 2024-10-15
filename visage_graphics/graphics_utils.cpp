@@ -14,9 +14,6 @@
  * along with visage.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define STB_RECT_PACK_IMPLEMENTATION
-#define STB_TRUETYPE_IMPLEMENTATION
-
 #include "graphics_utils.h"
 
 #include "graphics_libs.h"

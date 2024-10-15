@@ -20,38 +20,17 @@
 #include "embedded/shaders.h"
 #include "graphics_caches.h"
 #include "graphics_libs.h"
+#include "uniforms.h"
 
 namespace visage {
-  struct Uniforms {
-    static constexpr char kTime[] = "u_time";
-    static constexpr char kMult[] = "u_mult";
-    static constexpr char kBounds[] = "u_bounds";
-    static constexpr char kColorMult[] = "u_color_mult";
-    static constexpr char kLimitMult[] = "u_limit_mult";
-    static constexpr char kOriginFlip[] = "u_origin_flip";
-    static constexpr char kAtlasScale[] = "u_atlas_scale";
-    static constexpr char kCenterPosition[] = "u_center_position";
-    static constexpr char kScale[] = "u_scale";
-    static constexpr char kDimensions[] = "u_dimensions";
-    static constexpr char kTopLeftColor[] = "u_top_left_color";
-    static constexpr char kTopRightColor[] = "u_top_right_color";
-    static constexpr char kBottomLeftColor[] = "u_bottom_left_color";
-    static constexpr char kBottomRightColor[] = "u_bottom_right_color";
-    static constexpr char kLineWidth[] = "u_line_width";
-    static constexpr char kResampleValues[] = "u_resample_values";
-    static constexpr char kThreshold[] = "u_threshold";
-    static constexpr char kPixelSize[] = "u_pixel_size";
-    static constexpr char kTexture[] = "s_texture";
-  };
-
   template<const char* name>
-  inline void setUniform(const void* value) {
+  inline void setPostEffectUniform(const void* value) {
     static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
     bgfx::setUniform(uniform, value);
   }
 
   template<const char* name>
-  inline void setTexture(int stage, bgfx::TextureHandle handle) {
+  inline void setPostEffectTexture(int stage, bgfx::TextureHandle handle) {
     static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Sampler, 1);
     bgfx::setTexture(stage, uniform, handle);
   }
@@ -183,16 +162,16 @@ namespace visage {
 
       bgfx::FrameBufferHandle destination = handles_->downsample_buffers1[i];
       setBlendState(BlendState::Opaque);
-      setTexture<Uniforms::kTexture>(0, bgfx::getTexture(source));
+      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source));
       bgfx::setVertexBuffer(0, handles_->screen_vertex_buffer);
       bgfx::setIndexBuffer(handles_->screen_index_buffer);
       bgfx::setViewFrameBuffer(submit_pass, destination);
       bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
 
-      setUniform<Uniforms::kResampleValues>(downsample_values);
+      setPostEffectUniform<Uniforms::kResampleValues>(downsample_values);
       float hdr_mult = hdr() ? visage::kHdrColorMultiplier : 1.0f;
       float thresholds[4] = { hdr_mult, hdr_mult, hdr_mult, hdr_mult };
-      setUniform<Uniforms::kThreshold>(thresholds);
+      setPostEffectUniform<Uniforms::kThreshold>(thresholds);
       float limit_mult = cutoff_ - i;
 
       if ((limit_mult >= 0.0f && limit_mult < 1.0f) || (i == 0 && cutoff_ > 0.0f)) {
@@ -200,12 +179,12 @@ namespace visage {
         if (i == 0)
           mult_val *= hdr_range * bloom_intensity_;
         float mult_values[4] = { mult_val, mult_val, mult_val, mult_val };
-        setUniform<Uniforms::kMult>(mult_values);
+        setPostEffectUniform<Uniforms::kMult>(mult_values);
 
         if (limit_mult) {
           float limit_mult_val = std::min(limit_mult, 1.0f);
           float limit_mults[4] = { limit_mult_val, limit_mult_val, limit_mult_val, limit_mult_val };
-          setUniform<Uniforms::kLimitMult>(limit_mults);
+          setPostEffectUniform<Uniforms::kLimitMult>(limit_mults);
           auto handle = visage::ProgramCache::programHandle(visage::shaders::vs_resample,
                                                             visage::shaders::fs_split_threshold);
           bgfx::submit(submit_pass, handle);
@@ -227,26 +206,26 @@ namespace visage {
         float blur_scale1[4] = { 1.0f / downsample_width, 0.0f, 0.0f, 0.0f };
         float blur_scale2[4] = { 0.0f, 1.0f / downsample_height, 0.0f, 0.0f };
         setBlendState(BlendState::Opaque);
-        setTexture<Uniforms::kTexture>(0, bgfx::getTexture(destination));
+        setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(destination));
         bgfx::setVertexBuffer(0, handles_->screen_vertex_buffer);
         bgfx::setIndexBuffer(handles_->screen_index_buffer);
         bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers2[i]);
         bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
-        setUniform<Uniforms::kResampleValues>(downsample_values);
-        setUniform<Uniforms::kPixelSize>(blur_scale1);
+        setPostEffectUniform<Uniforms::kResampleValues>(downsample_values);
+        setPostEffectUniform<Uniforms::kPixelSize>(blur_scale1);
 
         bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_full_screen_texture,
                                                                       visage::shaders::fs_blur));
         submit_pass++;
 
         setBlendState(BlendState::Opaque);
-        setTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers2[i]));
+        setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers2[i]));
         bgfx::setVertexBuffer(0, handles_->screen_vertex_buffer);
         bgfx::setIndexBuffer(handles_->screen_index_buffer);
         bgfx::setViewFrameBuffer(submit_pass, destination);
         bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
-        setUniform<Uniforms::kResampleValues>(downsample_values);
-        setUniform<Uniforms::kPixelSize>(blur_scale2);
+        setPostEffectUniform<Uniforms::kResampleValues>(downsample_values);
+        setPostEffectUniform<Uniforms::kPixelSize>(blur_scale2);
         bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_full_screen_texture,
                                                                       visage::shaders::fs_blur));
         submit_pass++;
@@ -275,9 +254,9 @@ namespace visage {
       float resample_values[] = { dest_width * 0.5f / widths_[i], dest_height * 0.5f / heights_[i],
                                   0.0f, 0.0f };
 
-      setTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[i]));
-      setUniform<Uniforms::kResampleValues>(resample_values);
-      setUniform<Uniforms::kMult>(mult);
+      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[i]));
+      setPostEffectUniform<Uniforms::kResampleValues>(resample_values);
+      setPostEffectUniform<Uniforms::kMult>(mult);
       bgfx::setVertexBuffer(0, handles_->screen_vertex_buffer);
       bgfx::setIndexBuffer(handles_->screen_index_buffer);
       bgfx::setViewFrameBuffer(submit_pass, destination);
@@ -323,11 +302,11 @@ namespace visage {
     float passthrough_mult = std::max(0.0f, 1.0f - cutoff_) * hdr_range;
     if (passthrough_mult) {
       setBlendState(BlendState::Opaque);
-      setTexture<Uniforms::kTexture>(0, bgfx::getTexture(source.canvas->frameBuffer()));
+      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source.canvas->frameBuffer()));
       bgfx::setVertexBuffer(0, &vertex_buffer);
       bgfx::setIndexBuffer(&index_buffer);
       float mult_values[4] = { passthrough_mult, passthrough_mult, passthrough_mult, passthrough_mult };
-      setUniform<Uniforms::kColorMult>(mult_values);
+      setPostEffectUniform<Uniforms::kColorMult>(mult_values);
       setUniformDimensions(destination.width(), destination.height());
       bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_image_sample,
                                                                     visage::shaders::fs_image_sample));
@@ -375,8 +354,8 @@ namespace visage {
       mult_amount = 1.0f;
 
     float mult[] = { mult_amount, mult_amount, mult_amount, 1.0f };
-    setTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[0]));
-    setUniform<Uniforms::kColorMult>(mult);
+    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[0]));
+    setPostEffectUniform<Uniforms::kColorMult>(mult);
     bgfx::setVertexBuffer(0, &vertex_buffer);
     bgfx::setIndexBuffer(&index_buffer);
     setUniformDimensions(destination.width(), destination.height());
@@ -405,7 +384,7 @@ namespace visage {
 
     bgfx::TextureHandle texture = bgfx::getTexture(source.canvas->frameBuffer());
     setBlendState(BlendState::Alpha);
-    setTexture<Uniforms::kTexture>(0, texture);
+    setPostEffectTexture<Uniforms::kTexture>(0, texture);
     bgfx::setVertexBuffer(0, &vertex_buffer);
     bgfx::setIndexBuffer(&index_buffer);
     setUniformDimensions(destination.width(), destination.height());
@@ -414,7 +393,7 @@ namespace visage {
       bgfx::setUniform(visage::UniformCache::uniformHandle(uniform.first.c_str()), uniform.second.data);
 
     float mult_values[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    setUniform<Uniforms::kColorMult>(mult_values);
+    setPostEffectUniform<Uniforms::kColorMult>(mult_values);
     bgfx::ProgramHandle program = ProgramCache::programHandle(vertexShader(), fragmentShader());
     bgfx::submit(submit_pass, program);
   }

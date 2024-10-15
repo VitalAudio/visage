@@ -10,6 +10,7 @@ if (APPLE)
   enable_language(OBJCXX)
 endif ()
 
+option(VISAGE_AMALGAMATED_BUILD "Compile sources together" ON)
 option(VISAGE_ENABLE_WIDGETS "Add widgets library" ON)
 option(VISAGE_ENABLE_BACKGROUND_GRAPHICS_THREAD "Offloads graphics rendering to a background thread" ON)
 option(VISAGE_ENABLE_GRAPHICS_DEBUG_LOGGING "Shows graphics debug log in console in debug mode" ON)
@@ -36,6 +37,14 @@ add_link_options("$<$<CONFIG:Debug>:${SANITIZER_FLAGS}>")
 
 include(cmake/compile_flags.cmake)
 include(cmake/testing_framework.cmake)
+
+function(amalgamate_sources AMALGAMATED_SOURCE FILE_SOURCES)
+  file(WRITE "${AMALGAMATED_SOURCE}" "// Auto generated amalgamated source.\n")
+  foreach (FILE ${FILE_SOURCES})
+    message(${FILE})
+    file(APPEND "${AMALGAMATED_SOURCE}" "#include \"${FILE}\"\n")
+  endforeach ()
+endfunction()
 
 add_subdirectory(visage_file_embed)
 add_subdirectory(visage_graphics)

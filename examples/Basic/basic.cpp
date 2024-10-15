@@ -21,13 +21,15 @@ int runExample() {
   visage::WindowedEditor editor;
 
   editor.setDrawFunction([&editor](visage::Canvas& canvas) {
+    float width = 800;
+    float height = 600;
     canvas.clearArea(0, 0, editor.width(), editor.height());
     canvas.setColor(0xff00ffff);
 
-    float circle_radius = editor.height() * 0.1f;
-    float movement_radius = editor.height() * 0.3f;
-    float center_x = editor.width() * 0.5f - circle_radius;
-    float center_y = editor.height() * 0.5f - circle_radius;
+    float circle_radius = height * 0.1f;
+    float movement_radius = height * 0.3f;
+    float center_x = width * 0.5f - circle_radius;
+    float center_y = height * 0.5f - circle_radius;
     canvas.circle(center_x + movement_radius * cosf(canvas.time()),
                   center_y + movement_radius * sinf(canvas.time()), 2.0f * circle_radius);
 

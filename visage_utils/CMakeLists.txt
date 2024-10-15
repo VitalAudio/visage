@@ -8,6 +8,11 @@ endif ()
 
 file(GLOB HEADERS *.h ${PLATFORM_HEADER_FILES})
 file(GLOB SOURCE_FILES *.cpp ${PLATFORM_SOURCE_FILES})
+
+if (VISAGE_AMALGAMATED_BUILD)
+  amalgamate_sources(${CMAKE_CURRENT_BINARY_DIR}/visage_utils_amalgamated.cpp "${SOURCE_FILES}")
+  set(SOURCE_FILES ${CMAKE_CURRENT_BINARY_DIR}/visage_utils_amalgamated.cpp)
+endif ()
 add_library(VisageUtils OBJECT ${SOURCE_FILES} ${HEADERS})
 target_include_directories(VisageUtils PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(VisageUtilsDefinitions INTERFACE)
