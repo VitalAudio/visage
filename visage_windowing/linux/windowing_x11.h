@@ -171,6 +171,7 @@ namespace visage {
 
     Bounds bounds;
     double refresh_rate = kDefaultRefreshRate;
+    float dpi = 1.0f;
   };
 
   class WindowX11 : public Window {

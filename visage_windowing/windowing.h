@@ -31,6 +31,7 @@ namespace visage {
   class Window {
   public:
     static constexpr int kNotSet = INT_MAX;
+    static constexpr float kDefaultDpi = 96.0f;
     static constexpr float kDefaultMinWindowScale = 0.1f;
 
     static void setDoubleClickSpeed(int ms) { double_click_speed_ = ms; }

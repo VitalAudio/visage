@@ -220,6 +220,8 @@ namespace visage {
   }
 
   MonitorInfo monitorInfoForPosition(Point point) {
+    static constexpr float kInchToMm = 25.4;
+
     X11Connection& x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
     Display* display = x11.display();
@@ -245,6 +247,7 @@ namespace visage {
         Bounds bounds(info->x, info->y, info->width, info->height);
         if (result.bounds.width() == 0 || bounds.contains(point)) {
           result.bounds = bounds;
+          result.dpi = bounds.height() * kInchToMm / output_info->mm_height;
           result.refresh_rate = refreshRate(screen_resources, info);
         }
         XRRFreeCrtcInfo(info);
@@ -454,6 +457,7 @@ namespace visage {
     XSelectInput(display, window_handle_, kEventMask);
     XFlush(display);
     start_draw_microseconds_ = time::microseconds();
+    setDpiScale(monitor_info_.dpi / kDefaultDpi);
   }
 
   static void threadTimerCallback(WindowX11* window) {
@@ -481,6 +485,7 @@ namespace visage {
     static constexpr long kEmbedVersion = 0;
     static constexpr long kEmbedMapped = 1;
 
+    monitor_info_ = activeMonitorInfo();
     X11Connection::DisplayLock lock(x11_);
     ::Display* display = x11_.display();
 
@@ -506,6 +511,7 @@ namespace visage {
     timer_thread_running_ = true;
     timer_thread_ = std::make_unique<std::thread>(threadTimerCallback, this);
     start_draw_microseconds_ = time::microseconds();
+    setDpiScale(monitor_info_.dpi / kDefaultDpi);
   }
 
   WindowX11::~WindowX11() {
@@ -1126,16 +1132,7 @@ namespace visage {
       break;
     }
     case ConfigureNotify: {
-      static constexpr float kInchToMm = 25.4;
-      static constexpr float kDefaultDpi = 96.0f;
-
       visage::Point dimensions = retrieveWindowDimensions();
-      XWindowAttributes attributes;
-      XGetWindowAttributes(x11_.display(), window_handle_, &attributes);
-      Screen* screen = attributes.screen;
-      float dpi = scr->height * kInchToMm / scr->mwidth;
-      setDpiScale(dpi / kDefaultDpi);
-
       handleResized(dimensions.x, dimensions.y);
       break;
     }
@@ -1193,7 +1190,8 @@ namespace visage {
     fd_set read_fds;
     unsigned int fd = ConnectionNumber(display);
 
-    long long last_timer_microseconds = 0;
+    long long start_timer_microseconds = time::microseconds();
+    long long last_timer_microseconds = start_timer_microseconds;
 
     XEvent event;
     bool running = true;
@@ -1202,19 +1200,18 @@ namespace visage {
       FD_SET(fd, &read_fds);
 
       timeout.tv_sec = 0;
-      long long ms_to_timer = timer_microseconds_ - (time::microseconds() - last_timer_microseconds);
+      long long us_to_timer = timer_microseconds_ - (time::microseconds() - last_timer_microseconds);
       int result = 0;
-      if (ms_to_timer > 0) {
-        timeout.tv_usec = ms_to_timer * 1000;
+      if (us_to_timer > 0) {
+        timeout.tv_usec = us_to_timer;
         result = select(fd + 1, &read_fds, nullptr, nullptr, &timeout);
       }
       if (result == -1)
         running = false;
       else if (result == 0) {
-        long long new_microseconds = time::microseconds();
-        long long delta = new_microseconds - last_timer_microseconds;
-        last_timer_microseconds = new_microseconds;
-        drawCallback(delta / 1000000.0);
+        last_timer_microseconds = time::microseconds();
+        long long us_time = last_timer_microseconds - start_timer_microseconds;
+        drawCallback(us_time / 1000000.0);
       }
       else if (FD_ISSET(fd, &read_fds)) {
         while (running && XPending(x11_.display())) {
