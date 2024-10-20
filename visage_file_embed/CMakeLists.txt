@@ -16,14 +16,17 @@ function(add_embedded_resources project include_filename namespace files)
 
   set(index 1)
   foreach (file IN LISTS files)
-    set(source_file "${destination_path}/embedded_files${index}.cpp")
+    set(embedded_file_name "embedded_files${index}.cpp")
+    set(source_file "${destination_path}/${embedded_file_name}")
     list(APPEND source_files ${source_file})
+    get_filename_component(original_file_name ${file} NAME)
     add_custom_command(
       OUTPUT ${source_file}
       COMMAND ${CMAKE_COMMAND} -DDEST_FILE=${source_file} -DORIGINAL_FILE=${file} -DVAR_NAMESPACE=${namespace} -P ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/embed_file.cmake
       DEPENDS ${file} ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/embed_file.cmake
-      COMMENT "Generating ${source_file} for ${file}"
+      COMMENT "Generating ${embedded_file_name} for ${original_file_name}"
     )
+    set_source_files_properties(${source_file} PROPERTIES GENERATED TRUE)
     math(EXPR index "${index} + 1")
   endforeach ()
 
@@ -38,6 +41,8 @@ function(add_embedded_resources project include_filename namespace files)
     COMMENT "Generating C++ for embedded files..."
   )
 
+  set_source_files_properties(${destination_path}/${include_filename} PROPERTIES GENERATED TRUE)
+  set_source_files_properties(${lookup_file} PROPERTIES GENERATED TRUE)
   add_library(${project} STATIC ${destination_path}/${include_filename} ${source_files})
   target_include_directories(${project}
     PUBLIC
