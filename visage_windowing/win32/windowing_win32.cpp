@@ -350,6 +350,13 @@ namespace visage {
       return dpiForSystem_() * 1.0f / previous_dpi;
     }
 
+    float dpiScale() const {
+      if (dpi_awareness_ == nullptr)
+        return 1.0f;
+
+      return dpiForSystem_() / 96.0f;
+    }
+
     float conversionFactor(HWND hwnd) const {
       if (dpi_awareness_ == nullptr)
         return 1.0f;
@@ -1344,6 +1351,7 @@ namespace visage {
   WindowWin32::WindowWin32(int x, int y, int width, int height) : Window(width, height) {
     static constexpr int kWindowFlags = WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX;
     DpiAwareness dpi_awareness;
+    setDpiScale(dpi_awareness.dpiScale());
 
     registerWindowClass();
     window_class_.lpfnWndProc = standaloneWindowProcedure;
@@ -1390,6 +1398,7 @@ namespace visage {
 
     DpiAwareness dpi_awareness;
     setPixelScale(dpi_awareness.conversionFactor());
+    setDpiScale(dpi_awareness.dpiScale());
     event_hooks_ = std::make_unique<EventHooks>();
     finishWindowSetup();
   }

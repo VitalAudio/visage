@@ -121,6 +121,8 @@ namespace visage {
 
     void setWindowSize(int width, int height);
     void setInternalWindowSize(int width, int height);
+    void setDpiScale(float scale) { dpi_scale_ = scale; }
+    float dpiScale() const { return dpi_scale_; }
     void setPixelScale(float scale) { pixel_scale_ = scale; }
     float pixelScale() const { return pixel_scale_; }
     void setMouseRelativeMode(bool relative) { mouse_relative_mode_ = relative; }
@@ -175,6 +177,7 @@ namespace visage {
     RepeatClick mouse_repeat_clicks_;
 
     std::function<void(double)> draw_callback_ = nullptr;
+    float dpi_scale_ = 1.0f;
     float pixel_scale_ = 1.0f;
     float min_window_scale_ = kDefaultMinWindowScale;
     bool visible_ = true;

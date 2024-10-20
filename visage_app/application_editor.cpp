@@ -51,14 +51,14 @@ namespace visage {
     canvas_->setHeightScale(height() * 1.0f / defaultHeight());
 
     if (window_)
-      canvas_->setDpiScale(window_->pixelScale());
+      canvas_->setDpiScale(window_->dpiScale());
   }
 
   void ApplicationEditor::resized() {
     top_level_.setBounds(0, 0, width(), height());
     setCanvasDetails();
 
-    float dpi_scale = window_ ? window_->pixelScale() : 1.0f;
+    float dpi_scale = window_ ? window_->dpiScale() : 1.0f;
     float width_scale = width() * 1.0f / defaultWidth();
     float height_scale = height() * 1.0f / defaultHeight();
     setDimensionScaling(dpi_scale, width_scale, height_scale);

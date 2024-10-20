@@ -549,6 +549,7 @@ namespace visage {
     [new_window setIgnoresMouseEvents:NO];
     [new_window makeFirstResponder:self];
     self.visage_window->setPixelScale([new_window backingScaleFactor]);
+    self.visage_window->setDpiScale([new_window backingScaleFactor]);
 
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(windowOcclusionChanged:)
@@ -746,6 +747,7 @@ namespace visage {
     view_.allow_quit = true;
 
     setPixelScale([window_handle_ backingScaleFactor]);
+    setDpiScale([window_handle_ backingScaleFactor]);
     int client_width = std::round(content_rect.size.width * pixelScale());
     int client_height = std::round(content_rect.size.height * pixelScale());
     handleResized(client_width, client_height);
@@ -759,6 +761,7 @@ namespace visage {
 
     if (parent_view_.window) {
       setPixelScale([parent_view_.window backingScaleFactor]);
+      setDpiScale([parent_view_.window backingScaleFactor]);
       window_handle_ = parent_view_.window;
     }
 

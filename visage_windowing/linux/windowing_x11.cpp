@@ -1126,7 +1126,16 @@ namespace visage {
       break;
     }
     case ConfigureNotify: {
+      static constexpr float kInchToMm = 25.4;
+      static constexpr float kDefaultDpi = 96.0f;
+
       visage::Point dimensions = retrieveWindowDimensions();
+      XWindowAttributes attributes;
+      XGetWindowAttributes(x11_.display(), window_handle_, &attributes);
+      Screen* screen = attributes.screen;
+      float dpi = scr->height * kInchToMm / scr->mwidth;
+      setDpiScale(dpi / kDefaultDpi);
+
       handleResized(dimensions.x, dimensions.y);
       break;
     }

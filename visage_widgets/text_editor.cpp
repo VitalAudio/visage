@@ -29,9 +29,9 @@ namespace visage {
   THEME_IMPLEMENT_COLOR(TextEditor, TextEditorCaret, 0xffffffff);
   THEME_IMPLEMENT_COLOR(TextEditor, TextEditorSelection, 0x22ffffff);
 
-  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorRounding, 9.0f, ScaledHeight, true);
-  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginX, 9.0f, ScaledHeight, true);
-  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginY, 9.0f, ScaledHeight, true);
+  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorRounding, 9.0f, ScaledDpi, true);
+  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginX, 9.0f, ScaledDpi, true);
+  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginY, 9.0f, ScaledDpi, true);
 
   char32_t acuteAccentDeadKey(char32_t original) {
     static const std::map<char32_t, char32_t> lookup_map = {
