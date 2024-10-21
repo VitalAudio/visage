@@ -3,7 +3,7 @@ if (VISAGE_ENABLE_WIDGETS)
   file(GLOB SOURCE_FILES *.cpp)
   if (VISAGE_AMALGAMATED_BUILD)
     amalgamate_sources(${CMAKE_CURRENT_BINARY_DIR}/visage_widgets_amalgamated.cpp "${SOURCE_FILES}")
-    set(SOURCE_FILES ${CMAKE_CURRENT_BINARY_DIR}/visage_widgets_amalgamated.cpp)
+    list(APPEND SOURCE_FILES ${CMAKE_CURRENT_BINARY_DIR}/visage_widgets_amalgamated.cpp)
   endif ()
   add_library(VisageWidgets OBJECT ${SOURCE_FILES} ${HEADERS})
 
