@@ -206,16 +206,17 @@ namespace visage {
 
   Bounds scaledWindowBounds(float aspect_ratio, float display_scale, int x = Window::kNotSet,
                             int y = Window::kNotSet);
-  std::unique_ptr<Window> createWindow(int x, int y, int width, int height);
+  std::unique_ptr<Window> createWindow(int x, int y, int width, int height, bool popup = false);
   std::unique_ptr<Window> createPluginWindow(int width, int height, void* parent_handle);
 
-  inline std::unique_ptr<Window> createWindow(int width, int height) {
-    return createWindow(Window::kNotSet, Window::kNotSet, width, height);
+  inline std::unique_ptr<Window> createWindow(int width, int height, bool popup = false) {
+    return createWindow(Window::kNotSet, Window::kNotSet, width, height, popup);
   }
 
   inline std::unique_ptr<Window> createScaledWindow(float aspect_ratio, float display_scale = 0.7f,
-                                                    int x = Window::kNotSet, int y = Window::kNotSet) {
+                                                    bool popup = false, int x = Window::kNotSet,
+                                                    int y = Window::kNotSet) {
     Bounds bounds = scaledWindowBounds(aspect_ratio, display_scale, x, y);
-    return createWindow(bounds.x(), bounds.y(), bounds.width(), bounds.height());
+    return createWindow(bounds.x(), bounds.y(), bounds.width(), bounds.height(), popup);
   }
 }
