@@ -44,8 +44,8 @@ public:
     blur_amount_ = std::min(1.0f, std::max(0.0f, blur_amount_ + blur_delta));
     blur_bloom_.setBlurAmount(blur_amount_);
 
-    float x_delta = width() / (kBuffer * 2 + kRows);
-    float y_delta = height() / (kBuffer * 2 + kRows);
+    float x_delta = width() / (kBuffer * 2.0f + kRows);
+    float y_delta = height() / (kBuffer * 2.0f + kRows);
     float radius = std::min(x_delta, y_delta) * kRadiusRatio;
     float start_x = kBuffer * x_delta - radius;
     float start_y = kBuffer * y_delta - radius;
