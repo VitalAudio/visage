@@ -1340,16 +1340,18 @@ namespace visage {
     drag_drop_target_ = new DragDropTarget(this);
   }
 
-  std::unique_ptr<Window> createWindow(int x, int y, int width, int height) {
-    return std::make_unique<WindowWin32>(x, y, width, height);
+  std::unique_ptr<Window> createWindow(int x, int y, int width, int height, bool popup) {
+    return std::make_unique<WindowWin32>(x, y, width, height, popup);
   }
 
   std::unique_ptr<Window> createPluginWindow(int width, int height, void* parent_handle) {
     return std::make_unique<WindowWin32>(width, height, parent_handle);
   }
 
-  WindowWin32::WindowWin32(int x, int y, int width, int height) : Window(width, height) {
+  WindowWin32::WindowWin32(int x, int y, int width, int height, bool popup) :
+      Window(width, height) {
     static constexpr int kWindowFlags = WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX;
+    static constexpr int kPopupFlags = WS_POPUP;
     DpiAwareness dpi_awareness;
     setDpiScale(dpi_awareness.dpiScale());
 
@@ -1357,8 +1359,9 @@ namespace visage {
     window_class_.lpfnWndProc = standaloneWindowProcedure;
     RegisterClassEx(&window_class_);
 
-    window_handle_ = CreateWindow(window_class_.lpszClassName, VISAGE_APPLICATION_NAME, kWindowFlags, x,
-                                  y, width, height, nullptr, nullptr, window_class_.hInstance, nullptr);
+    int flags = popup ? kPopupFlags : kWindowFlags;
+    window_handle_ = CreateWindow(window_class_.lpszClassName, VISAGE_APPLICATION_NAME, flags, x, y,
+                                  width, height, nullptr, nullptr, window_class_.hInstance, nullptr);
     if (window_handle_ == nullptr) {
       VISAGE_LOG("Error creating window");
       return;
