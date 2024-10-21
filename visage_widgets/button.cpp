@@ -60,7 +60,7 @@ namespace visage {
       redraw();
   }
 
-  void Button::onMouseEnter(const MouseEvent& e) {
+  void Button::mouseEnter(const MouseEvent& e) {
     hover_amount_.target(true);
     if (set_pointer_cursor_ && active_)
       setCursorStyle(MouseCursor::Pointing);
@@ -68,7 +68,7 @@ namespace visage {
     redraw();
   }
 
-  void Button::onMouseExit(const MouseEvent& e) {
+  void Button::mouseExit(const MouseEvent& e) {
     hover_amount_.target(false);
     if (set_pointer_cursor_)
       setCursorStyle(MouseCursor::Arrow);
@@ -76,7 +76,7 @@ namespace visage {
     redraw();
   }
 
-  void Button::onMouseDown(const MouseEvent& e) {
+  void Button::mouseDown(const MouseEvent& e) {
     if (!active_)
       return;
 
@@ -88,7 +88,7 @@ namespace visage {
     redraw();
   }
 
-  void Button::onMouseUp(const MouseEvent& e) {
+  void Button::mouseUp(const MouseEvent& e) {
     if (!active_)
       return;
 

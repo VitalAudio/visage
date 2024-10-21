@@ -41,11 +41,11 @@ public:
     redraw();
   }
 
-  void onMouseMove(const visage::MouseEvent& e) override { setPosition(e.position); }
-  void onMouseDrag(const visage::MouseEvent& e) override { setPosition(e.position); }
-  void onMouseExit(const visage::MouseEvent& e) override { setPosition({ -100, -100 }); }
-  void onMouseDown(const visage::MouseEvent& e) override { setDown(true); }
-  void onMouseUp(const visage::MouseEvent& e) override { setDown(false); }
+  void mouseMove(const visage::MouseEvent& e) override { setPosition(e.position); }
+  void mouseDrag(const visage::MouseEvent& e) override { setPosition(e.position); }
+  void mouseExit(const visage::MouseEvent& e) override { setPosition({ -100, -100 }); }
+  void mouseDown(const visage::MouseEvent& e) override { setDown(true); }
+  void mouseUp(const visage::MouseEvent& e) override { setDown(false); }
 
 private:
   bool down_ = false;

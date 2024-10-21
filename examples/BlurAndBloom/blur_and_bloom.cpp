@@ -70,8 +70,8 @@ public:
     font_ = visage::Font(18.0f * heightScale(), resources::fonts::Lato_Regular_ttf);
   }
 
-  void onMouseDown(const visage::MouseEvent& e) override { mouse_down_ = true; }
-  void onMouseUp(const visage::MouseEvent& e) override { mouse_down_ = false; }
+  void mouseDown(const visage::MouseEvent& e) override { mouse_down_ = true; }
+  void mouseUp(const visage::MouseEvent& e) override { mouse_down_ = false; }
 
 private:
   visage::Font font_;

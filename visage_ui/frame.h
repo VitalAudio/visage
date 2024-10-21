@@ -31,6 +31,55 @@
 namespace visage {
   class Frame;
 
+  template<class T>
+  class CallbackList {
+  public:
+    CallbackList() = default;
+    CallbackList(std::function<T> callback) { add(callback); }
+
+    void add(std::function<T> callback) { callbacks_.push_back(std::move(callback)); }
+
+    CallbackList& operator+=(std::function<T> callback) {
+      add(callback);
+      return *this;
+    }
+
+    void set(std::function<T> callback) {
+      callbacks_.clear();
+      callbacks_.push_back(std::move(callback));
+    }
+
+    CallbackList& operator=(const std::function<T>& callback) {
+      set(callback);
+      return *this;
+    }
+
+    void remove(const std::function<T>& callback) {
+      auto compare = [&](const std::function<T>& other) {
+        return other.target_type() == callback.target_type();
+      };
+
+      auto it = std::remove_if(callbacks_.begin(), callbacks_.end(), compare);
+      callbacks_.erase(it);
+    }
+
+    CallbackList& operator-=(const std::function<T>& callback) {
+      remove(callback);
+      return *this;
+    }
+
+    template<typename... Args>
+    auto callback(Args&&... args) {
+      for (size_t i = 0; i < callbacks_.size() - 1; ++i)
+        callbacks_[i](std::forward<Args>(args)...);
+
+      return callbacks_.back()(std::forward<Args>(args)...);
+    }
+
+  private:
+    std::vector<std::function<T>> callbacks_;
+  };
+
   struct PopupOptions {
     String name;
     int id = -1;
@@ -78,13 +127,53 @@ namespace visage {
     explicit Frame(std::string name) : name_(std::move(name)) { }
     virtual ~Frame() = default;
 
-    virtual void onVisibilityChange() { }
-    virtual void onHierarchyChanged() { }
-    virtual void resized() { }
+    auto& onDraw() { return on_draw_; }
+    auto& onResize() { return on_resize_; }
+    auto& onVisibilityChanged() { return on_visibility_changed_; }
+    auto& onHierarchyChanged() { return on_hierarchy_changed_; }
+    auto& onFocusChanged() { return on_focus_changed_; }
+    auto& onMouseEnter() { return on_mouse_enter_; }
+    auto& onMouseExit() { return on_mouse_exit_; }
+    auto& onMouseDown() { return on_mouse_down_; }
+    auto& onMouseUp() { return on_mouse_up_; }
+    auto& onMouseMove() { return on_mouse_move_; }
+    auto& onMouseDrag() { return on_mouse_drag_; }
+    auto& onMouseWheel() { return on_mouse_wheel_; }
+    auto& onKeyPress() { return on_key_press_; }
+    auto& onKeyRelease() { return on_key_release_; }
+    auto& onTextInput() { return on_text_input_; }
 
     virtual void init() { initChildren(); }
     virtual void draw(Canvas& canvas) { }
     virtual void destroy() { destroyChildren(); }
+
+    virtual void resized() { }
+    virtual void visibilityChanged() { }
+    virtual void hierarchyChanged() { }
+    virtual void focusChanged(bool is_focused, bool was_clicked) { }
+
+    virtual void mouseEnter(const MouseEvent& e) { }
+    virtual void mouseExit(const MouseEvent& e) { }
+    virtual void mouseDown(const MouseEvent& e) { }
+    virtual void mouseUp(const MouseEvent& e) { }
+    virtual void mouseMove(const MouseEvent& e) { }
+    virtual void mouseDrag(const MouseEvent& e) { }
+    virtual void mouseWheel(const MouseEvent& e) { }
+    virtual bool keyPress(const KeyEvent& e) { return false; }
+    virtual bool keyRelease(const KeyEvent& e) { return false; }
+
+    virtual bool receivesTextInput() { return false; }
+    virtual void textInput(const std::string& text) { }
+
+    virtual bool receivesDragDropFiles() { return false; }
+    virtual std::string dragDropFileExtensionRegex() { return ".*"; }
+    virtual bool receivesMultipleDragDropFiles() { return false; }
+    virtual void dragFilesEnter(const std::vector<std::string>& paths) { }
+    virtual void dragFilesExit() { }
+    virtual void dropFiles(const std::vector<std::string>& paths) { }
+    virtual bool isDragDropSource() { return false; }
+    virtual std::string startDragDropSource() { return ""; }
+    virtual void cleanupDragDropSource() { }
 
     void setPalette(Palette* palette) {
       palette_ = palette;
@@ -121,31 +210,6 @@ namespace visage {
     void setPostEffectCanvasSettings();
     void setPostEffect(PostEffect* post_effect);
     void removePostEffect();
-
-    virtual void onMouseEnter(const MouseEvent& e) { }
-    virtual void onMouseExit(const MouseEvent& e) { }
-    virtual void onMouseDown(const MouseEvent& e) { }
-    virtual void onMouseUp(const MouseEvent& e) { }
-    virtual void onMouseMove(const MouseEvent& e) { }
-    virtual void onMouseDrag(const MouseEvent& e) { }
-    virtual void onMouseWheel(const MouseEvent& e) { }
-    virtual bool onKeyPress(const KeyEvent& e) { return false; }
-    virtual bool onKeyRelease(const KeyEvent& e) { return false; }
-    virtual void onFocusChange(bool is_focused, bool was_clicked) { }
-    virtual void onColorsChanged() { }
-
-    virtual bool receivesTextInput() { return false; }
-    virtual void onTextInput(const std::string& text) { }
-
-    virtual bool receivesDragDropFiles() { return false; }
-    virtual std::string dragDropFileExtensionRegex() { return ".*"; }
-    virtual bool receivesMultipleDragDropFiles() { return false; }
-    virtual void dragFilesEnter(const std::vector<std::string>& paths) { }
-    virtual void dragFilesExit() { }
-    virtual void dropFiles(const std::vector<std::string>& paths) { }
-    virtual bool isDragDropSource() { return false; }
-    virtual std::string startDragDropSource() { return ""; }
-    virtual void cleanupDragDropSource() { }
 
     const std::string& name() const { return name_; }
     void setName(std::string name) { name_ = std::move(name); }
@@ -227,46 +291,6 @@ namespace visage {
 
     void drawToRegion();
 
-    void setDrawFunction(std::function<void(Canvas&)> draw_function) {
-      draw_function_ = std::move(draw_function);
-    }
-
-    void setOnMouseEnter(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_enter_ = std::move(callback);
-    }
-
-    void setOnMouseExit(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_exit_ = std::move(callback);
-    }
-
-    void setOnMouseDown(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_down_ = std::move(callback);
-    }
-
-    void setOnMouseUp(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_up_ = std::move(callback);
-    }
-
-    void setOnMouseMove(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_move_ = std::move(callback);
-    }
-
-    void setOnMouseDrag(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_drag_ = std::move(callback);
-    }
-
-    void setOnMouseWheel(std::function<void(const MouseEvent& e)> callback) {
-      on_mouse_wheel_ = std::move(callback);
-    }
-
-    void setOnKeyPress(std::function<bool(const KeyEvent& e)> callback) {
-      on_key_press_ = std::move(callback);
-    }
-
-    void setOnKeyRelease(std::function<bool(const KeyEvent& e)> callback) {
-      on_key_release_ = std::move(callback);
-    }
-
     void setDimensionScaling(float dpi_scale, float width_scale, float height_scale) {
       dpi_scale_ = dpi_scale;
       width_scale_ = width_scale;
@@ -319,45 +343,21 @@ namespace visage {
         event_handler_->set_clipboard_text(text);
     }
 
-    void mouseEnter(const MouseEvent& e);
-    void mouseExit(const MouseEvent& e);
-    void mouseDown(const MouseEvent& e);
-    void mouseUp(const MouseEvent& e);
-    void mouseMove(const MouseEvent& e);
-    void mouseDrag(const MouseEvent& e);
-    void mouseWheel(const MouseEvent& e);
-
-    void focusChanged(bool is_focused, bool was_clicked) {
+    void processMouseEnter(const MouseEvent& e) { on_mouse_enter_.callback(e); }
+    void processMouseExit(const MouseEvent& e) { on_mouse_exit_.callback(e); }
+    void processMouseDown(const MouseEvent& e) { on_mouse_down_.callback(e); }
+    void processMouseUp(const MouseEvent& e) { on_mouse_up_.callback(e); }
+    void processMouseMove(const MouseEvent& e) { on_mouse_move_.callback(e); }
+    void processMouseDrag(const MouseEvent& e) { on_mouse_drag_.callback(e); }
+    void processMouseWheel(const MouseEvent& e) { on_mouse_wheel_.callback(e); }
+    void processFocusChanged(bool is_focused, bool was_clicked) {
       keyboard_focus_ = is_focused && accepts_keystrokes_;
-      onFocusChange(is_focused, was_clicked);
+      focusChanged(is_focused, was_clicked);
     }
 
-    bool keyPress(const KeyEvent& e) {
-      if (on_key_press_)
-        return on_key_press_(e);
-      return onKeyPress(e);
-    }
-
-    bool keyRelease(const KeyEvent& e) {
-      if (on_key_release_)
-        return on_key_press_(e);
-      return onKeyRelease(e);
-    }
-
-    void textInput(const std::string& text) { return onTextInput(text); }
-
-    void addResizeCallback(std::function<void(Frame*)> callback) {
-      resize_callbacks_.push_back(std::move(callback));
-    }
-
-    void removeResizeCallback(const std::function<void(Frame*)>& callback) {
-      auto compare = [&](const std::function<void(Frame*)>& other) {
-        return other.target_type() == callback.target_type();
-      };
-
-      auto it = std::remove_if(resize_callbacks_.begin(), resize_callbacks_.end(), compare);
-      resize_callbacks_.erase(it);
-    }
+    bool processKeyPress(const KeyEvent& e) { return on_key_press_.callback(e); }
+    bool processKeyRelease(const KeyEvent& e) { return on_key_press_.callback(e); }
+    void processTextInput(const std::string& text) { textInput(text); }
 
     float paletteValue(unsigned int value_id);
     QuadColor paletteColor(unsigned int color_id);
@@ -378,7 +378,7 @@ namespace visage {
 
   private:
     void notifyHierarchyChanged() {
-      onHierarchyChanged();
+      hierarchyChanged();
       for (Frame* child : children_)
         child->notifyHierarchyChanged();
     }
@@ -390,18 +390,25 @@ namespace visage {
 
     std::string name_;
     Bounds bounds_;
-    std::vector<std::function<void(Frame*)>> resize_callbacks_;
 
-    std::function<void(const MouseEvent& e)> on_mouse_enter_ = nullptr;
-    std::function<void(const MouseEvent& e)> on_mouse_exit_ = nullptr;
-    std::function<void(const MouseEvent& e)> on_mouse_down_ = nullptr;
-    std::function<void(const MouseEvent& e)> on_mouse_up_ = nullptr;
-    std::function<void(const MouseEvent& e)> on_mouse_move_ = nullptr;
-    std::function<void(const MouseEvent& e)> on_mouse_drag_ = nullptr;
-    std::function<void(const MouseEvent& e)> on_mouse_wheel_ = nullptr;
-    std::function<bool(const KeyEvent& e)> on_key_press_ = nullptr;
-    std::function<bool(const KeyEvent& e)> on_key_release_ = nullptr;
-    std::function<void(Canvas&)> draw_function_;
+    CallbackList<void(Canvas&)> on_draw_ = [this](auto& e) { draw(e); };
+    CallbackList<void()> on_resize_ = [this] { resized(); };
+    CallbackList<void()> on_visibility_changed_ = [this] { visibilityChanged(); };
+    CallbackList<void()> on_hierarchy_changed_ = [this] { hierarchyChanged(); };
+    CallbackList<void(bool, bool)> on_focus_changed_ = [this](bool is_focused, bool was_clicked) {
+      focusChanged(is_focused, was_clicked);
+    };
+
+    CallbackList<void(const MouseEvent&)> on_mouse_enter_ = [this](auto& e) { mouseEnter(e); };
+    CallbackList<void(const MouseEvent&)> on_mouse_exit_ = [this](auto& e) { mouseExit(e); };
+    CallbackList<void(const MouseEvent&)> on_mouse_down_ = [this](auto& e) { mouseDown(e); };
+    CallbackList<void(const MouseEvent&)> on_mouse_up_ = [this](auto& e) { mouseUp(e); };
+    CallbackList<void(const MouseEvent&)> on_mouse_move_ = [this](auto& e) { mouseMove(e); };
+    CallbackList<void(const MouseEvent&)> on_mouse_drag_ = [this](auto& e) { mouseDrag(e); };
+    CallbackList<void(const MouseEvent&)> on_mouse_wheel_ = [this](auto& e) { mouseWheel(e); };
+    CallbackList<bool(const KeyEvent&)> on_key_press_ = [this](auto& e) { return keyPress(e); };
+    CallbackList<bool(const KeyEvent&)> on_key_release_ = [this](auto& e) { return keyRelease(e); };
+    CallbackList<void(const std::string&)> on_text_input_ = [this](auto& text) { textInput(text); };
 
     bool on_top_ = false;
     bool visible_ = true;

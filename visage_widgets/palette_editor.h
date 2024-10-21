@@ -52,15 +52,15 @@ namespace visage {
     int colorIndex(const MouseEvent& e);
     int colorIdIndex(const MouseEvent& e) const;
     void toggleGroup(const MouseEvent& e);
-    void onMouseMove(const MouseEvent& e) override {
+    void mouseMove(const MouseEvent& e) override {
       checkScrollHeight();
       checkColorHover(e);
     }
-    void onMouseDown(const MouseEvent& e) override;
-    void onMouseDrag(const MouseEvent& e) override;
-    void onMouseUp(const MouseEvent& e) override;
-    void onMouseWheel(const MouseEvent& e) override;
-    bool onKeyPress(const KeyEvent& key) override;
+    void mouseDown(const MouseEvent& e) override;
+    void mouseDrag(const MouseEvent& e) override;
+    void mouseUp(const MouseEvent& e) override;
+    void mouseWheel(const MouseEvent& e) override;
+    bool keyPress(const KeyEvent& key) override;
 
     void resized() override {
       setColorListHeight();
@@ -140,12 +140,12 @@ namespace visage {
 
     int listLength(const std::map<std::string, std::vector<unsigned int>>& value_ids) const;
     void toggleGroup(const MouseEvent& e);
-    void onMouseMove(const MouseEvent& e) override { checkScrollHeight(); }
-    void onMouseDown(const MouseEvent& e) override { toggleGroup(e); }
+    void mouseMove(const MouseEvent& e) override { checkScrollHeight(); }
+    void mouseDown(const MouseEvent& e) override { toggleGroup(e); }
     void setTextEditorBounds();
     void checkScrollHeight();
-    void onVisibilityChange() override {
-      ScrollableComponent::onVisibilityChange();
+    void visibilityChanged() override {
+      ScrollableComponent::visibilityChanged();
       checkScrollHeight();
     }
 

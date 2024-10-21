@@ -111,19 +111,19 @@ namespace visage {
       makeCaretVisible();
     }
 
-    void onMouseEnter(const MouseEvent& e) override;
-    void onMouseExit(const MouseEvent& e) override;
-    void onMouseDown(const MouseEvent& e) override;
-    void onMouseDrag(const MouseEvent& e) override;
-    void onMouseUp(const MouseEvent& e) override;
+    void mouseEnter(const MouseEvent& e) override;
+    void mouseExit(const MouseEvent& e) override;
+    void mouseDown(const MouseEvent& e) override;
+    void mouseDrag(const MouseEvent& e) override;
+    void mouseUp(const MouseEvent& e) override;
     void doubleClick(const MouseEvent& e);
     void tripleClick(const MouseEvent& e);
     bool handleDeadKey(const KeyEvent& key);
-    bool onKeyPress(const KeyEvent& key) override;
+    bool keyPress(const KeyEvent& key) override;
     bool receivesTextInput() override { return active_; }
     visage::String translateDeadKeyText(const visage::String& text) const;
-    void onTextInput(const std::string& text) override;
-    void onFocusChange(bool is_focused, bool was_clicked) override;
+    void textInput(const std::string& text) override;
+    void focusChanged(bool is_focused, bool was_clicked) override;
 
     bool moveCaretLeft(bool modifier, bool shift);
     bool moveCaretRight(bool modifier, bool shift);

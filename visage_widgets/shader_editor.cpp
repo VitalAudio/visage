@@ -145,7 +145,7 @@ namespace visage {
       redraw();
     });
 
-    status_.setDrawFunction([this](Canvas& canvas) {
+    status_.onDraw() = [this](Canvas& canvas) {
       if (error_.text().isEmpty()) {
         canvas.setColor(0xff66ff66);
         canvas.icon(icons::check_circle_svg, 0, 0, status_.width(), status_.height());
@@ -154,7 +154,7 @@ namespace visage {
         canvas.setColor(0xffff6666);
         canvas.icon(icons::x_circle_svg, 0, 0, status_.width(), status_.height());
       }
-    });
+    };
   }
 
   void ShaderEditor::textEditorChanged(TextEditor* editor) {

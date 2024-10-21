@@ -25,13 +25,13 @@ namespace visage {
   WindowEventHandler::WindowEventHandler(Window* window, Frame* frame) :
       window_(window), content_frame_(frame) {
     window->setEventHandler(this);
-    content_frame_->addResizeCallback(resize_callback_);
+    content_frame_->onResize() += resize_callback_;
   }
 
   WindowEventHandler::~WindowEventHandler() {
     window_->clearEventHandler();
     if (content_frame_)
-      content_frame_->removeResizeCallback(resize_callback_);
+      content_frame_->onResize() -= resize_callback_;
   }
 
   void WindowEventHandler::onFrameResize(const Frame* frame) const {
@@ -40,28 +40,29 @@ namespace visage {
 
   void WindowEventHandler::setKeyboardFocus(Frame* frame) {
     if (keyboard_focused_frame_)
-      keyboard_focused_frame_->focusChanged(false, false);
+      keyboard_focused_frame_->processFocusChanged(false, false);
 
     keyboard_focused_frame_ = frame;
-    keyboard_focused_frame_->focusChanged(true, false);
+    keyboard_focused_frame_->processFocusChanged(true, false);
   }
 
   void WindowEventHandler::handleFocusLost() {
     if (keyboard_focused_frame_)
-      keyboard_focused_frame_->focusChanged(false, false);
+      keyboard_focused_frame_->processFocusChanged(false, false);
     if (mouse_down_frame_) {
-      mouse_down_frame_->mouseUp(getMouseEvent(last_mouse_position_.x, last_mouse_position_.y, 0, 0));
+      mouse_down_frame_->processMouseUp(getMouseEvent(last_mouse_position_.x, last_mouse_position_.y, 0, 0));
       mouse_down_frame_ = nullptr;
     }
     if (mouse_hovered_frame_) {
-      mouse_hovered_frame_->mouseExit(getMouseEvent(last_mouse_position_.x, last_mouse_position_.y, 0, 0));
+      mouse_hovered_frame_->processMouseExit(getMouseEvent(last_mouse_position_.x,
+                                                           last_mouse_position_.y, 0, 0));
       mouse_hovered_frame_ = nullptr;
     }
   }
 
   void WindowEventHandler::handleFocusGained() {
     if (keyboard_focused_frame_)
-      keyboard_focused_frame_->focusChanged(true, false);
+      keyboard_focused_frame_->processFocusChanged(true, false);
   }
 
   void WindowEventHandler::handleResized(int width, int height) {
@@ -76,7 +77,7 @@ namespace visage {
     Frame* keyboard_frame = keyboard_focused_frame_;
     bool used = false;
     while (!used && keyboard_frame) {
-      used = keyboard_frame->keyPress(e);
+      used = keyboard_frame->processKeyPress(e);
 
       keyboard_frame = keyboard_frame->parent();
       while (keyboard_frame && !keyboard_frame->acceptsKeystrokes())
@@ -96,7 +97,7 @@ namespace visage {
     Frame* keyboard_frame = keyboard_focused_frame_;
     bool used = false;
     while (!used && keyboard_frame) {
-      used = keyboard_frame->keyRelease(e);
+      used = keyboard_frame->processKeyRelease(e);
 
       keyboard_frame = keyboard_frame->parent();
       while (keyboard_frame && !keyboard_frame->acceptsKeystrokes())
@@ -112,7 +113,7 @@ namespace visage {
   bool WindowEventHandler::handleTextInput(const std::string& text) {
     bool text_entry = hasActiveTextEntry();
     if (text_entry)
-      keyboard_focused_frame_->textInput(text);
+      keyboard_focused_frame_->processTextInput(text);
 
     return text_entry;
   }
@@ -198,7 +199,7 @@ namespace visage {
     if (mouse_down_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
       mouse_event.frame = mouse_down_frame_;
-      mouse_down_frame_->mouseDrag(mouse_event);
+      mouse_down_frame_->processMouseDrag(mouse_event);
       return;
     }
 
@@ -207,20 +208,20 @@ namespace visage {
       if (mouse_hovered_frame_) {
         mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
         mouse_event.frame = mouse_hovered_frame_;
-        mouse_hovered_frame_->mouseExit(mouse_event);
+        mouse_hovered_frame_->processMouseExit(mouse_event);
       }
 
       if (new_hovered_frame) {
         mouse_event.position = mouse_event.window_position - new_hovered_frame->positionInWindow();
         mouse_event.frame = new_hovered_frame;
-        new_hovered_frame->mouseEnter(mouse_event);
+        new_hovered_frame->processMouseEnter(mouse_event);
       }
       mouse_hovered_frame_ = new_hovered_frame;
     }
     else if (mouse_hovered_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
       mouse_event.frame = mouse_hovered_frame_;
-      mouse_hovered_frame_->mouseMove(mouse_event);
+      mouse_hovered_frame_->processMouseMove(mouse_event);
     }
   }
 
@@ -235,16 +236,16 @@ namespace visage {
       new_keyboard_frame = new_keyboard_frame->parent();
 
     if (keyboard_focused_frame_ && new_keyboard_frame != keyboard_focused_frame_)
-      keyboard_focused_frame_->focusChanged(false, true);
+      keyboard_focused_frame_->processFocusChanged(false, true);
 
     keyboard_focused_frame_ = new_keyboard_frame;
     if (keyboard_focused_frame_)
-      keyboard_focused_frame_->focusChanged(true, true);
+      keyboard_focused_frame_->processFocusChanged(true, true);
 
     if (mouse_down_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
       mouse_event.frame = mouse_down_frame_;
-      mouse_down_frame_->mouseDown(mouse_event);
+      mouse_down_frame_->processMouseDown(mouse_event);
     }
   }
 
@@ -259,15 +260,15 @@ namespace visage {
     if (mouse_down_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
       mouse_event.frame = mouse_down_frame_;
-      mouse_down_frame_->mouseUp(mouse_event);
+      mouse_down_frame_->processMouseUp(mouse_event);
       if (exited)
-        mouse_down_frame_->mouseExit(mouse_event);
+        mouse_down_frame_->processMouseExit(mouse_event);
       mouse_down_frame_ = nullptr;
     }
 
     mouse_event.frame = mouse_hovered_frame_;
     if (exited && mouse_hovered_frame_)
-      mouse_hovered_frame_->mouseEnter(mouse_event);
+      mouse_hovered_frame_->processMouseEnter(mouse_event);
   }
 
   void WindowEventHandler::handleMouseEnter(int x, int y) {
@@ -280,7 +281,7 @@ namespace visage {
                                              button_state, modifiers);
       mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
       mouse_event.frame = mouse_hovered_frame_;
-      mouse_hovered_frame_->mouseExit(mouse_event);
+      mouse_hovered_frame_->processMouseExit(mouse_event);
       mouse_hovered_frame_ = nullptr;
     }
   }
@@ -298,7 +299,7 @@ namespace visage {
     mouse_hovered_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
     if (mouse_hovered_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
-      mouse_hovered_frame_->mouseWheel(mouse_event);
+      mouse_hovered_frame_->processMouseWheel(mouse_event);
     }
   }
 

@@ -142,7 +142,7 @@ namespace visage {
     setScrollableHeight(renderHeight(), height());
   }
 
-  void PopupList::onMouseDown(const MouseEvent& e) {
+  void PopupList::mouseDown(const MouseEvent& e) {
     Point position = e.relativeTo(this).position;
     if (!isVisible() || !localBounds().contains(position))
       return;
@@ -155,7 +155,7 @@ namespace visage {
     redraw();
   }
 
-  void PopupList::onMouseExit(const MouseEvent& e) {
+  void PopupList::mouseExit(const MouseEvent& e) {
     if (!isVisible())
       return;
 
@@ -166,7 +166,7 @@ namespace visage {
     redraw();
   }
 
-  void PopupList::onMouseMove(const MouseEvent& e) {
+  void PopupList::mouseMove(const MouseEvent& e) {
     if (!isVisible())
       return;
 
@@ -176,7 +176,7 @@ namespace visage {
     redraw();
   }
 
-  void PopupList::onMouseDrag(const MouseEvent& e) {
+  void PopupList::mouseDrag(const MouseEvent& e) {
     if (!isVisible())
       return;
 
@@ -186,7 +186,7 @@ namespace visage {
     redraw();
   }
 
-  void PopupList::onMouseUp(const MouseEvent& e) {
+  void PopupList::mouseUp(const MouseEvent& e) {
     if (!isVisible())
       return;
 
@@ -262,7 +262,7 @@ namespace visage {
     redraw();
   }
 
-  void PopupMenu::onFocusChange(bool is_focused, bool was_clicked) {
+  void PopupMenu::focusChanged(bool is_focused, bool was_clicked) {
     if (!is_focused && isVisible()) {
       startTimer(1);
       opacity_animation_.target(false);

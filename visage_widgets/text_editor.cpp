@@ -376,15 +376,15 @@ namespace visage {
     return std::min(string_length, index);
   }
 
-  void TextEditor::onMouseEnter(const MouseEvent& e) {
+  void TextEditor::mouseEnter(const MouseEvent& e) {
     setCursorStyle(MouseCursor::IBeam);
   }
 
-  void TextEditor::onMouseExit(const MouseEvent& e) {
+  void TextEditor::mouseExit(const MouseEvent& e) {
     setCursorStyle(MouseCursor::Arrow);
   }
 
-  void TextEditor::onMouseDown(const MouseEvent& e) {
+  void TextEditor::mouseDown(const MouseEvent& e) {
     dead_key_entry_ = DeadKey::None;
     action_state_ = kNone;
     int click = e.repeatClickCount() % 3;
@@ -402,11 +402,11 @@ namespace visage {
     redraw();
   }
 
-  void TextEditor::onMouseUp(const MouseEvent& e) {
+  void TextEditor::mouseUp(const MouseEvent& e) {
     mouse_focus_ = false;
   }
 
-  void TextEditor::onMouseDrag(const MouseEvent& e) {
+  void TextEditor::mouseDrag(const MouseEvent& e) {
     if (!mouse_focus_)
       caret_position_ = positionToIndex({ e.position.x + x_position_, e.position.y + yPosition() });
     makeCaretVisible();
@@ -469,7 +469,7 @@ namespace visage {
     return dead_key_entry_ != DeadKey::None;
   }
 
-  bool TextEditor::onKeyPress(const KeyEvent& key) {
+  bool TextEditor::keyPress(const KeyEvent& key) {
     redraw();
 
     bool modifier = key.isMainModifier();
@@ -576,7 +576,7 @@ namespace visage {
     }
   }
 
-  void TextEditor::onTextInput(const std::string& text) {
+  void TextEditor::textInput(const std::string& text) {
     static constexpr unsigned char kMinChar = 32;
 
     unsigned char first = text[0];
@@ -586,7 +586,7 @@ namespace visage {
     insertTextAtCaret(text);
   }
 
-  void TextEditor::onFocusChange(bool is_focused, bool was_clicked) {
+  void TextEditor::focusChanged(bool is_focused, bool was_clicked) {
     redraw();
     if (!is_focused) {
       if (dead_key_entry_ != DeadKey::None) {

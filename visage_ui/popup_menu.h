@@ -57,13 +57,13 @@ namespace visage {
 
     void enableMouseUp(bool enable) { enable_mouse_up_ = enable; }
 
-    void onMouseExit(const MouseEvent& e) override;
-    void onMouseDown(const MouseEvent& e) override;
-    void onMouseMove(const MouseEvent& e) override;
-    void onMouseDrag(const MouseEvent& e) override;
-    void onMouseUp(const MouseEvent& e) override;
-    void onMouseWheel(const MouseEvent& e) override {
-      ScrollableComponent::onMouseWheel(e);
+    void mouseExit(const MouseEvent& e) override;
+    void mouseDown(const MouseEvent& e) override;
+    void mouseMove(const MouseEvent& e) override;
+    void mouseDrag(const MouseEvent& e) override;
+    void mouseUp(const MouseEvent& e) override;
+    void mouseWheel(const MouseEvent& e) override {
+      ScrollableComponent::mouseWheel(e);
       if (isVisible()) {
         for (Listener* listener : listeners_)
           listener->mouseMovedOnMenu(e.relativeTo(this).position, this);
@@ -120,8 +120,8 @@ namespace visage {
         list.setFont(font);
     }
 
-    void onFocusChange(bool is_focused, bool was_clicked) override;
-    void onVisibilityChange() override { opacity_animation_.target(isVisible(), true); }
+    void focusChanged(bool is_focused, bool was_clicked) override;
+    void visibilityChanged() override { opacity_animation_.target(isVisible(), true); }
     void timerCallback() override;
 
     void optionSelected(const PopupOptions& option, PopupList* list) override;

@@ -41,10 +41,10 @@ namespace visage {
     void draw(Canvas& canvas) final;
     virtual void draw(Canvas& canvas, float hover_amount) { }
 
-    void onMouseEnter(const MouseEvent& e) override;
-    void onMouseExit(const MouseEvent& e) override;
-    void onMouseDown(const MouseEvent& e) override;
-    void onMouseUp(const MouseEvent& e) override;
+    void mouseEnter(const MouseEvent& e) override;
+    void mouseExit(const MouseEvent& e) override;
+    void mouseDown(const MouseEvent& e) override;
+    void mouseUp(const MouseEvent& e) override;
 
     void notify(bool on) {
       for (auto& callback : toggle_callbacks_)

@@ -54,13 +54,13 @@ static void drawRotatingCircles(visage::Canvas& canvas, int width, int height) {
 class ExampleEditor : public visage::WindowedEditor {
 public:
   ExampleEditor() {
-    shapes_.setDrawFunction([this](visage::Canvas& canvas) {
+    shapes_.onDraw() = [this](visage::Canvas& canvas) {
       canvas.setColor(0xff000000);
       canvas.fill(0, 0, shapes_.width(), shapes_.height());
 
       drawRotatingCircles(canvas, shapes_.width(), shapes_.height());
       shapes_.redraw();
-    });
+    };
 
     post_effect_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_warp,
                                                               resources::shaders::fs_warp);

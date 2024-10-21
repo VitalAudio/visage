@@ -43,17 +43,17 @@ namespace visage {
       redraw();
   }
 
-  void ScrollBar::onMouseEnter(const MouseEvent& e) {
+  void ScrollBar::mouseEnter(const MouseEvent& e) {
     width_.target(true);
     redraw();
   }
 
-  void ScrollBar::onMouseExit(const MouseEvent& e) {
+  void ScrollBar::mouseExit(const MouseEvent& e) {
     width_.target(false);
     redraw();
   }
 
-  void ScrollBar::onMouseDown(const MouseEvent& e) {
+  void ScrollBar::mouseDown(const MouseEvent& e) {
     redraw();
     color_.target(true);
 
@@ -64,12 +64,12 @@ namespace visage {
     last_drag_ = e.position.y;
   }
 
-  void ScrollBar::onMouseUp(const MouseEvent& e) {
+  void ScrollBar::mouseUp(const MouseEvent& e) {
     color_.target(false);
     redraw();
   }
 
-  void ScrollBar::onMouseDrag(const MouseEvent& e) {
+  void ScrollBar::mouseDrag(const MouseEvent& e) {
     float delta = range_ * (e.position.y - last_drag_) / height();
     last_drag_ = e.position.y;
 

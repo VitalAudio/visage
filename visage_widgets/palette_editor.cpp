@@ -248,7 +248,7 @@ namespace visage {
     }
   }
 
-  void PaletteColorEditor::onMouseDown(const MouseEvent& e) {
+  void PaletteColorEditor::mouseDown(const MouseEvent& e) {
     redraw();
     mouse_down_index_ = colorIndex(e);
     bool toggle = e.isMiddleButton() || e.isAltDown();
@@ -274,10 +274,10 @@ namespace visage {
     }
     else
       toggleGroup(e);
-    onMouseDrag(e);
+    mouseDrag(e);
   }
 
-  void PaletteColorEditor::onMouseDrag(const MouseEvent& e) {
+  void PaletteColorEditor::mouseDrag(const MouseEvent& e) {
     dragging_ = mouse_down_index_;
     mouse_drag_x_ = e.position.x;
     mouse_drag_y_ = e.position.y;
@@ -300,7 +300,7 @@ namespace visage {
     redraw();
   }
 
-  void PaletteColorEditor::onMouseUp(const MouseEvent& e) {
+  void PaletteColorEditor::mouseUp(const MouseEvent& e) {
     if (dragging_ < 0 && temporary_set_ >= 0)
       palette_->setColorMap(current_override_id_, temporary_set_, previous_color_index_);
 
@@ -311,15 +311,15 @@ namespace visage {
     redraw();
   }
 
-  void PaletteColorEditor::onMouseWheel(const MouseEvent& e) {
+  void PaletteColorEditor::mouseWheel(const MouseEvent& e) {
     if (e.position.x < width() * kPaletteWidthRatio)
-      color_list_.onMouseWheel(e);
+      color_list_.mouseWheel(e);
     else
-      ScrollableComponent::onMouseWheel(e);
+      ScrollableComponent::mouseWheel(e);
     redraw();
   }
 
-  bool PaletteColorEditor::onKeyPress(const KeyEvent& key) {
+  bool PaletteColorEditor::keyPress(const KeyEvent& key) {
     redraw();
     if (key.keyCode() == KeyCode::C && editing_ >= 0) {
       setClipboardText(palette_->colorIndex(editing_).encode());

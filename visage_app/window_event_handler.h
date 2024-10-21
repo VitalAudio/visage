@@ -82,9 +82,7 @@ namespace visage {
   private:
     Frame* getDragDropFrame(Point point, const std::vector<std::string>& files) const;
 
-    std::function<void(Frame*)> resize_callback_ = [this](const Frame* frame) {
-      onFrameResize(frame);
-    };
+    std::function<void()> resize_callback_ = [this] { onFrameResize(content_frame_); };
     Window* window_ = nullptr;
     Frame* content_frame_ = nullptr;
     Frame* mouse_hovered_frame_ = nullptr;

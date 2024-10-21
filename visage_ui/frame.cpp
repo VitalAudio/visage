@@ -15,6 +15,7 @@
  */
 
 #include "frame.h"
+
 #include "popup_menu.h"
 #include "visage_graphics/theme.h"
 
@@ -22,7 +23,7 @@ namespace visage {
   void Frame::setVisible(bool visible) {
     if (visible_ != visible) {
       visible_ = visible;
-      onVisibilityChange();
+      visibilityChanged();
     }
 
     region_.setVisible(visible);
@@ -123,9 +124,7 @@ namespace visage {
   void Frame::setBounds(Bounds bounds) {
     if (bounds_ != bounds) {
       bounds_ = bounds;
-      resized();
-      for (auto& callback : resize_callbacks_)
-        callback(this);
+      on_resize_.callback();
     }
 
     region_.setBounds(bounds.x(), bounds.y(), bounds.width(), bounds.height());
@@ -150,55 +149,6 @@ namespace visage {
     int width = other->bounds().width();
     int height = other->bounds().height();
     return { other_position.x - position.x, other_position.y - position.y, width, height };
-  }
-
-  void Frame::mouseEnter(const MouseEvent& e) {
-    if (on_mouse_enter_)
-      on_mouse_enter_(e);
-    else
-      onMouseEnter(e);
-  }
-
-  void Frame::mouseExit(const MouseEvent& e) {
-    if (on_mouse_exit_)
-      on_mouse_exit_(e);
-    else
-      onMouseExit(e);
-  }
-
-  void Frame::mouseDown(const MouseEvent& e) {
-    if (on_mouse_down_)
-      on_mouse_down_(e);
-    else
-      onMouseDown(e);
-  }
-
-  void Frame::mouseUp(const MouseEvent& e) {
-    if (on_mouse_up_)
-      on_mouse_up_(e);
-    else
-      onMouseUp(e);
-  }
-
-  void Frame::mouseMove(const MouseEvent& e) {
-    if (on_mouse_move_)
-      on_mouse_move_(e);
-    else
-      onMouseMove(e);
-  }
-
-  void Frame::mouseDrag(const MouseEvent& e) {
-    if (on_mouse_drag_)
-      on_mouse_drag_(e);
-    else
-      onMouseDrag(e);
-  }
-
-  void Frame::mouseWheel(const MouseEvent& e) {
-    if (on_mouse_wheel_)
-      on_mouse_wheel_(e);
-    else
-      onMouseWheel(e);
   }
 
   bool Frame::tryFocusTextReceiver() {
@@ -285,10 +235,7 @@ namespace visage {
         canvas_->setPalette(palette_);
 
       canvas_->saveState();
-      if (draw_function_)
-        draw_function_(*canvas_);
-      else
-        draw(*canvas_);
+      on_draw_.callback(*canvas_);
       canvas_->restoreState();
       drawChildrenSubcanvases(*canvas_);
       canvas_->endRegion();

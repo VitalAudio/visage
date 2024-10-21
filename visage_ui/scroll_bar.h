@@ -35,11 +35,11 @@ namespace visage {
       width_.setTargetValue(width());
     }
 
-    void onMouseEnter(const MouseEvent& e) override;
-    void onMouseExit(const MouseEvent& e) override;
-    void onMouseDown(const MouseEvent& e) override;
-    void onMouseUp(const MouseEvent& e) override;
-    void onMouseDrag(const MouseEvent& e) override;
+    void mouseEnter(const MouseEvent& e) override;
+    void mouseExit(const MouseEvent& e) override;
+    void mouseDown(const MouseEvent& e) override;
+    void mouseUp(const MouseEvent& e) override;
+    void mouseDrag(const MouseEvent& e) override;
 
     void addScrollCallback(std::function<void(int)> callback) {
       callbacks_.push_back(std::move(callback));
@@ -147,7 +147,7 @@ namespace visage {
     }
     int yPosition() const { return y_position_; }
 
-    void onMouseWheel(const MouseEvent& e) override {
+    void mouseWheel(const MouseEvent& e) override {
       static constexpr float kScale = 30.0f;
 
       float y = float_position_ - kScale * e.precise_wheel_delta_y * heightScale();

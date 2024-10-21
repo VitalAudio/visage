@@ -43,8 +43,8 @@ namespace visage {
       redraw();
     }
 
-    void onMouseDown(const MouseEvent& e) override { setHue(e); }
-    void onMouseDrag(const MouseEvent& e) override { setHue(e); }
+    void mouseDown(const MouseEvent& e) override { setHue(e); }
+    void mouseDrag(const MouseEvent& e) override { setHue(e); }
 
     void setHue(float hue) {
       hue_ = hue;
@@ -82,8 +82,8 @@ namespace visage {
       redraw();
     }
 
-    void onMouseDown(const MouseEvent& e) override { setValueSaturation(e); }
-    void onMouseDrag(const MouseEvent& e) override { setValueSaturation(e); }
+    void mouseDown(const MouseEvent& e) override { setValueSaturation(e); }
+    void mouseDrag(const MouseEvent& e) override { setValueSaturation(e); }
 
     void setValue(float value) {
       value_ = value;
