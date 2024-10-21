@@ -35,7 +35,7 @@ namespace visage {
   class CallbackList {
   public:
     CallbackList() = default;
-    CallbackList(std::function<T> callback) { add(callback); }
+    explicit CallbackList(std::function<T> callback) { add(callback); }
 
     void add(std::function<T> callback) { callbacks_.push_back(std::move(callback)); }
 
@@ -391,24 +391,23 @@ namespace visage {
     std::string name_;
     Bounds bounds_;
 
-    CallbackList<void(Canvas&)> on_draw_ = [this](auto& e) { draw(e); };
-    CallbackList<void()> on_resize_ = [this] { resized(); };
-    CallbackList<void()> on_visibility_changed_ = [this] { visibilityChanged(); };
-    CallbackList<void()> on_hierarchy_changed_ = [this] { hierarchyChanged(); };
-    CallbackList<void(bool, bool)> on_focus_changed_ = [this](bool is_focused, bool was_clicked) {
+    CallbackList<void(Canvas&)> on_draw_ { [this](Canvas& e) -> void { draw(e); } };
+    CallbackList<void()> on_resize_ { [this] { resized(); } };
+    CallbackList<void()> on_visibility_changed_ { [this] { visibilityChanged(); } };
+    CallbackList<void()> on_hierarchy_changed_ { [this] { hierarchyChanged(); } };
+    CallbackList<void(bool, bool)> on_focus_changed_ { [this](bool is_focused, bool was_clicked) {
       focusChanged(is_focused, was_clicked);
-    };
-
-    CallbackList<void(const MouseEvent&)> on_mouse_enter_ = [this](auto& e) { mouseEnter(e); };
-    CallbackList<void(const MouseEvent&)> on_mouse_exit_ = [this](auto& e) { mouseExit(e); };
-    CallbackList<void(const MouseEvent&)> on_mouse_down_ = [this](auto& e) { mouseDown(e); };
-    CallbackList<void(const MouseEvent&)> on_mouse_up_ = [this](auto& e) { mouseUp(e); };
-    CallbackList<void(const MouseEvent&)> on_mouse_move_ = [this](auto& e) { mouseMove(e); };
-    CallbackList<void(const MouseEvent&)> on_mouse_drag_ = [this](auto& e) { mouseDrag(e); };
-    CallbackList<void(const MouseEvent&)> on_mouse_wheel_ = [this](auto& e) { mouseWheel(e); };
-    CallbackList<bool(const KeyEvent&)> on_key_press_ = [this](auto& e) { return keyPress(e); };
-    CallbackList<bool(const KeyEvent&)> on_key_release_ = [this](auto& e) { return keyRelease(e); };
-    CallbackList<void(const std::string&)> on_text_input_ = [this](auto& text) { textInput(text); };
+    } };
+    CallbackList<void(const MouseEvent&)> on_mouse_enter_ { [this](auto& e) { mouseEnter(e); } };
+    CallbackList<void(const MouseEvent&)> on_mouse_exit_ { [this](auto& e) { mouseExit(e); } };
+    CallbackList<void(const MouseEvent&)> on_mouse_down_ { [this](auto& e) { mouseDown(e); } };
+    CallbackList<void(const MouseEvent&)> on_mouse_up_ { [this](auto& e) { mouseUp(e); } };
+    CallbackList<void(const MouseEvent&)> on_mouse_move_ { [this](auto& e) { mouseMove(e); } };
+    CallbackList<void(const MouseEvent&)> on_mouse_drag_ { [this](auto& e) { mouseDrag(e); } };
+    CallbackList<void(const MouseEvent&)> on_mouse_wheel_ { [this](auto& e) { mouseWheel(e); } };
+    CallbackList<bool(const KeyEvent&)> on_key_press_ { [this](auto& e) { return keyPress(e); } };
+    CallbackList<bool(const KeyEvent&)> on_key_release_ { [this](auto& e) { return keyRelease(e); } };
+    CallbackList<void(const std::string&)> on_text_input_ { [this](auto& text) { textInput(text); } };
 
     bool on_top_ = false;
     bool visible_ = true;
