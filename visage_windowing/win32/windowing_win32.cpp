@@ -354,7 +354,7 @@ namespace visage {
       if (dpi_awareness_ == nullptr)
         return 1.0f;
 
-      return dpiForSystem_() / kDefaultDpi;
+      return dpiForSystem_() / Window::kDefaultDpi;
     }
 
     float conversionFactor(HWND hwnd) const {
