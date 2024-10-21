@@ -126,19 +126,19 @@ namespace visage {
 
   void WindowedEditor::show(float window_scale) {
     removeFromWindow();
-    window_ = createScaledWindow(defaultAspectRatio(), window_scale);
+    window_ = createScaledWindow(defaultAspectRatio(), window_scale, popup_);
     showWindow();
   }
 
   void WindowedEditor::show(int width, int height) {
     removeFromWindow();
-    window_ = createWindow(width, height);
+    window_ = createWindow(width, height, popup_);
     showWindow();
   }
 
   void WindowedEditor::show(int x, int y, int width, int height) {
     removeFromWindow();
-    window_ = createWindow(x, y, width, height);
+    window_ = createWindow(x, y, width, height, popup_);
     showWindow();
   }
 

@@ -67,6 +67,8 @@ namespace visage {
 
     void setTitle(std::string title) { title_ = std::move(title); }
 
+    void setPopup(bool popup) { popup_ = popup; }
+
     void show(float window_scale);
     void show(int x, int y, int width, int height);
     void show(int width, int height);
@@ -78,6 +80,7 @@ namespace visage {
   private:
     void showWindow();
 
+    bool popup_ = false;
     std::string title_;
     std::unique_ptr<Window> window_;
   };
