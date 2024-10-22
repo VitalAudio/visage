@@ -68,18 +68,12 @@ namespace visage {
     THEME_DEFINE_VALUE(TextEditorMarginX);
     THEME_DEFINE_VALUE(TextEditorMarginY);
 
-    class Listener {
-    public:
-      virtual ~Listener() = default;
-      virtual void textEditorEnterPressed(TextEditor* editor) { }
-      virtual void textEditorEscapePressed(TextEditor* editor) { }
-      virtual void textEditorFocusLost(TextEditor* editor) { }
-      virtual void textEditorFocusGained(TextEditor* editor) { }
-      virtual void textEditorChanged(TextEditor* editor) { }
-    };
-
     explicit TextEditor(const std::string& name = "");
     ~TextEditor() override = default;
+
+    auto& onTextChange() { return on_text_change_; }
+    auto& onEnterKey() { return on_enter_key_; }
+    auto& onEscapeKey() { return on_escape_key_; }
 
     void drawBackground(Canvas& canvas) const;
     void selectionRectangle(Canvas& canvas, int x, int y, int w, int h) const;
@@ -121,7 +115,7 @@ namespace visage {
     bool handleDeadKey(const KeyEvent& key);
     bool keyPress(const KeyEvent& key) override;
     bool receivesTextInput() override { return active_; }
-    visage::String translateDeadKeyText(const visage::String& text) const;
+    String translateDeadKeyText(const String& text) const;
     void textInput(const std::string& text) override;
     void focusChanged(bool is_focused, bool was_clicked) override;
 
@@ -177,6 +171,7 @@ namespace visage {
         line_breaks_ = text_.font().lineBreaks(text_.text().c_str(), text_.text().length(),
                                                width() - 2 * x_margin_);
     }
+
     void setText(const String& text) {
       if (max_characters_)
         text_.setText(text.substring(0, max_characters_));
@@ -187,6 +182,7 @@ namespace visage {
       setLineBreaks();
       makeCaretVisible();
     }
+
     void setFilteredCharacters(const std::string& characters) { filtered_characters_ = characters; }
     void setDefaultText(const String& default_text) { default_text_.setText(default_text); }
     void setMaxCharacters(int max) { max_characters_ = max; }
@@ -206,8 +202,6 @@ namespace visage {
       makeCaretVisible();
     }
     void setActive(bool active) { active_ = active; }
-    void addListener(Listener* listener) { listeners_.push_back(listener); }
-
     void setNumberEntry();
     void setTextFieldEntry();
 
@@ -223,12 +217,15 @@ namespace visage {
   private:
     void addUndoPosition() { undo_history_.emplace_back(text_.text(), caret_position_); }
 
+    CallbackList<void()> on_text_change_;
+    CallbackList<void()> on_enter_key_;
+    CallbackList<void()> on_escape_key_;
+
     DeadKey dead_key_entry_ = DeadKey::None;
     Text text_;
     Text default_text_;
     std::string filtered_characters_;
     std::vector<int> line_breaks_;
-    std::vector<Listener*> listeners_;
     int caret_position_ = 0;
     int selection_position_ = 0;
     std::pair<int, int> selection_start_point_;

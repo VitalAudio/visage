@@ -79,7 +79,7 @@ namespace visage {
     }
 
     ShaderCompiler();
-    ~ShaderCompiler() override { callbacks_.clear(); }
+    ~ShaderCompiler() override = default;
 
     void setCodeAndCompile(const EmbeddedFile& vertex, const EmbeddedFile& fragment,
                            const EmbeddedFile& original, std::string code) {
@@ -110,15 +110,11 @@ namespace visage {
     }
 
     void setError(std::string error) {
-      for (auto& callback : callbacks_)
-        callback(error);
-
+      on_compile_.callback(error);
       error_ = std::move(error);
     }
 
-    void addCompileCallback(std::function<void(const std::string&)> callback) {
-      callbacks_.push_back(std::move(callback));
-    }
+    auto& onCompile() { return on_compile_; }
 
     void run() override;
     void setCompilerPath(const std::string& path);
@@ -126,7 +122,7 @@ namespace visage {
     bool compiling() const { return new_code_.load(); }
 
   private:
-    std::vector<std::function<void(const std::string&)>> callbacks_;
+    CallbackList<void(const std::string&)> on_compile_;
 
     std::atomic<bool> new_code_ = false;
     std::string compiler_path_;
@@ -139,15 +135,13 @@ namespace visage {
     std::unique_ptr<char[]> shader_memory_;
   };
 
-  class ShaderEditor : public Frame,
-                       public TextEditor::Listener {
+  class ShaderEditor : public Frame {
   public:
     static constexpr float kPaddingHeightRatio = 0.012f;
     static constexpr float kInfoHeightRatio = 0.3f;
 
     ShaderEditor();
 
-    void textEditorChanged(TextEditor* editor) override;
     void setShader(const EmbeddedFile& vertex, const EmbeddedFile& fragment,
                    const EmbeddedFile& original_fragment) {
       vertex_ = vertex;

@@ -24,8 +24,7 @@
 #include "visage_ui/scroll_bar.h"
 
 namespace visage {
-  class PaletteColorEditor : public ScrollableComponent,
-                             public ColorPicker::Listener {
+  class PaletteColorEditor : public ScrollableComponent {
   public:
     static constexpr float kPaletteWidthRatio = 0.25f;
     static constexpr int kColorSpacing = 2;
@@ -36,7 +35,6 @@ namespace visage {
       setAcceptsKeystrokes(true);
       for (int i = 0; i < QuadColor::kNumCorners; ++i) {
         addChild(&color_pickers_[i]);
-        color_pickers_[i].addListener(this);
         color_pickers_[i].setVisible(i == 0);
       }
 
@@ -48,7 +46,6 @@ namespace visage {
     void draw(Canvas& canvas) override;
 
     int listLength(const std::map<std::string, std::vector<unsigned int>>& color_ids) const;
-    void colorChanged(ColorPicker* picker, Color color) override;
     int colorIndex(const MouseEvent& e);
     int colorIdIndex(const MouseEvent& e) const;
     void toggleGroup(const MouseEvent& e);
@@ -113,30 +110,18 @@ namespace visage {
     VISAGE_LEAK_CHECKER(PaletteColorEditor)
   };
 
-  class PaletteValueEditor : public ScrollableComponent,
-                             public TextEditor::Listener {
+  class PaletteValueEditor : public ScrollableComponent {
   public:
     static constexpr int kValueIdHeight = 70;
     static constexpr int kMaxValues = 500;
 
-    explicit PaletteValueEditor(Palette* palette) : palette_(palette) {
-      for (auto& text_editor : text_editors_) {
-        text_editor.addListener(this);
-        text_editor.setTextFieldEntry();
-        text_editor.setDefaultText("Not Set");
-        text_editor.setMargin(8, 0);
-        text_editor.setFont(Font(kValueIdHeight / 3, fonts::Lato_Regular_ttf));
-        addScrolledComponent(&text_editor, false);
-      }
-    }
+    explicit PaletteValueEditor(Palette* palette);
 
     void draw(Canvas& canvas) override;
     void resized() override {
       ScrollableComponent::resized();
       setTextEditorBounds();
     }
-
-    void textEditorChanged(TextEditor* editor) override;
 
     int listLength(const std::map<std::string, std::vector<unsigned int>>& value_ids) const;
     void toggleGroup(const MouseEvent& e);

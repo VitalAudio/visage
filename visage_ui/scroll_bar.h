@@ -110,8 +110,7 @@ namespace visage {
 
     void scrollPositionChanged(int position) {
       setYPosition(position);
-      for (auto& callback : callbacks_)
-        callback(this);
+      on_scroll_.callback(this);
     }
 
     bool scrollUp() {
@@ -163,14 +162,11 @@ namespace visage {
       scroll_bar_.setLeftSide(left);
     }
 
-    void addScrollCallback(std::function<void(ScrollableComponent*)> callback) {
-      callbacks_.push_back(std::move(callback));
-    }
-
+    auto& onScroll() { return on_scroll_; }
     ScrollBar& scrollBar() { return scroll_bar_; }
 
   private:
-    std::vector<std::function<void(ScrollableComponent*)>> callbacks_;
+    CallbackList<void(ScrollableComponent*)> on_scroll_;
     float float_position_ = 0.0f;
     int y_position_ = 0;
     bool scroll_bar_left_ = false;

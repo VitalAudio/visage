@@ -250,10 +250,8 @@ namespace visage {
       action_state_ = kInserting;
       insertTextAtCaret(U"\n");
     }
-    else {
-      for (Listener* listener : listeners_)
-        listener->textEditorEnterPressed(this);
-    }
+    else
+      on_enter_key_.callback();
     return true;
   }
 
@@ -264,8 +262,7 @@ namespace visage {
   }
 
   void TextEditor::cancel() {
-    for (Listener* listener : listeners_)
-      listener->textEditorEscapePressed(this);
+    on_escape_key_.callback();
   }
 
   void TextEditor::deselect() {
@@ -293,8 +290,7 @@ namespace visage {
     selection_position_ = caret_position_;
     makeCaretVisible();
 
-    for (Listener* listener : listeners_)
-      listener->textEditorChanged(this);
+    on_text_change_.callback();
   }
 
   void TextEditor::makeCaretVisible() {
@@ -593,8 +589,6 @@ namespace visage {
         dead_key_entry_ = DeadKey::None;
         selection_position_ = caret_position_;
       }
-      for (Listener* listener : listeners_)
-        listener->textEditorFocusLost(this);
       return;
     }
 
@@ -605,9 +599,6 @@ namespace visage {
       mouse_focus_ = was_clicked;
       selectAll();
     }
-
-    for (Listener* listener : listeners_)
-      listener->textEditorFocusGained(this);
   }
 
   bool TextEditor::moveCaretLeft(bool modifier, bool shift) {
@@ -791,6 +782,7 @@ namespace visage {
     selection_position_ = state.second;
     setLineBreaks();
     makeCaretVisible();
+    on_text_change_.callback();
     return true;
   }
 
@@ -806,6 +798,7 @@ namespace visage {
     selection_position_ = state.second;
     setLineBreaks();
     makeCaretVisible();
+    on_text_change_.callback();
     return true;
   }
 
@@ -836,9 +829,7 @@ namespace visage {
     selection_position_ = caret_position_;
     makeCaretVisible();
 
-    for (Listener* listener : listeners_)
-      listener->textEditorChanged(this);
-
+    on_text_change_.callback();
     redraw();
   }
 

@@ -125,25 +125,30 @@ namespace visage {
     addChild(&editor_);
     addChild(&error_);
     addChild(&status_);
-    editor_.addListener(this);
     editor_.setMultiLine(true);
     editor_.setMargin(15, 10);
     editor_.setFont(Font(10, fonts::DroidSansMono_ttf));
     editor_.setJustification(Font::kTopLeft);
     editor_.setDefaultText("No shader set");
 
-    error_.addListener(this);
+    editor_.onTextChange() += [this] {
+      if (fragment_.data) {
+        std::string text = editor_.text().toUtf8();
+        compiler_.setCodeAndCompile(vertex_, fragment_, original_fragment_, text);
+      }
+    };
+
     error_.setMultiLine(true);
     error_.setMargin(15, 10);
     error_.setFont(Font(10, fonts::DroidSansMono_ttf));
     error_.setJustification(Font::kTopLeft);
     error_.setActive(false);
 
-    compiler_.addCompileCallback([this](const std::string& error) {
+    compiler_.onCompile() += [this](const std::string& error) {
       error_.setText(error);
       status_.redraw();
       redraw();
-    });
+    };
 
     status_.onDraw() = [this](Canvas& canvas) {
       if (error_.text().isEmpty()) {
@@ -155,16 +160,6 @@ namespace visage {
         canvas.icon(icons::x_circle_svg, 0, 0, status_.width(), status_.height());
       }
     };
-  }
-
-  void ShaderEditor::textEditorChanged(TextEditor* editor) {
-    if (editor != &editor_)
-      return;
-
-    if (fragment_.data) {
-      std::string text = editor->text().toUtf8();
-      compiler_.setCodeAndCompile(vertex_, fragment_, original_fragment_, text);
-    }
   }
 
   void ShaderEditor::draw(Canvas& canvas) {

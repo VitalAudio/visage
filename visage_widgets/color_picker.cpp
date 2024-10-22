@@ -67,6 +67,69 @@ namespace visage {
     canvas.ring(x - 3.0f, y - 3.0f, 6.0f, 1.0f);
   }
 
+  ColorPicker::ColorPicker() {
+    hue_.onEdit() = [this](float hue) {
+      updateColor();
+      notifyNewColor();
+      value_saturation_.setHueColor(Color::fromAHSV(1.0f, hue, 1.0f, 1.0f));
+      redraw();
+    };
+
+    value_saturation_.onEdit() = [this](float, float) {
+      updateColor();
+      notifyNewColor();
+      redraw();
+    };
+
+    hex_text_.setNumberEntry();
+    hex_text_.setMargin(5, 0);
+    hex_text_.setMaxCharacters(6);
+
+    alpha_text_.setNumberEntry();
+    alpha_text_.setMargin(5, 0);
+    alpha_text_.setMaxCharacters(kDecimalSigFigs + 1);
+
+    hdr_text_.setNumberEntry();
+    hdr_text_.setMargin(5, 0);
+    hdr_text_.setMaxCharacters(kDecimalSigFigs + 1);
+
+    hex_text_.onEnterKey() += std::bind(&ColorPicker::requestKeyboardFocus, this);
+    alpha_text_.onEnterKey() += std::bind(&ColorPicker::requestKeyboardFocus, this);
+    hdr_text_.onEnterKey() += std::bind(&ColorPicker::requestKeyboardFocus, this);
+
+    hex_text_.onTextChange() += [this] {
+      color_ = Color::fromHexString(hex_text_.text().toUtf8());
+      hue_.setHue(color_.hue());
+      value_saturation_.setValue(color_.value());
+      value_saturation_.setSaturation(color_.saturation());
+      value_saturation_.setHueColor(Color::fromAHSV(1.0f, hue_.hue(), 1.0f, 1.0f));
+      notifyNewColor();
+      redraw();
+    };
+
+    alpha_text_.onTextChange() += [this] {
+      alpha_ = std::min(1.0f, std::max(0.0f, alpha_text_.text().toFloat()));
+      color_.setAlpha(alpha_);
+      notifyNewColor();
+      redraw();
+    };
+
+    hdr_text_.onTextChange() += [this] {
+      hdr_ = std::max(0.0f, hdr_text_.text().toFloat());
+      color_.setHdr(hdr_);
+      notifyNewColor();
+      redraw();
+    };
+
+    addChild(&hue_);
+    addChild(&value_saturation_);
+    addChild(&hex_text_);
+    addChild(&alpha_text_);
+    addChild(&hdr_text_);
+    value_saturation_.setHueColor(Color::fromAHSV(1.0f, hue_.hue(), 1.0f, 1.0f));
+    updateColor();
+  }
+
   void ColorPicker::resized() {
     Frame::resized();
     int widget_height = height() - kEditHeight - kPadding;
@@ -96,31 +159,6 @@ namespace visage {
 
     canvas.setColor(color_);
     canvas.roundedRectangle(0, widget_height, kEditHeight, kEditHeight, 8);
-  }
-
-  void ColorPicker::textEditorEnterPressed(TextEditor* editor) {
-    requestKeyboardFocus();
-  }
-
-  void ColorPicker::textEditorChanged(TextEditor* editor) {
-    if (editor == &hex_text_) {
-      color_ = Color::fromHexString(editor->text().toUtf8());
-      hue_.setHue(color_.hue());
-      value_saturation_.setValue(color_.value());
-      value_saturation_.setSaturation(color_.saturation());
-      value_saturation_.setHueColor(Color::fromAHSV(1.0f, hue_.hue(), 1.0f, 1.0f));
-    }
-    else if (editor == &alpha_text_) {
-      alpha_ = std::min(1.0f, std::max(0.0f, String(editor->text()).toFloat()));
-      color_.setAlpha(alpha_);
-    }
-    else if (editor == &hdr_text_) {
-      hdr_ = std::max(0.0f, String(editor->text()).toFloat());
-      color_.setHdr(hdr_);
-    }
-
-    notifyNewColor();
-    redraw();
   }
 
   void ColorPicker::updateColor() {

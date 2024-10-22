@@ -28,15 +28,19 @@
 namespace visage {
   class Button : public Frame {
   public:
-    class Listener {
-    public:
-      virtual ~Listener() = default;
-      virtual void buttonToggled(Button* button, bool on) = 0;
-    };
-
     Button() { hover_amount_.setTargetValue(1.0f); }
 
     explicit Button(const std::string& name) : Frame(name) { hover_amount_.setTargetValue(1.0f); }
+
+    auto& onToggle() { return on_toggle_; }
+
+    virtual bool toggle() { return false; }
+    virtual void setToggled(bool toggled) { }
+    virtual void setToggledAndNotify(bool toggled) {
+      if (toggled)
+        notify(false);
+    }
+    void notify(bool on) { on_toggle_.callback(this, on); }
 
     void draw(Canvas& canvas) final;
     virtual void draw(Canvas& canvas, float hover_amount) { }
@@ -45,21 +49,6 @@ namespace visage {
     void mouseExit(const MouseEvent& e) override;
     void mouseDown(const MouseEvent& e) override;
     void mouseUp(const MouseEvent& e) override;
-
-    void notify(bool on) {
-      for (auto& callback : toggle_callbacks_)
-        callback(this, on);
-    }
-    virtual bool toggle() { return false; }
-    virtual void setToggled(bool toggled) { }
-    virtual void setToggledAndNotify(bool toggled) {
-      if (toggled)
-        notify(false);
-    }
-
-    void addToggleCallback(std::function<void(Button*, bool)> callback) {
-      toggle_callbacks_.push_back(std::move(callback));
-    }
 
     void setToggleOnMouseDown(bool mouse_down) { toggle_on_mouse_down_ = mouse_down; }
     float hoverAmount() const { return hover_amount_.value(); }
@@ -72,7 +61,7 @@ namespace visage {
     bool wasAltClicked() const { return alt_clicked_; }
 
   private:
-    std::vector<std::function<void(Button*, bool)>> toggle_callbacks_;
+    CallbackList<void(Button*, bool)> on_toggle_;
     Animation<float> hover_amount_;
     std::function<void()> undo_setup_function_ = nullptr;
 

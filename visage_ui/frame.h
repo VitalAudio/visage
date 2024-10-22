@@ -34,8 +34,16 @@ namespace visage {
   template<class T>
   class CallbackList {
   public:
+    template<typename R>
+    static R getDefaultResult() {
+      if constexpr (std::is_default_constructible_v<R>)
+        return {};
+      else
+        static_assert(std::is_void_v<R>, "Callback return value must be default constructable");
+    }
+
     CallbackList() = default;
-    explicit CallbackList(std::function<T> callback) { add(callback); }
+    explicit CallbackList(std::function<T> callback) : original_(callback) { add(callback); }
 
     void add(std::function<T> callback) { callbacks_.push_back(std::move(callback)); }
 
@@ -68,8 +76,19 @@ namespace visage {
       return *this;
     }
 
+    void reset() {
+      callbacks_.clear();
+      if (original_)
+        callbacks_.push_back(original_);
+    }
+
+    void clear() { callbacks_.clear(); }
+
     template<typename... Args>
     auto callback(Args&&... args) {
+      if (callbacks_.empty())
+        return getDefaultResult<decltype(std::declval<std::function<T>>()(args...))>();
+
       for (size_t i = 0; i < callbacks_.size() - 1; ++i)
         callbacks_[i](std::forward<Args>(args)...);
 
@@ -77,6 +96,7 @@ namespace visage {
     }
 
   private:
+    std::function<T> original_ = nullptr;
     std::vector<std::function<T>> callbacks_;
   };
 
@@ -129,9 +149,9 @@ namespace visage {
 
     auto& onDraw() { return on_draw_; }
     auto& onResize() { return on_resize_; }
-    auto& onVisibilityChanged() { return on_visibility_changed_; }
-    auto& onHierarchyChanged() { return on_hierarchy_changed_; }
-    auto& onFocusChanged() { return on_focus_changed_; }
+    auto& onVisibilityChange() { return on_visibility_change_; }
+    auto& onHierarchyChange() { return on_hierarchy_change_; }
+    auto& onFocusChange() { return on_focus_change_; }
     auto& onMouseEnter() { return on_mouse_enter_; }
     auto& onMouseExit() { return on_mouse_exit_; }
     auto& onMouseDown() { return on_mouse_down_; }
@@ -356,7 +376,7 @@ namespace visage {
     }
 
     bool processKeyPress(const KeyEvent& e) { return on_key_press_.callback(e); }
-    bool processKeyRelease(const KeyEvent& e) { return on_key_press_.callback(e); }
+    bool processKeyRelease(const KeyEvent& e) { return on_key_release_.callback(e); }
     void processTextInput(const std::string& text) { textInput(text); }
 
     float paletteValue(unsigned int value_id);
@@ -393,9 +413,9 @@ namespace visage {
 
     CallbackList<void(Canvas&)> on_draw_ { [this](Canvas& e) -> void { draw(e); } };
     CallbackList<void()> on_resize_ { [this] { resized(); } };
-    CallbackList<void()> on_visibility_changed_ { [this] { visibilityChanged(); } };
-    CallbackList<void()> on_hierarchy_changed_ { [this] { hierarchyChanged(); } };
-    CallbackList<void(bool, bool)> on_focus_changed_ { [this](bool is_focused, bool was_clicked) {
+    CallbackList<void()> on_visibility_change_ { [this] { visibilityChanged(); } };
+    CallbackList<void()> on_hierarchy_change_ { [this] { hierarchyChanged(); } };
+    CallbackList<void(bool, bool)> on_focus_change_ { [this](bool is_focused, bool was_clicked) {
       focusChanged(is_focused, was_clicked);
     } };
     CallbackList<void(const MouseEvent&)> on_mouse_enter_ { [this](auto& e) { mouseEnter(e); } };

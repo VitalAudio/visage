@@ -141,8 +141,15 @@ namespace visage {
   void PaletteColorEditor::setColorPickerBounds() {
     int w = width();
     int h = height();
-    for (int i = 1; i < QuadColor::kNumCorners; ++i)
+    for (int i = 1; i < QuadColor::kNumCorners; ++i) {
       color_pickers_[i].setVisible(num_colors_editing_ > i);
+      color_pickers_[i].onColorChange() = [this, i](Color color) {
+        if (editing_ < 0)
+          return;
+
+        palette_->setColorIndex(editing_, i, color);
+      };
+    }
 
     if (num_colors_editing_ > 2) {
       int picker_width = w / 2;
@@ -172,16 +179,6 @@ namespace visage {
   void PaletteColorEditor::checkScrollHeight() {
     int list_length = listLength(palette_->colorIdList(current_override_id_));
     setScrollableHeight(kColorIdHeight * list_length, height() - width());
-  }
-
-  void PaletteColorEditor::colorChanged(ColorPicker* picker, Color color) {
-    if (editing_ < 0)
-      return;
-
-    for (int i = 0; i < QuadColor::kNumCorners; ++i) {
-      if (picker == &color_pickers_[i])
-        palette_->setColorIndex(editing_, i, color);
-    }
   }
 
   int PaletteColorEditor::colorIndex(const MouseEvent& e) {
@@ -353,6 +350,16 @@ namespace visage {
     setColorPickerBounds();
   }
 
+  PaletteValueEditor::PaletteValueEditor(Palette* palette) : palette_(palette) {
+    for (auto& text_editor : text_editors_) {
+      text_editor.setTextFieldEntry();
+      text_editor.setDefaultText("Not Set");
+      text_editor.setMargin(8, 0);
+      text_editor.setFont(Font(kValueIdHeight / 3, fonts::Lato_Regular_ttf));
+      addScrolledComponent(&text_editor, false);
+    }
+  }
+
   void PaletteValueEditor::draw(Canvas& canvas) {
     int w = width();
     int h = height();
@@ -398,25 +405,6 @@ namespace visage {
     canvas.restoreState();
   }
 
-  void PaletteValueEditor::textEditorChanged(TextEditor* text_editor) {
-    std::map<std::string, std::vector<unsigned int>> value_ids = palette_->valueIdList(current_override_id_);
-    int index = 0;
-    for (const auto& group : value_ids) {
-      for (int color_id : group.second) {
-        if (text_editor == &text_editors_[index]) {
-          String text = String(text_editors_[index].text()).trim();
-          if (text.isEmpty())
-            palette_->removeValue(current_override_id_, color_id);
-          else
-            palette_->setValue(current_override_id_, color_id, text.toFloat());
-          return;
-        }
-
-        index++;
-      }
-    }
-  }
-
   int PaletteValueEditor::listLength(const std::map<std::string, std::vector<unsigned int>>& value_ids) const {
     int length = value_ids.size();
     for (const auto& group : value_ids) {
@@ -454,6 +442,14 @@ namespace visage {
     for (const auto& group : value_ids) {
       if (isExpanded(group.first)) {
         for (int value_id : group.second) {
+          text_editors_[index].onTextChange() = [this, index, value_id] {
+            String text = String(text_editors_[index].text()).trim();
+            if (text.isEmpty())
+              palette_->removeValue(current_override_id_, value_id);
+            else
+              palette_->setValue(current_override_id_, value_id, text.toFloat());
+          };
+
           text_editors_[index].setBounds(x, y, edit_width, edit_height);
           text_editors_[index].setVisible(true);
 
