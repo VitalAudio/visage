@@ -14,7 +14,7 @@
  * along with va.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "embedded/fonts.h"
+#include "embedded/example_fonts.h"
 
 #include <iomanip>
 #include <sstream>
@@ -27,7 +27,7 @@ public:
 
   ExampleEditor() {
     addChild(&increment_);
-    increment_.setDrawFunction([this](visage::Canvas& canvas) {
+    increment_.onDraw() = [this](visage::Canvas& canvas) {
       incrment_value_ += 0.01;
       canvas.setColor(0xffffffff);
       std::ostringstream format;
@@ -35,7 +35,7 @@ public:
       canvas.text(format.str(), increment_font_, visage::Font::kRight, 0, 0, increment_.width(),
                   increment_.height());
       increment_.redraw();
-    });
+    };
   }
 
   void draw(visage::Canvas& canvas) override {

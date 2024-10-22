@@ -20,7 +20,7 @@
 int runExample() {
   visage::WindowedEditor editor;
 
-  editor.setDrawFunction([&editor](visage::Canvas& canvas) {
+  editor.onDraw() = [&editor](visage::Canvas& canvas) {
     float width = 800;
     float height = 600;
     canvas.clearArea(0, 0, editor.width(), editor.height());
@@ -34,7 +34,7 @@ int runExample() {
                   center_y + movement_radius * sinf(canvas.time()), 2.0f * circle_radius);
 
     editor.redraw();
-  });
+  };
 
   editor.showWithEventLoop(0.5f);
   return 0;
