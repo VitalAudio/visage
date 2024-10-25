@@ -370,8 +370,8 @@ namespace visage {
     XDestroyWindow(display, message_window);
   }
 
-  std::unique_ptr<Window> createWindow(int x, int y, int width, int height) {
-    return std::make_unique<WindowX11>(x, y, width, height);
+  std::unique_ptr<Window> createWindow(int x, int y, int width, int height, bool popup) {
+    return std::make_unique<WindowX11>(x, y, width, height, popup);
   }
 
   std::unique_ptr<Window> createPluginWindow(int width, int height, void* parent_handle) {
@@ -434,7 +434,7 @@ namespace visage {
     return boundsInDisplay(activeMonitorInfo(), aspect_ratio, display_scale);
   }
 
-  WindowX11::WindowX11(int x, int y, int width, int height) : Window(width, height) {
+  WindowX11::WindowX11(int x, int y, int width, int height, bool popup) : Window(width, height) {
     monitor_info_ = activeMonitorInfo();
     X11Connection::DisplayLock lock(x11_);
     ::Display* display = x11_.display();
@@ -453,6 +453,12 @@ namespace visage {
     }
     XSetWMNormalHints(display, window_handle_, size_hints);
     XFree(size_hints);
+
+    if (popup) {
+      XSetWindowAttributes attributes;
+      attributes.override_redirect = True;
+      XChangeWindowAttributes(display, window_handle_, CWOverrideRedirect, &attributes);
+    }
 
     XSelectInput(display, window_handle_, kEventMask);
     XFlush(display);

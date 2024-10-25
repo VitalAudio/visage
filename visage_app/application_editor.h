@@ -67,7 +67,6 @@ namespace visage {
     ~WindowedEditor() override;
 
     void setTitle(std::string title) { title_ = std::move(title); }
-
     void setPopup(bool popup) { popup_ = popup; }
 
     void show(float window_scale);

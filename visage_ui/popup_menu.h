@@ -153,10 +153,10 @@ namespace visage {
     void draw(Canvas& canvas) override;
 
     void showDisplay(const String& text, Bounds bounds, Font::Justification justification);
-    void setFont(const Font* font) { font_ = font; }
+    void setFont(const Font font) { font_ = font; }
 
   private:
-    const Font* font_ = nullptr;
+    Font font_;
     String text_;
 
     VISAGE_LEAK_CHECKER(ValueDisplay)

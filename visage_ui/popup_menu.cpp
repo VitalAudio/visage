@@ -388,7 +388,7 @@ namespace visage {
 
     text_ = text;
 
-    Font font(paletteValue(kPopupFontSize), font_->fontData());
+    Font font(paletteValue(kPopupFontSize), font_.fontData());
     int x_padding = paletteValue(kPopupSelectionPadding) + paletteValue(kPopupTextPadding);
     int width = font.stringWidth(text.c_str(), text.length()) + 2 * x_padding;
     int height = paletteValue(kPopupOptionHeight);
@@ -408,7 +408,7 @@ namespace visage {
   }
 
   void ValueDisplay::draw(Canvas& canvas) {
-    Font font(canvas.value(kPopupFontSize), font_->fontData());
+    Font font(canvas.value(kPopupFontSize), font_.fontData());
     float pixel_scale = canvas.dpiScale();
     canvas.setPaletteColor(kPopupMenuBackground);
     canvas.roundedRectangle(0, 0, width(), height(), 8 * pixel_scale);

@@ -184,7 +184,7 @@ namespace visage {
 
     static WindowX11* lastActiveWindow() { return last_active_window_; }
 
-    WindowX11(int x, int y, int width, int height);
+    WindowX11(int x, int y, int width, int height, bool popup);
     WindowX11(int width, int height, void* parent_handle);
 
     ~WindowX11() override;
