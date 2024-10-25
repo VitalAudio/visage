@@ -108,4 +108,12 @@ namespace visage {
 
     VISAGE_LEAK_CHECKER(ShaderPostEffect)
   };
+
+  class PassthroughPostEffect : public PostEffect {
+  public:
+    void submit(const CanvasWrapper& source, Canvas& destination, int submit_pass) override;
+
+  private:
+    VISAGE_LEAK_CHECKER(PassthroughPostEffect)
+  };
 }

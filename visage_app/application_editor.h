@@ -52,6 +52,7 @@ namespace visage {
     Frame top_level_;
     FrameEventHandler event_handler_;
     std::unique_ptr<Canvas> canvas_;
+    PassthroughPostEffect passthrough_;
     std::unique_ptr<WindowEventHandler> window_event_handler_;
     bool fixed_aspect_ratio_ = false;
 

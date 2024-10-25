@@ -24,7 +24,7 @@
 #include "visage_ui/scroll_bar.h"
 
 namespace visage {
-  class PaletteColorEditor : public ScrollableComponent {
+  class PaletteColorEditor : public ScrollableFrame {
   public:
     static constexpr float kPaletteWidthRatio = 0.25f;
     static constexpr int kColorSpacing = 2;
@@ -92,7 +92,7 @@ namespace visage {
     void setNumColorsEditing(int num);
 
     Palette* palette_ = nullptr;
-    ScrollableComponent color_list_;
+    ScrollableFrame color_list_;
     ColorPicker color_pickers_[QuadColor::kNumCorners];
     std::set<std::string> expanded_groups_;
     int num_colors_editing_ = 1;
@@ -110,7 +110,7 @@ namespace visage {
     VISAGE_LEAK_CHECKER(PaletteColorEditor)
   };
 
-  class PaletteValueEditor : public ScrollableComponent {
+  class PaletteValueEditor : public ScrollableFrame {
   public:
     static constexpr int kValueIdHeight = 70;
     static constexpr int kMaxValues = 500;
@@ -119,7 +119,7 @@ namespace visage {
 
     void draw(Canvas& canvas) override;
     void resized() override {
-      ScrollableComponent::resized();
+      ScrollableFrame::resized();
       setTextEditorBounds();
     }
 
@@ -130,7 +130,7 @@ namespace visage {
     void setTextEditorBounds();
     void checkScrollHeight();
     void visibilityChanged() override {
-      ScrollableComponent::visibilityChanged();
+      ScrollableFrame::visibilityChanged();
       checkScrollHeight();
     }
 

@@ -76,6 +76,21 @@ namespace visage {
     void pack();
     void clear();
 
+    template<typename T>
+    void setQuadCoordinates(T* vertices, int rect_index) const {
+      float atlas_scale = 1.0f / width();
+      const PackedAtlas::Rect& packed_rect = rectAtIndex(rect_index);
+
+      vertices[0].coordinate_x = packed_rect.x * atlas_scale;
+      vertices[0].coordinate_y = packed_rect.y * atlas_scale;
+      vertices[1].coordinate_x = (packed_rect.x + packed_rect.w) * atlas_scale;
+      vertices[1].coordinate_y = packed_rect.y * atlas_scale;
+      vertices[2].coordinate_x = packed_rect.x * atlas_scale;
+      vertices[2].coordinate_y = (packed_rect.y + packed_rect.h) * atlas_scale;
+      vertices[3].coordinate_x = (packed_rect.x + packed_rect.w) * atlas_scale;
+      vertices[3].coordinate_y = (packed_rect.y + packed_rect.h) * atlas_scale;
+    }
+
   private:
     void loadPackedRects();
     void loadLastPackedRect();

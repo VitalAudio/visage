@@ -302,7 +302,7 @@ namespace visage {
     return true;
   }
 
-  uint8_t* initQuadVertices(int num_quads, const bgfx::VertexLayout& layout) {
+  uint8_t* initQuadVerticesWithLayout(int num_quads, const bgfx::VertexLayout& layout) {
     bgfx::TransientVertexBuffer vertex_buffer {};
     bgfx::TransientIndexBuffer index_buffer {};
     if (!initTransientQuadBuffers(num_quads, layout, &vertex_buffer, &index_buffer))
@@ -439,11 +439,6 @@ namespace visage {
   }
 
   void submitIcons(const BatchVector<IconWrapper>& batches, Canvas& canvas, int submit_pass) {
-    bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::TransientIndexBuffer index_buffer {};
-    if (!initTransientQuadBuffers(numShapes(batches), IconVertex::layout(), &vertex_buffer, &index_buffer))
-      return;
-
     std::set<Icon> insert_set;
     for (const auto& batch : batches) {
       for (const IconWrapper& icon : *batch.shapes)
@@ -453,39 +448,14 @@ namespace visage {
     if (!insert_set.empty())
       canvas.iconGroup()->addIcons(insert_set);
 
-    IconVertex* vertices = reinterpret_cast<IconVertex*>(vertex_buffer.data);
-    if (vertices == nullptr)
+    if (!setupQuads(batches))
       return;
-
-    int vertex_index = 0;
-    for (const auto& batch : batches) {
-      for (const IconWrapper& icon : *batch.shapes) {
-        canvas.iconGroup()->setIconPositions(vertices + vertex_index, icon.icon, icon.color,
-                                             icon.x + batch.x, icon.y + batch.y);
-
-        int left = icon.clamp.left + batch.x;
-        int top = icon.clamp.top + batch.y;
-        int right = icon.clamp.right + batch.x;
-        int bottom = icon.clamp.bottom + batch.y;
-        for (int v = vertex_index; v < vertex_index + kVerticesPerQuad; ++v) {
-          vertices[v].direction_x = 1.0f;
-          vertices[v].direction_y = 0.0f;
-          vertices[v].clamp_left = left;
-          vertices[v].clamp_top = top;
-          vertices[v].clamp_right = right;
-          vertices[v].clamp_bottom = bottom;
-        }
-        vertex_index += kVerticesPerQuad;
-      }
-    }
 
     setBlendState(BlendState::Alpha);
     float atlas_scale[] = { 1.0f / canvas.iconGroup()->atlasWidth(),
                             1.0f / canvas.iconGroup()->atlasWidth(), 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale);
     setTexture<Uniforms::kTexture>(0, canvas.iconGroup()->textureHandle());
-    bgfx::setVertexBuffer(0, &vertex_buffer);
-    bgfx::setIndexBuffer(&index_buffer);
     setUniformDimensions(canvas.width(), canvas.height());
     setColorMult(canvas.hdr());
 
@@ -494,44 +464,36 @@ namespace visage {
   }
 
   void submitImages(const BatchVector<ImageWrapper>& batches, Canvas& canvas, int submit_pass) {
-    bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::TransientIndexBuffer index_buffer {};
-    if (!initTransientQuadBuffers(numShapes(batches), ImageVertex::layout(), &vertex_buffer, &index_buffer))
+    if (!setupQuads(batches))
       return;
-
-    ImageVertex* vertices = reinterpret_cast<ImageVertex*>(vertex_buffer.data);
-    int vertex_index = 0;
-    for (const auto& batch : batches) {
-      for (const ImageWrapper& image : *batch.shapes) {
-        canvas.imageGroup()->setImagePositions(vertices + vertex_index, image.image, image.color,
-                                               image.x + batch.x, image.y + batch.y);
-
-        int left = image.clamp.left + batch.x;
-        int top = image.clamp.top + batch.y;
-        int right = image.clamp.right + batch.x;
-        int bottom = image.clamp.bottom + batch.y;
-        for (int v = vertex_index; v < vertex_index + kVerticesPerQuad; ++v) {
-          vertices[v].clamp_left = left;
-          vertices[v].clamp_top = top;
-          vertices[v].clamp_right = right;
-          vertices[v].clamp_bottom = bottom;
-        }
-        vertex_index += kVerticesPerQuad;
-      }
-    }
 
     setBlendState(BlendState::Alpha);
     float atlas_scale[] = { 1.0f / canvas.imageGroup()->atlasWidth(),
                             1.0f / canvas.imageGroup()->atlasWidth(), 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale);
     setTexture<Uniforms::kTexture>(0, canvas.imageGroup()->atlasTexture());
-    bgfx::setVertexBuffer(0, &vertex_buffer);
-    bgfx::setIndexBuffer(&index_buffer);
     setUniformDimensions(canvas.width(), canvas.height());
     setColorMult(canvas.hdr());
     auto program = ProgramCache::programHandle(ImageWrapper::vertexShader(),
                                                ImageWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
+  }
+
+  inline int numTextPieces(const TextBlock& text, int x, int y, const std::vector<Bounds>& invalid_rects) {
+    auto count_pieces = [x, y, &text](int sum, Bounds invalid_rect) {
+      ClampBounds clamp = text.clamp.clamp(invalid_rect.x() - x, invalid_rect.y() - y,
+                                           invalid_rect.width(), invalid_rect.height());
+      if (text.totallyClamped(clamp))
+        return sum;
+
+      auto overlaps = [&clamp, &text](const FontAtlasQuad& quad) {
+        return quad.left_position + text.x < clamp.right && quad.right_position + text.x > clamp.left &&
+               quad.top_position + text.y < clamp.bottom && quad.bottom_position + text.y > clamp.top;
+      };
+      int num_pieces = std::count_if(text.quads.begin(), text.quads.end(), overlaps);
+      return sum + num_pieces;
+    };
+    return std::accumulate(invalid_rects.begin(), invalid_rects.end(), 0, count_pieces);
   }
 
   void submitText(const BatchVector<TextBlock>& batches, const Canvas& canvas, int submit_pass) {
@@ -541,115 +503,113 @@ namespace visage {
     const Font& font = batches[0].shapes->at(0).text->font();
     int total_length = 0;
     for (const auto& batch : batches) {
-      for (const TextBlock& text_block : *batch.shapes)
-        total_length += text_block.quads.size();
+      for (const TextBlock& text_block : *batch.shapes) {
+        auto count_pieces = [&batch](int sum, const TextBlock& text_block) {
+          return sum + numTextPieces(text_block, batch.x, batch.y, *batch.invalid_rects);
+        };
+        total_length += std::accumulate(batch.shapes->begin(), batch.shapes->end(), 0, count_pieces);
+      }
     }
 
     if (total_length == 0)
       return;
 
-    int num_vertices = total_length * kVerticesPerQuad;
-    int num_indices = total_length * kIndicesPerQuad;
-    bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::TransientIndexBuffer index_buffer {};
-    if (!bgfx::allocTransientBuffers(&vertex_buffer, GlyphVertex::layout(), num_vertices,
-                                     &index_buffer, num_indices)) {
-      return;
-    }
-    GlyphVertex* vertices = reinterpret_cast<GlyphVertex*>(vertex_buffer.data);
-    uint16_t* indices = reinterpret_cast<uint16_t*>(index_buffer.data);
-
-    int letter_offset = 0;
+    GlyphVertex* vertices = initQuadVertices<GlyphVertex>(total_length);
+    int vertex_index = 0;
     for (const auto& batch : batches) {
       for (const TextBlock& text_block : *batch.shapes) {
         int length = text_block.quads.size();
         if (length == 0)
           continue;
 
-        int vertex_index = letter_offset * kVerticesPerQuad;
         int x = text_block.x + batch.x;
         int y = text_block.y + batch.y;
+        int start_vertex_index = vertex_index;
+        for (const Bounds& invalid_rect : *batch.invalid_rects) {
+          ClampBounds clamp = text_block.clamp.clamp(invalid_rect.x() - batch.x,
+                                                     invalid_rect.y() - batch.y,
+                                                     invalid_rect.width(), invalid_rect.height());
+          if (text_block.totallyClamped(clamp))
+            continue;
 
-        for (int i = 0; i < length; ++i) {
-          float left = x + text_block.quads[i].left_position;
-          float right = x + text_block.quads[i].right_position;
-          float top = y + text_block.quads[i].top_position;
-          float bottom = y + text_block.quads[i].bottom_position;
+          auto overlaps = [&clamp, &text_block](const FontAtlasQuad& quad) {
+            return quad.left_position + text_block.x < clamp.right &&
+                   quad.right_position + text_block.x > clamp.left &&
+                   quad.top_position + text_block.y < clamp.bottom &&
+                   quad.bottom_position + text_block.y > clamp.top;
+          };
 
-          int index = vertex_index + i * kVerticesPerQuad;
-          vertices[index].x = left;
-          vertices[index].y = top;
-          vertices[index].coordinate_x = text_block.quads[i].left_coordinate;
-          vertices[index].coordinate_y = text_block.quads[i].top_coordinate;
-          vertices[index].color = text_block.color.corners[0];
-          vertices[index].hdr = text_block.color.hdr[0];
+          ClampBounds positioned_clamp = clamp.withOffset(batch.x, batch.y);
 
-          vertices[index + 1].x = right;
-          vertices[index + 1].y = top;
-          vertices[index + 1].coordinate_x = text_block.quads[i].right_coordinate;
-          vertices[index + 1].coordinate_y = text_block.quads[i].top_coordinate;
-          vertices[index + 1].color = text_block.color.corners[1];
-          vertices[index + 1].hdr = text_block.color.hdr[1];
+          for (int i = 0; i < length; ++i) {
+            if (!overlaps(text_block.quads[i]))
+              continue;
 
-          vertices[index + 2].x = left;
-          vertices[index + 2].y = bottom;
-          vertices[index + 2].coordinate_x = text_block.quads[i].left_coordinate;
-          vertices[index + 2].coordinate_y = text_block.quads[i].bottom_coordinate;
-          vertices[index + 2].color = text_block.color.corners[2];
-          vertices[index + 2].hdr = text_block.color.hdr[2];
+            float left = x + text_block.quads[i].left_position;
+            float right = x + text_block.quads[i].right_position;
+            float top = y + text_block.quads[i].top_position;
+            float bottom = y + text_block.quads[i].bottom_position;
 
-          vertices[index + 3].x = right;
-          vertices[index + 3].y = bottom;
-          vertices[index + 3].coordinate_x = text_block.quads[i].right_coordinate;
-          vertices[index + 3].coordinate_y = text_block.quads[i].bottom_coordinate;
-          vertices[index + 3].color = text_block.color.corners[3];
-          vertices[index + 3].hdr = text_block.color.hdr[3];
+            vertices[vertex_index].x = left;
+            vertices[vertex_index].y = top;
+            vertices[vertex_index].coordinate_x = text_block.quads[i].left_coordinate;
+            vertices[vertex_index].coordinate_y = text_block.quads[i].top_coordinate;
+            vertices[vertex_index].color = text_block.color.corners[0];
+            vertices[vertex_index].hdr = text_block.color.hdr[0];
+
+            vertices[vertex_index + 1].x = right;
+            vertices[vertex_index + 1].y = top;
+            vertices[vertex_index + 1].coordinate_x = text_block.quads[i].right_coordinate;
+            vertices[vertex_index + 1].coordinate_y = text_block.quads[i].top_coordinate;
+            vertices[vertex_index + 1].color = text_block.color.corners[1];
+            vertices[vertex_index + 1].hdr = text_block.color.hdr[1];
+
+            vertices[vertex_index + 2].x = left;
+            vertices[vertex_index + 2].y = bottom;
+            vertices[vertex_index + 2].coordinate_x = text_block.quads[i].left_coordinate;
+            vertices[vertex_index + 2].coordinate_y = text_block.quads[i].bottom_coordinate;
+            vertices[vertex_index + 2].color = text_block.color.corners[2];
+            vertices[vertex_index + 2].hdr = text_block.color.hdr[2];
+
+            vertices[vertex_index + 3].x = right;
+            vertices[vertex_index + 3].y = bottom;
+            vertices[vertex_index + 3].coordinate_x = text_block.quads[i].right_coordinate;
+            vertices[vertex_index + 3].coordinate_y = text_block.quads[i].bottom_coordinate;
+            vertices[vertex_index + 3].color = text_block.color.corners[3];
+            vertices[vertex_index + 3].hdr = text_block.color.hdr[3];
+
+            for (int v = vertex_index; v < vertex_index + kVerticesPerQuad; ++v) {
+              vertices[v].clamp_left = positioned_clamp.left;
+              vertices[v].clamp_top = positioned_clamp.top;
+              vertices[v].clamp_right = positioned_clamp.right;
+              vertices[v].clamp_bottom = positioned_clamp.bottom;
+            }
+
+            vertex_index += kVerticesPerQuad;
+          }
         }
 
-        int end_vertex = vertex_index + length * kVerticesPerQuad;
         if (text_block.direction == Direction::Left || text_block.direction == Direction::Right) {
           float direction = text_block.direction == Direction::Left ? -1.0f : 1.0f;
-          for (int i = vertex_index; i < end_vertex; ++i) {
+          for (int i = start_vertex_index; i < vertex_index; ++i) {
             vertices[i].direction_y = direction;
             vertices[i].direction_x = 0.0f;
           }
         }
         else {
           float direction = text_block.direction == Direction::Up ? 1.0f : -1.0f;
-          for (int i = vertex_index; i < end_vertex; ++i) {
+          for (int i = start_vertex_index; i < vertex_index; ++i) {
             vertices[i].direction_x = direction;
             vertices[i].direction_y = 0.0f;
           }
         }
-
-        int left = text_block.clamp.left + batch.x;
-        int top = text_block.clamp.top + batch.y;
-        int right = text_block.clamp.right + batch.x;
-        int bottom = text_block.clamp.bottom + batch.y;
-        for (int v = vertex_index; v < end_vertex; ++v) {
-          vertices[v].clamp_left = left;
-          vertices[v].clamp_top = top;
-          vertices[v].clamp_right = right;
-          vertices[v].clamp_bottom = bottom;
-        }
-
-        letter_offset += length;
       }
-    }
-
-    for (int i = 0; i < total_length; ++i) {
-      int vertex_index = i * kVerticesPerQuad;
-      int index = i * kIndicesPerQuad;
-      for (int v = 0; v < kIndicesPerQuad; ++v)
-        indices[index + v] = vertex_index + kQuadTriangles[v];
     }
 
     setBlendState(BlendState::Alpha);
     float atlas_scale[] = { 1.0f / font.atlasWidth(), 1.0f / font.atlasWidth(), 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale);
     setTexture<Uniforms::kTexture>(0, font.textureHandle());
-    bgfx::setVertexBuffer(0, &vertex_buffer);
-    bgfx::setIndexBuffer(&index_buffer);
     setUniformDimensions(canvas.width(), canvas.height());
     setColorMult(canvas.hdr());
     bgfx::submit(submit_pass,
@@ -657,35 +617,15 @@ namespace visage {
   }
 
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Canvas& canvas, int submit_pass) {
-    if (batches.empty())
+    if (!setupQuads(batches))
       return;
 
-    Shader* shader = batches[0].shapes->at(0).shader;
-    bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::TransientIndexBuffer index_buffer {};
-    if (!initTransientQuadBuffers(numShapes(batches), ShapeVertex::layout(), &vertex_buffer, &index_buffer))
-      return;
-
-    ShapeVertex* vertices = reinterpret_cast<ShapeVertex*>(vertex_buffer.data);
-    int vertex_index = 0;
-    for (const auto& batch : batches) {
-      for (const ShaderWrapper& wrapper : *batch.shapes) {
-        setShapeQuadVertices(vertices + vertex_index, wrapper.x + batch.x, wrapper.y + batch.y,
-                             wrapper.width, wrapper.height,
-                             wrapper.clamp.withOffset(batch.x, batch.y), wrapper.color);
-        vertex_index += kVerticesPerQuad;
-      }
-    }
-
-    bgfx::setVertexBuffer(0, &vertex_buffer);
-    bgfx::setIndexBuffer(&index_buffer);
     setBlendState(BlendState::Alpha);
-
-    float time[] = { static_cast<float>(canvas.time()), 0.0f, 0.0f, 0.0f };
-    setUniform<Uniforms::kTime>(time);
-
+    setTimeUniform(canvas.time());
     setUniformDimensions(canvas.width(), canvas.height());
     setColorMult(canvas.hdr());
+    setOriginFlipUniform(canvas.bottomLeftOrigin());
+    Shader* shader = batches[0].shapes->at(0).shader;
     bgfx::submit(submit_pass,
                  ProgramCache::programHandle(shader->vertexShader(), shader->fragmentShader()));
   }

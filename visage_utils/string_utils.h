@@ -22,7 +22,7 @@
 namespace visage {
   class String {
   public:
-    template<class Utf32String>
+    template<typename Utf32String>
     static Utf32String convertUtf8ToUtf32(const std::string& utf8_str) {
       Utf32String result;
       result.reserve(utf8_str.size());
@@ -64,7 +64,7 @@ namespace visage {
       return result;
     }
 
-    template<class Utf32String>
+    template<typename Utf32String>
     static std::string convertUtf32ToUtf8(const Utf32String& utf32_str) {
       std::string result;
       result.reserve(utf32_str.size() * 4);
@@ -93,7 +93,7 @@ namespace visage {
       return result;
     }
 
-    template<class T>
+    template<typename T>
     static T convertUtf32ToUtf16(const std::u32string& utf32_str) {
       T result;
       result.reserve(utf32_str.size());
@@ -117,7 +117,7 @@ namespace visage {
       return result;
     }
 
-    template<class T>
+    template<typename T>
     static std::u32string convertUtf16ToUtf32(const T& utf16_str) {
       std::u32string result;
       result.reserve(utf16_str.size());

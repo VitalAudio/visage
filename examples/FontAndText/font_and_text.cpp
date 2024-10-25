@@ -33,7 +33,7 @@ public:
       std::ostringstream format;
       format << "Monospace: " << std::fixed << std::setprecision(2) << incrment_value_;
       canvas.text(format.str(), increment_font_, visage::Font::kRight, 0, 0, increment_.width(),
-                  increment_.height());
+                  increment_.height(), visage::Direction::Left);
       increment_.redraw();
     };
   }

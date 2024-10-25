@@ -16,7 +16,10 @@
 
 #pragma once
 
+#include "defines.h"
+
 #include <algorithm>
+#include <vector>
 
 namespace visage {
   struct Point {
@@ -139,6 +142,49 @@ namespace visage {
 
     Bounds operator+(const Point& point) const {
       return { x_ + point.x, y_ + point.y, width_, height_ };
+    }
+
+    // Create nonoverlapping rectangles that cover the same area as _rect1_ and _rect2_.
+    // Input bounds are modified and additional rectangles needed are put into _pieces_.
+    static void breakIntoNonOverlapping(Bounds& rect1, Bounds& rect2, std::vector<Bounds>& pieces) {
+      Bounds original_new = rect1;
+      Bounds original_old = rect2;
+      if (!rect1.overlaps(rect2))
+        return;
+
+      Bounds subtraction;
+      if (rect1.subtract(rect2, subtraction)) {
+        rect1 = subtraction;
+        return;
+      }
+      if (rect2.subtract(rect1, subtraction)) {
+        rect2 = subtraction;
+        return;
+      }
+      Bounds breaks[4];
+      Bounds remaining = rect2;
+      int index = 0;
+      if (remaining.x() < rect1.x()) {
+        breaks[index++] = { remaining.x(), remaining.y(), rect1.x() - remaining.x(), remaining.height() };
+        remaining = { rect1.x(), remaining.y(), remaining.right() - rect1.x(), remaining.height() };
+      }
+      if (remaining.y() < rect1.y()) {
+        breaks[index++] = { remaining.x(), remaining.y(), remaining.width(), rect1.y() - remaining.y() };
+        remaining = { remaining.x(), rect1.y(), remaining.width(), remaining.bottom() - rect1.y() };
+      }
+      if (remaining.right() > rect1.right()) {
+        breaks[index++] = { rect1.right(), remaining.y(), remaining.right() - rect1.right(),
+                            remaining.height() };
+        remaining = { remaining.x(), remaining.y(), rect1.right() - remaining.x(), remaining.height() };
+      }
+      if (remaining.bottom() > rect1.bottom()) {
+        breaks[index++] = { remaining.x(), rect1.bottom(), remaining.width(),
+                            remaining.bottom() - rect1.bottom() };
+      }
+      VISAGE_ASSERT(index == 2);
+
+      rect2 = breaks[0];
+      pieces.push_back(breaks[1]);
     }
 
   private:

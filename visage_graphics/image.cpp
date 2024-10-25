@@ -28,7 +28,7 @@ namespace visage {
       initialized = true;
       layout.begin()
           .add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
           .add(bgfx::Attrib::Color1, 1, bgfx::AttribType::Float)
@@ -113,53 +113,18 @@ namespace visage {
     return bgfx::getTexture(canvas_->frameBuffer());
   }
 
-  void ImageGroup::setImagePositions(ImageVertex* vertices, const Image* image,
-                                     const QuadColor& color, float x, float y) const {
+  void ImageGroup::setImageCoordinates(ImageVertex* vertices, const Image* image) const {
     int index = imageIndex(image);
 
     VISAGE_ASSERT(index >= 0);
     if (index < 0)
       return;
 
-    float atlas_scale = 1.0f / atlas_.width();
-    PackedAtlas::Rect packed_rect = atlas_.rectAtIndex(index);
-
-    float packed_width = packed_rect.w;
-    float packed_height = packed_rect.h;
-
-    vertices[0].coordinate_x = packed_rect.x * atlas_scale;
-    vertices[0].coordinate_y = packed_rect.y * atlas_scale;
-    vertices[1].coordinate_x = (packed_rect.x + packed_width) * atlas_scale;
-    vertices[1].coordinate_y = packed_rect.y * atlas_scale;
-    vertices[2].coordinate_x = packed_rect.x * atlas_scale;
-    vertices[2].coordinate_y = (packed_rect.y + packed_height) * atlas_scale;
-    vertices[3].coordinate_x = (packed_rect.x + packed_width) * atlas_scale;
-    vertices[3].coordinate_y = (packed_rect.y + packed_height) * atlas_scale;
+    atlas_.setQuadCoordinates(vertices, index);
 
     if (bgfx::getCaps()->originBottomLeft) {
       for (int i = 0; i < 4; ++i)
         vertices[i].coordinate_y = 1.0f - vertices[i].coordinate_y;
-    }
-
-    for (int i = 0; i < kVerticesPerQuad; ++i) {
-      vertices[i].clamp_left = 0;
-      vertices[i].clamp_top = 0;
-      vertices[i].clamp_right = x + packed_width;
-      vertices[i].clamp_bottom = y + packed_height;
-    }
-
-    vertices[0].x = x;
-    vertices[0].y = y;
-    vertices[1].x = x + packed_width;
-    vertices[1].y = y;
-    vertices[2].x = x;
-    vertices[2].y = y + packed_height;
-    vertices[3].x = x + packed_width;
-    vertices[3].y = y + packed_height;
-
-    for (int i = 0; i < 4; ++i) {
-      vertices[i].color = color.corners[i];
-      vertices[i].hdr = color.hdr[i];
     }
   }
 }

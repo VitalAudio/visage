@@ -31,7 +31,7 @@
 namespace visage {
   class Frame;
 
-  template<class T>
+  template<typename T>
   class CallbackList {
   public:
     template<typename R>
@@ -43,7 +43,10 @@ namespace visage {
     }
 
     CallbackList() = default;
-    explicit CallbackList(std::function<T> callback) : original_(callback) { add(callback); }
+    explicit CallbackList(std::function<T> callback) :
+        original_(std::make_unique<std::function<T>>(callback)) {
+      add(callback);
+    }
 
     void add(std::function<T> callback) { callbacks_.push_back(std::move(callback)); }
 
@@ -79,7 +82,7 @@ namespace visage {
     void reset() {
       callbacks_.clear();
       if (original_)
-        callbacks_.push_back(original_);
+        callbacks_.push_back(*original_);
     }
 
     void clear() { callbacks_.clear(); }
@@ -96,7 +99,7 @@ namespace visage {
     }
 
   private:
-    std::function<T> original_ = nullptr;
+    std::unique_ptr<std::function<T>> original_;
     std::vector<std::function<T>> callbacks_;
   };
 
@@ -221,6 +224,7 @@ namespace visage {
         return;
 
       canvas_ = canvas;
+      region_.setCanvas(canvas);
       for (Frame* child : children_)
         child->setCanvas(canvas);
     }
@@ -229,6 +233,7 @@ namespace visage {
 
     void setPostEffectCanvasSettings();
     void setPostEffect(PostEffect* post_effect);
+    PostEffect* postEffect() const { return post_effect_; }
     void removePostEffect();
 
     const std::string& name() const { return name_; }
@@ -258,7 +263,7 @@ namespace visage {
     }
     FrameEventHandler* eventHandler() const { return event_handler_; }
 
-    template<class T>
+    template<typename T>
     T* findParent() const {
       Frame* frame = parent_;
       while (frame) {

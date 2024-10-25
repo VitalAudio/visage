@@ -45,10 +45,18 @@ namespace visage {
       const std::vector<Region*>& subRegions() const { return sub_regions_; }
       int numRegions() const { return sub_regions_.size(); }
 
-      void addRegion(Region* region) { sub_regions_.push_back(region); }
-      void removeRegion(const Region* region) {
+      void addRegion(Region* region) {
+        VISAGE_ASSERT(region->parent_ == nullptr);
+        sub_regions_.push_back(region);
+        region->parent_ = this;
+      }
+
+      void removeRegion(Region* region) {
+        region->parent_ = nullptr;
         sub_regions_.erase(std::find(sub_regions_.begin(), sub_regions_.end(), region));
       }
+
+      void setCanvas(Canvas* canvas) { canvas_ = canvas; }
 
       void setBounds(int x, int y, int width, int height) {
         invalidate();
@@ -72,14 +80,12 @@ namespace visage {
       int height() const { return height_; }
 
       void invalidateRect(Bounds rect) {
-        return;
         Region* region = this;
         while (region->parent_) {
           rect = rect + Point(region->x_, region->y_);
           region = region->parent_;
         }
 
-        VISAGE_ASSERT(region->canvas_);
         if (region->canvas_)
           region->canvas_->invalidateRect(rect);
       }
@@ -118,7 +124,7 @@ namespace visage {
       Region* parent_ = nullptr;
       ShapeBatcher shape_batcher_;
       std::vector<std::unique_ptr<Text>> text_store_;
-      std::vector<std::pair<Canvas*, PostEffect*>> external_canvases_;
+      std::vector<CanvasWrapper> external_canvases_;
       std::vector<Region*> sub_regions_;
     };
 
@@ -145,6 +151,7 @@ namespace visage {
     void removeFromWindow();
 
     void setHdr(bool hdr);
+
     void setDimensions(int width, int height);
     void setWidthScale(float width_scale) { width_scale_ = width_scale; }
     void setHeightScale(float height_scale) { height_scale_ = height_scale; }
@@ -433,14 +440,14 @@ namespace visage {
 
     void icon(const Icon& icon, float x, float y) {
       addShape(IconWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y,
-                           icon.width * 1.0f, icon.height * 1.0f, icon));
+                           icon.width * 1.0f, icon.height * 1.0f, icon, iconGroup()));
     }
 
     void icon(const char* svg_data, int svg_size, float x, float y, int width, int height,
               int blur_radius = 0) {
       Icon icon(svg_data, svg_size, width, height, blur_radius);
       addShape(IconWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y, width * 1.0f,
-                           height * 1.0f, icon));
+                           height * 1.0f, icon, iconGroup()));
     }
 
     void icon(const EmbeddedFile& svg, float x, float y, int width, int height, int blur_radius = 0) {
@@ -450,7 +457,7 @@ namespace visage {
     void image(Image* image, float x, float y) {
       images_.insert(image);
       addShape(ImageWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y,
-                            image->width() * 1.0f, image->height() * 1.0f, image));
+                            image->width() * 1.0f, image->height() * 1.0f, image, imageGroup()));
     }
 
     void shader(Shader* shader, float x, float y, float width, float height) {
@@ -469,9 +476,10 @@ namespace visage {
 
     void subcanvas(Canvas* canvas, float x, float y, float width, float height,
                    PostEffect* post_effect = nullptr) {
-      state_.current_region->external_canvases_.emplace_back(canvas, post_effect);
-      addShape(CanvasWrapper(state_.clamp, 0xffffffff, state_.x + x, state_.y + y, width, height,
-                             canvas, post_effect));
+      CanvasWrapper wrapper(state_.clamp, 0xffffffff, state_.x + x, state_.y + y, width, height,
+                            canvas, post_effect);
+      state_.current_region->external_canvases_.push_back(wrapper);
+      addShape(wrapper);
     }
 
     void saveState() { state_memory_.push_back(state_); }
@@ -516,12 +524,7 @@ namespace visage {
     void setClampBounds(const ClampBounds& bounds) { state_.clamp = bounds; }
 
     void trimClampBounds(int x, int y, int width, int height) {
-      state_.clamp.left = std::max<int>(state_.clamp.left, state_.x + x);
-      state_.clamp.top = std::max<int>(state_.clamp.top, state_.y + y);
-      state_.clamp.right = std::max<int>(state_.clamp.left,
-                                         std::min<int>(state_.clamp.right, state_.x + x + width));
-      state_.clamp.bottom = std::max<int>(state_.clamp.top,
-                                          std::min<int>(state_.clamp.bottom, state_.y + y + height));
+      state_.clamp = state_.clamp.clamp(state_.x + x, state_.y + y, width, height);
     }
 
     void moveClampBounds(int x_offset, int y_offset) {
@@ -532,10 +535,7 @@ namespace visage {
     }
 
     const ClampBounds& currentClampBounds() const { return state_.clamp; }
-
-    bool totallyClamped() const {
-      return state_.clamp.bottom <= state_.clamp.top || state_.clamp.right <= state_.clamp.left;
-    }
+    bool totallyClamped() const { return state_.clamp.totallyClamped(); }
 
     int x() const { return state_.x; }
     int y() const { return state_.y; }
@@ -567,7 +567,7 @@ namespace visage {
       addShape(RoundedCorner(state_.clamp, state_.color, state_.x + x, state_.y + y, width, corner));
     }
 
-    template<class T>
+    template<typename T>
     void addShape(T shape) {
       state_.current_region->shape_batcher_.addShape(std::move(shape));
     }

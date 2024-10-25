@@ -138,7 +138,7 @@ namespace visage {
   }
 
   void PopupList::resized() {
-    ScrollableComponent::resized();
+    ScrollableFrame::resized();
     setScrollableHeight(renderHeight(), height());
   }
 

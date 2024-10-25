@@ -26,6 +26,8 @@ namespace visage {
   struct IconVertex {
     float x;
     float y;
+    float dimension_x;
+    float dimension_y;
     float coordinate_x;
     float coordinate_y;
     float direction_x;
@@ -93,8 +95,7 @@ namespace visage {
         return icon_lookup_.at(icon);
       return -1;
     }
-    void setIconPositions(IconVertex* vertices, const Icon& icon, const QuadColor& color, float x,
-                          float y) const;
+    void setIconCoordinates(IconVertex* vertices, const Icon& icon) const;
 
   private:
     bool addIcon(const Icon& icon);

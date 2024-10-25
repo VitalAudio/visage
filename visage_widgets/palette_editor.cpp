@@ -312,7 +312,7 @@ namespace visage {
     if (e.position.x < width() * kPaletteWidthRatio)
       color_list_.mouseWheel(e);
     else
-      ScrollableComponent::mouseWheel(e);
+      ScrollableFrame::mouseWheel(e);
     redraw();
   }
 

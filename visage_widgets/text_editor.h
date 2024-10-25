@@ -22,7 +22,7 @@
 #include "visage_ui/scroll_bar.h"
 
 namespace visage {
-  class TextEditor : public ScrollableComponent {
+  class TextEditor : public ScrollableFrame {
   public:
     static constexpr int kDefaultPasswordCharacter = '*';
     static constexpr int kMaxUndoHistory = 1000;
@@ -98,7 +98,7 @@ namespace visage {
     int endOfWord() const;
 
     void resized() override {
-      ScrollableComponent::resized();
+      ScrollableFrame::resized();
       setBackgroundRounding(paletteValue(kTextEditorRounding));
       setMargin(paletteValue(kTextEditorMarginX), paletteValue(kTextEditorMarginY));
       setLineBreaks();

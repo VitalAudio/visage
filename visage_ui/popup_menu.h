@@ -22,7 +22,7 @@
 #include "visage_graphics/font.h"
 
 namespace visage {
-  class PopupList : public ScrollableComponent {
+  class PopupList : public ScrollableFrame {
   public:
     class Listener {
     public:
@@ -63,7 +63,7 @@ namespace visage {
     void mouseDrag(const MouseEvent& e) override;
     void mouseUp(const MouseEvent& e) override;
     void mouseWheel(const MouseEvent& e) override {
-      ScrollableComponent::mouseWheel(e);
+      ScrollableFrame::mouseWheel(e);
       if (isVisible()) {
         for (Listener* listener : listeners_)
           listener->mouseMovedOnMenu(e.relativeTo(this).position, this);

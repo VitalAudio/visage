@@ -122,3 +122,12 @@ TEST_CASE("Bounds subtract side overlap", "[utils]") {
   REQUIRE(result.width() == 5);
   REQUIRE(result.height() == 5);
 }
+
+TEST_CASE("Breaking rectangles", "[utils]") {
+  Bounds bounds1(0, 0, 2312, 1161);
+  Bounds bounds2(0, 1154, 1126, 156);
+  std::vector<Bounds> pieces;
+  Bounds::breakIntoNonOverlapping(bounds1, bounds2, pieces);
+  REQUIRE(!bounds1.overlaps(bounds2));
+  REQUIRE(pieces.size() == 0);
+}

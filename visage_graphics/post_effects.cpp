@@ -280,12 +280,10 @@ namespace visage {
 
   void BlurBloomPostEffect::submitPassthrough(const CanvasWrapper& source,
                                               const Canvas& destination, int submit_pass) const {
-    bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::TransientIndexBuffer index_buffer {};
-    if (!initTransientQuadBuffers(1, ShapeVertex::layout(), &vertex_buffer, &index_buffer))
+    auto vertices = initQuadVertices<ShapeVertex>(1);
+    if (vertices == nullptr)
       return;
 
-    auto vertices = reinterpret_cast<ShapeVertex*>(vertex_buffer.data);
     setShapeQuadVertices(vertices, source.x, source.y, source.width, source.height, source.clamp,
                          source.color);
     float flip = destination.bottomLeftOrigin() ? 1.0f : 0.0f;
@@ -303,8 +301,6 @@ namespace visage {
     if (passthrough_mult) {
       setBlendState(BlendState::Opaque);
       setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source.canvas->frameBuffer()));
-      bgfx::setVertexBuffer(0, &vertex_buffer);
-      bgfx::setIndexBuffer(&index_buffer);
       float mult_values[4] = { passthrough_mult, passthrough_mult, passthrough_mult, passthrough_mult };
       setPostEffectUniform<Uniforms::kColorMult>(mult_values);
       setUniformDimensions(destination.width(), destination.height());
@@ -315,12 +311,10 @@ namespace visage {
 
   void BlurBloomPostEffect::submitBloom(const CanvasWrapper& source, const Canvas& destination,
                                         int submit_pass) const {
-    bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::TransientIndexBuffer index_buffer {};
-    if (!initTransientQuadBuffers(1, ShapeVertex::layout(), &vertex_buffer, &index_buffer))
+    auto vertices = initQuadVertices<ShapeVertex>(1);
+    if (vertices == nullptr)
       return;
 
-    auto vertices = reinterpret_cast<ShapeVertex*>(vertex_buffer.data);
     setShapeQuadVertices(vertices, source.x, source.y, source.width, source.height, source.clamp,
                          source.color);
 
@@ -356,20 +350,16 @@ namespace visage {
     float mult[] = { mult_amount, mult_amount, mult_amount, 1.0f };
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[0]));
     setPostEffectUniform<Uniforms::kColorMult>(mult);
-    bgfx::setVertexBuffer(0, &vertex_buffer);
-    bgfx::setIndexBuffer(&index_buffer);
     setUniformDimensions(destination.width(), destination.height());
     bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_image_sample,
                                                                   visage::shaders::fs_image_sample));
   }
 
   void ShaderPostEffect::submit(const CanvasWrapper& source, Canvas& destination, int submit_pass) {
-    bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::TransientIndexBuffer index_buffer {};
-    if (!initTransientQuadBuffers(1, ShapeVertex::layout(), &vertex_buffer, &index_buffer))
+    auto vertices = initQuadVertices<ShapeVertex>(1);
+    if (vertices == nullptr)
       return;
 
-    auto vertices = reinterpret_cast<ShapeVertex*>(vertex_buffer.data);
     setShapeQuadVertices(vertices, source.x, source.y, source.width, source.height, source.clamp,
                          source.color);
     float flip = destination.bottomLeftOrigin() ? 1.0f : 0.0f;
@@ -385,16 +375,47 @@ namespace visage {
     bgfx::TextureHandle texture = bgfx::getTexture(source.canvas->frameBuffer());
     setBlendState(BlendState::Alpha);
     setPostEffectTexture<Uniforms::kTexture>(0, texture);
-    bgfx::setVertexBuffer(0, &vertex_buffer);
-    bgfx::setIndexBuffer(&index_buffer);
     setUniformDimensions(destination.width(), destination.height());
 
+    setBlendState(BlendState::Alpha);
     for (const auto& uniform : uniforms_)
       bgfx::setUniform(visage::UniformCache::uniformHandle(uniform.first.c_str()), uniform.second.data);
 
     float mult_values[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
     setPostEffectUniform<Uniforms::kColorMult>(mult_values);
     bgfx::ProgramHandle program = ProgramCache::programHandle(vertexShader(), fragmentShader());
+    bgfx::submit(submit_pass, program);
+  }
+
+  void PassthroughPostEffect::submit(const CanvasWrapper& source, Canvas& destination, int submit_pass) {
+    auto vertices = initQuadVertices<UvVertex>(1);
+    if (vertices == nullptr)
+      return;
+
+    float flip = destination.bottomLeftOrigin() ? 1.0f : 0.0f;
+    vertices[0].x = -1.0f;
+    vertices[0].y = 1.0f;
+    vertices[1].x = 1.0f;
+    vertices[1].y = 1.0f;
+    vertices[2].x = -1.0f;
+    vertices[2].y = -1.0f;
+    vertices[3].x = 1.0f;
+    vertices[3].y = -1.0f;
+
+    vertices[0].u = 0.0f;
+    vertices[0].v = flip;
+    vertices[1].u = 1.0f;
+    vertices[1].v = flip;
+    vertices[2].u = 0.0f;
+    vertices[2].v = 1.0f - flip;
+    vertices[3].u = 1.0f;
+    vertices[3].v = 1.0f - flip;
+
+    setBlendState(BlendState::Opaque);
+    bgfx::TextureHandle texture = bgfx::getTexture(source.canvas->frameBuffer());
+    setPostEffectTexture<Uniforms::kTexture>(0, texture);
+
+    bgfx::ProgramHandle program = ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample);
     bgfx::submit(submit_pass, program);
   }
 }

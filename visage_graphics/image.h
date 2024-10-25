@@ -30,6 +30,8 @@ namespace visage {
     float y;
     float coordinate_x;
     float coordinate_y;
+    float dimension_x;
+    float dimension_y;
     float clamp_left;
     float clamp_top;
     float clamp_right;
@@ -70,8 +72,7 @@ namespace visage {
       return -1;
     }
 
-    void setImagePositions(ImageVertex* vertices, const Image* image, const QuadColor& color,
-                           float x, float y) const;
+    void setImageCoordinates(ImageVertex* vertices, const Image* image) const;
 
   private:
     void setNewSize();

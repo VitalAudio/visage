@@ -93,7 +93,7 @@ namespace visage {
     return original;
   }
 
-  TextEditor::TextEditor(const std::string& name) : ScrollableComponent(name) {
+  TextEditor::TextEditor(const std::string& name) : ScrollableFrame(name) {
     undo_history_.reserve(kMaxUndoHistory);
     undone_history_.reserve(kMaxUndoHistory);
 
@@ -392,7 +392,7 @@ namespace visage {
       caret_position_ = positionToIndex({ e.position.x + x_position_, e.position.y + yPosition() });
       if (!e.isShiftDown())
         selection_position_ = caret_position_;
-      makeCaretVisible();
+      makeCaretVisible(); 
     }
 
     redraw();

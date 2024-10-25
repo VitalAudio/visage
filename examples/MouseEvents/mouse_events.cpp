@@ -27,7 +27,6 @@ public:
     else
       canvas.setColor(0xffffffff);
     canvas.circle(x_ - kRadius, y_ - kRadius, 2.0f * kRadius);
-    redraw();
   };
 
   void setPosition(const visage::Point& point) {

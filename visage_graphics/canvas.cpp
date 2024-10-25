@@ -28,11 +28,13 @@ namespace visage {
   };
 
   struct RegionPosition {
-    RegionPosition(Canvas::Region* region, int position, int x = 0, int y = 0) :
-        region(region), position(position), x(x), y(y) { }
+    RegionPosition(Canvas::Region* region, std::vector<Bounds> invalid_rects, int position,
+                   int x = 0, int y = 0) :
+        region(region), invalid_rects(std::move(invalid_rects)), position(position), x(x), y(y) { }
     RegionPosition() = default;
 
     Canvas::Region* region = nullptr;
+    std::vector<Bounds> invalid_rects;
     int position = 0;
     int x = 0;
     int y = 0;
@@ -43,6 +45,7 @@ namespace visage {
 
   Canvas::Canvas() {
     frame_buffer_data_ = std::make_unique<FrameBufferData>();
+    base_region_.setCanvas(this);
     state_.current_region = &base_region_;
   }
 
@@ -52,13 +55,13 @@ namespace visage {
 
   void Canvas::clearDrawnShapes() {
     base_region_.clearAll();
-    invalid_rects_.clear();
-    invalid_rects_.emplace_back(0, 0, width_, height_);
+    invalidate();
   }
 
   void Canvas::pairToWindow(void* window_handle, int width, int height) {
     window_handle_ = window_handle;
     setDimensions(width, height);
+    invalidate();
     destroyFrameBuffer();
   }
 
@@ -70,45 +73,6 @@ namespace visage {
   void Canvas::setHdr(bool hdr) {
     hdr_ = hdr;
     destroyFrameBuffer();
-  }
-
-  inline void breakRectangles(Bounds& new_rect, Bounds& old_rect, std::vector<Bounds>& pieces) {
-    if (!new_rect.overlaps(old_rect))
-      return;
-
-    Bounds subtraction;
-    if (new_rect.subtract(old_rect, subtraction)) {
-      new_rect = subtraction;
-      return;
-    }
-    if (new_rect.subtract(old_rect, subtraction)) {
-      old_rect = subtraction;
-      return;
-    }
-    Bounds breaks[4];
-    Bounds remaining = old_rect;
-    int index = 0;
-    if (remaining.x() < new_rect.x()) {
-      breaks[index++] = { remaining.x(), remaining.y(), new_rect.x() - remaining.x(), remaining.height() };
-      remaining = { new_rect.x(), remaining.y(), remaining.right() - new_rect.x(), remaining.height() };
-    }
-    if (remaining.y() < new_rect.y()) {
-      breaks[index++] = { remaining.x(), remaining.y(), remaining.width(), new_rect.y() - remaining.y() };
-      remaining = { remaining.x(), new_rect.y(), remaining.width(), remaining.bottom() - new_rect.y() };
-    }
-    if (remaining.right() > new_rect.right()) {
-      breaks[index++] = { new_rect.right(), remaining.y(), remaining.right() - new_rect.right(),
-                          remaining.height() };
-      remaining = { remaining.x(), remaining.y(), new_rect.right() - remaining.x(), remaining.height() };
-    }
-    if (remaining.bottom() > new_rect.bottom()) {
-      breaks[index++] = { remaining.x(), new_rect.bottom(), remaining.width(),
-                          remaining.bottom() - new_rect.bottom() };
-    }
-    VISAGE_ASSERT(index == 2);
-
-    old_rect = breaks[0];
-    pieces.push_back(breaks[1]);
   }
 
   inline void moveToVector(std::vector<Bounds>& rects, std::vector<Bounds>& pieces) {
@@ -128,7 +92,7 @@ namespace visage {
         it = invalid_rects_.erase(it);
         continue;
       }
-      breakRectangles(rect, invalid_rect, invalid_rect_pieces_);
+      Bounds::breakIntoNonOverlapping(rect, invalid_rect, invalid_rect_pieces_);
       ++it;
     }
 
@@ -138,6 +102,8 @@ namespace visage {
 
   void Canvas::setDimensions(int width, int height) {
     VISAGE_ASSERT(state_memory_.empty());
+    width = std::max(1, width);
+    height = std::max(1, height);
     if (width == width_ && height == height_)
       return;
 
@@ -154,6 +120,7 @@ namespace visage {
 
     images_.clear();
     destroyFrameBuffer();
+    invalidate();
   }
 
   bgfx::FrameBufferHandle& Canvas::frameBuffer() const {
@@ -192,15 +159,25 @@ namespace visage {
         return other->isVisible() && sub_region->overlaps(other);
       });
 
-      int x = done_position.x + sub_region->x();
-      int y = done_position.y + sub_region->y();
+      Bounds bounds(done_position.x + sub_region->x(), done_position.y + sub_region->y(),
+                    sub_region->width(), sub_region->height());
+
+      std::vector<Bounds> invalid_rects;
+      for (const Bounds& invalid_rect : done_position.invalid_rects) {
+        if (bounds.overlaps(invalid_rect))
+          invalid_rects.push_back(invalid_rect.intersection(bounds));
+      }
+
+      if (invalid_rects.empty())
+        continue;
 
       if (overlaps)
-        overlapping.emplace_back(sub_region, 0, x, y);
+        overlapping.emplace_back(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
       else if (sub_region->isEmpty())
-        addSubRegions(positions, overlapping, { sub_region, 0, x, y });
+        addSubRegions(positions, overlapping,
+                      { sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y() });
       else
-        positions.emplace_back(sub_region, 0, x, y);
+        positions.emplace_back(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
     }
   }
 
@@ -225,11 +202,14 @@ namespace visage {
   }
 
   int Canvas::submit(int submit_pass) {
-    render_frame_++;
+    submit_pass = submitExternalCanvases(submit_pass);
 
+    if (invalid_rects_.empty())
+      return submit_pass;
+
+    render_frame_++;
     checkFrameBuffer();
     submit_pass = redrawImages(submit_pass);
-    submit_pass = submitExternalCanvases(submit_pass);
 
     bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
     bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
@@ -238,10 +218,12 @@ namespace visage {
 
     std::vector<RegionPosition> region_positions;
     std::vector<RegionPosition> overlapping_regions;
-    if (base_region_.isEmpty())
-      addSubRegions(region_positions, overlapping_regions, { &base_region_, 0, 0, 0 });
+    if (base_region_.isEmpty()) {
+      addSubRegions(region_positions, overlapping_regions,
+                    { &base_region_, std::move(invalid_rects_), 0, 0, 0 });
+    }
     else
-      region_positions.emplace_back(&base_region_, 0);
+      region_positions.emplace_back(&base_region_, std::move(invalid_rects_), 0);
 
     const void* current_batch_id = nullptr;
     std::vector<PositionedBatch> batches;
@@ -254,9 +236,13 @@ namespace visage {
         if (batch->id() != next_batch_id)
           continue;
 
-        batches.push_back({ batch, region_position.x, region_position.y });
+        batches.push_back({ batch, &region_position.invalid_rects, region_position.x,
+                            region_position.y });
         region_position.position++;
       }
+
+      batches.front().batch->submit(*this, submit_pass, batches);
+      batches.clear();
 
       auto done_it = std::partition(region_positions.begin(), region_positions.end(),
                                     [](const RegionPosition& position) { return position.isDone(); });
@@ -271,9 +257,6 @@ namespace visage {
         checkOverlappingRegions(region_positions, overlapping_regions);
 
       done_regions.clear();
-
-      batches.front().batch->submit(*this, submit_pass, batches);
-      batches.clear();
       current_batch_id = next_batch_id;
     }
 
@@ -391,10 +374,13 @@ namespace visage {
   }
 
   int Canvas::submitExternalCanvases(int submit_pass, Canvas::Region* region) {
-    for (auto& canvas : region->external_canvases_) {
-      canvas.first->updateTime(render_time_);
-      submit_pass = canvas.first->submit(submit_pass);
-      submit_pass = canvas.second->preprocess(*canvas.first, submit_pass);
+    for (auto& external : region->external_canvases_) {
+      external.canvas->updateTime(render_time_);
+      int new_submit_pass = external.canvas->submit(submit_pass);
+      if (new_submit_pass != submit_pass) {
+        submit_pass = external.post_effect->preprocess(*external.canvas, new_submit_pass);
+        region->invalidateRect(Bounds(external.x, external.y, external.width, external.height));
+      }
     }
 
     for (Region* sub_region : region->subRegions())

@@ -19,7 +19,7 @@
 #include "visage_utils/time_utils.h"
 
 namespace visage {
-  template<class T>
+  template<typename T>
   class Animation {
   public:
     enum EasingFunction {

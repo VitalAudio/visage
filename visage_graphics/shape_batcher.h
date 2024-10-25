@@ -19,8 +19,10 @@
 #include "graphics_utils.h"
 #include "post_effects.h"
 #include "shapes.h"
+#include "visage_utils/space.h"
 
 #include <algorithm>
+#include <numeric>
 
 #ifndef NDEBUG
 #include <random>
@@ -32,7 +34,7 @@ inline int randomInt(int min, int max) {
   return distribution(generator);
 }
 
-template<class T>
+template<typename T>
 static void debugVertices(T* vertices, int num_vertices) {
   for (int i = 0; i < num_vertices; ++i)
     vertices[i].color = (vertices[i].color & ~0xff) + randomInt(0, 0xff);
@@ -45,9 +47,11 @@ namespace visage {
 
   template<typename T>
   struct DrawBatch {
-    DrawBatch(const std::vector<T>* shapes, int x, int y) : shapes(shapes), x(x), y(y) { }
+    DrawBatch(const std::vector<T>* shapes, std::vector<Bounds>* invalid_rects, int x, int y) :
+        shapes(shapes), invalid_rects(invalid_rects), x(x), y(y) { }
 
     const std::vector<T>* shapes;
+    std::vector<Bounds>* invalid_rects;
     int x = 0;
     int y = 0;
   };
@@ -55,11 +59,24 @@ namespace visage {
   template<typename T>
   using BatchVector = std::vector<DrawBatch<T>>;
 
+  inline int numShapePieces(const BaseShape& shape, int x, int y, const std::vector<Bounds>& invalid_rects) {
+    auto check_overlap = [x, y, &shape](Bounds invalid_rect) {
+      ClampBounds clamp = shape.clamp.clamp(invalid_rect.x() - x, invalid_rect.y() - y,
+                                            invalid_rect.width(), invalid_rect.height());
+      return !shape.totallyClamped(clamp);
+    };
+    return std::count_if(invalid_rects.begin(), invalid_rects.end(), check_overlap);
+  }
+
   template<typename T>
   int numShapes(const BatchVector<T>& batches) {
     int total_size = 0;
-    for (const auto& batch : batches)
-      total_size += batch.shapes->size();
+    for (const auto& batch : batches) {
+      auto count_pieces = [&batch](int sum, const T& shape) {
+        return sum + numShapePieces(shape, batch.x, batch.y, *batch.invalid_rects);
+      };
+      total_size += std::accumulate(batch.shapes->begin(), batch.shapes->end(), 0, count_pieces);
+    }
     return total_size;
   }
 
@@ -71,7 +88,12 @@ namespace visage {
   bool initTransientQuadBuffers(int num_quads, const bgfx::VertexLayout& layout,
                                 bgfx::TransientVertexBuffer* vertex_buffer,
                                 bgfx::TransientIndexBuffer* index_buffer);
-  uint8_t* initQuadVertices(int num_quads, const bgfx::VertexLayout& layout);
+  uint8_t* initQuadVerticesWithLayout(int num_quads, const bgfx::VertexLayout& layout);
+  template<typename T>
+  T* initQuadVertices(int num_quads) {
+    return reinterpret_cast<T*>(initQuadVerticesWithLayout(num_quads, T::layout()));
+  }
+
   void submitShapes(const Canvas& canvas, const EmbeddedFile& vertex_shader,
                     const EmbeddedFile& fragment_shader, BlendState state, int submit_pass);
 
@@ -82,25 +104,42 @@ namespace visage {
   void submitText(const BatchVector<TextBlock>& batches, const Canvas& canvas, int submit_pass);
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Canvas& canvas, int submit_pass);
 
-  template<class T>
-  static void submitShapes(const BatchVector<T>& batches, Canvas& canvas, int submit_pass) {
-    auto vertices = reinterpret_cast<typename T::Vertex*>(initQuadVertices(numShapes(batches),
-                                                                           T::Vertex::layout()));
+  template<typename T>
+  bool setupQuads(const BatchVector<T>& batches) {
+    int num_shapes = numShapes(batches);
+    if (num_shapes == 0)
+      return false;
+
+    auto vertices = initQuadVertices<typename T::Vertex>(num_shapes);
     if (vertices == nullptr)
-      return;
+      return false;
 
     int vertex_index = 0;
     for (const auto& batch : batches) {
       for (const T& shape : *batch.shapes) {
-        setShapeQuadVertices(vertices + vertex_index, batch.x + shape.x, batch.y + shape.y, shape.width,
-                             shape.height, shape.clamp.withOffset(batch.x, batch.y), shape.color);
-        shape.setVertexData(vertices + vertex_index);
-        vertex_index += kVerticesPerQuad;
+        for (const Bounds& invalid_rect : *batch.invalid_rects) {
+          ClampBounds clamp = shape.clamp.clamp(invalid_rect.x() - batch.x, invalid_rect.y() - batch.y,
+                                                invalid_rect.width(), invalid_rect.height());
+          if (shape.totallyClamped(clamp))
+            continue;
+
+          clamp = clamp.withOffset(batch.x, batch.y);
+          setShapeQuadVertices(vertices + vertex_index, batch.x + shape.x, batch.y + shape.y,
+                               shape.width, shape.height, clamp, shape.color);
+          shape.setVertexData(vertices + vertex_index);
+          vertex_index += kVerticesPerQuad;
+        }
       }
     }
 
-    // debugVertices(vertices, vertex_index);
+    VISAGE_ASSERT(vertex_index == num_shapes * kVerticesPerQuad);
+    return true;
+  }
 
+  template<typename T>
+  static void submitShapes(const BatchVector<T>& batches, Canvas& canvas, int submit_pass) {
+    if (!setupQuads(batches))
+      return;
     submitShapes(canvas, T::vertexShader(), T::fragmentShader(), T::kState, submit_pass);
   }
 
@@ -168,6 +207,7 @@ namespace visage {
 
   struct PositionedBatch {
     SubmitBatch* batch = nullptr;
+    std::vector<Bounds>* invalid_rects;
     int x = 0;
     int y = 0;
   };
@@ -211,7 +251,7 @@ namespace visage {
     std::vector<Area> areas_;
   };
 
-  template<class T>
+  template<typename T>
   class ShapeBatch : public SubmitBatch {
   public:
     ShapeBatch() = default;
@@ -228,7 +268,7 @@ namespace visage {
       for (const PositionedBatch& batch : batches) {
         VISAGE_ASSERT(batch.batch->id() == id());
         const std::vector<T>* shapes = &reinterpret_cast<ShapeBatch<T>*>(batch.batch)->shapes_;
-        batch_list.emplace_back(shapes, batch.x, batch.y);
+        batch_list.emplace_back(shapes, batch.invalid_rects, batch.x, batch.y);
       }
       submitShapes(batch_list, canvas, submit_pass);
     }
@@ -287,7 +327,7 @@ namespace visage {
       return autoBatchIndex(shape);
     }
 
-    template<class T>
+    template<typename T>
     ShapeBatch<T>* createNewBatch(const void* id, int insert_index) {
       if (!unused_batches_[id].empty()) {
         auto batch = std::move(unused_batches_[id].back());
@@ -300,7 +340,7 @@ namespace visage {
       return reinterpret_cast<ShapeBatch<T>*>(batches_[insert_index].get());
     }
 
-    template<class T>
+    template<typename T>
     void addShape(T shape) {
       int batch_index = batchIndex(shape);
       bool match = batch_index < batches_.size() && batches_[batch_index]->id() == shape.batch_id;

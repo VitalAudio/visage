@@ -41,6 +41,7 @@ namespace visage {
     event_handler_.read_clipboard_text = visage::readClipboardText;
     event_handler_.set_clipboard_text = visage::setClipboardText;
     top_level_.setEventHandler(&event_handler_);
+    setPostEffect(&passthrough_);
   }
 
   ApplicationEditor::~ApplicationEditor() = default;

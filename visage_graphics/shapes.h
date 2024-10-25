@@ -56,12 +56,21 @@ namespace visage {
     float right = 0.0f;
     float bottom = 0.0f;
 
+    bool totallyClamped() const { return bottom <= top || right <= left; }
+
     ClampBounds withOffset(int x, int y) const {
       return { left + x, top + y, right + x, bottom + y };
     }
+
+    ClampBounds clamp(float x, float y, float width, float height) const {
+      float new_top = std::max(top, y);
+      float new_left = std::max(left, x);
+      return { new_left, new_top, std::max(new_left, std::min(right, x + width)),
+               std::max(new_top, std::min(bottom, y + height)) };
+    }
   };
 
-  template<class T>
+  template<typename T>
   static void setShapeQuadVertices(T* vertices, float x, float y, float width, float height,
                                    const ClampBounds& clamp, const QuadColor& color) {
     float left = x;
@@ -114,6 +123,11 @@ namespace visage {
     bool overlapsShape(const BaseShape& other) const {
       return x < other.x + other.width && x + width > other.x && y < other.y + other.height &&
              y + height > other.y;
+    }
+
+    bool totallyClamped(const ClampBounds& clamp) const {
+      return clamp.totallyClamped() || clamp.left >= x + width || clamp.right <= x ||
+             clamp.top >= y + height || clamp.bottom <= y;
     }
   };
 
@@ -514,28 +528,36 @@ namespace visage {
     float pixel_width = 1.0f;
   };
 
-  struct IconWrapper : Shape<> {
-    VISAGE_CREATE_BATCH_ID
+  struct IconWrapper : Shape<IconVertex> {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     IconWrapper(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-                float height, const Icon& icon) :
-        Shape(batchId(), clamp, color, x, y, width, height), icon(icon) { }
+                float height, const Icon& icon, IconGroup const* icon_group) :
+        Shape(icon_group, clamp, color, x, y, width, height), icon(icon), icon_group(icon_group) { }
+
+    void setVertexData(IconVertex* vertices) const {
+      icon_group->setIconCoordinates(vertices, icon);
+    }
 
     Icon icon;
+    IconGroup const* icon_group = nullptr;
   };
 
-  struct ImageWrapper : Shape<> {
-    VISAGE_CREATE_BATCH_ID
+  struct ImageWrapper : Shape<ImageVertex> {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     ImageWrapper(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-                 float height, Image* image) :
-        Shape(batchId(), clamp, color, x, y, width, height), image(image) { }
+                 float height, Image* image, ImageGroup const* image_group) :
+        Shape(image_group, clamp, color, x, y, width, height), image(image), image_group(image_group) { }
+
+    void setVertexData(ImageVertex* vertices) const {
+      image_group->setImageCoordinates(vertices, image);
+    }
 
     Image* image = nullptr;
+    ImageGroup const* image_group = nullptr;
   };
 
   struct LineWrapper : Shape<> {
@@ -690,6 +712,8 @@ namespace visage {
     ShaderWrapper(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
                   float height, Shader* shader) :
         Shape(shader, clamp, color, x, y, width, height), shader(shader) { }
+
+    static void setVertexData(Vertex* vertices) { }
 
     Shader* shader = nullptr;
   };

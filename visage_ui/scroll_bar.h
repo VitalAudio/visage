@@ -88,9 +88,9 @@ namespace visage {
     VISAGE_LEAK_CHECKER(ScrollBar)
   };
 
-  class ScrollableComponent : public Frame {
+  class ScrollableFrame : public Frame {
   public:
-    explicit ScrollableComponent(const std::string& name = "") : Frame(name) {
+    explicit ScrollableFrame(const std::string& name = "") : Frame(name) {
       addChild(&scroll_bar_);
       scroll_bar_.addScrollCallback([this](int position) { scrollPositionChanged(position); });
       scroll_bar_.setOnTop(true);
@@ -143,6 +143,7 @@ namespace visage {
       container_.setTopLeft(container_.x(), -y_position_);
       scroll_bar_.setPosition(position);
       redraw();
+      container_.redraw();
     }
     int yPosition() const { return y_position_; }
 
@@ -166,13 +167,13 @@ namespace visage {
     ScrollBar& scrollBar() { return scroll_bar_; }
 
   private:
-    CallbackList<void(ScrollableComponent*)> on_scroll_;
+    CallbackList<void(ScrollableFrame*)> on_scroll_;
     float float_position_ = 0.0f;
     int y_position_ = 0;
     bool scroll_bar_left_ = false;
     Frame container_;
     ScrollBar scroll_bar_;
 
-    VISAGE_LEAK_CHECKER(ScrollableComponent)
+    VISAGE_LEAK_CHECKER(ScrollableFrame)
   };
 }

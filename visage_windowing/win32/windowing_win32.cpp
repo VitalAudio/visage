@@ -42,7 +42,7 @@ typedef UINT(WINAPI* GetDpiForWindow_t)(HWND);
 typedef UINT(WINAPI* GetDpiForSystem_t)();
 
 namespace visage {
-  template<class T>
+  template<typename T>
   static T procedure(HMODULE module, LPCSTR proc_name) {
     return reinterpret_cast<T>(GetProcAddress(module, proc_name));
   }
