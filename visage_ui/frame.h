@@ -106,10 +106,8 @@ namespace visage {
   struct PopupOptions {
     String name;
     int id = -1;
-    Icon icon;
     bool is_break = false;
     bool selected = false;
-    bool auto_select = true;
     std::vector<PopupOptions> sub_options;
 
     PopupOptions* subOption(int search_id) {
@@ -438,7 +436,6 @@ namespace visage {
     bool visible_ = true;
     bool keyboard_focus_ = false;
     bool accepts_keystrokes_ = false;
-    bool accepts_dropped_files_ = false;
     bool ignores_mouse_events_ = false;
     bool pass_mouse_events_to_children_ = true;
 

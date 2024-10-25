@@ -420,6 +420,11 @@ namespace visage {
   }
 }
 
+- (void)makeKeyWindow {
+  if (!self.visage_window->isPopup())
+    [self.window makeKeyWindow];
+}
+
 - (void)scrollWheel:(NSEvent*)event {
   static constexpr float kPreciseScrollingScale = 0.02f;
   visage::Point point = [self eventPosition:event];
@@ -457,7 +462,7 @@ namespace visage {
   self.mouse_down_screen_position = [self mouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonLeft, point.x, point.y,
                                       [self mouseButtonState], [self keyboardModifiers:event]);
-  [self.window makeKeyWindow];
+  [self makeKeyWindow];
   if (self.visage_window->isDragDropSource()) {
     visage::File file = self.visage_window->startDragDropSource();
     NSString* path = [NSString stringWithUTF8String:file.string().c_str()];
@@ -499,7 +504,7 @@ namespace visage {
   self.mouse_down_screen_position = [self mouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonRight, point.x, point.y,
                                       [self mouseButtonState], [self keyboardModifiers:event]);
-  [self.window makeKeyWindow];
+  [self makeKeyWindow];
 }
 
 - (void)rightMouseUp:(NSEvent*)event {
@@ -523,7 +528,7 @@ namespace visage {
   self.mouse_down_screen_position = [self mouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonMiddle, point.x, point.y,
                                       [self mouseButtonState], [self keyboardModifiers:event]);
-  [self.window makeKeyWindow];
+  [self makeKeyWindow];
 }
 
 - (void)otherMouseUp:(NSEvent*)event {
@@ -698,8 +703,8 @@ namespace visage {
     });
   }
 
-  std::unique_ptr<Window> createWindow(int x, int y, int width, int height) {
-    return std::make_unique<WindowMac>(x, y, width, height);
+  std::unique_ptr<Window> createWindow(int x, int y, int width, int height, bool popup) {
+    return std::make_unique<WindowMac>(x, y, width, height, popup);
   }
 
   std::unique_ptr<Window> createPluginWindow(int width, int height, void* parent_handle) {
@@ -730,15 +735,21 @@ namespace visage {
     return { x, y, width, height };
   }
 
-  WindowMac::WindowMac(int x, int y, int width, int height) : Window(width, height) {
+  WindowMac::WindowMac(int x, int y, int width, int height, bool popup) :
+      Window(width, height), popup_(popup) {
     static const NSUInteger kWindowStyleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskResizable |
                                                NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskClosable;
+    static const NSUInteger kPopupStyleMask = NSWindowStyleMaskBorderless;
 
+    int style_mask = popup ? kPopupStyleMask : kWindowStyleMask;
     NSRect content_rect = NSMakeRect(x, y, width, height);
     NSWindow* window = [[NSWindow alloc] initWithContentRect:content_rect
-                                                   styleMask:kWindowStyleMask
+                                                   styleMask:style_mask
                                                      backing:NSBackingStoreBuffered
                                                        defer:NO];
+    if (popup)
+      [window setLevel:NSStatusWindowLevel];
+
     window_handle_ = window;
     content_rect.origin.x = 0;
     content_rect.origin.y = 0;
@@ -804,8 +815,10 @@ namespace visage {
       [parent_view_.window makeKeyAndOrderFront:nil];
     }
     else {
-      [window_handle_ makeKeyWindow];
-      [window_handle_ makeKeyAndOrderFront:nil];
+      if (popup_)
+        [window_handle_ orderFront:nil];
+      else
+        [window_handle_ makeKeyAndOrderFront:nil];
     }
   }
 
