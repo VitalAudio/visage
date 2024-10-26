@@ -380,8 +380,8 @@ namespace visage {
     bool processKeyRelease(const KeyEvent& e) { return on_key_release_.callback(e); }
     void processTextInput(const std::string& text) { textInput(text); }
 
-    float paletteValue(unsigned int value_id);
-    QuadColor paletteColor(unsigned int color_id);
+    float paletteValue(unsigned int value_id) const;
+    QuadColor paletteColor(unsigned int color_id) const;
 
     bool isPopupVisible() const;
     void showPopupMenu(const PopupOptions& options, Bounds bounds,

@@ -441,22 +441,18 @@ void TestDrawableComponent::resized() {
   int margin = font_height / 3;
   left_text_editor_->setBounds(text_section_padding, text_y, text_section_width, single_line_height);
   left_text_editor_->setFont(visage::Font(font_height, resources::fonts::Lato_Regular_ttf));
-  left_text_editor_->setMargin(margin, 0);
   left_text_editor_->setBackgroundRounding(margin / 2);
 
   number_editor_->setBounds(text_section_padding, text_y + single_line_height + padding,
                             text_section_width, single_line_height);
   number_editor_->setFont(visage::Font(font_height, resources::fonts::Lato_Regular_ttf));
-  number_editor_->setMargin(margin, 0);
   number_editor_->setBackgroundRounding(margin / 2);
 
   right_text_editor_->setBounds(text_section_padding, text_y + 2 * (single_line_height + padding),
                                 text_section_width, single_line_height);
   right_text_editor_->setFont(visage::Font(font_height, resources::fonts::Lato_Regular_ttf));
-  right_text_editor_->setMargin(margin, 0);
   right_text_editor_->setBackgroundRounding(margin / 2);
 
-  text_editor_->setMargin(font_height / 2, font_height / 2);
   text_editor_->setFont(visage::Font(section_head_height / 2, resources::fonts::Lato_Regular_ttf));
   text_editor_->setMultiLine(true);
   text_editor_->setJustification(visage::Font::kTopLeft);

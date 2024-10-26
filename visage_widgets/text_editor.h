@@ -100,7 +100,6 @@ namespace visage {
     void resized() override {
       ScrollableFrame::resized();
       setBackgroundRounding(paletteValue(kTextEditorRounding));
-      setMargin(paletteValue(kTextEditorMarginX), paletteValue(kTextEditorMarginY));
       setLineBreaks();
       makeCaretVisible();
     }
@@ -149,15 +148,21 @@ namespace visage {
       setScrollBarRounding(rounding);
     }
     void setMargin(int x, int y) {
-      if ((text_.justification() & Font::kLeft) || (text_.justification() & Font::kRight))
-        x_margin_ = x;
-      else
-        x_margin_ = 0;
-      if (text_.justification() & Font::kTop)
-        y_margin_ = y;
-      else
-        y_margin_ = 0;
+      set_x_margin_ = x;
+      set_y_margin_ = y;
     }
+
+    int xMargin() const {
+      if (text_.justification() & (Font::kLeft | Font::kRight))
+        return set_x_margin_ ? set_x_margin_ : paletteValue(kTextEditorMarginX);
+      return 0;
+    }
+    int yMargin() const {
+      if (text_.justification() & Font::kTop)
+        return set_y_margin_ ? set_y_margin_ : paletteValue(kTextEditorMarginY);
+      return 0;
+    }
+
     void setPassword(int character = kDefaultPasswordCharacter) {
       text_.setCharacterOverride(character);
       if (character) {
@@ -169,7 +174,7 @@ namespace visage {
     void setLineBreaks() {
       if (text_.multiLine() && text_.font().packedFont())
         line_breaks_ = text_.font().lineBreaks(text_.text().c_str(), text_.text().length(),
-                                               width() - 2 * x_margin_);
+                                               width() - 2 * xMargin());
     }
 
     void setText(const String& text) {
@@ -211,9 +216,6 @@ namespace visage {
     Font::Justification justification() const { return text_.justification(); }
     void setBackgroundColorId(int color_id) { background_color_id_ = color_id; }
 
-    int xMargin() const { return x_margin_; }
-    int yMargin() const { return y_margin_; }
-
   private:
     void addUndoPosition() { undo_history_.emplace_back(text_.text(), caret_position_); }
 
@@ -238,8 +240,8 @@ namespace visage {
 
     int background_color_id_ = kTextEditorBackground;
     float background_rounding_ = 1.0f;
-    int x_margin_ = 0;
-    int y_margin_ = 0;
+    int set_x_margin_ = 0;
+    int set_y_margin_ = 0;
     int x_position_ = 0;
 
     ActionState action_state_ = kNone;

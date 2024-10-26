@@ -300,7 +300,7 @@ namespace visage {
     }
   }
 
-  float Frame::paletteValue(unsigned int value_id) {
+  float Frame::paletteValue(unsigned int value_id) const {
     float scale = 1.0f;
     theme::ValueId::ValueIdInfo info = theme::ValueId::info(value_id);
     if (info.scale_type == theme::ValueId::kScaledWidth)
@@ -311,7 +311,7 @@ namespace visage {
       scale = dpiScale();
 
     if (palette_) {
-      Frame* component = this;
+      const Frame* component = this;
       float result = 0.0f;
       while (component) {
         int override_id = component->palette_override_;
@@ -326,10 +326,10 @@ namespace visage {
     return scale * theme::ValueId::defaultValue(value_id);
   }
 
-  QuadColor Frame::paletteColor(unsigned int color_id) {
+  QuadColor Frame::paletteColor(unsigned int color_id) const {
     if (palette_) {
       QuadColor result;
-      Frame* component = this;
+      const Frame* component = this;
       while (component) {
         int override_id = component->palette_override_;
         if (override_id && palette_->color(override_id, color_id, result))

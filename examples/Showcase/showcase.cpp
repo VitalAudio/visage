@@ -181,8 +181,6 @@ void Showcase::editorResized() {
 
 void Showcase::draw(visage::Canvas& canvas) {
   static constexpr float kMaxZoom = 0.075f;
-  VISAGE_ASSERT(width() && height());
-
   canvas.setPalette(palette());
   blur_bloom_->setBlurSize(canvas.value(kBlurSize));
   blur_bloom_->setBloomSize(canvas.value(kBloomSize));

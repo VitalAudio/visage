@@ -120,12 +120,18 @@ namespace visage {
     void destroyHandle() {
       if (bgfx::isValid(texture_handle_))
         bgfx::destroy(texture_handle_);
+
+      bgfx::frame();
+      bgfx::frame();
       texture_handle_ = BGFX_INVALID_HANDLE;
     }
 
     void createHandle() {
-      if (bgfx::isValid(texture_handle_))
+      if (bgfx::isValid(texture_handle_)) {
         bgfx::destroy(texture_handle_);
+        bgfx::frame();
+        bgfx::frame();
+      }
 
       const bgfx::Memory* texture_ref = bgfx::makeRef(texture_.get(),
                                                       width_ * width_ * sizeof(unsigned char));
