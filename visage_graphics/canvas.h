@@ -445,6 +445,7 @@ namespace visage {
     }
 
     void icon(const Icon& icon, float x, float y) {
+      iconGroup()->addIcons({ icon });
       addShape(IconWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y,
                            icon.width + 2.0f * icon.blur_radius,
                            icon.height + 2.0f * icon.blur_radius, icon, iconGroup()));
@@ -452,9 +453,7 @@ namespace visage {
 
     void icon(const char* svg_data, int svg_size, float x, float y, int width, int height,
               int blur_radius = 0) {
-      Icon icon(svg_data, svg_size, width, height, blur_radius);
-      addShape(IconWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y, width * 1.0f,
-                           height * 1.0f, icon, iconGroup()));
+      icon({ svg_data, svg_size, width, height, blur_radius }, x, y);
     }
 
     void icon(const EmbeddedFile& svg, float x, float y, int width, int height, int blur_radius = 0) {

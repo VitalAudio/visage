@@ -439,15 +439,6 @@ namespace visage {
   }
 
   void submitIcons(const BatchVector<IconWrapper>& batches, Canvas& canvas, int submit_pass) {
-    std::set<Icon> insert_set;
-    for (const auto& batch : batches) {
-      for (const IconWrapper& icon : *batch.shapes)
-        insert_set.insert(icon.icon);
-    }
-
-    if (!insert_set.empty())
-      canvas.iconGroup()->addIcons(insert_set);
-
     if (!setupQuads(batches))
       return;
 

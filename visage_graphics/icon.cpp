@@ -121,25 +121,19 @@ namespace visage {
       if (bgfx::isValid(texture_handle_))
         bgfx::destroy(texture_handle_);
 
-      bgfx::frame();
-      bgfx::frame();
       texture_handle_ = BGFX_INVALID_HANDLE;
     }
 
-    void createHandle() {
-      if (bgfx::isValid(texture_handle_)) {
-        bgfx::destroy(texture_handle_);
-        bgfx::frame();
-        bgfx::frame();
+    bgfx::TextureHandle& handle() {
+      if (!bgfx::isValid(texture_handle_)) {
+        const bgfx::Memory* texture_ref = bgfx::makeRef(texture_.get(),
+                                                        width_ * width_ * sizeof(unsigned char));
+        texture_handle_ = bgfx::createTexture2D(width_, width_, false, 1, bgfx::TextureFormat::A8,
+                                                BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE, texture_ref);
       }
-
-      const bgfx::Memory* texture_ref = bgfx::makeRef(texture_.get(),
-                                                      width_ * width_ * sizeof(unsigned char));
-      texture_handle_ = bgfx::createTexture2D(width_, width_, false, 1, bgfx::TextureFormat::A8,
-                                              BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE, texture_ref);
+      return texture_handle_;
     }
 
-    bgfx::TextureHandle& handle() { return texture_handle_; }
     unsigned char* data() const { return texture_.get(); }
 
   private:
@@ -195,7 +189,7 @@ namespace visage {
     for (int i = start_draw_index; i < icons_.size(); ++i)
       drawIcon(i);
 
-    texture_->createHandle();
+    texture_->destroyHandle();
   }
 
   void IconGroup::drawIcon(int index) {
