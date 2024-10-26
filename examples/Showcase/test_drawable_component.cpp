@@ -34,6 +34,8 @@ inline float sin1(float phase) {
   return approx * (0.776f + 0.224f * fabsf(approx));
 }
 
+static constexpr float kHalfPi = 3.14159265358979323846f * 0.5f;
+
 THEME_COLOR(BackgroundColor, 0xff33393f);
 THEME_COLOR(TextColor, 0xffffffff);
 THEME_COLOR(ShapeColor, 0xffaaff88);
@@ -43,6 +45,51 @@ THEME_COLOR(LogoColor2, 0xffffffff);
 THEME_COLOR(LogoBackgroundColor, 0xff212529);
 THEME_COLOR(OverlayShadowColor, 0xbb000000);
 THEME_COLOR(ShadowColor, 0x88000000);
+
+class AnimatedLines : public visage::Frame {
+public:
+  static constexpr int kNumLines = 2;
+
+  AnimatedLines() {
+    for (auto& line_component : line_components_) {
+      line_component = std::make_unique<visage::LineComponent>(400);
+      addChild(line_component.get());
+    }
+  }
+
+  void resized() override {
+    int line_offset = height() / kNumLines;
+    for (int i = 0; i < kNumLines; ++i) {
+      line_components_[i]->setBounds(0, line_offset * i, width(), line_offset);
+      line_components_[i]->setFill(true);
+    }
+  }
+
+  void draw(visage::Canvas& canvas) override {
+    double render_time = canvas.time();
+    for (int r = 0; r < kNumLines; ++r) {
+      int render_height = line_components_[r]->height();
+      int render_width = line_components_[r]->width();
+      int line_height = render_height * 0.9f;
+      int offset = render_height * 0.05f;
+
+      float position = 0.0f;
+      for (int i = 0; i < 400; ++i) {
+        float t = i / 399.0f;
+        float delta = std::min(t, 1.0f - t);
+        position += 0.1f * delta * delta + 0.003f;
+        double phase = (render_time + r) * 0.5;
+        line_components_[r]->setXAt(i, t * render_width);
+        line_components_[r]->setYAt(i, offset + (sin1(phase + position) * 0.5f + 0.5f) * line_height);
+      }
+    }
+
+    redraw();
+  }
+
+private:
+  std::unique_ptr<visage::LineComponent> line_components_[kNumLines];
+};
 
 class DragDropTarget : public visage::Frame {
 public:
@@ -185,6 +232,18 @@ TestDrawableComponent::TestDrawableComponent() {
   addChild(bar_component_.get());
   bar_component_->setHorizontalAntiAliasing(false);
 
+  bar_component_->onDraw() += [this](visage::Canvas& canvas) {
+    double render_time = canvas.time();
+    float space = 1;
+    float bar_width = (bar_component_->width() + space) / kNumBars;
+    int bar_height = bar_component_->height();
+    for (int i = 0; i < kNumBars; ++i) {
+      float x = bar_width * i;
+      float current_height = (sin1((render_time * 60.0 + i * 30) / 600.0f) + 1.0f) * 0.5f * bar_height;
+      bar_component_->positionBar(i, x, current_height, bar_width - space, bar_height - current_height);
+    }
+  };
+
   shader_quad_ = std::make_unique<visage::ShaderQuad>(resources::shaders::vs_shape,
                                                       resources::shaders::fs_shader_quad,
                                                       visage::BlendState::Alpha);
@@ -248,6 +307,88 @@ TestDrawableComponent::TestDrawableComponent() {
   };
   action_button_->setToggleOnMouseDown(true);
 
+  shapes_ = std::make_unique<visage::Frame>();
+  addChild(shapes_.get());
+  shapes_->onDraw() = [this](visage::Canvas& canvas) {
+    double render_time = canvas.time();
+
+    float center_radians = render_time * 1.2f;
+    double phase = render_time * 0.1;
+    float radians = kHalfPi * sin1(phase) + kHalfPi;
+
+    int min_shape_padding = heightScale() * 10.0f;
+    int shape_width = std::min(shapes_->width() / 5, shapes_->height() / 2) - min_shape_padding;
+    int shape_padding_x = shapes_->width() / 5 - shape_width;
+    int shape_padding_y = shapes_->height() / 2 - shape_width;
+
+    int shape_x = shape_padding_x / 2;
+    int shape_y = 0;
+    int shape_y2 = shape_y + shape_width + shape_padding_y;
+    int roundness = shape_width / 8;
+
+    float shape_phase = canvas.time() * 0.1f;
+    shape_phase -= std::floor(shape_phase);
+    float shape_cycle = sin1(shape_phase) * 0.5f + 0.5f;
+    float thickness = shape_width * shape_cycle / 8.0f + 1.0f;
+
+    canvas.setPaletteColor(kShadowColor);
+    canvas.rectangleShadow(shape_x, shape_y, shape_width, shape_width, thickness);
+    canvas.roundedRectangleShadow(shape_x + 2 * (shape_width + shape_padding_x), shape_y,
+                                  shape_width, shape_width, roundness, thickness);
+
+    canvas.setPaletteColor(kShapeColor);
+    canvas.rectangle(shape_x, shape_y, shape_width, shape_width);
+    canvas.rectangleBorder(shape_x, shape_y2, shape_width, shape_width, thickness);
+    canvas.circle(shape_x + shape_width + shape_padding_x, shape_y, shape_width);
+    canvas.ring(shape_x + shape_width + shape_padding_x, shape_y2, shape_width, thickness);
+    canvas.roundedRectangle(shape_x + 2 * (shape_width + shape_padding_x), shape_y, shape_width,
+                            shape_width, roundness);
+    canvas.roundedRectangleBorder(shape_x + 2 * (shape_width + shape_padding_x), shape_y2,
+                                  shape_width, shape_width, roundness, thickness);
+    canvas.arc(shape_x + 3 * (shape_width + shape_padding_x), shape_y, shape_width, thickness,
+               center_radians, radians, false);
+    canvas.arc(shape_x + 3 * (shape_width + shape_padding_x), shape_y2, shape_width, thickness,
+               center_radians, radians, true);
+
+    float max_separation = shape_padding_x / 2.0f;
+    float separation = shape_cycle * max_separation;
+    int triangle_x = shape_x + 4 * (shape_width + shape_padding_x) + max_separation;
+    int triangle_y = shape_y + max_separation;
+    int triangle_width = (shape_width - 2.0f * max_separation) / 2.0f;
+    canvas.triangleDown(triangle_x, triangle_y - separation, triangle_width);
+    canvas.triangleRight(triangle_x - separation, triangle_y, triangle_width);
+    canvas.triangleUp(triangle_x, triangle_y + triangle_width + separation, triangle_width);
+    canvas.triangleLeft(triangle_x + triangle_width + separation, triangle_y, triangle_width);
+
+    float segment_x = shape_x + 4 * (shape_width + shape_padding_x);
+    float segment_y = shape_y2;
+    float shape_radius = shape_width / 2;
+    std::pair<float, float> segment_positions[] = { { segment_x, segment_y + shape_radius },
+                                                    { segment_x + shape_radius, segment_y },
+                                                    { segment_x + shape_width, segment_y + shape_radius },
+                                                    { segment_x + shape_radius, segment_y + shape_width } };
+
+    int index = std::min<int>(shape_phase * 4.0f, 3);
+    float movement_phase = shape_phase * 4.0f - index;
+    float t1 = sin1(std::min(movement_phase * 0.5f, 0.25f) - 0.25f) + 1.0f;
+    float t2 = sin1(std::max(movement_phase * 0.5f, 0.25f) - 0.25f);
+    std::pair<float, float> from = segment_positions[index];
+    std::pair<float, float> to = segment_positions[(index + 1) % 4];
+    float delta_x = to.first - from.first;
+    float delta_y = to.second - from.second;
+    canvas.segment(from.first + delta_x * t1, from.second + delta_y * t1, from.first + delta_x * t2,
+                   from.second + delta_y * t2, thickness, true);
+
+    from = segment_positions[(index + 2) % 4];
+    to = segment_positions[(index + 3) % 4];
+    delta_x = to.first - from.first;
+    delta_y = to.second - from.second;
+    canvas.segment(from.first + delta_x * t1, from.second + delta_y * t1, from.first + delta_x * t2,
+                   from.second + delta_y * t2, thickness, false);
+
+    shapes_->redraw();
+  };
+
   text_editor_ = std::make_unique<visage::TextEditor>();
   addChild(text_editor_.get());
 
@@ -266,10 +407,8 @@ TestDrawableComponent::TestDrawableComponent() {
   right_text_editor_->setJustification(visage::Font::kRight);
   right_text_editor_->setDefaultText("Right Text");
 
-  for (auto& line_component : line_components_) {
-    line_component = std::make_unique<visage::LineComponent>(400);
-    addChild(line_component.get());
-  }
+  animated_lines_ = std::make_unique<AnimatedLines>();
+  addChild(animated_lines_.get());
 
   setIgnoresMouseEvents(true, true);
 }
@@ -285,16 +424,13 @@ void TestDrawableComponent::resized() {
   int section_head_height = section_height / 4;
   int section_body_height = section_height - section_head_height;
 
-  int line_offset = section_body_height / kNumLines;
-  for (int i = 0; i < kNumLines; ++i) {
-    line_components_[i]->setBounds(0, section_head_height + line_offset * i, x_division, line_offset);
-    line_components_[i]->setFill(true);
-  }
+  animated_lines_->setBounds(0, section_head_height, x_division, section_body_height);
 
   bar_component_->setBounds(0, section_height + section_head_height, x_division / 2, section_body_height);
   int shader_x = x_division / 2 + (x_division / 2 - section_body_height) / 2;
   shader_quad_->setBounds(shader_x, section_height + section_head_height, section_body_height,
                           section_body_height);
+  shapes_->setBounds(x_division, bar_component_->y(), right_width, section_body_height);
 
   int font_height = section_head_height / 2;
   int text_y = 2 * section_height + section_head_height;
@@ -351,7 +487,6 @@ void TestDrawableComponent::resized() {
 }
 
 void TestDrawableComponent::draw(visage::Canvas& canvas) {
-  static constexpr float kHalfPi = 3.14159265358979323846f * 0.5f;
   int w = width();
   int h = height();
   canvas.setPaletteColor(kBackgroundColor);
@@ -410,106 +545,6 @@ void TestDrawableComponent::draw(visage::Canvas& canvas) {
   canvas.icon(resources::icons::vital_ring_svg, icon_x, icon_y, icon_width, icon_width);
   canvas.setPaletteColor(kLogoColor2);
   canvas.icon(resources::icons::vital_v_svg, icon_x, icon_y, icon_width, icon_width);
-
-  double render_time = canvas.time();
-  for (int r = 0; r < kNumLines; ++r) {
-    int render_height = line_components_[r]->height();
-    int render_width = line_components_[r]->width();
-    int line_height = render_height * 0.9f;
-    int offset = render_height * 0.05f;
-
-    float position = 0.0f;
-    for (int i = 0; i < 400; ++i) {
-      float t = i / 399.0f;
-      float delta = std::min(t, 1.0f - t);
-      position += 0.1f * delta * delta + 0.003f;
-      double phase = (render_time + r) * 0.5;
-      line_components_[r]->setXAt(i, t * render_width);
-      line_components_[r]->setYAt(i, offset + (sin1(phase + position) * 0.5f + 0.5f) * line_height);
-    }
-  }
-
-  float space = 1;
-  float bar_width = (bar_component_->width() + space) / kNumBars;
-  int bar_height = bar_component_->height();
-  for (int i = 0; i < kNumBars; ++i) {
-    float x = bar_width * i;
-    float current_height = (sin1((render_time * 60.0 + i * 30) / 600.0f) + 1.0f) * 0.5f * bar_height;
-    bar_component_->positionBar(i, x, current_height, bar_width - space, bar_height - current_height);
-  }
-
-  float center_radians = render_time * 1.2f;
-  double phase = render_time * 0.1;
-  float radians = kHalfPi * sin1(phase) + kHalfPi;
-
-  int shape_x = x_division;
-  int shape_y = bar_component_->y();
-  int shape_padding = (w - shape_x) / 20;
-  shape_x += shape_padding;
-  int shape_width = (w - shape_x) / 5 - shape_padding;
-  shape_y += (bar_component_->height() - 2 * shape_width - shape_padding) / 2;
-  int shape_y2 = shape_y + shape_width + shape_padding;
-  int roundness = shape_width / 8;
-
-  float shape_phase = canvas.time() * 0.1f;
-  shape_phase -= std::floor(shape_phase);
-  float shape_cycle = sin1(shape_phase) * 0.5f + 0.5f;
-  float thickness = shape_width * shape_cycle / 8.0f + 1.0f;
-
-  canvas.setPaletteColor(kShadowColor);
-  canvas.rectangleShadow(shape_x, shape_y, shape_width, shape_width, thickness);
-  canvas.roundedRectangleShadow(shape_x + 2 * (shape_width + shape_padding), shape_y, shape_width,
-                                shape_width, roundness, thickness);
-
-  canvas.setPaletteColor(kShapeColor);
-  canvas.rectangle(shape_x, shape_y, shape_width, shape_width);
-  canvas.rectangleBorder(shape_x, shape_y2, shape_width, shape_width, thickness);
-  canvas.circle(shape_x + shape_width + shape_padding, shape_y, shape_width);
-  canvas.ring(shape_x + shape_width + shape_padding, shape_y2, shape_width, thickness);
-  canvas.roundedRectangle(shape_x + 2 * (shape_width + shape_padding), shape_y, shape_width,
-                          shape_width, roundness);
-  canvas.roundedRectangleBorder(shape_x + 2 * (shape_width + shape_padding), shape_y2, shape_width,
-                                shape_width, roundness, thickness);
-  canvas.arc(shape_x + 3 * (shape_width + shape_padding), shape_y, shape_width, thickness,
-             center_radians, radians, false);
-  canvas.arc(shape_x + 3 * (shape_width + shape_padding), shape_y2, shape_width, thickness,
-             center_radians, radians, true);
-
-  float max_separation = shape_padding / 2.0f;
-  float separation = shape_cycle * max_separation;
-  int triangle_x = shape_x + 4 * (shape_width + shape_padding) + max_separation;
-  int triangle_y = shape_y + max_separation;
-  int triangle_width = (shape_width - 2.0f * max_separation) / 2.0f;
-  canvas.triangleDown(triangle_x, triangle_y - separation, triangle_width);
-  canvas.triangleRight(triangle_x - separation, triangle_y, triangle_width);
-  canvas.triangleUp(triangle_x, triangle_y + triangle_width + separation, triangle_width);
-  canvas.triangleLeft(triangle_x + triangle_width + separation, triangle_y, triangle_width);
-
-  float segment_x = shape_x + 4 * (shape_width + shape_padding);
-  float segment_y = shape_y2;
-  float shape_radius = shape_width / 2;
-  std::pair<float, float> segment_positions[] = { { segment_x, segment_y + shape_radius },
-                                                  { segment_x + shape_radius, segment_y },
-                                                  { segment_x + shape_width, segment_y + shape_radius },
-                                                  { segment_x + shape_radius, segment_y + shape_width } };
-
-  int index = std::min<int>(shape_phase * 4.0f, 3);
-  float movement_phase = shape_phase * 4.0f - index;
-  float t1 = sin1(std::min(movement_phase * 0.5f, 0.25f) - 0.25f) + 1.0f;
-  float t2 = sin1(std::max(movement_phase * 0.5f, 0.25f) - 0.25f);
-  std::pair<float, float> from = segment_positions[index];
-  std::pair<float, float> to = segment_positions[(index + 1) % 4];
-  float delta_x = to.first - from.first;
-  float delta_y = to.second - from.second;
-  canvas.segment(from.first + delta_x * t1, from.second + delta_y * t1, from.first + delta_x * t2,
-                 from.second + delta_y * t2, thickness, true);
-
-  from = segment_positions[(index + 2) % 4];
-  to = segment_positions[(index + 3) % 4];
-  delta_x = to.first - from.first;
-  delta_y = to.second - from.second;
-  canvas.segment(from.first + delta_x * t1, from.second + delta_y * t1, from.first + delta_x * t2,
-                 from.second + delta_y * t2, thickness, false);
 
   if (shadow_amount_) {
     float shadow_mult = std::max(0.0f, 2.0f * shadow_amount_ - 1.0f);

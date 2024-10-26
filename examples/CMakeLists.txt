@@ -22,7 +22,7 @@ foreach (EXAMPLE ${EXAMPLES})
   file(GLOB HEADER_FILES ${EXAMPLE}/*.h)
 
   if (IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${EXAMPLE}" AND SOURCE_FILES)
-    add_executable(Example${EXAMPLE} main.cpp ${SOURCE_FILES} ${HEADERS_FILE})
+    add_executable(Example${EXAMPLE} main.cpp ${SOURCE_FILES} ${HEADER_FILES})
     if (WIN32)
       set_target_properties(Example${EXAMPLE} PROPERTIES WIN32_EXECUTABLE YES)
     elseif (APPLE)

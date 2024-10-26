@@ -24,6 +24,7 @@
 
 class DragDropTarget;
 class TextImage;
+class AnimatedLines;
 
 class TestDrawableComponent : public visage::Frame {
 public:
@@ -64,7 +65,8 @@ private:
   std::unique_ptr<visage::TextEditor> left_text_editor_;
   std::unique_ptr<visage::TextEditor> number_editor_;
   std::unique_ptr<visage::TextEditor> right_text_editor_;
-  std::unique_ptr<visage::LineComponent> line_components_[kNumLines];
+  std::unique_ptr<visage::Frame> shapes_;
+  std::unique_ptr<AnimatedLines> animated_lines_;
 
   float shadow_amount_ = 0.0f;
   visage::Bounds shadow_bounds_;
