@@ -94,16 +94,14 @@ namespace visage {
     return cache_->cache[vertex.data][fragment.data];
   }
 
-  bgfx::ProgramHandle& ProgramCache::reload(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
+  void ProgramCache::reload(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
     cache_->cache[vertex.data][fragment.data] = bgfx::createProgram(ShaderCache::shaderHandle(vertex),
                                                                     ShaderCache::shaderHandle(fragment),
                                                                     false);
-    return cache_->cache[vertex.data][fragment.data];
   }
 
-  bgfx::ProgramHandle& ProgramCache::restore(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
+  void ProgramCache::restore(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
     cache_->cache[vertex.data][fragment.data] = cache_->originals[vertex.data][fragment.data];
-    return cache_->cache[vertex.data][fragment.data];
   }
 
   struct UniformCacheMap {

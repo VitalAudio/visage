@@ -207,7 +207,7 @@ namespace visage {
 
   struct PositionedBatch {
     SubmitBatch* batch = nullptr;
-    std::vector<Bounds>* invalid_rects;
+    std::vector<Bounds>* invalid_rects {};
     int x = 0;
     int y = 0;
   };

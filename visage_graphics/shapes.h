@@ -18,6 +18,7 @@
 
 #include "color.h"
 #include "icon.h"
+#include "image.h"
 #include "text.h"
 
 #include <algorithm>

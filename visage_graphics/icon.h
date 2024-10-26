@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "color.h"
 #include "graphics_utils.h"
 
 #include <map>

@@ -92,7 +92,6 @@ namespace visage {
                                      float x, float y, float width, float height,
                                      Justification justification = Justification::kCenter) const;
 
-    void checkInit() const;
     const PackedFont* packedFont() const { return packed_font_; }
 
   private:

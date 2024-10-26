@@ -86,8 +86,8 @@ namespace visage {
     std::vector<ShaderPair> listPrograms() const;
 
     bgfx::ProgramHandle& handle(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const;
-    bgfx::ProgramHandle& reload(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const;
-    bgfx::ProgramHandle& restore(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const;
+    void reload(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const;
+    void restore(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const;
 
     std::unique_ptr<ProgramCacheMap> cache_;
   };
