@@ -259,8 +259,8 @@ bool Showcase::keyPress(const visage::KeyEvent& key) {
 }
 
 int runExample() {
-  Showcase editor;
-  editor.showWithEventLoop(0.6f);
+  std::unique_ptr<Showcase> editor = std::make_unique<Showcase>();
+  editor->showWithEventLoop(0.6f);
 
   return 0;
 }

@@ -56,6 +56,7 @@ namespace visage {
 
   void Button::draw(Canvas& canvas) {
     draw(canvas, active_ ? hover_amount_.update() : 0.0f);
+
     if (hover_amount_.isAnimating())
       redraw();
   }

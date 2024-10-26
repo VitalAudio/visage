@@ -28,9 +28,6 @@ namespace visage {
     if (!active_ || range_ <= 0)
       return;
 
-    if (width_.isAnimating() || color_.isAnimating())
-      redraw();
-
     float y_ratio = position_ / range_;
     float height_ratio = view_height_ * 1.0f / range_;
     int h = height();
@@ -41,6 +38,9 @@ namespace visage {
     float rounding = std::min(width_.setSourceValue() / 2.0f, rounding_);
     float x = left_ ? 0.0f : width() - w;
     canvas.roundedRectangle(x, y_ratio * h, w, height_ratio * h, rounding);
+
+    if (width_.isAnimating() || color_.isAnimating())
+      redraw();
   }
 
   void ScrollBar::mouseEnter(const MouseEvent& e) {

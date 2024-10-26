@@ -211,10 +211,8 @@ namespace visage {
 
     bool initialized() const { return initialized_; }
     void redraw() {
-      if (isVisible() && isDrawing() && !redrawing_) {
+      if (isVisible() && isDrawing() && !redrawing_)
         redrawing_ = requestRedraw();
-        region_.invalidate();
-      }
     }
 
     void setCanvas(Canvas* canvas) {

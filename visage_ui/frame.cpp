@@ -226,6 +226,7 @@ namespace visage {
 
   void Frame::drawToRegion() {
     if (redrawing_) {
+      region_.invalidate();
       redrawing_ = false;
       canvas_->beginRegion(&region_, x(), y(), width(), height());
 
