@@ -503,12 +503,10 @@ namespace visage {
     const Font& font = batches[0].shapes->at(0).text->font();
     int total_length = 0;
     for (const auto& batch : batches) {
-      for (const TextBlock& text_block : *batch.shapes) {
-        auto count_pieces = [&batch](int sum, const TextBlock& text_block) {
-          return sum + numTextPieces(text_block, batch.x, batch.y, *batch.invalid_rects);
-        };
-        total_length += std::accumulate(batch.shapes->begin(), batch.shapes->end(), 0, count_pieces);
-      }
+      auto count_pieces = [&batch](int sum, const TextBlock& text_block) {
+        return sum + numTextPieces(text_block, batch.x, batch.y, *batch.invalid_rects);
+      };
+      total_length += std::accumulate(batch.shapes->begin(), batch.shapes->end(), 0, count_pieces);
     }
 
     if (total_length == 0)
@@ -605,6 +603,8 @@ namespace visage {
         }
       }
     }
+
+    VISAGE_ASSERT(vertex_index == total_length * kVerticesPerQuad);
 
     setBlendState(BlendState::Alpha);
     float atlas_scale[] = { 1.0f / font.atlasWidth(), 1.0f / font.atlasWidth(), 0.0f, 0.0f };

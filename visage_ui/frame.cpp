@@ -278,10 +278,9 @@ namespace visage {
   }
 
   void Frame::setPostEffect(PostEffect* post_effect) {
+    region_.removeFromParent();
     post_effect_ = post_effect;
     post_effect_canvas_ = std::make_unique<Canvas>();
-    if (parent_)
-      parent_->region_.removeRegion(region());
     post_effect_canvas_->addRegion(region());
     post_effect_canvas_->setHdr(post_effect->hdr());
     setCanvas(post_effect_canvas_.get());
