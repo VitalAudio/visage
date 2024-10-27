@@ -215,6 +215,12 @@ namespace visage {
         redrawing_ = requestRedraw();
     }
 
+    void redrawAll() {
+      redraw();
+      for (Frame* child : children_)
+        child->redrawAll();
+    }
+
     void setCanvas(Canvas* canvas) {
       if (post_effect_canvas_ && post_effect_canvas_.get() != canvas)
         return;

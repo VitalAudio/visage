@@ -141,7 +141,7 @@ namespace visage {
   void PaletteColorEditor::setColorPickerBounds() {
     int w = width();
     int h = height();
-    for (int i = 1; i < QuadColor::kNumCorners; ++i) {
+    for (int i = 0; i < QuadColor::kNumCorners; ++i) {
       color_pickers_[i].setVisible(num_colors_editing_ > i);
       color_pickers_[i].onColorChange() = [this, i](Color color) {
         if (editing_ < 0)
@@ -448,6 +448,7 @@ namespace visage {
               palette_->removeValue(current_override_id_, value_id);
             else
               palette_->setValue(current_override_id_, value_id, text.toFloat());
+            topParentFrame()->redrawAll();
           };
 
           text_editors_[index].setBounds(x, y, edit_width, edit_height);

@@ -64,6 +64,7 @@ namespace visage {
     float height_scale = height() * 1.0f / defaultHeight();
     setDimensionScaling(dpi_scale, width_scale, height_scale);
     editorResized();
+    drawWindow();
   }
 
   void ApplicationEditor::addToWindow(Window* window) {
