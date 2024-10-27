@@ -105,8 +105,8 @@ Showcase::Showcase() : color_editor_(palette()), value_editor_(palette()) {
   blur_bloom_ = std::make_unique<visage::BlurBloomPostEffect>();
   test_component_ = std::make_unique<TestDrawableComponent>();
   test_component_->setPostEffect(blur_bloom_.get());
+  test_component_->onShowOverlay() = [this] { overlay_.setVisible(true); };
   addChild(test_component_.get());
-  test_component_->addListener(this);
 
   addChild(&color_editor_, false);
   addChild(&value_editor_, false);
@@ -114,9 +114,17 @@ Showcase::Showcase() : color_editor_(palette()), value_editor_(palette()) {
 
   overlay_zoom_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_overlay,
                                                              resources::shaders::fs_overlay);
-  overlay_.setPostEffect(overlay_zoom_.get());
+  // overlay_.setPostEffect(overlay_zoom_.get());
   addChild(&overlay_);
   overlay_.setOnTop(true);
+  overlay_.onAnimate() = [this](float overlay_amount) {
+    static constexpr float kMaxZoom = 0.075f;
+    test_component_->setShadow(overlay_.getBodyBounds(), overlay_amount, overlay_.getBodyRounding());
+    blur_bloom_->setBlurAmount(overlay_amount);
+    overlay_zoom_->setUniformValue("u_zoom", kMaxZoom * (1.0f - overlay_amount) + 1.0f);
+    overlay_zoom_->setUniformValue("u_alpha", overlay_amount * overlay_amount);
+    test_component_->redraw();
+  };
 
   debug_info_ = std::make_unique<DebugInfo>();
   addChild(debug_info_.get());
@@ -185,12 +193,6 @@ void Showcase::draw(visage::Canvas& canvas) {
   blur_bloom_->setBlurSize(canvas.value(kBlurSize));
   blur_bloom_->setBloomSize(canvas.value(kBloomSize));
   blur_bloom_->setBloomIntensity(canvas.value(kBloomIntensity));
-
-  float overlay_amount = overlay_.animationProgress();
-  test_component_->setShadow(overlay_.getBodyBounds(), overlay_amount, overlay_.getBodyRounding());
-  blur_bloom_->setBlurAmount(overlay_amount);
-  overlay_zoom_->setUniformValue("u_zoom", kMaxZoom * (1.0f - overlay_amount) + 1.0f);
-  overlay_zoom_->setUniformValue("u_alpha", overlay_amount * overlay_amount);
 
   ApplicationEditor::draw(canvas);
 }

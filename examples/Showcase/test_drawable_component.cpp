@@ -263,8 +263,7 @@ TestDrawableComponent::TestDrawableComponent() {
   ui_button_ = std::make_unique<visage::UiButton>("Trigger Overlay",
                                                   visage::Font(24, resources::fonts::Lato_Regular_ttf));
   ui_button_->onToggle() = [this](visage::Button* button, bool toggled) {
-    for (Listener* listener : listeners_)
-      listener->showOverlay();
+    on_show_overlay_.callback();
   };
 
   addChild(ui_button_.get());

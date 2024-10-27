@@ -31,12 +31,6 @@ public:
   static constexpr int kNumLines = 2;
   static constexpr int kNumBars = 21;
 
-  class Listener {
-  public:
-    virtual ~Listener() = default;
-    virtual void showOverlay() = 0;
-  };
-
   TestDrawableComponent();
   ~TestDrawableComponent() override;
 
@@ -48,11 +42,10 @@ public:
     shadow_rounding_ = rounding;
   }
 
-  void addListener(Listener* listener) { listeners_.push_back(listener); }
+  auto& onShowOverlay() { return on_show_overlay_; }
 
 private:
-  std::vector<Listener*> listeners_;
-
+  visage::CallbackList<void()> on_show_overlay_;
   std::unique_ptr<DragDropTarget> drag_drop_target_;
   std::unique_ptr<visage::BarComponent> bar_component_;
   std::unique_ptr<visage::ShaderQuad> shader_quad_;

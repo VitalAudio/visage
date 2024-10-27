@@ -37,17 +37,20 @@ public:
   visage::Bounds getBodyBounds() const;
   float getBodyRounding();
 
-  void mouseDown(const visage::MouseEvent& e) override { animation_.target(false); }
+  void mouseDown(const visage::MouseEvent& e) override {
+    animation_.target(false);
+    redraw();
+  }
   void visibilityChanged() override { animation_.target(isVisible()); }
-  float animationProgress() const { return animation_.value(); }
+  auto& onAnimate() { return on_animate_; }
 
 private:
   visage::Animation<float> animation_;
+  visage::CallbackList<void(float)> on_animate_;
 };
 
 class Showcase : public visage::WindowedEditor,
                  public visage::PopupDisplayer,
-                 public TestDrawableComponent::Listener,
                  public visage::UndoHistory {
 public:
   static constexpr int kDefaultWidth = 700;
@@ -68,8 +71,6 @@ public:
   void editorResized() override;
 
   void draw(visage::Canvas& canvas) override;
-
-  void showOverlay() override { overlay_.setVisible(true); }
 
   void clearEditors();
   void showEditor(const Frame* editor, int default_width);
