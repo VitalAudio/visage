@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "test_drawable_component.h"
+#include "examples_frame.h"
 
 #include <visage_app/application_editor.h>
 #include <visage_graphics/animation.h>
@@ -50,7 +50,6 @@ private:
 };
 
 class Showcase : public visage::WindowedEditor,
-                 public visage::PopupDisplayer,
                  public visage::UndoHistory {
 public:
   static constexpr int kDefaultWidth = 700;
@@ -59,16 +58,9 @@ public:
   Showcase();
   ~Showcase() override;
 
-  bool isPopupVisible() override { return popup_.isVisible(); }
-  void showPopup(const visage::PopupOptions& options, visage::Frame* frame, visage::Bounds bounds,
-                 std::function<void(int)> callback, std::function<void()> cancel) override;
-  void showValueDisplay(const std::string& text, visage::Frame* frame, visage::Bounds bounds,
-                        visage::Font::Justification justification, bool primary) override;
-  void hideValueDisplay(bool primary) override;
-
   int defaultWidth() const override { return kDefaultWidth; }
   int defaultHeight() const override { return kDefaultHeight; }
-  void editorResized() override;
+  void resized() override;
 
   void draw(visage::Canvas& canvas) override;
 
@@ -79,7 +71,7 @@ public:
 private:
   std::unique_ptr<visage::BlurBloomPostEffect> blur_bloom_;
   std::unique_ptr<visage::ShaderPostEffect> overlay_zoom_;
-  std::unique_ptr<TestDrawableComponent> test_component_;
+  std::unique_ptr<ExamplesFrame> examples_;
   std::unique_ptr<DebugInfo> debug_info_;
 
   visage::Palette palette_;
@@ -87,10 +79,6 @@ private:
   visage::PaletteValueEditor value_editor_;
   visage::ShaderEditor shader_editor_;
   Overlay overlay_;
-
-  visage::PopupMenu popup_;
-  visage::ValueDisplay primary_value_display_;
-  visage::ValueDisplay secondary_value_display_;
 
   VISAGE_LEAK_CHECKER(Showcase)
 };

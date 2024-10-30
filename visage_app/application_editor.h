@@ -19,9 +19,20 @@
 #include "visage_ui/frame.h"
 
 namespace visage {
+  class ApplicationEditor;
   class Canvas;
   class Window;
   class WindowEventHandler;
+
+  class TopLevelFrame : public Frame {
+  public:
+    explicit TopLevelFrame(ApplicationEditor* editor) : editor_(editor) { }
+
+    void resized() override;
+
+  private:
+    ApplicationEditor* editor_ = nullptr;
+  };
 
   class ApplicationEditor : public Frame {
   public:
@@ -29,8 +40,6 @@ namespace visage {
     ~ApplicationEditor() override;
 
     void setCanvasDetails();
-    void resized() final;
-    virtual void editorResized() { }
 
     void addToWindow(Window* handle);
     void removeFromWindow();
@@ -49,7 +58,7 @@ namespace visage {
 
   private:
     Window* window_ = nullptr;
-    Frame top_level_;
+    TopLevelFrame top_level_;
     FrameEventHandler event_handler_;
     std::unique_ptr<Canvas> canvas_;
     PassthroughPostEffect passthrough_;

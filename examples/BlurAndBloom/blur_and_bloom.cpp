@@ -14,7 +14,7 @@
 * along with va.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "embedded/fonts.h"
+#include "embedded/example_fonts.h"
 
 #include <visage_app/application_editor.h>
 #include <visage_windowing/windowing.h>
@@ -66,7 +66,7 @@ public:
     redraw();
   };
 
-  void editorResized() override {
+  void resized() override {
     font_ = visage::Font(18.0f * heightScale(), resources::fonts::Lato_Regular_ttf);
   }
 

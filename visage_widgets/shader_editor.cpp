@@ -90,7 +90,7 @@ namespace visage {
 #endif
 
     if (!std::filesystem::exists(File(compiler_path_))) {
-      runOnEventThread([this]() { setError("Shader compiler not found"); });
+      runOnEventThread([this] { setError("Shader compiler not found"); });
       return false;
     }
 

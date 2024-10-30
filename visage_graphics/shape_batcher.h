@@ -35,9 +35,12 @@ inline int randomInt(int min, int max) {
 }
 
 template<typename T>
-static void debugVertices(T* vertices, int num_vertices) {
-  for (int i = 0; i < num_vertices; ++i)
-    vertices[i].color = (vertices[i].color & ~0xff) + randomInt(0, 0xff);
+static void debugVertices(T* vertices, int num_random, int spacing) {
+  for (int r = 0; r < num_random; ++r) {
+    int rand = randomInt(0, 0xff);
+    for (int s = 0; s < spacing; ++s)
+      vertices[r * spacing + s].color = (vertices[r * spacing + s].color & ~0xff) | rand;
+  }
 }
 
 #endif

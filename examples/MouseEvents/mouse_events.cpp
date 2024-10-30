@@ -15,6 +15,7 @@
  */
 
 #include <visage_app/application_editor.h>
+#include <visage_ui/popup_menu.h>
 #include <visage_windowing/windowing.h>
 
 class ExampleEditor : public visage::WindowedEditor {
@@ -43,7 +44,16 @@ public:
   void mouseMove(const visage::MouseEvent& e) override { setPosition(e.position); }
   void mouseDrag(const visage::MouseEvent& e) override { setPosition(e.position); }
   void mouseExit(const visage::MouseEvent& e) override { setPosition({ -100, -100 }); }
-  void mouseDown(const visage::MouseEvent& e) override { setDown(true); }
+  void mouseDown(const visage::MouseEvent& e) override {
+    if (!e.shouldTriggerPopup()) {
+      setDown(true);
+      return;
+    }
+    visage::PopupMenu menu;
+    menu.addOption(1, "Option 1");
+    menu.addOption(2, "Option 2");
+    menu.show(this, { x_, y_ });
+  }
   void mouseUp(const visage::MouseEvent& e) override { setDown(false); }
 
 private:

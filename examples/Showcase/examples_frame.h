@@ -26,13 +26,13 @@ class DragDropTarget;
 class TextImage;
 class AnimatedLines;
 
-class TestDrawableComponent : public visage::Frame {
+class ExamplesFrame : public visage::Frame {
 public:
   static constexpr int kNumLines = 2;
   static constexpr int kNumBars = 21;
 
-  TestDrawableComponent();
-  ~TestDrawableComponent() override;
+  ExamplesFrame();
+  ~ExamplesFrame() override;
 
   void resized() override;
   void draw(visage::Canvas& canvas) override;

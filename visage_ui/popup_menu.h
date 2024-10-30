@@ -22,13 +22,52 @@
 #include "visage_graphics/font.h"
 
 namespace visage {
+  class PopupMenu {
+  public:
+    static constexpr int kNotSet = INT_MIN;
+
+    PopupMenu() = default;
+    PopupMenu(const String& name, int id = -1, std::vector<PopupMenu> options = {}, bool is_break = false) :
+        name_(name), id_(id), options_(std::move(options)), is_break_(is_break) { }
+
+    void show(Frame* source, Point position = { kNotSet, kNotSet });
+
+    void addOption(int option_id, const String& option_name, bool option_selected = false) {
+      options_.push_back({ option_name, option_id });
+      options_.back().selected_ = option_selected;
+    }
+
+    auto& onSelection() { return on_selection_; }
+    auto& onCancel() { return on_cancel_; }
+
+    void addSubMenu(PopupMenu options) { options_.push_back(std::move(options)); }
+    void addBreak() { options_.push_back({ "", -1, {}, true }); }
+
+    int size() const { return options_.size(); }
+
+    int id() const { return id_; }
+    const String& name() const { return name_; }
+    bool isBreak() const { return is_break_; }
+    bool hasOptions() const { return !options_.empty(); }
+    const std::vector<PopupMenu>& options() const { return options_; }
+
+  private:
+    CallbackList<void(int)> on_selection_;
+    CallbackList<void()> on_cancel_;
+    String name_;
+    int id_ = -1;
+    bool is_break_ = false;
+    bool selected_ = false;
+    std::vector<PopupMenu> options_;
+  };
+
   class PopupList : public ScrollableFrame {
   public:
     class Listener {
     public:
       virtual ~Listener() = default;
-      virtual void optionSelected(const PopupOptions& option, PopupList* list) = 0;
-      virtual void subMenuSelected(const PopupOptions& option, int selected_y, PopupList* list) = 0;
+      virtual void optionSelected(const PopupMenu& option, PopupList* list) = 0;
+      virtual void subMenuSelected(const PopupMenu& option, int selected_y, PopupList* list) = 0;
       virtual void mouseMovedOnMenu(Point position, PopupList* list) = 0;
       virtual void mouseDraggedOnMenu(Point position, PopupList* list) = 0;
       virtual void mouseUpOutside(Point position, PopupList* list) = 0;
@@ -36,7 +75,7 @@ namespace visage {
 
     PopupList() = default;
 
-    void setOptions(std::vector<PopupOptions> options) { options_ = std::move(options); }
+    void setOptions(std::vector<PopupMenu> options) { options_ = std::move(options); }
     void setFont(const Font& font) { font_ = font; }
 
     int renderHeight();
@@ -46,7 +85,7 @@ namespace visage {
     int hoverY() { return yForIndex(hover_index_); }
     int hoverIndex() const { return hover_index_; }
     int numOptions() const { return options_.size(); }
-    const PopupOptions& option(int index) const { return options_[index]; }
+    const PopupMenu& option(int index) const { return options_[index]; }
     void selectHoveredIndex();
     void setHoverFromPosition(Point position);
     void setNoHover() { hover_index_ = -1; }
@@ -79,7 +118,7 @@ namespace visage {
 
   private:
     std::vector<Listener*> listeners_;
-    std::vector<PopupOptions> options_;
+    std::vector<PopupMenu> options_;
     float opacity_ = 0.0f;
     int hover_index_ = -1;
     int menu_open_index_ = -1;
@@ -87,30 +126,21 @@ namespace visage {
     Font font_;
   };
 
-  class PopupMenu : public Frame,
-                    public PopupList::Listener,
-                    public EventTimer {
+  class PopupMenuFrame : public Frame,
+                         public PopupList::Listener,
+                         public EventTimer {
   public:
     static constexpr int kMaxSubMenus = 4;
     static constexpr int kWaitForSelection = 20;
     static constexpr int kPauseMs = 400;
 
-    PopupMenu() {
-      opacity_animation_.setTargetValue(1.0f);
-      setAcceptsKeystrokes(true);
-      setIgnoresMouseEvents(true, true);
-
-      for (auto& list : lists_) {
-        addChild(&list);
-        list.setVisible(false);
-        list.addListener(this);
-      }
-    }
+    PopupMenuFrame(const PopupMenu& menu);
+    ~PopupMenuFrame() override;
 
     void draw(Canvas& canvas) override;
+    void ownSelf(std::unique_ptr<PopupMenuFrame> self) { self_ = std::move(self); }
 
-    void showMenu(const PopupOptions& options, Bounds bounds, std::function<void(int)> callback,
-                  std::function<void()> cancel);
+    void show(Frame* source, Point point = {});
     void setFont(const Font& font) {
       font_ = font;
       setListFonts(font);
@@ -120,12 +150,13 @@ namespace visage {
         list.setFont(font);
     }
 
+    void hierarchyChanged() override;
     void focusChanged(bool is_focused, bool was_clicked) override;
     void visibilityChanged() override { opacity_animation_.target(isVisible(), true); }
     void timerCallback() override;
 
-    void optionSelected(const PopupOptions& option, PopupList* list) override;
-    void subMenuSelected(const PopupOptions& option, int selection_y, PopupList* list) override;
+    void optionSelected(const PopupMenu& option, PopupList* list) override;
+    void subMenuSelected(const PopupMenu& option, int selection_y, PopupList* list) override;
     void mouseMovedOnMenu(Point position, PopupList* list) override { moveHover(position, list); }
     void mouseDraggedOnMenu(Point position, PopupList* list) override { moveHover(position, list); }
     void mouseUpOutside(Point position, PopupList* list) override;
@@ -133,17 +164,17 @@ namespace visage {
     float opacity() const { return opacity_animation_.value(); }
 
   private:
+    PopupMenu menu_;
+    std::unique_ptr<PopupMenuFrame> self_;
+    Frame* parent_ = nullptr;
     Animation<float> opacity_animation_;
-    std::function<void(int)> callback_;
-    std::function<void()> cancel_;
     PopupList lists_[kMaxSubMenus];
     int hover_index_ = -1;
     Font font_;
-    Bounds last_bounds_;
-
+    Frame* last_source_ = nullptr;
     PopupList* hover_list_ = nullptr;
 
-    VISAGE_LEAK_CHECKER(PopupMenu)
+    VISAGE_LEAK_CHECKER(PopupMenuFrame)
   };
 
   class ValueDisplay : public Frame {
@@ -160,16 +191,5 @@ namespace visage {
     String text_;
 
     VISAGE_LEAK_CHECKER(ValueDisplay)
-  };
-
-  class PopupDisplayer {
-  public:
-    virtual ~PopupDisplayer() = default;
-    virtual bool isPopupVisible() = 0;
-    virtual void showPopup(const PopupOptions& options, Frame* frame, Bounds bounds,
-                           std::function<void(int)> callback, std::function<void()> cancel) = 0;
-    virtual void showValueDisplay(const std::string& text, Frame* frame, Bounds bounds,
-                                  Font::Justification justification, bool primary) = 0;
-    virtual void hideValueDisplay(bool primary) = 0;
   };
 }

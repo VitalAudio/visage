@@ -51,7 +51,7 @@ public:
     canvas.text(U"\U0001F525", emoji, visage::Font::kLeft, 0.0f, 0.0f, width(), height());
   }
 
-  void editorResized() override {
+  void resized() override {
     int font_size = kFontHeightRatio * height();
 
     increment_.setBounds(0, 0, width() - font_size, 2 * font_size);

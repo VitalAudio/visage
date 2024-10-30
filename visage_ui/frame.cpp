@@ -23,7 +23,7 @@ namespace visage {
   void Frame::setVisible(bool visible) {
     if (visible_ != visible) {
       visible_ = visible;
-      visibilityChanged();
+      on_visibility_change_.callback();
     }
 
     region_.setVisible(visible);
@@ -76,9 +76,20 @@ namespace visage {
     if (child == nullptr)
       return;
 
+    child->region()->invalidate();
     child->parent_ = nullptr;
-    region_.removeRegion(child->region());
+    if (child->post_effect_ == nullptr) {
+      region_.removeRegion(child->region());
+      child->setCanvas(nullptr);
+    }
+
     children_.erase(std::find(children_.begin(), children_.end(), child));
+    child->notifyHierarchyChanged();
+  }
+
+  void Frame::removeAllChildren() {
+    while (!children_.empty())
+      removeChild(children_.back());
   }
 
   int Frame::indexOfChild(const Frame* child) const {
@@ -341,38 +352,6 @@ namespace visage {
     }
 
     return theme::ColorId::defaultColor(color_id);
-  }
-
-  bool Frame::isPopupVisible() const {
-    PopupDisplayer* displayer = findParent<PopupDisplayer>();
-    if (displayer)
-      return displayer->isPopupVisible();
-    return false;
-  }
-
-  void Frame::showPopupMenu(const PopupOptions& options, Bounds bounds,
-                            std::function<void(int)> callback, std::function<void()> cancel) {
-    PopupDisplayer* displayer = findParent<PopupDisplayer>();
-    if (displayer)
-      displayer->showPopup(options, this, bounds, std::move(callback), std::move(cancel));
-  }
-
-  void Frame::showPopupMenu(const PopupOptions& options, Point position,
-                            std::function<void(int)> callback, std::function<void()> cancel) {
-    showPopupMenu(options, Bounds(position.x, position.y, 0, 0), std::move(callback), std::move(cancel));
-  }
-
-  void Frame::showValueDisplay(const std::string& text, Bounds bounds,
-                               Font::Justification justification, bool primary) {
-    PopupDisplayer* displayer = findParent<PopupDisplayer>();
-    if (displayer)
-      displayer->showValueDisplay(text, this, bounds, justification, primary);
-  }
-
-  void Frame::hideValueDisplay(bool primary) const {
-    PopupDisplayer* displayer = findParent<PopupDisplayer>();
-    if (displayer)
-      displayer->hideValueDisplay(primary);
   }
 
   void Frame::addUndoableAction(std::unique_ptr<UndoableAction> action) const {

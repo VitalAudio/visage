@@ -73,7 +73,7 @@ public:
     addChild(&shader_editor_);
   }
 
-  void editorResized() override {
+  void resized() override {
     shapes_.setBounds(0, 0, width() / 2, height());
     shader_editor_.setBounds(shapes_.width(), 0, width() - shapes_.right(), height());
   }

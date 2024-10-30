@@ -22,7 +22,16 @@
 #include "window_event_handler.h"
 
 namespace visage {
-  ApplicationEditor::ApplicationEditor() {
+  void TopLevelFrame::resized() {
+    float dpi_scale = editor_->window() ? editor_->window()->dpiScale() : 1.0f;
+    float width_scale = width() * 1.0f / editor_->defaultWidth();
+    float height_scale = height() * 1.0f / editor_->defaultHeight();
+    setDimensionScaling(dpi_scale, width_scale, height_scale);
+    editor_->setBounds(localBounds());
+    editor_->setCanvasDetails();
+  }
+
+  ApplicationEditor::ApplicationEditor() : top_level_(this) {
     canvas_ = std::make_unique<Canvas>();
     top_level_.setCanvas(canvas_.get());
     canvas_->addRegion(top_level_.region());
@@ -32,6 +41,11 @@ namespace visage {
     event_handler_.request_keyboard_focus = [this](Frame* frame) {
       if (window_event_handler_)
         window_event_handler_->setKeyboardFocus(frame);
+    };
+    event_handler_.notify_delete = [this](Frame* frame) {
+      if (window_event_handler_)
+        window_event_handler_->giveUpFocus(frame);
+      stale_children_.erase(frame);
     };
     event_handler_.set_mouse_relative_mode = [this](bool relative) {
       window_->setMouseRelativeMode(relative);
@@ -44,7 +58,9 @@ namespace visage {
     setPostEffect(&passthrough_);
   }
 
-  ApplicationEditor::~ApplicationEditor() = default;
+  ApplicationEditor::~ApplicationEditor() {
+    top_level_.removeAllChildren();
+  }
 
   void ApplicationEditor::setCanvasDetails() {
     canvas_->setDimensions(width(), height());
@@ -55,25 +71,13 @@ namespace visage {
       canvas_->setDpiScale(window_->dpiScale());
   }
 
-  void ApplicationEditor::resized() {
-    top_level_.setBounds(0, 0, width(), height());
-    setCanvasDetails();
-
-    float dpi_scale = window_ ? window_->dpiScale() : 1.0f;
-    float width_scale = width() * 1.0f / defaultWidth();
-    float height_scale = height() * 1.0f / defaultHeight();
-    setDimensionScaling(dpi_scale, width_scale, height_scale);
-    editorResized();
-    drawWindow();
-  }
-
   void ApplicationEditor::addToWindow(Window* window) {
     window_ = window;
     Renderer::instance().checkInitialization(window_->initWindow(), window->globalDisplay());
     canvas_->pairToWindow(window_->nativeHandle(), window->clientWidth(), window->clientHeight());
-    setBounds(0, 0, window->clientWidth(), window->clientHeight());
+    top_level_.setBounds(0, 0, window->clientWidth(), window->clientHeight());
 
-    window_event_handler_ = std::make_unique<WindowEventHandler>(window, this);
+    window_event_handler_ = std::make_unique<WindowEventHandler>(window, &top_level_);
 
     window->setDrawCallback([this](double time) {
       canvas_->updateTime(time);

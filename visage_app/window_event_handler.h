@@ -34,6 +34,7 @@ namespace visage {
 
     Frame* getContentFrame() const { return content_frame_; }
     void setKeyboardFocus(Frame* frame);
+    void giveUpFocus(Frame* frame);
 
     Point getLastMousePosition() const { return last_mouse_position_; }
     Point convertPointToWindowPosition(const Point& point) const {

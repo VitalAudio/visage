@@ -47,6 +47,11 @@ namespace visage {
         original_(std::make_unique<std::function<T>>(callback)) {
       add(callback);
     }
+    CallbackList(const CallbackList& other) {
+      if (other.original_)
+        original_ = std::make_unique<std::function<T>>(*other.original_);
+      callbacks_ = other.callbacks_;
+    }
 
     void add(std::function<T> callback) { callbacks_.push_back(std::move(callback)); }
 
@@ -103,38 +108,10 @@ namespace visage {
     std::vector<std::function<T>> callbacks_;
   };
 
-  struct PopupOptions {
-    String name;
-    int id = -1;
-    bool is_break = false;
-    bool selected = false;
-    std::vector<PopupOptions> sub_options;
-
-    PopupOptions* subOption(int search_id) {
-      for (PopupOptions& option : sub_options) {
-        if (option.id == search_id)
-          return &option;
-
-        PopupOptions* sub_option = option.subOption(search_id);
-        if (sub_option)
-          return sub_option;
-      }
-      return nullptr;
-    }
-
-    void addOption(int option_id, const String& option_name, bool option_selected = false) {
-      sub_options.push_back({ option_name, option_id });
-      sub_options.back().selected = option_selected;
-    }
-
-    void addOption(PopupOptions options) { sub_options.push_back(std::move(options)); }
-    void addBreak() { sub_options.push_back({ "", -1, {}, true }); }
-    int size() const { return sub_options.size(); }
-  };
-
   struct FrameEventHandler {
     std::function<void(Frame*)> request_redraw = nullptr;
     std::function<void(Frame*)> request_keyboard_focus = nullptr;
+    std::function<void(Frame*)> notify_delete = nullptr;
     std::function<void(bool)> set_mouse_relative_mode = nullptr;
     std::function<void(MouseCursor)> set_cursor_style = nullptr;
     std::function<void(bool)> set_cursor_visible = nullptr;
@@ -146,7 +123,13 @@ namespace visage {
   public:
     Frame() = default;
     explicit Frame(std::string name) : name_(std::move(name)) { }
-    virtual ~Frame() = default;
+    virtual ~Frame() {
+      notifyDelete();
+      if (parent_)
+        parent_->removeChild(this);
+
+      removeAllChildren();
+    }
 
     auto& onDraw() { return on_draw_; }
     auto& onResize() { return on_resize_; }
@@ -222,6 +205,8 @@ namespace visage {
     }
 
     void setCanvas(Canvas* canvas) {
+      if (canvas_ == canvas)
+        return;
       if (post_effect_canvas_ && post_effect_canvas_.get() != canvas)
         return;
 
@@ -248,6 +233,7 @@ namespace visage {
 
     void addChild(Frame* child, bool make_visible = true);
     void removeChild(Frame* child);
+    void removeAllChildren();
     int indexOfChild(const Frame* child) const;
     void setParent(Frame* parent) {
       VISAGE_ASSERT(parent != this);
@@ -344,6 +330,11 @@ namespace visage {
         event_handler_->request_keyboard_focus(this);
     }
 
+    void notifyDelete() {
+      if (event_handler_ && event_handler_->notify_delete)
+        event_handler_->notify_delete(this);
+    }
+
     void setMouseRelativeMode(bool visible) {
       if (event_handler_ && event_handler_->set_mouse_relative_mode)
         event_handler_->set_mouse_relative_mode(visible);
@@ -389,14 +380,6 @@ namespace visage {
     float paletteValue(unsigned int value_id) const;
     QuadColor paletteColor(unsigned int color_id) const;
 
-    bool isPopupVisible() const;
-    void showPopupMenu(const PopupOptions& options, Bounds bounds,
-                       std::function<void(int)> callback, std::function<void()> cancel = {});
-    void showPopupMenu(const PopupOptions& options, Point position,
-                       std::function<void(int)> callback, std::function<void()> cancel = {});
-    void showValueDisplay(const std::string& text, Bounds bounds, Font::Justification justification,
-                          bool primary);
-    void hideValueDisplay(bool primary) const;
     void addUndoableAction(std::unique_ptr<UndoableAction> action) const;
     void triggerUndo() const;
     void triggerRedo() const;
@@ -405,7 +388,7 @@ namespace visage {
 
   private:
     void notifyHierarchyChanged() {
-      hierarchyChanged();
+      on_hierarchy_change_.callback();
       for (Frame* child : children_)
         child->notifyHierarchyChanged();
     }

@@ -14,7 +14,7 @@
  * along with test plugin.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "test_drawable_component.h"
+#include "examples_frame.h"
 
 #include "embedded/example_fonts.h"
 #include "embedded/example_icons.h"
@@ -22,6 +22,7 @@
 
 #include <filesystem>
 #include <visage_graphics/theme.h>
+#include <visage_ui/popup_menu.h>
 #include <visage_utils/file_system.h>
 
 inline float quickSin1(float phase) {
@@ -222,7 +223,7 @@ private:
   std::unique_ptr<visage::Text> text_;
 };
 
-TestDrawableComponent::TestDrawableComponent() {
+ExamplesFrame::ExamplesFrame() {
   static constexpr int kBars = kNumBars;
 
   drag_drop_target_ = std::make_unique<DragDropTarget>();
@@ -274,35 +275,30 @@ TestDrawableComponent::TestDrawableComponent() {
   addChild(action_button_.get());
   action_button_->setActionButton();
   action_button_->onToggle() = [this](visage::Button* button, bool toggled) {
-    visage::PopupOptions options;
-    options.addOption(0, "Test 1");
-    options.addOption(1, "Hello World");
-    options.addBreak();
-    options.addOption(2, "Another Item 1");
-    visage::PopupOptions sub_options;
-    sub_options.name = "Sub Menu";
-    sub_options.addOption(3, "Sub Item 1");
-    sub_options.addBreak();
-    sub_options.addOption(4, "Sub Item 2");
-    sub_options.addOption(5, "Sub Item 3");
-    sub_options.addOption(6, "Sub Item 4");
-    options.addOption(sub_options);
-    visage::PopupOptions sub_options2;
-    sub_options2.name = "Other Sub Menu";
-    sub_options2.addOption(7, "Other Sub Item 1");
-    sub_options2.addBreak();
-    sub_options2.addOption(8, "Other Sub Item 2");
-    sub_options2.addOption(9, "Other Sub Item 3");
-    sub_options2.addOption(10, "Other Sub Item 4");
-    options.addOption(sub_options2);
-    options.addOption(11, "Another Item 3");
-    options.addBreak();
-    options.addOption(12, "Force Crash");
+    visage::PopupMenu menu;
+    menu.addOption(0, "Test 1");
+    menu.addOption(1, "Hello World");
+    menu.addBreak();
+    menu.addOption(2, "Another Item 1");
+    visage::PopupMenu sub_menu("Sub Menu");
+    sub_menu.addOption(3, "Sub Item 1");
+    sub_menu.addBreak();
+    sub_menu.addOption(4, "Sub Item 2");
+    sub_menu.addOption(5, "Sub Item 3");
+    sub_menu.addOption(6, "Sub Item 4");
+    menu.addSubMenu(sub_menu);
+    visage::PopupMenu sub_menu2("Other Sub Menu");
+    sub_menu2.addOption(7, "Other Sub Item 1");
+    sub_menu2.addBreak();
+    sub_menu2.addOption(8, "Other Sub Item 2");
+    sub_menu2.addOption(9, "Other Sub Item 3");
+    sub_menu2.addOption(10, "Other Sub Item 4");
+    menu.addSubMenu(sub_menu2);
+    menu.addOption(11, "Another Item 3");
+    menu.addBreak();
+    menu.addOption(12, "Force Crash");
 
-    showPopupMenu(options, action_button_->bounds(), [=](int id) {
-      if (id == 12)
-        VISAGE_FORCE_CRASH();
-    });
+    menu.show(action_button_.get());
   };
   action_button_->setToggleOnMouseDown(true);
 
@@ -412,9 +408,9 @@ TestDrawableComponent::TestDrawableComponent() {
   setIgnoresMouseEvents(true, true);
 }
 
-TestDrawableComponent::~TestDrawableComponent() = default;
+ExamplesFrame::~ExamplesFrame() = default;
 
-void TestDrawableComponent::resized() {
+void ExamplesFrame::resized() {
   int w = width();
   int h = height();
   int x_division = w / 2;
@@ -481,7 +477,7 @@ void TestDrawableComponent::resized() {
   drag_drop_target_->setBounds(x_division + right_width / 2, widget_y, right_width / 2, h - widget_y);
 }
 
-void TestDrawableComponent::draw(visage::Canvas& canvas) {
+void ExamplesFrame::draw(visage::Canvas& canvas) {
   int w = width();
   int h = height();
   canvas.setPaletteColor(kBackgroundColor);

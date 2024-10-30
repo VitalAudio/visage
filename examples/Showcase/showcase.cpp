@@ -103,10 +103,10 @@ Showcase::Showcase() : color_editor_(palette()), value_editor_(palette()) {
   value_editor_.setEditedPalette(&palette_);
 
   blur_bloom_ = std::make_unique<visage::BlurBloomPostEffect>();
-  test_component_ = std::make_unique<TestDrawableComponent>();
-  test_component_->setPostEffect(blur_bloom_.get());
-  test_component_->onShowOverlay() = [this] { overlay_.setVisible(true); };
-  addChild(test_component_.get());
+  examples_ = std::make_unique<ExamplesFrame>();
+  examples_->setPostEffect(blur_bloom_.get());
+  examples_->onShowOverlay() = [this] { overlay_.setVisible(true); };
+  addChild(examples_.get());
 
   addChild(&color_editor_, false);
   addChild(&value_editor_, false);
@@ -119,57 +119,25 @@ Showcase::Showcase() : color_editor_(palette()), value_editor_(palette()) {
   overlay_.setOnTop(true);
   overlay_.onAnimate() = [this](float overlay_amount) {
     static constexpr float kMaxZoom = 0.075f;
-    test_component_->setShadow(overlay_.getBodyBounds(), overlay_amount, overlay_.getBodyRounding());
+    examples_->setShadow(overlay_.getBodyBounds(), overlay_amount, overlay_.getBodyRounding());
     blur_bloom_->setBlurAmount(overlay_amount);
     overlay_zoom_->setUniformValue("u_zoom", kMaxZoom * (1.0f - overlay_amount) + 1.0f);
     overlay_zoom_->setUniformValue("u_alpha", overlay_amount * overlay_amount);
-    test_component_->redraw();
+    examples_->redraw();
   };
 
   debug_info_ = std::make_unique<DebugInfo>();
   addChild(debug_info_.get());
   debug_info_->setOnTop(true);
   debug_info_->setVisible(false);
-
-  addChild(&popup_, false);
-  popup_.setOnTop(true);
-  addChild(&primary_value_display_, false);
-  primary_value_display_.setOnTop(true);
-  addChild(&secondary_value_display_, false);
-  secondary_value_display_.setOnTop(true);
-
-  popup_.setFont(visage::Font(10, resources::fonts::Lato_Regular_ttf));
-  primary_value_display_.setFont(visage::Font(10, resources::fonts::Lato_Regular_ttf));
-  secondary_value_display_.setFont(visage::Font(10, resources::fonts::Lato_Regular_ttf));
 }
 
 Showcase::~Showcase() {
-  removeFromWindow();
+  examples_ = nullptr;
+  VISAGE_LOG("TEST");
 }
 
-void Showcase::showPopup(const visage::PopupOptions& options, visage::Frame* frame, visage::Bounds bounds,
-                         std::function<void(int)> callback, std::function<void()> cancel) {
-  visage::Bounds selection_bounds = relativeBounds(frame) + bounds.topLeft();
-  popup_.showMenu(options, selection_bounds, callback, nullptr);
-}
-
-void Showcase::showValueDisplay(const std::string& text, visage::Frame* frame, visage::Bounds bounds,
-                                visage::Font::Justification justification, bool primary) {
-  visage::Bounds selection_bounds = relativeBounds(frame) + bounds.topLeft();
-  if (primary)
-    primary_value_display_.showDisplay(text, selection_bounds, justification);
-  else
-    secondary_value_display_.showDisplay(text, selection_bounds, justification);
-}
-
-void Showcase::hideValueDisplay(bool primary) {
-  if (primary)
-    primary_value_display_.setVisible(false);
-  else
-    secondary_value_display_.setVisible(false);
-}
-
-void Showcase::editorResized() {
+void Showcase::resized() {
   int w = width();
   int h = height();
   int main_width = w;
@@ -178,13 +146,12 @@ void Showcase::editorResized() {
 
   debug_info_->setBounds(0, 0, main_width, h);
 
-  test_component_->setBounds(0, 0, main_width, h);
+  examples_->setBounds(0, 0, main_width, h);
   color_editor_.setBounds(main_width, 0, w - main_width, h);
   value_editor_.setBounds(main_width, 0, w - main_width, h);
   shader_editor_.setBounds(main_width, 0, w - main_width, h);
 
-  overlay_.setBounds(test_component_->bounds());
-  popup_.setBounds(localBounds());
+  overlay_.setBounds(examples_->bounds());
 }
 
 void Showcase::draw(visage::Canvas& canvas) {

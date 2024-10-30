@@ -46,6 +46,22 @@ namespace visage {
     keyboard_focused_frame_->processFocusChanged(true, false);
   }
 
+  void WindowEventHandler::giveUpFocus(Frame* frame) {
+    if (frame == nullptr)
+      return;
+
+    if (keyboard_focused_frame_ == frame)
+      keyboard_focused_frame_ = nullptr;
+    if (mouse_hovered_frame_ == frame)
+      mouse_hovered_frame_ = nullptr;
+    if (mouse_down_frame_ == frame)
+      mouse_down_frame_ = nullptr;
+    if (keyboard_focused_frame_ == frame)
+      keyboard_focused_frame_ = nullptr;
+    if (drag_drop_target_frame_ == frame)
+      drag_drop_target_frame_ = nullptr;
+  }
+
   void WindowEventHandler::handleFocusLost() {
     if (keyboard_focused_frame_)
       keyboard_focused_frame_->processFocusChanged(false, false);
