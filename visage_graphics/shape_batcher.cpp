@@ -478,8 +478,8 @@ namespace visage {
         return sum;
 
       auto overlaps = [&clamp, &text](const FontAtlasQuad& quad) {
-        return quad.left_position + text.x < clamp.right && quad.right_position + text.x > clamp.left &&
-               quad.top_position + text.y < clamp.bottom && quad.bottom_position + text.y > clamp.top;
+        return quad.x + text.x < clamp.right && quad.x + quad.width + text.x > clamp.left &&
+               quad.y + text.y < clamp.bottom && quad.y + quad.height + text.y > clamp.top;
       };
       int num_pieces = std::count_if(text.quads.begin(), text.quads.end(), overlaps);
       return sum + num_pieces;
@@ -511,9 +511,9 @@ namespace visage {
         if (length == 0)
           continue;
 
+        int start_vertex_index = vertex_index;
         int x = text_block.x + batch.x;
         int y = text_block.y + batch.y;
-        int start_vertex_index = vertex_index;
         for (const Bounds& invalid_rect : *batch.invalid_rects) {
           ClampBounds clamp = text_block.clamp.clamp(invalid_rect.x() - batch.x,
                                                      invalid_rect.y() - batch.y,
@@ -522,74 +522,71 @@ namespace visage {
             continue;
 
           auto overlaps = [&clamp, &text_block](const FontAtlasQuad& quad) {
-            return quad.left_position + text_block.x < clamp.right &&
-                   quad.right_position + text_block.x > clamp.left &&
-                   quad.top_position + text_block.y < clamp.bottom &&
-                   quad.bottom_position + text_block.y > clamp.top;
+            return quad.x + text_block.x < clamp.right &&
+                   quad.x + quad.width + text_block.x > clamp.left &&
+                   quad.y + text_block.y < clamp.bottom &&
+                   quad.y + quad.height + text_block.y > clamp.top;
           };
 
           ClampBounds positioned_clamp = clamp.withOffset(batch.x, batch.y);
+          float direction_x = 0.0f;
+          float direction_y = 0.0f;
+
+          if (text_block.direction == Direction::Down) {
+            direction_x = -1.0f;
+            direction_y = 0.0f;
+          }
+          else if (text_block.direction == Direction::Left) {
+            direction_x = 0.0f;
+            direction_y = -1.0f;
+          }
+          else if (text_block.direction == Direction::Right) {
+            direction_x = 0.0f;
+            direction_y = 1.0f;
+          }
 
           for (int i = 0; i < length; ++i) {
             if (!overlaps(text_block.quads[i]))
               continue;
 
-            float left = x + text_block.quads[i].left_position;
-            float right = x + text_block.quads[i].right_position;
-            float top = y + text_block.quads[i].top_position;
-            float bottom = y + text_block.quads[i].bottom_position;
+            float left = x + text_block.quads[i].x;
+            float right = left + text_block.quads[i].width;
+            float top = y + text_block.quads[i].y;
+            float bottom = top + text_block.quads[i].height;
 
             vertices[vertex_index].x = left;
             vertices[vertex_index].y = top;
-            vertices[vertex_index].coordinate_x = text_block.quads[i].left_coordinate;
-            vertices[vertex_index].coordinate_y = text_block.quads[i].top_coordinate;
             vertices[vertex_index].color = text_block.color.corners[0];
             vertices[vertex_index].hdr = text_block.color.hdr[0];
 
             vertices[vertex_index + 1].x = right;
             vertices[vertex_index + 1].y = top;
-            vertices[vertex_index + 1].coordinate_x = text_block.quads[i].right_coordinate;
-            vertices[vertex_index + 1].coordinate_y = text_block.quads[i].top_coordinate;
             vertices[vertex_index + 1].color = text_block.color.corners[1];
             vertices[vertex_index + 1].hdr = text_block.color.hdr[1];
 
             vertices[vertex_index + 2].x = left;
             vertices[vertex_index + 2].y = bottom;
-            vertices[vertex_index + 2].coordinate_x = text_block.quads[i].left_coordinate;
-            vertices[vertex_index + 2].coordinate_y = text_block.quads[i].bottom_coordinate;
             vertices[vertex_index + 2].color = text_block.color.corners[2];
             vertices[vertex_index + 2].hdr = text_block.color.hdr[2];
 
             vertices[vertex_index + 3].x = right;
             vertices[vertex_index + 3].y = bottom;
-            vertices[vertex_index + 3].coordinate_x = text_block.quads[i].right_coordinate;
-            vertices[vertex_index + 3].coordinate_y = text_block.quads[i].bottom_coordinate;
             vertices[vertex_index + 3].color = text_block.color.corners[3];
             vertices[vertex_index + 3].hdr = text_block.color.hdr[3];
 
-            for (int v = vertex_index; v < vertex_index + kVerticesPerQuad; ++v) {
-              vertices[v].clamp_left = positioned_clamp.left;
-              vertices[v].clamp_top = positioned_clamp.top;
-              vertices[v].clamp_right = positioned_clamp.right;
-              vertices[v].clamp_bottom = positioned_clamp.bottom;
+            for (int v = 0; v < kVerticesPerQuad; ++v) {
+              int index = vertex_index + v;
+              vertices[index].coordinate_x = text_block.quads[i].x_coordinates[v];
+              vertices[index].coordinate_y = text_block.quads[i].y_coordinates[v];
+              vertices[index].clamp_left = positioned_clamp.left;
+              vertices[index].clamp_top = positioned_clamp.top;
+              vertices[index].clamp_right = positioned_clamp.right;
+              vertices[index].clamp_bottom = positioned_clamp.bottom;
+              vertices[index].direction_x = direction_x;
+              vertices[index].direction_y = direction_y;
             }
 
             vertex_index += kVerticesPerQuad;
-          }
-        }
-
-        if (text_block.direction == Direction::Left || text_block.direction == Direction::Right) {
-          float direction = text_block.direction == Direction::Left ? -1.0f : 1.0f;
-          for (int i = start_vertex_index; i < vertex_index; ++i) {
-            vertices[i].direction_y = direction;
-            vertices[i].direction_x = 0.0f;
-          }
-        }
-        else {
-          float direction = text_block.direction == Direction::Up ? 1.0f : -1.0f;
-          for (int i = start_vertex_index; i < vertex_index; ++i) {
-            vertices[i].direction_x = direction;
-            vertices[i].direction_y = 0.0f;
           }
         }
       }

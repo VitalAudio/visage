@@ -642,7 +642,7 @@ namespace visage {
               float height, Text* text, Direction direction) :
         Shape(text->font().packedFont(), clamp, color, x, y, width, height), text(text),
         direction(direction) {
-      quads = VectorPool<FontAtlasQuad>::instance().vector(text->text().length() * kVerticesPerQuad);
+      quads = VectorPool<FontAtlasQuad>::instance().vector(text->text().length());
 
       const char32_t* c_str = text->text().c_str();
       int length = text->text().length();
@@ -658,28 +658,39 @@ namespace visage {
         text->font().setVertexPositions(quads.data(), c_str, length, 0, 0, w, h,
                                         text->justification(), text->characterOverride());
       }
+
       if (direction == Direction::Down) {
-        for (int i = 0; i < length; ++i) {
-          quads[i].top_position = height - quads[i].top_position;
-          quads[i].bottom_position = height - quads[i].bottom_position;
-          quads[i].left_position = width - quads[i].left_position;
-          quads[i].right_position = width - quads[i].right_position;
+        for (auto& quad : quads) {
+          std::swap(quad.x_coordinates[0], quad.x_coordinates[3]);
+          std::swap(quad.y_coordinates[0], quad.y_coordinates[3]);
+          std::swap(quad.x_coordinates[1], quad.x_coordinates[2]);
+          std::swap(quad.y_coordinates[1], quad.y_coordinates[2]);
+          quad.x = width - (quad.x + quad.width);
+          quad.y = height - (quad.y + quad.height);
         }
       }
       else if (direction == Direction::Left) {
-        for (int i = 0; i < length; ++i) {
-          std::swap(quads[i].left_position, quads[i].top_position);
-          std::swap(quads[i].right_position, quads[i].bottom_position);
-          quads[i].top_position = height - quads[i].top_position;
-          quads[i].bottom_position = height - quads[i].bottom_position;
+        for (auto& quad : quads) {
+          quad.y_coordinates[2] = quad.y_coordinates[0];
+          quad.x_coordinates[3] = quad.x_coordinates[2];
+          quad.y_coordinates[1] = quad.y_coordinates[3];
+          quad.x_coordinates[0] = quad.x_coordinates[1];
+          float right = quad.x + quad.width;
+          quad.x = quad.y;
+          quad.y = height - right;
+          std::swap(quad.width, quad.height);
         }
       }
       else if (direction == Direction::Right) {
-        for (int i = 0; i < length; ++i) {
-          std::swap(quads[i].left_position, quads[i].top_position);
-          std::swap(quads[i].right_position, quads[i].bottom_position);
-          quads[i].left_position = width - quads[i].left_position;
-          quads[i].right_position = width - quads[i].right_position;
+        for (auto& quad : quads) {
+          quad.y_coordinates[0] = quad.y_coordinates[2];
+          quad.x_coordinates[2] = quad.x_coordinates[3];
+          quad.y_coordinates[3] = quad.y_coordinates[1];
+          quad.x_coordinates[1] = quad.x_coordinates[0];
+          float bottom = quad.y + quad.height;
+          quad.y = quad.x;
+          quad.x = width - bottom;
+          std::swap(quad.width, quad.height);
         }
       }
 
@@ -687,14 +698,15 @@ namespace visage {
       float clamp_right = clamp.right - x;
       float clamp_top = clamp.top - y;
       float clamp_bottom = clamp.bottom - y;
-      auto check = [&](const FontAtlasQuad& quad) {
-        return quad.right_position < clamp_left || quad.left_position > clamp_right ||
-               quad.bottom_position < clamp_top || quad.top_position > clamp_bottom ||
-               quad.left_position == quad.right_position;
+      auto check_clamped = [&](const FontAtlasQuad& quad) {
+        return quad.x + quad.width < clamp_left || quad.x > clamp_right ||
+               quad.y + quad.height < clamp_top || quad.y > clamp_bottom || quad.width == 0.0f ||
+               quad.height == 0.0f;
       };
 
-      auto it = std::remove_if(quads.begin(), quads.end(), check);
+      auto it = std::remove_if(quads.begin(), quads.end(), check_clamped);
       quads.erase(it, quads.end());
+      VISAGE_LOG(quads.size());
     }
 
     TextBlock(const TextBlock&) = delete;

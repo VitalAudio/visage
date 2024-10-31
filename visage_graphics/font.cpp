@@ -301,15 +301,23 @@ namespace visage {
       if (!isIgnored(character) && !isNewLine(character))
         packed_char = packed_font_->packedChar(character);
 
-      quads[i].left_coordinate = packed_char->x0 * atlas_scale;
-      quads[i].right_coordinate = packed_char->x1 * atlas_scale;
-      quads[i].top_coordinate = packed_char->y0 * atlas_scale;
-      quads[i].bottom_coordinate = packed_char->y1 * atlas_scale;
+      float left_coordinate = packed_char->x0 * atlas_scale;
+      quads[i].x_coordinates[0] = left_coordinate;
+      quads[i].x_coordinates[2] = left_coordinate;
+      float right_coordinate = packed_char->x1 * atlas_scale;
+      quads[i].x_coordinates[1] = right_coordinate;
+      quads[i].x_coordinates[3] = right_coordinate;
+      float top_coordinate = packed_char->y0 * atlas_scale;
+      quads[i].y_coordinates[0] = top_coordinate;
+      quads[i].y_coordinates[1] = top_coordinate;
+      float bottom_coordinate = packed_char->y1 * atlas_scale;
+      quads[i].y_coordinates[2] = bottom_coordinate;
+      quads[i].y_coordinates[3] = bottom_coordinate;
 
-      quads[i].left_position = pen_x + packed_char->xoff;
-      quads[i].right_position = pen_x + packed_char->xoff2;
-      quads[i].top_position = pen_y + packed_char->yoff;
-      quads[i].bottom_position = pen_y + packed_char->yoff2;
+      quads[i].x = pen_x + packed_char->xoff;
+      quads[i].width = packed_char->xoff2 - packed_char->xoff;
+      quads[i].y = pen_y + packed_char->yoff;
+      quads[i].height = packed_char->yoff2 - packed_char->yoff;
 
       pen_x += packed_char->xadvance;
     }

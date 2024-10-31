@@ -25,14 +25,12 @@
 
 namespace visage {
   struct FontAtlasQuad {
-    float left_position;
-    float left_coordinate;
-    float right_position;
-    float right_coordinate;
-    float top_position;
-    float top_coordinate;
-    float bottom_position;
-    float bottom_coordinate;
+    float x;
+    float y;
+    float width;
+    float height;
+    float x_coordinates[kVerticesPerQuad];
+    float y_coordinates[kVerticesPerQuad];
   };
 
   class PackedFont;
