@@ -132,10 +132,7 @@ Showcase::Showcase() : color_editor_(palette()), value_editor_(palette()) {
   debug_info_->setVisible(false);
 }
 
-Showcase::~Showcase() {
-  examples_ = nullptr;
-  VISAGE_LOG("TEST");
-}
+Showcase::~Showcase() = default;
 
 void Showcase::resized() {
   int w = width();

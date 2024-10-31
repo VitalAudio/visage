@@ -706,7 +706,6 @@ namespace visage {
 
       auto it = std::remove_if(quads.begin(), quads.end(), check_clamped);
       quads.erase(it, quads.end());
-      VISAGE_LOG(quads.size());
     }
 
     TextBlock(const TextBlock&) = delete;
