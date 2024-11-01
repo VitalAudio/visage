@@ -449,21 +449,21 @@ namespace visage {
   public:
     class CachedImage : public Image {
     public:
-      explicit CachedImage(CachedFrame* component) : component_(component) { }
+      explicit CachedImage(CachedFrame* frame) : frame_(frame) { }
 
       void draw(visage::Canvas& canvas) override {
         need_redraw_ = false;
-        component_->drawToCache(canvas);
+        frame_->drawToCache(canvas);
       }
 
       void redraw() { need_redraw_ = true; }
       bool needsRedraw() const override { return need_redraw_; }
 
-      int width() const override { return component_->width(); }
-      int height() const override { return component_->height(); }
+      int width() const override { return frame_->width(); }
+      int height() const override { return frame_->height(); }
 
     private:
-      CachedFrame* component_ = nullptr;
+      CachedFrame* frame_ = nullptr;
       bool need_redraw_ = false;
     };
 

@@ -14,25 +14,25 @@
  * along with visage.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "line_component.h"
+#include "graph_line.h"
 
 namespace visage {
-  THEME_IMPLEMENT_COLOR(LineComponent, LineColor, 0xffaa88ff);
-  THEME_IMPLEMENT_COLOR(LineComponent, LineFillColor, 0x669f88ff);
-  THEME_IMPLEMENT_COLOR(LineComponent, LineFillColor2, 0x669f88ff);
-  THEME_IMPLEMENT_COLOR(LineComponent, LineDisabledColor, 0xff4c4f52);
-  THEME_IMPLEMENT_COLOR(LineComponent, LineDisabledFillColor, 0x22666666);
-  THEME_IMPLEMENT_COLOR(LineComponent, CenterPoint, 0xff1d2125);
-  THEME_IMPLEMENT_COLOR(LineComponent, GridColor, 0x22ffffff);
-  THEME_IMPLEMENT_COLOR(LineComponent, HoverColor, 0xffffffff);
-  THEME_IMPLEMENT_COLOR(LineComponent, DragColor, 0x55ffffff);
+  THEME_IMPLEMENT_COLOR(GraphLine, LineColor, 0xffaa88ff);
+  THEME_IMPLEMENT_COLOR(GraphLine, LineFillColor, 0x669f88ff);
+  THEME_IMPLEMENT_COLOR(GraphLine, LineFillColor2, 0x669f88ff);
+  THEME_IMPLEMENT_COLOR(GraphLine, LineDisabledColor, 0xff4c4f52);
+  THEME_IMPLEMENT_COLOR(GraphLine, LineDisabledFillColor, 0x22666666);
+  THEME_IMPLEMENT_COLOR(GraphLine, CenterPoint, 0xff1d2125);
+  THEME_IMPLEMENT_COLOR(GraphLine, GridColor, 0x22ffffff);
+  THEME_IMPLEMENT_COLOR(GraphLine, HoverColor, 0xffffffff);
+  THEME_IMPLEMENT_COLOR(GraphLine, DragColor, 0x55ffffff);
 
-  THEME_IMPLEMENT_VALUE(LineComponent, LineWidth, 1.5f, ScaledHeight, false);
-  THEME_IMPLEMENT_VALUE(LineComponent, LineColorBoost, 1.0f, Constant, false);
-  THEME_IMPLEMENT_VALUE(LineComponent, LineFillBoost, 1.0f, Constant, false);
+  THEME_IMPLEMENT_VALUE(GraphLine, LineWidth, 1.5f, ScaledHeight, false);
+  THEME_IMPLEMENT_VALUE(GraphLine, LineColorBoost, 1.0f, Constant, false);
+  THEME_IMPLEMENT_VALUE(GraphLine, LineFillBoost, 1.0f, Constant, false);
   THEME_VALUE(PositionBulbWidth, 4.0f, ScaledHeight, true);
 
-  void LineComponent::BoostBuffer::boostRange(float start, float end, float decay) {
+  void GraphLine::BoostBuffer::boostRange(float start, float end, float decay) {
     any_boost_value_ = true;
 
     int active_points = num_points_;
@@ -82,7 +82,7 @@ namespace visage {
     values_[end_index] = std::max(end_value, progress * progress);
   }
 
-  void LineComponent::BoostBuffer::decayBoosts(float mult) {
+  void GraphLine::BoostBuffer::decayBoosts(float mult) {
     bool any_boost = false;
     for (int i = 0; i < num_points_; ++i) {
       values_[i] *= mult;
@@ -92,7 +92,7 @@ namespace visage {
     any_boost_value_ = any_boost;
   }
 
-  LineComponent::LineComponent(int num_points, bool loop) :
+  GraphLine::GraphLine(int num_points, bool loop) :
       line_(num_points), boost_(line_.values.get(), num_points), fill_center_(kCenter), loop_(loop) {
     boost_.enableBackwardBoost(loop_);
 
@@ -100,14 +100,9 @@ namespace visage {
       setXAt(i, i / (line_.num_points - 1.0f));
   }
 
-  LineComponent::~LineComponent() = default;
+  GraphLine::~GraphLine() = default;
 
-  void LineComponent::init() {
-    line_.init();
-    Frame::init();
-  }
-
-  int LineComponent::fillLocation() const {
+  int GraphLine::fillLocation() const {
     if (fill_center_ == kBottom)
       return height();
     if (fill_center_ == kTop)
@@ -117,7 +112,7 @@ namespace visage {
     return height() / 2;
   }
 
-  void LineComponent::draw(Canvas& canvas) {
+  void GraphLine::draw(Canvas& canvas) {
     if (canvas.totallyClamped())
       return;
 
@@ -126,32 +121,27 @@ namespace visage {
     drawLine(canvas, active_ ? kLineColor : kLineDisabledColor);
   }
 
-  void LineComponent::drawLine(Canvas& canvas, unsigned int color_id) {
+  void GraphLine::drawLine(Canvas& canvas, unsigned int color_id) {
     line_.line_value_scale = canvas.value(kLineColorBoost);
     canvas.setPaletteColor(color_id);
     canvas.line(&line_, 0.0f, 0.0f, width(), height(), line_width_);
   }
 
-  void LineComponent::drawFill(Canvas& canvas, unsigned int color_id) {
+  void GraphLine::drawFill(Canvas& canvas, unsigned int color_id) {
     QuadColor color = canvas.color(color_id);
     line_.fill_value_scale = canvas.value(kLineFillBoost);
     canvas.setColor(color.withMultipliedAlpha(fill_alpha_mult_));
     canvas.lineFill(&line_, 0.0f, 0.0f, width(), height(), fillLocation());
   }
 
-  void LineComponent::drawPosition(Canvas& canvas, float x, float y) {
+  void GraphLine::drawPosition(Canvas& canvas, float x, float y) {
     float marker_width = canvas.value(kPositionBulbWidth);
     canvas.setColor(canvas.color(kLineColor).withMultipliedHdr(1.0f + canvas.value(kLineColorBoost)));
     canvas.circle(x - marker_width * 0.5f, y - marker_width * 0.5f, marker_width);
   }
 
-  void LineComponent::resized() {
+  void GraphLine::resized() {
     line_width_ = paletteValue(kLineWidth);
     Frame::resized();
-  }
-
-  void LineComponent::destroy() {
-    line_.destroy();
-    Frame::destroy();
   }
 }

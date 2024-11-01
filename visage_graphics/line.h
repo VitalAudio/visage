@@ -19,20 +19,33 @@
 #include "graphics_utils.h"
 
 namespace visage {
-  struct LineIndexBuffers;
-
   struct Line {
     static constexpr int kLineVerticesPerPoint = 6;
     static constexpr int kFillVerticesPerPoint = 2;
 
-    explicit Line(int num);
-    ~Line();
+    explicit Line(int points = 0) { setNumPoints(points); }
 
-    void init() const;
-    void destroy() const;
+    void setNumPoints(int points) {
+      num_line_vertices = kLineVerticesPerPoint * points;
+      num_fill_vertices = kFillVerticesPerPoint * points;
 
-    const bgfx::IndexBufferHandle& indexBuffer() const;
-    const bgfx::IndexBufferHandle& fillIndexBuffer() const;
+      std::unique_ptr<float[]> old_x = std::move(x);
+      std::unique_ptr<float[]> old_y = std::move(y);
+      std::unique_ptr<float[]> old_values = std::move(values);
+      if (points) {
+        x = std::make_unique<float[]>(points);
+        y = std::make_unique<float[]>(points);
+        values = std::make_unique<float[]>(points);
+
+        if (num_points) {
+          std::memcpy(x.get(), old_x.get(), num_points * sizeof(float));
+          std::memcpy(y.get(), old_y.get(), num_points * sizeof(float));
+          std::memcpy(values.get(), old_values.get(), num_points * sizeof(float));
+        }
+      }
+
+      num_points = points;
+    }
 
     int num_points = 0;
     int num_line_vertices = 0;
@@ -44,10 +57,5 @@ namespace visage {
 
     float line_value_scale = 1.0f;
     float fill_value_scale = 1.0f;
-    std::unique_ptr<uint16_t[]> index_data;
-    std::unique_ptr<uint16_t[]> fill_index_data;
-
-  private:
-    std::unique_ptr<LineIndexBuffers> index_buffers_;
   };
 }

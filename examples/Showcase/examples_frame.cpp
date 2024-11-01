@@ -52,25 +52,25 @@ public:
   static constexpr int kNumLines = 2;
 
   AnimatedLines() {
-    for (auto& line_component : line_components_) {
-      line_component = std::make_unique<visage::LineComponent>(400);
-      addChild(line_component.get());
+    for (auto& graph_line : graph_lines_) {
+      graph_line = std::make_unique<visage::GraphLine>(400);
+      addChild(graph_line.get());
     }
   }
 
   void resized() override {
     int line_offset = height() / kNumLines;
     for (int i = 0; i < kNumLines; ++i) {
-      line_components_[i]->setBounds(0, line_offset * i, width(), line_offset);
-      line_components_[i]->setFill(true);
+      graph_lines_[i]->setBounds(0, line_offset * i, width(), line_offset);
+      graph_lines_[i]->setFill(true);
     }
   }
 
   void draw(visage::Canvas& canvas) override {
     double render_time = canvas.time();
     for (int r = 0; r < kNumLines; ++r) {
-      int render_height = line_components_[r]->height();
-      int render_width = line_components_[r]->width();
+      int render_height = graph_lines_[r]->height();
+      int render_width = graph_lines_[r]->width();
       int line_height = render_height * 0.9f;
       int offset = render_height * 0.05f;
 
@@ -80,8 +80,8 @@ public:
         float delta = std::min(t, 1.0f - t);
         position += 0.1f * delta * delta + 0.003f;
         double phase = (render_time + r) * 0.5;
-        line_components_[r]->setXAt(i, t * render_width);
-        line_components_[r]->setYAt(i, offset + (sin1(phase + position) * 0.5f + 0.5f) * line_height);
+        graph_lines_[r]->setXAt(i, t * render_width);
+        graph_lines_[r]->setYAt(i, offset + (sin1(phase + position) * 0.5f + 0.5f) * line_height);
       }
     }
 
@@ -89,7 +89,7 @@ public:
   }
 
 private:
-  std::unique_ptr<visage::LineComponent> line_components_[kNumLines];
+  std::unique_ptr<visage::GraphLine> graph_lines_[kNumLines];
 };
 
 class DragDropTarget : public visage::Frame {
@@ -229,19 +229,19 @@ ExamplesFrame::ExamplesFrame() {
   drag_drop_target_ = std::make_unique<DragDropTarget>();
   addChild(drag_drop_target_.get());
 
-  bar_component_ = std::make_unique<visage::BarComponent>(kBars);
-  addChild(bar_component_.get());
-  bar_component_->setHorizontalAntiAliasing(false);
+  bar_list_ = std::make_unique<visage::BarList>(kBars);
+  addChild(bar_list_.get());
+  bar_list_->setHorizontalAntiAliasing(false);
 
-  bar_component_->onDraw() += [this](visage::Canvas& canvas) {
+  bar_list_->onDraw() += [this](visage::Canvas& canvas) {
     double render_time = canvas.time();
     float space = 1;
-    float bar_width = (bar_component_->width() + space) / kNumBars;
-    int bar_height = bar_component_->height();
+    float bar_width = (bar_list_->width() + space) / kNumBars;
+    int bar_height = bar_list_->height();
     for (int i = 0; i < kNumBars; ++i) {
       float x = bar_width * i;
       float current_height = (sin1((render_time * 60.0 + i * 30) / 600.0f) + 1.0f) * 0.5f * bar_height;
-      bar_component_->positionBar(i, x, current_height, bar_width - space, bar_height - current_height);
+      bar_list_->positionBar(i, x, current_height, bar_width - space, bar_height - current_height);
     }
   };
 
@@ -421,11 +421,11 @@ void ExamplesFrame::resized() {
 
   animated_lines_->setBounds(0, section_head_height, x_division, section_body_height);
 
-  bar_component_->setBounds(0, section_height + section_head_height, x_division / 2, section_body_height);
+  bar_list_->setBounds(0, section_height + section_head_height, x_division / 2, section_body_height);
   int shader_x = x_division / 2 + (x_division / 2 - section_body_height) / 2;
   shader_quad_->setBounds(shader_x, section_height + section_head_height, section_body_height,
                           section_body_height);
-  shapes_->setBounds(x_division, bar_component_->y(), right_width, section_body_height);
+  shapes_->setBounds(x_division, bar_list_->y(), right_width, section_body_height);
 
   int font_height = section_head_height / 2;
   int text_y = 2 * section_height + section_head_height;

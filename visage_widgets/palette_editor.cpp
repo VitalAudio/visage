@@ -356,7 +356,7 @@ namespace visage {
       text_editor.setDefaultText("Not Set");
       text_editor.setMargin(8, 0);
       text_editor.setFont(Font(kValueIdHeight / 3, fonts::Lato_Regular_ttf));
-      addScrolledComponent(&text_editor, false);
+      addScrolledFrame(&text_editor, false);
     }
   }
 

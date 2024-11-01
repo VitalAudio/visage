@@ -102,10 +102,10 @@ namespace visage {
 
     void resized() override;
 
-    void addScrolledComponent(Frame* component, bool make_visible = true) {
+    void addScrolledFrame(Frame* frame, bool make_visible = true) {
       container_.setVisible(true);
-      container_.addChild(component);
-      component->setVisible(make_visible);
+      container_.addChild(frame);
+      frame->setVisible(make_visible);
     }
 
     void scrollPositionChanged(int position) {

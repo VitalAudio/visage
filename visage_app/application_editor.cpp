@@ -37,7 +37,7 @@ namespace visage {
     canvas_->addRegion(top_level_.region());
     top_level_.addChild(this);
 
-    event_handler_.request_redraw = [this](Frame* component) { stale_children_.insert(component); };
+    event_handler_.request_redraw = [this](Frame* frame) { stale_children_.insert(frame); };
     event_handler_.request_keyboard_focus = [this](Frame* frame) {
       if (window_event_handler_)
         window_event_handler_->setKeyboardFocus(frame);

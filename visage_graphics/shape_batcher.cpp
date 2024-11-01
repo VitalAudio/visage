@@ -361,7 +361,6 @@ namespace visage {
     setUniform<Uniforms::kLineWidth>(line_width);
 
     bgfx::setVertexBuffer(0, &vertex_buffer);
-    bgfx::setIndexBuffer(line->indexBuffer());
     setUniformBounds(line_wrapper.x, line_wrapper.y, canvas.width(), canvas.height());
     setScissor(line_wrapper, canvas.width(), canvas.height());
     auto program = ProgramCache::programHandle(LineWrapper::vertexShader(), LineWrapper::fragmentShader());
@@ -430,7 +429,6 @@ namespace visage {
     setUniform<Uniforms::kCenterPosition>(center);
 
     bgfx::setVertexBuffer(0, &fill_vertex_buffer);
-    bgfx::setIndexBuffer(line->fillIndexBuffer());
     setUniformBounds(line_fill_wrapper.x, line_fill_wrapper.y, canvas.width(), canvas.height());
     setScissor(line_fill_wrapper, canvas.width(), canvas.height());
     auto program = ProgramCache::programHandle(LineFillWrapper::vertexShader(),

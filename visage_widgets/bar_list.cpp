@@ -14,18 +14,18 @@
  * along with visage.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "bar_component.h"
+#include "bar_list.h"
 
 #include "visage_graphics/theme.h"
 
 namespace visage {
-  THEME_IMPLEMENT_COLOR(BarComponent, BarColor, 0xffaa88ff);
+  THEME_IMPLEMENT_COLOR(BarList, BarColor, 0xffaa88ff);
 
-  BarComponent::BarComponent(int num_bars) : num_bars_(num_bars) {
+  BarList::BarList(int num_bars) : num_bars_(num_bars) {
     bars_ = std::make_unique<Bar[]>(num_bars);
   }
 
-  void BarComponent::draw(Canvas& canvas) {
+  void BarList::draw(Canvas& canvas) {
     QuadColor bar_color = canvas.color(kBarColor);
 
     float width_scale = 1.0f / width();

@@ -21,7 +21,7 @@
 #include "visage_ui/frame.h"
 
 namespace visage {
-  class LineComponent : public Frame {
+  class GraphLine : public Frame {
   public:
     class BoostBuffer {
     public:
@@ -69,15 +69,13 @@ namespace visage {
       kCustom
     };
 
-    explicit LineComponent(int num_points, bool loop = false);
-    ~LineComponent() override;
+    explicit GraphLine(int num_points, bool loop = false);
+    ~GraphLine() override;
 
-    void init() override;
     void draw(Canvas& canvas) override;
     void drawLine(Canvas& canvas, unsigned int color_id);
     void drawFill(Canvas& canvas, unsigned int color_id);
     void drawPosition(Canvas& canvas, float x, float y);
-    void destroy() override;
     void resized() override;
 
     float boostAt(int index) const { return boost_.values()[index]; }
@@ -130,6 +128,6 @@ namespace visage {
     bool active_ = true;
     bool loop_ = false;
 
-    VISAGE_LEAK_CHECKER(LineComponent)
+    VISAGE_LEAK_CHECKER(GraphLine)
   };
 }

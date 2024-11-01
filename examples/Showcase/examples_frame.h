@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <visage_widgets/bar_component.h>
+#include <visage_widgets/bar_list.h>
 #include <visage_widgets/button.h>
-#include <visage_widgets/line_component.h>
+#include <visage_widgets/graph_line.h>
 #include <visage_widgets/shader_quad.h>
 #include <visage_widgets/text_editor.h>
 
@@ -47,7 +47,7 @@ public:
 private:
   visage::CallbackList<void()> on_show_overlay_;
   std::unique_ptr<DragDropTarget> drag_drop_target_;
-  std::unique_ptr<visage::BarComponent> bar_component_;
+  std::unique_ptr<visage::BarList> bar_list_;
   std::unique_ptr<visage::ShaderQuad> shader_quad_;
   std::unique_ptr<visage::ToggleIconButton> icon_button_;
   std::unique_ptr<visage::ToggleTextButton> text_button_;

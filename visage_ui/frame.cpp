@@ -212,8 +212,7 @@ namespace visage {
     return false;
   }
 
-  inline QuadColor colorForSampledComponent(const Frame* parent, const Frame* child,
-                                            const QuadColor& background) {
+  inline QuadColor colorForSampledFrame(const Frame* parent, const Frame* child, const QuadColor& background) {
     Bounds bounds = parent->relativeBounds(child);
     float width = parent->width();
     float height = parent->height();
@@ -322,13 +321,13 @@ namespace visage {
       scale = dpiScale();
 
     if (palette_) {
-      const Frame* component = this;
+      const Frame* frame = this;
       float result = 0.0f;
-      while (component) {
-        int override_id = component->palette_override_;
+      while (frame) {
+        int override_id = frame->palette_override_;
         if (override_id && palette_->value(override_id, value_id, result))
           return scale * result;
-        component = component->parent_;
+        frame = frame->parent_;
       }
       if (palette_->value(0, value_id, result))
         return scale * result;
@@ -340,12 +339,12 @@ namespace visage {
   QuadColor Frame::paletteColor(unsigned int color_id) const {
     if (palette_) {
       QuadColor result;
-      const Frame* component = this;
-      while (component) {
-        int override_id = component->palette_override_;
+      const Frame* frame = this;
+      while (frame) {
+        int override_id = frame->palette_override_;
         if (override_id && palette_->color(override_id, color_id, result))
           return result;
-        component = component->parent_;
+        frame = frame->parent_;
       }
       if (palette_->color(0, color_id, result))
         return result;

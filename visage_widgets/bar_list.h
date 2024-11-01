@@ -19,7 +19,7 @@
 #include "visage_ui/frame.h"
 
 namespace visage {
-  class BarComponent : public Frame {
+  class BarList : public Frame {
   public:
     THEME_DEFINE_COLOR(BarColor);
 
@@ -30,8 +30,8 @@ namespace visage {
       float bottom = 0.0f;
     };
 
-    explicit BarComponent(int num_bars);
-    ~BarComponent() override = default;
+    explicit BarList(int num_bars);
+    ~BarList() override = default;
 
     void draw(Canvas& canvas) override;
 
@@ -70,6 +70,6 @@ namespace visage {
     bool horizontal_aa_ = true;
     bool vertical_aa_ = true;
 
-    VISAGE_LEAK_CHECKER(BarComponent)
+    VISAGE_LEAK_CHECKER(BarList)
   };
 }
