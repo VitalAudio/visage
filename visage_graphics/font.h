@@ -104,6 +104,11 @@ namespace visage {
 
     ~FontCache();
 
+    static void clearStaleFonts() {
+      if (instance()->has_stale_fonts_)
+        instance()->removeStaleFonts();
+    }
+
   private:
     static FontCache* instance() {
       static FontCache cache;
@@ -125,9 +130,11 @@ namespace visage {
     FontCache();
 
     PackedFont* createOrLoadPackedFont(int size, const char* font_data);
-    void decrementPackedFont(PackedFont*);
+    void decrementPackedFont(PackedFont* packed_font);
+    void removeStaleFonts();
 
     std::map<std::pair<int, unsigned const char*>, std::unique_ptr<PackedFont>> cache_;
     std::map<PackedFont*, int> ref_count_;
+    bool has_stale_fonts_ = false;
   };
 }

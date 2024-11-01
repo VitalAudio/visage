@@ -423,13 +423,21 @@ namespace visage {
 
   void FontCache::decrementPackedFont(PackedFont* packed_font) {
     VISAGE_ASSERT(Thread::isMainThread());
-
     ref_count_[packed_font]--;
+    int count = ref_count_[packed_font];
+    has_stale_fonts_ = has_stale_fonts_ || count == 0;
     VISAGE_ASSERT(ref_count_[packed_font] >= 0);
+  }
 
-    if (ref_count_[packed_font] == 0) {
-      ref_count_.erase(packed_font);
-      cache_.erase(std::pair<int, unsigned const char*>(packed_font->size(), packed_font->data()));
+  void FontCache::removeStaleFonts() {
+    for (auto it = ref_count_.begin(); it != ref_count_.end();) {
+      if (it->second)
+        ++it;
+      else {
+        cache_.erase({ it->first->size(), it->first->data() });
+        it = ref_count_.erase(it);
+      }
     }
+    has_stale_fonts_ = false;
   }
 }

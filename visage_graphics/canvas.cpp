@@ -265,6 +265,7 @@ namespace visage {
 
   void Canvas::render() {
     bgfx::frame();
+    FontCache::clearStaleFonts();
   }
 
   QuadColor Canvas::color(unsigned int color_id) {
