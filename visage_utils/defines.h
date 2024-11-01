@@ -20,16 +20,14 @@
 
 namespace visage {
   class String;
-  void debugLog(const char* file, unsigned int line, const String& log_message, ...);
+  void debugLogString(const char* file, unsigned int line, const String& log_message);
   void debugLog(const char* file, unsigned int line, const char* format, va_list arg_list);
-  void debugLog(const char* file, unsigned int line, const char* format, ...);
-  void debugLog(const char* file, unsigned int line, long long log_message, ...);
-  void debugLog(const char* file, unsigned int line, unsigned long long log_message, ...);
-  void debugLog(const char* file, unsigned int line, int log_message, ...);
-  void debugLog(const char* file, unsigned int line, unsigned int log_message, ...);
-  void debugLog(const char* file, unsigned int line, float log_message, ...);
-  void debugLog(const char* file, unsigned int line, double log_message, ...);
-  void debugLog(const char* file, unsigned int line, char log_message, ...);
+
+  template<typename T>
+  void debugLog(const char* file, unsigned int line, T message, ...) {
+    debugLogString(file, line, message);
+  }
+
   void debugAssert(bool condition);
   void forceCrash();
 }

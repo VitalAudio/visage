@@ -198,9 +198,10 @@ namespace visage {
       string_ = convertToUtf32(tmp);
     }
 
-    String(unsigned int value) : String(std::to_string(value)) { }
     String(int value) : String(std::to_string(value)) { }
+    String(unsigned int value) : String(std::to_string(value)) { }
     String(long value) : String(std::to_string(value)) { }
+    String(unsigned long value) : String(std::to_string(value)) { }
     String(long long value) : String(std::to_string(value)) { }
     String(unsigned long long value) : String(std::to_string(value)) { }
     String(float value) : String(std::to_string(value)) { removeTrailingZeros(); }

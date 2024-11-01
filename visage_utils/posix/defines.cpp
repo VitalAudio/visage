@@ -27,10 +27,6 @@ namespace visage {
       std::cerr << std::endl;
   }
 
-  void debugLog(const char* file, unsigned int line, const String& log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
   void debugLog(const char* file, unsigned int line, const char* format, va_list arg_list) {
     static constexpr int kSize = 500;
     char buffer[kSize];
@@ -44,35 +40,7 @@ namespace visage {
     debugLog(file, line, format, args);
     va_end(args);
   }
-
-  void debugLog(const char* file, unsigned int line, long long log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
-  void debugLog(const char* file, unsigned int line, unsigned long long log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
-  void debugLog(const char* file, unsigned int line, int log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
-  void debugLog(const char* file, unsigned int line, unsigned int log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
-  void debugLog(const char* file, unsigned int line, float log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
-  void debugLog(const char* file, unsigned int line, double log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
-  void debugLog(const char* file, unsigned int line, char log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
+  
   void debugAssert(bool condition) {
     if (condition)
       return;

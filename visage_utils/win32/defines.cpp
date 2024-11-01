@@ -24,15 +24,11 @@
 #include <windows.h>
 
 namespace visage {
-  inline void debugLogString(const char* file, unsigned int line, const String& log_message) {
+  void debugLogString(const char* file, unsigned int line, const String& log_message) {
     OutputDebugStringA((std::string(file) + " (" + std::to_string(line) + ") ").c_str());
     OutputDebugStringW(log_message.toWide().c_str());
     if (log_message.isEmpty() || log_message[log_message.size() - 1] != '\n')
       OutputDebugStringW(L"\n");
-  }
-
-  void debugLog(const char* file, unsigned int line, const String& log_message, ...) {
-    debugLogString(file, line, log_message);
   }
 
   void debugLog(const char* file, unsigned int line, const char* format, va_list arg_list) {
@@ -47,34 +43,6 @@ namespace visage {
     va_start(args, format);
     debugLog(file, line, format, args);
     va_end(args);
-  }
-
-  void debugLog(const char* file, unsigned int line, long long log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
-  void debugLog(const char* file, unsigned int line, unsigned long long log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
-  void debugLog(const char* file, unsigned int line, int log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
-  void debugLog(const char* file, unsigned int line, unsigned int log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
-  void debugLog(const char* file, unsigned int line, float log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
-  void debugLog(const char* file, unsigned int line, double log_message, ...) {
-    debugLogString(file, line, log_message);
-  }
-
-  void debugLog(const char* file, unsigned int line, char log_message, ...) {
-    debugLogString(file, line, log_message);
   }
 
   void debugAssert(bool condition) {
