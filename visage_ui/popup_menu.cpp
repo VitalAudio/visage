@@ -332,24 +332,15 @@ namespace visage {
   }
 
   void PopupMenuFrame::optionSelected(const PopupMenu& option, PopupList* list) {
-    for (auto& sub_list : lists_)
-      sub_list.setVisible(false);
-
-    if (!isVisible()) {
+    if (isVisible())
+      menu_.onSelection().callback(option.id());
+    else
       menu_.onCancel().callback();
-      return;
-    }
 
     if (parent_) {
       parent_->removeChild(this);
       parent_ = nullptr;
     }
-
-    for (auto& sub_list : lists_) {
-      sub_list.resetOpenMenu();
-      sub_list.setNoHover();
-    }
-    menu_.onSelection().callback(option.id());
   }
 
   void PopupMenuFrame::subMenuSelected(const PopupMenu& option, int selection_y, PopupList* list) {
@@ -411,9 +402,9 @@ namespace visage {
     if (isRunning())
       return;
 
+    menu_.onCancel().callback();
     if (parent_)
       parent_->removeChild(this);
-    menu_.onCancel().callback();
   }
 
   void ValueDisplay::showDisplay(const String& text, Bounds bounds, Font::Justification justification) {

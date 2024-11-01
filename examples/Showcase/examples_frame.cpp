@@ -298,6 +298,11 @@ ExamplesFrame::ExamplesFrame() {
     menu.addBreak();
     menu.addOption(12, "Force Crash");
 
+    menu.onSelection() = [this](int id) {
+      if (id == 12)
+        VISAGE_FORCE_CRASH();
+    };
+
     menu.show(action_button_.get());
   };
   action_button_->setToggleOnMouseDown(true);
