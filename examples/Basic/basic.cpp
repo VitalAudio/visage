@@ -21,8 +21,8 @@ int runExample() {
   visage::WindowedEditor editor;
 
   editor.onDraw() = [&editor](visage::Canvas& canvas) {
-    float width = 800;
-    float height = 600;
+    float width = editor.width();
+    float height = editor.height();
     canvas.clearArea(0, 0, editor.width(), editor.height());
     canvas.setColor(0xff00ffff);
 
