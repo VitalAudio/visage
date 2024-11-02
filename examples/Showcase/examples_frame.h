@@ -22,7 +22,7 @@
 #include <visage_widgets/shader_quad.h>
 #include <visage_widgets/text_editor.h>
 
-class DragDropTarget;
+class DragDropExample;
 class TextImage;
 class AnimatedLines;
 
@@ -46,7 +46,7 @@ public:
 
 private:
   visage::CallbackList<void()> on_show_overlay_;
-  std::unique_ptr<DragDropTarget> drag_drop_target_;
+  std::unique_ptr<DragDropExample> drag_drop_;
   std::unique_ptr<visage::BarList> bar_list_;
   std::unique_ptr<visage::ShaderQuad> shader_quad_;
   std::unique_ptr<visage::ToggleIconButton> icon_button_;

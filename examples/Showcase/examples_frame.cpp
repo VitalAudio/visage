@@ -92,115 +92,102 @@ private:
   std::unique_ptr<visage::GraphLine> graph_lines_[kNumLines];
 };
 
-class DragDropTarget : public visage::Frame {
-public:
-  DragDropTarget() { setIgnoresMouseEvents(false, false); }
-
-  void setPositions(int* rectangles, const float* data, int data_size) const {
-    if (data == nullptr)
-      return;
-
-    int h = height() / 6;
-    int w = width();
-    for (int i = 0; i < w; ++i) {
-      int start_index = i * data_size / w;
-      int end_index = (i + 1) * data_size / w;
-      float max = 0.0f;
-      float min = 0.0f;
-      for (int j = start_index; j < end_index; ++j) {
-        max = std::max(max, data[j]);
-        min = std::min(min, data[j]);
-      }
-      rectangles[i] = h * std::max(max, -min);
-    }
-  }
-
-  void resetPositions() {
-    rectangles_left_ = std::make_unique<int[]>(width());
-    rectangles_right_ = std::make_unique<int[]>(width());
-
-    //TODO
-    // setPositions(rectangles_left_.get(), buffer_.left_data.get(), buffer_.length);
-    // setPositions(rectangles_right_.get(), buffer_.right_data.get(), buffer_.length);
-  }
-
-  void resized() override { resetPositions(); }
-
+class DragDropSource : public visage::Frame {
   void draw(visage::Canvas& canvas) override {
     canvas.setPaletteColor(kLogoBackgroundColor);
     canvas.roundedRectangle(0, 0, width(), height(), height() / 16);
 
     canvas.setPaletteColor(kTextColor);
 
-    const visage::Font font(height() / 8, resources::fonts::Lato_Regular_ttf);
+    const visage::Font font(height() / 4, resources::fonts::Lato_Regular_ttf);
     if (dragging_)
-      canvas.text(filename_, font, visage::Font::kCenter, 0, 0, width(), height());
+      canvas.text("Dragging source file", font, visage::Font::kCenter, 0, 0, width(), height());
     else
-      canvas.text("Drag audio files", font, visage::Font::kCenter, 0, 0, width(), height());
-
-    // if (buffer_.left_data == nullptr)
-    //   return;
-
-    int y1 = height() / 4;
-    int y2 = y1 + height() / 2;
-    for (int i = 0; i < width(); ++i) {
-      int left = rectangles_left_[i];
-      int right = rectangles_right_[i];
-      canvas.rectangle(i, y1 - left, 1, left * 2);
-      canvas.rectangle(i, y2 - right, 1, right * 2);
-    }
+      canvas.text("Drag source", font, visage::Font::kCenter, 0, 0, width(), height());
   }
 
-  bool receivesDragDropFiles() override { return true; }
-  std::string dragDropFileExtensionRegex() override { return "(wav)|(mp3)|(ogg)"; }
-
-  void dragFilesEnter(const std::vector<std::string>& paths) override {
-    dragging_ = true;
-    filename_ = visage::fileName(paths[0]);
-  }
-
-  void dragFilesExit() override { dragging_ = false; }
-
-  void dropFiles(const std::vector<std::string>& paths) override {
-    /* TODO
-    int size = 0;
-    std::unique_ptr<char[]> data = visage::loadFileData(paths[0], size);
-    if (size) {
-      buffer_ = visage::decodeAudioFile(visage::getFileName(paths[0]),
-                                        reinterpret_cast<unsigned char*>(data.get()), size);
-    }
-
-    dragging_ = false;
-    resetPositions();
-     */
-  }
-
-  bool isDragDropSource() override {
-    // TOOD
-    // return buffer_.length > 0;
-    return false;
-  }
+  bool isDragDropSource() override { return true; }
 
   std::string startDragDropSource() override {
-    // TODO
-    // source_file_ = visage::createTemporaryFile("wav");
-    // visage::encodeWavFile(buffer_, source_file_.string());
-    // return source_file_;
-    return "";
+    redraw();
+    dragging_ = true;
+    source_file_ = visage::createTemporaryFile("txt");
+    visage::replaceFileWithText(source_file_, "Example drag and drop source file.");
+    return source_file_.string();
   }
 
   void cleanupDragDropSource() override {
+    redraw();
+    dragging_ = false;
     if (std::filesystem::exists(source_file_))
       std::filesystem::remove(source_file_);
   }
 
 private:
+  bool dragging_ = false;
+  visage::File source_file_;
+};
+
+class DragDropTarget : public visage::Frame {
+  void draw(visage::Canvas& canvas) override {
+    canvas.setPaletteColor(kLogoBackgroundColor);
+    canvas.roundedRectangle(0, 0, width(), height(), height() / 16);
+
+    canvas.setPaletteColor(kTextColor);
+
+    const visage::Font font(height() / 4, resources::fonts::Lato_Regular_ttf);
+    if (dragging_)
+      canvas.text("Dragging " + filename_, font, visage::Font::kCenter, 0, 0, width(), height());
+    else if (dropped_)
+      canvas.text("Dropped " + filename_, font, visage::Font::kCenter, 0, 0, width(), height());
+    else
+      canvas.text("Drag destination", font, visage::Font::kCenter, 0, 0, width(), height());
+  }
+
+  bool receivesDragDropFiles() override { return true; }
+  std::string dragDropFileExtensionRegex() override { return ".*"; }
+
+  void dragFilesEnter(const std::vector<std::string>& paths) override {
+    dragging_ = true;
+    dropped_ = false;
+    filename_ = visage::fileName(paths[0]);
+    redraw();
+  }
+
+  void dragFilesExit() override {
+    dragging_ = false;
+    redraw();
+  }
+
+  void dropFiles(const std::vector<std::string>& paths) override {
+    dragging_ = false;
+    dropped_ = true;
+    redraw();
+  }
+
+private:
   std::string filename_;
   bool dragging_ = false;
+  bool dropped_ = false;
+};
 
-  std::unique_ptr<int[]> rectangles_left_;
-  std::unique_ptr<int[]> rectangles_right_;
-  visage::File source_file_;
+class DragDropExample : public visage::Frame {
+public:
+  DragDropExample() {
+    addChild(&source_);
+    addChild(&target_);
+  }
+
+  void resized() {
+    int padding = height() / 16;
+    int h = (height() - padding) / 2;
+    source_.setBounds(0, 0, width(), h);
+    target_.setBounds(0, height() - h, width(), h);
+  }
+
+private:
+  DragDropSource source_;
+  DragDropTarget target_;
 };
 
 class TextImage : public visage::CachedFrame {
@@ -226,8 +213,8 @@ private:
 ExamplesFrame::ExamplesFrame() {
   static constexpr int kBars = kNumBars;
 
-  drag_drop_target_ = std::make_unique<DragDropTarget>();
-  addChild(drag_drop_target_.get());
+  drag_drop_ = std::make_unique<DragDropExample>();
+  addChild(drag_drop_.get());
 
   bar_list_ = std::make_unique<visage::BarList>(kBars);
   addChild(bar_list_.get());
@@ -479,7 +466,7 @@ void ExamplesFrame::resized() {
   icon_button_->setBounds(x_division + button_width + button_padding, (h + widget_y) / 2,
                           button_height, button_height);
 
-  drag_drop_target_->setBounds(x_division + right_width / 2, widget_y, right_width / 2, h - widget_y);
+  drag_drop_->setBounds(x_division + right_width / 2, widget_y, right_width / 2, h - widget_y);
 }
 
 void ExamplesFrame::draw(visage::Canvas& canvas) {
