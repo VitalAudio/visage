@@ -42,10 +42,11 @@ namespace visage {
       if (window_event_handler_)
         window_event_handler_->setKeyboardFocus(frame);
     };
-    event_handler_.notify_delete = [this](Frame* frame) {
+    event_handler_.remove_from_hierarchy = [this](Frame* frame) {
       if (window_event_handler_)
         window_event_handler_->giveUpFocus(frame);
       stale_children_.erase(frame);
+      drawing_children_.erase(frame);
     };
     event_handler_.set_mouse_relative_mode = [this](bool relative) {
       window_->setMouseRelativeMode(relative);

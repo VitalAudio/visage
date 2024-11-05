@@ -111,7 +111,7 @@ namespace visage {
   struct FrameEventHandler {
     std::function<void(Frame*)> request_redraw = nullptr;
     std::function<void(Frame*)> request_keyboard_focus = nullptr;
-    std::function<void(Frame*)> notify_delete = nullptr;
+    std::function<void(Frame*)> remove_from_hierarchy = nullptr;
     std::function<void(bool)> set_mouse_relative_mode = nullptr;
     std::function<void(MouseCursor)> set_cursor_style = nullptr;
     std::function<void(bool)> set_cursor_visible = nullptr;
@@ -124,7 +124,7 @@ namespace visage {
     Frame() = default;
     explicit Frame(std::string name) : name_(std::move(name)) { }
     virtual ~Frame() {
-      notifyDelete();
+      notifyRemoveFromHierarchy();
       if (parent_)
         parent_->removeChild(this);
 
@@ -330,9 +330,9 @@ namespace visage {
         event_handler_->request_keyboard_focus(this);
     }
 
-    void notifyDelete() {
-      if (event_handler_ && event_handler_->notify_delete)
-        event_handler_->notify_delete(this);
+    void notifyRemoveFromHierarchy() {
+      if (event_handler_ && event_handler_->remove_from_hierarchy)
+        event_handler_->remove_from_hierarchy(this);
     }
 
     void setMouseRelativeMode(bool visible) {

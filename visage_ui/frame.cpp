@@ -77,7 +77,9 @@ namespace visage {
       return;
 
     child->region()->invalidate();
+    child->notifyRemoveFromHierarchy();
     child->parent_ = nullptr;
+    child->event_handler_ = nullptr;
     if (child->post_effect_ == nullptr) {
       region_.removeRegion(child->region());
       child->setCanvas(nullptr);
