@@ -28,6 +28,7 @@ set(BGFX_AMALGAMATED ON CACHE INTERNAL "" FORCE)
 set(BGFX_CONFIG_MAX_FRAME_BUFFERS 1024 CACHE INTERNAL "" FORCE)
 set(BGFX_CONFIG_MAX_VIEWS 256 CACHE INTERNAL "" FORCE)
 set(BGFX_CONFIG_MAX_DRAW_CALLS 8192 CACHE INTERNAL "" FORCE)
+set(HB_HAVE_FREETYPE ON CACHE INTERNAL "" FORCE)
 
 set(BGFX_WITH_WAYLAND OFF CACHE INTERNAL "" FORCE)
 if (VISAGE_ENABLE_GRAPHICS_DEBUG_LOGGING)
@@ -56,13 +57,6 @@ FetchContent_Declare(freetype GIT_REPOSITORY https://gitlab.freedesktop.org/free
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(freetype)
-
-FetchContent_Declare(harfbuzz GIT_REPOSITORY https://github.com/harfbuzz/harfbuzz.git
-  GIT_SHALLOW TRUE
-  GIT_TAG 10.0.1
-  EXCLUDE_FROM_ALL
-)
-FetchContent_MakeAvailable(harfbuzz)
 set(CMAKE_MESSAGE_LOG_LEVEL "NOTICE")
 
 add_subdirectory(third_party/nanosvg EXCLUDE_FROM_ALL)
@@ -88,7 +82,6 @@ set(VisageGraphicsDependencies
   bgfx
   bx
   freetype
-  harfbuzz
   nanosvg
   nanosvgrast
   ${METAL_LIBS}
@@ -125,4 +118,3 @@ set_target_properties(bgfx PROPERTIES FOLDER "visage/third_party/bgfx")
 set_target_properties(bx PROPERTIES FOLDER "visage/third_party/bgfx")
 set_target_properties(bimg PROPERTIES FOLDER "visage/third_party/bgfx")
 set_target_properties(freetype PROPERTIES FOLDER "visage/third_party")
-set_target_properties(harfbuzz PROPERTIES FOLDER "visage/third_party")
