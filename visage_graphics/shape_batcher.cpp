@@ -503,6 +503,7 @@ namespace visage {
 
     GlyphVertex* vertices = initQuadVertices<GlyphVertex>(total_length);
     int vertex_index = 0;
+    float atlas_scale = 1.0f / font.atlasWidth();
     for (const auto& batch : batches) {
       for (const TextBlock& text_block : *batch.shapes) {
         int length = text_block.quads.size();
@@ -527,20 +528,36 @@ namespace visage {
           };
 
           ClampBounds positioned_clamp = clamp.withOffset(batch.x, batch.y);
-          float direction_x = 0.0f;
+          float direction_x = 1.0f;
           float direction_y = 0.0f;
+          int coordinate_index0 = 0;
+          int coordinate_index1 = 1;
+          int coordinate_index2 = 2;
+          int coordinate_index3 = 3;
 
           if (text_block.direction == Direction::Down) {
             direction_x = -1.0f;
             direction_y = 0.0f;
+            coordinate_index0 = 3;
+            coordinate_index1 = 2;
+            coordinate_index2 = 1;
+            coordinate_index3 = 0;
           }
           else if (text_block.direction == Direction::Left) {
             direction_x = 0.0f;
             direction_y = -1.0f;
+            coordinate_index0 = 2;
+            coordinate_index1 = 0;
+            coordinate_index2 = 3;
+            coordinate_index3 = 1;
           }
           else if (text_block.direction == Direction::Right) {
             direction_x = 0.0f;
             direction_y = 1.0f;
+            coordinate_index0 = 1;
+            coordinate_index1 = 3;
+            coordinate_index2 = 0;
+            coordinate_index3 = 2;
           }
 
           for (int i = 0; i < length; ++i) {
@@ -551,6 +568,11 @@ namespace visage {
             float right = left + text_block.quads[i].width;
             float top = y + text_block.quads[i].y;
             float bottom = top + text_block.quads[i].height;
+
+            float coordinate_x = text_block.quads[i].packed_glyph->atlas_left * atlas_scale;
+            float coordinate_y = text_block.quads[i].packed_glyph->atlas_top * atlas_scale;
+            float coordinate_width = text_block.quads[i].packed_glyph->width * atlas_scale;
+            float coordinate_height = text_block.quads[i].packed_glyph->height * atlas_scale;
 
             vertices[vertex_index].x = left;
             vertices[vertex_index].y = top;
@@ -572,10 +594,17 @@ namespace visage {
             vertices[vertex_index + 3].color = text_block.color.corners[3];
             vertices[vertex_index + 3].hdr = text_block.color.hdr[3];
 
+            vertices[vertex_index + coordinate_index0].coordinate_x = coordinate_x;
+            vertices[vertex_index + coordinate_index0].coordinate_y = coordinate_y;
+            vertices[vertex_index + coordinate_index1].coordinate_x = coordinate_x + coordinate_width;
+            vertices[vertex_index + coordinate_index1].coordinate_y = coordinate_y;
+            vertices[vertex_index + coordinate_index2].coordinate_x = coordinate_x;
+            vertices[vertex_index + coordinate_index2].coordinate_y = coordinate_y + coordinate_height;
+            vertices[vertex_index + coordinate_index3].coordinate_x = coordinate_x + coordinate_width;
+            vertices[vertex_index + coordinate_index3].coordinate_y = coordinate_y + coordinate_height;
+
             for (int v = 0; v < kVerticesPerQuad; ++v) {
               int index = vertex_index + v;
-              vertices[index].coordinate_x = text_block.quads[i].x_coordinates[v];
-              vertices[index].coordinate_y = text_block.quads[i].y_coordinates[v];
               vertices[index].clamp_left = positioned_clamp.left;
               vertices[index].clamp_top = positioned_clamp.top;
               vertices[index].clamp_right = positioned_clamp.right;
@@ -593,8 +622,8 @@ namespace visage {
     VISAGE_ASSERT(vertex_index == total_length * kVerticesPerQuad);
 
     setBlendState(BlendState::Alpha);
-    float atlas_scale[] = { 1.0f / font.atlasWidth(), 1.0f / font.atlasWidth(), 0.0f, 0.0f };
-    setUniform<Uniforms::kAtlasScale>(atlas_scale);
+    float atlas_scale_uniform[] = { 1.0f / font.atlasWidth(), 1.0f / font.atlasWidth(), 0.0f, 0.0f };
+    setUniform<Uniforms::kAtlasScale>(atlas_scale_uniform);
     setTexture<Uniforms::kTexture>(0, font.textureHandle());
     setUniformDimensions(canvas.width(), canvas.height());
     setColorMult(canvas.hdr());

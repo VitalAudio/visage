@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include "graphics_utils.h"
+#include <cstring>
+#include <memory>
 
 namespace visage {
   struct Line {

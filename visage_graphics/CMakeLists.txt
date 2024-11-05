@@ -40,14 +40,30 @@ if (NOT EMSCRIPTEN AND VISAGE_ENABLE_BACKGROUND_GRAPHICS_THREAD)
   target_compile_definitions(VisageGraphics PUBLIC VISAGE_BACKGROUND_GRAPHICS_THREAD=1)
 endif ()
 
-message(STATUS "Downloading bgfx for low level graphics APIs")
 include(FetchContent)
+message(STATUS "Downloading graphics dependencies")
+set(CMAKE_MESSAGE_LOG_LEVEL "ERROR")
 FetchContent_Declare(bgfx GIT_REPOSITORY https://github.com/bkaradzic/bgfx.cmake.git
   GIT_SHALLOW TRUE
   GIT_TAG v1.128.8808-482
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(bgfx)
+
+FetchContent_Declare(freetype GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
+  GIT_SHALLOW TRUE
+  GIT_TAG VER-2-13-3
+  EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(freetype)
+
+FetchContent_Declare(harfbuzz GIT_REPOSITORY https://github.com/harfbuzz/harfbuzz.git
+  GIT_SHALLOW TRUE
+  GIT_TAG 10.0.1
+  EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(harfbuzz)
+set(CMAKE_MESSAGE_LOG_LEVEL "NOTICE")
 
 add_subdirectory(third_party/nanosvg EXCLUDE_FROM_ALL)
 
@@ -71,6 +87,8 @@ set(VisageGraphicsDependencies
   VisageGraphicsEmbeds
   bgfx
   bx
+  freetype
+  harfbuzz
   nanosvg
   nanosvgrast
   ${METAL_LIBS}
@@ -82,6 +100,7 @@ include(embedded.cmake)
 target_include_directories(VisageGraphics
   PRIVATE
   ${VISAGE_INCLUDE_PATH}
+  ${freetype_SOURCE_DIR}/include
   ${bgfx_SOURCE_DIR}/bgfx/include
   ${bgfx_SOURCE_DIR}/bgfx/3rdparty
   ${bgfx_SOURCE_DIR}/bx/include
@@ -105,3 +124,5 @@ set_target_properties(nanosvgrast PROPERTIES FOLDER "visage/third_party/nanosvg"
 set_target_properties(bgfx PROPERTIES FOLDER "visage/third_party/bgfx")
 set_target_properties(bx PROPERTIES FOLDER "visage/third_party/bgfx")
 set_target_properties(bimg PROPERTIES FOLDER "visage/third_party/bgfx")
+set_target_properties(freetype PROPERTIES FOLDER "visage/third_party")
+set_target_properties(harfbuzz PROPERTIES FOLDER "visage/third_party")

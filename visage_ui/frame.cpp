@@ -238,6 +238,11 @@ namespace visage {
     if (redrawing_) {
       region_.invalidate();
       redrawing_ = false;
+      if (width() <= 0 || height() <= 0) {
+        canvas_->clearRegion(&region_);
+        return;
+      }
+
       canvas_->beginRegion(&region_, x(), y(), width(), height());
 
       if (palette_override_)

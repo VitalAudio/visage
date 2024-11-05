@@ -26,7 +26,7 @@ public:
   static constexpr float kFontHeightRatio = 0.05f;
 
   ExampleEditor() {
-    addChild(&increment_);
+    // addChild(&increment_);
     increment_.onDraw() = [this](visage::Canvas& canvas) {
       incrment_value_ += 0.01;
       canvas.setColor(0xffffffff);
@@ -37,7 +37,7 @@ public:
       increment_.redraw();
     };
 
-    addChild(&clamping_);
+    // addChild(&clamping_);
     clamping_.onDraw() = [this](visage::Canvas& canvas) {
       canvas.setColor(0xff111111);
       canvas.fill(0, 0, clamping_.width(), clamping_.height());
@@ -55,8 +55,11 @@ public:
     canvas.setColor(0xff2a2a33);
     canvas.fill(0, 0, width(), height());
 
+    canvas.setColor(0xff222222);
+    canvas.rectangle(300, 300, 500, 100);
+
     canvas.setColor(0xffffffff);
-    canvas.text("Hello, world!", font, visage::Font::kCenter, 0.0f, 0.0f, width(), height());
+    canvas.text("Hello, world!", font, visage::Font::kCenter, 300, 300, 500, 100, visage::Direction::Up);
 
     visage::Font emoji(font_size, resources::fonts::NotoEmoji_Medium_ttf);
     canvas.text(U"\U0001F525", emoji, visage::Font::kLeft, 0.0f, 0.0f, width(), height());

@@ -20,4 +20,3 @@
 #include <bgfx/platform.h>
 #include <bx/uint32_t.h>
 #include <stb/stb_rect_pack.h>
-#include <stb/stb_truetype.h>

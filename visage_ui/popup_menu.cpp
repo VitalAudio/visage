@@ -130,7 +130,7 @@ namespace visage {
           else
             canvas.setColor(text);
 
-          Font font(paletteValue(kPopupFontSize), font_.fontData());
+          Font font(paletteValue(kPopupFontSize), font_.fontData(), font_.dataSize());
           canvas.text(options_[i].name(), font, Font::kLeft, x_padding, y, width(), option_height);
 
           if (options_[i].hasOptions()) {
@@ -254,7 +254,7 @@ namespace visage {
     for (int i = 1; i < kMaxSubMenus; ++i)
       lists_[i].setVisible(false);
 
-    font_ = Font(paletteValue(kPopupFontSize), font_.fontData());
+    font_ = Font(paletteValue(kPopupFontSize), font_.fontData(), font_.dataSize());
     setListFonts(font_);
 
     lists_[0].setOptions(menu_.options());
@@ -412,7 +412,7 @@ namespace visage {
 
     text_ = text;
 
-    Font font(paletteValue(kPopupFontSize), font_.fontData());
+    Font font(paletteValue(kPopupFontSize), font_.fontData(), font_.dataSize());
     int x_padding = paletteValue(kPopupSelectionPadding) + paletteValue(kPopupTextPadding);
     int width = font.stringWidth(text.c_str(), text.length()) + 2 * x_padding;
     int height = paletteValue(kPopupOptionHeight);
@@ -432,7 +432,7 @@ namespace visage {
   }
 
   void ValueDisplay::draw(Canvas& canvas) {
-    Font font(canvas.value(kPopupFontSize), font_.fontData());
+    Font font(canvas.value(kPopupFontSize), font_.fontData(), font_.dataSize());
     float pixel_scale = canvas.dpiScale();
     canvas.setPaletteColor(kPopupMenuBackground);
     canvas.roundedRectangle(0, 0, width(), height(), 8 * pixel_scale);

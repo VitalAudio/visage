@@ -18,7 +18,6 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 
 #include <stb/stb_rect_pack.h>
-#include <stb/stb_truetype.h>
 
 #undef STB_RECT_PACK_IMPLEMENTATION
 #undef STB_TRUETYPE_IMPLEMENTATION

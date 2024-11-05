@@ -502,6 +502,8 @@ namespace visage {
 
     void addRegion(Region* region) { base_region_.addRegion(region); }
 
+    void clearRegion(Region* region) { region->clear(); }
+
     void beginRegion(Region* region, int x, int y, int width, int height) {
       region->clear();
       saveState();

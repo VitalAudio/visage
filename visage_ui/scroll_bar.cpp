@@ -22,7 +22,7 @@ namespace visage {
   THEME_COLOR(ScrollBarDefault, 0x22ffffff);
   THEME_COLOR(ScrollBarDown, 0x55ffffff);
 
-  THEME_VALUE(ScrollBarWidth, 13.0f, ScaledHeight, true);
+  THEME_VALUE(ScrollBarWidth, 20.0f, ScaledDpi, true);
 
   void ScrollBar::draw(Canvas& canvas) {
     if (!active_ || range_ <= 0)
@@ -82,11 +82,9 @@ namespace visage {
   }
 
   void ScrollableFrame::resized() {
-    int old_height = std::max(1, scroll_bar_.height());
     int scroll_bar_width = paletteValue(kScrollBarWidth);
     int x = scroll_bar_left_ ? 0 : width() - scroll_bar_width;
     scroll_bar_.setBounds(x, 0, scroll_bar_width, height());
     container_.setBounds(0, -y_position_, width(), scroll_bar_.viewHeight());
-    setYPosition(height() * float_position_ / old_height);
   }
 }

@@ -24,13 +24,22 @@
 #include <vector>
 
 namespace visage {
+  struct PackedGlyph {
+    int atlas_left = -1;
+    int atlas_top = -1;
+    int width = -1;
+    int height = -1;
+    float x_offset = 0.0f;
+    float y_offset = 0.0f;
+    float x_advance = 0.0f;
+  };
+
   struct FontAtlasQuad {
+    const PackedGlyph* packed_glyph;
     float x;
     float y;
     float width;
     float height;
-    float x_coordinates[kVerticesPerQuad];
-    float y_coordinates[kVerticesPerQuad];
   };
 
   class PackedFont;
@@ -57,7 +66,7 @@ namespace visage {
     static bool hasNewLine(const char32_t* string, int length);
 
     Font() = default;
-    Font(int size, const char* font_data);
+    Font(int size, const char* font_data, int data_size);
     Font(int size, const EmbeddedFile& file);
     Font(const Font& other);
     Font& operator=(const Font& other);
@@ -69,8 +78,6 @@ namespace visage {
     float stringWidth(const std::u32string& string, int character_override = 0) const {
       return stringWidth(string.c_str(), string.size(), character_override);
     }
-    float stringTop(const char32_t* string, int length) const;
-    float stringBottom(const char32_t* string, int length) const;
     int lineHeight() const;
     float capitalHeight() const;
     float lowerDipHeight() const;
@@ -78,6 +85,7 @@ namespace visage {
     int atlasWidth() const;
     int size() const { return size_; }
     const char* fontData() const { return font_data_; }
+    int dataSize() const { return data_size_; }
     const bgfx::TextureHandle& textureHandle() const;
 
     void setVertexPositions(FontAtlasQuad* quads, const char32_t* string, int length, float x, float y,
@@ -95,6 +103,7 @@ namespace visage {
   private:
     int size_ = 0;
     const char* font_data_ = nullptr;
+    int data_size_ = 0;
     PackedFont* packed_font_ = nullptr;
   };
 
@@ -116,11 +125,11 @@ namespace visage {
     }
 
     static PackedFont* loadPackedFont(int size, const EmbeddedFile& font) {
-      return instance()->createOrLoadPackedFont(size, font.data);
+      return instance()->createOrLoadPackedFont(size, font.data, font.size);
     }
 
-    static PackedFont* loadPackedFont(int size, const char* font_data) {
-      return instance()->createOrLoadPackedFont(size, font_data);
+    static PackedFont* loadPackedFont(int size, const char* font_data, int data_size) {
+      return instance()->createOrLoadPackedFont(size, font_data, data_size);
     }
 
     static void returnPackedFont(PackedFont* packed_font) {
@@ -129,7 +138,7 @@ namespace visage {
 
     FontCache();
 
-    PackedFont* createOrLoadPackedFont(int size, const char* font_data);
+    PackedFont* createOrLoadPackedFont(int size, const char* font_data, int data_size);
     void decrementPackedFont(PackedFont* packed_font);
     void removeStaleFonts();
 

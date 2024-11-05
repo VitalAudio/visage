@@ -643,6 +643,7 @@ namespace visage {
         Shape(text->font().packedFont(), clamp, color, x, y, width, height), text(text),
         direction(direction) {
       quads = VectorPool<FontAtlasQuad>::instance().vector(text->text().length());
+      this->clamp = clamp.clamp(x, y, width, height);
 
       const char32_t* c_str = text->text().c_str();
       int length = text->text().length();
@@ -661,20 +662,12 @@ namespace visage {
 
       if (direction == Direction::Down) {
         for (auto& quad : quads) {
-          std::swap(quad.x_coordinates[0], quad.x_coordinates[3]);
-          std::swap(quad.y_coordinates[0], quad.y_coordinates[3]);
-          std::swap(quad.x_coordinates[1], quad.x_coordinates[2]);
-          std::swap(quad.y_coordinates[1], quad.y_coordinates[2]);
           quad.x = width - (quad.x + quad.width);
           quad.y = height - (quad.y + quad.height);
         }
       }
       else if (direction == Direction::Left) {
         for (auto& quad : quads) {
-          quad.y_coordinates[2] = quad.y_coordinates[0];
-          quad.x_coordinates[3] = quad.x_coordinates[2];
-          quad.y_coordinates[1] = quad.y_coordinates[3];
-          quad.x_coordinates[0] = quad.x_coordinates[1];
           float right = quad.x + quad.width;
           quad.x = quad.y;
           quad.y = height - right;
@@ -683,10 +676,6 @@ namespace visage {
       }
       else if (direction == Direction::Right) {
         for (auto& quad : quads) {
-          quad.y_coordinates[0] = quad.y_coordinates[2];
-          quad.x_coordinates[2] = quad.x_coordinates[3];
-          quad.y_coordinates[3] = quad.y_coordinates[1];
-          quad.x_coordinates[1] = quad.x_coordinates[0];
           float bottom = quad.y + quad.height;
           quad.y = quad.x;
           quad.x = width - bottom;

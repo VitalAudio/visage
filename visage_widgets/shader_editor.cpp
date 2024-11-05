@@ -169,7 +169,7 @@ namespace visage {
 
   void ShaderEditor::resized() {
     int info_height = height() * kInfoHeightRatio;
-    int padding = height() * kPaddingHeightRatio;
+    int padding = dpiScale() * kPaddingHeight;
 
     int editor_width = width() - 2 * padding;
     error_.setBounds(padding, height() - info_height - padding, editor_width, info_height);

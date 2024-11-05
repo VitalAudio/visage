@@ -1,5 +1,5 @@
 if (VISAGE_BUILD_TESTS AND NOT EMSCRIPTEN)
-  message(STATUS "Downloading Catch2 for tests")
+  message(STATUS "Downloading testing dependencies")
 
   include(FetchContent)
   FetchContent_Declare(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.git

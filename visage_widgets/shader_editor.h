@@ -137,7 +137,7 @@ namespace visage {
 
   class ShaderEditor : public Frame {
   public:
-    static constexpr float kPaddingHeightRatio = 0.012f;
+    static constexpr float kPaddingHeight = 8.0f;
     static constexpr float kInfoHeightRatio = 0.3f;
 
     ShaderEditor();
