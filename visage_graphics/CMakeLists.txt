@@ -46,7 +46,7 @@ message(STATUS "Downloading graphics dependencies")
 set(CMAKE_MESSAGE_LOG_LEVEL "ERROR")
 FetchContent_Declare(bgfx GIT_REPOSITORY https://github.com/bkaradzic/bgfx.cmake.git
   GIT_SHALLOW TRUE
-  GIT_TAG v1.128.8808-482
+  GIT_TAG v1.128.8832-485
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(bgfx)
