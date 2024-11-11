@@ -29,7 +29,7 @@ namespace visage {
   THEME_VALUE(PopupOptionHeight, 22.0f, ScaledDpi, true);
   THEME_VALUE(PopupMinWidth, 175.0f, ScaledDpi, true);
   THEME_VALUE(PopupTextPadding, 9.0f, ScaledDpi, true);
-  THEME_VALUE(PopupFontSize, 15.0f, ScaledDpi, true);
+  THEME_VALUE(PopupFontSize, 14.0f, ScaledDpi, true);
   THEME_VALUE(PopupSelectionPadding, 4.0f, ScaledDpi, true);
 
   void PopupMenu::show(Frame* source, Point position) {

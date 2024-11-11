@@ -288,8 +288,10 @@ namespace visage {
                                 bgfx::TransientIndexBuffer* index_buffer) {
     int num_vertices = num_quads * kVerticesPerQuad;
     int num_indices = num_quads * kIndicesPerQuad;
-    if (!bgfx::allocTransientBuffers(vertex_buffer, layout, num_vertices, index_buffer, num_indices))
+    if (!bgfx::allocTransientBuffers(vertex_buffer, layout, num_vertices, index_buffer, num_indices)) {
+      VISAGE_LOG("Not enough transient buffer memory for %d quads", num_quads);
       return false;
+    }
 
     uint16_t* indices = reinterpret_cast<uint16_t*>(index_buffer->data);
     for (int i = 0; i < num_quads; ++i) {
@@ -502,6 +504,9 @@ namespace visage {
       return;
 
     GlyphVertex* vertices = initQuadVertices<GlyphVertex>(total_length);
+    if (vertices == nullptr)
+      return;
+
     int vertex_index = 0;
     float atlas_scale = 1.0f / font.atlasWidth();
     for (const auto& batch : batches) {

@@ -193,7 +193,7 @@ private:
 class TextImage : public visage::CachedFrame {
 public:
   TextImage() {
-    std::string text = "\nThis is a bunch of center justified and wrapped text fit into an area.";
+    std::string text = "This is a bunch of center justified and wrapped text fit into an area.";
     text_ = std::make_unique<visage::Text>(text, visage::Font(10, resources::fonts::Lato_Regular_ttf));
     text_->setMultiLine(true);
     text_->setJustification(visage::Font::kCenter);
@@ -419,7 +419,7 @@ void ExamplesFrame::resized() {
                           section_body_height);
   shapes_->setBounds(x_division, bar_list_->y(), right_width, section_body_height);
 
-  int font_height = section_head_height / 2;
+  int font_height = section_head_height * 0.45f;
   int text_y = 2 * section_height + section_head_height;
   int text_section_padding = w / 50;
   int text_section_width = (w - text_section_padding) / 4 - text_section_padding;
@@ -440,7 +440,7 @@ void ExamplesFrame::resized() {
   right_text_editor_->setFont(visage::Font(font_height, resources::fonts::Lato_Regular_ttf));
   right_text_editor_->setBackgroundRounding(margin / 2);
 
-  text_editor_->setFont(visage::Font(section_head_height / 2, resources::fonts::Lato_Regular_ttf));
+  text_editor_->setFont(visage::Font(font_height, resources::fonts::Lato_Regular_ttf));
   text_editor_->setMultiLine(true);
   text_editor_->setJustification(visage::Font::kTopLeft);
   text_editor_->setBounds(text_section_width + 2 * text_section_padding, text_y, text_section_width,
