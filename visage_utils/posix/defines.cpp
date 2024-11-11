@@ -27,18 +27,11 @@ namespace visage {
       std::cerr << std::endl;
   }
 
-  void debugLog(const char* file, unsigned int line, const char* format, va_list arg_list) {
+  void debugLogArgs(const char* file, unsigned int line, const char* format, va_list arg_list) {
     static constexpr int kSize = 500;
     char buffer[kSize];
     std::vsnprintf(buffer, sizeof(buffer), format, arg_list);
     debugLogString(file, line, buffer);
-  }
-
-  void debugLog(const char* file, unsigned int line, const char* format, ...) {
-    va_list args;
-    va_start(args, format);
-    debugLog(file, line, format, args);
-    va_end(args);
   }
   
   void debugAssert(bool condition) {

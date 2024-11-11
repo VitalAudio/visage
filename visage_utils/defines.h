@@ -21,11 +21,19 @@
 namespace visage {
   class String;
   void debugLogString(const char* file, unsigned int line, const String& log_message);
-  void debugLog(const char* file, unsigned int line, const char* format, va_list arg_list);
+  void debugLogArgs(const char* file, unsigned int line, const char* format, va_list arg_list);
 
   template<typename T>
-  void debugLog(const char* file, unsigned int line, T message, ...) {
+  inline void debugLog(const char* file, unsigned int line, T message, ...) {
     debugLogString(file, line, message);
+  }
+
+  template<>
+  inline void debugLog(const char* file, unsigned int line, const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    debugLogArgs(file, line, format, args);
+    va_end(args);
   }
 
   void debugAssert(bool condition);
