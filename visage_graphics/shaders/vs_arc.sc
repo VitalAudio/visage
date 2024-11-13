@@ -18,8 +18,8 @@ void main() {
   vec2 adjusted_position = (clamped + v_coordinates * 0.5) * u_bounds.xy + u_bounds.zw;
   gl_Position = vec4(adjusted_position, 0.5, 1.0);
   v_shader_values = a_texcoord2;
-  float center_radians = v_shader_values.y * u_origin_flip.x - u_origin_flip.y * kPi;
-  float arc_radians = min(v_shader_values.z, kPi * 0.999);
+  float center_radians = v_shader_values.z * u_origin_flip.x - u_origin_flip.y * kPi;
+  float arc_radians = min(v_shader_values.w, kPi * 0.999);
   v_shader_values1.x = sin(center_radians);
   v_shader_values1.y = cos(center_radians);
   v_shader_values1.z = sin(arc_radians);

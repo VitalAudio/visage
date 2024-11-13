@@ -140,10 +140,10 @@ namespace visage {
     float clamp_bottom;
     uint32_t color;
     float hdr;
+    float thickness;
+    float fade;
     float value_1;
     float value_2;
-    float value_3;
-    float value_4;
 
     static bgfx::VertexLayout& layout();
   };
@@ -161,14 +161,14 @@ namespace visage {
     float clamp_bottom;
     uint32_t color;
     float hdr;
+    float thickness;
+    float fade;
     float value_1;
     float value_2;
     float value_3;
     float value_4;
     float value_5;
     float value_6;
-    float value_7;
-    float value_8;
 
     static bgfx::VertexLayout& layout();
   };

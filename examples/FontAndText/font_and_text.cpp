@@ -26,26 +26,15 @@ public:
   static constexpr float kFontHeightRatio = 0.05f;
 
   ExampleEditor() {
-    // addChild(&increment_);
+    addChild(&increment_);
     increment_.onDraw() = [this](visage::Canvas& canvas) {
       incrment_value_ += 0.01;
       canvas.setColor(0xffffffff);
       std::ostringstream format;
       format << "Monospace: " << std::fixed << std::setprecision(2) << incrment_value_;
       canvas.text(format.str(), increment_font_, visage::Font::kLeft, 0, 0, increment_.width(),
-                  increment_.height(), visage::Direction::Right);
+                  increment_.height());
       increment_.redraw();
-    };
-
-    // addChild(&clamping_);
-    clamping_.onDraw() = [this](visage::Canvas& canvas) {
-      canvas.setColor(0xff111111);
-      canvas.fill(0, 0, clamping_.width(), clamping_.height());
-      canvas.setColor(0xffffffff);
-      canvas.text("Clamping 1 text", increment_font_, visage::Font::kCenter, 0, 0,
-                  clamping_.width() / 2, clamping_.height(), visage::Direction::Left);
-      canvas.text("Clamping", increment_font_, visage::Font::kCenter, clamping_.width() / 2, 0,
-                  clamping_.width() / 2, clamping_.height(), visage::Direction::Right);
     };
   }
 
@@ -70,16 +59,12 @@ public:
 
     increment_.setBounds(0, 0, width() - font_size, 2 * font_size);
     increment_font_ = visage::Font(font_size, resources::fonts::DroidSansMono_ttf);
-
-    clamping_.setBounds(400, 400, 300, 180);
   }
 
 private:
   double incrment_value_ = 0.0;
   visage::Font increment_font_;
-
   visage::Frame increment_;
-  visage::Frame clamping_;
 };
 
 int runExample() {

@@ -9,8 +9,24 @@ float smoothed(float from, float to, float value) {
   return t * t * (3.0 - 2.0 * t);
 }
 
+float border(float distance, float thickness, float fade) {
+  return smoothed(0.0, 2.0 * fade, thickness - abs(distance + thickness));
+}
+
 float sdCircle(vec2 position, float radius) {
   return length(position) - radius;
+}
+
+float sdSquircle(vec2 position, vec2 rectangle, float power) {
+  vec2 normalized = abs(position) / rectangle;
+  float distance = pow(pow(normalized.x, power) + pow(normalized.y, power), 1.0 / power);
+  float len = length(position);
+  return distance * len - len;
+}
+
+float sdRectangle(vec2 position, vec2 rectangle) {
+  vec2 offset = abs(position) - rectangle;
+  return min(max(offset.x, offset.y), 0.0) + length(max(offset, 0.0));
 }
 
 float sdRoundedRectangle(vec2 position, vec2 rectangle, float rounding) {
@@ -111,14 +127,14 @@ float roundedBoxShadow(vec2 coordinates, vec2 dimensions, float sigma, float cor
   return value;
 }
 
-float circle(vec2 coordinates, float width, float fade) {
-  float distance = sdCircle(coordinates * width, width);
-  return 1.0 - smoothed(-fade * 2.0, 0.0, distance);
+float rectangle(vec2 coordinates, vec2 dimensions, float thickness, float fade) {
+  float distance = sdRectangle(coordinates * dimensions, dimensions);
+  return border(distance, thickness, fade);
 }
 
-float ring(vec2 coordinates, float width, float thickness) {
-  float distance = abs(sdCircle(coordinates * width, width - thickness)) - thickness;
-  return 1.0 - smoothed(-2.0, 0.0, distance);
+float circle(vec2 coordinates, float width, float thickness, float fade) {
+  float distance = sdCircle(coordinates * width, width);
+  return border(distance, thickness + 1.0, fade);
 }
 
 float segment(vec2 coordinates, vec2 dimensions, vec2 point1, vec2 point2, float thickness) {
@@ -141,35 +157,19 @@ float flatArc(vec2 coordinates, vec2 middle_coords, vec2 curve_coords, float wid
   return 1.0 - smoothed(-2.0, 0.0, distance);
 }
 
-float roundedRectangle(vec2 coordinates, vec2 dimensions, float rounding, float fade) {
+float roundedRectangle(vec2 coordinates, vec2 dimensions, float rounding, float thickness, float fade) {
   float distance = sdRoundedRectangle(coordinates * dimensions, dimensions, rounding);
-  return 1.0 - smoothed(-fade * 2.0, 0.0, distance);
+  return border(distance, thickness + 1.0, fade);
 }
 
-float roundedDiamond(vec2 coordinates, vec2 dimensions, float rounding, float fade) {
+float squircle(vec2 coordinates, vec2 dimensions, float power, float thickness, float fade) {
+  float distance = sdSquircle(coordinates * dimensions, dimensions, power);
+  return border(distance, thickness, fade);
+}
+
+float roundedDiamond(vec2 coordinates, vec2 dimensions, float rounding, float thickness, float fade) {
   float distance = sdRoundedDiamond(coordinates * dimensions, dimensions, rounding);
-  return 1.0 - smoothed(-fade * 2.0, 0.0, distance);
-}
-
-float roundedRectangleBorder(vec2 coordinates, vec2 dimensions, float rounding, float thickness) {
-  float distance = abs(sdRoundedRectangle(coordinates * dimensions, dimensions - vec2(thickness, thickness), rounding - thickness)) - thickness;
-  return 1.0 - smoothed(-2.0, 0.0, distance);
-}
-
-float rectangle(vec2 coordinates, vec2 dimensions) {
-  vec2 distance_from_fade = dimensions - abs(coordinates) * dimensions;
-  vec2 alphas = clamp(distance_from_fade * 0.5, vec2(0.0, 0.0), vec2(1.0, 1.0));
-  return alphas.x * alphas.y;
-}
-
-float rectangleBorder(vec2 coordinates, vec2 dimensions, float thickness) {
-  vec2 radius = dimensions * 0.5;
-  vec2 distance_from_center = abs(coordinates) * radius;
-  vec2 distance_from_outside_fade = radius - distance_from_center;
-  vec2 distance_from_inside_fade = radius - distance_from_center - vec2(thickness, thickness) + vec2(1.0, 1.0);
-  vec2 alphas_outside = clamp(distance_from_outside_fade, vec2(0.0, 0.0), vec2(1.0, 1.0));
-  vec2 alphas_inside = clamp(distance_from_inside_fade, vec2(0.0, 0.0), vec2(1.0, 1.0));
-  return alphas_outside.x * alphas_outside.y * (1.0 - alphas_inside.x * alphas_inside.y);
+  return border(distance, thickness, fade);
 }
 
 float diamond(vec2 coordinates, float width) {

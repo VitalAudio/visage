@@ -284,8 +284,7 @@ namespace visage {
     if (vertices == nullptr)
       return;
 
-    setShapeQuadVertices(vertices, source.x, source.y, source.width, source.height, source.clamp,
-                         source.color);
+    setQuadPositions(vertices, source, source.clamp);
     float flip = destination.bottomLeftOrigin() ? 1.0f : 0.0f;
     vertices[0].coordinate_x = 0.0f;
     vertices[0].coordinate_y = flip;
@@ -315,9 +314,7 @@ namespace visage {
     if (vertices == nullptr)
       return;
 
-    setShapeQuadVertices(vertices, source.x, source.y, source.width, source.height, source.clamp,
-                         source.color);
-
+    setQuadPositions(vertices, source, source.clamp);
     int dest_width = source.canvas->width();
     int dest_height = source.canvas->height();
     float resample_width = dest_width * 0.5f / widths_[0];
@@ -360,8 +357,7 @@ namespace visage {
     if (vertices == nullptr)
       return;
 
-    setShapeQuadVertices(vertices, source.x, source.y, source.width, source.height, source.clamp,
-                         source.color);
+    setQuadPositions(vertices, source, source.clamp);
     float flip = destination.bottomLeftOrigin() ? 1.0f : 0.0f;
     vertices[0].coordinate_x = 0.0f;
     vertices[0].coordinate_y = flip;

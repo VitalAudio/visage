@@ -318,11 +318,6 @@ ExamplesFrame::ExamplesFrame() {
     float shape_cycle = sin1(shape_phase) * 0.5f + 0.5f;
     float thickness = shape_width * shape_cycle / 8.0f + 1.0f;
 
-    canvas.setPaletteColor(kShadowColor);
-    canvas.rectangleShadow(shape_x, shape_y, shape_width, shape_width, thickness);
-    canvas.roundedRectangleShadow(shape_x + 2 * (shape_width + shape_padding_x), shape_y,
-                                  shape_width, shape_width, roundness, thickness);
-
     canvas.setPaletteColor(kShapeColor);
     canvas.rectangle(shape_x, shape_y, shape_width, shape_width);
     canvas.rectangleBorder(shape_x, shape_y2, shape_width, shape_width, thickness);

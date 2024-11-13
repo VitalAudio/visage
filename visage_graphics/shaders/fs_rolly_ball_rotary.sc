@@ -9,7 +9,7 @@ float shape(vec2 position, vec2 dimensions, float fade_mult, float hover_amount)
   const float kRoundingMult = 0.8;
 
   float rounding = (hover_amount * kRoundingMult) * dimensions.y;
-  return roundedRectangle(position, dimensions, rounding, fade_mult);
+  return roundedRectangle(position, dimensions, rounding, dimensions.x + dimensions.y, fade_mult);
 }
 
 vec2 sphereWarp(vec2 coordinates, float hover_amount) {

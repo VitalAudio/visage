@@ -37,6 +37,8 @@ namespace visage {
   class Shader;
   struct Line;
 
+  static constexpr float kFullThickness = FLT_MAX;
+
   enum class Direction {
     Left,
     Up,
@@ -71,43 +73,6 @@ namespace visage {
     }
   };
 
-  template<typename T>
-  static void setShapeQuadVertices(T* vertices, float x, float y, float width, float height,
-                                   const ClampBounds& clamp, const QuadColor& color) {
-    float left = x;
-    float top = y;
-    float right = x + width;
-    float bottom = y + height;
-
-    for (int i = 0; i < kVerticesPerQuad; ++i) {
-      vertices[i].dimension_x = width;
-      vertices[i].dimension_y = height;
-      vertices[i].color = color.corners[i];
-      vertices[i].hdr = color.hdr[i];
-      vertices[i].clamp_left = clamp.left;
-      vertices[i].clamp_top = clamp.top;
-      vertices[i].clamp_right = clamp.right;
-      vertices[i].clamp_bottom = clamp.bottom;
-    }
-
-    vertices[0].x = left;
-    vertices[0].y = top;
-    vertices[0].coordinate_x = -1.0f;
-    vertices[0].coordinate_y = -1.0f;
-    vertices[1].x = right;
-    vertices[1].y = top;
-    vertices[1].coordinate_x = 1.0f;
-    vertices[1].coordinate_y = -1.0f;
-    vertices[2].x = left;
-    vertices[2].y = bottom;
-    vertices[2].coordinate_x = -1.0f;
-    vertices[2].coordinate_y = 1.0f;
-    vertices[3].x = right;
-    vertices[3].y = bottom;
-    vertices[3].coordinate_x = 1.0f;
-    vertices[3].coordinate_y = 1.0f;
-  }
-
   struct BaseShape {
     BaseShape(const void* batch_id, const ClampBounds& clamp, const QuadColor& color, float x,
               float y, float width, float height) :
@@ -132,6 +97,43 @@ namespace visage {
     }
   };
 
+  template<typename T>
+  static void setQuadPositions(T* vertices, const BaseShape& shape, ClampBounds clamp,
+                               float x_offset = 0.0f, float y_offset = 0.0f) {
+    float left = shape.x + x_offset;
+    float top = shape.y + y_offset;
+    float right = left + shape.width;
+    float bottom = top + shape.height;
+
+    for (int i = 0; i < kVerticesPerQuad; ++i) {
+      vertices[i].dimension_x = shape.width;
+      vertices[i].dimension_y = shape.height;
+      vertices[i].color = shape.color.corners[i];
+      vertices[i].hdr = shape.color.hdr[i];
+      vertices[i].clamp_left = clamp.left;
+      vertices[i].clamp_top = clamp.top;
+      vertices[i].clamp_right = clamp.right;
+      vertices[i].clamp_bottom = clamp.bottom;
+    }
+
+    vertices[0].x = left;
+    vertices[0].y = top;
+    vertices[0].coordinate_x = -1.0f;
+    vertices[0].coordinate_y = -1.0f;
+    vertices[1].x = right;
+    vertices[1].y = top;
+    vertices[1].coordinate_x = 1.0f;
+    vertices[1].coordinate_y = -1.0f;
+    vertices[2].x = left;
+    vertices[2].y = bottom;
+    vertices[2].coordinate_x = -1.0f;
+    vertices[2].coordinate_y = 1.0f;
+    vertices[3].x = right;
+    vertices[3].y = bottom;
+    vertices[3].coordinate_x = 1.0f;
+    vertices[3].coordinate_y = 1.0f;
+  }
+
   template<typename VertexType = ShapeVertex, BlendState Blend = BlendState::Alpha>
   struct Shape : public BaseShape {
     typedef VertexType Vertex;
@@ -139,6 +141,23 @@ namespace visage {
 
     Shape(const void* batch_id, const ClampBounds& clamp, const QuadColor& color, float x, float y,
           float width, float height) : BaseShape(batch_id, clamp, color, x, y, width, height) { }
+  };
+
+  template<typename VertexType = ShapeVertex, BlendState Blend = BlendState::Alpha>
+  struct Primitive : public Shape<VertexType, Blend> {
+    Primitive(const void* batch_id, const ClampBounds& clamp, const QuadColor& color, float x, float y,
+              float width, float height) : Shape(batch_id, clamp, color, x, y, width, height) { }
+
+    void setPrimitiveData(VertexType* vertices) const {
+      float thick = thickness == kFullThickness ? (width + height) * pixel_width : thickness;
+      for (int i = 0; i < kVerticesPerQuad; ++i) {
+        vertices[i].thickness = thick;
+        vertices[i].fade = pixel_width;
+      }
+    }
+
+    float thickness = kFullThickness;
+    float pixel_width = 1.0f;
   };
 
   struct Clear : Shape<ShapeVertex, BlendState::Clear> {
@@ -163,129 +182,186 @@ namespace visage {
     static void setVertexData(Vertex* vertices) { }
   };
 
-  struct RectangleShadow : Shape<> {
-    VISAGE_CREATE_BATCH_ID
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    RectangleShadow(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-                    float height, float thickness) :
-        Shape(batchId(), clamp, color, x, y, width, height), thickness(thickness) { }
-
-    void setVertexData(Vertex* vertices) const {
-      for (int v = 0; v < kVerticesPerQuad; ++v)
-        vertices[v].value_1 = 0.5f * thickness;
-    }
-
-    float thickness = 0.0f;
-  };
-
-  struct RoundedRectangleShadow : Shape<> {
-    VISAGE_CREATE_BATCH_ID
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    RoundedRectangleShadow(const ClampBounds& clamp, const QuadColor& color, float x, float y,
-                           float width, float height, float rounding, float thickness) :
-        Shape(batchId(), clamp, color, x, y, width, height), rounding(rounding), thickness(thickness) { }
-
-    void setVertexData(Vertex* vertices) const {
-      for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = rounding;
-        vertices[v].value_2 = thickness;
-      }
-    }
-
-    float rounding = 0.0f;
-    float thickness = 0.0f;
-  };
-
-  struct Rectangle : Shape<> {
+  struct Rectangle : Primitive<> {
     VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     Rectangle(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-              float height) : Shape(batchId(), clamp, color, x, y, width, height) { }
+              float height) : Primitive(batchId(), clamp, color, x, y, width, height) { }
 
-    static void setVertexData(Vertex*) { }
+    void setVertexData(Vertex* vertices) const { setPrimitiveData(vertices); }
   };
 
-  struct RoundedRectangle : Shape<> {
+  struct RoundedRectangle : Primitive<> {
     VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     RoundedRectangle(const ClampBounds& clamp, const QuadColor& color, float x, float y,
-                     float width, float height, float rounding, float pixel_width) :
-        Shape(batchId(), clamp, color, x, y, width, height), rounding(rounding),
-        pixel_width(pixel_width) { }
+                     float width, float height, float rounding) :
+        Primitive(batchId(), clamp, color, x, y, width, height), rounding(rounding) { }
 
     void setVertexData(Vertex* vertices) const {
-      float fade_scale = 1.0f / pixel_width;
-      for (int v = 0; v < kVerticesPerQuad; ++v) {
+      setPrimitiveData(vertices);
+      for (int v = 0; v < kVerticesPerQuad; ++v)
         vertices[v].value_1 = rounding;
-        vertices[v].value_2 = fade_scale;
-      }
     }
 
     float rounding = 0.0f;
-    float pixel_width = 1.0f;
   };
 
-  struct RectangleBorder : Shape<> {
+  struct Circle : Primitive<> {
     VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    RectangleBorder(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-                    float height, float thickness) :
-        Shape(batchId(), clamp, color, x, y, width, height), thickness(thickness) { }
+    Circle(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width) :
+        Primitive(batchId(), clamp, color, x, y, width, width) { }
+
+    void setVertexData(Vertex* vertices) const { setPrimitiveData(vertices); }
+  };
+
+  struct Squircle : Primitive<> {
+    VISAGE_CREATE_BATCH_ID
+    static const EmbeddedFile& vertexShader();
+    static const EmbeddedFile& fragmentShader();
+
+    Squircle(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
+             float height, float power) :
+        Primitive(batchId(), clamp, color, x, y, width, height), power(power) { }
 
     void setVertexData(Vertex* vertices) const {
+      setPrimitiveData(vertices);
       for (int v = 0; v < kVerticesPerQuad; ++v)
-        vertices[v].value_1 = thickness;
+        vertices[v].value_1 = power;
     }
 
-    float thickness = 0.0f;
+    float power = 1.0f;
   };
 
-  struct RoundedRectangleBorder : Shape<> {
+  struct FlatArc : Primitive<> {
     VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    RoundedRectangleBorder(const ClampBounds& clamp, const QuadColor& color, float x, float y,
-                           float width, float height, float rounding, float thickness) :
-        Shape(batchId(), clamp, color, x, y, width, height), rounding(rounding), thickness(thickness) { }
+    FlatArc(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
+            float height, float thickness, float center_radians, float radians) :
+        Primitive(batchId(), clamp, color, x, y, width, height), center_radians(center_radians),
+        radians(radians) {
+      this->thickness = thickness;
+    }
 
     void setVertexData(Vertex* vertices) const {
+      setPrimitiveData(vertices);
       for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = rounding;
-        vertices[v].value_2 = thickness;
+        vertices[v].value_1 = center_radians;
+        vertices[v].value_2 = radians;
       }
     }
 
-    float rounding = 0.0f;
-    float thickness = 0.0f;
+    float center_radians = 0.0f;
+    float radians = 0.0f;
   };
 
-  struct Circle : Shape<> {
+  struct RoundedArc : Primitive<> {
     VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    Circle(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-           float pixel_width) :
-        Shape(batchId(), clamp, color, x, y, width, width), pixel_width(pixel_width) { }
-
-    void setVertexData(Vertex* vertices) const {
-      float fade_scale = 1.0f / pixel_width;
-      for (int v = 0; v < kVerticesPerQuad; ++v)
-        vertices[v].value_1 = fade_scale;
+    RoundedArc(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
+               float height, float thickness, float center_radians, float radians) :
+        Primitive(batchId(), clamp, color, x, y, width, height), center_radians(center_radians),
+        radians(radians) {
+      this->thickness = thickness;
     }
 
-    float pixel_width = 1.0f;
+    void setVertexData(Vertex* vertices) const {
+      setPrimitiveData(vertices);
+      for (int v = 0; v < kVerticesPerQuad; ++v) {
+        vertices[v].value_1 = center_radians;
+        vertices[v].value_2 = radians;
+      }
+    }
+
+    float center_radians = 0.0f;
+    float radians = 0.0f;
+  };
+
+  struct FlatSegment : Primitive<ComplexShapeVertex> {
+    VISAGE_CREATE_BATCH_ID
+    static const EmbeddedFile& vertexShader();
+    static const EmbeddedFile& fragmentShader();
+
+    FlatSegment(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
+                float height, float a_x, float a_y, float b_x, float b_y, float thickness,
+                float pixel_width) :
+        Primitive(batchId(), clamp, color, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x), b_y(b_y) {
+      this->thickness = thickness;
+      this->pixel_width = pixel_width;
+    }
+
+    void setVertexData(Vertex* vertices) const {
+      setPrimitiveData(vertices);
+      for (int v = 0; v < kVerticesPerQuad; ++v) {
+        vertices[v].value_1 = a_x;
+        vertices[v].value_2 = a_y;
+        vertices[v].value_3 = b_x;
+        vertices[v].value_4 = b_y;
+      }
+    }
+
+    float a_x = 0.0f;
+    float a_y = 0.0f;
+    float b_x = 0.0f;
+    float b_y = 0.0f;
+  };
+
+  struct RoundedSegment : Primitive<ComplexShapeVertex> {
+    VISAGE_CREATE_BATCH_ID
+    static const EmbeddedFile& vertexShader();
+    static const EmbeddedFile& fragmentShader();
+
+    RoundedSegment(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
+                   float height, float a_x, float a_y, float b_x, float b_y, float thickness,
+                   float pixel_width) :
+        Primitive(batchId(), clamp, color, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x), b_y(b_y) {
+      this->thickness = thickness;
+      this->pixel_width = pixel_width;
+    }
+
+    void setVertexData(Vertex* vertices) const {
+      setPrimitiveData(vertices);
+      for (int v = 0; v < kVerticesPerQuad; ++v) {
+        vertices[v].value_1 = a_x;
+        vertices[v].value_2 = a_y;
+        vertices[v].value_3 = b_x;
+        vertices[v].value_4 = b_y;
+      }
+    }
+
+    float a_x = 0.0f;
+    float a_y = 0.0f;
+    float b_x = 0.0f;
+    float b_y = 0.0f;
+  };
+
+  struct Diamond : Primitive<> {
+    VISAGE_CREATE_BATCH_ID
+    static const EmbeddedFile& vertexShader();
+    static const EmbeddedFile& fragmentShader();
+
+    Diamond(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
+            float height, float rounding) :
+        Primitive(batchId(), clamp, color, x, y, width, height), rounding(rounding) { }
+
+    void setVertexData(Vertex* vertices) const {
+      setPrimitiveData(vertices);
+      for (int v = 0; v < kVerticesPerQuad; ++v)
+        vertices[v].value_1 = rounding;
+    }
+
+    float rounding = 0.0f;
   };
 
   struct Triangle : Shape<> {
@@ -307,166 +383,6 @@ namespace visage {
     }
 
     Direction direction = Direction::Right;
-  };
-
-  struct RoundedCorner : Shape<> {
-    VISAGE_CREATE_BATCH_ID
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    RoundedCorner(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-                  Corner corner) :
-        Shape(batchId(), clamp, color, x, y, width, width), corner(corner) { }
-
-    void setVertexData(Vertex* vertices) const {
-      bool shift_left = corner == Corner::TopRight || corner == Corner::BottomRight;
-      bool shift_up = corner == Corner::BottomLeft || corner == Corner::BottomRight;
-
-      if (shift_left) {
-        vertices[0].coordinate_x = 0.0f;
-        vertices[2].coordinate_x = 0.0f;
-      }
-      else {
-        vertices[1].coordinate_x = 0.0f;
-        vertices[3].coordinate_x = 0.0f;
-      }
-      if (shift_up) {
-        vertices[0].coordinate_y = 0.0f;
-        vertices[1].coordinate_y = 0.0f;
-      }
-      else {
-        vertices[2].coordinate_y = 0.0f;
-        vertices[3].coordinate_y = 0.0f;
-      }
-    }
-
-    Corner corner = Corner::TopLeft;
-  };
-
-  struct Ring : Shape<> {
-    VISAGE_CREATE_BATCH_ID
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    Ring(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width, float thickness) :
-        Shape(batchId(), clamp, color, x, y, width, width), thickness(thickness) { }
-
-    void setVertexData(Vertex* vertices) const {
-      for (int v = 0; v < kVerticesPerQuad; ++v)
-        vertices[v].value_1 = thickness;
-    }
-
-    float thickness = 0.0f;
-  };
-
-  struct FlatArc : Shape<> {
-    VISAGE_CREATE_BATCH_ID
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    FlatArc(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-            float height, float thickness, float center_radians, float radians, float pixel_width) :
-        Shape(batchId(), clamp, color, x, y, width, height), thickness(thickness),
-        center_radians(center_radians), radians(radians), pixel_width(pixel_width) { }
-
-    void setVertexData(Vertex* vertices) const {
-      for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = thickness;
-        vertices[v].value_2 = center_radians;
-        vertices[v].value_3 = radians;
-        vertices[v].value_4 = pixel_width;
-      }
-    }
-
-    float thickness = 0.0f;
-    float center_radians = 0.0f;
-    float radians = 0.0f;
-    float pixel_width = 1.0f;
-  };
-
-  struct RoundedArc : Shape<> {
-    VISAGE_CREATE_BATCH_ID
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    RoundedArc(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-               float height, float thickness, float center_radians, float radians, float pixel_width) :
-        Shape(batchId(), clamp, color, x, y, width, height), thickness(thickness),
-        center_radians(center_radians), radians(radians), pixel_width(pixel_width) { }
-
-    void setVertexData(Vertex* vertices) const {
-      for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = thickness;
-        vertices[v].value_2 = center_radians;
-        vertices[v].value_3 = radians;
-        vertices[v].value_4 = pixel_width;
-      }
-    }
-
-    float thickness = 0.0f;
-    float center_radians = 0.0f;
-    float radians = 0.0f;
-    float pixel_width = 1.0f;
-  };
-
-  struct FlatSegment : Shape<ComplexShapeVertex> {
-    VISAGE_CREATE_BATCH_ID
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    FlatSegment(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-                float height, float a_x, float a_y, float b_x, float b_y, float thickness,
-                float pixel_width) :
-        Shape(batchId(), clamp, color, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x), b_y(b_y),
-        thickness(thickness), pixel_width(pixel_width) { }
-
-    void setVertexData(Vertex* vertices) const {
-      for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = a_x;
-        vertices[v].value_2 = a_y;
-        vertices[v].value_3 = b_x;
-        vertices[v].value_4 = b_y;
-        vertices[v].value_5 = thickness;
-        vertices[v].value_6 = pixel_width;
-      }
-    }
-
-    float a_x = 0.0f;
-    float a_y = 0.0f;
-    float b_x = 0.0f;
-    float b_y = 0.0f;
-    float thickness = 0.0f;
-    float pixel_width = 1.0f;
-  };
-
-  struct RoundedSegment : Shape<ComplexShapeVertex> {
-    VISAGE_CREATE_BATCH_ID
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    RoundedSegment(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-                   float height, float a_x, float a_y, float b_x, float b_y, float thickness,
-                   float pixel_width) :
-        Shape(batchId(), clamp, color, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x), b_y(b_y),
-        thickness(thickness), pixel_width(pixel_width) { }
-
-    void setVertexData(Vertex* vertices) const {
-      for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = a_x;
-        vertices[v].value_2 = a_y;
-        vertices[v].value_3 = b_x;
-        vertices[v].value_4 = b_y;
-        vertices[v].value_5 = thickness;
-        vertices[v].value_6 = pixel_width;
-      }
-    }
-
-    float a_x = 0.0f;
-    float a_y = 0.0f;
-    float b_x = 0.0f;
-    float b_y = 0.0f;
-    float thickness = 0.0f;
-    float pixel_width = 1.0f;
   };
 
   struct Rotary : Shape<RotaryVertex> {
@@ -505,28 +421,6 @@ namespace visage {
     float hover_amount = 0.0f;
     float arc_thickness = 0.0f;
     float max_radians = 0.0f;
-  };
-
-  struct Diamond : Shape<> {
-    VISAGE_CREATE_BATCH_ID
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    Diamond(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-            float height, float rounding, float pixel_width) :
-        Shape(batchId(), clamp, color, x, y, width, height), rounding(rounding),
-        pixel_width(pixel_width) { }
-
-    void setVertexData(Vertex* vertices) const {
-      float fade_scale = 1.0f / pixel_width;
-      for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = rounding;
-        vertices[v].value_2 = fade_scale;
-      }
-    }
-
-    float rounding = 0.0f;
-    float pixel_width = 1.0f;
   };
 
   struct IconWrapper : Shape<IconVertex> {
@@ -637,7 +531,7 @@ namespace visage {
     std::vector<std::vector<T>> pool_;
   };
 
-  struct TextBlock : Shape<> {
+  struct TextBlock : Shape<ImageVertex> {
     TextBlock(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
               float height, Text* text, Direction direction) :
         Shape(text->font().packedFont(), clamp, color, x, y, width, height), text(text),

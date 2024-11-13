@@ -116,8 +116,8 @@ namespace visage {
     auto vertices = initQuadVertices<typename T::Vertex>(num_shapes);
     if (vertices == nullptr)
       return false;
-
     int vertex_index = 0;
+
     for (const auto& batch : batches) {
       for (const T& shape : *batch.shapes) {
         for (const Bounds& invalid_rect : *batch.invalid_rects) {
@@ -127,8 +127,7 @@ namespace visage {
             continue;
 
           clamp = clamp.withOffset(batch.x, batch.y);
-          setShapeQuadVertices(vertices + vertex_index, batch.x + shape.x, batch.y + shape.y,
-                               shape.width, shape.height, clamp, shape.color);
+          setQuadPositions(vertices + vertex_index, shape, clamp, batch.x, batch.y);
           shape.setVertexData(vertices + vertex_index);
           vertex_index += kVerticesPerQuad;
         }
@@ -143,6 +142,7 @@ namespace visage {
   static void submitShapes(const BatchVector<T>& batches, Canvas& canvas, int submit_pass) {
     if (!setupQuads(batches))
       return;
+
     submitShapes(canvas, T::vertexShader(), T::fragmentShader(), T::kState, submit_pass);
   }
 

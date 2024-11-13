@@ -201,27 +201,45 @@ namespace visage {
     }
 
     void circle(float x, float y, float width) {
-      addShape(Circle(state_.clamp, state_.color, state_.x + x, state_.y + y, width, 1.0f));
+      addShape(Circle(state_.clamp, state_.color, state_.x + x, state_.y + y, width));
     }
 
     void fadeCircle(float x, float y, float width, float fade) {
-      addShape(Circle(state_.clamp, state_.color, state_.x + x, state_.y + y, width, fade));
+      Circle circle(state_.clamp, state_.color, state_.x + x, state_.y + y, width);
+      circle.pixel_width = fade;
+      addShape(circle);
     }
 
     void ring(float x, float y, float width, float thickness) {
-      addShape(Ring(state_.clamp, state_.color, state_.x + x, state_.y + y, width, thickness + 1.0f));
+      Circle circle(state_.clamp, state_.color, state_.x + x, state_.y + y, width);
+      circle.thickness = thickness;
+      addShape(circle);
+    }
+
+    void squircle(float x, float y, float width, float power) {
+      addShape(Squircle(state_.clamp, state_.color, state_.x + x, state_.y + y, width, width, power));
+    }
+
+    void squircleBorder(float x, float y, float width, float power, float thickness) {
+      Squircle squircle(state_.clamp, state_.color, state_.x + x, state_.y + y, width, width, power);
+      squircle.thickness = thickness;
+      addShape(squircle);
+    }
+
+    void superEllipse(float x, float y, float width, float height, float power) {
+      addShape(Squircle(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height, power));
     }
 
     void roundedArc(float x, float y, float width, float thickness, float center_radians,
                     float radians, float pixel_width = 1.0f) {
       addShape(RoundedArc(state_.clamp, state_.color, state_.x + x, state_.y + y, width, width,
-                          thickness + 1.0f, center_radians, radians, 1.0f));
+                          thickness + 1.0f, center_radians, radians));
     }
 
     void flatArc(float x, float y, float width, float thickness, float center_radians,
                  float radians, float pixel_width = 1.0f) {
       addShape(FlatArc(state_.clamp, state_.color, state_.x + x, state_.y + y, width, width,
-                       thickness + 1.0f, center_radians, radians, 1.0f));
+                       thickness + 1.0f, center_radians, radians));
     }
 
     void arc(float x, float y, float width, float thickness, float center_radians, float radians,
@@ -235,17 +253,21 @@ namespace visage {
     void roundedArcShadow(float x, float y, float width, float thickness, float center_radians,
                           float radians, float shadow_width, bool rounded = false) {
       float full_width = width + 2.0f * shadow_width;
-      addShape(RoundedArc(state_.clamp, state_.color, state_.x + x - shadow_width, state_.y + y - shadow_width,
-                          full_width, full_width, thickness + 1.0f + 2.0f * shadow_width,
-                          center_radians, radians, 1.0f / shadow_width));
+      RoundedArc arc(state_.clamp, state_.color, state_.x + x - shadow_width,
+                     state_.y + y - shadow_width, full_width, full_width,
+                     thickness + 1.0f + 2.0f * shadow_width, center_radians, radians);
+      arc.pixel_width = shadow_width;
+      addShape(arc);
     }
 
     void flatArcShadow(float x, float y, float width, float thickness, float center_radians,
                        float radians, float shadow_width, bool rounded = false) {
       float full_width = width + 2.0f * shadow_width;
-      addShape(FlatArc(state_.clamp, state_.color, state_.x + x - shadow_width, state_.y + y - shadow_width,
-                       full_width, full_width, thickness + 1.0f + 2.0f * shadow_width,
-                       center_radians, radians, 1.0f / shadow_width));
+      FlatArc arc(state_.clamp, state_.color, state_.x + x - shadow_width,
+                  state_.y + y - shadow_width, full_width, full_width,
+                  thickness + 1.0f + 2.0f * shadow_width, center_radians, radians);
+      arc.pixel_width = shadow_width;
+      addShape(arc);
     }
 
     void segment(float a_x, float a_y, float b_x, float b_y, float thickness, bool rounded = false,
@@ -281,25 +303,26 @@ namespace visage {
     }
 
     void rectangleBorder(float x, float y, float width, float height, float thickness) {
-      addShape(RectangleBorder(state_.clamp, state_.color, state_.x + x, state_.y + y, width,
-                               height, thickness + 1.0f));
+      Rectangle border(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height);
+      border.thickness = thickness + 1.0f;
+      addShape(border);
     }
 
     void roundedRectangle(float x, float y, float width, float height, float rounding) {
       addShape(RoundedRectangle(state_.clamp, state_.color, state_.x + x, state_.y + y, width,
-                                height, std::max(1.0f, rounding), 1.0f));
+                                height, std::max(1.0f, rounding)));
     }
 
     void diamond(float x, float y, float width, float rounding) {
       addShape(Diamond(state_.clamp, state_.color, state_.x + x, state_.y + y, width, width,
-                       std::max(1.0f, rounding), 1.0f));
+                       std::max(1.0f, rounding)));
     }
 
     void leftRoundedRectangle(float x, float y, float width, float height, float rounding) {
       ClampBounds clamp = state_.clamp;
       clamp.right = std::min(clamp.right, state_.x + x + width);
       addShape(RoundedRectangle(clamp, state_.color, state_.x + x, state_.y + y,
-                                width + rounding + 1.0f, height, std::max(1.0f, rounding), 1.0f));
+                                width + rounding + 1.0f, height, std::max(1.0f, rounding)));
     }
 
     void rightRoundedRectangle(float x, float y, float width, float height, float rounding) {
@@ -307,14 +330,14 @@ namespace visage {
       clamp.left = std::max(clamp.left, state_.x + x);
       float growth = rounding + 1.0f;
       addShape(RoundedRectangle(clamp, state_.color, state_.x + x - growth, state_.y + y,
-                                width + growth, height, std::max(1.0f, rounding), 1.0f));
+                                width + growth, height, std::max(1.0f, rounding)));
     }
 
     void topRoundedRectangle(float x, float y, float width, float height, float rounding) {
       ClampBounds clamp = state_.clamp;
       clamp.bottom = std::min(clamp.bottom, state_.y + y + height);
       addShape(RoundedRectangle(clamp, state_.color, state_.x + x, state_.y + y, width,
-                                height + rounding + 1.0f, std::max(1.0f, rounding), 1.0f));
+                                height + rounding + 1.0f, std::max(1.0f, rounding)));
     }
 
     void bottomRoundedRectangle(float x, float y, float width, float height, float rounding) {
@@ -322,13 +345,14 @@ namespace visage {
       clamp.top = std::max(clamp.top, state_.y + y);
       float growth = rounding + 1.0f;
       addShape(RoundedRectangle(clamp, state_.color, state_.x + x, state_.y + y - growth, width,
-                                height + growth, std::max(1.0f, rounding), 1.0f));
+                                height + growth, std::max(1.0f, rounding)));
     }
 
     void rectangleShadow(float x, float y, float width, float height, float blur_radius) {
       if (blur_radius > 0.0f) {
-        addShape(RectangleShadow(state_.clamp, state_.color, state_.x + x, state_.y + y, width,
-                                 height, blur_radius));
+        Rectangle rectangle(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height);
+        rectangle.pixel_width = blur_radius;
+        addShape(rectangle);
       }
     }
 
@@ -337,18 +361,24 @@ namespace visage {
       if (blur_radius <= 0.0f)
         return;
 
+      float offset = -blur_radius * 0.5f;
       if (rounding <= 1.0f)
-        rectangleShadow(x, y, width, height, blur_radius);
+        rectangleShadow(state_.x + x + offset, state_.y + y + offset, width + blur_radius,
+                        height + blur_radius, blur_radius);
       else {
-        addShape(RoundedRectangleShadow(state_.clamp, state_.color, state_.x + x, state_.y + y,
-                                        width, height, rounding, blur_radius));
+        RoundedRectangle shadow(state_.clamp, state_.color, state_.x + x + offset, state_.y + y + offset,
+                                width + blur_radius, height + blur_radius, rounding);
+        shadow.pixel_width = blur_radius;
+        addShape(shadow);
       }
     }
 
     void fullRoundedRectangleBorder(float x, float y, float width, float height, float rounding,
                                     float thickness) {
-      addShape(RoundedRectangleBorder(state_.clamp, state_.color, state_.x + x, state_.y + y, width,
-                                      height, rounding, thickness + 1.0f));
+      RoundedRectangle border(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height,
+                              rounding);
+      border.thickness = thickness;
+      addShape(border);
     }
 
     void roundedRectangleBorder(float x, float y, float width, float height, float rounding, float thickness) {
@@ -394,39 +424,6 @@ namespace visage {
     void triangleDown(float x, float y, float width) {
       addShape(Triangle(state_.clamp, state_.color, state_.x + x, state_.y + y, width * 2.0f, width,
                         Direction::Down));
-    }
-
-    void topLeftCorner(float x, float y, float width) {
-      roundedCorner(x, y, width, Corner::TopLeft);
-    }
-
-    void topRightCorner(float x, float y, float width) {
-      roundedCorner(x - width, y, width, Corner::TopRight);
-    }
-
-    void bottomLeftCorner(float x, float y, float width) {
-      roundedCorner(x, y - width, width, Corner::BottomLeft);
-    }
-
-    void bottomRightCorner(float x, float y, float width) {
-      roundedCorner(x - width, y - width, width, Corner::BottomRight);
-    }
-
-    void bottomCorners(float x, float y, float rectangle_width, float corner_width) {
-      bottomLeftCorner(x, y, corner_width);
-      bottomRightCorner(x + rectangle_width, y, corner_width);
-    }
-
-    void topCorners(float x, float y, float rectangle_width, float corner_width) {
-      topLeftCorner(x, y, corner_width);
-      topRightCorner(x + rectangle_width, y, corner_width);
-    }
-
-    void allCorners(float x, float y, float rectangle_width, float rectangle_height, float corner_width) {
-      topLeftCorner(x, y, corner_width);
-      topRightCorner(x + rectangle_width, y, corner_width);
-      bottomLeftCorner(x, y + rectangle_height, corner_width);
-      bottomRightCorner(x + rectangle_width, y + rectangle_height, corner_width);
     }
 
     void text(Text* text, float x, float y, float width, float height, Direction dir = Direction::Up) {
@@ -571,10 +568,6 @@ namespace visage {
     State* state() { return &state_; }
 
   private:
-    void roundedCorner(float x, float y, float width, Corner corner) {
-      addShape(RoundedCorner(state_.clamp, state_.color, state_.x + x, state_.y + y, width, corner));
-    }
-
     template<typename T>
     void addShape(T shape) {
       state_.current_region->shape_batcher_.addShape(std::move(shape));
