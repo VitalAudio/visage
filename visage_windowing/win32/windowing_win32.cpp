@@ -1165,6 +1165,10 @@ namespace visage {
       handleResizing(hwnd, l_param, w_param);
       return TRUE;
     }
+    case WM_SIZE: {
+      handleResizeEnd(hwnd);
+      return TRUE;
+    }
     case WM_EXITSIZEMOVE: {
       handleResizeEnd(hwnd);
       return 0;
@@ -1350,7 +1354,8 @@ namespace visage {
 
   WindowWin32::WindowWin32(int x, int y, int width, int height, bool popup) :
       Window(width, height) {
-    static constexpr int kWindowFlags = WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX;
+    static constexpr int kWindowFlags = WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX |
+                                        WS_MAXIMIZEBOX;
     static constexpr int kPopupFlags = WS_POPUP;
     DpiAwareness dpi_awareness;
     setDpiScale(dpi_awareness.dpiScale());
