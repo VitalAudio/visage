@@ -17,7 +17,6 @@
 #pragma once
 
 #include "color_picker.h"
-#include "embedded/fonts.h"
 #include "shader_editor.h"
 #include "text_editor.h"
 #include "visage_ui/frame.h"
