@@ -111,7 +111,7 @@ namespace visage {
     };
 
     PackedFont(int size, const unsigned char* data, int data_size) :
-        size_(size), data_(data), data_size_(data_size), atlas_width_(kMinWidth) {
+        size_(size), data_(data), atlas_width_(kMinWidth) {
       std::unique_ptr<FreeTypeFace> face = std::make_unique<FreeTypeFace>(size, data, data_size);
       std::unique_ptr<PackedGlyph[]> glyphs = std::make_unique<PackedGlyph[]>(face->numGlyphs());
       texture_ = std::make_unique<unsigned int[]>(atlas_width_ * atlas_width_);
@@ -200,8 +200,8 @@ namespace visage {
 
       for (int y = 0; y < packed_glyph->height; ++y) {
         for (int x = 0; x < packed_glyph->width; ++x) {
-          int index = (write_y_ + y) * atlas_width_ + write_x_ + x;
-          texture_[index] = ((glyph->bitmap.buffer[y * packed_glyph->width + x]) << 24) + 0xffffff;
+          int i = (write_y_ + y) * atlas_width_ + write_x_ + x;
+          texture_[i] = ((glyph->bitmap.buffer[y * packed_glyph->width + x]) << 24) + 0xffffff;
         }
       }
       write_x_ += packed_glyph->width + kPadding;
@@ -209,7 +209,7 @@ namespace visage {
       return packed_glyph;
     }
 
-    PackedGlyph* rasterizeEmojiGlyph(const PackedFace& packed_face, char32_t emoji) {
+    PackedGlyph* rasterizeEmojiGlyph(char32_t emoji) {
       if (bgfx::isValid(texture_handle_)) {
         bgfx::destroy(texture_handle_);
         texture_handle_ = BGFX_INVALID_HANDLE;
@@ -258,7 +258,7 @@ namespace visage {
         return emoji_glyphs_[emoji_indices_[character]].get();
 
       emoji_indices_[character] = emoji_glyphs_.size();
-      return rasterizeEmojiGlyph(packed_faces_[0], character);
+      return rasterizeEmojiGlyph(character);
     }
 
     void checkInit() {
@@ -282,7 +282,6 @@ namespace visage {
     int atlas_width_ = 0;
     int size_ = 0;
     const unsigned char* data_ = nullptr;
-    int data_size_ = 0;
 
     std::unique_ptr<unsigned int[]> texture_;
     int write_x_ = 0;
@@ -342,7 +341,6 @@ namespace visage {
                                int character_override) const {
     static constexpr PackedGlyph kNullPackedGlyph = { 0, 0, 0, 0, 0.0f, 0.0f, 0.0f };
 
-    char32_t last_character = 0;
     float string_width = 0;
     for (int i = 0; i < string_length; ++i) {
       char32_t character = string[i];
@@ -364,7 +362,6 @@ namespace visage {
         return i;
 
       string_width += advance;
-      last_character = character;
     }
 
     return string_length;
@@ -380,11 +377,9 @@ namespace visage {
     }
 
     float width = 0.0f;
-    char32_t last_character = 0;
     for (int i = 0; i < length; ++i) {
       if (!isNewLine(string[i]) && !isIgnored(string[i]))
         width += packed_font_->packedGlyph(string[i])->x_advance;
-      last_character = string[i];
     }
 
     return width;

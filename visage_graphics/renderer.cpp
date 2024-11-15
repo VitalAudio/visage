@@ -107,7 +107,7 @@ namespace visage {
     bgfx_init.resolution.height = 1;
     bgfx_init.resolution.reset |= BGFX_RESET_VSYNC;
 #elif VISAGE_LINUX
-    bgfx_init.type = bgfx::RendererType::OpenGL;
+    bgfx_init.type = bgfx::RendererType::Vulkan;
 #elif VISAGE_EMSCRIPTEN
     bgfx_init.type = bgfx::RendererType::OpenGLES;
 #endif

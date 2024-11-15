@@ -21,6 +21,8 @@
 #include "scroll_bar.h"
 #include "visage_graphics/font.h"
 
+#include <climits>
+
 namespace visage {
   class PopupMenu {
   public:
