@@ -193,7 +193,8 @@ namespace visage {
     }
 
     void fill(float x, float y, float width, float height) {
-      addShape(Fill(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height));
+      addShape(Fill(state_.clamp.clamp(x, y, width, height), state_.color, state_.x + x,
+                    state_.y + y, width, height));
     }
 
     void clearArea(float x, float y, float width, float height) {

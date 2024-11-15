@@ -232,7 +232,7 @@ ExamplesFrame::ExamplesFrame() {
     }
   };
 
-  shader_quad_ = std::make_unique<visage::ShaderQuad>(resources::shaders::vs_shape,
+  shader_quad_ = std::make_unique<visage::ShaderQuad>(resources::shaders::vs_shader_quad,
                                                       resources::shaders::fs_shader_quad,
                                                       visage::BlendState::Alpha);
   addChild(shader_quad_.get());
