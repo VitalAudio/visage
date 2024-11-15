@@ -149,6 +149,8 @@ namespace visage {
     impl_ = std::make_unique<EmojiRasterizerImpl>();
   }
 
+  EmojiRasterizer::~EmojiRasterizer() = default;
+
   void EmojiRasterizer::drawIntoBuffer(char32_t emoji, int font_size, int write_width,
                                        unsigned int* dest, int dest_width, int x, int y) {
     impl_->drawIntoBuffer(emoji, font_size, write_width, dest, dest_width, x, y);

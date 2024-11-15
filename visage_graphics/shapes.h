@@ -22,6 +22,7 @@
 #include "text.h"
 
 #include <algorithm>
+#include <cfloat>
 
 #define VISAGE_CREATE_BATCH_ID \
   static void* batchId() {     \
@@ -145,11 +146,12 @@ namespace visage {
 
   template<typename VertexType = ShapeVertex, BlendState Blend = BlendState::Alpha>
   struct Primitive : public Shape<VertexType, Blend> {
-    Primitive(const void* batch_id, const ClampBounds& clamp, const QuadColor& color, float x, float y,
-              float width, float height) : Shape(batch_id, clamp, color, x, y, width, height) { }
+    Primitive(const void* batch_id, const ClampBounds& clamp, const QuadColor& color, float x,
+              float y, float width, float height) :
+        Shape<VertexType, Blend>(batch_id, clamp, color, x, y, width, height) { }
 
     void setPrimitiveData(VertexType* vertices) const {
-      float thick = thickness == kFullThickness ? (width + height) * pixel_width : thickness;
+      float thick = thickness == kFullThickness ? (this->width + this->height) * pixel_width : thickness;
       for (int i = 0; i < kVerticesPerQuad; ++i) {
         vertices[i].thickness = thick;
         vertices[i].fade = pixel_width;

@@ -33,6 +33,7 @@ namespace visage {
 
   private:
     EmojiRasterizer();
+    ~EmojiRasterizer();
 
     std::unique_ptr<EmojiRasterizerImpl> impl_;
   };

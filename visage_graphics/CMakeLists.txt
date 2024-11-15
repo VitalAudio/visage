@@ -1,5 +1,12 @@
 file(GLOB HEADERS *.h)
 file(GLOB SOURCE_FILES *.cpp)
+if (WIN32)
+  list(APPEND SOURCE_FILES win32/emoji_win32.cpp)
+elseif (APPLE)
+  list(APPEND SOURCE_FILES macos/emoji_macos.cpp)
+elseif (UNIX)
+  list(APPEND SOURCE_FILES linux/emoji_linux.cpp)
+endif ()
 
 if (VISAGE_AMALGAMATED_BUILD)
   amalgamate_sources(${CMAKE_CURRENT_BINARY_DIR}/visage_graphics_amalgamated.cpp "${SOURCE_FILES}")

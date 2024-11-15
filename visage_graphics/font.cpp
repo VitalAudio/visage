@@ -263,7 +263,7 @@ namespace visage {
 
     void checkInit() {
       if (!bgfx::isValid(texture_handle_)) {
-        int size = atlas_width_ * atlas_width_ * sizeof(unsigned char);
+        int size = atlas_width_ * atlas_width_ * sizeof(unsigned int);
         const bgfx::Memory* texture_ref = bgfx::makeRef(texture_.get(), size);
         texture_handle_ = bgfx::createTexture2D(atlas_width_, atlas_width_, false, 1,
                                                 bgfx::TextureFormat::BGRA8,
