@@ -85,7 +85,7 @@ namespace visage {
     void setNewSize();
     void addIcons(const std::set<Icon>& icon);
     void drawIcon(int index);
-    void blurIcon(unsigned char* location, int width, int blur_radius) const;
+    void blurIcon(unsigned int* location, int width, int blur_radius) const;
     int atlasWidth() const { return atlas_.width(); }
     const bgfx::TextureHandle& textureHandle() const;
 

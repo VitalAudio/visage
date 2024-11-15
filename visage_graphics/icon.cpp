@@ -23,7 +23,7 @@
 #include <nanosvg/src/nanosvgrast.h>
 
 namespace visage {
-  static void boxBlur(unsigned char* dest, unsigned char* cache, int width, int blur_radius, int stride) {
+  static void boxBlur(unsigned int* dest, unsigned char* cache, int width, int blur_radius, int stride) {
     int value = 0;
     int sample_index = 0;
     int write_index = 0;
@@ -35,7 +35,7 @@ namespace visage {
     for (; sample_index < blur_radius; ++sample_index) {
       cache[sample_index] = dest[sample_index * stride];
       value += cache[sample_index];
-      dest[write_index * stride] = value / blur_radius;
+      // dest[write_index * stride] = value / blur_radius;
       write_index++;
     }
 
@@ -45,13 +45,13 @@ namespace visage {
       int sample = dest[sample_index * stride];
       cache[cache_index] = sample;
       value += sample - cached;
-      dest[write_index * stride] = value / blur_radius;
+      // dest[write_index * stride] = value / blur_radius;
       write_index++;
     }
 
     for (; sample_index < width + blur_radius; ++sample_index) {
       value -= cache[sample_index % blur_radius];
-      dest[write_index * stride] = value / blur_radius;
+      // dest[write_index * stride] = value / blur_radius;
       write_index++;
     }
   }
@@ -65,13 +65,12 @@ namespace visage {
 
     ~Rasterizer() { nsvgDeleteRasterizer(rasterizer_); }
 
-    std::unique_ptr<unsigned char[]> rasterize(const Icon& icon) const {
+    std::unique_ptr<unsigned int[]> rasterize(const Icon& icon) const {
       std::unique_ptr<char[]> copy = std::make_unique<char[]>(icon.svg_size + 1);
       memcpy(copy.get(), icon.svg, icon.svg_size);
 
       NSVGimage* image = nsvgParse(copy.get(), "px", 96);
-      std::unique_ptr<unsigned char[]> data = std::make_unique<unsigned char[]>(icon.width *
-                                                                                icon.height * 4);
+      std::unique_ptr<unsigned int[]> data = std::make_unique<unsigned int[]>(icon.width * icon.height);
 
       float width_scale = icon.width / image->width;
       float height_scale = icon.height / image->height;
@@ -79,8 +78,8 @@ namespace visage {
       float x_offset = (icon.width - image->width * scale) * 0.5f;
       float y_offset = (icon.height - image->height * scale) * 0.5f;
 
-      nsvgRasterize(rasterizer_, image, x_offset, y_offset, scale, data.get(), icon.width,
-                    icon.height, icon.width * 4);
+      nsvgRasterize(rasterizer_, image, x_offset, y_offset, scale, (unsigned char*)data.get(),
+                    icon.width, icon.height, icon.width * 4);
       nsvgDelete(image);
       return data;
     }
@@ -112,7 +111,7 @@ namespace visage {
   class IconGroupTexture {
   public:
     explicit IconGroupTexture(int width) : width_(width) {
-      texture_ = std::make_unique<unsigned char[]>(width * width);
+      texture_ = std::make_unique<unsigned int[]>(width * width);
     }
 
     ~IconGroupTexture() { destroyHandle(); }
@@ -127,18 +126,18 @@ namespace visage {
     bgfx::TextureHandle& handle() {
       if (!bgfx::isValid(texture_handle_)) {
         const bgfx::Memory* texture_ref = bgfx::makeRef(texture_.get(),
-                                                        width_ * width_ * sizeof(unsigned char));
-        texture_handle_ = bgfx::createTexture2D(width_, width_, false, 1, bgfx::TextureFormat::A8,
+                                                        width_ * width_ * sizeof(unsigned int));
+        texture_handle_ = bgfx::createTexture2D(width_, width_, false, 1, bgfx::TextureFormat::BGRA8,
                                                 BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE, texture_ref);
       }
       return texture_handle_;
     }
 
-    unsigned char* data() const { return texture_.get(); }
+    unsigned int* data() const { return texture_.get(); }
 
   private:
     int width_ = 0;
-    std::unique_ptr<unsigned char[]> texture_;
+    std::unique_ptr<unsigned int[]> texture_;
     bgfx::TextureHandle texture_handle_ = BGFX_INVALID_HANDLE;
   };
 
@@ -197,15 +196,15 @@ namespace visage {
     if (icon.width == 0)
       return;
 
-    std::unique_ptr<unsigned char[]> data = Rasterizer::instance().rasterize(icon);
+    std::unique_ptr<unsigned int[]> data = Rasterizer::instance().rasterize(icon);
 
     PackedAtlas::Rect packed_rect = atlas_.rectAtIndex(index);
     int atlas_offset = packed_rect.x + packed_rect.y * atlas_.width();
-    unsigned char* texture_ref = texture_->data() + atlas_offset;
+    unsigned int* texture_ref = texture_->data() + atlas_offset;
     for (int y = 0; y < icon.height; ++y) {
-      uint8_t* row_ref = data.get() + y * icon.width * 4 + 3;
+      unsigned int* row_ref = data.get() + y * icon.width;
       for (int x = 0; x < icon.width; ++x)
-        texture_ref[x] = row_ref[4 * x];
+        texture_ref[x] = row_ref[x];
 
       texture_ref += atlas_.width();
     }
@@ -214,7 +213,7 @@ namespace visage {
       blurIcon(texture_->data() + atlas_offset, icon.width, icon.blur_radius);
   }
 
-  void IconGroup::blurIcon(unsigned char* location, int width, int blur_radius) const {
+  void IconGroup::blurIcon(unsigned int* location, int width, int blur_radius) const {
     static constexpr int kBoxBlurIterations = 3;
 
     int radius = std::min(blur_radius, width - 1);
