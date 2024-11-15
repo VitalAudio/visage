@@ -172,17 +172,31 @@ namespace visage {
     if (hasKeyboardFocus())
       drawSelection(canvas);
 
-    canvas.setPosition(x_margin, yMargin());
+    canvas.setPosition(0, yMargin());
     if (text_.text().isEmpty()) {
       bool center = (justification() & Font::kLeft) == 0 && (justification() & Font::kRight) == 0;
       if (!default_text_.text().isEmpty() && (!center || !hasKeyboardFocus())) {
         canvas.setPaletteColor(kTextEditorDefaultText);
-        canvas.text(&default_text_, -x_position_, -yPosition(), text_bounds.width(), text_bounds.height());
+        canvas.text(&default_text_, x_margin - x_position_, -yPosition(),
+                    x_position_ + text_bounds.width(), text_bounds.height());
       }
     }
     else {
       canvas.setPaletteColor(kTextEditorText);
-      canvas.text(&text_, -x_position_, -yPosition(), text_bounds.width(), text_bounds.height());
+      if (justification() & Font::kLeft) {
+        canvas.text(&text_, x_margin - x_position_, -yPosition(), x_position_ + text_bounds.width(),
+                    text_bounds.height());
+      }
+      else if (justification() & Font::kRight) {
+        canvas.text(&text_, 0, -yPosition(), x_margin + text_bounds.width() - x_position_,
+                    text_bounds.height());
+      }
+      else {
+        canvas.setPosition(-x_position_, 0);
+        int expansion = std::abs(x_position_);
+        canvas.text(&text_, -expansion, -yPosition(), text_bounds.width() + 2 * expansion,
+                    text_bounds.height());
+      }
     }
   }
 
