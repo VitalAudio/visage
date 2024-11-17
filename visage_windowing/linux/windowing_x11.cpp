@@ -28,15 +28,15 @@
 namespace visage {
   static std::string _clipboard_text;
 
-  class DummyWindow {
+  class SharedMessageWindow {
   public:
     static ::Window handle() {
-      static DummyWindow dummy;
-      return dummy.window_handle_;
+      static SharedMessageWindow window;
+      return window.window_handle_;
     }
 
   private:
-    DummyWindow() {
+    SharedMessageWindow() {
       X11Connection& x11 = X11Connection::globalInstance();
       ::Display* display = x11.display();
       window_handle_ = XCreateSimpleWindow(display, x11.rootWindow(), -100, -100, 1, 1, 0, 0, 0);
@@ -44,7 +44,9 @@ namespace visage {
       XFlush(display);
     }
 
-    ~DummyWindow() { XDestroyWindow(X11Connection::globalInstance().display(), window_handle_); }
+    ~SharedMessageWindow() {
+      XDestroyWindow(X11Connection::globalInstance().display(), window_handle_);
+    }
 
     ::Window window_handle_ = 0;
   };
@@ -63,23 +65,23 @@ namespace visage {
     Display* display = x11.display();
 
     ::Window selection_owner = XGetSelectionOwner(display, x11.clipboard());
-    if (selection_owner == DummyWindow::handle())
+    if (selection_owner == SharedMessageWindow::handle())
       return _clipboard_text;
 
     Atom selection_property = XInternAtom(display, "VISAGE_SELECT", False);
     XConvertSelection(display, x11.clipboard(), x11.utf8String(), selection_property,
-                      DummyWindow::handle(), CurrentTime);
+                      SharedMessageWindow::handle(), CurrentTime);
 
     XEvent event;
     for (int i = 0; i < kTries; ++i) {
-      if (XCheckTypedWindowEvent(display, DummyWindow::handle(), SelectionNotify, &event)) {
+      if (XCheckTypedWindowEvent(display, SharedMessageWindow::handle(), SelectionNotify, &event)) {
         if (event.xselection.property == selection_property) {
           Atom actual_type;
           int actual_format = 0;
           unsigned long num_items = 0, bytes_after = 0;
           unsigned char* property = nullptr;
-          XGetWindowProperty(display, DummyWindow::handle(), selection_property, 0, ~0, False,
-                             AnyPropertyType, &actual_type, &actual_format, &num_items,
+          XGetWindowProperty(display, SharedMessageWindow::handle(), selection_property, 0, ~0,
+                             False, AnyPropertyType, &actual_type, &actual_format, &num_items,
                              &bytes_after, &property);
 
           if (actual_type == x11.utf8String()) {
@@ -103,8 +105,8 @@ namespace visage {
     _clipboard_text = text;
 
     X11Connection& x11 = X11Connection::globalInstance();
-    XSetSelectionOwner(x11.display(), XA_PRIMARY, DummyWindow::handle(), CurrentTime);
-    XSetSelectionOwner(x11.display(), x11.clipboard(), DummyWindow::handle(), CurrentTime);
+    XSetSelectionOwner(x11.display(), XA_PRIMARY, SharedMessageWindow::handle(), CurrentTime);
+    XSetSelectionOwner(x11.display(), x11.clipboard(), SharedMessageWindow::handle(), CurrentTime);
   }
 
   void setCursorStyle(MouseCursor style) {
@@ -529,7 +531,7 @@ namespace visage {
   }
 
   void* WindowX11::initWindow() const {
-    return (void*)DummyWindow::handle();
+    return (void*)SharedMessageWindow::handle();
   }
 
   void WindowX11::setFixedAspectRatio(bool fixed) {
@@ -948,10 +950,6 @@ namespace visage {
       X11Connection& x11 = X11Connection::globalInstance();
       X11Connection::DisplayLock lock(x11);
       XSelectionRequestEvent* request = &event.xselectionrequest;
-      if (request->selection == x11.dndSelection()) {
-        sendDragDropSelectionNotify(request);
-        break;
-      }
 
       XSelectionEvent result = { 0 };
       result.type = SelectionNotify;
@@ -1012,6 +1010,13 @@ namespace visage {
         drag_drop_out_state_.dragging = false;
         setCursorStyle(MouseCursor::Arrow);
       }
+      break;
+    }
+    case SelectionRequest: {
+      X11Connection::DisplayLock lock(x11_);
+      XSelectionRequestEvent* request = &event.xselectionrequest;
+      if (request->selection == x11_.dndSelection())
+        sendDragDropSelectionNotify(request);
       break;
     }
     case SelectionNotify: {
