@@ -1111,7 +1111,7 @@ namespace visage {
       char buffer[kMaxCharacters] {};
       KeySym keysym;
       int length = XLookupString(&event.xkey, buffer, sizeof(buffer), &keysym, nullptr);
-      if ((modifier_state & kModifierAlt) == 0)
+      if ((modifier_state & kModifierAlt) == 0 && length && buffer[0] < 127)
         handleTextInput(std::string(buffer, length));
 
       bool repeat = pressed_[keysym];
