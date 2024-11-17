@@ -964,8 +964,8 @@ namespace visage {
 
       if (request->target == x11.targets()) {
         Atom supported_types[] = { x11.utf8String(), XA_STRING };
-        XChangeProperty(request->display, request->requestor, request->property, XA_ATOM,
-                        sizeof(Atom), PropModeReplace, (unsigned char*)supported_types, 2);
+        XChangeProperty(request->display, request->requestor, request->property, XA_ATOM, 32,
+                        PropModeReplace, (unsigned char*)supported_types, 2);
         result.property = request->property;
       }
       else if (request->target == x11.utf8String() || request->target == XA_STRING) {
@@ -1214,13 +1214,13 @@ namespace visage {
         last_timer_microseconds = time::microseconds();
         long long us_time = last_timer_microseconds - start_timer_microseconds;
         drawCallback(us_time / 1000000.0);
-      }
-      else if (FD_ISSET(fd, &read_fds)) {
+
         while (XPending(X11Connection::globalInstance().display())) {
           XNextEvent(X11Connection::globalInstance().display(), &event);
-          if (event.xany.window == DummyWindow::handle())
-            processMessageWindowEvent(event);
+          processMessageWindowEvent(event);
         }
+      }
+      else if (FD_ISSET(fd, &read_fds)) {
         while (running && XPending(x11_.display())) {
           XNextEvent(x11_.display(), &event);
           if (event.type == DestroyNotify ||
