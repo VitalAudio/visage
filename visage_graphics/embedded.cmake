@@ -35,7 +35,7 @@ function(visage_embed_shaders project include_filename namespace original_shader
     set(METAL TRUE)
   elseif (UNIX)
     set(LINUX TRUE)
-    set(VULKAN TRUE)
+    set(OPENGL TRUE)
     set(SHADER_PLATFORM "linux")
   endif()
 
@@ -109,9 +109,14 @@ function(visage_embed_shaders project include_filename namespace original_shader
   add_embedded_resources(${project} ${include_filename} ${namespace} "${SHADER_RESOURCES}")
 endfunction()
 
-file(GLOB_RECURSE LIBRARY_SHADERS shaders/[vf]s_*.sc)
-file(GLOB_RECURSE FONT_TTF_FILES fonts/*.ttf)
-file(GLOB_RECURSE ICON_FILES icons/*.svg)
+file(GLOB LIBRARY_SHADERS shaders/[vf]s_*.sc)
+file(GLOB FONT_TTF_FILES fonts/*.ttf)
+file(GLOB ICON_FILES icons/*.svg)
+
+if (UNIX AND NOT APPLE)
+  file(GLOB LINUX_TTF_FILES fonts/linux/*.ttf)
+  list(APPEND FONT_TTF_FILES ${LINUX_TTF_FILES})
+endif ()
 
 visage_embed_shaders(VisageEmbeddedShaders "shaders.h" "visage::shaders" "${LIBRARY_SHADERS}")
 add_embedded_resources(VisageEmbeddedFonts "fonts.h" "visage::fonts" "${FONT_TTF_FILES}")

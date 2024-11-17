@@ -14,21 +14,56 @@
  * along with visage.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "embedded/fonts.h"
 #include "emoji.h"
 #include "visage_utils/string_utils.h"
+
+#include <freetype/freetype.h>
 
 namespace visage {
 
   class EmojiRasterizerImpl {
   public:
-    EmojiRasterizerImpl() { }
+    EmojiRasterizerImpl() {
+      FT_Init_FreeType(&library_);
+      FT_New_Memory_Face(library_, (const unsigned char*)(fonts::Twemoji_Mozilla_ttf.data),
+                         fonts::Twemoji_Mozilla_ttf.size, 0, &face_);
+    }
 
     void drawIntoBuffer(char32_t emoji, int font_size, int write_width, unsigned int* dest,
-                        int dest_width, int x, int y) { }
+                        int dest_width, int dest_x, int dest_y) {
+      FT_Set_Pixel_Sizes(face_, 0, font_size);
+      FT_Int32 flags = FT_LOAD_TARGET_NORMAL;
+      if (FT_HAS_COLOR(face_))
+        flags |= FT_LOAD_COLOR;
+      else
+        flags |= FT_LOAD_RENDER;
 
-    ~EmojiRasterizerImpl() { }
+      if (FT_Load_Char(face_, emoji, flags))
+        return;
+
+      if (FT_Render_Glyph(face_->glyph, FT_RENDER_MODE_NORMAL))
+        return;
+
+      int height = face_->glyph->bitmap.rows;
+      int width = face_->glyph->bitmap.width;
+      unsigned int* source = (unsigned int*)face_->glyph->bitmap.buffer;
+      for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+          int i = (dest_y + y) * dest_width + dest_x + x;
+          dest[i] = source[y * width + x];
+        }
+      }
+    }
+
+    ~EmojiRasterizerImpl() {
+      FT_Done_Face(face_);
+      FT_Done_FreeType(library_);
+    }
 
   private:
+    FT_Library library_ = nullptr;
+    FT_Face face_ = nullptr;
   };
 
   EmojiRasterizer::EmojiRasterizer() {

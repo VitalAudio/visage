@@ -21,6 +21,8 @@ if (APPLE)
   set(METAL_LIBS ${METAL_LIBRARY} ${METALKIT_LIBRARY})
 elseif (UNIX)
   add_definitions(-D_LARGEFILE64_SOURCE)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(FONTCONFIG REQUIRED fontconfig)
 endif ()
 
 add_definitions(-DBIMG_DECODE_ENABLE=0)
@@ -83,7 +85,11 @@ target_compile_options(bimg_decode PRIVATE ${DISABLE_WARNINGS})
 target_compile_options(bimg_encode PRIVATE ${DISABLE_WARNINGS})
 target_compile_options(bimg PRIVATE ${DISABLE_WARNINGS})
 
-target_link_libraries(VisageGraphics PRIVATE bx)
+target_link_libraries(
+  VisageGraphics
+  PRIVATE 
+  bx
+)
 
 set(VisageGraphicsDependencies
   VisageGraphicsEmbeds
@@ -93,6 +99,7 @@ set(VisageGraphicsDependencies
   nanosvg
   nanosvgrast
   ${METAL_LIBS}
+  ${FONTCONFIG_LIBRARIES}
   PARENT_SCOPE
 )
 

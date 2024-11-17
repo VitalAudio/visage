@@ -33,7 +33,7 @@ namespace visage {
     std::vsnprintf(buffer, sizeof(buffer), format, arg_list);
     debugLogString(file, line, buffer);
   }
-  
+
   void debugAssert(bool condition) {
     if (condition)
       return;
