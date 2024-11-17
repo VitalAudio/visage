@@ -40,6 +40,7 @@ namespace visage {
       X11Connection& x11 = X11Connection::globalInstance();
       ::Display* display = x11.display();
       window_handle_ = XCreateSimpleWindow(display, x11.rootWindow(), -100, -100, 1, 1, 0, 0, 0);
+      XSelectInput(display, window_handle_, StructureNotifyMask);
       XFlush(display);
     }
 
@@ -59,27 +60,27 @@ namespace visage {
     if (window == nullptr)
       return "";
 
-    ::Window window_handle = (::Window)window->nativeHandle();
     Display* display = x11.display();
 
     ::Window selection_owner = XGetSelectionOwner(display, x11.clipboard());
-    if (selection_owner == window_handle)
+    if (selection_owner == DummyWindow::handle())
       return _clipboard_text;
 
     Atom selection_property = XInternAtom(display, "VISAGE_SELECT", False);
-    XConvertSelection(display, x11.clipboard(), x11.utf8String(), selection_property, window_handle,
-                      CurrentTime);
+    XConvertSelection(display, x11.clipboard(), x11.utf8String(), selection_property,
+                      DummyWindow::handle(), CurrentTime);
 
     XEvent event;
     for (int i = 0; i < kTries; ++i) {
-      if (XCheckTypedWindowEvent(display, window_handle, SelectionNotify, &event)) {
+      if (XCheckTypedWindowEvent(display, DummyWindow::handle(), SelectionNotify, &event)) {
         if (event.xselection.property == selection_property) {
           Atom actual_type;
           int actual_format = 0;
           unsigned long num_items = 0, bytes_after = 0;
           unsigned char* property = nullptr;
-          XGetWindowProperty(display, window_handle, selection_property, 0, ~0, False, AnyPropertyType,
-                             &actual_type, &actual_format, &num_items, &bytes_after, &property);
+          XGetWindowProperty(display, DummyWindow::handle(), selection_property, 0, ~0, False,
+                             AnyPropertyType, &actual_type, &actual_format, &num_items,
+                             &bytes_after, &property);
 
           if (actual_type == x11.utf8String()) {
             if (num_items && property[num_items - 1] == 0)
@@ -101,14 +102,9 @@ namespace visage {
   void setClipboardText(const std::string& text) {
     _clipboard_text = text;
 
-    WindowX11* window = WindowX11::lastActiveWindow();
-    if (window == nullptr)
-      return;
-
     X11Connection& x11 = X11Connection::globalInstance();
-    X11Connection::DisplayLock lock(x11);
-    XSetSelectionOwner(x11.display(), x11.clipboard(), (::Window)window->nativeHandle(), CurrentTime);
-    XFlush(x11.display());
+    XSetSelectionOwner(x11.display(), XA_PRIMARY, DummyWindow::handle(), CurrentTime);
+    XSetSelectionOwner(x11.display(), x11.clipboard(), DummyWindow::handle(), CurrentTime);
   }
 
   void setCursorStyle(MouseCursor style) {
@@ -946,6 +942,46 @@ namespace visage {
     }
   }
 
+  void WindowX11::processMessageWindowEvent(XEvent& event) {
+    switch (event.type) {
+    case SelectionRequest: {
+      X11Connection& x11 = X11Connection::globalInstance();
+      X11Connection::DisplayLock lock(x11);
+      XSelectionRequestEvent* request = &event.xselectionrequest;
+      if (request->selection == x11.dndSelection()) {
+        sendDragDropSelectionNotify(request);
+        break;
+      }
+
+      XSelectionEvent result = { 0 };
+      result.type = SelectionNotify;
+      result.display = request->display;
+      result.requestor = request->requestor;
+      result.selection = request->selection;
+      result.time = request->time;
+      result.target = request->target;
+      result.property = None;
+
+      if (request->target == x11.targets()) {
+        Atom supported_types[] = { x11.utf8String(), XA_STRING };
+        XChangeProperty(request->display, request->requestor, request->property, XA_ATOM,
+                        sizeof(Atom), PropModeReplace, (unsigned char*)supported_types, 2);
+        result.property = request->property;
+      }
+      else if (request->target == x11.utf8String() || request->target == XA_STRING) {
+        XChangeProperty(request->display, request->requestor, request->property, request->target, 8,
+                        PropModeReplace, (unsigned char*)_clipboard_text.c_str(),
+                        _clipboard_text.length());
+        result.property = request->property;
+      }
+
+      if (result.property != None)
+        XSendEvent(request->display, result.requestor, 0, NoEventMask, (XEvent*)&result);
+      break;
+    }
+    }
+  }
+
   void WindowX11::processEvent(XEvent& event) {
     switch (event.type) {
     case ClientMessage: {
@@ -1142,46 +1178,6 @@ namespace visage {
       handleResized(dimensions.x, dimensions.y);
       break;
     }
-    case SelectionRequest: {
-      if (event.xany.window != window_handle_)
-        break;
-
-      X11Connection::DisplayLock lock(x11_);
-      XSelectionRequestEvent* request = &event.xselectionrequest;
-      if (request->selection == x11_.dndSelection()) {
-        sendDragDropSelectionNotify(request);
-        break;
-      }
-
-      XSelectionEvent result = { 0 };
-      result.type = SelectionNotify;
-      result.display = x11_.display();
-      result.requestor = request->requestor;
-      result.selection = request->selection;
-      result.time = request->time;
-      result.target = request->target;
-      result.property = None;
-
-      if (request->selection == XA_PRIMARY || request->selection == x11_.clipboard()) {
-        if (request->target == x11_.targets()) {
-          Atom supported_types[] = { XA_STRING, x11_.utf8String() };
-          XChangeProperty(request->display, request->requestor, request->property, XA_ATOM, 32,
-                          PropModeReplace, (unsigned char*)supported_types, 2);
-          result.property = request->property;
-        }
-        else if (request->target == XA_STRING || request->target == x11_.utf8String()) {
-          XChangeProperty(request->display, request->requestor, request->property, request->target,
-                          8, PropModeReplace, (unsigned char*)_clipboard_text.c_str(),
-                          _clipboard_text.length());
-          result.property = request->property;
-        }
-      }
-
-      if (result.property != None)
-        XSendEvent(x11_.display(), result.requestor, 0, NoEventMask, (XEvent*)&result);
-      XFlush(x11_.display());
-      break;
-    }
     }
   }
 
@@ -1220,11 +1216,13 @@ namespace visage {
         drawCallback(us_time / 1000000.0);
       }
       else if (FD_ISSET(fd, &read_fds)) {
+        while (XPending(X11Connection::globalInstance().display())) {
+          XNextEvent(X11Connection::globalInstance().display(), &event);
+          if (event.xany.window == DummyWindow::handle())
+            processMessageWindowEvent(event);
+        }
         while (running && XPending(x11_.display())) {
           XNextEvent(x11_.display(), &event);
-          if (event.xany.window != window_handle_)
-            continue;
-
           if (event.type == DestroyNotify ||
               (event.type == ClientMessage && event.xclient.data.l[0] == wm_delete_message))
             running = false;
