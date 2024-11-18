@@ -58,11 +58,16 @@ namespace visage {
       kBottomRight = kBottom | kRight,
     };
 
+    static bool isVariationSelector(char32_t character) {
+      return (character & 0xfffffff0) == 0xfe00;
+    }
     static bool isPrintable(char32_t character) {
       return character != ' ' && character != '\t' && character != '\n';
     }
     static bool isNewLine(char32_t character) { return character == '\n'; }
-    static bool isIgnored(char32_t character) { return character == '\r'; }
+    static bool isIgnored(char32_t character) {
+      return character == '\r' || isVariationSelector(character);
+    }
     static bool hasNewLine(const char32_t* string, int length);
 
     Font() = default;

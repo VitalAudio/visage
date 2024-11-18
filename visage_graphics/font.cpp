@@ -21,6 +21,7 @@
 #include "visage_utils/thread_utils.h"
 
 #include <freetype/freetype.h>
+#include <set>
 #include <vector>
 
 namespace visage {
@@ -62,6 +63,9 @@ namespace visage {
 
   class FreeTypeFace {
   public:
+    FreeTypeFace(const FreeTypeFace&) = delete;
+    FreeTypeFace& operator=(const FreeTypeFace&) = delete;
+
     FreeTypeFace(int size, const unsigned char* data, int data_size) {
       face_ = FreeTypeLibrary::newMemoryFace(data, data_size);
       FT_Set_Pixel_Sizes(face_, 0, size);
@@ -74,15 +78,15 @@ namespace visage {
     std::string styleName() const { return face_->style_name; }
 
     int glyphIndex(char32_t character) const { return FT_Get_Char_Index(face_, character); }
-    bool hasGlyph(char32_t character) const { return glyphIndex(character); }
+    bool hasCharacter(char32_t character) const { return glyphIndex(character); }
     int lineHeight() { return face_->size->metrics.height >> 6; }
 
-    const FT_GlyphSlot characterGlyph(char32_t character) {
+    FT_GlyphSlot characterGlyph(char32_t character) {
       FT_Load_Char(face_, character, FT_LOAD_RENDER);
       return face_->glyph;
     }
 
-    const FT_GlyphSlot indexGlyph(int index) {
+    FT_GlyphSlot indexGlyph(int index) {
       FT_Load_Glyph(face_, index, FT_LOAD_RENDER);
       return face_->glyph;
     }
@@ -90,9 +94,6 @@ namespace visage {
     FT_Face face() { return face_; }
 
   private:
-    FreeTypeFace(const FreeTypeFace&) = delete;
-    FreeTypeFace& operator=(const FreeTypeFace&) = delete;
-
     FT_Face face_ = nullptr;
   };
 
@@ -177,7 +178,7 @@ namespace visage {
         texture_handle_ = BGFX_INVALID_HANDLE;
       }
 
-      const FT_GlyphSlot glyph = packed_face.face->indexGlyph(index);
+      FT_GlyphSlot glyph = packed_face.face->indexGlyph(index);
       if (write_x_ + glyph->bitmap.width + kPadding > atlas_width_) {
         write_x_ = 0;
         write_y_ += write_glyph_height_ + kPadding;
@@ -246,7 +247,7 @@ namespace visage {
 
     const PackedGlyph* packedGlyph(char32_t character) {
       for (const auto& packed_face : packed_faces_) {
-        if (packed_face.face->hasGlyph(character)) {
+        if (packed_face.face->hasCharacter(character)) {
           PackedGlyph* glyph = packed_face.packedGlyph(character);
           if (glyph->atlas_left >= 0)
             return glyph;
@@ -340,7 +341,6 @@ namespace visage {
   int Font::widthOverflowIndex(const char32_t* string, int string_length, float width, bool round,
                                int character_override) const {
     static constexpr PackedGlyph kNullPackedGlyph = { 0, 0, 0, 0, 0.0f, 0.0f, 0.0f };
-
     float string_width = 0;
     for (int i = 0; i < string_length; ++i) {
       char32_t character = string[i];

@@ -830,6 +830,7 @@ namespace visage {
     dead_key_entry_ = DeadKey::None;
     if (!filtered_characters_.empty())
       text = text.removeCharacters(filtered_characters_);
+    text = text.removeEmojiVariations();
 
     if (action_state_ != kInserting)
       addUndoPosition();

@@ -16,7 +16,6 @@
 
 #include "embedded/fonts.h"
 #include "emoji.h"
-#include "visage_utils/string_utils.h"
 
 #include <freetype/freetype.h>
 
@@ -32,6 +31,7 @@ namespace visage {
 
     void drawIntoBuffer(char32_t emoji, int font_size, int write_width, unsigned int* dest,
                         int dest_width, int dest_x, int dest_y) {
+      FT_UInt glyph_index = FT_Get_Char_Index(face_, emoji);
       FT_Set_Pixel_Sizes(face_, 0, font_size);
       FT_Int32 flags = FT_LOAD_TARGET_NORMAL;
       if (FT_HAS_COLOR(face_))
@@ -39,7 +39,7 @@ namespace visage {
       else
         flags |= FT_LOAD_RENDER;
 
-      if (FT_Load_Char(face_, emoji, flags))
+      if (FT_Load_Glyph(face_, glyph_index, flags))
         return;
 
       if (FT_Render_Glyph(face_->glyph, FT_RENDER_MODE_NORMAL))
@@ -48,9 +48,11 @@ namespace visage {
       int height = face_->glyph->bitmap.rows;
       int width = face_->glyph->bitmap.width;
       unsigned int* source = (unsigned int*)face_->glyph->bitmap.buffer;
-      for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-          int i = (dest_y + y) * dest_width + dest_x + x;
+      int offset_x = std::max(0, write_width - width) / 2;
+      int offset_y = std::max(0, write_width - height) / 2;
+      for (int y = 0; y < height && y < write_width; ++y) {
+        for (int x = 0; x < width && x < write_width; ++x) {
+          int i = (dest_y + y + offset_y) * dest_width + dest_x + x + offset_x;
           dest[i] = source[y * width + x];
         }
       }

@@ -244,6 +244,7 @@ namespace visage {
     String toLower() const;
     String toUpper() const;
     String removeCharacters(const std::string& characters) const;
+    String removeEmojiVariations() const;
 
     float toFloat() const {
       try {

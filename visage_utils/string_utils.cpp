@@ -103,4 +103,12 @@ namespace visage {
                  result.end());
     return result;
   }
+
+  String String::removeEmojiVariations() const {
+    std::u32string result = string_;
+    result.erase(std::remove_if(result.begin(), result.end(),
+                                [](char32_t c) { return (c & 0xfffffff0) == 0xfe00; }),
+                 result.end());
+    return result;
+  }
 }
