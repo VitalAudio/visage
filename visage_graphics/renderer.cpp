@@ -82,6 +82,8 @@ namespace visage {
 
     bgfx::Init bgfx_init;
     bgfx_init.resolution.numBackBuffers = 1;
+    bgfx_init.resolution.width = 0;
+    bgfx_init.resolution.height = 0;
     bgfx_init.resolution.reset = BGFX_RESET_FLIP_AFTER_RENDER;
     bgfx_init.callback = callback_handler_.get();
 

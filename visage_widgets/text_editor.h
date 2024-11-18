@@ -194,6 +194,8 @@ namespace visage {
     void setMultiLine(bool multi_line) {
       text_.setMultiLine(multi_line);
       default_text_.setMultiLine(multi_line);
+      if (multi_line)
+        x_position_ = 0;
     }
     void setSelectOnFocus(bool select_on_focus) { select_on_focus_ = select_on_focus; }
     void setJustification(Font::Justification justification) {
