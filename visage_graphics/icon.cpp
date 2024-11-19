@@ -23,7 +23,7 @@
 #include <nanosvg/src/nanosvgrast.h>
 
 namespace visage {
-  static void boxBlur(unsigned int* dest, unsigned char* cache, int width, int blur_radius, int stride) {
+  static void boxBlur(unsigned char* dest, unsigned char* cache, int width, int blur_radius, int stride) {
     int value = 0;
     int sample_index = 0;
     int write_index = 0;
@@ -35,7 +35,7 @@ namespace visage {
     for (; sample_index < blur_radius; ++sample_index) {
       cache[sample_index] = dest[sample_index * stride];
       value += cache[sample_index];
-      // dest[write_index * stride] = value / blur_radius;
+      dest[write_index * stride] = value / blur_radius;
       write_index++;
     }
 
@@ -45,13 +45,13 @@ namespace visage {
       int sample = dest[sample_index * stride];
       cache[cache_index] = sample;
       value += sample - cached;
-      // dest[write_index * stride] = value / blur_radius;
+      dest[write_index * stride] = value / blur_radius;
       write_index++;
     }
 
     for (; sample_index < width + blur_radius; ++sample_index) {
       value -= cache[sample_index % blur_radius];
-      // dest[write_index * stride] = value / blur_radius;
+      dest[write_index * stride] = value / blur_radius;
       write_index++;
     }
   }
@@ -221,14 +221,18 @@ namespace visage {
 
     std::unique_ptr<unsigned char[]> cache = std::make_unique<unsigned char[]>(radius);
 
+    unsigned char* location_char = reinterpret_cast<unsigned char*>(location);
+
     for (int r = 0; r < width; ++r) {
-      for (int i = 0; i < kBoxBlurIterations; ++i)
-        boxBlur(location + r * atlas_.width(), cache.get(), width, radius, 1);
+      for (int i = 0; i < kBoxBlurIterations; ++i) {
+        for (int channel = 0; channel < 4; ++channel)
+          boxBlur(location_char + r * atlas_.width() * 4 + channel, cache.get(), width, radius, 4);
+      }
     }
 
-    for (int c = 0; c < width; ++c) {
+    for (int c = 0; c < width * 4; ++c) {
       for (int i = 0; i < kBoxBlurIterations; ++i)
-        boxBlur(location + c, cache.get(), width, radius, atlas_.width());
+        boxBlur(location_char + c, cache.get(), width, radius, atlas_.width() * 4);
     }
   }
 
