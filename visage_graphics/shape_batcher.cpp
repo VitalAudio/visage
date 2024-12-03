@@ -28,59 +28,27 @@
 #include "visage_utils/space.h"
 
 namespace visage {
-  struct GlyphVertex {
-    float x;
-    float y;
-    float coordinate_x;
-    float coordinate_y;
-    float direction_x;
-    float direction_y;
-    float clamp_left;
-    float clamp_top;
-    float clamp_right;
-    float clamp_bottom;
-    uint32_t color;
-    float hdr;
-
-    static bgfx::VertexLayout& layout() {
-      static bgfx::VertexLayout layout;
-      static bool initialized = false;
-
-      if (!initialized) {
-        initialized = true;
-        layout.begin()
-            .add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
-            .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
-            .add(bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float)
-            .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
-            .add(bgfx::Attrib::Color1, 1, bgfx::AttribType::Float)
-            .end();
-      }
-
-      return layout;
-    }
-  };
-
-  static constexpr uint64_t blendStateValue(BlendState draw_state) {
-    switch (draw_state) {
-    case BlendState::Opaque: return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A;
-    case BlendState::Additive:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ADD;
-    case BlendState::Clear:
+  static constexpr uint64_t blendModeValue(BlendMode blend_mode) {
+    switch (blend_mode) {
+    case BlendMode::Opaque:
       return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
              BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ZERO);
-    case BlendState::Alpha:
+    case BlendMode::Additive:
+      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ADD;
+    case BlendMode::Alpha:
       return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
              BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA,
                                             BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+    case BlendMode::Multiply:
+      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_MULTIPLY;
     }
 
     VISAGE_ASSERT(false);
     return 0;
   }
 
-  void setBlendState(BlendState draw_state) {
-    bgfx::setState(blendStateValue(draw_state));
+  void setBlendMode(BlendMode blend_mode) {
+    bgfx::setState(blendModeValue(blend_mode));
   }
 
   template<const char* name>
@@ -315,18 +283,16 @@ namespace visage {
     return vertex_buffer.data;
   }
 
-  void submitShapes(const Canvas& canvas, const EmbeddedFile& vertex_shader,
-                    const EmbeddedFile& fragment_shader, BlendState state, int submit_pass) {
-    setBlendState(state);
-
-    setTimeUniform(canvas.time());
-    setUniformDimensions(canvas.width(), canvas.height());
-    setColorMult(canvas.hdr());
-    setOriginFlipUniform(canvas.bottomLeftOrigin());
+  void submitShapes(const Layer& layer, const EmbeddedFile& vertex_shader,
+                    const EmbeddedFile& fragment_shader, int submit_pass) {
+    setTimeUniform(layer.time());
+    setUniformDimensions(layer.width(), layer.height());
+    setColorMult(layer.hdr());
+    setOriginFlipUniform(layer.bottomLeftOrigin());
     bgfx::submit(submit_pass, ProgramCache::programHandle(vertex_shader, fragment_shader));
   }
 
-  void submitLine(const LineWrapper& line_wrapper, const Canvas& canvas, int submit_pass) {
+  void submitLine(const LineWrapper& line_wrapper, const Layer& layer, int submit_pass) {
     Line* line = line_wrapper.line;
     if (bgfx::getAvailTransientVertexBuffer(line->num_line_vertices, LineVertex::layout()) !=
         line->num_line_vertices)
@@ -344,13 +310,13 @@ namespace visage {
 
     float scale[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
     float dimensions[4] = { line_wrapper.width, line_wrapper.height, 1.0f, 1.0f };
-    float time[] = { static_cast<float>(canvas.time()), 0.0f, 0.0f, 0.0f };
+    float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
 
     bgfx::TransientVertexBuffer vertex_buffer {};
     bgfx::allocTransientVertexBuffer(&vertex_buffer, line->num_line_vertices, LineVertex::layout());
     setLineVertices(line_wrapper, vertex_buffer);
 
-    bgfx::setState(blendStateValue(BlendState::Alpha) | BGFX_STATE_PT_TRISTRIP);
+    bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
     setUniform<Uniforms::kScale>(scale);
     setUniform<Uniforms::kDimensions>(dimensions);
     setUniform<Uniforms::kTopLeftColor>(&top_left_line);
@@ -363,8 +329,8 @@ namespace visage {
     setUniform<Uniforms::kLineWidth>(line_width);
 
     bgfx::setVertexBuffer(0, &vertex_buffer);
-    setUniformBounds(line_wrapper.x, line_wrapper.y, canvas.width(), canvas.height());
-    setScissor(line_wrapper, canvas.width(), canvas.height());
+    setUniformBounds(line_wrapper.x, line_wrapper.y, layer.width(), layer.height());
+    setScissor(line_wrapper, layer.width(), layer.height());
     auto program = ProgramCache::programHandle(LineWrapper::vertexShader(), LineWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
   }
@@ -390,7 +356,7 @@ namespace visage {
     }
   }
 
-  void submitLineFill(const LineFillWrapper& line_fill_wrapper, const Canvas& canvas, int submit_pass) {
+  void submitLineFill(const LineFillWrapper& line_fill_wrapper, const Layer& layer, int submit_pass) {
     Line* line = line_fill_wrapper.line;
     if (bgfx::getAvailTransientVertexBuffer(line->num_fill_vertices, LineVertex::layout()) !=
         line->num_fill_vertices)
@@ -400,7 +366,7 @@ namespace visage {
     float dimension_y_scale = line_fill_wrapper.fill_center / line_fill_wrapper.height;
     float dimensions[4] = { line_fill_wrapper.width, line_fill_wrapper.height * dimension_y_scale,
                             1.0f, 1.0f };
-    float time[] = { static_cast<float>(canvas.time()), 0.0f, 0.0f, 0.0f };
+    float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
 
     float fill_location = static_cast<int>(line_fill_wrapper.fill_center);
     float center[] = { 0.0f, fill_location, 0.0f, 0.0f };
@@ -419,7 +385,7 @@ namespace visage {
     bgfx::allocTransientVertexBuffer(&fill_vertex_buffer, line->num_fill_vertices, LineVertex::layout());
     setFillVertices(line_fill_wrapper, fill_vertex_buffer);
 
-    bgfx::setState(blendStateValue(BlendState::Alpha) | BGFX_STATE_PT_TRISTRIP);
+    bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
     setUniform<Uniforms::kScale>(scale);
     setUniform<Uniforms::kDimensions>(dimensions);
     setUniform<Uniforms::kTopLeftColor>(&top_left_fill);
@@ -431,42 +397,26 @@ namespace visage {
     setUniform<Uniforms::kCenterPosition>(center);
 
     bgfx::setVertexBuffer(0, &fill_vertex_buffer);
-    setUniformBounds(line_fill_wrapper.x, line_fill_wrapper.y, canvas.width(), canvas.height());
-    setScissor(line_fill_wrapper, canvas.width(), canvas.height());
+    setUniformBounds(line_fill_wrapper.x, line_fill_wrapper.y, layer.width(), layer.height());
+    setScissor(line_fill_wrapper, layer.width(), layer.height());
     auto program = ProgramCache::programHandle(LineFillWrapper::vertexShader(),
                                                LineFillWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
   }
 
-  void submitIcons(const BatchVector<IconWrapper>& batches, Canvas& canvas, int submit_pass) {
+  void submitIcons(const BatchVector<IconWrapper>& batches, Layer& layer, int submit_pass) {
     if (!setupQuads(batches))
       return;
 
-    setBlendState(BlendState::Alpha);
-    float atlas_scale[] = { 1.0f / canvas.iconGroup()->atlasWidth(),
-                            1.0f / canvas.iconGroup()->atlasWidth(), 0.0f, 0.0f };
+    const IconGroup* icon_group = batches[0].shapes->front().icon_group;
+    setBlendMode(BlendMode::Alpha);
+    float atlas_scale[] = { 1.0f / icon_group->atlasWidth(), 1.0f / icon_group->atlasWidth(), 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale);
-    setTexture<Uniforms::kTexture>(0, canvas.iconGroup()->textureHandle());
-    setUniformDimensions(canvas.width(), canvas.height());
-    setColorMult(canvas.hdr());
+    setTexture<Uniforms::kTexture>(0, icon_group->textureHandle());
+    setUniformDimensions(layer.width(), layer.height());
+    setColorMult(layer.hdr());
 
     auto program = ProgramCache::programHandle(IconWrapper::vertexShader(), IconWrapper::fragmentShader());
-    bgfx::submit(submit_pass, program);
-  }
-
-  void submitImages(const BatchVector<ImageWrapper>& batches, Canvas& canvas, int submit_pass) {
-    if (!setupQuads(batches))
-      return;
-
-    setBlendState(BlendState::Alpha);
-    float atlas_scale[] = { 1.0f / canvas.imageGroup()->atlasWidth(),
-                            1.0f / canvas.imageGroup()->atlasWidth(), 0.0f, 0.0f };
-    setUniform<Uniforms::kAtlasScale>(atlas_scale);
-    setTexture<Uniforms::kTexture>(0, canvas.imageGroup()->atlasTexture());
-    setUniformDimensions(canvas.width(), canvas.height());
-    setColorMult(canvas.hdr());
-    auto program = ProgramCache::programHandle(ImageWrapper::vertexShader(),
-                                               ImageWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
   }
 
@@ -487,11 +437,11 @@ namespace visage {
     return std::accumulate(invalid_rects.begin(), invalid_rects.end(), 0, count_pieces);
   }
 
-  void submitText(const BatchVector<TextBlock>& batches, const Canvas& canvas, int submit_pass) {
+  void submitText(const BatchVector<TextBlock>& batches, const Layer& layer, int submit_pass) {
     if (batches.empty() || batches[0].shapes->empty())
       return;
 
-    const Font& font = batches[0].shapes->at(0).text->font();
+    const Font& font = batches[0].shapes->front().text->font();
     int total_length = 0;
     for (const auto& batch : batches) {
       auto count_pieces = [&batch](int sum, const TextBlock& text_block) {
@@ -503,7 +453,7 @@ namespace visage {
     if (total_length == 0)
       return;
 
-    GlyphVertex* vertices = initQuadVertices<GlyphVertex>(total_length);
+    TextureVertex* vertices = initQuadVertices<TextureVertex>(total_length);
     if (vertices == nullptr)
       return;
 
@@ -574,10 +524,10 @@ namespace visage {
             float top = y + text_block.quads[i].y;
             float bottom = top + text_block.quads[i].height;
 
-            float coordinate_x = text_block.quads[i].packed_glyph->atlas_left * atlas_scale;
-            float coordinate_y = text_block.quads[i].packed_glyph->atlas_top * atlas_scale;
-            float coordinate_width = text_block.quads[i].packed_glyph->width * atlas_scale;
-            float coordinate_height = text_block.quads[i].packed_glyph->height * atlas_scale;
+            float texture_x = text_block.quads[i].packed_glyph->atlas_left;
+            float texture_y = text_block.quads[i].packed_glyph->atlas_top;
+            float texture_width = text_block.quads[i].packed_glyph->width;
+            float texture_height = text_block.quads[i].packed_glyph->height;
 
             vertices[vertex_index].x = left;
             vertices[vertex_index].y = top;
@@ -599,14 +549,14 @@ namespace visage {
             vertices[vertex_index + 3].color = text_block.color.corners[3];
             vertices[vertex_index + 3].hdr = text_block.color.hdr[3];
 
-            vertices[vertex_index + coordinate_index0].coordinate_x = coordinate_x;
-            vertices[vertex_index + coordinate_index0].coordinate_y = coordinate_y;
-            vertices[vertex_index + coordinate_index1].coordinate_x = coordinate_x + coordinate_width;
-            vertices[vertex_index + coordinate_index1].coordinate_y = coordinate_y;
-            vertices[vertex_index + coordinate_index2].coordinate_x = coordinate_x;
-            vertices[vertex_index + coordinate_index2].coordinate_y = coordinate_y + coordinate_height;
-            vertices[vertex_index + coordinate_index3].coordinate_x = coordinate_x + coordinate_width;
-            vertices[vertex_index + coordinate_index3].coordinate_y = coordinate_y + coordinate_height;
+            vertices[vertex_index + coordinate_index0].texture_x = texture_x;
+            vertices[vertex_index + coordinate_index0].texture_y = texture_y;
+            vertices[vertex_index + coordinate_index1].texture_x = texture_x + texture_width;
+            vertices[vertex_index + coordinate_index1].texture_y = texture_y;
+            vertices[vertex_index + coordinate_index2].texture_x = texture_x;
+            vertices[vertex_index + coordinate_index2].texture_y = texture_y + texture_height;
+            vertices[vertex_index + coordinate_index3].texture_x = texture_x + texture_width;
+            vertices[vertex_index + coordinate_index3].texture_y = texture_y + texture_height;
 
             for (int v = 0; v < kVerticesPerQuad; ++v) {
               int index = vertex_index + v;
@@ -626,27 +576,49 @@ namespace visage {
 
     VISAGE_ASSERT(vertex_index == total_length * kVerticesPerQuad);
 
-    setBlendState(BlendState::Alpha);
+    setBlendMode(BlendMode::Alpha);
     float atlas_scale_uniform[] = { 1.0f / font.atlasWidth(), 1.0f / font.atlasWidth(), 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale_uniform);
     setTexture<Uniforms::kTexture>(0, font.textureHandle());
-    setUniformDimensions(canvas.width(), canvas.height());
-    setColorMult(canvas.hdr());
+    setUniformDimensions(layer.width(), layer.height());
+    setColorMult(layer.hdr());
     bgfx::submit(submit_pass,
                  ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_tinted_texture));
   }
 
-  void submitShader(const BatchVector<ShaderWrapper>& batches, const Canvas& canvas, int submit_pass) {
+  void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass) {
     if (!setupQuads(batches))
       return;
 
-    setBlendState(BlendState::Alpha);
-    setTimeUniform(canvas.time());
-    setUniformDimensions(canvas.width(), canvas.height());
-    setColorMult(canvas.hdr());
-    setOriginFlipUniform(canvas.bottomLeftOrigin());
-    Shader* shader = batches[0].shapes->at(0).shader;
+    setBlendMode(BlendMode::Alpha);
+    setTimeUniform(layer.time());
+    setUniformDimensions(layer.width(), layer.height());
+    setColorMult(layer.hdr());
+    setOriginFlipUniform(layer.bottomLeftOrigin());
+    Shader* shader = batches[0].shapes->front().shader;
     bgfx::submit(submit_pass,
                  ProgramCache::programHandle(shader->vertexShader(), shader->fragmentShader()));
+  }
+
+  void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass) {
+    if (!setupQuads(batches))
+      return;
+
+    Layer* source_layer = batches[0].shapes->front().region->layer();
+    float width_scale = 1.0f / source_layer->width();
+    float height_scale = 1.0f / source_layer->height();
+
+    setBlendMode(BlendMode::Alpha);
+    setTimeUniform(layer.time());
+    float atlas_scale[] = { width_scale, height_scale, 0.0f, 0.0f };
+    setUniform<Uniforms::kAtlasScale>(atlas_scale);
+
+    bgfx::TextureHandle texture = bgfx::getTexture(source_layer->frameBuffer());
+    setTexture<Uniforms::kTexture>(0, texture);
+    setUniformDimensions(layer.width(), layer.height());
+    setColorMult(layer.hdr());
+    setOriginFlipUniform(layer.bottomLeftOrigin());
+    bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
+                                                          SampleRegion::fragmentShader()));
   }
 }

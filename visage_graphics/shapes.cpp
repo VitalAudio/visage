@@ -27,7 +27,6 @@
   }
 
 namespace visage {
-  VISAGE_SET_PROGRAM(Clear, shaders::vs_color, shaders::fs_color)
   VISAGE_SET_PROGRAM(Fill, shaders::vs_color, shaders::fs_color)
   VISAGE_SET_PROGRAM(Rectangle, shaders::vs_shape, shaders::fs_rectangle)
   VISAGE_SET_PROGRAM(RoundedRectangle, shaders::vs_shape, shaders::fs_rounded_rectangle)
@@ -41,8 +40,19 @@ namespace visage {
   VISAGE_SET_PROGRAM(Rotary, shaders::vs_rotary, shaders::fs_rolly_ball_rotary)
   VISAGE_SET_PROGRAM(Diamond, shaders::vs_shape, shaders::fs_diamond)
   VISAGE_SET_PROGRAM(IconWrapper, shaders::vs_tinted_texture, shaders::fs_tinted_texture)
-  VISAGE_SET_PROGRAM(ImageWrapper, shaders::vs_image_sample, shaders::fs_image_sample)
   VISAGE_SET_PROGRAM(LineWrapper, shaders::vs_line, shaders::fs_line)
   VISAGE_SET_PROGRAM(LineFillWrapper, shaders::vs_line_fill, shaders::fs_line_fill)
-  VISAGE_SET_PROGRAM(CanvasWrapper, shaders::vs_tinted_texture, shaders::fs_tinted_texture)
+  VISAGE_SET_PROGRAM(SampleRegion, shaders::vs_post_effect, shaders::fs_post_effect)
+
+  SampleRegion::SampleRegion(const ClampBounds& clamp, const QuadColor& color, float x, float y,
+                             float width, float height, const Region* region, PostEffect* post_effect) :
+      Shape(region->layer(), clamp, color, x, y, width, height), region(region),
+      post_effect(post_effect) {
+    if (post_effect)
+      batch_id = post_effect;
+  }
+
+  void SampleRegion::setVertexData(Vertex* vertices) const {
+    region->layer()->setTexturePositionsForRegion(region, vertices);
+  }
 }

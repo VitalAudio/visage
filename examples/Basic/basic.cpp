@@ -23,9 +23,10 @@ int runExample() {
   editor.onDraw() = [&editor](visage::Canvas& canvas) {
     float width = editor.width();
     float height = editor.height();
-    canvas.clearArea(0, 0, editor.width(), editor.height());
-    canvas.setColor(0xff00ffff);
+    canvas.setColor(0xff000066);
+    canvas.fill(0, 0, width, height);
 
+    canvas.setColor(0xff00ffff);
     float circle_radius = height * 0.1f;
     float movement_radius = height * 0.3f;
     float center_x = width * 0.5f - circle_radius;

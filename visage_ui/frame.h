@@ -186,8 +186,6 @@ namespace visage {
     }
 
     Palette* palette() const { return palette_; }
-    Canvas* postEffectCanvas() const { return post_effect_canvas_.get(); }
-    Canvas* canvas() const { return canvas_; }
 
     void setPaletteOverride(int override_id) { palette_override_ = override_id; }
     int paletteOverride() const { return palette_override_; }
@@ -204,24 +202,31 @@ namespace visage {
         child->redrawAll();
     }
 
-    void setCanvas(Canvas* canvas) {
-      if (canvas_ == canvas)
-        return;
-      if (post_effect_canvas_ && post_effect_canvas_.get() != canvas)
-        return;
+    Region* region() { return &region_; }
 
-      canvas_ = canvas;
-      region_.setCanvas(canvas);
-      for (Frame* child : children_)
-        child->setCanvas(canvas);
-    }
-
-    Canvas::Region* region() { return &region_; }
-
-    void setPostEffectCanvasSettings();
     void setPostEffect(PostEffect* post_effect);
     PostEffect* postEffect() const { return post_effect_; }
     void removePostEffect();
+
+    void setAlphaTransparency(float alpha) {
+      alpha_transparency_ = alpha;
+      redraw();
+    }
+
+    void removeAlphaTransparency() {
+      alpha_transparency_ = 1.0f;
+      redraw();
+    }
+
+    void setCached(bool cached) {
+      cached_ = cached;
+      redraw();
+    }
+
+    void setStenciled(bool stenciled) {
+      stenciled_ = stenciled;
+      redraw();
+    }
 
     const std::string& name() const { return name_; }
     void setName(std::string name) { name_ = std::move(name); }
@@ -302,7 +307,7 @@ namespace visage {
     bool focusNextTextReceiver(const Frame* starting_child = nullptr) const;
     bool focusPreviousTextReceiver(const Frame* starting_child = nullptr) const;
 
-    void drawToRegion();
+    void drawToRegion(Canvas& canvas);
 
     void setDimensionScaling(float dpi_scale, float width_scale, float height_scale) {
       dpi_scale_ = dpi_scale;
@@ -394,9 +399,11 @@ namespace visage {
     }
 
     void initChildren();
-    static void drawChildSubcanvas(const Frame* child, Canvas& canvas);
-    void drawChildrenSubcanvases(Canvas& canvas);
     void destroyChildren();
+
+    bool requiresLayer() const {
+      return post_effect_ || cached_ || stenciled_ || alpha_transparency_ != 1.0f;
+    }
 
     std::string name_;
     Bounds bounds_;
@@ -438,51 +445,11 @@ namespace visage {
     bool initialized_ = false;
 
     PostEffect* post_effect_ = nullptr;
-    std::unique_ptr<Canvas> post_effect_canvas_;
-    Canvas* canvas_ = nullptr;
-    Canvas::Region region_;
+    bool cached_ = false;
+    bool stenciled_ = false;
+    float alpha_transparency_ = 1.0f;
+    Region region_;
     bool drawing_ = true;
     bool redrawing_ = false;
-  };
-
-  class CachedFrame : public Frame {
-  public:
-    class CachedImage : public Image {
-    public:
-      explicit CachedImage(CachedFrame* frame) : frame_(frame) { }
-
-      void draw(visage::Canvas& canvas) override {
-        need_redraw_ = false;
-        frame_->drawToCache(canvas);
-      }
-
-      void redraw() { need_redraw_ = true; }
-      bool needsRedraw() const override { return need_redraw_; }
-
-      int width() const override { return frame_->width(); }
-      int height() const override { return frame_->height(); }
-
-    private:
-      CachedFrame* frame_ = nullptr;
-      bool need_redraw_ = false;
-    };
-
-    void redrawCache() { cached_image_.redraw(); }
-
-    virtual void drawToCache(Canvas& canvas) = 0;
-    virtual void drawCachedImage(Canvas& canvas) {
-      canvas.setColor(0xffffffff);
-      canvas.image(&cached_image_, 0, 0);
-    }
-
-    CachedFrame() : cached_image_(this) { }
-
-    void draw(Canvas& canvas) final { drawCachedImage(canvas); }
-
-    CachedImage* cachedImage() { return &cached_image_; }
-
-  private:
-    CachedImage cached_image_;
-    bool initialized_ = false;
   };
 }

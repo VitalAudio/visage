@@ -61,10 +61,7 @@ namespace visage {
     if (!make_visible)
       child->setVisible(false);
 
-    if (child->post_effect_ == nullptr) {
-      region_.addRegion(child->region());
-      child->setCanvas(canvas_);
-    }
+    region_.addRegion(child->region());
 
     child->setDimensionScaling(dpi_scale_, width_scale_, height_scale_);
     if (initialized_)
@@ -80,10 +77,7 @@ namespace visage {
     child->notifyRemoveFromHierarchy();
     child->parent_ = nullptr;
     child->event_handler_ = nullptr;
-    if (child->post_effect_ == nullptr) {
-      region_.removeRegion(child->region());
-      child->setCanvas(nullptr);
-    }
+    region_.removeRegion(child->region());
 
     children_.erase(std::find(children_.begin(), children_.end(), child));
     child->notifyHierarchyChanged();
@@ -141,7 +135,6 @@ namespace visage {
     }
 
     region_.setBounds(bounds.x(), bounds.y(), bounds.width(), bounds.height());
-    setPostEffectCanvasSettings();
     redraw();
   }
 
@@ -236,47 +229,32 @@ namespace visage {
       child->init();
   }
 
-  void Frame::drawToRegion() {
-    if (redrawing_) {
-      region_.invalidate();
-      redrawing_ = false;
-      if (width() <= 0 || height() <= 0) {
-        canvas_->clearRegion(&region_);
-        return;
-      }
+  void Frame::drawToRegion(Canvas& canvas) {
+    if (!redrawing_)
+      return;
 
-      canvas_->beginRegion(&region_, x(), y(), width(), height());
-
-      if (palette_override_)
-        canvas_->setPaletteOverride(palette_override_);
-      if (palette_)
-        canvas_->setPalette(palette_);
-
-      canvas_->saveState();
-      on_draw_.callback(*canvas_);
-      canvas_->restoreState();
-      drawChildrenSubcanvases(*canvas_);
-      canvas_->endRegion();
+    redrawing_ = false;
+    region_.invalidate();
+    region_.setNeedsLayer(requiresLayer());
+    if (width() <= 0 || height() <= 0) {
+      region_.clear();
+      return;
     }
-  }
 
-  void Frame::drawChildSubcanvas(const Frame* child, Canvas& canvas) {
-    if (child->isVisible() && child->post_effect_) {
-      Canvas* child_canvas = child->post_effect_canvas_.get();
-      canvas.subcanvas(child_canvas, child->x(), child->y(), child->width(), child->height(),
-                       child->post_effect_);
-    }
-  }
+    canvas.beginRegion(&region_);
 
-  void Frame::drawChildrenSubcanvases(Canvas& canvas) {
-    for (Frame* child : children_) {
-      if (!child->isOnTop())
-        drawChildSubcanvas(child, canvas);
+    if (palette_override_)
+      canvas.setPaletteOverride(palette_override_);
+    if (palette_)
+      canvas.setPalette(palette_);
+
+    on_draw_.callback(canvas);
+    if (alpha_transparency_ != 1.0f) {
+      canvas.setBlendMode(BlendMode::Multiply);
+      canvas.setColor(Color(0xffffffff).withAlpha(alpha_transparency_));
+      canvas.fill(0, 0, width(), height());
     }
-    for (Frame* child : children_) {
-      if (child->isOnTop())
-        drawChildSubcanvas(child, canvas);
-    }
+    canvas.endRegion();
   }
 
   void Frame::destroyChildren() {
@@ -285,36 +263,14 @@ namespace visage {
       child->destroy();
   }
 
-  void Frame::setPostEffectCanvasSettings() {
-    if (post_effect_canvas_ == nullptr)
-      return;
-
-    post_effect_canvas_->setDimensions(width(), height());
-    post_effect_canvas_->setWidthScale(widthScale());
-    post_effect_canvas_->setHeightScale(heightScale());
-    post_effect_canvas_->setDpiScale(dpiScale());
-  }
-
   void Frame::setPostEffect(PostEffect* post_effect) {
-    region_.removeFromParent();
     post_effect_ = post_effect;
-    post_effect_canvas_ = std::make_unique<Canvas>();
-    post_effect_canvas_->addRegion(region());
-    post_effect_canvas_->setHdr(post_effect->hdr());
-    setCanvas(post_effect_canvas_.get());
-
-    setPostEffectCanvasSettings();
+    region_.setPostEffect(post_effect);
   }
 
   void Frame::removePostEffect() {
     VISAGE_ASSERT(post_effect_);
-    post_effect_canvas_ = nullptr;
     post_effect_ = nullptr;
-
-    if (parent_) {
-      parent_->region_.addRegion(region());
-      setCanvas(parent_->canvas());
-    }
   }
 
   float Frame::paletteValue(unsigned int value_id) const {

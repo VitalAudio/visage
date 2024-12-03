@@ -22,7 +22,7 @@
 namespace visage {
   class ShaderQuad : public Frame {
   public:
-    ShaderQuad(const EmbeddedFile& vertex_shader, const EmbeddedFile& fragment_shader, BlendState state);
+    ShaderQuad(const EmbeddedFile& vertex_shader, const EmbeddedFile& fragment_shader, BlendMode state);
     ~ShaderQuad() override = default;
 
     void draw(Canvas& canvas) override;

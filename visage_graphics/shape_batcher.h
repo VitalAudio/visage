@@ -86,7 +86,7 @@ namespace visage {
   void setUniformDimensions(int width, int height);
   void setColorMult(bool hdr);
   void setOriginFlipUniform(bool origin_flip);
-  void setBlendState(BlendState draw_state);
+  void setBlendMode(BlendMode draw_state);
 
   bool initTransientQuadBuffers(int num_quads, const bgfx::VertexLayout& layout,
                                 bgfx::TransientVertexBuffer* vertex_buffer,
@@ -97,15 +97,15 @@ namespace visage {
     return reinterpret_cast<T*>(initQuadVerticesWithLayout(num_quads, T::layout()));
   }
 
-  void submitShapes(const Canvas& canvas, const EmbeddedFile& vertex_shader,
-                    const EmbeddedFile& fragment_shader, BlendState state, int submit_pass);
+  void submitShapes(const Layer& layer, const EmbeddedFile& vertex_shader,
+                    const EmbeddedFile& fragment_shader, int submit_pass);
 
-  void submitLine(const LineWrapper& line_wrapper, const Canvas& canvas, int submit_pass);
-  void submitLineFill(const LineFillWrapper& line_fill_wrapper, const Canvas& canvas, int submit_pass);
-  void submitIcons(const BatchVector<IconWrapper>& batches, Canvas& canvas, int submit_pass);
-  void submitImages(const BatchVector<ImageWrapper>& batches, Canvas& canvas, int submit_pass);
-  void submitText(const BatchVector<TextBlock>& batches, const Canvas& canvas, int submit_pass);
-  void submitShader(const BatchVector<ShaderWrapper>& batches, const Canvas& canvas, int submit_pass);
+  void submitLine(const LineWrapper& line_wrapper, const Layer& layer, int submit_pass);
+  void submitLineFill(const LineFillWrapper& line_fill_wrapper, const Layer& layer, int submit_pass);
+  void submitIcons(const BatchVector<IconWrapper>& batches, Layer& layer, int submit_pass);
+  void submitText(const BatchVector<TextBlock>& batches, const Layer& layer, int submit_pass);
+  void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass);
+  void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass);
 
   template<typename T>
   bool setupQuads(const BatchVector<T>& batches) {
@@ -134,73 +134,85 @@ namespace visage {
       }
     }
 
+    // debugVertices(vertices, num_shapes, kVerticesPerQuad);
     VISAGE_ASSERT(vertex_index == num_shapes * kVerticesPerQuad);
     return true;
   }
 
   template<typename T>
-  static void submitShapes(const BatchVector<T>& batches, Canvas& canvas, int submit_pass) {
+  static void submitShapes(const BatchVector<T>& batches, BlendMode state, Layer& layer, int submit_pass) {
     if (!setupQuads(batches))
       return;
 
-    submitShapes(canvas, T::vertexShader(), T::fragmentShader(), T::kState, submit_pass);
+    setBlendMode(state);
+    submitShapes(layer, T::vertexShader(), T::fragmentShader(), submit_pass);
   }
 
   template<>
-  inline void submitShapes<LineWrapper>(const BatchVector<LineWrapper>& batches, Canvas& canvas,
-                                        int submit_pass) {
+  inline void submitShapes<LineWrapper>(const BatchVector<LineWrapper>& batches, BlendMode state,
+                                        Layer& layer, int submit_pass) {
     for (const auto& batch : batches) {
       for (const LineWrapper& line_wrapper : *batch.shapes) {
         LineWrapper line = line_wrapper;
         line.x = batch.x + line_wrapper.x;
         line.y = batch.y + line_wrapper.y;
-        submitLine(line, canvas, submit_pass);
+        setBlendMode(state);
+        submitLine(line, layer, submit_pass);
       }
     }
   }
 
   template<>
   inline void submitShapes<LineFillWrapper>(const BatchVector<LineFillWrapper>& batches,
-                                            Canvas& canvas, int submit_pass) {
+                                            BlendMode state, Layer& layer, int submit_pass) {
     for (const auto& batch : batches) {
       for (const LineFillWrapper& line_fill_wrapper : *batch.shapes) {
         LineFillWrapper line_fill = line_fill_wrapper;
         line_fill.x = batch.x + line_fill.x;
         line_fill.y = batch.y + line_fill.y;
-        submitLineFill(line_fill, canvas, submit_pass);
+        setBlendMode(state);
+        submitLineFill(line_fill, layer, submit_pass);
       }
     }
   }
 
   template<>
-  inline void submitShapes<ImageWrapper>(const BatchVector<ImageWrapper>& batches, Canvas& canvas,
-                                         int submit_pass) {
-    submitImages(batches, canvas, submit_pass);
+  inline void submitShapes<IconWrapper>(const BatchVector<IconWrapper>& batches, BlendMode state,
+                                        Layer& layer, int submit_pass) {
+    setBlendMode(state);
+    submitIcons(batches, layer, submit_pass);
   }
 
   template<>
-  inline void submitShapes<IconWrapper>(const BatchVector<IconWrapper>& batches, Canvas& canvas,
-                                        int submit_pass) {
-    submitIcons(batches, canvas, submit_pass);
+  inline void submitShapes<ShaderWrapper>(const BatchVector<ShaderWrapper>& batches,
+                                          BlendMode state, Layer& layer, int submit_pass) {
+    setBlendMode(state);
+    submitShader(batches, layer, submit_pass);
   }
 
   template<>
-  inline void submitShapes<ShaderWrapper>(const BatchVector<ShaderWrapper>& batches, Canvas& canvas,
-                                          int submit_pass) {
-    submitShader(batches, canvas, submit_pass);
+  inline void submitShapes<TextBlock>(const BatchVector<TextBlock>& batches, BlendMode state,
+                                      Layer& layer, int submit_pass) {
+    setBlendMode(state);
+    submitText(batches, layer, submit_pass);
   }
 
   template<>
-  inline void submitShapes<TextBlock>(const BatchVector<TextBlock>& batches, Canvas& canvas, int submit_pass) {
-    submitText(batches, canvas, submit_pass);
-  }
+  inline void submitShapes<SampleRegion>(const BatchVector<SampleRegion>& batches, BlendMode state,
+                                         Layer& layer, int submit_pass) {
+    PostEffect* post_effect = batches[0].shapes->front().post_effect;
 
-  template<>
-  inline void submitShapes<CanvasWrapper>(const BatchVector<CanvasWrapper>& batches, Canvas& canvas,
-                                          int submit_pass) {
-    for (const auto& batch : batches) {
-      for (const CanvasWrapper& canvas_wrapper : *batch.shapes)
-        canvas_wrapper.post_effect->submit(canvas_wrapper, canvas, submit_pass);
+    if (post_effect) {
+      for (const auto& batch : batches) {
+        for (const SampleRegion& sample_layer : *batch.shapes) {
+          setBlendMode(state);
+          sample_layer.post_effect->submit(sample_layer, layer, submit_pass);
+        }
+      }
+    }
+    else {
+      setBlendMode(state);
+      submitSampleRegions(batches, layer, submit_pass);
     }
   }
 
@@ -217,9 +229,10 @@ namespace visage {
 
   class SubmitBatch {
   public:
+    SubmitBatch(BlendMode blend_mode) : blend_mode_(blend_mode) { }
     virtual ~SubmitBatch() = default;
     virtual void clear() = 0;
-    virtual void submit(Canvas& canvas, int submit_pass, const std::vector<PositionedBatch>& others) = 0;
+    virtual void submit(Layer& layer, int submit_pass, const std::vector<PositionedBatch>& others) = 0;
 
     bool overlapsShape(const BaseShape& shape) const {
       int x = shape.x;
@@ -232,6 +245,8 @@ namespace visage {
     }
 
     const void* id() const { return id_; }
+    void setBlendMode(BlendMode blend_mode) { blend_mode_ = blend_mode; }
+    BlendMode blendMode() const { return blend_mode_; }
     void clearAreas() { areas_.clear(); }
     void addShapeArea(const BaseShape& shape) {
       VISAGE_ASSERT(id_ == nullptr || id_ == shape.batch_id);
@@ -252,12 +267,13 @@ namespace visage {
 
     const void* id_ = nullptr;
     std::vector<Area> areas_;
+    BlendMode blend_mode_;
   };
 
   template<typename T>
   class ShapeBatch : public SubmitBatch {
   public:
-    ShapeBatch() = default;
+    ShapeBatch(BlendMode blend_mode) : SubmitBatch(blend_mode) { }
     ~ShapeBatch() override = default;
 
     void clear() override {
@@ -265,7 +281,7 @@ namespace visage {
       shapes_.clear();
     }
 
-    void submit(Canvas& canvas, int submit_pass, const std::vector<PositionedBatch>& batches) override {
+    void submit(Layer& layer, int submit_pass, const std::vector<PositionedBatch>& batches) override {
       BatchVector<T> batch_list;
       batch_list.reserve(batches.size());
       for (const PositionedBatch& batch : batches) {
@@ -273,7 +289,7 @@ namespace visage {
         const std::vector<T>* shapes = &reinterpret_cast<ShapeBatch<T>*>(batch.batch)->shapes_;
         batch_list.emplace_back(shapes, batch.invalid_rects, batch.x, batch.y);
       }
-      submitShapes(batch_list, canvas, submit_pass);
+      submitShapes(batch_list, blendMode(), layer, submit_pass);
     }
 
     void addShape(T shape) {
@@ -295,17 +311,17 @@ namespace visage {
       batches_.clear();
     }
 
-    void submit(Canvas& canvas, int submit_pass) {
+    void submit(Layer& layer, int submit_pass) {
       for (auto& batch : batches_)
-        batch->submit(canvas, submit_pass, {});
+        batch->submit(layer, submit_pass, {});
     }
 
-    int autoBatchIndex(const BaseShape& shape) const {
+    int autoBatchIndex(const BaseShape& shape, BlendMode blend) const {
       int match = batches_.size();
       int insert = batches_.size();
       for (int i = batches_.size() - 1; i >= 0; --i) {
         SubmitBatch* batch = batches_[i].get();
-        if (batch->id() == shape.batch_id)
+        if (batch->id() == shape.batch_id && batch->blendMode() == blend)
           match = i;
         if (batch->overlapsShape(shape))
           break;
@@ -324,31 +340,33 @@ namespace visage {
       return batches_.size() - 1;
     }
 
-    int batchIndex(const BaseShape& shape) const {
+    int batchIndex(const BaseShape& shape, BlendMode blend) const {
       if (manual_batching_)
         return manualBatchIndex(shape);
-      return autoBatchIndex(shape);
+      return autoBatchIndex(shape, blend);
     }
 
     template<typename T>
-    ShapeBatch<T>* createNewBatch(const void* id, int insert_index) {
+    ShapeBatch<T>* createNewBatch(const void* id, BlendMode blend, int insert_index) {
       if (!unused_batches_[id].empty()) {
         auto batch = std::move(unused_batches_[id].back());
         unused_batches_[id].pop_back();
+        batch->setBlendMode(blend);
         batches_.insert(batches_.begin() + insert_index, std::move(batch));
       }
       else
-        batches_.insert(batches_.begin() + insert_index, std::make_unique<ShapeBatch<T>>());
+        batches_.insert(batches_.begin() + insert_index, std::make_unique<ShapeBatch<T>>(blend));
 
       return reinterpret_cast<ShapeBatch<T>*>(batches_[insert_index].get());
     }
 
     template<typename T>
-    void addShape(T shape) {
-      int batch_index = batchIndex(shape);
-      bool match = batch_index < batches_.size() && batches_[batch_index]->id() == shape.batch_id;
+    void addShape(T shape, BlendMode blend = BlendMode::Alpha) {
+      int batch_index = batchIndex(shape, blend);
+      bool match = batch_index < batches_.size() && batches_[batch_index]->id() == shape.batch_id &&
+                   batches_[batch_index]->blendMode() == blend;
       ShapeBatch<T>* batch = match ? reinterpret_cast<ShapeBatch<T>*>(batches_[batch_index].get()) :
-                                     createNewBatch<T>(shape.batch_id, batch_index);
+                                     createNewBatch<T>(shape.batch_id, blend, batch_index);
 
       batch->addShape(std::move(shape));
     }

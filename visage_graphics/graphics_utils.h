@@ -18,6 +18,7 @@
 
 #include "visage_utils/defines.h"
 
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -34,13 +35,11 @@ namespace bgfx {
 }
 
 namespace visage {
-  struct PackedAtlasData;
-
-  enum class BlendState {
+  enum class BlendMode {
     Opaque,
-    Clear,
     Alpha,
-    Additive
+    Additive,
+    Multiply
   };
 
   static constexpr float kHdrColorRange = 4.0f;
@@ -52,61 +51,127 @@ namespace visage {
     0, 1, 2, 2, 1, 3,
   };
 
+  struct PackedAtlasData;
+
+  struct PackedRect {
+    int x;
+    int y;
+    int w;
+    int h;
+  };
+
+  class AtlasPacker {
+  public:
+    AtlasPacker();
+    ~AtlasPacker();
+
+    bool addRect(PackedRect& rect);
+    void clear();
+    bool pack(std::vector<PackedRect>& rects, int width);
+    void setPadding(int padding) { padding_ = padding; }
+
+    bool packed() const { return packed_; }
+
+  private:
+    std::unique_ptr<PackedAtlasData> data_;
+    bool packed_ = false;
+    int padding_ = 0;
+    int rect_index_ = 0;
+  };
+
+  template<typename T = int>
   class PackedAtlas {
   public:
-    struct Rect {
-      int x;
-      int y;
-      int w;
-      int h;
-    };
+    bool addRect(T id, int width, int height) {
+      VISAGE_ASSERT(lookup_.count(id) == 0);
 
-    PackedAtlas();
-    ~PackedAtlas();
+      int index = packed_rects_.size();
+      lookup_[id] = index;
+      packed_rects_.push_back({ 0, 0, width, height });
+      return packer_.addRect(packed_rects_.back());
+    }
 
-    int width() const { return width_; }
-    void setPadding(int padding) { padding_ = padding; }
-    bool packed() const { return packed_; }
-    const Rect& rectAtIndex(int index) const {
+    void removeRect(T id) {
+      VISAGE_ASSERT(lookup_.count(id) > 0);
+      int index = lookup_.at(id);
+      lookup_.erase(id);
+    }
+
+    void pack() {
+      static constexpr int kDefaultWidth = 256;
+      static constexpr int kMaxMultiples = 6;
+
+      checkRemovedRects();
+      bool packed = false;
+      for (int m = 0; !packed && m < kMaxMultiples; ++m) {
+        width_ = kDefaultWidth << m;
+        packed = packer_.pack(packed_rects_, width_);
+      }
+
+      VISAGE_ASSERT(packed);
+    }
+
+    void clear() {
+      lookup_.clear();
+      packer_.clear();
+      packed_rects_.clear();
+    }
+
+    void setPadding(int padding) { packer_.setPadding(padding); }
+
+    const PackedRect& rectAtIndex(int index) const {
       VISAGE_ASSERT(index >= 0 && index < packed_rects_.size());
       return packed_rects_[index];
     }
-    int numRects() const;
-    bool addPackedRect(int id, int width, int height);
-    void pack();
-    void clear();
 
-    template<typename T>
-    void setQuadCoordinates(T* vertices, int rect_index) const {
-      float atlas_scale = 1.0f / width();
-      const PackedAtlas::Rect& packed_rect = rectAtIndex(rect_index);
+    template<typename V>
+    void setTexturePositionsForIndex(int rect_index, V* vertices) const {
+      const PackedRect& packed_rect = rectAtIndex(rect_index);
 
-      vertices[0].coordinate_x = packed_rect.x * atlas_scale;
-      vertices[0].coordinate_y = packed_rect.y * atlas_scale;
-      vertices[1].coordinate_x = (packed_rect.x + packed_rect.w) * atlas_scale;
-      vertices[1].coordinate_y = packed_rect.y * atlas_scale;
-      vertices[2].coordinate_x = packed_rect.x * atlas_scale;
-      vertices[2].coordinate_y = (packed_rect.y + packed_rect.h) * atlas_scale;
-      vertices[3].coordinate_x = (packed_rect.x + packed_rect.w) * atlas_scale;
-      vertices[3].coordinate_y = (packed_rect.y + packed_rect.h) * atlas_scale;
+      vertices[0].texture_x = packed_rect.x;
+      vertices[0].texture_y = packed_rect.y;
+      vertices[1].texture_x = packed_rect.x + packed_rect.w;
+      vertices[1].texture_y = packed_rect.y;
+      vertices[2].texture_x = packed_rect.x;
+      vertices[2].texture_y = packed_rect.y + packed_rect.h;
+      vertices[3].texture_x = packed_rect.x + packed_rect.w;
+      vertices[3].texture_y = packed_rect.y + packed_rect.h;
     }
 
-  private:
-    void loadPackedRects();
-    void loadLastPackedRect();
+    const PackedRect& rectForId(T id) const {
+      VISAGE_ASSERT(lookup_.count(id) > 0);
+      return rectAtIndex(lookup_.at(id));
+    }
 
-    bool packed_ = false;
+    template<typename V>
+    void setTexturePositionsForId(T id, V* vertices) const {
+      VISAGE_ASSERT(lookup_.count(id) > 0);
+      setTexturePositionsForIndex(lookup_.at(id), vertices);
+    }
+
+    int width() const { return width_; }
+    bool packed() const { return packer_.packed(); }
+    int numRects() const { return packed_rects_.size(); }
+
+  private:
+    void checkRemovedRects() {
+      if (packed_rects_.size() == lookup_.size())
+        return;
+
+      std::vector<PackedRect> old_rects = std::move(packed_rects_);
+      packed_rects_.reserve(lookup_.size());
+      for (auto& packed : lookup_) {
+        int index = packed_rects_.size();
+        packed_rects_.push_back(old_rects[packed.second]);
+        packed.second = index;
+      }
+    }
+
     int width_ = 0;
     int padding_ = 0;
-    std::vector<Rect> packed_rects_;
-    std::unique_ptr<PackedAtlasData> data_;
-  };
-
-  struct BasicVertex {
-    float x;
-    float y;
-
-    static bgfx::VertexLayout& layout();
+    std::vector<PackedRect> packed_rects_;
+    AtlasPacker packer_;
+    std::map<T, int> lookup_;
   };
 
   struct UvVertex {
@@ -169,6 +234,44 @@ namespace visage {
     float value_4;
     float value_5;
     float value_6;
+
+    static bgfx::VertexLayout& layout();
+  };
+
+  struct TextureVertex {
+    float x;
+    float y;
+    float dimension_x;
+    float dimension_y;
+    float texture_x;
+    float texture_y;
+    float direction_x;
+    float direction_y;
+    float clamp_left;
+    float clamp_top;
+    float clamp_right;
+    float clamp_bottom;
+    uint32_t color;
+    float hdr;
+
+    static bgfx::VertexLayout& layout();
+  };
+
+  struct PostEffectVertex {
+    float x;
+    float y;
+    float dimension_x;
+    float dimension_y;
+    float texture_x;
+    float texture_y;
+    float uv_x;
+    float uv_y;
+    float clamp_left;
+    float clamp_top;
+    float clamp_right;
+    float clamp_bottom;
+    uint32_t color;
+    float hdr;
 
     static bgfx::VertexLayout& layout();
   };

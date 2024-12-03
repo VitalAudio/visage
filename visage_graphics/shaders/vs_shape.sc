@@ -7,10 +7,10 @@ uniform vec4 u_color_mult;
 uniform vec4 u_bounds;
 
 void main() {
-  vec2 min = a_texcoord1.xy;
-  vec2 max = a_texcoord1.zw;
-  vec2 clamped = clamp(a_position + a_texcoord0.xy * 0.5, min, max);
-  vec2 delta = clamped - (a_position + a_texcoord0.xy * 0.5);
+  vec2 minimum = a_texcoord1.xy;
+  vec2 maximum = a_texcoord1.zw;
+  vec2 clamped = clamp(a_position.xy + a_texcoord0.xy * 0.5, minimum, maximum);
+  vec2 delta = clamped - (a_position.xy + a_texcoord0.xy * 0.5);
 
   v_dimensions = a_texcoord0.zw + vec2(1.0, 1.0);
   v_coordinates = a_texcoord0.xy + (2.0 * delta) / v_dimensions;

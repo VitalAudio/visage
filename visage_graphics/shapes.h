@@ -18,7 +18,6 @@
 
 #include "color.h"
 #include "icon.h"
-#include "image.h"
 #include "text.h"
 
 #include <algorithm>
@@ -31,10 +30,10 @@
   }
 
 namespace visage {
-  class Canvas;
-  class Image;
   class Font;
   class PostEffect;
+  class Region;
+  class Layer;
   class Shader;
   struct Line;
 
@@ -99,7 +98,19 @@ namespace visage {
   };
 
   template<typename T>
-  static void setQuadPositions(T* vertices, const BaseShape& shape, ClampBounds clamp,
+  inline void setCornderCoordinates(T* vertices) {
+    vertices[0].coordinate_x = -1.0f;
+    vertices[0].coordinate_y = -1.0f;
+    vertices[1].coordinate_x = 1.0f;
+    vertices[1].coordinate_y = -1.0f;
+    vertices[2].coordinate_x = -1.0f;
+    vertices[2].coordinate_y = 1.0f;
+    vertices[3].coordinate_x = 1.0f;
+    vertices[3].coordinate_y = 1.0f;
+  }
+
+  template<typename T>
+  inline void setQuadPositions(T* vertices, const BaseShape& shape, ClampBounds clamp,
                                float x_offset = 0.0f, float y_offset = 0.0f) {
     float left = shape.x + x_offset;
     float top = shape.y + y_offset;
@@ -119,36 +130,27 @@ namespace visage {
 
     vertices[0].x = left;
     vertices[0].y = top;
-    vertices[0].coordinate_x = -1.0f;
-    vertices[0].coordinate_y = -1.0f;
     vertices[1].x = right;
     vertices[1].y = top;
-    vertices[1].coordinate_x = 1.0f;
-    vertices[1].coordinate_y = -1.0f;
     vertices[2].x = left;
     vertices[2].y = bottom;
-    vertices[2].coordinate_x = -1.0f;
-    vertices[2].coordinate_y = 1.0f;
     vertices[3].x = right;
     vertices[3].y = bottom;
-    vertices[3].coordinate_x = 1.0f;
-    vertices[3].coordinate_y = 1.0f;
   }
 
-  template<typename VertexType = ShapeVertex, BlendState Blend = BlendState::Alpha>
+  template<typename VertexType = ShapeVertex>
   struct Shape : public BaseShape {
     typedef VertexType Vertex;
-    static constexpr BlendState kState = Blend;
 
     Shape(const void* batch_id, const ClampBounds& clamp, const QuadColor& color, float x, float y,
           float width, float height) : BaseShape(batch_id, clamp, color, x, y, width, height) { }
   };
 
-  template<typename VertexType = ShapeVertex, BlendState Blend = BlendState::Alpha>
-  struct Primitive : public Shape<VertexType, Blend> {
+  template<typename VertexType = ShapeVertex>
+  struct Primitive : public Shape<VertexType> {
     Primitive(const void* batch_id, const ClampBounds& clamp, const QuadColor& color, float x,
               float y, float width, float height) :
-        Shape<VertexType, Blend>(batch_id, clamp, color, x, y, width, height) { }
+        Shape<VertexType>(batch_id, clamp, color, x, y, width, height) { }
 
     void setPrimitiveData(VertexType* vertices) const {
       float thick = thickness == kFullThickness ? (this->width + this->height) * pixel_width : thickness;
@@ -156,32 +158,23 @@ namespace visage {
         vertices[i].thickness = thick;
         vertices[i].fade = pixel_width;
       }
+
+      setCornderCoordinates(vertices);
     }
 
     float thickness = kFullThickness;
     float pixel_width = 1.0f;
   };
 
-  struct Clear : Shape<ShapeVertex, BlendState::Clear> {
-    VISAGE_CREATE_BATCH_ID
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    Clear(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-          float height) : Shape(batchId(), clamp, color, x, y, width, height) { }
-
-    static void setVertexData(Vertex* vertices) { }
-  };
-
-  struct Fill : Shape<> {
+  struct Fill : Primitive<> {
     VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     Fill(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-         float height) : Shape(batchId(), clamp, color, x, y, width, height) { }
+         float height) : Primitive(batchId(), clamp, color, x, y, width, height) { }
 
-    static void setVertexData(Vertex* vertices) { }
+    void setVertexData(Vertex* vertices) const { setPrimitiveData(vertices); }
   };
 
   struct Rectangle : Primitive<> {
@@ -366,16 +359,17 @@ namespace visage {
     float rounding = 0.0f;
   };
 
-  struct Triangle : Shape<> {
+  struct Triangle : Primitive<> {
     VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     Triangle(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
              float height, Direction direction) :
-        Shape(batchId(), clamp, color, x, y, width, height), direction(direction) { }
+        Primitive(batchId(), clamp, color, x, y, width, height), direction(direction) { }
 
     void setVertexData(Vertex* vertices) const {
+      setPrimitiveData(vertices);
       float value_1 = (direction == Direction::Right || direction == Direction::Down) ? 1.0f : -1.0f;
       float value_2 = (direction == Direction::Right || direction == Direction::Left) ? 0.0f : 1.0f;
       for (int v = 0; v < kVerticesPerQuad; ++v) {
@@ -425,7 +419,7 @@ namespace visage {
     float max_radians = 0.0f;
   };
 
-  struct IconWrapper : Shape<IconVertex> {
+  struct IconWrapper : Shape<TextureVertex> {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
@@ -433,28 +427,10 @@ namespace visage {
                 float height, const Icon& icon, IconGroup const* icon_group) :
         Shape(icon_group, clamp, color, x, y, width, height), icon(icon), icon_group(icon_group) { }
 
-    void setVertexData(IconVertex* vertices) const {
-      icon_group->setIconCoordinates(vertices, icon);
-    }
+    void setVertexData(Vertex* vertices) const { icon_group->setIconCoordinates(vertices, icon); }
 
     Icon icon;
     IconGroup const* icon_group = nullptr;
-  };
-
-  struct ImageWrapper : Shape<ImageVertex> {
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    ImageWrapper(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-                 float height, Image* image, ImageGroup const* image_group) :
-        Shape(image_group, clamp, color, x, y, width, height), image(image), image_group(image_group) { }
-
-    void setVertexData(ImageVertex* vertices) const {
-      image_group->setImageCoordinates(vertices, image);
-    }
-
-    Image* image = nullptr;
-    ImageGroup const* image_group = nullptr;
   };
 
   struct LineWrapper : Shape<> {
@@ -533,7 +509,7 @@ namespace visage {
     std::vector<std::vector<T>> pool_;
   };
 
-  struct TextBlock : Shape<ImageVertex> {
+  struct TextBlock : Shape<TextureVertex> {
     TextBlock(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
               float height, Text* text, Direction direction) :
         Shape(text->font().packedFont(), clamp, color, x, y, width, height), text(text),
@@ -610,20 +586,23 @@ namespace visage {
                   float height, Shader* shader) :
         Shape(shader, clamp, color, x, y, width, height), shader(shader) { }
 
-    static void setVertexData(Vertex* vertices) { }
+    static void setVertexData(Vertex* vertices) { setCornderCoordinates(vertices); }
 
     Shader* shader = nullptr;
   };
 
-  struct CanvasWrapper : Shape<> {
+  struct SampleRegion : Shape<PostEffectVertex> {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    CanvasWrapper(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-                  float height, Canvas* canvas, PostEffect* post_effect) :
-        Shape(canvas, clamp, color, x, y, width, height), canvas(canvas), post_effect(post_effect) { }
+    SampleRegion(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
+                 float height, const Region* region, PostEffect* post_effect = nullptr);
 
-    Canvas* canvas = nullptr;
+    void setVertexData(Vertex* vertices) const;
+
+    const Region* region = nullptr;
     PostEffect* post_effect = nullptr;
+    float width_scale = 1.0f;
+    float height_scale = 1.0f;
   };
 }

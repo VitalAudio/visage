@@ -190,16 +190,17 @@ private:
   DragDropTarget target_;
 };
 
-class TextImage : public visage::CachedFrame {
+class CachedText : public visage::Frame {
 public:
-  TextImage() {
+  CachedText() {
+    setCached(true);
     std::string text = "This is a bunch of center justified and wrapped text fit into an area.";
     text_ = std::make_unique<visage::Text>(text, visage::Font(10, resources::fonts::Lato_Regular_ttf));
     text_->setMultiLine(true);
     text_->setJustification(visage::Font::kCenter);
   }
 
-  void drawToCache(visage::Canvas& canvas) override {
+  void draw(visage::Canvas& canvas) override {
     int font_height = height() / 6;
     text_->setFont(visage::Font(font_height, resources::fonts::Lato_Regular_ttf));
     canvas.setColor(0xffffffff);
@@ -232,24 +233,23 @@ ExamplesFrame::ExamplesFrame() {
     }
   };
 
+  visage::Font font(24, resources::fonts::Lato_Regular_ttf);
   shader_quad_ = std::make_unique<visage::ShaderQuad>(resources::shaders::vs_shader_quad,
                                                       resources::shaders::fs_shader_quad,
-                                                      visage::BlendState::Alpha);
+                                                      visage::BlendMode::Alpha);
   addChild(shader_quad_.get());
 
   icon_button_ = std::make_unique<visage::ToggleIconButton>(resources::icons::check_circle_svg.data,
                                                             resources::icons::check_circle_svg.size, true);
   addChild(icon_button_.get());
 
-  text_button_ = std::make_unique<visage::ToggleTextButton>("Toggle",
-                                                            visage::Font(24, resources::fonts::Lato_Regular_ttf));
+  text_button_ = std::make_unique<visage::ToggleTextButton>("Toggle", font);
   addChild(text_button_.get());
 
-  text_ = std::make_unique<TextImage>();
+  text_ = std::make_unique<CachedText>();
   addChild(text_.get());
 
-  ui_button_ = std::make_unique<visage::UiButton>("Trigger Overlay",
-                                                  visage::Font(24, resources::fonts::Lato_Regular_ttf));
+  ui_button_ = std::make_unique<visage::UiButton>("Trigger Overlay", font);
   ui_button_->onToggle() = [this](visage::Button* button, bool toggled) {
     on_show_overlay_.callback();
   };
@@ -257,8 +257,7 @@ ExamplesFrame::ExamplesFrame() {
   addChild(ui_button_.get());
   ui_button_->setToggleOnMouseDown(true);
 
-  action_button_ = std::make_unique<visage::UiButton>("Popup Menu",
-                                                      visage::Font(24, resources::fonts::Lato_Regular_ttf));
+  action_button_ = std::make_unique<visage::UiButton>("Popup Menu", font);
   addChild(action_button_.get());
   action_button_->setActionButton();
   action_button_->onToggle() = [this](visage::Button* button, bool toggled) {

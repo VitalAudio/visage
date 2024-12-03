@@ -90,24 +90,6 @@ namespace visage {
     NSVGrasterizer* rasterizer_ = nullptr;
   };
 
-  bgfx::VertexLayout& IconVertex::layout() {
-    static bgfx::VertexLayout layout;
-    static bool initialized = false;
-
-    if (!initialized) {
-      initialized = true;
-      layout.begin()
-          .add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
-          .add(bgfx::Attrib::Color1, 1, bgfx::AttribType::Float)
-          .end();
-    }
-
-    return layout;
-  }
-
   class IconGroupTexture {
   public:
     explicit IconGroupTexture(int width) : width_(width) {
@@ -141,9 +123,8 @@ namespace visage {
     bgfx::TextureHandle texture_handle_ = BGFX_INVALID_HANDLE;
   };
 
-  IconGroup::IconGroup(const std::set<Icon>& icons) {
+  IconGroup::IconGroup() {
     atlas_.setPadding(kIconBuffer);
-    addIcons(icons);
   }
 
   void IconGroup::setNewSize() {
@@ -159,8 +140,7 @@ namespace visage {
     int index = icons_.size();
     icons_.push_back(icon);
     icon_lookup_[icon] = index;
-    return atlas_.addPackedRect(index, icon.width + icon.blur_radius * 2,
-                                icon.height + icon.blur_radius * 2);
+    return atlas_.addRect(index, icon.width + icon.blur_radius * 2, icon.height + icon.blur_radius * 2);
   }
 
   void IconGroup::addIcons(const std::set<Icon>& icons) {
@@ -198,7 +178,7 @@ namespace visage {
 
     std::unique_ptr<unsigned int[]> data = Rasterizer::instance().rasterize(icon);
 
-    PackedAtlas::Rect packed_rect = atlas_.rectAtIndex(index);
+    PackedRect packed_rect = atlas_.rectAtIndex(index);
     int atlas_offset = packed_rect.x + packed_rect.y * atlas_.width();
     unsigned int* texture_ref = texture_->data() + atlas_offset;
     for (int y = 0; y < icon.height; ++y) {
@@ -240,12 +220,12 @@ namespace visage {
     return texture_->handle();
   }
 
-  void IconGroup::setIconCoordinates(IconVertex* vertices, const Icon& icon) const {
+  void IconGroup::setIconCoordinates(TextureVertex* vertices, const Icon& icon) const {
     int index = iconIndex(icon);
     if (index < 0)
       return;
 
-    atlas_.setQuadCoordinates(vertices, index);
+    atlas_.setTexturePositionsForIndex(index, vertices);
 
     for (int i = 0; i < 4; ++i) {
       vertices[i].direction_x = 1.0f;

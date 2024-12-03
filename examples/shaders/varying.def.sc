@@ -3,6 +3,7 @@ vec4 v_color1         : COLOR1    = vec4(0.0, 1.0, 0.0, 1.0);
 vec4 v_color2         : COLOR2    = vec4(0.0, 0.0, 1.0, 1.0);
 vec4 v_color3         : COLOR3    = vec4(1.0, 0.0, 1.0, 1.0);
 vec2 v_coordinates    : TEXCOORD0 = vec2(0.0, 0.0);
+vec2 v_texture_uv     : TEXCOORD0 = vec2(0.0, 0.0);
 vec2 v_dimensions     : TEXCOORD1 = vec2(0.0, 0.0);
 vec4 v_shader_values  : TEXCOORD2 = vec4(0.0, 0.0, 0.0, 0.0);
 vec4 v_shader_values1 : TEXCOORD3 = vec4(0.0, 0.0, 0.0, 0.0);

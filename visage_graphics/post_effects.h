@@ -19,15 +19,15 @@
 #include "shapes.h"
 
 namespace visage {
-  class Canvas;
+  class Layer;
 
   class PostEffect {
   public:
     explicit PostEffect(bool hdr = false) : hdr_(hdr) { }
 
     virtual ~PostEffect() = default;
-    virtual int preprocess(Canvas& canvas, int submit_pass) { return submit_pass; }
-    virtual void submit(const CanvasWrapper& source, Canvas& destination, int submit_pass) { }
+    virtual int preprocess(Region* region, int submit_pass) { return submit_pass; }
+    virtual void submit(const SampleRegion& source, Layer& destination, int submit_pass) { }
     bool hdr() const { return hdr_; }
 
   private:
@@ -43,11 +43,12 @@ namespace visage {
     BlurBloomPostEffect();
     ~BlurBloomPostEffect() override;
 
-    int preprocess(Canvas& canvas, int submit_pass) override;
-    void submit(const CanvasWrapper& source, Canvas& destination, int submit_pass) override;
-    void submitPassthrough(const CanvasWrapper& source, const Canvas& destination, int submit_pass) const;
-    void submitBloom(const CanvasWrapper& source, const Canvas& destination, int submit_pass) const;
-    void checkBuffers(const Canvas& canvas);
+    void setInitialVertices(Region* region);
+    int preprocess(Region* region, int submit_pass) override;
+    void submit(const SampleRegion& source, Layer& destination, int submit_pass) override;
+    void submitPassthrough(const SampleRegion& source, const Layer& destination, int submit_pass) const;
+    void submitBloom(const SampleRegion& source, const Layer& destination, int submit_pass) const;
+    void checkBuffers(const Region* region);
 
     void setBloomSize(float size) { bloom_size_ = std::log2(size); }
     void setBloomIntensity(float intensity) { bloom_intensity_ = intensity; }
@@ -66,7 +67,8 @@ namespace visage {
     int widths_[kMaxDownsamples] {};
     int heights_[kMaxDownsamples] {};
 
-    float cutoff_ = 0.0f;
+    float float_cutoff_ = 0.0f;
+    int cutoff_ = 0.0f;
     int cutoff_index_ = 0;
 
     UvVertex screen_vertices_[4] {};
@@ -84,10 +86,10 @@ namespace visage {
     ShaderPostEffect(const EmbeddedFile& vertex_shader, const EmbeddedFile& fragment_shader) :
         vertex_shader_(vertex_shader), fragment_shader_(fragment_shader) { }
 
-    void submit(const CanvasWrapper& source, Canvas& destination, int submit_pass) override;
+    void submit(const SampleRegion& source, Layer& destination, int submit_pass) override;
 
-    BlendState state() const { return state_; }
-    void setState(BlendState state) { state_ = state; }
+    BlendMode state() const { return state_; }
+    void setState(BlendMode state) { state_ = state; }
 
     const EmbeddedFile& vertexShader() const { return vertex_shader_; }
     const EmbeddedFile& fragmentShader() const { return fragment_shader_; }
@@ -104,16 +106,8 @@ namespace visage {
     std::map<std::string, UniformData> uniforms_;
     EmbeddedFile vertex_shader_;
     EmbeddedFile fragment_shader_;
-    BlendState state_ = BlendState::Alpha;
+    BlendMode state_ = BlendMode::Alpha;
 
     VISAGE_LEAK_CHECKER(ShaderPostEffect)
-  };
-
-  class PassthroughPostEffect : public PostEffect {
-  public:
-    void submit(const CanvasWrapper& source, Canvas& destination, int submit_pass) override;
-
-  private:
-    VISAGE_LEAK_CHECKER(PassthroughPostEffect)
   };
 }

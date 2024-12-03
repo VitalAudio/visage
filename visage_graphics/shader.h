@@ -25,17 +25,17 @@ namespace visage {
   class Shader {
   public:
     Shader() = delete;
-    Shader(const EmbeddedFile& vertex_shader, const EmbeddedFile& fragment_shader, BlendState state) :
+    Shader(const EmbeddedFile& vertex_shader, const EmbeddedFile& fragment_shader, BlendMode state) :
         vertex_shader_(vertex_shader), fragment_shader_(fragment_shader), state_(state) { }
     virtual ~Shader() = default;
 
     const EmbeddedFile& vertexShader() const { return vertex_shader_; }
     const EmbeddedFile& fragmentShader() const { return fragment_shader_; }
-    BlendState state() const { return state_; }
+    BlendMode state() const { return state_; }
 
   private:
     EmbeddedFile vertex_shader_;
     EmbeddedFile fragment_shader_;
-    BlendState state_ = BlendState::Alpha;
+    BlendMode state_ = BlendMode::Alpha;
   };
 }

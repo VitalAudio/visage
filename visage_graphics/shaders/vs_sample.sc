@@ -4,6 +4,6 @@ $output v_coordinates
 #include <bgfx_shader.sh>
 
 void main() {
-  gl_Position = vec4(a_position, 0.5, 1.0);
+  gl_Position = vec4(a_position.xy, 0.5, 1.0);
   v_coordinates = a_texcoord0.xy;
 }

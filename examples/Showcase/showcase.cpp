@@ -72,9 +72,6 @@ void Overlay::draw(visage::Canvas& canvas) {
   visage::Bounds body = getBodyBounds();
   float rounding = getBodyRounding();
 
-  canvas.setColor(0);
-  canvas.clearArea(body.x() - 1, body.y() - 1, body.width() + 2, body.height() + 2);
-
   canvas.setPaletteColor(kOverlayBody);
   canvas.roundedRectangle(body.x(), body.y(), body.width(), body.height(), rounding);
 

@@ -33,7 +33,6 @@ namespace visage {
 
   ApplicationEditor::ApplicationEditor() : top_level_(this) {
     canvas_ = std::make_unique<Canvas>();
-    top_level_.setCanvas(canvas_.get());
     canvas_->addRegion(top_level_.region());
     top_level_.addChild(this);
 
@@ -57,7 +56,6 @@ namespace visage {
     event_handler_.set_clipboard_text = visage::setClipboardText;
     top_level_.setEventHandler(&event_handler_);
     onResize() += [this] { top_level_.setBounds(localBounds()); };
-    setPostEffect(&passthrough_);
   }
 
   ApplicationEditor::~ApplicationEditor() {
@@ -114,12 +112,12 @@ namespace visage {
     std::swap(stale_children_, drawing_children_);
     for (Frame* child : drawing_children_) {
       if (child->isDrawing())
-        child->drawToRegion();
+        child->drawToRegion(*canvas_);
     }
     for (auto it = stale_children_.begin(); it != stale_children_.end();) {
       Frame* child = *it;
       if (drawing_children_.count(child) == 0) {
-        child->drawToRegion();
+        child->drawToRegion(*canvas_);
         it = stale_children_.erase(it);
       }
       else

@@ -24,7 +24,7 @@ namespace visage {
   THEME_COLOR(ShaderQuadColor, 0xffffffff);
 
   ShaderQuad::ShaderQuad(const EmbeddedFile& vertex_shader, const EmbeddedFile& fragment_shader,
-                         BlendState state) : shader_(vertex_shader, fragment_shader, state) { }
+                         BlendMode state) : shader_(vertex_shader, fragment_shader, state) { }
 
   void ShaderQuad::draw(Canvas& canvas) {
     canvas.setPaletteColor(kShaderQuadColor);

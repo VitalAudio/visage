@@ -28,12 +28,11 @@ namespace visage {
   };
 
   struct RegionPosition {
-    RegionPosition(Canvas::Region* region, std::vector<Bounds> invalid_rects, int position,
-                   int x = 0, int y = 0) :
+    RegionPosition(Region* region, std::vector<Bounds> invalid_rects, int position, int x = 0, int y = 0) :
         region(region), invalid_rects(std::move(invalid_rects)), position(position), x(x), y(y) { }
     RegionPosition() = default;
 
-    Canvas::Region* region = nullptr;
+    Region* region = nullptr;
     std::vector<Bounds> invalid_rects;
     int position = 0;
     int x = 0;
@@ -43,119 +42,24 @@ namespace visage {
     bool isDone() const { return position >= region->numSubmitBatches(); }
   };
 
-  Canvas::Canvas() {
-    frame_buffer_data_ = std::make_unique<FrameBufferData>();
-    base_region_.setCanvas(this);
-    state_.current_region = &base_region_;
-  }
-
-  Canvas::~Canvas() {
-    destroyFrameBuffer();
-  }
-
-  void Canvas::clearDrawnShapes() {
-    base_region_.clearAll();
-    invalidate();
-  }
-
-  void Canvas::pairToWindow(void* window_handle, int width, int height) {
-    window_handle_ = window_handle;
-    setDimensions(width, height);
-    invalidate();
-    destroyFrameBuffer();
-  }
-
-  void Canvas::removeFromWindow() {
-    window_handle_ = nullptr;
-    destroyFrameBuffer();
-  }
-
-  void Canvas::setHdr(bool hdr) {
-    hdr_ = hdr;
-    destroyFrameBuffer();
-  }
-
   inline void moveToVector(std::vector<Bounds>& rects, std::vector<Bounds>& pieces) {
     rects.insert(rects.end(), pieces.begin(), pieces.end());
     pieces.clear();
   }
 
-  void Canvas::invalidateRect(Bounds rect) {
-    for (auto it = invalid_rects_.begin(); it != invalid_rects_.end();) {
-      Bounds& invalid_rect = *it;
-      if (invalid_rect.contains(rect)) {
-        moveToVector(invalid_rects_, invalid_rect_pieces_);
-        return;
-      }
-
-      if (rect.contains(invalid_rect)) {
-        it = invalid_rects_.erase(it);
-        continue;
-      }
-      Bounds::breakIntoNonOverlapping(rect, invalid_rect, invalid_rect_pieces_);
-      ++it;
-    }
-
-    invalid_rects_.push_back(rect);
-    moveToVector(invalid_rects_, invalid_rect_pieces_);
-  }
-
-  void Canvas::setDimensions(int width, int height) {
-    VISAGE_ASSERT(state_memory_.empty());
-    width = std::max(1, width);
-    height = std::max(1, height);
-    if (width == width_ && height == height_)
-      return;
-
-    base_region_.width_ = width;
-    base_region_.height_ = height;
-    width_ = width;
-    height_ = height;
-    setClampBounds(0, 0, width, height);
-
-    if (icon_group_)
-      icon_group_->clear();
-    if (image_group_)
-      image_group_->clear();
-
-    images_.clear();
-    destroyFrameBuffer();
-    invalidate();
-  }
-
-  bgfx::FrameBufferHandle& Canvas::frameBuffer() const {
-    return frame_buffer_data_->handle;
-  }
-
-  int Canvas::frameBufferFormat() const {
-    return frame_buffer_data_->format;
-  }
-
-  const void* nextBatchId(const std::vector<RegionPosition>& positions, const void* current_batch_id) {
-    const void* next_batch_id = positions[0].currentBatch()->id();
-    for (auto& position : positions) {
-      const void* batch_id = position.currentBatch()->id();
-      if (batch_id < next_batch_id) {
-        if (batch_id > current_batch_id || next_batch_id < current_batch_id)
-          next_batch_id = batch_id;
-      }
-      else if (next_batch_id < current_batch_id && batch_id > current_batch_id)
-        next_batch_id = batch_id;
-    }
-
-    return next_batch_id;
-  }
-
-  void addSubRegions(std::vector<RegionPosition>& positions,
-                     std::vector<RegionPosition>& overlapping, const RegionPosition& done_position) {
+  static void addSubRegions(std::vector<RegionPosition>& positions, std::vector<RegionPosition>& overlapping,
+                            const RegionPosition& done_position) {
     auto begin = done_position.region->subRegions().cbegin();
     auto end = done_position.region->subRegions().cend();
     for (auto it = begin; it != end; ++it) {
-      Canvas::Region* sub_region = *it;
+      Region* sub_region = *it;
       if (!sub_region->isVisible())
         continue;
 
-      bool overlaps = std::any_of(begin, it, [sub_region](const Canvas::Region* other) {
+      if (sub_region->needsLayer())
+        sub_region = sub_region->intermediateRegion();
+
+      bool overlaps = std::any_of(begin, it, [sub_region](const Region* other) {
         return other->isVisible() && sub_region->overlaps(other);
       });
 
@@ -181,8 +85,8 @@ namespace visage {
     }
   }
 
-  void checkOverlappingRegions(std::vector<RegionPosition>& positions,
-                               std::vector<RegionPosition>& overlapping) {
+  static void checkOverlappingRegions(std::vector<RegionPosition>& positions,
+                                      std::vector<RegionPosition>& overlapping) {
     for (auto it = overlapping.begin(); it != overlapping.end();) {
       bool overlaps = std::any_of(positions.begin(), positions.end(), [it](const RegionPosition& other) {
         return it->x < other.x + other.region->width() && it->x + it->region->width() > other.x &&
@@ -201,29 +105,152 @@ namespace visage {
     }
   }
 
-  int Canvas::submit(int submit_pass) {
-    submit_pass = submitExternalCanvases(submit_pass);
+  static const void* nextBatchId(const std::vector<RegionPosition>& positions, const void* current_batch_id) {
+    const void* next_batch_id = positions[0].currentBatch()->id();
+    for (auto& position : positions) {
+      const void* batch_id = position.currentBatch()->id();
+      if (batch_id < next_batch_id) {
+        if (batch_id > current_batch_id || next_batch_id < current_batch_id)
+          next_batch_id = batch_id;
+      }
+      else if (next_batch_id < current_batch_id && batch_id > current_batch_id)
+        next_batch_id = batch_id;
+    }
 
+    return next_batch_id;
+  }
+
+  Layer::Layer() {
+    frame_buffer_data_ = std::make_unique<FrameBufferData>();
+  }
+
+  Layer::~Layer() {
+    destroyFrameBuffer();
+  }
+
+  void Layer::checkFrameBuffer() {
+    static constexpr uint64_t kFrameBufferFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP |
+                                                  BGFX_SAMPLER_V_CLAMP;
+
+    if (bgfx::isValid(frame_buffer_data_->handle))
+      return;
+
+    if (hdr_) {
+      if (bgfx::getRendererType() == bgfx::RendererType::Vulkan)
+        frame_buffer_data_->format = bgfx::TextureFormat::RGBA16F;
+      else
+        frame_buffer_data_->format = bgfx::TextureFormat::RGB10A2;
+    }
+    else
+      frame_buffer_data_->format = bgfx::TextureFormat::RGBA8;
+
+    if (window_handle_) {
+      frame_buffer_data_->handle = bgfx::createFrameBuffer(window_handle_, width_, height_,
+                                                           frame_buffer_data_->format);
+    }
+    else {
+      frame_buffer_data_->handle = bgfx::createFrameBuffer(width_, height_, frame_buffer_data_->format,
+                                                           kFrameBufferFlags);
+    }
+
+    bottom_left_origin_ = bgfx::getCaps()->originBottomLeft;
+  }
+
+  void Layer::destroyFrameBuffer() const {
+    if (bgfx::isValid(frame_buffer_data_->handle)) {
+      bgfx::destroy(frame_buffer_data_->handle);
+      frame_buffer_data_->handle = BGFX_INVALID_HANDLE;
+
+      bgfx::frame();
+      bgfx::frame();
+    }
+  }
+
+  bgfx::FrameBufferHandle& Layer::frameBuffer() const {
+    return frame_buffer_data_->handle;
+  }
+
+  int Layer::frameBufferFormat() const {
+    return frame_buffer_data_->format;
+  }
+
+  void Layer::invalidateRect(Bounds rect) {
+    for (auto it = invalid_rects_.begin(); it != invalid_rects_.end();) {
+      Bounds& invalid_rect = *it;
+      if (invalid_rect.contains(rect)) {
+        moveToVector(invalid_rects_, invalid_rect_pieces_);
+        return;
+      }
+
+      if (rect.contains(invalid_rect)) {
+        it = invalid_rects_.erase(it);
+        continue;
+      }
+      Bounds::breakIntoNonOverlapping(rect, invalid_rect, invalid_rect_pieces_);
+      ++it;
+    }
+
+    invalid_rects_.push_back(rect);
+    moveToVector(invalid_rects_, invalid_rect_pieces_);
+  }
+
+  void Layer::invalidateRectInRegion(Bounds rect, Region* region) {
+    invalidateRect(rect + coordinatesForRegion(region));
+  }
+
+  void Layer::clearInvalidRectAreas(int submit_pass) {
+    ShapeBatch<Fill> clear_batch(BlendMode::Opaque);
+    QuadColor color;
+    for (const Bounds& rect : invalid_rects_) {
+      float x = rect.x();
+      float y = rect.y();
+      float width = rect.width();
+      float height = rect.height();
+      clear_batch.addShape(Fill({ x, y, width, height }, color, x, y, width, height));
+    }
+
+    PositionedBatch positioned_clear = { &clear_batch, &invalid_rects_, 0, 0 };
+    clear_batch.submit(*this, submit_pass, { positioned_clear });
+  }
+
+  int Layer::submit(int submit_pass) {
     if (invalid_rects_.empty())
       return submit_pass;
 
-    render_frame_++;
     checkFrameBuffer();
-    submit_pass = redrawImages(submit_pass);
 
     bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
     bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
     if (bgfx::isValid(frame_buffer_data_->handle))
       bgfx::setViewFrameBuffer(submit_pass, frame_buffer_data_->handle);
 
+    if (intermediate_layer_)
+      clearInvalidRectAreas(submit_pass);
+    else {
+      std::vector<Bounds> current_invalid_rects = invalid_rects_;
+      for (int i = 0; i < kInvalidRectMemory; ++i) {
+        for (const Bounds& rect : prev_invalid_rects_[i])
+          invalidateRect(rect);
+      }
+
+      for (int i = kInvalidRectMemory - 1; i > 0; --i)
+        prev_invalid_rects_[i] = std::move(prev_invalid_rects_[i - 1]);
+      prev_invalid_rects_[0] = std::move(current_invalid_rects);
+    }
+
     std::vector<RegionPosition> region_positions;
     std::vector<RegionPosition> overlapping_regions;
-    if (base_region_.isEmpty()) {
-      addSubRegions(region_positions, overlapping_regions,
-                    { &base_region_, std::move(invalid_rects_), 0, 0, 0 });
+    for (Region* region : regions_) {
+      Point point = coordinatesForRegion(region);
+      if (region->isEmpty()) {
+        addSubRegions(region_positions, overlapping_regions,
+                      { region, invalid_rects_, 0, point.x, point.y });
+      }
+      else
+        region_positions.emplace_back(region, invalid_rects_, 0, point.x, point.y);
     }
-    else
-      region_positions.emplace_back(&base_region_, std::move(invalid_rects_), 0);
+
+    invalid_rects_.clear();
 
     const void* current_batch_id = nullptr;
     std::vector<PositionedBatch> batches;
@@ -260,12 +287,188 @@ namespace visage {
       current_batch_id = next_batch_id;
     }
 
-    return submit_pass + 1;
+    submit_pass = submit_pass + 1;
+    for (Region* region : regions_) {
+      if (region->postEffect())
+        submit_pass = region->postEffect()->preprocess(region, submit_pass);
+    }
+
+    return submit_pass;
+  }
+
+  void Layer::addRegion(Region* region) {
+    if (!hdr_ && region->postEffect() && region->postEffect()->hdr())
+      setHdr(true);
+
+    regions_.push_back(region);
+  }
+
+  void Layer::addPackedRegion(Region* region) {
+    addRegion(region);
+    if (!atlas_.addRect(region, region->width(), region->height())) {
+      invalidate();
+      atlas_.pack();
+      setDimensions(atlas_.width(), atlas_.width());
+    }
+  }
+
+  void Layer::removePackedRegion(Region* region) {
+    removeRegion(region);
+    atlas_.removeRect(region);
+  }
+
+  Point Layer::coordinatesForRegion(const Region* region) const {
+    if (intermediate_layer_) {
+      const PackedRect& rect = atlas_.rectForId(region);
+      return { rect.x, rect.y };
+    }
+    return { region->x(), region->y() };
+  }
+
+  void Region::invalidateRect(Bounds rect) {
+    if (canvas_ == nullptr)
+      return;
+
+    int layer_index = layer_index_;
+    Region* region = this;
+    while (region->parent_) {
+      if (region->needsLayer()) {
+        canvas_->invalidateRectInRegion(rect, region, layer_index);
+        --layer_index;
+      }
+
+      rect = rect + Point(region->x_, region->y_);
+      region = region->parent_;
+    }
+
+    canvas_->invalidateRectInRegion(rect, region, 0);
+  }
+
+  Layer* Region::layer() const {
+    return canvas_->layer(layer_index_);
+  }
+
+  void Region::setupIntermediateRegion() {
+    if (intermediate_region_) {
+      intermediate_region_->setBounds(x_, y_, width_, height_);
+      intermediate_region_->clearAll();
+      SampleRegion sample_layer({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, 0xffffffff, 0.0f,
+                                0.0f, width_, height_, this, post_effect_);
+      intermediate_region_->shape_batcher_.addShape(sample_layer);
+      canvas_->changePackedLayer(this, layer_index_, layer_index_);
+    }
+  }
+
+  void Region::setNeedsLayer(bool needs_layer) {
+    if (needsLayer() == needs_layer)
+      return;
+
+    if (needs_layer) {
+      incrementLayer();
+      intermediate_region_ = std::make_unique<Region>();
+      canvas_->addToPackedLayer(this, layer_index_);
+      setupIntermediateRegion();
+    }
+    else {
+      canvas_->removeFromPackedLayer(this, layer_index_);
+      intermediate_region_ = nullptr;
+      decrementLayer();
+    }
+
+    invalidate();
+  }
+
+  void Region::incrementLayer() {
+    if (needsLayer())
+      canvas_->changePackedLayer(this, layer_index_, layer_index_ + 1);
+
+    ++layer_index_;
+    for (auto& sub_region : sub_regions_)
+      sub_region->incrementLayer();
+  }
+
+  void Region::decrementLayer() {
+    if (needsLayer())
+      canvas_->changePackedLayer(this, layer_index_, layer_index_ + 1);
+
+    --layer_index_;
+    VISAGE_ASSERT(layer_index_ >= 0);
+
+    for (auto& sub_region : sub_regions_)
+      sub_region->decrementLayer();
+  }
+
+  Canvas::Canvas() {
+    state_.current_region = &default_region_;
+    layers_.push_back(&composite_layer_);
+    composite_layer_.addRegion(&default_region_);
+    composite_layer_.setIntermediateLayer(false);
+  }
+
+  void Canvas::clearDrawnShapes() {
+    composite_layer_.clear();
+    composite_layer_.addRegion(&default_region_);
+  }
+
+  void Canvas::setDimensions(int width, int height) {
+    VISAGE_ASSERT(state_memory_.empty());
+    width = std::max(1, width);
+    height = std::max(1, height);
+    composite_layer_.setDimensions(width, height);
+    default_region_.setBounds(0, 0, width, height);
+    setClampBounds(0, 0, width, height);
+
+    if (icon_group_)
+      icon_group_->clear();
+  }
+
+  int Canvas::submit(int submit_pass) {
+    int submission = submit_pass;
+    for (auto& layer = layers_.rbegin(); layer != layers_.rend(); ++layer)
+      submission = (*layer)->submit(submission);
+
+    if (submission > submit_pass)
+      render_frame_++;
+
+    return submission;
   }
 
   void Canvas::render() {
     bgfx::frame();
     FontCache::clearStaleFonts();
+  }
+
+  void Canvas::ensureLayerExists(int layer) {
+    while (layer >= layers_.size()) {
+      intermediate_layers_.push_back(std::make_unique<Layer>());
+      intermediate_layers_.back()->setIntermediateLayer(true);
+      layers_.push_back(intermediate_layers_.back().get());
+    }
+  }
+
+  void Canvas::invalidateRectInRegion(Bounds rect, Region* region, int layer) {
+    ensureLayerExists(layer);
+    layers_[layer]->invalidateRectInRegion(rect, region);
+  }
+
+  void Canvas::addToPackedLayer(Region* region, int layer_index) {
+    if (layer_index == 0)
+      return;
+
+    ensureLayerExists(layer_index);
+    layers_[layer_index]->addPackedRegion(region);
+  }
+
+  void Canvas::removeFromPackedLayer(Region* region, int layer_index) {
+    if (layer_index == 0)
+      return;
+
+    layers_[layer_index]->removePackedRegion(region);
+  }
+
+  void Canvas::changePackedLayer(Region* region, int from, int to) {
+    removeFromPackedLayer(region, from);
+    addToPackedLayer(region, to);
   }
 
   QuadColor Canvas::color(unsigned int color_id) {
@@ -367,75 +570,13 @@ namespace visage {
     return result;
   }
 
-  int Canvas::redrawImages(int submit_pass) {
-    if (images_.empty())
-      return submit_pass;
-
-    return imageGroup()->addImages(images_, submit_pass);
-  }
-
-  int Canvas::submitExternalCanvases(int submit_pass, Canvas::Region* region) {
-    for (auto& external : region->external_canvases_) {
-      external.canvas->updateTime(render_time_);
-      int new_submit_pass = external.canvas->submit(submit_pass);
-      if (new_submit_pass != submit_pass) {
-        submit_pass = external.post_effect->preprocess(*external.canvas, new_submit_pass);
-        region->invalidateRect(Bounds(external.x, external.y, external.width, external.height));
-      }
-    }
-
-    for (Region* sub_region : region->subRegions())
-      submit_pass = submitExternalCanvases(submit_pass, sub_region);
-
-    return submit_pass;
-  }
-
-  int Canvas::submitExternalCanvases(int submit_pass) {
-    return submitExternalCanvases(submit_pass, &base_region_);
-  }
-
   void Canvas::updateTime(double time) {
     static constexpr float kRefreshRateSlew = 0.3f;
     delta_time_ = std::max(0.0, time - render_time_);
     render_time_ = time;
     refresh_rate_ = (std::min(delta_time_, 1.0) - refresh_rate_) * kRefreshRateSlew + refresh_rate_;
-  }
 
-  void Canvas::checkFrameBuffer() {
-    static constexpr uint64_t kFrameBufferFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP |
-                                                  BGFX_SAMPLER_V_CLAMP;
-
-    if (bgfx::isValid(frame_buffer_data_->handle))
-      return;
-
-    if (hdr_) {
-      if (bgfx::getRendererType() == bgfx::RendererType::Vulkan)
-        frame_buffer_data_->format = bgfx::TextureFormat::RGBA16F;
-      else
-        frame_buffer_data_->format = bgfx::TextureFormat::RGB10A2;
-    }
-    else
-      frame_buffer_data_->format = bgfx::TextureFormat::RGBA8;
-
-    if (window_handle_) {
-      frame_buffer_data_->handle = bgfx::createFrameBuffer(window_handle_, width_, height_,
-                                                           frame_buffer_data_->format);
-    }
-    else {
-      frame_buffer_data_->handle = bgfx::createFrameBuffer(width_, height_, frame_buffer_data_->format,
-                                                           kFrameBufferFlags);
-    }
-
-    bottom_left_origin_ = bgfx::getCaps()->originBottomLeft;
-  }
-
-  void Canvas::destroyFrameBuffer() const {
-    if (bgfx::isValid(frame_buffer_data_->handle)) {
-      bgfx::destroy(frame_buffer_data_->handle);
-      frame_buffer_data_->handle = BGFX_INVALID_HANDLE;
-
-      bgfx::frame();
-      bgfx::frame();
-    }
+    for (Layer* layer : layers_)
+      layer->setTime(time);
   }
 }

@@ -23,7 +23,7 @@
 #include <visage_widgets/text_editor.h>
 
 class DragDropExample;
-class TextImage;
+class CachedText;
 class AnimatedLines;
 
 class ExamplesFrame : public visage::Frame {
@@ -53,7 +53,7 @@ private:
   std::unique_ptr<visage::ToggleTextButton> text_button_;
   std::unique_ptr<visage::UiButton> ui_button_;
   std::unique_ptr<visage::UiButton> action_button_;
-  std::unique_ptr<TextImage> text_;
+  std::unique_ptr<CachedText> text_;
   std::unique_ptr<visage::TextEditor> text_editor_;
   std::unique_ptr<visage::TextEditor> left_text_editor_;
   std::unique_ptr<visage::TextEditor> number_editor_;

@@ -18,7 +18,6 @@
 
 #include "font.h"
 #include "graphics_utils.h"
-#include "image.h"
 #include "post_effects.h"
 #include "shape_batcher.h"
 #include "text.h"
@@ -27,119 +26,222 @@
 
 namespace visage {
   class Palette;
+  class Region;
   class Shader;
+
+  class Layer {
+  public:
+    static constexpr int kInvalidRectMemory = 2;
+
+    Layer();
+    ~Layer();
+
+    void checkFrameBuffer();
+    void destroyFrameBuffer() const;
+
+    bgfx::FrameBufferHandle& frameBuffer() const;
+    int frameBufferFormat() const;
+
+    void clearInvalidRectAreas(int submit_pass);
+    int submit(int submit_pass);
+
+    void setIntermediateLayer(bool intermediate_layer) { intermediate_layer_ = intermediate_layer; }
+    void addRegion(Region* region);
+    void removeRegion(Region* region) {
+      regions_.erase(std::find(regions_.begin(), regions_.end(), region));
+    }
+    void addPackedRegion(Region* region);
+    void removePackedRegion(Region* region);
+    Point coordinatesForRegion(const Region* region) const;
+
+    template<typename V>
+    void setTexturePositionsForRegion(const Region* region, V* vertices) const {
+      atlas_.setTexturePositionsForId(region, vertices);
+    }
+
+    void invalidate() {
+      invalid_rects_.clear();
+      invalid_rects_.emplace_back(0, 0, width_, height_);
+    }
+
+    void invalidateRect(Bounds rect);
+    void invalidateRectInRegion(Bounds rect, Region* region);
+
+    void setDimensions(int width, int height) {
+      if (width == width_ && height == height_)
+        return;
+
+      width_ = width;
+      height_ = height;
+      destroyFrameBuffer();
+      invalidate();
+    }
+    int width() const { return width_; }
+    int height() const { return height_; }
+    bool bottomLeftOrigin() const { return bottom_left_origin_; }
+
+    double time() const { return render_time_; }
+    void setTime(double time) { render_time_ = time; }
+
+    void setHdr(bool hdr) {
+      hdr_ = hdr;
+      destroyFrameBuffer();
+    }
+    bool hdr() const { return hdr_; }
+
+    void pairToWindow(void* window_handle, int width, int height) {
+      window_handle_ = window_handle;
+      setDimensions(width, height);
+      destroyFrameBuffer();
+    }
+
+    void removeFromWindow() {
+      window_handle_ = nullptr;
+      destroyFrameBuffer();
+    }
+
+    void clear() { regions_.clear(); }
+
+  private:
+    bool bottom_left_origin_ = false;
+    bool hdr_ = false;
+    int width_ = 0;
+    int height_ = 0;
+    double render_time_ = 0.0;
+    bool intermediate_layer_ = false;
+
+    void* window_handle_ = nullptr;
+    std::unique_ptr<FrameBufferData> frame_buffer_data_;
+    PackedAtlas<const Region*> atlas_;
+    std::vector<Region*> regions_;
+    std::vector<Bounds> invalid_rects_;
+    std::vector<Bounds> prev_invalid_rects_[kInvalidRectMemory];
+    std::vector<Bounds> invalid_rect_pieces_;
+  };
+
+  class Region {
+  public:
+    friend class Canvas;
+
+    Region() = default;
+
+    SubmitBatch* submitBatchAtPosition(int position) const {
+      return shape_batcher_.batchAtIndex(position);
+    }
+    int numSubmitBatches() const { return shape_batcher_.numBatches(); }
+    bool isEmpty() const { return shape_batcher_.isEmpty(); }
+    const std::vector<Region*>& subRegions() const { return sub_regions_; }
+    int numRegions() const { return sub_regions_.size(); }
+
+    void addRegion(Region* region) {
+      VISAGE_ASSERT(region->parent_ == nullptr);
+      sub_regions_.push_back(region);
+      region->parent_ = this;
+
+      if (canvas_)
+        region->setCanvas(canvas_);
+    }
+
+    void removeRegion(Region* region) {
+      region->parent_ = nullptr;
+      region->setCanvas(nullptr);
+      sub_regions_.erase(std::find(sub_regions_.begin(), sub_regions_.end(), region));
+    }
+
+    void setCanvas(Canvas* canvas) {
+      if (canvas_ == canvas)
+        return;
+
+      canvas_ = canvas;
+      for (auto& sub_region : sub_regions_)
+        sub_region->setCanvas(canvas);
+    }
+
+    void setBounds(int x, int y, int width, int height) {
+      invalidate();
+      x_ = x;
+      y_ = y;
+      width_ = width;
+      height_ = height;
+      setupIntermediateRegion();
+      invalidate();
+    }
+
+    void setVisible(bool visible) { visible_ = visible; }
+    bool isVisible() const { return visible_; }
+    bool overlaps(const Region* other) const {
+      return x_ < other->x_ + other->width_ && x_ + width_ > other->x_ &&
+             y_ < other->y_ + other->height_ && y_ + height_ > other->y_;
+    }
+
+    int x() const { return x_; }
+    int y() const { return y_; }
+    int width() const { return width_; }
+    int height() const { return height_; }
+
+    void invalidateRect(Bounds rect);
+
+    void invalidate() {
+      if (width_ > 0 && height_ > 0)
+        invalidateRect({ 0, 0, width_, height_ });
+    }
+
+    Layer* layer() const;
+
+    void clear() {
+      shape_batcher_.clear();
+      text_store_.clear();
+    }
+
+    void setupIntermediateRegion();
+    void setNeedsLayer(bool needs_layer);
+    void setPostEffect(PostEffect* post_effect) { post_effect_ = post_effect; }
+    PostEffect* postEffect() const { return post_effect_; }
+    bool needsLayer() const { return intermediate_region_.get(); }
+    Region* intermediateRegion() const { return intermediate_region_.get(); }
+
+  private:
+    void incrementLayer();
+    void decrementLayer();
+
+    Text* addText(const String& string, const Font& font, Font::Justification justification) {
+      text_store_.push_back(std::make_unique<Text>(string, font, justification));
+      return text_store_.back().get();
+    }
+
+    void clearSubRegions() { sub_regions_.clear(); }
+
+    void clearAll() {
+      clear();
+      clearSubRegions();
+    }
+
+    int x_ = 0;
+    int y_ = 0;
+    int width_ = 0;
+    int height_ = 0;
+    int palette_override_ = 0;
+    bool visible_ = true;
+    int layer_index_ = 0;
+
+    Canvas* canvas_ = nullptr;
+    Region* parent_ = nullptr;
+    PostEffect* post_effect_ = nullptr;
+    ShapeBatcher shape_batcher_;
+    std::vector<std::unique_ptr<Text>> text_store_;
+    std::vector<Region*> sub_regions_;
+    std::unique_ptr<Region> intermediate_region_;
+  };
 
   class Canvas {
   public:
-    class Region {
-    public:
-      friend class Canvas;
-
-      Region() = default;
-
-      SubmitBatch* submitBatchAtPosition(int position) const {
-        return shape_batcher_.batchAtIndex(position);
-      }
-      int numSubmitBatches() const { return shape_batcher_.numBatches(); }
-      bool isEmpty() const { return shape_batcher_.isEmpty(); }
-      const std::vector<Region*>& subRegions() const { return sub_regions_; }
-      int numRegions() const { return sub_regions_.size(); }
-
-      void addRegion(Region* region) {
-        VISAGE_ASSERT(region->parent_ == nullptr);
-        sub_regions_.push_back(region);
-        region->parent_ = this;
-      }
-
-      void removeRegion(Region* region) {
-        region->parent_ = nullptr;
-        sub_regions_.erase(std::find(sub_regions_.begin(), sub_regions_.end(), region));
-      }
-
-      void removeFromParent() {
-        if (parent_)
-          parent_->removeRegion(this);
-        parent_ = nullptr;
-      }
-
-      void setCanvas(Canvas* canvas) { canvas_ = canvas; }
-
-      void setBounds(int x, int y, int width, int height) {
-        invalidate();
-        x_ = x;
-        y_ = y;
-        width_ = width;
-        height_ = height;
-        invalidate();
-      }
-
-      void setVisible(bool visible) { visible_ = visible; }
-      bool isVisible() const { return visible_; }
-      bool overlaps(const Region* other) const {
-        return x_ < other->x_ + other->width_ && x_ + width_ > other->x_ &&
-               y_ < other->y_ + other->height_ && y_ + height_ > other->y_;
-      }
-
-      int x() const { return x_; }
-      int y() const { return y_; }
-      int width() const { return width_; }
-      int height() const { return height_; }
-
-      void invalidateRect(Bounds rect) {
-        Region* region = this;
-        while (region->parent_) {
-          rect = rect + Point(region->x_, region->y_);
-          region = region->parent_;
-        }
-
-        if (region->canvas_)
-          region->canvas_->invalidateRect(rect);
-      }
-
-      void invalidate() {
-        if (width_ > 0 && height_ > 0)
-          invalidateRect({ 0, 0, width_, height_ });
-      }
-
-    private:
-      Text* addText(const String& string, const Font& font, Font::Justification justification) {
-        text_store_.push_back(std::make_unique<Text>(string, font, justification));
-        return text_store_.back().get();
-      }
-
-      void clear() {
-        shape_batcher_.clear();
-        text_store_.clear();
-        external_canvases_.clear();
-      }
-
-      void clearSubRegions() { sub_regions_.clear(); }
-
-      void clearAll() {
-        clear();
-        clearSubRegions();
-      }
-
-      int x_ = 0;
-      int y_ = 0;
-      int width_ = 0;
-      int height_ = 0;
-      int palette_override_ = 0;
-      bool visible_ = true;
-      Canvas* canvas_ = nullptr;
-      Region* parent_ = nullptr;
-      ShapeBatcher shape_batcher_;
-      std::vector<std::unique_ptr<Text>> text_store_;
-      std::vector<CanvasWrapper> external_canvases_;
-      std::vector<Region*> sub_regions_;
-    };
-
     struct State {
       int x = 0;
       int y = 0;
       int palette_override = 0;
       QuadColor color;
       ClampBounds clamp;
+      BlendMode blend_mode = BlendMode::Alpha;
       Region* current_region = nullptr;
     };
 
@@ -147,43 +249,42 @@ namespace visage {
     Canvas(const Canvas& other) = delete;
     Canvas& operator=(const Canvas&) = delete;
 
-    ~Canvas();
-
     void clearDrawnShapes();
     int submit(int submit_pass = 0);
     void render();
 
-    void pairToWindow(void* window_handle, int width, int height);
-    void removeFromWindow();
+    void ensureLayerExists(int layer);
+    Layer* layer(int index) {
+      ensureLayerExists(index);
+      return layers_[index];
+    }
 
-    void setHdr(bool hdr);
+    void invalidateRectInRegion(Bounds rect, Region* region, int layer);
+    void addToPackedLayer(Region* region, int layer_index);
+    void removeFromPackedLayer(Region* region, int layer_index);
+    void changePackedLayer(Region* region, int from, int to);
+
+    void pairToWindow(void* window_handle, int width, int height) {
+      composite_layer_.pairToWindow(window_handle, width, height);
+      setDimensions(width, height);
+    }
+
+    void removeFromWindow() { composite_layer_.removeFromWindow(); }
 
     void setDimensions(int width, int height);
     void setWidthScale(float width_scale) { width_scale_ = width_scale; }
     void setHeightScale(float height_scale) { height_scale_ = height_scale; }
     void setDpiScale(float scale) { dpi_scale_ = scale; }
 
-    void invalidateRect(Bounds rect);
-    void invalidate() {
-      invalid_rects_.clear();
-      invalid_rects_.emplace_back(0, 0, width_, height_);
-    }
-
-    bool hdr() const { return hdr_; }
-    int width() const { return width_; }
-    int height() const { return height_; }
     float widthScale() const { return width_scale_; }
     float heightScale() const { return height_scale_; }
     float dpiScale() const { return dpi_scale_; }
-    bool bottomLeftOrigin() const { return bottom_left_origin_; }
     void updateTime(double time);
     double time() const { return render_time_; }
     double deltaTime() const { return delta_time_; }
     int frameCount() const { return render_frame_; }
 
-    bgfx::FrameBufferHandle& frameBuffer() const;
-    int frameBufferFormat() const;
-
+    void setBlendMode(BlendMode blend_mode) { state_.blend_mode = blend_mode; }
     void setColor(unsigned int color) { state_.color = color; }
     void setColor(const QuadColor& color) { state_.color = color; }
     void setPaletteColor(int color_id) { state_.color = color(color_id); }
@@ -195,10 +296,6 @@ namespace visage {
     void fill(float x, float y, float width, float height) {
       addShape(Fill(state_.clamp.clamp(x, y, width, height), state_.color, state_.x + x,
                     state_.y + y, width, height));
-    }
-
-    void clearArea(float x, float y, float width, float height) {
-      addShape(Clear(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height));
     }
 
     void circle(float x, float y, float width) {
@@ -458,12 +555,6 @@ namespace visage {
       icon(svg.data, svg.size, x, y, width, height, blur_radius);
     }
 
-    void image(Image* image, float x, float y) {
-      images_.insert(image);
-      addShape(ImageWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y,
-                            image->width() * 1.0f, image->height() * 1.0f, image, imageGroup()));
-    }
-
     void shader(Shader* shader, float x, float y, float width, float height) {
       addShape(ShaderWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height, shader));
     }
@@ -478,14 +569,6 @@ namespace visage {
                                height, line, fill_position));
     }
 
-    void subcanvas(Canvas* canvas, float x, float y, float width, float height,
-                   PostEffect* post_effect = nullptr) {
-      CanvasWrapper wrapper(state_.clamp, 0xffffffff, state_.x + x, state_.y + y, width, height,
-                            canvas, post_effect);
-      state_.current_region->external_canvases_.push_back(wrapper);
-      addShape(wrapper);
-    }
-
     void saveState() { state_memory_.push_back(state_); }
 
     void restoreState() {
@@ -498,16 +581,20 @@ namespace visage {
       state_.y += y;
     }
 
-    void addRegion(Region* region) { base_region_.addRegion(region); }
+    void addRegion(Region* region) {
+      composite_layer_.addRegion(region);
+      region->setCanvas(this);
+    }
 
     void clearRegion(Region* region) { region->clear(); }
 
-    void beginRegion(Region* region, int x, int y, int width, int height) {
+    void beginRegion(Region* region) {
       region->clear();
       saveState();
       state_.x = 0;
       state_.y = 0;
-      setClampBounds(0, 0, width, height);
+      state_.blend_mode = BlendMode::Alpha;
+      setClampBounds(0, 0, region->width(), region->height());
       state_.color = {};
       region->palette_override_ = state_.palette_override;
       state_.current_region = region;
@@ -554,12 +641,6 @@ namespace visage {
     float value(unsigned int value_id);
     std::vector<std::string> debugInfo() const;
 
-    ImageGroup* imageGroup() {
-      if (image_group_ == nullptr)
-        image_group_ = std::make_unique<ImageGroup>();
-      return image_group_.get();
-    }
-
     IconGroup* iconGroup() {
       if (icon_group_ == nullptr)
         icon_group_ = std::make_unique<IconGroup>();
@@ -571,21 +652,10 @@ namespace visage {
   private:
     template<typename T>
     void addShape(T shape) {
-      state_.current_region->shape_batcher_.addShape(std::move(shape));
+      state_.current_region->shape_batcher_.addShape(std::move(shape), state_.blend_mode);
     }
 
-    int redrawImages(int submit_pass);
-    int submitExternalCanvases(int submit_pass, Region* region);
-    int submitExternalCanvases(int submit_pass);
-    void checkFrameBuffer();
-    void destroyFrameBuffer() const;
-
-    void* window_handle_ = nullptr;
-    std::unique_ptr<FrameBufferData> frame_buffer_data_;
     Palette* palette_ = nullptr;
-
-    int width_ = 0;
-    int height_ = 0;
     float width_scale_ = 1.0f;
     float height_scale_ = 1.0f;
     float dpi_scale_ = 1.0f;
@@ -596,15 +666,13 @@ namespace visage {
     std::vector<State> state_memory_;
     State state_;
 
-    std::unique_ptr<IconGroup> icon_group_;
-    std::unique_ptr<ImageGroup> image_group_;
-    Region base_region_;
-    std::set<Image*> images_;
-    std::vector<Bounds> invalid_rects_;
-    std::vector<Bounds> invalid_rect_pieces_;
+    Region default_region_;
+    Layer composite_layer_;
+    std::vector<std::unique_ptr<Layer>> intermediate_layers_;
+    std::vector<Layer*> layers_;
 
-    bool bottom_left_origin_ = false;
-    bool hdr_ = false;
+    std::unique_ptr<IconGroup> icon_group_;
+
     float refresh_rate_ = 0.0f;
 
     VISAGE_LEAK_CHECKER(Canvas)

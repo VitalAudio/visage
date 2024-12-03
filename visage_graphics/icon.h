@@ -22,25 +22,6 @@
 #include <set>
 
 namespace visage {
-  struct IconVertex {
-    float x;
-    float y;
-    float dimension_x;
-    float dimension_y;
-    float coordinate_x;
-    float coordinate_y;
-    float direction_x;
-    float direction_y;
-    float clamp_left;
-    float clamp_top;
-    float clamp_right;
-    float clamp_bottom;
-    uint32_t color;
-    float hdr;
-
-    static bgfx::VertexLayout& layout();
-  };
-
   struct Icon {
     Icon() = default;
     Icon(const char* svg, int svg_size, int width, int height, int blur_radius = 0) :
@@ -73,7 +54,7 @@ namespace visage {
   public:
     static constexpr int kIconBuffer = 1;
 
-    explicit IconGroup(const std::set<Icon>& icons = std::set<Icon>());
+    IconGroup();
     virtual ~IconGroup();
 
     void clear() {
@@ -94,12 +75,12 @@ namespace visage {
         return icon_lookup_.at(icon);
       return -1;
     }
-    void setIconCoordinates(IconVertex* vertices, const Icon& icon) const;
+    void setIconCoordinates(TextureVertex* vertices, const Icon& icon) const;
 
   private:
     bool addIcon(const Icon& icon);
 
-    PackedAtlas atlas_;
+    PackedAtlas<> atlas_;
     std::map<Icon, int> icon_lookup_;
     std::vector<Icon> icons_;
     std::unique_ptr<IconGroupTexture> texture_;
