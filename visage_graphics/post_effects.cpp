@@ -129,6 +129,8 @@ namespace visage {
         int width = (full_width + scale - 1) / scale;
         int height = (full_height + scale - 1) / scale;
         if (height > 0 && width > 0) {
+          widths_[i] = width;
+          heights_[i] = height;
           handles_->downsample_buffers1[i] = bgfx::createFrameBuffer(width, height, format,
                                                                      kFrameBufferFlags);
           handles_->downsample_buffers2[i] = bgfx::createFrameBuffer(width, height, format,
@@ -186,17 +188,14 @@ namespace visage {
     cutoff_ = float_cutoff_;
     cutoff_index_ = std::min<int>(downsample_index - 1, cutoff_);
     for (int i = 0; i < downsample_index; ++i) {
-      int downsample_width = (last_width + 1) / 2;
-      int downsample_height = (last_height + 1) / 2;
-      widths_[i] = downsample_width;
-      heights_[i] = downsample_height;
-
+      int downsample_width = widths_[i];
+      int downsample_height = heights_[i];
       float x_downsample_scale = downsample_width * 2.0f / last_width;
       float y_downsample_scale = downsample_height * 2.0f / last_height;
       last_width = downsample_width;
       last_height = downsample_height;
 
-      float downsample_values[] = { x_downsample_scale, y_downsample_scale, 0.0f, 0.0f };
+      float downsample_values[] = { 1.0f, 1.0f, 0.0f, 0.0f };
 
       bgfx::FrameBufferHandle destination = handles_->downsample_buffers1[i];
       setBlendMode(BlendMode::Opaque);
@@ -384,10 +383,12 @@ namespace visage {
     if (vertices == nullptr)
       return;
 
+    float hdr_range = source.region->layer()->hdr() ? visage::kHdrColorRange : 1.0f;
+    setPostEffectUniform<Uniforms::kColorMult>(hdr_range, hdr_range, hdr_range, 1.0f);
+
     setQuadPositions(vertices, source, source.clamp);
     source.setVertexData(vertices);
 
-    setBlendMode(BlendMode::Alpha);
     Layer* source_layer = source.region->layer();
     float width_scale = 1.0f / source_layer->width();
     float height_scale = 1.0f / source_layer->height();
@@ -397,17 +398,18 @@ namespace visage {
                                                   vertices[3].texture_x, vertices[3].texture_y);
     float center_x = (vertices[0].texture_x + vertices[3].texture_x) * 0.5f;
     float center_y = (vertices[0].texture_y + vertices[3].texture_y) * 0.5f;
-    setPostEffectUniform<Uniforms::kCenter>(center_x * width_scale, center_y * height_scale);
+    setPostEffectUniform<Uniforms::kCenterPosition>(center_x, center_y);
+    float width = vertices[3].texture_x - vertices[0].texture_x;
+    float height = vertices[3].texture_y - vertices[0].texture_y;
+    setPostEffectUniform<Uniforms::kDimensions>(width, height);
 
     bgfx::TextureHandle texture = bgfx::getTexture(source_layer->frameBuffer());
     setPostEffectTexture<Uniforms::kTexture>(0, texture);
     setUniformDimensions(destination.width(), destination.height());
 
-    setBlendMode(BlendMode::Alpha);
     for (const auto& uniform : uniforms_)
       bgfx::setUniform(visage::UniformCache::uniformHandle(uniform.first.c_str()), uniform.second.data);
 
-    setPostEffectUniform<Uniforms::kColorMult>(1.0f);
     bgfx::ProgramHandle program = ProgramCache::programHandle(vertexShader(), fragmentShader());
     bgfx::submit(submit_pass, program);
   }

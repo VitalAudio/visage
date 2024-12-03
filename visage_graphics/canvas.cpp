@@ -206,7 +206,7 @@ namespace visage {
       float y = rect.y();
       float width = rect.width();
       float height = rect.height();
-      clear_batch.addShape(Fill({ x, y, width, height }, color, x, y, width, height));
+      clear_batch.addShape(Fill({ x, y, x + width, y + height }, color, x, y, width, height));
     }
 
     PositionedBatch positioned_clear = { &clear_batch, &invalid_rects_, 0, 0 };
@@ -335,6 +335,9 @@ namespace visage {
       if (region->needsLayer()) {
         canvas_->invalidateRectInRegion(rect, region, layer_index);
         --layer_index;
+
+        if (region->post_effect_)
+          rect = { 0, 0, region->width_, region->height_ };
       }
 
       rect = rect + Point(region->x_, region->y_);
@@ -352,8 +355,8 @@ namespace visage {
     if (intermediate_region_) {
       intermediate_region_->setBounds(x_, y_, width_, height_);
       intermediate_region_->clearAll();
-      SampleRegion sample_layer({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, 0xffffffff, 0.0f,
-                                0.0f, width_, height_, this, post_effect_);
+      SampleRegion sample_layer({ x_ * 1.0f, y_ * 1.0f, x_ + width_ * 1.0f, y_ + height_ * 1.0f },
+                                0xffffffff, x_, y_, width_, height_, this, post_effect_);
       intermediate_region_->shape_batcher_.addShape(sample_layer);
       canvas_->changePackedLayer(this, layer_index_, layer_index_);
     }

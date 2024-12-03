@@ -74,8 +74,10 @@ public:
   }
 
   void resized() override {
-    shapes_.setBounds(0, 0, width() / 2, height());
-    shader_editor_.setBounds(shapes_.width(), 0, width() - shapes_.right(), height());
+    int center = width() / 2;
+    int shapes_width = std::min(center, height());
+    shapes_.setBounds((center - shapes_width) / 2, (height() - shapes_width) / 2, shapes_width, shapes_width);
+    shader_editor_.setBounds(center, 0, width() - center, height());
   }
 
   int defaultWidth() const override { return 1000; }

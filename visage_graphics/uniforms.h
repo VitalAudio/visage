@@ -21,14 +21,12 @@ namespace visage {
     static constexpr char kTime[] = "u_time";
     static constexpr char kMult[] = "u_mult";
     static constexpr char kTextureClamp[] = "u_texture_clamp";
-    static constexpr char kCenter[] = "u_center";
     static constexpr char kBounds[] = "u_bounds";
     static constexpr char kColorMult[] = "u_color_mult";
     static constexpr char kLimitMult[] = "u_limit_mult";
     static constexpr char kOriginFlip[] = "u_origin_flip";
     static constexpr char kAtlasScale[] = "u_atlas_scale";
     static constexpr char kCenterPosition[] = "u_center_position";
-    static constexpr char kScale[] = "u_scale";
     static constexpr char kDimensions[] = "u_dimensions";
     static constexpr char kTopLeftColor[] = "u_top_left_color";
     static constexpr char kTopRightColor[] = "u_top_right_color";

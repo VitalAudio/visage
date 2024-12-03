@@ -67,8 +67,10 @@ namespace visage {
 
   ProgramCache::~ProgramCache() {
     for (const auto& programs : cache_->cache) {
-      for (const auto& program : programs.second)
-        bgfx::destroy(program.second);
+      for (const auto& program : programs.second) {
+        if (bgfx::isValid(program.second))
+          bgfx::destroy(program.second);
+      }
     }
   }
 

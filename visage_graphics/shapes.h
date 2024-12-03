@@ -98,7 +98,7 @@ namespace visage {
   };
 
   template<typename T>
-  inline void setCornderCoordinates(T* vertices) {
+  inline void setCornerCoordinates(T* vertices) {
     vertices[0].coordinate_x = -1.0f;
     vertices[0].coordinate_y = -1.0f;
     vertices[1].coordinate_x = 1.0f;
@@ -159,7 +159,7 @@ namespace visage {
         vertices[i].fade = pixel_width;
       }
 
-      setCornderCoordinates(vertices);
+      setCornerCoordinates(vertices);
     }
 
     float thickness = kFullThickness;
@@ -586,7 +586,7 @@ namespace visage {
                   float height, Shader* shader) :
         Shape(shader, clamp, color, x, y, width, height), shader(shader) { }
 
-    static void setVertexData(Vertex* vertices) { setCornderCoordinates(vertices); }
+    static void setVertexData(Vertex* vertices) { setCornerCoordinates(vertices); }
 
     Shader* shader = nullptr;
   };
@@ -602,7 +602,5 @@ namespace visage {
 
     const Region* region = nullptr;
     PostEffect* post_effect = nullptr;
-    float width_scale = 1.0f;
-    float height_scale = 1.0f;
   };
 }

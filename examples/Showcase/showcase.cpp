@@ -71,7 +71,6 @@ void Overlay::draw(visage::Canvas& canvas) {
 
   visage::Bounds body = getBodyBounds();
   float rounding = getBodyRounding();
-
   canvas.setPaletteColor(kOverlayBody);
   canvas.roundedRectangle(body.x(), body.y(), body.width(), body.height(), rounding);
 
@@ -118,7 +117,6 @@ Showcase::Showcase() : color_editor_(palette()), value_editor_(palette()) {
                                                              resources::shaders::fs_overlay);
   overlay_.setPostEffect(overlay_zoom_.get());
   addChild(&overlay_, false);
-  overlay_.setOnTop(true);
   overlay_.onAnimate() = [this](float overlay_amount) {
     static constexpr float kMaxZoom = 0.075f;
     examples_->setShadow(overlay_.getBodyBounds(), overlay_amount, overlay_.getBodyRounding());
@@ -126,7 +124,6 @@ Showcase::Showcase() : color_editor_(palette()), value_editor_(palette()) {
     overlay_zoom_->setUniformValue("u_zoom", kMaxZoom * (1.0f - overlay_amount) + 1.0f);
     overlay_zoom_->setUniformValue("u_alpha", overlay_amount * overlay_amount);
     examples_->redraw();
-    redraw();
   };
 
   debug_info_ = std::make_unique<DebugInfo>();

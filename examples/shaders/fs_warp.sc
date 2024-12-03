@@ -5,7 +5,9 @@ $input v_texture_uv, v_color0
 SAMPLER2D(s_texture, 0);
 
 uniform vec4 u_time;
-uniform vec4 u_center;
+uniform vec4 u_center_position;
+uniform vec4 u_atlas_scale;
+uniform vec4 u_dimensions;
 
 vec3 hsvToRgb(vec3 c) {
   vec4 k = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
@@ -24,8 +26,10 @@ vec4 passthrough(vec2 coordinates) {
 }
 
 vec4 warp(vec2 texture_uv) {
-  texture_uv = texture_uv + 0.01 * sin(u_time.x + texture_uv * 20.0);
-  vec4 color = texture2D(s_texture, texture_uv) * hueRainbow(texture_uv - u_center);
+  vec2 coordinates = ((texture_uv / u_atlas_scale.xy) - u_center_position.xy) / u_dimensions.xy;
+  coordinates = coordinates + 0.01 * sin(u_time.x + coordinates * 20.0);
+  texture_uv = ((coordinates * u_dimensions.xy) + u_center_position.xy) * u_atlas_scale.xy;
+  vec4 color = texture2D(s_texture, texture_uv) * hueRainbow(coordinates);
   return color;
 }
 

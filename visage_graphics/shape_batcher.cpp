@@ -36,9 +36,7 @@ namespace visage {
     case BlendMode::Additive:
       return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ADD;
     case BlendMode::Alpha:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA,
-                                            BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ALPHA;
     case BlendMode::Multiply:
       return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_MULTIPLY;
     }
@@ -308,7 +306,6 @@ namespace visage {
     Color bottom_right_line = Color::fromABGR(line_color.corners[3]);
     bottom_right_line.multRgb(line_color.hdr[3]);
 
-    float scale[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
     float dimensions[4] = { line_wrapper.width, line_wrapper.height, 1.0f, 1.0f };
     float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
 
@@ -317,7 +314,6 @@ namespace visage {
     setLineVertices(line_wrapper, vertex_buffer);
 
     bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
-    setUniform<Uniforms::kScale>(scale);
     setUniform<Uniforms::kDimensions>(dimensions);
     setUniform<Uniforms::kTopLeftColor>(&top_left_line);
     setUniform<Uniforms::kTopRightColor>(&top_right_line);
@@ -362,7 +358,6 @@ namespace visage {
         line->num_fill_vertices)
       return;
 
-    float scale[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
     float dimension_y_scale = line_fill_wrapper.fill_center / line_fill_wrapper.height;
     float dimensions[4] = { line_fill_wrapper.width, line_fill_wrapper.height * dimension_y_scale,
                             1.0f, 1.0f };
@@ -386,7 +381,6 @@ namespace visage {
     setFillVertices(line_fill_wrapper, fill_vertex_buffer);
 
     bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
-    setUniform<Uniforms::kScale>(scale);
     setUniform<Uniforms::kDimensions>(dimensions);
     setUniform<Uniforms::kTopLeftColor>(&top_left_fill);
     setUniform<Uniforms::kTopRightColor>(&top_right_fill);
