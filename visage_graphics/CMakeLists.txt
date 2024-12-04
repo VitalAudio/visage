@@ -22,8 +22,6 @@ if (APPLE)
   set(METAL_LIBS ${METAL_LIBRARY} ${METALKIT_LIBRARY})
 elseif (UNIX)
   add_definitions(-D_LARGEFILE64_SOURCE)
-  find_package(PkgConfig REQUIRED)
-  pkg_check_modules(FONTCONFIG REQUIRED fontconfig)
 endif ()
 
 add_definitions(-DBIMG_DECODE_ENABLE=0)

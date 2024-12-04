@@ -27,7 +27,7 @@ namespace visage {
 
     WindowEmscripten(int width, int height);
 
-    void* getInitWindow() const override { return (void*)"#canvas"; }
+    void* initWindow() const override { return (void*)"#canvas"; }
     void* nativeHandle() const override { return (void*)"#canvas"; }
 
     void runEventLoop() override;
@@ -35,17 +35,17 @@ namespace visage {
     void show() override { }
     void hide() override { }
     void setWindowTitle(const std::string& title) override;
-    Point getMaxWindowDimensions() const override;
-    Point getMinWindowDimensions() const override;
+    Point maxWindowDimensions() const override;
+    Point minWindowDimensions() const override;
     void setMousePosition(int x, int y) {
       mouse_x_ = x;
       mouse_y_ = y;
     }
-    int getMouseX() const { return mouse_x_; }
-    int getMouseY() const { return mouse_x_; }
+    int mouseX() const { return mouse_x_; }
+    int mouseY() const { return mouse_x_; }
     int initialWidth() const { return initial_width_; }
     int initialHeight() const { return initial_height_; }
-    bool getMouseRelativeMode() const override { return false; }
+    bool mouseRelativeMode() const override { return false; }
 
     void handleWindowResize(int window_width, int window_height);
     void runLoopCallback();
