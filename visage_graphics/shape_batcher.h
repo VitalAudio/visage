@@ -206,7 +206,7 @@ namespace visage {
       for (const auto& batch : batches) {
         for (const SampleRegion& sample_layer : *batch.shapes) {
           setBlendMode(state);
-          sample_layer.post_effect->submit(sample_layer, layer, submit_pass);
+          sample_layer.post_effect->submit(sample_layer, layer, submit_pass, batch.x, batch.y);
         }
       }
     }
@@ -247,6 +247,21 @@ namespace visage {
     const void* id() const { return id_; }
     void setBlendMode(BlendMode blend_mode) { blend_mode_ = blend_mode; }
     BlendMode blendMode() const { return blend_mode_; }
+
+    int compare(const void* other_id, BlendMode other_blend_mode) const {
+      if (id_ < other_id)
+        return -1;
+      if (id_ > other_id)
+        return 1;
+      if (blend_mode_ < other_blend_mode)
+        return -1;
+      if (blend_mode_ > other_blend_mode)
+        return 1;
+      return 0;
+    }
+
+    int compare(const SubmitBatch* other) const { return compare(other->id_, other->blend_mode_); }
+
     void clearAreas() { areas_.clear(); }
     void addShapeArea(const BaseShape& shape) {
       VISAGE_ASSERT(id_ == nullptr || id_ == shape.batch_id);

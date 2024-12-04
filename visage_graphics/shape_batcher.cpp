@@ -33,12 +33,27 @@ namespace visage {
     case BlendMode::Opaque:
       return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
              BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ZERO);
-    case BlendMode::Additive:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ADD;
     case BlendMode::Alpha:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ALPHA;
-    case BlendMode::Multiply:
+      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+             BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA,
+                                            BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+    case BlendMode::Add:
+      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
+    case BlendMode::Sub:
+      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE) |
+             BGFX_STATE_BLEND_EQUATION_SEPARATE(BGFX_STATE_BLEND_EQUATION_REVSUB,
+                                                BGFX_STATE_BLEND_EQUATION_ADD);
+    case BlendMode::Mult:
       return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_MULTIPLY;
+    case BlendMode::StencilAdd:
+      return BGFX_STATE_WRITE_A |
+             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+    case BlendMode::StencilRemove:
+      return BGFX_STATE_WRITE_A |
+             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE) |
+             BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_REVSUB);
     }
 
     VISAGE_ASSERT(false);
@@ -570,7 +585,6 @@ namespace visage {
 
     VISAGE_ASSERT(vertex_index == total_length * kVerticesPerQuad);
 
-    setBlendMode(BlendMode::Alpha);
     float atlas_scale_uniform[] = { 1.0f / font.atlasWidth(), 1.0f / font.atlasWidth(), 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale_uniform);
     setTexture<Uniforms::kTexture>(0, font.textureHandle());

@@ -281,7 +281,7 @@ namespace visage {
         setBlendMode(BlendMode::Opaque);
       }
       else
-        setBlendMode(BlendMode::Additive);
+        setBlendMode(BlendMode::Add);
 
       setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[i]));
       setPostEffectUniform<Uniforms::kResampleValues>(dest_width * 0.5f / widths_[i],
@@ -303,18 +303,19 @@ namespace visage {
     return submit_pass;
   }
 
-  void BlurBloomPostEffect::submit(const SampleRegion& source, Layer& destination, int submit_pass) {
-    submitPassthrough(source, destination, submit_pass);
-    submitBloom(source, destination, submit_pass);
+  void BlurBloomPostEffect::submit(const SampleRegion& source, Layer& destination, int submit_pass,
+                                   int x, int y) {
+    submitPassthrough(source, destination, submit_pass, x, y);
+    submitBloom(source, destination, submit_pass, x, y);
   }
 
   void BlurBloomPostEffect::submitPassthrough(const SampleRegion& source, const Layer& destination,
-                                              int submit_pass) const {
+                                              int submit_pass, int x, int y) const {
     auto vertices = initQuadVertices<PostEffectVertex>(1);
     if (vertices == nullptr)
       return;
 
-    setQuadPositions(vertices, source, source.clamp);
+    setQuadPositions(vertices, source, source.clamp.withOffset(x, y), x, y);
     Point position = source.region->layer()->coordinatesForRegion(source.region);
     vertices[0].texture_x = position.x;
     vertices[0].texture_y = position.y;
@@ -341,12 +342,12 @@ namespace visage {
   }
 
   void BlurBloomPostEffect::submitBloom(const SampleRegion& source, const Layer& destination,
-                                        int submit_pass) const {
+                                        int submit_pass, int x, int y) const {
     auto vertices = initQuadVertices<PostEffectVertex>(1);
     if (vertices == nullptr)
       return;
 
-    setQuadPositions(vertices, source, source.clamp);
+    setQuadPositions(vertices, source, source.clamp.withOffset(x, y), x, y);
     vertices[0].texture_x = 0.0f;
     vertices[0].texture_y = 0.0f;
     vertices[1].texture_x = widths_[0];
@@ -366,7 +367,7 @@ namespace visage {
       setBlendMode(BlendMode::Opaque);
     }
     else
-      setBlendMode(BlendMode::Additive);
+      setBlendMode(BlendMode::Add);
 
     float width_scale = 1.0f / widths_[0];
     float height_scale = 1.0f / heights_[0];
@@ -378,7 +379,8 @@ namespace visage {
                                                                   visage::shaders::fs_tinted_texture));
   }
 
-  void ShaderPostEffect::submit(const SampleRegion& source, Layer& destination, int submit_pass) {
+  void ShaderPostEffect::submit(const SampleRegion& source, Layer& destination, int submit_pass,
+                                int x, int y) {
     auto vertices = initQuadVertices<PostEffectVertex>(1);
     if (vertices == nullptr)
       return;
@@ -386,7 +388,7 @@ namespace visage {
     float hdr_range = source.region->layer()->hdr() ? visage::kHdrColorRange : 1.0f;
     setPostEffectUniform<Uniforms::kColorMult>(hdr_range, hdr_range, hdr_range, 1.0f);
 
-    setQuadPositions(vertices, source, source.clamp);
+    setQuadPositions(vertices, source, source.clamp.withOffset(x, y), x, y);
     source.setVertexData(vertices);
 
     Layer* source_layer = source.region->layer();

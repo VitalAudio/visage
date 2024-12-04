@@ -105,19 +105,24 @@ namespace visage {
     }
   }
 
-  static const void* nextBatchId(const std::vector<RegionPosition>& positions, const void* current_batch_id) {
-    const void* next_batch_id = positions[0].currentBatch()->id();
+  static const SubmitBatch* nextBatch(const std::vector<RegionPosition>& positions,
+                                      const void* current_batch_id, BlendMode current_blend_mode) {
+    const SubmitBatch* next_batch = positions[0].currentBatch();
     for (auto& position : positions) {
-      const void* batch_id = position.currentBatch()->id();
-      if (batch_id < next_batch_id) {
-        if (batch_id > current_batch_id || next_batch_id < current_batch_id)
-          next_batch_id = batch_id;
+      const SubmitBatch* batch = position.currentBatch();
+      if (next_batch->compare(batch) > 0) {
+        if (batch->compare(current_batch_id, current_blend_mode) > 0 ||
+            next_batch->compare(current_batch_id, current_blend_mode) < 0) {
+          next_batch = position.currentBatch();
+        }
       }
-      else if (next_batch_id < current_batch_id && batch_id > current_batch_id)
-        next_batch_id = batch_id;
+      else if (next_batch->compare(current_batch_id, current_blend_mode) < 0 &&
+               batch->compare(current_batch_id, current_blend_mode) > 0) {
+        next_batch = position.currentBatch();
+      }
     }
 
-    return next_batch_id;
+    return next_batch;
   }
 
   Layer::Layer() {
@@ -253,14 +258,15 @@ namespace visage {
     invalid_rects_.clear();
 
     const void* current_batch_id = nullptr;
+    BlendMode current_blend_mode = BlendMode::Opaque;
     std::vector<PositionedBatch> batches;
     std::vector<RegionPosition> done_regions;
 
     while (!region_positions.empty()) {
-      const void* next_batch_id = nextBatchId(region_positions, current_batch_id);
+      const SubmitBatch* next_batch = nextBatch(region_positions, current_batch_id, current_blend_mode);
       for (auto& region_position : region_positions) {
         SubmitBatch* batch = region_position.currentBatch();
-        if (batch->id() != next_batch_id)
+        if (batch->id() != next_batch->id() || batch->blendMode() != next_batch->blendMode())
           continue;
 
         batches.push_back({ batch, &region_position.invalid_rects, region_position.x,
@@ -284,7 +290,8 @@ namespace visage {
         checkOverlappingRegions(region_positions, overlapping_regions);
 
       done_regions.clear();
-      current_batch_id = next_batch_id;
+      current_batch_id = next_batch->id();
+      current_blend_mode = next_batch->blendMode();
     }
 
     submit_pass = submit_pass + 1;
@@ -355,8 +362,8 @@ namespace visage {
     if (intermediate_region_) {
       intermediate_region_->setBounds(x_, y_, width_, height_);
       intermediate_region_->clearAll();
-      SampleRegion sample_layer({ x_ * 1.0f, y_ * 1.0f, x_ + width_ * 1.0f, y_ + height_ * 1.0f },
-                                0xffffffff, x_, y_, width_, height_, this, post_effect_);
+      SampleRegion sample_layer({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, 0xffffffff, 0, 0,
+                                width_, height_, this, post_effect_);
       intermediate_region_->shape_batcher_.addShape(sample_layer);
       canvas_->changePackedLayer(this, layer_index_, layer_index_);
     }

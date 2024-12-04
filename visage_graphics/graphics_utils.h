@@ -38,8 +38,11 @@ namespace visage {
   enum class BlendMode {
     Opaque,
     Alpha,
-    Additive,
-    Multiply
+    Add,
+    Sub,
+    Mult,
+    StencilAdd,
+    StencilRemove,
   };
 
   static constexpr float kHdrColorRange = 4.0f;

@@ -250,7 +250,7 @@ namespace visage {
 
     on_draw_.callback(canvas);
     if (alpha_transparency_ != 1.0f) {
-      canvas.setBlendMode(BlendMode::Multiply);
+      canvas.setBlendMode(BlendMode::Mult);
       canvas.setColor(Color(0xffffffff).withAlpha(alpha_transparency_));
       canvas.fill(0, 0, width(), height());
     }
