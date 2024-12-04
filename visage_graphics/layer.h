@@ -50,7 +50,7 @@ namespace visage {
 
     template<typename V>
     void setTexturePositionsForRegion(const Region* region, V* vertices) const {
-      atlas_.setTexturePositionsForId(region, vertices);
+      atlas_.setTexturePositionsForId(region, vertices, bottom_left_origin_);
     }
 
     void invalidate() {

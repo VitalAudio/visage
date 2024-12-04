@@ -27,8 +27,7 @@ namespace visage {
 
     virtual ~PostEffect() = default;
     virtual int preprocess(Region* region, int submit_pass) { return submit_pass; }
-    virtual void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x = 0,
-                        int y = 0) { }
+    virtual void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y) { }
     bool hdr() const { return hdr_; }
 
   private:
@@ -46,7 +45,7 @@ namespace visage {
 
     void setInitialVertices(Region* region);
     int preprocess(Region* region, int submit_pass) override;
-    void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x = 0, int y = 0) override;
+    void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y) override;
     void submitPassthrough(const SampleRegion& source, const Layer& destination, int submit_pass,
                            int x, int y) const;
     void submitBloom(const SampleRegion& source, const Layer& destination, int submit_pass, int x,
@@ -70,9 +69,7 @@ namespace visage {
     int widths_[kMaxDownsamples] {};
     int heights_[kMaxDownsamples] {};
 
-    float float_cutoff_ = 0.0f;
-    int cutoff_ = 0.0f;
-    int cutoff_index_ = 0;
+    int cutoff_ = 0;
 
     UvVertex screen_vertices_[4] {};
     std::unique_ptr<BlurBloomHandles> handles_;
@@ -89,7 +86,7 @@ namespace visage {
     ShaderPostEffect(const EmbeddedFile& vertex_shader, const EmbeddedFile& fragment_shader) :
         vertex_shader_(vertex_shader), fragment_shader_(fragment_shader) { }
 
-    void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x = 0, int y = 0) override;
+    void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y) override;
 
     BlendMode state() const { return state_; }
     void setState(BlendMode state) { state_ = state; }

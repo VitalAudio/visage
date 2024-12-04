@@ -167,6 +167,9 @@ namespace visage {
     uv_data[3].u = right;
     uv_data[3].v = bottom;
 
+    for (int i = 0; i < kVerticesPerQuad; ++i)
+      uv_data[i].v = 1.0f - uv_data[i].v;
+
     bgfx::setVertexBuffer(0, &first_sample_buffer);
   }
 
@@ -181,19 +184,10 @@ namespace visage {
     int downsample_index = stages;
 
     bgfx::FrameBufferHandle source = region->layer()->frameBuffer();
-    int last_width = full_width_;
-    int last_height = full_height_;
-
-    float_cutoff_ = downsample_index * blur_amount_;
-    cutoff_ = float_cutoff_;
-    cutoff_index_ = std::min<int>(downsample_index - 1, cutoff_);
+    cutoff_ = downsample_index * blur_amount_;
     for (int i = 0; i < downsample_index; ++i) {
       int downsample_width = widths_[i];
       int downsample_height = heights_[i];
-      float x_downsample_scale = downsample_width * 2.0f / last_width;
-      float y_downsample_scale = downsample_height * 2.0f / last_height;
-      last_width = downsample_width;
-      last_height = downsample_height;
 
       float downsample_values[] = { 1.0f, 1.0f, 0.0f, 0.0f };
 
@@ -316,15 +310,7 @@ namespace visage {
       return;
 
     setQuadPositions(vertices, source, source.clamp.withOffset(x, y), x, y);
-    Point position = source.region->layer()->coordinatesForRegion(source.region);
-    vertices[0].texture_x = position.x;
-    vertices[0].texture_y = position.y;
-    vertices[1].texture_x = position.x + source.region->width();
-    vertices[1].texture_y = position.y;
-    vertices[2].texture_x = position.x;
-    vertices[2].texture_y = position.y + source.region->height();
-    vertices[3].texture_x = position.x + source.region->width();
-    vertices[3].texture_y = position.y + source.region->height();
+    source.region->layer()->setTexturePositionsForRegion(source.region, vertices);
 
     float hdr_range = hdr() ? visage::kHdrColorRange : 1.0f;
     float passthrough_mult = std::max(0.0f, 1.0f - cutoff_) * hdr_range;
@@ -357,9 +343,13 @@ namespace visage {
     vertices[3].texture_x = widths_[0];
     vertices[3].texture_y = heights_[0];
 
+    if (destination.bottomLeftOrigin()) {
+      for (int i = 0; i < kVerticesPerQuad; ++i)
+        vertices[i].texture_y = heights_[0] - vertices[i].texture_y;
+    }
+
     float hdr_range = hdr() ? visage::kHdrColorRange : 1.0f;
     float mult_amount = 1.0f;
-    float cutoff_transition = float_cutoff_ - cutoff_index_;
 
     if (cutoff_) {
       if (cutoff_ == 1)
@@ -401,8 +391,8 @@ namespace visage {
     float center_x = (vertices[0].texture_x + vertices[3].texture_x) * 0.5f;
     float center_y = (vertices[0].texture_y + vertices[3].texture_y) * 0.5f;
     setPostEffectUniform<Uniforms::kCenterPosition>(center_x, center_y);
-    float width = vertices[3].texture_x - vertices[0].texture_x;
-    float height = vertices[3].texture_y - vertices[0].texture_y;
+    float width = std::abs(vertices[3].texture_x - vertices[0].texture_x);
+    float height = std::abs(vertices[3].texture_y - vertices[0].texture_y);
     setPostEffectUniform<Uniforms::kDimensions>(width, height);
 
     bgfx::TextureHandle texture = bgfx::getTexture(source_layer->frameBuffer());

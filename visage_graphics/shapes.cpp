@@ -17,6 +17,8 @@
 #include "shapes.h"
 
 #include "embedded/shaders.h"
+#include "layer.h"
+#include "region.h"
 
 #define VISAGE_SET_PROGRAM(shape, vertex, fragment) \
   const EmbeddedFile& shape::vertexShader() {       \

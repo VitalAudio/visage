@@ -128,7 +128,7 @@ namespace visage {
     }
 
     template<typename V>
-    void setTexturePositionsForIndex(int rect_index, V* vertices) const {
+    void setTexturePositionsForIndex(int rect_index, V* vertices, bool bottom_left_origin = false) const {
       const PackedRect& packed_rect = rectAtIndex(rect_index);
 
       vertices[0].texture_x = packed_rect.x;
@@ -139,6 +139,11 @@ namespace visage {
       vertices[2].texture_y = packed_rect.y + packed_rect.h;
       vertices[3].texture_x = packed_rect.x + packed_rect.w;
       vertices[3].texture_y = packed_rect.y + packed_rect.h;
+
+      if (bottom_left_origin) {
+        for (int i = 0; i < kVerticesPerQuad; ++i)
+          vertices[i].texture_y = width_ - vertices[i].texture_y;
+      }
     }
 
     const PackedRect& rectForId(T id) const {
@@ -147,9 +152,9 @@ namespace visage {
     }
 
     template<typename V>
-    void setTexturePositionsForId(T id, V* vertices) const {
+    void setTexturePositionsForId(T id, V* vertices, bool bottom_left_origin = false) const {
       VISAGE_ASSERT(lookup_.count(id) > 0);
-      setTexturePositionsForIndex(lookup_.at(id), vertices);
+      setTexturePositionsForIndex(lookup_.at(id), vertices, bottom_left_origin);
     }
 
     int width() const { return width_; }
@@ -171,7 +176,6 @@ namespace visage {
     }
 
     int width_ = 0;
-    int padding_ = 0;
     std::vector<PackedRect> packed_rects_;
     AtlasPacker packer_;
     std::map<T, int> lookup_;
