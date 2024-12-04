@@ -36,4 +36,4 @@ jobs:
           export AWS_ACCESS_KEY_ID=${{ secrets.R2_KEY_ID }}
           export AWS_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET }}
           export AWS_DEFAULT_REGION=auto
-          aws --endpoint-url ${{ secrets.R2_ENDPOINT }} s3 cp --recursive cmake_package/* s3://visage/examples/
+          aws --endpoint-url ${{ secrets.R2_ENDPOINT }} s3 cp cmake_package/ s3://visage/examples/ --recursive
