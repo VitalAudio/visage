@@ -24,9 +24,7 @@ jobs:
           emmake make -j$(nproc)
           cd ..
           mkdir cmake_package
-          cp cmake_build/plugin_framework/va_standalone/*.html cmake_package
-          cp cmake_build/plugin_framework/va_standalone/*.js cmake_package
-          cp cmake_build/plugin_framework/va_standalone/*.wasm cmake_package
+          cp -r cmake_build/examples/builds/* cmake_package
 
       - uses: actions/upload-artifact@v4
         with:
@@ -39,6 +37,4 @@ jobs:
           export AWS_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET }}
           export AWS_DEFAULT_REGION=auto
           PRODUCT_VERSION=$(cat ./cmake_build/version.txt)
-          aws --endpoint-url ${{ secrets.R2_ENDPOINT }} s3 cp cmake_package/*.html s3://vitalpublic/$GITHUB_REPOSITORY/$PRODUCT_VERSION/
-          aws --endpoint-url ${{ secrets.R2_ENDPOINT }} s3 cp cmake_package/*.wasm s3://vitalpublic/$GITHUB_REPOSITORY/$PRODUCT_VERSION/
-          aws --endpoint-url ${{ secrets.R2_ENDPOINT }} s3 cp cmake_package/*.js s3://vitalpublic/$GITHUB_REPOSITORY/$PRODUCT_VERSION/
+          aws --endpoint-url ${{ secrets.R2_ENDPOINT }} s3 cp --recursive cmake_package/* s3://visage/examples/
