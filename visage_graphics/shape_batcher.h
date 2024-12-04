@@ -216,8 +216,6 @@ namespace visage {
     }
   }
 
-  struct FrameBufferData;
-
   class SubmitBatch;
 
   struct PositionedBatch {
