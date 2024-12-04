@@ -68,7 +68,7 @@ namespace visage {
     return EM_ASM_DOUBLE({ return window.devicePixelRatio; });
   }
 
-  std::unique_ptr<Window> createWindow(int x, int y, int width, int height) {
+  std::unique_ptr<Window> createWindow(int x, int y, int width, int height, bool popup) {
     return std::make_unique<WindowEmscripten>(width, height);
   }
 
