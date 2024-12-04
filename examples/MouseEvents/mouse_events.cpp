@@ -22,7 +22,8 @@ class ExampleEditor : public visage::WindowedEditor {
 public:
   void draw(visage::Canvas& canvas) override {
     static constexpr float kRadius = 50.0f;
-    canvas.clearArea(0, 0, width(), height());
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, width(), height());
     if (down_)
       canvas.setColor(0xff00ffff);
     else

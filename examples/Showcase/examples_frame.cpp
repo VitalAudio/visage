@@ -511,13 +511,9 @@ void ExamplesFrame::draw(visage::Canvas& canvas) {
   int icon_width = std::min(w / 4, text_editor_->height());
   int icon_x = x_division + right_width / 2 + right_width / 4 - icon_width / 2;
   int icon_y = text_editor_->y();
-  int blur_radius = icon_width / 16;
 
   canvas.setPaletteColor(kLogoBackgroundColor);
   canvas.circle(icon_x, icon_y, icon_width);
-  canvas.setPaletteColor(kShadowColor);
-  canvas.icon(resources::icons::vital_ring_svg, icon_x, icon_y, icon_width, icon_width, blur_radius);
-  canvas.icon(resources::icons::vital_v_svg, icon_x, icon_y, icon_width, icon_width, blur_radius);
   canvas.setPaletteColor(kLogoColor1);
   canvas.icon(resources::icons::vital_ring_svg, icon_x, icon_y, icon_width, icon_width);
   canvas.setPaletteColor(kLogoColor2);
