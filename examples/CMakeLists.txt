@@ -45,6 +45,7 @@ foreach (EXAMPLE ${EXAMPLES})
 
       set_target_properties(Example${EXAMPLE} PROPERTIES
         SUFFIX ".html"
+        OUTPUT_NAME "index"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/builds/${EXAMPLE}"
       )
     endif ()
