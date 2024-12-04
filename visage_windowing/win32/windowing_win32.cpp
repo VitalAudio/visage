@@ -30,8 +30,6 @@
 #include <ShlObj.h>
 #include <string>
 #include <windowsx.h>
-#pragma comment(lib, "Shell32.lib")
-#pragma comment(lib, "dxgi.lib")
 
 #define WM_VBLANK (WM_USER + 1)
 

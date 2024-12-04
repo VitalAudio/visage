@@ -434,7 +434,7 @@ namespace visage {
 
   int Canvas::submit(int submit_pass) {
     int submission = submit_pass;
-    for (auto& layer = layers_.rbegin(); layer != layers_.rend(); ++layer)
+    for (auto layer = layers_.rbegin(); layer != layers_.rend(); ++layer)
       submission = (*layer)->submit(submission);
 
     if (submission > submit_pass)

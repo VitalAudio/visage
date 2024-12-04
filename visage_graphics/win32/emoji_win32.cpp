@@ -15,17 +15,12 @@
  */
 
 #include "emoji.h"
-
 #include "visage_utils/string_utils.h"
 
 #include <d2d1.h>
 #include <dwrite.h>
 #include <wincodec.h>
 #include <wrl/client.h>
-
-#pragma comment(lib, "Windowscodecs.lib")
-#pragma comment(lib, "d2d1.lib")
-#pragma comment(lib, "dwrite.lib")
 
 using Microsoft::WRL::ComPtr;
 
@@ -104,7 +99,8 @@ namespace visage {
         return;
 
       render_target->DrawTextLayout(D2D1::Point2F(0, 0), text_layout.Get(), brush,
-                                    D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT | D2D1_DRAW_TEXT_OPTIONS_CLIP);
+                                    (D2D1_DRAW_TEXT_OPTIONS)(D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT |
+                                                             D2D1_DRAW_TEXT_OPTIONS_CLIP));
       hr = render_target->EndDraw();
       if (FAILED(hr))
         return;
