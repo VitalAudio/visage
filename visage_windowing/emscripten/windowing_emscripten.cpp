@@ -116,7 +116,9 @@ namespace visage {
   WindowEmscripten::WindowEmscripten(int width, int height) :
       Window(width, height), initial_width_(width), initial_height_(height) {
     WindowEmscripten::running_instance_ = this;
-    setPixelScale(windowPixelScale());
+    float scale = windowPixelScale();
+    setDpiScale(scale);
+    setPixelScale(scale);
     start_microseconds_ = time::microseconds();
   }
 
@@ -509,15 +511,8 @@ namespace visage {
 
     int new_width = event->windowInnerWidth * (1.0f - kWindowPadding);
     int new_height = event->windowInnerHeight * (1.0f - kWindowPadding);
-
-    std::string print1 = std::to_string(new_width);
-    emscripten_log(EM_LOG_CONSOLE, print1.c_str());
-
     new_width = std::min<int>(window->initialWidth() / window->pixelScale(), new_width);
     new_height = std::min<int>(window->initialHeight() / window->pixelScale(), new_height);
-
-    std::string print2 = std::to_string(window->initialWidth());
-    emscripten_log(EM_LOG_CONSOLE, print2.c_str());
 
     window->handleWindowResize(new_width, new_height);
     return true;
@@ -537,10 +532,10 @@ namespace visage {
 
     emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, resizeCallback);
 
-    setPixelScale(windowPixelScale());
+    float scale = windowPixelScale();
+    setDpiScale(scale);
+    setPixelScale(scale);
     emscripten_set_element_css_size("canvas", clientWidth() / pixelScale(), clientHeight() / pixelScale());
-    VISAGE_LOG(clientWidth());
-    VISAGE_LOG(clientHeight());
     emscripten_set_canvas_element_size("canvas", clientWidth(), clientHeight());
     emscripten_set_main_loop(runLoop, 0, 1);
   }

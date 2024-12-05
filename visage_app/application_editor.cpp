@@ -104,7 +104,6 @@ namespace visage {
 
     drawStaleChildren();
     canvas_->submit();
-    canvas_->render();
   }
 
   void ApplicationEditor::drawStaleChildren() {

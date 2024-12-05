@@ -220,11 +220,10 @@ namespace visage {
   }
 
   int Layer::submit(int submit_pass) {
-    if (invalid_rects_.empty())
+    if (!anyInvalidRects())
       return submit_pass;
 
     checkFrameBuffer();
-
     bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
     bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
     if (bgfx::isValid(frame_buffer_data_->handle))

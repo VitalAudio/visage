@@ -48,7 +48,6 @@ namespace visage {
 
     void clearDrawnShapes();
     int submit(int submit_pass = 0);
-    void render();
 
     void ensureLayerExists(int layer);
     Layer* layer(int index) {

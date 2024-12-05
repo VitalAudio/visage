@@ -61,6 +61,16 @@ namespace visage {
     void invalidateRect(Bounds rect);
     void invalidateRectInRegion(Bounds rect, Region* region);
 
+    bool anyInvalidRects() {
+      if (!invalid_rects_.empty())
+        return true;
+      for (auto& invalid_rects : prev_invalid_rects_) {
+        if (!invalid_rects.empty())
+          return true;
+      }
+      return false;
+    }
+
     void setDimensions(int width, int height) {
       if (width == width_ && height == height_)
         return;

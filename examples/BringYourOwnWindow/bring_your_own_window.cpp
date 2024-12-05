@@ -29,7 +29,7 @@ int runExample() {
   canvas.setColor(0xffaa99ff);
   canvas.ring(50, 50, window->clientWidth() - 100.0f, window->clientWidth() * 0.1f);
   canvas.submit();
-  canvas.render();
+  window->setDrawCallback([&](double time) { canvas.submit(); });
 
   window->show();
   window->runEventLoop();

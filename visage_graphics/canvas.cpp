@@ -53,14 +53,13 @@ namespace visage {
     if (submission > submit_pass)
       render_frame_++;
 
+    if (submission > submit_pass) {
+      bgfx::frame();
+      FontCache::clearStaleFonts();
+    }
     return submission;
   }
-
-  void Canvas::render() {
-    bgfx::frame();
-    FontCache::clearStaleFonts();
-  }
-
+  
   void Canvas::ensureLayerExists(int layer) {
     while (layer >= layers_.size()) {
       intermediate_layers_.push_back(std::make_unique<Layer>());
