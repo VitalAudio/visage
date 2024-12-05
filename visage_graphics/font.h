@@ -46,6 +46,8 @@ namespace visage {
 
   class Font {
   public:
+    static constexpr PackedGlyph kNullPackedGlyph = { 0, 0, 0, 0, 0.0f, 0.0f, 0.0f };
+    
     enum Justification {
       kCenter = 0,
       kLeft = 0x1,
