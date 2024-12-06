@@ -390,7 +390,7 @@ namespace visage {
       canvas.text(group.first, font, Font::kCenter, 0, y, id_width, kValueIdHeight);
       index++;
 
-      canvas.setClampBounds(0, yPosition(), 2 * w / 3 - kValueIdHeight / 4, h);
+      canvas.setClampBounds(0, yPosition(), std::max(0, 2 * w / 3 - kValueIdHeight / 4), h);
       if (isExpanded(group.first)) {
         for (int color_id : group.second) {
           y = kValueIdHeight * index;

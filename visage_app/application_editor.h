@@ -18,6 +18,8 @@
 
 #include "visage_ui/frame.h"
 
+#include <set>
+
 namespace visage {
   class ApplicationEditor;
   class Canvas;

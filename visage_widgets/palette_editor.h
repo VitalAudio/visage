@@ -22,6 +22,8 @@
 #include "visage_ui/frame.h"
 #include "visage_ui/scroll_bar.h"
 
+#include <set>
+
 namespace visage {
   class PaletteColorEditor : public ScrollableFrame {
   public:

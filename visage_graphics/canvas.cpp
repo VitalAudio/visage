@@ -40,9 +40,6 @@ namespace visage {
     composite_layer_.setDimensions(width, height);
     default_region_.setBounds(0, 0, width, height);
     setClampBounds(0, 0, width, height);
-
-    if (icon_group_)
-      icon_group_->clear();
   }
 
   int Canvas::submit(int submit_pass) {
@@ -59,7 +56,7 @@ namespace visage {
     }
     return submission;
   }
-  
+
   void Canvas::ensureLayerExists(int layer) {
     while (layer >= layers_.size()) {
       intermediate_layers_.push_back(std::make_unique<Layer>());

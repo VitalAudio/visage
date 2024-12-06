@@ -271,8 +271,6 @@ namespace visage {
     float dimension_y;
     float texture_x;
     float texture_y;
-    float uv_x;
-    float uv_y;
     float clamp_left;
     float clamp_top;
     float clamp_right;

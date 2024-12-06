@@ -128,57 +128,53 @@ namespace visage {
   }
 
   void IconGroup::setNewSize() {
+    for (auto count = icon_count_.begin(); count != icon_count_.end();) {
+      if (count->second == 0) {
+        atlas_.removeRect(count->first);
+        count = icon_count_.erase(count);
+      }
+      else
+        ++count;
+    }
+
     atlas_.pack();
     texture_ = std::make_unique<IconGroupTexture>(atlas_.width());
-    for (int i = 0; i < icons_.size(); ++i)
-      drawIcon(i);
+    for (auto& icon : icon_count_)
+      drawIcon(icon.first);
   }
 
   IconGroup::~IconGroup() = default;
 
-  bool IconGroup::addIcon(const Icon& icon) {
-    int index = icons_.size();
-    icons_.push_back(icon);
-    icon_lookup_[icon] = index;
-    return atlas_.addRect(index, icon.width + icon.blur_radius * 2, icon.height + icon.blur_radius * 2);
+  bool IconGroup::packIcon(const Icon& icon) {
+    return atlas_.addRect(icon, icon.width + icon.blur_radius * 2, icon.height + icon.blur_radius * 2);
   }
 
-  void IconGroup::addIcons(const std::set<Icon>& icons) {
-    std::set<Icon> filtered;
-    for (const Icon& icon : icons) {
-      if (icon_lookup_.count(icon) == 0)
-        filtered.insert(icon);
-    }
+  void IconGroup::decrementIcon(const Icon& icon) {
+    icon_count_[icon]--;
+    VISAGE_ASSERT(icon_count_[icon] >= 0);
+  }
 
-    if (filtered.empty())
+  void IconGroup::incrementIcon(const Icon& icon) {
+    bool added = icon_count_.count(icon);
+    icon_count_[icon]++;
+    if (added)
       return;
 
-    int start_draw_index = icons_.size();
-    bool pack_succeeded = atlas_.packed();
-    for (const Icon& icon : filtered) {
-      bool packed = addIcon(icon);
-      pack_succeeded = pack_succeeded && packed;
-    }
-
-    if (!pack_succeeded) {
+    if (!packIcon(icon))
       setNewSize();
-      start_draw_index = 0;
-    }
-
-    for (int i = start_draw_index; i < icons_.size(); ++i)
-      drawIcon(i);
+    else
+      drawIcon(icon);
 
     texture_->destroyHandle();
   }
 
-  void IconGroup::drawIcon(int index) {
-    Icon& icon = icons_[index];
+  void IconGroup::drawIcon(const Icon& icon) {
     if (icon.width == 0)
       return;
 
     std::unique_ptr<unsigned int[]> data = Rasterizer::instance().rasterize(icon);
 
-    PackedRect packed_rect = atlas_.rectAtIndex(index);
+    PackedRect packed_rect = atlas_.rectForId(icon);
     int atlas_offset = packed_rect.x + packed_rect.y * atlas_.width();
     unsigned int* texture_ref = texture_->data() + atlas_offset;
     for (int y = 0; y < icon.height; ++y) {
@@ -221,11 +217,8 @@ namespace visage {
   }
 
   void IconGroup::setIconCoordinates(TextureVertex* vertices, const Icon& icon) const {
-    int index = iconIndex(icon);
-    if (index < 0)
-      return;
-
-    atlas_.setTexturePositionsForIndex(index, vertices);
+    VISAGE_ASSERT(icon_count_.count(icon) && icon_count_.at(icon) > 0);
+    atlas_.setTexturePositionsForId(icon, vertices);
 
     for (int i = 0; i < 4; ++i) {
       vertices[i].direction_x = 1.0f;

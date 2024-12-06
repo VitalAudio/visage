@@ -424,13 +424,29 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     IconWrapper(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-                float height, const Icon& icon, IconGroup const* icon_group) :
-        Shape(icon_group, clamp, color, x, y, width, height), icon(icon), icon_group(icon_group) { }
+                float height, const Icon& icon, IconGroup* icon_group) :
+        Shape(icon_group, clamp, color, x, y, width, height), icon(icon), icon_group(icon_group) {
+      icon_group->incrementIcon(icon);
+    }
+
+    ~IconWrapper() {
+      if (icon_group)
+        icon_group->decrementIcon(icon);
+    }
+
+    IconWrapper(const IconWrapper&) = delete;
+    IconWrapper& operator=(const IconWrapper&) = delete;
+    IconWrapper& operator=(IconWrapper&& other) = delete;
+    IconWrapper(IconWrapper&& other) noexcept : Shape(std::move(other)) {
+      icon = std::move(other.icon);
+      icon_group = other.icon_group;
+      other.icon_group = nullptr;
+    }
 
     void setVertexData(Vertex* vertices) const { icon_group->setIconCoordinates(vertices, icon); }
 
     Icon icon;
-    IconGroup const* icon_group = nullptr;
+    IconGroup* icon_group = nullptr;
   };
 
   struct LineWrapper : Shape<> {

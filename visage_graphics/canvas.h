@@ -336,7 +336,6 @@ namespace visage {
     }
 
     void icon(const Icon& icon, float x, float y) {
-      iconGroup()->addIcons({ icon });
       addShape(IconWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y,
                            icon.width + 2.0f * icon.blur_radius,
                            icon.height + 2.0f * icon.blur_radius, icon, iconGroup()));

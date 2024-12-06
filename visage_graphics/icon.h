@@ -19,7 +19,6 @@
 #include "graphics_utils.h"
 
 #include <map>
-#include <set>
 
 namespace visage {
   struct Icon {
@@ -58,31 +57,24 @@ namespace visage {
     virtual ~IconGroup();
 
     void clear() {
-      icons_.clear();
-      icon_lookup_.clear();
+      icon_count_.clear();
       atlas_.clear();
     }
 
-    void setNewSize();
-    void addIcons(const std::set<Icon>& icon);
-    void drawIcon(int index);
-    void blurIcon(unsigned int* location, int width, int blur_radius) const;
+    void incrementIcon(const Icon& icon);
+    void decrementIcon(const Icon& icon);
     int atlasWidth() const { return atlas_.width(); }
     const bgfx::TextureHandle& textureHandle() const;
-
-    int iconIndex(const Icon& icon) const {
-      if (icon_lookup_.count(icon))
-        return icon_lookup_.at(icon);
-      return -1;
-    }
     void setIconCoordinates(TextureVertex* vertices, const Icon& icon) const;
 
   private:
-    bool addIcon(const Icon& icon);
+    void setNewSize();
+    bool packIcon(const Icon& icon);
+    void drawIcon(const Icon& icon);
+    void blurIcon(unsigned int* location, int width, int blur_radius) const;
 
-    PackedAtlas<> atlas_;
-    std::map<Icon, int> icon_lookup_;
-    std::vector<Icon> icons_;
+    PackedAtlas<Icon> atlas_;
+    std::map<Icon, int> icon_count_;
     std::unique_ptr<IconGroupTexture> texture_;
   };
 }
