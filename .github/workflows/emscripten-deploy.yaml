@@ -1,5 +1,8 @@
 name: Emscripten Deploy
-on: [workflow_dispatch]
+on:
+  push:
+    branches:
+      - main
 jobs:
   Deploy-Emscripten:
     runs-on: ubuntu-latest
