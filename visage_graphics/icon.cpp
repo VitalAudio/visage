@@ -18,6 +18,7 @@
 
 #include "graphics_libs.h"
 
+#include <bimg/bimg.h>
 #include <cstring>
 #include <nanosvg/src/nanosvg.h>
 #include <nanosvg/src/nanosvgrast.h>
@@ -65,38 +66,48 @@ namespace visage {
 
     ~Rasterizer() { nsvgDeleteRasterizer(rasterizer_); }
 
-    std::unique_ptr<unsigned int[]> rasterize(const Icon& icon) const {
-      std::unique_ptr<char[]> copy = std::make_unique<char[]>(icon.svg_size + 1);
-      memcpy(copy.get(), icon.svg, icon.svg_size);
+    std::unique_ptr<unsigned int[]> rasterize(const ImageFile& image) const {
+      if (image.svg)
+        return rasterizeSvg(image);
 
-      NSVGimage* image = nsvgParse(copy.get(), "px", 96);
-      std::unique_ptr<unsigned int[]> data = std::make_unique<unsigned int[]>(icon.width * icon.height);
+      bimg::ImageContainer image_container;
+      bimg::imageParse(image_container, image.data, image.data_size);
 
-      float width_scale = icon.width / image->width;
-      float height_scale = icon.height / image->height;
-      float scale = std::min(width_scale, height_scale);
-      float x_offset = (icon.width - image->width * scale) * 0.5f;
-      float y_offset = (icon.height - image->height * scale) * 0.5f;
-
-      nsvgRasterize(rasterizer_, image, x_offset, y_offset, scale, (unsigned char*)data.get(),
-                    icon.width, icon.height, icon.width * 4);
-      nsvgDelete(image);
-      return data;
+      return nullptr;
     }
 
   private:
     Rasterizer() : rasterizer_(nsvgCreateRasterizer()) { }
 
+    std::unique_ptr<unsigned int[]> rasterizeSvg(const ImageFile& svg) const {
+      std::unique_ptr<char[]> copy = std::make_unique<char[]>(svg.data_size + 1);
+      memcpy(copy.get(), svg.data, svg.data_size);
+
+      NSVGimage* image = nsvgParse(copy.get(), "px", 96);
+      std::unique_ptr<unsigned int[]> data = std::make_unique<unsigned int[]>(svg.width * svg.height);
+
+      float width_scale = svg.width / image->width;
+      float height_scale = svg.height / image->height;
+      float scale = std::min(width_scale, height_scale);
+      float x_offset = (svg.width - image->width * scale) * 0.5f;
+      float y_offset = (svg.height - image->height * scale) * 0.5f;
+
+      nsvgRasterize(rasterizer_, image, x_offset, y_offset, scale, (unsigned char*)data.get(),
+                    svg.width, svg.height, svg.width * 4);
+      nsvgDelete(image);
+      return data;
+    }
+
     NSVGrasterizer* rasterizer_ = nullptr;
   };
 
-  class IconGroupTexture {
+  class ImageGroupTexture {
   public:
-    explicit IconGroupTexture(int width) : width_(width) {
+    explicit ImageGroupTexture(int width) : width_(width) {
       texture_ = std::make_unique<unsigned int[]>(width * width);
     }
 
-    ~IconGroupTexture() { destroyHandle(); }
+    ~ImageGroupTexture() { destroyHandle(); }
 
     void destroyHandle() {
       if (bgfx::isValid(texture_handle_))
@@ -123,73 +134,73 @@ namespace visage {
     bgfx::TextureHandle texture_handle_ = BGFX_INVALID_HANDLE;
   };
 
-  IconGroup::IconGroup() {
+  ImageGroup::ImageGroup() {
     atlas_.setPadding(kIconBuffer);
   }
 
-  void IconGroup::setNewSize() {
-    for (auto count = icon_count_.begin(); count != icon_count_.end();) {
+  void ImageGroup::setNewSize() {
+    for (auto count = image_count_.begin(); count != image_count_.end();) {
       if (count->second == 0) {
         atlas_.removeRect(count->first);
-        count = icon_count_.erase(count);
+        count = image_count_.erase(count);
       }
       else
         ++count;
     }
 
     atlas_.pack();
-    texture_ = std::make_unique<IconGroupTexture>(atlas_.width());
-    for (auto& icon : icon_count_)
-      drawIcon(icon.first);
+    texture_ = std::make_unique<ImageGroupTexture>(atlas_.width());
+    for (auto& icon : image_count_)
+      drawImage(icon.first);
   }
 
-  IconGroup::~IconGroup() = default;
+  ImageGroup::~ImageGroup() = default;
 
-  bool IconGroup::packIcon(const Icon& icon) {
-    return atlas_.addRect(icon, icon.width + icon.blur_radius * 2, icon.height + icon.blur_radius * 2);
+  bool ImageGroup::packImage(const ImageFile& image) {
+    return atlas_.addRect(image, image.width + image.blur_radius * 2, image.height + image.blur_radius * 2);
   }
 
-  void IconGroup::decrementIcon(const Icon& icon) {
-    icon_count_[icon]--;
-    VISAGE_ASSERT(icon_count_[icon] >= 0);
+  void ImageGroup::decrementImage(const ImageFile& image) {
+    image_count_[image]--;
+    VISAGE_ASSERT(image_count_[image] >= 0);
   }
 
-  void IconGroup::incrementIcon(const Icon& icon) {
-    bool added = icon_count_.count(icon);
-    icon_count_[icon]++;
+  void ImageGroup::incrementImage(const ImageFile& image) {
+    bool added = image_count_.count(image);
+    image_count_[image]++;
     if (added)
       return;
 
-    if (!packIcon(icon))
+    if (!packImage(image))
       setNewSize();
     else
-      drawIcon(icon);
+      drawImage(image);
 
     texture_->destroyHandle();
   }
 
-  void IconGroup::drawIcon(const Icon& icon) {
-    if (icon.width == 0)
+  void ImageGroup::drawImage(const ImageFile& image) {
+    if (image.width == 0)
       return;
 
-    std::unique_ptr<unsigned int[]> data = Rasterizer::instance().rasterize(icon);
+    std::unique_ptr<unsigned int[]> data = Rasterizer::instance().rasterize(image);
 
-    PackedRect packed_rect = atlas_.rectForId(icon);
+    PackedRect packed_rect = atlas_.rectForId(image);
     int atlas_offset = packed_rect.x + packed_rect.y * atlas_.width();
     unsigned int* texture_ref = texture_->data() + atlas_offset;
-    for (int y = 0; y < icon.height; ++y) {
-      unsigned int* row_ref = data.get() + y * icon.width;
-      for (int x = 0; x < icon.width; ++x)
+    for (int y = 0; y < image.height; ++y) {
+      unsigned int* row_ref = data.get() + y * image.width;
+      for (int x = 0; x < image.width; ++x)
         texture_ref[x] = row_ref[x];
 
       texture_ref += atlas_.width();
     }
 
-    if (icon.blur_radius)
-      blurIcon(texture_->data() + atlas_offset, icon.width, icon.blur_radius);
+    if (image.blur_radius)
+      blurImage(texture_->data() + atlas_offset, image.width, image.blur_radius);
   }
 
-  void IconGroup::blurIcon(unsigned int* location, int width, int blur_radius) const {
+  void ImageGroup::blurImage(unsigned int* location, int width, int blur_radius) const {
     static constexpr int kBoxBlurIterations = 3;
 
     int radius = std::min(blur_radius, width - 1);
@@ -212,13 +223,13 @@ namespace visage {
     }
   }
 
-  const bgfx::TextureHandle& IconGroup::textureHandle() const {
+  const bgfx::TextureHandle& ImageGroup::textureHandle() const {
     return texture_->handle();
   }
 
-  void IconGroup::setIconCoordinates(TextureVertex* vertices, const Icon& icon) const {
-    VISAGE_ASSERT(icon_count_.count(icon) && icon_count_.at(icon) > 0);
-    atlas_.setTexturePositionsForId(icon, vertices);
+  void ImageGroup::setImageCoordinates(TextureVertex* vertices, const ImageFile& image) const {
+    VISAGE_ASSERT(image_count_.count(image) && image_count_.at(image) > 0);
+    atlas_.setTexturePositionsForId(image, vertices);
 
     for (int i = 0; i < 4; ++i) {
       vertices[i].direction_x = 1.0f;

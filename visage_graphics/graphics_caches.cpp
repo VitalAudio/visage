@@ -47,8 +47,13 @@ namespace visage {
     return cache_->cache[file.data];
   }
 
-  void ShaderCache::swap(const EmbeddedFile& file, const char* data, int size) const {
-    cache_->cache[file.data] = bgfx::createShader(bgfx::makeRef(data, size));
+  bool ShaderCache::swap(const EmbeddedFile& file, const char* data, int size) const {
+    bgfx::ShaderHandle handle = bgfx::createShader(bgfx::makeRef(data, size));
+    if (!bgfx::isValid(handle))
+      return false;
+
+    cache_->cache[file.data] = handle;
+    return true;
   }
 
   void ShaderCache::restore(const EmbeddedFile& file) const {
@@ -97,9 +102,10 @@ namespace visage {
   }
 
   void ProgramCache::reload(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
-    cache_->cache[vertex.data][fragment.data] = bgfx::createProgram(ShaderCache::shaderHandle(vertex),
-                                                                    ShaderCache::shaderHandle(fragment),
-                                                                    false);
+    bgfx::ProgramHandle handle = bgfx::createProgram(ShaderCache::shaderHandle(vertex),
+                                                     ShaderCache::shaderHandle(fragment), false);
+    if (bgfx::isValid(handle))
+      cache_->cache[vertex.data][fragment.data] = handle;
   }
 
   void ProgramCache::restore(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {

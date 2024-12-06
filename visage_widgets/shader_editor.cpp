@@ -112,8 +112,8 @@ namespace visage {
     if (hot_swap) {
       int size = 0;
       shader_memory_ = loadFileData(output_file, size);
-      ShaderCache::swapShader(fragment, shader_memory_.get(), size);
-      ProgramCache::refreshProgram(vertex, fragment);
+      if (ShaderCache::swapShader(fragment, shader_memory_.get(), size))
+        ProgramCache::refreshProgram(vertex, fragment);
     }
 
     runOnEventThread([this, output]() { setError(output); });

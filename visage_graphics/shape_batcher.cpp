@@ -417,7 +417,7 @@ namespace visage {
     if (!setupQuads(batches))
       return;
 
-    const IconGroup* icon_group = batches[0].shapes->front().icon_group;
+    const ImageGroup* icon_group = batches[0].shapes->front().icon_group;
     setBlendMode(BlendMode::Alpha);
     float atlas_scale[] = { 1.0f / icon_group->atlasWidth(), 1.0f / icon_group->atlasWidth(), 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale);

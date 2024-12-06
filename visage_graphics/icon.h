@@ -21,60 +21,74 @@
 #include <map>
 
 namespace visage {
-  struct Icon {
-    Icon() = default;
-    Icon(const char* svg, int svg_size, int width, int height, int blur_radius = 0) :
-        svg(svg), svg_size(svg_size), width(width), height(height), blur_radius(blur_radius) { }
+  struct ImageFile {
+    ImageFile() = default;
+    ImageFile(bool svg, const char* data, int data_size, int width = 0, int height = 0,
+              int blur_radius = 0) :
+        svg(svg), data(data), data_size(data_size), width(width), height(height),
+        blur_radius(blur_radius) { }
 
-    const char* svg = nullptr;
-    int svg_size = 0;
+    bool svg = false;
+    const char* data = nullptr;
+    int data_size = 0;
     int width = 0;
     int height = 0;
     int blur_radius = 0;
 
-    bool operator==(const Icon& other) const {
-      return svg == other.svg && svg_size == other.svg_size && width == other.width &&
+    bool operator==(const ImageFile& other) const {
+      return data == other.data && data_size == other.data_size && width == other.width &&
              height == other.height && blur_radius == other.blur_radius;
     }
 
-    bool operator<(const Icon& other) const {
-      return svg < other.svg || (svg == other.svg && svg_size < other.svg_size) ||
-             (svg == other.svg && svg_size == other.svg_size && width < other.width) ||
-             (svg == other.svg && svg_size == other.svg_size && width == other.width &&
+    bool operator<(const ImageFile& other) const {
+      return data < other.data || (data == other.data && data_size < other.data_size) ||
+             (data == other.data && data_size == other.data_size && width < other.width) ||
+             (data == other.data && data_size == other.data_size && width == other.width &&
               height < other.height) ||
-             (svg == other.svg && svg_size == other.svg_size && width == other.width &&
+             (data == other.data && data_size == other.data_size && width == other.width &&
               height == other.height && blur_radius < other.blur_radius);
     }
   };
 
-  class IconGroupTexture;
+  struct Icon : ImageFile {
+    Icon() = default;
+    Icon(const char* svg, int svg_size, int width, int height, int blur_radius = 0) :
+        ImageFile(true, svg, svg_size, width, height, blur_radius) { }
+  };
 
-  class IconGroup {
+  struct Image : ImageFile {
+    Image() = default;
+    Image(const char* data, int data_size) : ImageFile(false, data, data_size) { }
+  };
+
+  class ImageGroupTexture;
+
+  class ImageGroup {
   public:
     static constexpr int kIconBuffer = 1;
 
-    IconGroup();
-    virtual ~IconGroup();
+    ImageGroup();
+    virtual ~ImageGroup();
 
     void clear() {
-      icon_count_.clear();
+      image_count_.clear();
       atlas_.clear();
     }
 
-    void incrementIcon(const Icon& icon);
-    void decrementIcon(const Icon& icon);
+    void incrementImage(const ImageFile& image);
+    void decrementImage(const ImageFile& image);
     int atlasWidth() const { return atlas_.width(); }
     const bgfx::TextureHandle& textureHandle() const;
-    void setIconCoordinates(TextureVertex* vertices, const Icon& icon) const;
+    void setImageCoordinates(TextureVertex* vertices, const ImageFile& image) const;
 
   private:
     void setNewSize();
-    bool packIcon(const Icon& icon);
-    void drawIcon(const Icon& icon);
-    void blurIcon(unsigned int* location, int width, int blur_radius) const;
+    bool packImage(const ImageFile& image);
+    void drawImage(const ImageFile& image);
+    void blurImage(unsigned int* location, int width, int blur_radius) const;
 
-    PackedAtlas<Icon> atlas_;
-    std::map<Icon, int> icon_count_;
-    std::unique_ptr<IconGroupTexture> texture_;
+    PackedAtlas<ImageFile> atlas_;
+    std::map<ImageFile, int> image_count_;
+    std::unique_ptr<ImageGroupTexture> texture_;
   };
 }

@@ -436,9 +436,9 @@ namespace visage {
     float value(unsigned int value_id);
     std::vector<std::string> debugInfo() const;
 
-    IconGroup* iconGroup() {
+    ImageGroup* iconGroup() {
       if (icon_group_ == nullptr)
-        icon_group_ = std::make_unique<IconGroup>();
+        icon_group_ = std::make_unique<ImageGroup>();
       return icon_group_.get();
     }
 
@@ -466,7 +466,7 @@ namespace visage {
     std::vector<std::unique_ptr<Layer>> intermediate_layers_;
     std::vector<Layer*> layers_;
 
-    std::unique_ptr<IconGroup> icon_group_;
+    std::unique_ptr<ImageGroup> icon_group_;
 
     float refresh_rate_ = 0.0f;
 

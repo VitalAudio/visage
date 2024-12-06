@@ -36,7 +36,7 @@ namespace visage {
       return instance()->handle(file);
     }
 
-    static void swapShader(const EmbeddedFile& file, const char* data, int size) {
+    static bool swapShader(const EmbeddedFile& file, const char* data, int size) {
       return instance()->swap(file, data, size);
     }
 
@@ -47,7 +47,7 @@ namespace visage {
     ~ShaderCache();
 
     bgfx::ShaderHandle& handle(const EmbeddedFile& file) const;
-    void swap(const EmbeddedFile& file, const char* data, int size) const;
+    bool swap(const EmbeddedFile& file, const char* data, int size) const;
     void restore(const EmbeddedFile& file) const;
 
     std::unique_ptr<ShaderCacheMap> cache_;
