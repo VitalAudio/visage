@@ -18,7 +18,7 @@
 
 #include "visage_file_embed/embedded_file.h"
 #include "visage_graphics/animation.h"
-#include "visage_graphics/icon.h"
+#include "visage_graphics/image.h"
 #include "visage_graphics/text.h"
 #include "visage_graphics/theme.h"
 #include "visage_ui/frame.h"
@@ -96,7 +96,7 @@ namespace visage {
     static constexpr float kDefaultShadowRatio = 0.1f;
 
     IconButton() = default;
-    explicit IconButton(const Icon& icon, bool shadow = false) { setIcon(icon, shadow); }
+    explicit IconButton(const Svg& icon, bool shadow = false) { setIcon(icon, shadow); }
 
     explicit IconButton(const EmbeddedFile& icon_file, bool shadow = false) {
       setIcon(icon_file, shadow);
@@ -114,7 +114,7 @@ namespace visage {
       setIcon({ svg, svg_size, 0, 0 }, shadow);
     }
 
-    void setIcon(Icon icon, bool shadow = false) {
+    void setIcon(Svg icon, bool shadow = false) {
       icon_ = icon;
       if (shadow) {
         shadow_ratio_ = kDefaultShadowRatio;
@@ -154,8 +154,8 @@ namespace visage {
     }
 
   private:
-    Icon icon_;
-    Icon shadow_;
+    Svg icon_;
+    Svg shadow_;
 
     float shadow_ratio_ = 0.0f;
     float margin_ratio_ = 0.0f;
@@ -216,11 +216,11 @@ namespace visage {
   public:
     static constexpr float kDefaultShadowRatio = 0.1f;
 
-    explicit ToggleIconButton(const Icon& icon, bool shadow = false) : ToggleButton(), icon_(icon) {
+    explicit ToggleIconButton(const Svg& icon, bool shadow = false) : ToggleButton(), icon_(icon) {
       initSettings(shadow);
     }
 
-    ToggleIconButton(const std::string& name, const Icon& icon, bool shadow = false) :
+    ToggleIconButton(const std::string& name, const Svg& icon, bool shadow = false) :
         ToggleButton(name), icon_(icon) {
       initSettings(shadow);
     }
@@ -274,8 +274,8 @@ namespace visage {
     }
 
   private:
-    Icon icon_;
-    Icon shadow_;
+    Svg icon_;
+    Svg shadow_;
 
     float shadow_ratio_ = 0.0f;
     float margin_ratio_ = 0.0f;

@@ -17,7 +17,7 @@
 #pragma once
 
 #include "color.h"
-#include "icon.h"
+#include "image.h"
 #include "text.h"
 
 #include <algorithm>
@@ -419,34 +419,40 @@ namespace visage {
     float max_radians = 0.0f;
   };
 
-  struct IconWrapper : Shape<TextureVertex> {
+  struct ImageWrapper : Shape<TextureVertex> {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    IconWrapper(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-                float height, const Icon& icon, ImageGroup* icon_group) :
-        Shape(icon_group, clamp, color, x, y, width, height), icon(icon), icon_group(icon_group) {
-      icon_group->incrementImage(icon);
+    ImageWrapper(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
+                 float height, const ImageFile& image, ImageGroup* image_group) :
+        Shape(image_group, clamp, color, x, y, width, height), image(image), image_group(image_group) {
+      Point dimensions = image_group->incrementImage(image);
+      if (width == 0.0f && !image.svg) {
+        this->width = dimensions.x;
+        this->height = dimensions.y;
+      }
     }
 
-    ~IconWrapper() {
-      if (icon_group)
-        icon_group->decrementImage(icon);
+    ~ImageWrapper() {
+      if (image_group)
+        image_group->decrementImage(image);
     }
 
-    IconWrapper(const IconWrapper&) = delete;
-    IconWrapper& operator=(const IconWrapper&) = delete;
-    IconWrapper& operator=(IconWrapper&& other) = delete;
-    IconWrapper(IconWrapper&& other) noexcept : Shape(std::move(other)) {
-      icon = std::move(other.icon);
-      icon_group = other.icon_group;
-      other.icon_group = nullptr;
+    ImageWrapper(const ImageWrapper&) = delete;
+    ImageWrapper& operator=(const ImageWrapper&) = delete;
+    ImageWrapper& operator=(ImageWrapper&& other) = delete;
+    ImageWrapper(ImageWrapper&& other) noexcept : Shape(std::move(other)) {
+      image = std::move(other.image);
+      image_group = other.image_group;
+      other.image_group = nullptr;
     }
 
-    void setVertexData(Vertex* vertices) const { icon_group->setImageCoordinates(vertices, icon); }
+    void setVertexData(Vertex* vertices) const {
+      image_group->setImageCoordinates(vertices, image);
+    }
 
-    Icon icon;
-    ImageGroup* icon_group = nullptr;
+    ImageFile image;
+    ImageGroup* image_group = nullptr;
   };
 
   struct LineWrapper : Shape<> {

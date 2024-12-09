@@ -14,16 +14,25 @@
  * along with visage.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "icon.h"
+#include "image.h"
 
 #include "graphics_libs.h"
 
-#include <bimg/bimg.h>
+#include <bimg/decode.h>
+#include <bx/allocator.h>
 #include <cstring>
 #include <nanosvg/src/nanosvg.h>
 #include <nanosvg/src/nanosvgrast.h>
 
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include <stb_image_resize2.h>
+
 namespace visage {
+  static bx::DefaultAllocator* allocator() {
+    static bx::DefaultAllocator allocator;
+    return &allocator;
+  }
+
   static void boxBlur(unsigned char* dest, unsigned char* cache, int width, int blur_radius, int stride) {
     int value = 0;
     int sample_index = 0;
@@ -57,29 +66,17 @@ namespace visage {
     }
   }
 
-  class Rasterizer {
+  class SvgRasterizer {
   public:
-    static Rasterizer& instance() {
-      static Rasterizer instance;
+    static SvgRasterizer& instance() {
+      static SvgRasterizer instance;
       return instance;
     }
 
-    ~Rasterizer() { nsvgDeleteRasterizer(rasterizer_); }
+    ~SvgRasterizer() { nsvgDeleteRasterizer(rasterizer_); }
 
-    std::unique_ptr<unsigned int[]> rasterize(const ImageFile& image) const {
-      if (image.svg)
-        return rasterizeSvg(image);
-
-      bimg::ImageContainer image_container;
-      bimg::imageParse(image_container, image.data, image.data_size);
-
-      return nullptr;
-    }
-
-  private:
-    Rasterizer() : rasterizer_(nsvgCreateRasterizer()) { }
-
-    std::unique_ptr<unsigned int[]> rasterizeSvg(const ImageFile& svg) const {
+    std::unique_ptr<unsigned int[]> rasterize(const ImageFile& svg) const {
+      VISAGE_ASSERT(svg.svg);
       std::unique_ptr<char[]> copy = std::make_unique<char[]>(svg.data_size + 1);
       memcpy(copy.get(), svg.data, svg.data_size);
 
@@ -98,14 +95,15 @@ namespace visage {
       return data;
     }
 
+  private:
+    SvgRasterizer() : rasterizer_(nsvgCreateRasterizer()) { }
+
     NSVGrasterizer* rasterizer_ = nullptr;
   };
 
   class ImageGroupTexture {
   public:
-    explicit ImageGroupTexture(int width) : width_(width) {
-      texture_ = std::make_unique<unsigned int[]>(width * width);
-    }
+    explicit ImageGroupTexture(int width) : width_(width) { }
 
     ~ImageGroupTexture() { destroyHandle(); }
 
@@ -116,26 +114,28 @@ namespace visage {
       texture_handle_ = BGFX_INVALID_HANDLE;
     }
 
-    bgfx::TextureHandle& handle() {
-      if (!bgfx::isValid(texture_handle_)) {
-        const bgfx::Memory* texture_ref = bgfx::makeRef(texture_.get(),
-                                                        width_ * width_ * sizeof(unsigned int));
-        texture_handle_ = bgfx::createTexture2D(width_, width_, false, 1, bgfx::TextureFormat::BGRA8,
-                                                BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE, texture_ref);
-      }
-      return texture_handle_;
+    bool hasHandle() const { return bgfx::isValid(texture_handle_); }
+
+    bgfx::TextureHandle& handle() { return texture_handle_; }
+
+    void checkHandle() {
+      if (!bgfx::isValid(texture_handle_))
+        texture_handle_ = bgfx::createTexture2D(width_, width_, false, 1, bgfx::TextureFormat::BGRA8);
     }
 
-    unsigned int* data() const { return texture_.get(); }
+    void updateTexture(unsigned int* data, int x, int y, int width, int height) {
+      VISAGE_ASSERT(bgfx::isValid(texture_handle_));
+      bgfx::updateTexture2D(texture_handle_, 0, 0, x, y, width, height,
+                            bgfx::copy(data, width * height * sizeof(unsigned int)));
+    }
 
   private:
     int width_ = 0;
-    std::unique_ptr<unsigned int[]> texture_;
     bgfx::TextureHandle texture_handle_ = BGFX_INVALID_HANDLE;
   };
 
   ImageGroup::ImageGroup() {
-    atlas_.setPadding(kIconBuffer);
+    atlas_.setPadding(kImageBuffer);
   }
 
   void ImageGroup::setNewSize() {
@@ -150,14 +150,22 @@ namespace visage {
 
     atlas_.pack();
     texture_ = std::make_unique<ImageGroupTexture>(atlas_.width());
-    for (auto& icon : image_count_)
-      drawImage(icon.first);
   }
 
   ImageGroup::~ImageGroup() = default;
 
   bool ImageGroup::packImage(const ImageFile& image) {
-    return atlas_.addRect(image, image.width + image.blur_radius * 2, image.height + image.blur_radius * 2);
+    int width = image.width;
+    int height = image.height;
+    if (image.width == 0 && !image.svg) {
+      bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image.data, image.data_size);
+      if (image_container) {
+        width = image_container->m_width;
+        height = image_container->m_height;
+      }
+      bimg::imageFree(image_container);
+    }
+    return atlas_.addRect(image, width, height);
   }
 
   void ImageGroup::decrementImage(const ImageFile& image) {
@@ -165,39 +173,57 @@ namespace visage {
     VISAGE_ASSERT(image_count_[image] >= 0);
   }
 
-  void ImageGroup::incrementImage(const ImageFile& image) {
+  Point ImageGroup::incrementImage(const ImageFile& image) {
     bool added = image_count_.count(image);
     image_count_[image]++;
-    if (added)
-      return;
+    if (added) {
+      PackedRect packed_rect = atlas_.rectForId(image);
+      return { packed_rect.w, packed_rect.h };
+    }
 
     if (!packImage(image))
       setNewSize();
-    else
+    else if (texture_->hasHandle())
       drawImage(image);
 
-    texture_->destroyHandle();
+    PackedRect packed_rect = atlas_.rectForId(image);
+    return { packed_rect.w, packed_rect.h };
   }
 
-  void ImageGroup::drawImage(const ImageFile& image) {
-    if (image.width == 0)
+  void ImageGroup::drawImage(const ImageFile& image) const {
+    if (image.width == 0 && image.svg)
       return;
 
-    std::unique_ptr<unsigned int[]> data = Rasterizer::instance().rasterize(image);
-
     PackedRect packed_rect = atlas_.rectForId(image);
-    int atlas_offset = packed_rect.x + packed_rect.y * atlas_.width();
-    unsigned int* texture_ref = texture_->data() + atlas_offset;
-    for (int y = 0; y < image.height; ++y) {
-      unsigned int* row_ref = data.get() + y * image.width;
-      for (int x = 0; x < image.width; ++x)
-        texture_ref[x] = row_ref[x];
+    if (image.svg) {
+      std::unique_ptr<unsigned int[]> data = SvgRasterizer::instance().rasterize(image);
 
-      texture_ref += atlas_.width();
+      // TODO if (image.blur_radius)
+      // TODO   blurImage(data.get(), image.width, image.blur_radius);
+
+      texture_->updateTexture(data.get(), packed_rect.x, packed_rect.y, packed_rect.w, packed_rect.h);
     }
-
-    if (image.blur_radius)
-      blurImage(texture_->data() + atlas_offset, image.width, image.blur_radius);
+    else {
+      bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image.data, image.data_size,
+                                                               bimg::TextureFormat::BGRA8);
+      if (image_container) {
+        if (image_container->m_width == packed_rect.w && image_container->m_height == packed_rect.h) {
+          texture_->updateTexture((unsigned int*)image_container->m_data, packed_rect.x,
+                                  packed_rect.y, packed_rect.w, packed_rect.h);
+        }
+        else {
+          std::unique_ptr<unsigned char[]> resampled = std::make_unique<unsigned char[]>(packed_rect.w *
+                                                                                         packed_rect.h * 4);
+          stbir_resize_uint8_srgb((unsigned char*)image_container->m_data, image_container->m_width,
+                                  image_container->m_height, image_container->m_width * 4,
+                                  resampled.get(), packed_rect.w, packed_rect.h, packed_rect.w * 4,
+                                  STBIR_BGRA);
+          texture_->updateTexture((unsigned int*)resampled.get(), packed_rect.x, packed_rect.y,
+                                  packed_rect.w, packed_rect.h);
+        }
+        bimg::imageFree(image_container);
+      }
+    }
   }
 
   void ImageGroup::blurImage(unsigned int* location, int width, int blur_radius) const {
@@ -213,17 +239,22 @@ namespace visage {
     for (int r = 0; r < width; ++r) {
       for (int i = 0; i < kBoxBlurIterations; ++i) {
         for (int channel = 0; channel < 4; ++channel)
-          boxBlur(location_char + r * atlas_.width() * 4 + channel, cache.get(), width, radius, 4);
+          boxBlur(location_char + r * width * 4 + channel, cache.get(), width, radius, 4);
       }
     }
 
     for (int c = 0; c < width * 4; ++c) {
       for (int i = 0; i < kBoxBlurIterations; ++i)
-        boxBlur(location_char + c, cache.get(), width, radius, atlas_.width() * 4);
+        boxBlur(location_char + c, cache.get(), width, radius, width * 4);
     }
   }
 
   const bgfx::TextureHandle& ImageGroup::textureHandle() const {
+    if (!texture_->hasHandle()) {
+      texture_->checkHandle();
+      for (auto& icon : image_count_)
+        drawImage(icon.first);
+    }
     return texture_->handle();
   }
 

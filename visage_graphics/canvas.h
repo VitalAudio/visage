@@ -335,19 +335,31 @@ namespace visage {
       }
     }
 
-    void icon(const Icon& icon, float x, float y) {
-      addShape(IconWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y,
-                           icon.width + 2.0f * icon.blur_radius,
-                           icon.height + 2.0f * icon.blur_radius, icon, iconGroup()));
+    void svg(const Svg& svg, float x, float y) {
+      addShape(ImageWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y, svg.width,
+                            svg.height, svg, imageGroup()));
     }
 
-    void icon(const char* svg_data, int svg_size, float x, float y, int width, int height,
-              int blur_radius = 0) {
-      icon({ svg_data, svg_size, width, height, blur_radius }, x, y);
+    void svg(const char* svg_data, int svg_size, float x, float y, int width, int height,
+             int blur_radius = 0) {
+      svg({ svg_data, svg_size, width, height, blur_radius }, x, y);
     }
 
-    void icon(const EmbeddedFile& svg, float x, float y, int width, int height, int blur_radius = 0) {
-      icon(svg.data, svg.size, x, y, width, height, blur_radius);
+    void svg(const EmbeddedFile& file, float x, float y, int width, int height, int blur_radius = 0) {
+      svg(file.data, file.size, x, y, width, height, blur_radius);
+    }
+
+    void image(const Image& image, float x, float y) {
+      addShape(ImageWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y, image.width,
+                            image.height, image, imageGroup()));
+    }
+
+    void image(const char* image_data, int image_size, float x, float y, int width, int height) {
+      image({ image_data, image_size, width, height }, x, y);
+    }
+
+    void image(const EmbeddedFile& image_file, float x, float y, int width, int height) {
+      image(image_file.data, image_file.size, x, y, width, height);
     }
 
     void shader(Shader* shader, float x, float y, float width, float height) {
@@ -436,10 +448,10 @@ namespace visage {
     float value(unsigned int value_id);
     std::vector<std::string> debugInfo() const;
 
-    ImageGroup* iconGroup() {
-      if (icon_group_ == nullptr)
-        icon_group_ = std::make_unique<ImageGroup>();
-      return icon_group_.get();
+    ImageGroup* imageGroup() {
+      if (image_group_ == nullptr)
+        image_group_ = std::make_unique<ImageGroup>();
+      return image_group_.get();
     }
 
     State* state() { return &state_; }
@@ -466,7 +478,7 @@ namespace visage {
     std::vector<std::unique_ptr<Layer>> intermediate_layers_;
     std::vector<Layer*> layers_;
 
-    std::unique_ptr<ImageGroup> icon_group_;
+    std::unique_ptr<ImageGroup> image_group_;
 
     float refresh_rate_ = 0.0f;
 

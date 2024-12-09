@@ -24,8 +24,6 @@ elseif (UNIX)
   add_definitions(-D_LARGEFILE64_SOURCE)
 endif ()
 
-add_definitions(-DBIMG_DECODE_ENABLE=0)
-
 set(BGFX_BUILD_EXAMPLES OFF CACHE INTERNAL "" FORCE)
 set(BGFX_BUILD_EXAMPLE_COMMON OFF CACHE INTERNAL "" FORCE)
 set(BGFX_BUILD_TOOLS OFF CACHE INTERNAL "" FORCE)
@@ -94,6 +92,7 @@ set(VisageGraphicsDependencies
   VisageGraphicsEmbeds
   bgfx
   bx
+  bimg_decode
   freetype
   nanosvg
   nanosvgrast

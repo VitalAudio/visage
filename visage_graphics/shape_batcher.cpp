@@ -413,19 +413,20 @@ namespace visage {
     bgfx::submit(submit_pass, program);
   }
 
-  void submitIcons(const BatchVector<IconWrapper>& batches, Layer& layer, int submit_pass) {
+  void submitImages(const BatchVector<ImageWrapper>& batches, Layer& layer, int submit_pass) {
     if (!setupQuads(batches))
       return;
 
-    const ImageGroup* icon_group = batches[0].shapes->front().icon_group;
+    const ImageGroup* image_group = batches[0].shapes->front().image_group;
     setBlendMode(BlendMode::Alpha);
-    float atlas_scale[] = { 1.0f / icon_group->atlasWidth(), 1.0f / icon_group->atlasWidth(), 0.0f, 0.0f };
+    float atlas_scale[] = { 1.0f / image_group->atlasWidth(), 1.0f / image_group->atlasWidth(), 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale);
-    setTexture<Uniforms::kTexture>(0, icon_group->textureHandle());
+    setTexture<Uniforms::kTexture>(0, image_group->textureHandle());
     setUniformDimensions(layer.width(), layer.height());
     setColorMult(layer.hdr());
 
-    auto program = ProgramCache::programHandle(IconWrapper::vertexShader(), IconWrapper::fragmentShader());
+    auto program = ProgramCache::programHandle(ImageWrapper::vertexShader(),
+                                               ImageWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
   }
 

@@ -19,7 +19,7 @@
 #include "events.h"
 #include "undo_history.h"
 #include "visage_graphics/canvas.h"
-#include "visage_graphics/icon.h"
+#include "visage_graphics/image.h"
 #include "visage_graphics/palette.h"
 #include "visage_graphics/theme.h"
 #include "visage_utils/space.h"

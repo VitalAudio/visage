@@ -102,7 +102,7 @@ namespace visage {
 
   void submitLine(const LineWrapper& line_wrapper, const Layer& layer, int submit_pass);
   void submitLineFill(const LineFillWrapper& line_fill_wrapper, const Layer& layer, int submit_pass);
-  void submitIcons(const BatchVector<IconWrapper>& batches, Layer& layer, int submit_pass);
+  void submitImages(const BatchVector<ImageWrapper>& batches, Layer& layer, int submit_pass);
   void submitText(const BatchVector<TextBlock>& batches, const Layer& layer, int submit_pass);
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass);
   void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass);
@@ -177,10 +177,10 @@ namespace visage {
   }
 
   template<>
-  inline void submitShapes<IconWrapper>(const BatchVector<IconWrapper>& batches, BlendMode state,
-                                        Layer& layer, int submit_pass) {
+  inline void submitShapes<ImageWrapper>(const BatchVector<ImageWrapper>& batches, BlendMode state,
+                                         Layer& layer, int submit_pass) {
     setBlendMode(state);
-    submitIcons(batches, layer, submit_pass);
+    submitImages(batches, layer, submit_pass);
   }
 
   template<>

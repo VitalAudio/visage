@@ -5,9 +5,11 @@ file(GLOB_RECURSE EXAMPLE_SHADERS shaders/[vf]s_*.sc)
 visage_embed_shaders(EmbeddedShaderResources "example_shaders.h" "resources::shaders" "${EXAMPLE_SHADERS}")
 file(GLOB_RECURSE FONT_TTF_FILES fonts/*.ttf)
 file(GLOB_RECURSE ICON_FILES icons/*.svg)
+file(GLOB_RECURSE IMAGE_FILES images/*.png)
 
 add_embedded_resources(EmbeddedFontResources "example_fonts.h" "resources::fonts" "${FONT_TTF_FILES}")
 add_embedded_resources(EmbeddedIconResources "example_icons.h" "resources::icons" "${ICON_FILES}")
+add_embedded_resources(EmbeddedImageResources "example_images.h" "resources::images" "${IMAGE_FILES}")
 
 if (WIN32)
   file(COPY "${CMAKE_SOURCE_DIR}/visage_graphics/bin/win32/shaderc.exe" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
@@ -55,6 +57,7 @@ foreach (EXAMPLE ${EXAMPLES})
       EmbeddedShaderResources
       EmbeddedFontResources
       EmbeddedIconResources
+      EmbeddedImageResources
     )
   endif ()
 endforeach ()

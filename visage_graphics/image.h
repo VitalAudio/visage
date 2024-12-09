@@ -50,22 +50,24 @@ namespace visage {
     }
   };
 
-  struct Icon : ImageFile {
-    Icon() = default;
-    Icon(const char* svg, int svg_size, int width, int height, int blur_radius = 0) :
-        ImageFile(true, svg, svg_size, width, height, blur_radius) { }
+  struct Svg : ImageFile {
+    Svg() = default;
+    Svg(const char* data, int data_size, int width, int height, int blur_radius = 0) :
+        ImageFile(true, data, data_size, width, height, blur_radius) { }
   };
 
   struct Image : ImageFile {
     Image() = default;
     Image(const char* data, int data_size) : ImageFile(false, data, data_size) { }
+    Image(const char* data, int data_size, int width, int height) :
+        ImageFile(false, data, data_size, width, height) { }
   };
 
   class ImageGroupTexture;
 
   class ImageGroup {
   public:
-    static constexpr int kIconBuffer = 1;
+    static constexpr int kImageBuffer = 1;
 
     ImageGroup();
     virtual ~ImageGroup();
@@ -75,7 +77,7 @@ namespace visage {
       atlas_.clear();
     }
 
-    void incrementImage(const ImageFile& image);
+    Point incrementImage(const ImageFile& image);
     void decrementImage(const ImageFile& image);
     int atlasWidth() const { return atlas_.width(); }
     const bgfx::TextureHandle& textureHandle() const;
@@ -84,7 +86,7 @@ namespace visage {
   private:
     void setNewSize();
     bool packImage(const ImageFile& image);
-    void drawImage(const ImageFile& image);
+    void drawImage(const ImageFile& image) const;
     void blurImage(unsigned int* location, int width, int blur_radius) const;
 
     PackedAtlas<ImageFile> atlas_;

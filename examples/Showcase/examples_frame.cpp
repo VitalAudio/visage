@@ -18,6 +18,7 @@
 
 #include "embedded/example_fonts.h"
 #include "embedded/example_icons.h"
+#include "embedded/example_images.h"
 #include "embedded/example_shaders.h"
 
 #include <filesystem>
@@ -515,9 +516,9 @@ void ExamplesFrame::draw(visage::Canvas& canvas) {
   canvas.setPaletteColor(kLogoBackgroundColor);
   canvas.circle(icon_x, icon_y, icon_width);
   canvas.setPaletteColor(kLogoColor1);
-  canvas.icon(resources::icons::vital_ring_svg, icon_x, icon_y, icon_width, icon_width);
+  canvas.svg(resources::icons::vital_ring_svg, icon_x, icon_y, icon_width, icon_width);
   canvas.setPaletteColor(kLogoColor2);
-  canvas.icon(resources::icons::vital_v_svg, icon_x, icon_y, icon_width, icon_width);
+  canvas.image(resources::images::test_png, icon_x, icon_y, icon_width, icon_width);
 
   if (shadow_amount_) {
     float shadow_mult = std::max(0.0f, 2.0f * shadow_amount_ - 1.0f);

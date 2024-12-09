@@ -146,7 +146,7 @@ namespace visage {
 
     if (shadow_.blur_radius) {
       canvas.setPaletteColor(kButtonShadow);
-      canvas.icon(shadow_, x, y);
+      canvas.svg(shadow_, x, y);
     }
 
     if (isActive())
@@ -155,7 +155,7 @@ namespace visage {
     else
       canvas.setPaletteColor(ToggleButton::kToggleButtonDisabled);
 
-    canvas.icon(icon_, x, y);
+    canvas.svg(icon_, x, y);
   }
 
   bool ToggleButton::toggle() {
@@ -176,14 +176,14 @@ namespace visage {
     int y = getIconY();
     if (shadow_.blur_radius) {
       canvas.setPaletteColor(kButtonShadow);
-      canvas.icon(shadow_, x, y);
+      canvas.svg(shadow_, x, y);
     }
 
     if (toggled())
       canvas.setBlendedPaletteColor(kToggleButtonOn, kToggleButtonOnHover, hover_amount);
     else
       canvas.setBlendedPaletteColor(kToggleButtonOff, kToggleButtonOffHover, hover_amount);
-    canvas.icon(icon_, x, y);
+    canvas.svg(icon_, x, y);
   }
 
   ToggleTextButton::ToggleTextButton(const std::string& name) :
