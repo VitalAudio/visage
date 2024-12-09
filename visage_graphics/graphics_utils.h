@@ -96,7 +96,6 @@ namespace visage {
 
     void removeRect(T id) {
       VISAGE_ASSERT(lookup_.count(id) > 0);
-      int index = lookup_.at(id);
       lookup_.erase(id);
     }
 

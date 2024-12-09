@@ -17,10 +17,11 @@
 #include "layer.h"
 
 #include "canvas.h"
-#include "graphics_libs.h"
 #include "palette.h"
 #include "region.h"
 #include "theme.h"
+
+#include <bgfx/bgfx.h>
 
 namespace visage {
   struct FrameBufferData {
@@ -200,7 +201,7 @@ namespace visage {
     moveToVector(invalid_rects_, invalid_rect_pieces_);
   }
 
-  void Layer::invalidateRectInRegion(Bounds rect, Region* region) {
+  void Layer::invalidateRectInRegion(Bounds rect, const Region* region) {
     invalidateRect(rect + coordinatesForRegion(region));
   }
 

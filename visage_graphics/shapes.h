@@ -442,7 +442,7 @@ namespace visage {
     ImageWrapper& operator=(const ImageWrapper&) = delete;
     ImageWrapper& operator=(ImageWrapper&& other) = delete;
     ImageWrapper(ImageWrapper&& other) noexcept : Shape(std::move(other)) {
-      image = std::move(other.image);
+      image = other.image;
       image_group = other.image_group;
       other.image_group = nullptr;
     }

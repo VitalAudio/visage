@@ -16,10 +16,11 @@
 
 #include "graphics_utils.h"
 
-#include "graphics_libs.h"
-#include "visage_utils/defines.h"
-
+#include <bgfx/bgfx.h>
 #include <vector>
+
+#define STB_RECT_PACK_IMPLEMENTATION
+#include <stb/stb_rect_pack.h>
 
 namespace visage {
   struct PackedAtlasData {

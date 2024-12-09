@@ -41,7 +41,7 @@ namespace visage {
 
     void setIntermediateLayer(bool intermediate_layer) { intermediate_layer_ = intermediate_layer; }
     void addRegion(Region* region);
-    void removeRegion(Region* region) {
+    void removeRegion(const Region* region) {
       regions_.erase(std::find(regions_.begin(), regions_.end(), region));
     }
     void addPackedRegion(Region* region);
@@ -59,7 +59,7 @@ namespace visage {
     }
 
     void invalidateRect(Bounds rect);
-    void invalidateRectInRegion(Bounds rect, Region* region);
+    void invalidateRectInRegion(Bounds rect, const Region* region);
 
     bool anyInvalidRects() {
       if (!invalid_rects_.empty())

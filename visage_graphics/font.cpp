@@ -17,9 +17,9 @@
 #include "font.h"
 
 #include "emoji.h"
-#include "graphics_libs.h"
 #include "visage_utils/thread_utils.h"
 
+#include <bgfx/bgfx.h>
 #include <freetype/freetype.h>
 #include <set>
 #include <vector>
@@ -79,19 +79,14 @@ namespace visage {
 
     int glyphIndex(char32_t character) const { return FT_Get_Char_Index(face_, character); }
     bool hasCharacter(char32_t character) const { return glyphIndex(character); }
-    int lineHeight() { return face_->size->metrics.height >> 6; }
+    int lineHeight() const { return face_->size->metrics.height >> 6; }
 
-    FT_GlyphSlot characterGlyph(char32_t character) {
-      FT_Load_Char(face_, character, FT_LOAD_RENDER);
-      return face_->glyph;
-    }
-
-    FT_GlyphSlot indexGlyph(int index) {
+    FT_GlyphSlot indexGlyph(int index) const {
       FT_Load_Glyph(face_, index, FT_LOAD_RENDER);
       return face_->glyph;
     }
 
-    FT_Face face() { return face_; }
+    FT_Face face() const { return face_; }
 
   private:
     FT_Face face_ = nullptr;
@@ -124,7 +119,8 @@ namespace visage {
         bgfx::destroy(texture_handle_);
     }
 
-    void copyGlyph(PackedGlyph* packed_glyph, unsigned int* dest, int dest_width, int dest_x, int dest_y) {
+    void copyGlyph(PackedGlyph* packed_glyph, unsigned int* dest, int dest_width, int dest_x,
+                   int dest_y) const {
       for (int y = 0; y < packed_glyph->height; ++y) {
         for (int x = 0; x < packed_glyph->width; ++x) {
           int index = (dest_y + y) * dest_width + dest_x + x;
@@ -248,7 +244,7 @@ namespace visage {
     const PackedGlyph* packedGlyph(char32_t character) {
       if (Font::isNewLine(character))
         return &Font::kNullPackedGlyph;
-      
+
       for (const auto& packed_face : packed_faces_) {
         if (packed_face.face->hasCharacter(character)) {
           PackedGlyph* glyph = packed_face.packedGlyph(character);
@@ -278,14 +274,14 @@ namespace visage {
     int atlasWidth() const { return atlas_width_; }
     bgfx::TextureHandle& textureHandle() { return texture_handle_; }
     int size() const { return size_; }
-    int lineHeight() { return packed_faces_[0].face->lineHeight(); }
+    int lineHeight() const { return packed_faces_[0].face->lineHeight(); }
     const unsigned char* data() const { return data_; }
 
   private:
     std::vector<PackedFace> packed_faces_;
-    int atlas_width_ = 0;
     int size_ = 0;
     const unsigned char* data_ = nullptr;
+    int atlas_width_ = 0;
 
     std::unique_ptr<unsigned int[]> texture_;
     int write_x_ = 0;

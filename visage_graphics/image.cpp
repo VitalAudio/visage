@@ -16,8 +16,7 @@
 
 #include "image.h"
 
-#include "graphics_libs.h"
-
+#include <bgfx/bgfx.h>
 #include <bimg/decode.h>
 #include <bx/allocator.h>
 #include <cstring>
@@ -62,6 +61,28 @@ namespace visage {
     }
   }
 
+  static void blurImage(unsigned char* location, int width, int height, int blur_radius) {
+    static constexpr int kBoxBlurIterations = 3;
+
+    int radius = std::min(blur_radius, width - 1);
+    radius = radius + ((radius + 1) % 2);
+
+    std::unique_ptr<unsigned char[]> cache = std::make_unique<unsigned char[]>(radius);
+
+    for (int r = 0; r < height; ++r) {
+      for (int channel = 0; channel < ImageGroup::kChannels; ++channel) {
+        for (int i = 0; i < kBoxBlurIterations; ++i)
+          boxBlur(location + r * width * ImageGroup::kChannels + channel, cache.get(), width,
+                  radius, ImageGroup::kChannels);
+      }
+    }
+
+    for (int c = 0; c < width * ImageGroup::kChannels; ++c) {
+      for (int i = 0; i < kBoxBlurIterations; ++i)
+        boxBlur(location + c, cache.get(), width, radius, width * ImageGroup::kChannels);
+    }
+  }
+
   class SvgRasterizer {
   public:
     static SvgRasterizer& instance() {
@@ -71,13 +92,14 @@ namespace visage {
 
     ~SvgRasterizer() { nsvgDeleteRasterizer(rasterizer_); }
 
-    std::unique_ptr<unsigned int[]> rasterize(const ImageFile& svg) const {
+    std::unique_ptr<unsigned char[]> rasterize(const ImageFile& svg) const {
       VISAGE_ASSERT(svg.svg);
       std::unique_ptr<char[]> copy = std::make_unique<char[]>(svg.data_size + 1);
       memcpy(copy.get(), svg.data, svg.data_size);
 
       NSVGimage* image = nsvgParse(copy.get(), "px", 96);
-      std::unique_ptr<unsigned int[]> data = std::make_unique<unsigned int[]>(svg.width * svg.height);
+      std::unique_ptr<unsigned char[]> data = std::make_unique<unsigned char[]>(svg.width * svg.height *
+                                                                                ImageGroup::kChannels);
 
       float width_scale = svg.width / image->width;
       float height_scale = svg.height / image->height;
@@ -85,8 +107,8 @@ namespace visage {
       float x_offset = (svg.width - image->width * scale) * 0.5f;
       float y_offset = (svg.height - image->height * scale) * 0.5f;
 
-      nsvgRasterize(rasterizer_, image, x_offset, y_offset, scale, (unsigned char*)data.get(),
-                    svg.width, svg.height, svg.width * 4);
+      nsvgRasterize(rasterizer_, image, x_offset, y_offset, scale, data.get(), svg.width,
+                    svg.height, svg.width * ImageGroup::kChannels);
       nsvgDelete(image);
       return data;
     }
@@ -119,10 +141,10 @@ namespace visage {
         texture_handle_ = bgfx::createTexture2D(width_, width_, false, 1, bgfx::TextureFormat::BGRA8);
     }
 
-    void updateTexture(unsigned int* data, int x, int y, int width, int height) {
+    void updateTexture(const unsigned char* data, int x, int y, int width, int height) {
       VISAGE_ASSERT(bgfx::isValid(texture_handle_));
       bgfx::updateTexture2D(texture_handle_, 0, 0, x, y, width, height,
-                            bgfx::copy(data, width * height * sizeof(unsigned int)));
+                            bgfx::copy(data, width * height * ImageGroup::kChannels));
     }
 
   private:
@@ -192,7 +214,7 @@ namespace visage {
 
     PackedRect packed_rect = atlas_.rectForId(image);
     if (image.svg) {
-      std::unique_ptr<unsigned int[]> data = SvgRasterizer::instance().rasterize(image);
+      std::unique_ptr<unsigned char[]> data = SvgRasterizer::instance().rasterize(image);
 
       if (image.blur_radius)
         blurImage(data.get(), image.width, image.height, image.blur_radius);
@@ -203,45 +225,22 @@ namespace visage {
       bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image.data, image.data_size,
                                                                bimg::TextureFormat::BGRA8);
       if (image_container) {
+        unsigned char* image_data = static_cast<unsigned char*>(image_container->m_data);
         if (image_container->m_width == packed_rect.w && image_container->m_height == packed_rect.h) {
-          texture_->updateTexture((unsigned int*)image_container->m_data, packed_rect.x,
-                                  packed_rect.y, packed_rect.w, packed_rect.h);
+          texture_->updateTexture(image_data, packed_rect.x, packed_rect.y, packed_rect.w,
+                                  packed_rect.h);
         }
         else {
-          std::unique_ptr<unsigned char[]> resampled = std::make_unique<unsigned char[]>(packed_rect.w *
-                                                                                         packed_rect.h * 4);
-          stbir_resize_uint8_srgb((unsigned char*)image_container->m_data, image_container->m_width,
-                                  image_container->m_height, image_container->m_width * 4,
-                                  resampled.get(), packed_rect.w, packed_rect.h, packed_rect.w * 4,
-                                  STBIR_BGRA);
-          texture_->updateTexture((unsigned int*)resampled.get(), packed_rect.x, packed_rect.y,
-                                  packed_rect.w, packed_rect.h);
+          int size = packed_rect.w * packed_rect.h * kChannels;
+          std::unique_ptr<unsigned char[]> resampled = std::make_unique<unsigned char[]>(size);
+          stbir_resize_uint8_srgb(image_data, image_container->m_width, image_container->m_height,
+                                  image_container->m_width * kChannels, resampled.get(),
+                                  packed_rect.w, packed_rect.h, packed_rect.w * kChannels, STBIR_BGRA);
+          texture_->updateTexture(resampled.get(), packed_rect.x, packed_rect.y, packed_rect.w,
+                                  packed_rect.h);
         }
         bimg::imageFree(image_container);
       }
-    }
-  }
-
-  void ImageGroup::blurImage(unsigned int* location, int width, int height, int blur_radius) const {
-    static constexpr int kBoxBlurIterations = 3;
-
-    int radius = std::min(blur_radius, width - 1);
-    radius = radius + ((radius + 1) % 2);
-
-    std::unique_ptr<unsigned char[]> cache = std::make_unique<unsigned char[]>(radius);
-
-    unsigned char* location_char = reinterpret_cast<unsigned char*>(location);
-
-    for (int r = 0; r < height; ++r) {
-      for (int channel = 0; channel < 4; ++channel) {
-        for (int i = 0; i < kBoxBlurIterations; ++i)
-          boxBlur(location_char + r * width * 4 + channel, cache.get(), width, radius, 4);
-      }
-    }
-
-    for (int c = 0; c < width * 4; ++c) {
-      for (int i = 0; i < kBoxBlurIterations; ++i)
-        boxBlur(location_char + c, cache.get(), width, radius, width * 4);
     }
   }
 
@@ -258,7 +257,7 @@ namespace visage {
     VISAGE_ASSERT(image_count_.count(image) && image_count_.at(image) > 0);
     atlas_.setTexturePositionsForId(image, vertices);
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < kChannels; ++i) {
       vertices[i].direction_x = 1.0f;
       vertices[i].direction_y = 0.0f;
     }

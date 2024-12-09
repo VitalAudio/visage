@@ -17,6 +17,7 @@
 #pragma once
 
 #include "graphics_utils.h"
+#include "visage_utils/space.h"
 
 #include <map>
 
@@ -68,6 +69,7 @@ namespace visage {
   class ImageGroup {
   public:
     static constexpr int kImageBuffer = 1;
+    static constexpr int kChannels = 4;
 
     ImageGroup();
     virtual ~ImageGroup();
@@ -87,7 +89,6 @@ namespace visage {
     void setNewSize();
     bool packImage(const ImageFile& image);
     void drawImage(const ImageFile& image) const;
-    void blurImage(unsigned int* location, int width, int height, int blur_radius) const;
 
     PackedAtlas<ImageFile> atlas_;
     std::map<ImageFile, int> image_count_;

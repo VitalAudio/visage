@@ -20,12 +20,13 @@
 #include "embedded/shaders.h"
 #include "font.h"
 #include "graphics_caches.h"
-#include "graphics_libs.h"
 #include "line.h"
 #include "renderer.h"
 #include "shader.h"
 #include "uniforms.h"
 #include "visage_utils/space.h"
+
+#include <bgfx/bgfx.h>
 
 namespace visage {
   static constexpr uint64_t blendModeValue(BlendMode blend_mode) {
@@ -413,7 +414,7 @@ namespace visage {
     bgfx::submit(submit_pass, program);
   }
 
-  void submitImages(const BatchVector<ImageWrapper>& batches, Layer& layer, int submit_pass) {
+  void submitImages(const BatchVector<ImageWrapper>& batches, const Layer& layer, int submit_pass) {
     if (!setupQuads(batches))
       return;
 
@@ -468,14 +469,12 @@ namespace visage {
       return;
 
     int vertex_index = 0;
-    float atlas_scale = 1.0f / font.atlasWidth();
     for (const auto& batch : batches) {
       for (const TextBlock& text_block : *batch.shapes) {
         int length = text_block.quads.size();
         if (length == 0)
           continue;
 
-        int start_vertex_index = vertex_index;
         int x = text_block.x + batch.x;
         int y = text_block.y + batch.y;
         for (const Bounds& invalid_rect : *batch.invalid_rects) {

@@ -19,7 +19,6 @@
 #include "font.h"
 #include "graphics_utils.h"
 #include "layer.h"
-#include "post_effects.h"
 #include "region.h"
 #include "shape_batcher.h"
 #include "text.h"

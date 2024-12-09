@@ -19,8 +19,9 @@
 #include "canvas.h"
 #include "embedded/shaders.h"
 #include "graphics_caches.h"
-#include "graphics_libs.h"
 #include "uniforms.h"
+
+#include <bgfx/bgfx.h>
 
 namespace visage {
   template<const char* name>

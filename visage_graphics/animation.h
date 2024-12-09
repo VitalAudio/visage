@@ -33,11 +33,9 @@ namespace visage {
     static constexpr int kRegularTime = 80;
     static constexpr int kFastTime = 50;
 
-    static inline T interpolate(const T& from, const T& to, float t) {
-      return from + (to - from) * t;
-    }
+    static T interpolate(const T& from, const T& to, float t) { return from + (to - from) * t; }
 
-    static inline float sin1(float phase) {
+    static float sin1(float phase) {
       phase = 0.5f - phase;
       const float phase2 = phase * phase;
       const float phase4 = phase2 * phase2;

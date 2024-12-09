@@ -102,7 +102,7 @@ namespace visage {
 
   void submitLine(const LineWrapper& line_wrapper, const Layer& layer, int submit_pass);
   void submitLineFill(const LineFillWrapper& line_fill_wrapper, const Layer& layer, int submit_pass);
-  void submitImages(const BatchVector<ImageWrapper>& batches, Layer& layer, int submit_pass);
+  void submitImages(const BatchVector<ImageWrapper>& batches, const Layer& layer, int submit_pass);
   void submitText(const BatchVector<TextBlock>& batches, const Layer& layer, int submit_pass);
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass);
   void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass);

@@ -16,9 +16,10 @@
 
 #include "canvas.h"
 
-#include "graphics_libs.h"
 #include "palette.h"
 #include "theme.h"
+
+#include <bgfx/bgfx.h>
 
 namespace visage {
   Canvas::Canvas() {
@@ -58,7 +59,8 @@ namespace visage {
   }
 
   void Canvas::ensureLayerExists(int layer) {
-    while (layer >= layers_.size()) {
+    int layers_to_add = layer + 1 - layers_.size();
+    for (int i = 0; i < layers_to_add; ++i) {
       intermediate_layers_.push_back(std::make_unique<Layer>());
       intermediate_layers_.back()->setIntermediateLayer(true);
       layers_.push_back(intermediate_layers_.back().get());

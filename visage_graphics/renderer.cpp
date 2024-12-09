@@ -16,8 +16,10 @@
 
 #include "renderer.h"
 
-#include "graphics_libs.h"
 #include "visage_utils/string_utils.h"
+
+#include <bgfx/bgfx.h>
+#include <bgfx/platform.h>
 
 namespace visage {
   class GraphicsCallbackHandler : public bgfx::CallbackI {
