@@ -34,6 +34,9 @@ namespace visage {
   }
 
   static void boxBlur(unsigned char* dest, unsigned char* cache, int width, int blur_radius, int stride) {
+    for (int i = 0; i < blur_radius; ++i)
+      cache[i] = 0;
+
     int value = 0;
     int sample_index = 0;
     int write_index = 0;
@@ -42,14 +45,7 @@ namespace visage {
       value += cache[sample_index];
     }
 
-    for (; sample_index < blur_radius; ++sample_index) {
-      cache[sample_index] = dest[sample_index * stride];
-      value += cache[sample_index];
-      dest[write_index * stride] = value / blur_radius;
-      write_index++;
-    }
-
-    for (; sample_index < width; ++sample_index) {
+    for (; sample_index < width - blur_radius / 2; ++sample_index) {
       int cache_index = sample_index % blur_radius;
       int cached = cache[cache_index];
       int sample = dest[sample_index * stride];
@@ -59,7 +55,7 @@ namespace visage {
       write_index++;
     }
 
-    for (; sample_index < width + blur_radius; ++sample_index) {
+    for (; sample_index < width; ++sample_index) {
       value -= cache[sample_index % blur_radius];
       dest[write_index * stride] = value / blur_radius;
       write_index++;
@@ -198,8 +194,8 @@ namespace visage {
     if (image.svg) {
       std::unique_ptr<unsigned int[]> data = SvgRasterizer::instance().rasterize(image);
 
-      // TODO if (image.blur_radius)
-      // TODO   blurImage(data.get(), image.width, image.blur_radius);
+      if (image.blur_radius)
+        blurImage(data.get(), image.width, image.height, image.blur_radius);
 
       texture_->updateTexture(data.get(), packed_rect.x, packed_rect.y, packed_rect.w, packed_rect.h);
     }
@@ -226,7 +222,7 @@ namespace visage {
     }
   }
 
-  void ImageGroup::blurImage(unsigned int* location, int width, int blur_radius) const {
+  void ImageGroup::blurImage(unsigned int* location, int width, int height, int blur_radius) const {
     static constexpr int kBoxBlurIterations = 3;
 
     int radius = std::min(blur_radius, width - 1);
@@ -236,9 +232,9 @@ namespace visage {
 
     unsigned char* location_char = reinterpret_cast<unsigned char*>(location);
 
-    for (int r = 0; r < width; ++r) {
-      for (int i = 0; i < kBoxBlurIterations; ++i) {
-        for (int channel = 0; channel < 4; ++channel)
+    for (int r = 0; r < height; ++r) {
+      for (int channel = 0; channel < 4; ++channel) {
+        for (int i = 0; i < kBoxBlurIterations; ++i)
           boxBlur(location_char + r * width * 4 + channel, cache.get(), width, radius, 4);
       }
     }

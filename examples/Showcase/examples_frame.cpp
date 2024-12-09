@@ -42,9 +42,7 @@ THEME_COLOR(BackgroundColor, 0xff33393f);
 THEME_COLOR(TextColor, 0xffffffff);
 THEME_COLOR(ShapeColor, 0xffaaff88);
 THEME_COLOR(LabelColor, 0x44212529);
-THEME_COLOR(LogoColor1, 0xffaa88ff);
-THEME_COLOR(LogoColor2, 0xffffffff);
-THEME_COLOR(LogoBackgroundColor, 0xff212529);
+THEME_COLOR(DarkBackgroundColor, 0xff212529);
 THEME_COLOR(OverlayShadowColor, 0xbb000000);
 THEME_COLOR(ShadowColor, 0x88000000);
 
@@ -95,7 +93,7 @@ private:
 
 class DragDropSource : public visage::Frame {
   void draw(visage::Canvas& canvas) override {
-    canvas.setPaletteColor(kLogoBackgroundColor);
+    canvas.setPaletteColor(kDarkBackgroundColor);
     canvas.roundedRectangle(0, 0, width(), height(), height() / 16);
 
     canvas.setPaletteColor(kTextColor);
@@ -131,7 +129,7 @@ private:
 
 class DragDropTarget : public visage::Frame {
   void draw(visage::Canvas& canvas) override {
-    canvas.setPaletteColor(kLogoBackgroundColor);
+    canvas.setPaletteColor(kDarkBackgroundColor);
     canvas.roundedRectangle(0, 0, width(), height(), height() / 16);
 
     canvas.setPaletteColor(kTextColor);
@@ -499,8 +497,8 @@ void ExamplesFrame::draw(visage::Canvas& canvas) {
               section_head_height);
   canvas.text("Text", font, visage::Font::kCenter, x_division, 2 * section_height, right_width / 2,
               section_head_height);
-  canvas.text("SVG", font, visage::Font::kCenter, x_division + right_width / 2, 2 * section_height,
-              right_width / 2, section_head_height);
+  canvas.text("Image", font, visage::Font::kCenter, x_division + right_width / 2,
+              2 * section_height, right_width / 2, section_head_height);
 
   canvas.text("Controls", font, visage::Font::kCenter, 0, 3 * section_height, x_division,
               section_head_height);
@@ -513,11 +511,7 @@ void ExamplesFrame::draw(visage::Canvas& canvas) {
   int icon_x = x_division + right_width / 2 + right_width / 4 - icon_width / 2;
   int icon_y = text_editor_->y();
 
-  canvas.setPaletteColor(kLogoBackgroundColor);
-  canvas.circle(icon_x, icon_y, icon_width);
-  canvas.setPaletteColor(kLogoColor1);
-  canvas.svg(resources::icons::vital_ring_svg, icon_x, icon_y, icon_width, icon_width);
-  canvas.setPaletteColor(kLogoColor2);
+  canvas.setColor(0xffffffff);
   canvas.image(resources::images::test_png, icon_x, icon_y, icon_width, icon_width);
 
   if (shadow_amount_) {

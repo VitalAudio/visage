@@ -87,7 +87,7 @@ namespace visage {
     void setNewSize();
     bool packImage(const ImageFile& image);
     void drawImage(const ImageFile& image) const;
-    void blurImage(unsigned int* location, int width, int blur_radius) const;
+    void blurImage(unsigned int* location, int width, int height, int blur_radius) const;
 
     PackedAtlas<ImageFile> atlas_;
     std::map<ImageFile, int> image_count_;
