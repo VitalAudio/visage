@@ -16,6 +16,8 @@
 
 #if VISAGE_WINDOWS
 #define NOMINMAX
+#define UNICODE
+#define _UNICODE
 
 #include "windowing_win32.h"
 
@@ -685,15 +687,17 @@ namespace visage {
       STGMEDIUM storage = { TYMED_HGLOBAL };
 
       if (SUCCEEDED(data_object->GetData(&format, &storage))) {
-        HDROP hDrop = static_cast<HDROP>(GlobalLock(storage.hGlobal));
+        HDROP h_drop = static_cast<HDROP>(GlobalLock(storage.hGlobal));
 
-        if (hDrop != nullptr) {
-          UINT fileCount = DragQueryFile(hDrop, 0xFFFFFFFF, nullptr, 0);
-          TCHAR filePath[MAX_PATH];
+        if (h_drop != nullptr) {
+          UINT file_count = DragQueryFile(h_drop, 0xFFFFFFFF, nullptr, 0);
+          WCHAR file_path[MAX_PATH];
 
-          for (UINT i = 0; i < fileCount; ++i) {
-            if (DragQueryFile(hDrop, i, filePath, MAX_PATH))
-              files.emplace_back(filePath);
+          for (UINT i = 0; i < file_count; ++i) {
+            if (DragQueryFile(h_drop, i, file_path, MAX_PATH)) {
+              std::string file = String::convertToUtf8(file_path);
+              files.emplace_back(file);
+            }
           }
 
           GlobalUnlock(storage.hGlobal);
@@ -715,7 +719,9 @@ namespace visage {
   }
 
   void showMessageBox(std::string title, std::string message) {
-    MessageBox(nullptr, message.c_str(), title.c_str(), MB_OK);
+    std::wstring w_title = String::convertToWide(title);
+    std::wstring w_message = String::convertToWide(message);
+    MessageBox(nullptr, w_message.c_str(), w_title.c_str(), MB_OK);
   }
 
   static KeyCode keyCodeFromScanCode(WPARAM w_param, LPARAM l_param) {
@@ -890,9 +896,8 @@ namespace visage {
 
   static HMODULE WINAPI loadModuleHandle() {
     HMODULE module_handle;
-    BOOL success = GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-                                         GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                                     reinterpret_cast<LPCSTR>(&loadModuleHandle), &module_handle);
+    int flags = GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT;
+    BOOL success = GetModuleHandleEx(flags, reinterpret_cast<LPCWSTR>(&loadModuleHandle), &module_handle);
     if (success && module_handle)
       return module_handle;
 
@@ -1042,6 +1047,8 @@ namespace visage {
     case WM_SYSCHAR:
     case WM_CHAR: {
       handleCharacterEntry(static_cast<wchar_t>(w_param));
+      SetCaretPos(-500, 200);
+      ShowCaret(hwnd);
       return 0;
     }
     case WM_MOUSEMOVE: {
@@ -1318,8 +1325,9 @@ namespace visage {
 
     module_handle_ = loadModuleHandle();
 
-    std::string unique_string = std::to_string(reinterpret_cast<uintptr_t>(this));
-    unique_window_class_name_ = std::string(VISAGE_APPLICATION_NAME) + "_" + unique_string;
+    std::wstring unique_string = std::to_wstring(reinterpret_cast<uintptr_t>(this));
+    std::string app_name = VISAGE_APPLICATION_NAME;
+    unique_window_class_name_ = String::convertToWide(app_name) + L"_" + unique_string;
 
     window_class_.cbSize = sizeof(WNDCLASSEX);
     window_class_.style = CS_OWNDC;
@@ -1363,8 +1371,10 @@ namespace visage {
     RegisterClassEx(&window_class_);
 
     int flags = popup ? kPopupFlags : kWindowFlags;
-    window_handle_ = CreateWindow(window_class_.lpszClassName, VISAGE_APPLICATION_NAME, flags, x, y,
-                                  width, height, nullptr, nullptr, window_class_.hInstance, nullptr);
+    std::string app_name = VISAGE_APPLICATION_NAME;
+    window_handle_ = CreateWindow(window_class_.lpszClassName,
+                                  String::convertToWide(app_name).c_str(), flags, x, y, width,
+                                  height, nullptr, nullptr, window_class_.hInstance, nullptr);
     if (window_handle_ == nullptr) {
       VISAGE_LOG("Error creating window");
       return;
@@ -1387,9 +1397,10 @@ namespace visage {
     RegisterClassEx(&window_class_);
 
     parent_handle_ = static_cast<HWND>(parent_handle);
-    window_handle_ = CreateWindow(window_class_.lpszClassName, VISAGE_APPLICATION_NAME,
-                                  kWindowFlags, 0, 0, width, height, parent_handle_, nullptr,
-                                  window_class_.hInstance, nullptr);
+    std::string app_name = VISAGE_APPLICATION_NAME;
+    window_handle_ = CreateWindow(window_class_.lpszClassName,
+                                  String::convertToWide(app_name).c_str(), kWindowFlags, 0, 0, width,
+                                  height, parent_handle_, nullptr, window_class_.hInstance, nullptr);
     if (window_handle_ == nullptr) {
       VISAGE_LOG("Error creating window");
       return;
@@ -1468,7 +1479,8 @@ namespace visage {
   }
 
   void WindowWin32::setWindowTitle(const std::string& title) {
-    SetWindowText(window_handle_, title.c_str());
+    std::wstring w_title = String::convertToWide(title);
+    SetWindowText(window_handle_, w_title.c_str());
   }
 
   Point WindowWin32::maxWindowDimensions() const {

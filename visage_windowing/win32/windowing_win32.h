@@ -84,7 +84,7 @@ namespace visage {
   private:
     void registerWindowClass();
 
-    std::string unique_window_class_name_;
+    std::wstring unique_window_class_name_;
     WNDCLASSEX window_class_ = {};
     HWND window_handle_ = nullptr;
     HWND parent_handle_ = nullptr;
