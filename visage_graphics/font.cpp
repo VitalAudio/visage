@@ -61,17 +61,17 @@ namespace visage {
     FT_Library library_ = nullptr;
   };
 
-  class FreeTypeFace {
+  class TypeFace {
   public:
-    FreeTypeFace(const FreeTypeFace&) = delete;
-    FreeTypeFace& operator=(const FreeTypeFace&) = delete;
+    TypeFace(const TypeFace&) = delete;
+    TypeFace& operator=(const TypeFace&) = delete;
 
-    FreeTypeFace(int size, const unsigned char* data, int data_size) {
+    TypeFace(int size, const unsigned char* data, int data_size) {
       face_ = FreeTypeLibrary::newMemoryFace(data, data_size);
       FT_Set_Pixel_Sizes(face_, 0, size);
     }
 
-    ~FreeTypeFace() { FreeTypeLibrary::doneFace(face_); }
+    ~TypeFace() { FreeTypeLibrary::doneFace(face_); }
 
     int numGlyphs() const { return face_->num_glyphs; }
     std::string familyName() const { return face_->family_name; }
@@ -81,8 +81,13 @@ namespace visage {
     bool hasCharacter(char32_t character) const { return glyphIndex(character); }
     int lineHeight() const { return face_->size->metrics.height >> 6; }
 
-    FT_GlyphSlot indexGlyph(int index) const {
-      FT_Load_Glyph(face_, index, FT_LOAD_RENDER);
+    FT_GlyphSlot characterInfo(char32_t character) const {
+      FT_Load_Char(face_, character, 0);
+      return face_->glyph;
+    }
+
+    FT_GlyphSlot characterRasterData(char32_t character) const {
+      FT_Load_Char(face_, character, FT_LOAD_RENDER);
       return face_->glyph;
     }
 
@@ -94,24 +99,14 @@ namespace visage {
 
   class PackedFont {
   public:
-    static constexpr int kMinWidth = 512;
     static constexpr int kPadding = 2;
 
-    struct PackedFace {
-      std::unique_ptr<FreeTypeFace> face;
-      std::unique_ptr<PackedGlyph[]> glyphs;
-
-      PackedGlyph* packedGlyph(char32_t character) const {
-        return &glyphs[face->glyphIndex(character)];
-      }
-    };
-
-    PackedFont(int size, const unsigned char* data, int data_size) :
-        size_(size), data_(data), atlas_width_(kMinWidth) {
-      std::unique_ptr<FreeTypeFace> face = std::make_unique<FreeTypeFace>(size, data, data_size);
+    PackedFont(int size, const unsigned char* data, int data_size) : size_(size), data_(data) {
+      std::unique_ptr<TypeFace> face = std::make_unique<TypeFace>(size, data, data_size);
       std::unique_ptr<PackedGlyph[]> glyphs = std::make_unique<PackedGlyph[]>(face->numGlyphs());
-      texture_ = std::make_unique<unsigned int[]>(atlas_width_ * atlas_width_);
-      packed_faces_.push_back({ std::move(face), std::move(glyphs) });
+      type_faces_.push_back(std::move(face));
+
+      packed_glyphs_['\n'] = Font::kNullPackedGlyph;
     }
 
     ~PackedFont() {
@@ -119,178 +114,120 @@ namespace visage {
         bgfx::destroy(texture_handle_);
     }
 
-    void copyGlyph(PackedGlyph* packed_glyph, unsigned int* dest, int dest_width, int dest_x,
-                   int dest_y) const {
-      for (int y = 0; y < packed_glyph->height; ++y) {
-        for (int x = 0; x < packed_glyph->width; ++x) {
-          int index = (dest_y + y) * dest_width + dest_x + x;
-          dest[index] = texture_[(packed_glyph->atlas_top + y) * atlas_width_ + packed_glyph->atlas_left + x];
-        }
-      }
-      packed_glyph->atlas_left = dest_x;
-      packed_glyph->atlas_top = dest_y;
-    }
-
     void resize() {
-      int new_width = atlas_width_ * 2;
-      std::unique_ptr<unsigned int[]> new_texture = std::make_unique<unsigned int[]>(new_width * new_width);
-
-      write_x_ = 0;
-      write_y_ = 0;
-      write_glyph_height_ = 0;
-
-      for (const auto& packed_face : packed_faces_) {
-        int num_glyphs = packed_face.face->numGlyphs();
-        for (int i = 0; i < num_glyphs; ++i) {
-          PackedGlyph* packed_glyph = &packed_face.glyphs[i];
-          if (packed_glyph->atlas_left < 0)
-            continue;
-
-          if (write_x_ + packed_glyph->width + kPadding > atlas_width_) {
-            write_x_ = 0;
-            write_y_ += write_glyph_height_ + kPadding;
-            write_glyph_height_ = packed_glyph->height;
-          }
-          else
-            write_glyph_height_ = std::max<int>(write_glyph_height_, packed_glyph->height);
-
-          if (write_y_ + write_glyph_height_ + kPadding > atlas_width_)
-            break;
-
-          copyGlyph(packed_glyph, new_texture.get(), new_width, write_x_, write_y_);
-          write_x_ += packed_glyph->width + kPadding;
-        }
-      }
-
-      atlas_width_ *= 2;
-      texture_ = std::move(new_texture);
-    }
-
-    PackedGlyph* rasterizeGlyph(const PackedFace& packed_face, int index) {
-      static constexpr float kAdvanceMult = 1.0f / (1 << 6);
-
       if (bgfx::isValid(texture_handle_)) {
         bgfx::destroy(texture_handle_);
         texture_handle_ = BGFX_INVALID_HANDLE;
       }
 
-      FT_GlyphSlot glyph = packed_face.face->indexGlyph(index);
-      if (write_x_ + glyph->bitmap.width + kPadding > atlas_width_) {
-        write_x_ = 0;
-        write_y_ += write_glyph_height_ + kPadding;
-        write_glyph_height_ = glyph->bitmap.rows;
+      atlas_.pack();
+      for (auto& glyph : packed_glyphs_) {
+        if (glyph.second.width == 0)
+          continue;
+
+        const PackedRect& rect = atlas_.rectForId(glyph.first);
+        glyph.second.atlas_left = rect.x;
+        glyph.second.atlas_top = rect.y;
       }
-      else
-        write_glyph_height_ = std::max<int>(write_glyph_height_, glyph->bitmap.rows);
+    }
 
-      if (write_y_ + write_glyph_height_ + kPadding > atlas_width_)
-        resize();
+    void rasterizeGlyph(char32_t character, const PackedGlyph* packed_glyph) {
+      int size = packed_glyph->width * packed_glyph->height;
+      std::unique_ptr<unsigned int[]> texture = std::make_unique<unsigned int[]>(size);
+      if (packed_glyph->type_face) {
+        FT_GlyphSlot glyph = packed_glyph->type_face->characterRasterData(character);
+        for (int y = 0; y < packed_glyph->height; ++y) {
+          for (int x = 0; x < packed_glyph->width; ++x) {
+            int i = y * packed_glyph->width + x;
+            texture[i] = ((glyph->bitmap.buffer[y * packed_glyph->width + x]) << 24) + 0xffffff;
+          }
+        }
+      }
+      else {
+        EmojiRasterizer::instance().drawIntoBuffer(character, size_, packed_glyph->width,
+                                                   texture.get(), packed_glyph->width, 0, 0);
+      }
 
-      PackedGlyph* packed_glyph = &packed_face.glyphs[index];
+      bgfx::updateTexture2D(texture_handle_, 0, 0, packed_glyph->atlas_left,
+                            packed_glyph->atlas_top, packed_glyph->width, packed_glyph->height,
+                            bgfx::copy(texture.get(), size * ImageGroup::kChannels));
+    }
+
+    PackedGlyph* packCharacterGlyph(PackedGlyph* packed_glyph, const TypeFace* type_face, char32_t character) {
+      static constexpr float kAdvanceMult = 1.0f / (1 << 6);
+
+      FT_GlyphSlot glyph = type_face->characterInfo(character);
       packed_glyph->width = glyph->bitmap.width;
       packed_glyph->height = glyph->bitmap.rows;
       packed_glyph->x_offset = glyph->bitmap_left;
       packed_glyph->y_offset = glyph->bitmap_top;
       packed_glyph->x_advance = glyph->advance.x * kAdvanceMult;
-      packed_glyph->atlas_left = write_x_;
-      packed_glyph->atlas_top = write_y_;
+      packed_glyph->type_face = type_face;
 
-      for (int y = 0; y < packed_glyph->height; ++y) {
-        for (int x = 0; x < packed_glyph->width; ++x) {
-          int i = (write_y_ + y) * atlas_width_ + write_x_ + x;
-          texture_[i] = ((glyph->bitmap.buffer[y * packed_glyph->width + x]) << 24) + 0xffffff;
-        }
-      }
-      write_x_ += packed_glyph->width + kPadding;
-
+      packGlyph(packed_glyph, character);
       return packed_glyph;
     }
 
-    PackedGlyph* rasterizeEmojiGlyph(char32_t emoji) {
-      if (bgfx::isValid(texture_handle_)) {
-        bgfx::destroy(texture_handle_);
-        texture_handle_ = BGFX_INVALID_HANDLE;
-      }
-
+    PackedGlyph* packEmojiGlyph(PackedGlyph* packed_glyph, char32_t emoji) {
       int raster_width = lineHeight();
-      if (write_x_ + raster_width > atlas_width_) {
-        write_x_ = 0;
-        write_y_ += write_glyph_height_ + kPadding;
-        write_glyph_height_ = raster_width;
-      }
-      else
-        write_glyph_height_ = std::max<int>(write_glyph_height_, raster_width);
-
-      if (write_y_ + write_glyph_height_ + kPadding > atlas_width_)
-        resize();
-
-      emoji_glyphs_.push_back(std::make_unique<PackedGlyph>());
-      PackedGlyph* packed_glyph = emoji_glyphs_.back().get();
       packed_glyph->width = raster_width;
       packed_glyph->height = raster_width;
       packed_glyph->x_offset = 0;
       packed_glyph->y_offset = size_;
       packed_glyph->x_advance = raster_width;
-      packed_glyph->atlas_left = write_x_;
-      packed_glyph->atlas_top = write_y_;
 
-      EmojiRasterizer::instance().drawIntoBuffer(emoji, size_, raster_width, texture_.get(),
-                                                 atlas_width_, write_x_, write_y_);
-      write_x_ += packed_glyph->width + kPadding;
-
+      packGlyph(packed_glyph, emoji);
       return packed_glyph;
     }
 
     const PackedGlyph* packedGlyph(char32_t character) {
-      if (Font::isNewLine(character))
-        return &Font::kNullPackedGlyph;
+      PackedGlyph* packed_glyph = &packed_glyphs_[character];
+      if (packed_glyph->atlas_left >= 0)
+        return packed_glyph;
 
-      for (const auto& packed_face : packed_faces_) {
-        if (packed_face.face->hasCharacter(character)) {
-          PackedGlyph* glyph = packed_face.packedGlyph(character);
-          if (glyph->atlas_left >= 0)
-            return glyph;
-
-          return rasterizeGlyph(packed_face, packed_face.face->glyphIndex(character));
-        }
+      for (const auto& type_face : type_faces_) {
+        if (type_face->hasCharacter(character))
+          return packCharacterGlyph(packed_glyph, type_face.get(), character);
       }
-      if (emoji_indices_.count(character))
-        return emoji_glyphs_[emoji_indices_[character]].get();
 
-      emoji_indices_[character] = emoji_glyphs_.size();
-      return rasterizeEmojiGlyph(character);
+      return packEmojiGlyph(packed_glyph, character);
     }
 
     void checkInit() {
       if (!bgfx::isValid(texture_handle_)) {
-        int size = atlas_width_ * atlas_width_ * sizeof(unsigned int);
-        const bgfx::Memory* texture_ref = bgfx::makeRef(texture_.get(), size);
-        texture_handle_ = bgfx::createTexture2D(atlas_width_, atlas_width_, false, 1,
-                                                bgfx::TextureFormat::BGRA8,
-                                                BGFX_TEXTURE_NONE | BGFX_SAMPLER_NONE, texture_ref);
+        texture_handle_ = bgfx::createTexture2D(atlas_.width(), atlas_.width(), false, 1,
+                                                bgfx::TextureFormat::BGRA8);
+
+        for (auto& glyph : packed_glyphs_)
+          rasterizeGlyph(glyph.first, &glyph.second);
       }
     }
 
-    int atlasWidth() const { return atlas_width_; }
+    int atlasWidth() const { return atlas_.width(); }
     bgfx::TextureHandle& textureHandle() { return texture_handle_; }
+    int lineHeight() const { return type_faces_[0]->lineHeight(); }
     int size() const { return size_; }
-    int lineHeight() const { return packed_faces_[0].face->lineHeight(); }
     const unsigned char* data() const { return data_; }
 
   private:
-    std::vector<PackedFace> packed_faces_;
+    void packGlyph(PackedGlyph* packed_glyph, char32_t character) {
+      if (!atlas_.addRect(character, packed_glyph->width, packed_glyph->height))
+        resize();
+
+      const PackedRect& rect = atlas_.rectForId(character);
+      packed_glyph->atlas_left = rect.x;
+      packed_glyph->atlas_top = rect.y;
+
+      if (bgfx::isValid(texture_handle_))
+        rasterizeGlyph(character, packed_glyph);
+    }
+
+    PackedAtlas<char32_t> atlas_;
+    std::vector<std::unique_ptr<TypeFace>> type_faces_;
     int size_ = 0;
     const unsigned char* data_ = nullptr;
-    int atlas_width_ = 0;
 
-    std::unique_ptr<unsigned int[]> texture_;
-    int write_x_ = 0;
-    int write_y_ = 0;
-    int write_glyph_height_ = 0;
-
-    std::map<char32_t, int> emoji_indices_;
-    std::vector<std::unique_ptr<PackedGlyph>> emoji_glyphs_;
-
+    std::map<char32_t, PackedGlyph> packed_glyphs_;
     bgfx::TextureHandle texture_handle_ = { bgfx::kInvalidHandle };
   };
 
@@ -407,9 +344,8 @@ namespace visage {
     pen_y = std::round(pen_y);
 
     for (int i = 0; i < length; ++i) {
-      const PackedGlyph* packed_glyph = packed_font_->packedGlyph(text[i]);
-      if (character_override)
-        packed_glyph = packed_font_->packedGlyph(character_override);
+      char32_t character = character_override ? character_override : text[i];
+      const PackedGlyph* packed_glyph = packed_font_->packedGlyph(character);
 
       quads[i].packed_glyph = packed_glyph;
       quads[i].x = pen_x + packed_glyph->x_offset;
@@ -431,8 +367,9 @@ namespace visage {
 
       int next_break_index = overflow_index;
       while (next_break_index < length && next_break_index > break_index &&
-             isPrintable(string[next_break_index - 1]))
+             isPrintable(string[next_break_index - 1])) {
         next_break_index--;
+      }
 
       if (next_break_index == break_index)
         next_break_index = overflow_index;

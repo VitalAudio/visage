@@ -24,6 +24,9 @@
 #include <vector>
 
 namespace visage {
+  class TypeFace;
+  class PackedFont;
+
   struct PackedGlyph {
     int atlas_left = -1;
     int atlas_top = -1;
@@ -32,6 +35,7 @@ namespace visage {
     float x_offset = 0.0f;
     float y_offset = 0.0f;
     float x_advance = 0.0f;
+    const TypeFace* type_face = nullptr;
   };
 
   struct FontAtlasQuad {
@@ -42,12 +46,10 @@ namespace visage {
     float height;
   };
 
-  class PackedFont;
-
   class Font {
   public:
     static constexpr PackedGlyph kNullPackedGlyph = { 0, 0, 0, 0, 0.0f, 0.0f, 0.0f };
-    
+
     enum Justification {
       kCenter = 0,
       kLeft = 0x1,
