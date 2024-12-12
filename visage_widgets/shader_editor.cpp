@@ -88,7 +88,7 @@ namespace visage {
       std::unique_ptr<char[]> shader_memory = loadFileData(file_path, size);
       std::string file_stem = fileStem(file_path);
       std::string code(shader_memory.get(), size);
-      setCode(file_stem, code, [](std::string& error) { VISAGE_LOG(error); });
+      setCode(file_stem, code, [](std::string error) { VISAGE_LOG(error); });
       compileShader();
     }
   }
