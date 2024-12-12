@@ -25,6 +25,7 @@ namespace visage {
   struct ShaderCacheMap {
     std::map<const char*, bgfx::ShaderHandle> cache;
     std::map<const char*, bgfx::ShaderHandle> originals;
+    std::map<std::string, const char*> name_lookup;
   };
 
   ShaderCache::ShaderCache() {
@@ -41,19 +42,37 @@ namespace visage {
       return cache_->cache[file.data];
 
     const bgfx::Memory* shader_memory = bgfx::copy(file.data, file.size);
+    cache_->name_lookup[file.name] = file.data;
     cache_->cache[file.data] = bgfx::createShader(shader_memory);
     cache_->originals[file.data] = cache_->cache[file.data];
 
     return cache_->cache[file.data];
   }
 
-  bool ShaderCache::swap(const EmbeddedFile& file, const char* data, int size) const {
-    bgfx::ShaderHandle handle = bgfx::createShader(bgfx::makeRef(data, size));
+  bgfx::ShaderHandle& ShaderCache::handle(const char* data) const {
+    VISAGE_ASSERT(cache_->cache.count(data));
+    return cache_->cache[data];
+  }
+
+  bool ShaderCache::swap(const char* original_data, const char* data, int size) const {
+    bgfx::ShaderHandle handle = bgfx::createShader(bgfx::copy(data, size));
     if (!bgfx::isValid(handle))
       return false;
 
-    cache_->cache[file.data] = handle;
+    cache_->cache[original_data] = handle;
     return true;
+  }
+
+  bool ShaderCache::swap(const EmbeddedFile& file, const char* data, int size) const {
+    return swap(file.data, data, size);
+  }
+
+  bool ShaderCache::swap(const std::string& name, const char* data, int size) const {
+    return swap(cache_->name_lookup[name], data, size);
+  }
+
+  const char* ShaderCache::shaderData(const std::string& name) const {
+    return cache_->name_lookup[name];
   }
 
   void ShaderCache::restore(const EmbeddedFile& file) const {
@@ -106,6 +125,27 @@ namespace visage {
                                                      ShaderCache::shaderHandle(fragment), false);
     if (bgfx::isValid(handle))
       cache_->cache[vertex.data][fragment.data] = handle;
+  }
+
+  void ProgramCache::reloadAll(const char* shader_data) const {
+    for (const auto& vertex : cache_->cache) {
+      for (const auto& fragment : vertex.second) {
+        if (shader_data == vertex.first || shader_data == fragment.first) {
+          bgfx::ProgramHandle handle = bgfx::createProgram(ShaderCache::shaderHandle(vertex.first),
+                                                           ShaderCache::shaderHandle(fragment.first),
+                                                           false);
+          if (bgfx::isValid(handle))
+            cache_->cache[vertex.first][fragment.first] = handle;
+        }
+      }
+    }
+  }
+  void ProgramCache::reloadAll(const std::string& shader_name) const {
+    reloadAll(ShaderCache::originalData(shader_name));
+  }
+
+  void ProgramCache::reloadAll(const EmbeddedFile& shader) const {
+    reloadAll(ShaderCache::originalData(shader.data));
   }
 
   void ProgramCache::restore(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {

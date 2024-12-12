@@ -22,117 +22,118 @@
 #include "visage_utils/thread_utils.h"
 #include "visage_widgets/button.h"
 
-#include <iosfwd>
 #include <mutex>
 #include <string>
 
-// For shader development purposes only
+// For shader development purposes only.
+// Not for production use.
+
 namespace visage {
   class ShaderCompiler : public Thread {
   public:
-    enum Platform {
-      kLinux,
-      kMac,
-      kWindows,
-      kEmscripten,
+    enum class Platform {
+      Linux,
+      Mac,
+      Windows,
+      Emscripten,
     };
 
-    enum ShaderType {
-      kVertex,
-      kFragment,
+    enum class ShaderType {
+      Vertex,
+      Fragment,
     };
 
-    enum Backend {
-      kGlsl,
-      kVulkan,
-      kMetal,
-      kDx11,
-      kWebGl,
+    enum class Backend {
+      Glsl,
+      Vulkan,
+      Metal,
+      Dx11,
+      WebGl,
     };
+
+    ShaderCompiler();
 
     static constexpr const char* platformArgument(Platform platform) {
       switch (platform) {
-      case kLinux: return "linux";
-      case kMac: return "osx";
-      case kWindows: return "windows";
-      case kEmscripten: return "asm.js";
+      case Platform::Linux: return "linux";
+      case Platform::Mac: return "osx";
+      case Platform::Windows: return "windows";
+      case Platform::Emscripten: return "asm.js";
       default: return "";
       }
     }
 
     static constexpr const char* typeArgument(ShaderType type) {
       switch (type) {
-      case kVertex: return "v";
-      case kFragment: return "f";
+      case ShaderType::Vertex: return "v";
+      case ShaderType::Fragment: return "f";
       default: return "";
       }
     }
 
     static constexpr const char* profileArgument(Backend backend, ShaderType type) {
       switch (backend) {
-      case kGlsl: return "120";
-      case kVulkan: return "spirv";
-      case kMetal: return "metal";
-      case kDx11: return type == kVertex ? "vs_4_0 -O3" : "ps_4_0 -O3";
+      case Backend::Glsl: return "120";
+      case Backend::Vulkan: return "spirv";
+      case Backend::Metal: return "metal";
+      case Backend::Dx11: return type == ShaderType::Vertex ? "vs_4_0 -O3" : "ps_4_0 -O3";
       default: return "";
       }
     }
 
-    ShaderCompiler();
-    ~ShaderCompiler() override = default;
-
-    void setCodeAndCompile(const EmbeddedFile& vertex, const EmbeddedFile& fragment,
-                           const EmbeddedFile& original, std::string code) {
-      setCode(vertex, fragment, original, std::move(code));
+    void compile(const std::string& shader_name, std::string code, std::function<void(std::string)> callback) {
+      setCode(shader_name, std::move(code), std::move(callback));
       if (completed()) {
         stop();
         start();
       }
     }
 
-    void setCode(const EmbeddedFile& vertex, const EmbeddedFile& fragment,
-                 const EmbeddedFile& original, std::string code) {
+    void compile(const EmbeddedFile& shader, std::string code, std::function<void(std::string)> callback) {
+      compile(shader.name, std::move(code), std::move(callback));
+    }
+
+    void run() override;
+
+    void watchShaderFolder(const std::string& folder_path);
+
+    void watchShaders(const std::vector<std::string>& shaders) {
+      for (const std::string& shader : shaders)
+        watched_edit_times_[shader] = 0;
+
+      start();
+    }
+
+  private:
+    void compileWaitingShader();
+    void loadShaderEditTimes();
+    void checkShaderForEdits(const std::string& file_path);
+    bool compileShader();
+    bool compiling() const { return new_code_.load(); }
+
+    void setCode(const std::string& shader_name, std::string code, std::function<void(std::string)> callback) {
       std::lock_guard lock(code_mutex_);
-      vertex_ = vertex;
-      fragment_ = fragment;
-      original_ = original;
+      shader_name_ = shader_name;
       shader_code_ = std::move(code);
+      callback_ = std::move(callback);
       new_code_ = true;
     }
 
-    void loadCode(EmbeddedFile& vertex, EmbeddedFile& fragment, EmbeddedFile& original, std::string& code) {
+    void loadCode(std::string& shader_name, std::string& code, std::function<void(std::string)>& callback) {
       std::lock_guard lock(code_mutex_);
-      vertex = vertex_;
-      fragment = fragment_;
-      original = original_;
+      shader_name = shader_name_;
       code = shader_code_;
+      callback = callback_;
       new_code_ = false;
     }
-
-    void setError(std::string error) {
-      on_compile_.callback(error);
-      error_ = std::move(error);
-    }
-
-    auto& onCompile() { return on_compile_; }
-
-    void run() override;
-    void setCompilerPath(const std::string& path);
-    bool compileShader(bool hot_swap);
-    bool compiling() const { return new_code_.load(); }
-
-  private:
-    CallbackList<void(const std::string&)> on_compile_;
 
     std::atomic<bool> new_code_ = false;
     std::string compiler_path_;
     std::mutex code_mutex_;
-    EmbeddedFile vertex_;
-    EmbeddedFile fragment_;
-    EmbeddedFile original_;
+    std::string shader_name_;
+    std::function<void(std::string)> callback_ = nullptr;
     std::string shader_code_;
-    std::string error_;
-    std::unique_ptr<char[]> shader_memory_;
+    std::map<std::string, int> watched_edit_times_;
   };
 
   class ShaderEditor : public Frame {
@@ -142,27 +143,22 @@ namespace visage {
 
     ShaderEditor();
 
-    void setShader(const EmbeddedFile& vertex, const EmbeddedFile& fragment,
-                   const EmbeddedFile& original_fragment) {
-      vertex_ = vertex;
-      fragment_ = fragment;
-      original_fragment_ = original_fragment;
-      editor_.setText(std::string(original_fragment_.data, original_fragment_.size));
+    void setShader(const EmbeddedFile& shader, const EmbeddedFile& original_shader) {
+      shader_ = shader;
+      original_shader_ = original_shader;
+      editor_.setText(std::string(original_shader_.data, original_shader_.size));
     }
 
     void draw(Canvas& canvas) override;
     void resized() override;
 
-    void setCompilerPath(const std::string& path) { compiler_.setCompilerPath(path); }
-
   private:
-    EmbeddedFile vertex_;
-    EmbeddedFile fragment_;
-    EmbeddedFile original_fragment_;
+    ShaderCompiler compiler_;
+    EmbeddedFile shader_;
+    EmbeddedFile original_shader_;
 
     TextEditor error_;
     TextEditor editor_;
-    ShaderCompiler compiler_;
     Frame status_;
   };
 }

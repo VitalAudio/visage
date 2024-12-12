@@ -52,6 +52,9 @@ namespace visage {
       return instance;
     }
 
+    EventManager(const EventManager&) = delete;
+    EventManager& operator=(const EventManager&) = delete;
+
     void addTimer(EventTimer* timer);
     void removeTimer(const EventTimer* timer);
     void addCallback(std::function<void()> function);

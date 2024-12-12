@@ -1,6 +1,7 @@
 file(GLOB EXAMPLES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} */)
 
 file(GLOB_RECURSE EXAMPLE_SHADERS shaders/[vf]s_*.sc)
+add_compile_definitions(SHADERS_FOLDER=\"${CMAKE_CURRENT_SOURCE_DIR}/shaders\")
 
 visage_embed_shaders(EmbeddedShaderResources "example_shaders.h" "resources::shaders" "${EXAMPLE_SHADERS}")
 file(GLOB_RECURSE FONT_TTF_FILES fonts/*.ttf)

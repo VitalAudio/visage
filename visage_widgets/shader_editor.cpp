@@ -23,14 +23,18 @@
 #include "visage_utils/file_system.h"
 
 namespace visage {
-  namespace {
-    std::string shaderExecutable() {
+  static std::string shaderExecutable() {
 #if VISAGE_WINDOWS
-      return "shaderc.exe";
+    return "shaderc.exe";
 #else
-      return "shaderc";
+    return "shaderc";
 #endif
-    }
+  }
+
+  inline int shaderEditTime(const std::string& file_path) {
+    std::error_code error;
+    auto edit_time = std::filesystem::last_write_time(file_path, error).time_since_epoch();
+    return std::chrono::duration_cast<std::chrono::seconds>(edit_time).count();
   }
 
   ShaderCompiler::ShaderCompiler() : Thread("Shader Compiler") {
@@ -46,16 +50,50 @@ namespace visage {
   }
 
   void ShaderCompiler::run() {
+    compileWaitingShader();
+
+    while (!watched_edit_times_.empty() && shouldRun()) {
+      sleep(100);
+      compileWaitingShader();
+
+      for (auto& shader : watched_edit_times_)
+        checkShaderForEdits(shader.first);
+    }
+  }
+
+  void ShaderCompiler::watchShaderFolder(const std::string& folder_path) {
+    std::vector<File> files = searchForFiles(folder_path, ".sc$");
+    for (const auto& file : files)
+      watched_edit_times_[file.string()] = shaderEditTime(file.string());
+
+    if (!running())
+      start();
+  }
+
+  void ShaderCompiler::compileWaitingShader() {
     while (new_code_.load())
-      compileShader(true);
+      compileShader();
   }
 
-  void ShaderCompiler::setCompilerPath(const std::string& string_path) {
-    File path = File(string_path) / shaderExecutable();
-    compiler_path_ = path.string();
+  void ShaderCompiler::loadShaderEditTimes() {
+    for (auto& shader : watched_edit_times_)
+      shader.second = shaderEditTime(shader.first);
   }
 
-  bool ShaderCompiler::compileShader(bool hot_swap) {
+  void ShaderCompiler::checkShaderForEdits(const std::string& file_path) {
+    int seconds = shaderEditTime(file_path);
+    if (watched_edit_times_[file_path] < seconds) {
+      watched_edit_times_[file_path] = seconds;
+      int size = 0;
+      std::unique_ptr<char[]> shader_memory = loadFileData(file_path, size);
+      std::string file_stem = fileStem(file_path);
+      std::string code(shader_memory.get(), size);
+      setCode(file_stem, code, [](std::string& error) { VISAGE_LOG(error); });
+      compileShader();
+    }
+  }
+
+  bool ShaderCompiler::compileShader() {
     new_code_ = false;
 
     File compile_path = std::filesystem::temp_directory_path() / "shader_compiler";
@@ -70,31 +108,34 @@ namespace visage {
     replaceFileWithData(include_path / "shader_utils.sh", shaders::shader_utils_sh.data,
                         shaders::shader_utils_sh.size);
 
-    EmbeddedFile vertex, fragment, original;
+    std::string shader_name;
     std::string code;
-    loadCode(vertex, fragment, original, code);
+    std::function<void(std::string)> callback;
+    loadCode(shader_name, code, callback);
 
-    std::string type = typeArgument(kFragment);
+    ShaderType shader_type = shader_name[0] == 'v' ? ShaderType::Vertex : ShaderType::Fragment;
+    std::string type = typeArgument(shader_type);
+
 #if VISAGE_WINDOWS
-    std::string platform = platformArgument(kWindows);
-    std::string profile = profileArgument(kDx11, kFragment);
+    std::string platform = platformArgument(Platform::Windows);
+    std::string profile = profileArgument(Backend::Dx11, shader_type);
 #elif VISAGE_LINUX
-    std::string platform = platformArgument(kLinux);
-    std::string profile = profileArgument(kGlsl, kFragment);
+    std::string platform = platformArgument(Platform::Linux);
+    std::string profile = profileArgument(Backend::Glsl, shader_type);
 #elif VISAGE_MAC
-    std::string platform = platformArgument(kMac);
-    std::string profile = profileArgument(kMetal, kFragment);
+    std::string platform = platformArgument(Platform::Mac);
+    std::string profile = profileArgument(Backend::Metal, shader_type);
 #elif VISAGE_EMSCRIPTEN
-    std::string platform = platformArgument(kLinux);
-    std::string profile = profileArgument(kGlsl, kFragment);
+    std::string platform = platformArgument(Platform::Linux);
+    std::string profile = profileArgument(Backend::Glsl, shader_type);
 #endif
 
     if (!std::filesystem::exists(File(compiler_path_))) {
-      runOnEventThread([this] { setError("Shader compiler not found"); });
+      runOnEventThread([callback] { callback("Shader compiler not found"); });
       return false;
     }
 
-    File temporary_shader = compile_path / original.name;
+    File temporary_shader = compile_path / shader_name;
     replaceFileWithText(temporary_shader, code);
 
     std::string arguments = "-f " + temporary_shader.string() + " -i " + include_path.string() +
@@ -105,18 +146,19 @@ namespace visage {
     if (!spawnChildProcess(compiler_path_, arguments, output)) {
       if (output.empty())
         output = "Failed to compile shader";
-      runOnEventThread([this, output]() { setError(output); });
+      runOnEventThread([callback, output]() { callback(output); });
       return false;
     }
 
-    if (hot_swap) {
-      int size = 0;
-      shader_memory_ = loadFileData(output_file, size);
-      if (ShaderCache::swapShader(fragment, shader_memory_.get(), size))
-        ProgramCache::refreshProgram(vertex, fragment);
-    }
+    int size = 0;
+    std::unique_ptr<char[]> shader_memory = loadFileData(output_file, size);
+    std::string compile_shader(shader_memory.get(), size);
+    runOnEventThread([compile_shader, shader_name, size]() {
+      if (ShaderCache::swapShader(shader_name, compile_shader.c_str(), size))
+        ProgramCache::refreshAllProgramsWithShader(shader_name);
+    });
 
-    runOnEventThread([this, output]() { setError(output); });
+    runOnEventThread([callback, output]() { callback(output); });
     std::filesystem::remove_all(compile_path);
     return true;
   }
@@ -132,9 +174,14 @@ namespace visage {
     editor_.setDefaultText("No shader set");
 
     editor_.onTextChange() += [this] {
-      if (fragment_.data) {
+      if (shader_.data) {
         std::string text = editor_.text().toUtf8();
-        compiler_.setCodeAndCompile(vertex_, fragment_, original_fragment_, text);
+        auto callback = [this](const std::string& error) {
+          error_.setText(error);
+          status_.redraw();
+          redraw();
+        };
+        compiler_.compile(shader_, text, callback);
       }
     };
 
@@ -143,12 +190,6 @@ namespace visage {
     error_.setFont(Font(10, fonts::DroidSansMono_ttf));
     error_.setJustification(Font::kTopLeft);
     error_.setActive(false);
-
-    compiler_.onCompile() += [this](const std::string& error) {
-      error_.setText(error);
-      status_.redraw();
-      redraw();
-    };
 
     status_.onDraw() = [this](Canvas& canvas) {
       if (error_.text().isEmpty()) {

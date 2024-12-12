@@ -65,8 +65,7 @@ public:
     post_effect_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_warp,
                                                               resources::shaders::fs_warp);
 
-    shader_editor_.setShader(resources::shaders::vs_warp, resources::shaders::fs_warp,
-                             resources::shaders::fs_warp_sc);
+    shader_editor_.setShader(resources::shaders::fs_warp, resources::shaders::fs_warp_sc);
 
     shapes_.setPostEffect(post_effect_.get());
     addChild(&shapes_);

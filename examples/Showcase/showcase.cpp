@@ -20,6 +20,7 @@
 #include "embedded/example_shaders.h"
 
 #include <visage_graphics/post_effects.h>
+#include <visage_widgets/shader_editor.h>
 #include <visage_windowing/windowing.h>
 
 namespace {
@@ -223,6 +224,8 @@ bool Showcase::keyPress(const visage::KeyEvent& key) {
 }
 
 int runExample() {
+  visage::ShaderCompiler compiler;
+  compiler.watchShaderFolder(SHADERS_FOLDER);
   std::unique_ptr<Showcase> editor = std::make_unique<Showcase>();
   editor->showWithEventLoop(0.6f);
 

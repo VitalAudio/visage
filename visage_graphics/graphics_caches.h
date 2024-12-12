@@ -36,18 +36,32 @@ namespace visage {
       return instance()->handle(file);
     }
 
+    static bgfx::ShaderHandle& shaderHandle(const char* data) { return instance()->handle(data); }
+
     static bool swapShader(const EmbeddedFile& file, const char* data, int size) {
       return instance()->swap(file, data, size);
     }
 
+    static bool swapShader(const std::string& name, const char* data, int size) {
+      return instance()->swap(name, data, size);
+    }
+
     static void restoreShader(const EmbeddedFile& file) { return instance()->restore(file); }
+
+    static const char* originalData(const std::string& name) {
+      return instance()->shaderData(name);
+    }
 
   private:
     ShaderCache();
     ~ShaderCache();
 
     bgfx::ShaderHandle& handle(const EmbeddedFile& file) const;
+    bgfx::ShaderHandle& handle(const char* data) const;
+    bool swap(const char* original_data, const char* data, int size) const;
     bool swap(const EmbeddedFile& file, const char* data, int size) const;
+    bool swap(const std::string& name, const char* data, int size) const;
+    const char* shaderData(const std::string& name) const;
     void restore(const EmbeddedFile& file) const;
 
     std::unique_ptr<ShaderCacheMap> cache_;
@@ -69,6 +83,14 @@ namespace visage {
       return instance()->handle(vertex, fragment);
     }
 
+    static void refreshAllProgramsWithShader(const std::string& shader_name) {
+      instance()->reloadAll(shader_name);
+    }
+
+    static void refreshAllProgramsWithShader(const EmbeddedFile& shader) {
+      instance()->reloadAll(shader);
+    }
+
     static void refreshProgram(const EmbeddedFile& vertex, const EmbeddedFile& fragment) {
       instance()->reload(vertex, fragment);
     }
@@ -87,6 +109,9 @@ namespace visage {
 
     bgfx::ProgramHandle& handle(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const;
     void reload(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const;
+    void reloadAll(const char* shader_data) const;
+    void reloadAll(const std::string& shader_name) const;
+    void reloadAll(const EmbeddedFile& shader) const;
     void restore(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const;
 
     std::unique_ptr<ProgramCacheMap> cache_;

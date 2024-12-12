@@ -107,6 +107,8 @@ function(visage_embed_shaders project include_filename namespace original_shader
   )
 
   add_embedded_resources(${project} ${include_filename} ${namespace} "${SHADER_RESOURCES}")
+  target_sources(${project} PRIVATE ${original_shaders})
+  source_group("Shaders" FILES ${original_shaders})
 endfunction()
 
 file(GLOB LIBRARY_SHADERS shaders/[vf]s_*.sc)
