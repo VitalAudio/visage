@@ -52,6 +52,7 @@ namespace visage {
     };
 
     ShaderCompiler();
+    ~ShaderCompiler() override { stop(); }
 
     static constexpr const char* platformArgument(Platform platform) {
       switch (platform) {

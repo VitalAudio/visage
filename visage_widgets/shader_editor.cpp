@@ -56,8 +56,11 @@ namespace visage {
       sleep(100);
       compileWaitingShader();
 
-      for (auto& shader : watched_edit_times_)
+      for (auto& shader : watched_edit_times_) {
+        if (!shouldRun())
+          break;
         checkShaderForEdits(shader.first);
+      }
     }
   }
 

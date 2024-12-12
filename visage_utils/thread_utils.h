@@ -41,7 +41,11 @@ namespace visage {
 
     explicit Thread(std::string name) : name_(std::move(name)) { }
     explicit Thread() = default;
-    virtual ~Thread() { stop(); }
+    virtual ~Thread() {
+      // Stop thread before the end of inherited destructor
+      VISAGE_ASSERT(!running());
+      stop();
+    }
 
     virtual void run() {
       if (task_)

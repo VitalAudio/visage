@@ -220,6 +220,7 @@ namespace visage {
     explicit VBlankThread(WindowWin32* window) : window_(window) { }
 
     ~VBlankThread() override {
+      stop();
       if (dxgi_output_)
         dxgi_output_->Release();
       if (dxgi_adapter_)
