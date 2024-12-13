@@ -52,7 +52,9 @@ namespace visage {
   }
 
   Renderer::Renderer() : Thread("Renderer Thread") { }
-  Renderer::~Renderer() = default;
+  Renderer::~Renderer() {
+    stop();
+  }
 
   void Renderer::startRenderThread() {
 #if VISAGE_BACKGROUND_GRAPHICS_THREAD
