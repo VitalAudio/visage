@@ -138,8 +138,6 @@ public:
     font_ = visage::Font(16.0f * dpiScale(), resources::fonts::Lato_Regular_ttf);
   }
 
-  void mouseMove(const visage::MouseEvent& e) override { }
-
 private:
   Frame additive_frame_;
   Frame subtractive_frame_;

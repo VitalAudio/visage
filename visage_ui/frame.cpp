@@ -135,7 +135,26 @@ namespace visage {
     }
 
     region_.setBounds(bounds.x(), bounds.y(), bounds.width(), bounds.height());
+    if (layout_.get())
+      computeLayout();
     redraw();
+  }
+
+  void Frame::computeLayout() {
+    if (layout_.get() && layout().flex()) {
+      std::vector<const Layout*> children_layouts;
+      for (Frame* child : children_) {
+        if (child->layout_.get())
+          children_layouts.push_back(child->layout_.get());
+      }
+
+      std::vector<Bounds> children_bounds = layout().flexPositions(localBounds(), dpi_scale_,
+                                                                   children_layouts);
+      for (int i = 0; i < children_.size(); ++i) {
+        if (children_[i]->layout_.get())
+          children_[i]->setBounds(children_bounds[i]);
+      }
+    }
   }
 
   Point Frame::positionInWindow() const {

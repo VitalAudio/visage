@@ -86,6 +86,10 @@ namespace visage {
     void setY(int y) { y_ = y; }
     void setWidth(int width) { width_ = width; }
     void setHeight(int height) { height_ = height; }
+    void flipDimensions() {
+      std::swap(x_, y_);
+      std::swap(width_, height_);
+    }
 
     bool operator==(const Bounds& other) const {
       return x_ == other.x_ && y_ == other.y_ && width_ == other.width_ && height_ == other.height_;

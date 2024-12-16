@@ -17,6 +17,7 @@
 #pragma once
 
 #include "events.h"
+#include "layout.h"
 #include "undo_history.h"
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/image.h"
@@ -276,11 +277,20 @@ namespace visage {
 
     void setBounds(Bounds bounds);
     void setBounds(int x, int y, int width, int height) { setBounds({ x, y, width, height }); }
+    void computeLayout();
     const Bounds& bounds() const { return bounds_; }
     void setTopLeft(int x, int y) { setBounds(x, y, width(), height()); }
     Point topLeft() const { return { bounds_.x(), bounds_.y() }; }
     void setOnTop(bool on_top) { on_top_ = on_top; }
     bool isOnTop() const { return on_top_; }
+
+    Layout& layout() {
+      if (layout_ == nullptr)
+        layout_ = std::make_unique<Layout>();
+      return *layout_;
+    }
+    void clearLayout() { layout_ = nullptr; }
+    void setFlexLayout(bool flex) { layout().setFlex(flex); }
 
     int x() const { return bounds_.x(); }
     int y() const { return bounds_.y(); }
@@ -449,6 +459,7 @@ namespace visage {
     bool stenciled_ = false;
     float alpha_transparency_ = 1.0f;
     Region region_;
+    std::unique_ptr<Layout> layout_;
     bool drawing_ = true;
     bool redrawing_ = false;
   };
