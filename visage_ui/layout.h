@@ -174,8 +174,26 @@ namespace visage {
 
   class Layout {
   public:
-    std::vector<Bounds> flexPositions(const Bounds& bounds, float dpi_scale,
-                                      const std::vector<const Layout*>& children) {
+    enum class ItemAlignment {
+      Default,
+      Stretch,
+      Start,
+      Center,
+      End,
+    };
+
+    enum class WrapAlignment {
+      Start,
+      Center,
+      End,
+      Stretch,
+      SpaceBetween,
+      SpaceAround,
+      SpaceEvenly
+    };
+
+    std::vector<Bounds> flexPositions(const std::vector<const Layout*>& children,
+                                      const Bounds& bounds, float dpi_scale) {
       int pad_left = padding_before_[0].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
       int pad_right = padding_after_[0].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
       int pad_top = padding_before_[1].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
@@ -186,9 +204,9 @@ namespace visage {
                              bounds.height() - pad_top - pad_bottom };
 
       if (flex_wrap_)
-        return flexChildWrap(flex_bounds, dpi_scale, children);
+        return flexChildWrap(children, flex_bounds, dpi_scale);
 
-      return flexChildGroup(flex_bounds, dpi_scale, children);
+      return flexChildGroup(children, flex_bounds, dpi_scale);
     }
 
     void setFlex(bool flex) { flex_ = flex; }
@@ -231,15 +249,19 @@ namespace visage {
     void setFlexRows(bool rows) { flex_rows_ = rows; }
     void setFlexReverseDirection(bool reverse) { flex_reverse_direction_ = reverse; }
     void setFlexWrap(bool wrap) { flex_wrap_ = wrap ? 1 : 0; }
+    void setFlexItemAlignment(ItemAlignment alignment) { item_alignment_ = alignment; }
+    void setFlexWrapAlignment(WrapAlignment alignment) { wrap_alignment_ = alignment; }
     void setFlexWrapReverse(bool wrap) { flex_wrap_ = wrap ? -1 : 0; }
-    void setFlexGap(int gap) { flex_gap_ = gap; }
+    void setFlexGap(Dimension gap) { flex_gap_ = std::move(gap); }
 
   private:
-    std::vector<Bounds> flexChildGroup(Bounds bounds, float dpi_scale,
-                                       const std::vector<const Layout*>& children);
+    std::vector<Bounds> flexChildGroup(const std::vector<const Layout*>& children, Bounds bounds,
+                                       float dpi_scale);
 
-    std::vector<Bounds> flexChildWrap(Bounds bounds, float dpi_scale,
-                                      const std::vector<const Layout*>& children);
+    std::vector<int> alignCrossPositions(std::vector<int>& cross_sizes, int cross_area, int gap);
+
+    std::vector<Bounds> flexChildWrap(const std::vector<const Layout*>& children, Bounds bounds,
+                                      float dpi_scale);
 
     bool flex_ = false;
     Dimension margin_before_[2];
@@ -248,11 +270,14 @@ namespace visage {
     Dimension padding_after_[2];
     Dimension dimensions_[2];
 
+    ItemAlignment item_alignment_ = ItemAlignment::Default;
+    ItemAlignment self_alignment_ = ItemAlignment::Default;
+    WrapAlignment wrap_alignment_ = WrapAlignment::Start;
     float flex_grow_ = 0.0f;
     float flex_shrink_ = 0.0f;
     bool flex_rows_ = true;
     bool flex_reverse_direction_ = false;
     int flex_wrap_ = 0;
-    int flex_gap_ = 0;
+    Dimension flex_gap_ = 0;
   };
 }

@@ -148,8 +148,8 @@ namespace visage {
           children_layouts.push_back(child->layout_.get());
       }
 
-      std::vector<Bounds> children_bounds = layout().flexPositions(localBounds(), dpi_scale_,
-                                                                   children_layouts);
+      std::vector<Bounds> children_bounds = layout().flexPositions(children_layouts, localBounds(),
+                                                                   dpi_scale_);
       for (int i = 0; i < children_.size(); ++i) {
         if (children_[i]->layout_.get())
           children_[i]->setBounds(children_bounds[i]);

@@ -27,11 +27,12 @@ public:
 
   ExampleEditor() {
     setFlexLayout(true);
-    layout().setPadding(10);
-    layout().setFlexGap(10);
-    layout().setFlexRows(false);
-    layout().setFlexWrapReverse(true);
-    layout().setFlexReverseDirection(true);
+    layout().setPadding(0);
+    layout().setFlexGap(1_px);
+    layout().setFlexWrap(true);
+    layout().setFlexWrapAlignment(visage::Layout::WrapAlignment::Stretch);
+    layout().setFlexItemAlignment(visage::Layout::ItemAlignment::Center);
+    // layout().setFlexReverseDirection(true);
 
     for (Frame& frame : frames_) {
       addChild(&frame);
