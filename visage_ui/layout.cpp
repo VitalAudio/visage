@@ -124,6 +124,8 @@ namespace visage {
 
     if (wrap_alignment_ == WrapAlignment::Stretch) {
       int position = 0;
+      cross_extra_space = std::max(cross_extra_space, 0);
+
       for (int i = 0; i < sizes.size(); ++i) {
         int remaining = sizes.size() - i;
         int add = cross_extra_space / remaining;
