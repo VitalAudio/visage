@@ -27,8 +27,8 @@ public:
 
   ExampleEditor() {
     setFlexLayout(true);
-    layout().setPadding(0);
-    layout().setFlexGap(1_px);
+    layout().setPadding(10_px);
+    layout().setFlexGap(10_px);
     layout().setFlexWrap(true);
     layout().setFlexWrapAlignment(visage::Layout::WrapAlignment::Stretch);
     layout().setFlexItemAlignment(visage::Layout::ItemAlignment::Center);
@@ -42,7 +42,7 @@ public:
 
       frame.onDraw() = [this, &frame](visage::Canvas& canvas) {
         canvas.setColor(0xff888888);
-        canvas.fill(0, 0, frame.width(), frame.height());
+        canvas.roundedRectangle(0, 0, frame.width(), frame.height(), 16);
       };
     }
   }
