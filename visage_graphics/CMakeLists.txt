@@ -131,4 +131,5 @@ set_target_properties(nanosvgrast PROPERTIES FOLDER "visage/third_party/nanosvg"
 set_target_properties(bgfx PROPERTIES FOLDER "visage/third_party/bgfx")
 set_target_properties(bx PROPERTIES FOLDER "visage/third_party/bgfx")
 set_target_properties(bimg PROPERTIES FOLDER "visage/third_party/bgfx")
+set_target_properties(bimg_decode PROPERTIES FOLDER "visage/third_party/bgfx")
 set_target_properties(freetype PROPERTIES FOLDER "visage/third_party")
