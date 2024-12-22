@@ -67,9 +67,7 @@ namespace visage {
 
     void* nativeHandle() const override { return (__bridge void*)view_; }
     void* initWindow() const override;
-
-    AppView* appView() { return view_; }
-
+    
     void runEventLoop() override;
     void windowContentsResized(int width, int height) override;
     void show() override;

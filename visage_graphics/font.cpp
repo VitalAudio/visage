@@ -133,6 +133,9 @@ namespace visage {
 
     void rasterizeGlyph(char32_t character, const PackedGlyph* packed_glyph) {
       int size = packed_glyph->width * packed_glyph->height;
+      if (size == 0)
+        return;
+      
       std::unique_ptr<unsigned int[]> texture = std::make_unique<unsigned int[]>(size);
       if (packed_glyph->type_face) {
         FT_GlyphSlot glyph = packed_glyph->type_face->characterRasterData(character);
@@ -286,9 +289,6 @@ namespace visage {
         packed_char = packed_font_->packedGlyph(character);
 
       float advance = packed_char->x_advance;
-      if (isNewLine(character))
-        advance = 0.0f;
-
       float break_point = advance;
       if (round)
         break_point = advance * 0.5f;
