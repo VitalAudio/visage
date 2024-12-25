@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <functional>
 
 namespace visage {
