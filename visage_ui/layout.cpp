@@ -25,7 +25,7 @@ namespace visage {
     int cross_dim = 1 - dim;
 
     int flex_area = flex_rows_ ? height : width;
-    int flex_gap = flex_gap_.compute(dpi_scale, width, height);
+    int flex_gap = flex_gap_.roundWithDefault(dpi_scale, width, height);
     flex_area -= flex_gap * (children.size() - 1);
     float total_flex_grow = 0.0f;
     float total_flex_shrink = 0.0f;
@@ -35,22 +35,22 @@ namespace visage {
     margins_before.reserve(children.size());
     margins_after.reserve(children.size());
     for (const Layout* child : children) {
-      int margin_before = child->margin_before_[dim].computeWithDefault(dpi_scale, width, height);
-      int margin_after = child->margin_after_[dim].computeWithDefault(dpi_scale, width, height);
-      int dimension = child->dimensions_[dim].computeWithDefault(dpi_scale, width, height);
+      int margin_before = child->margin_before_[dim].roundWithDefault(dpi_scale, width, height);
+      int margin_after = child->margin_after_[dim].roundWithDefault(dpi_scale, width, height);
+      int dimension = child->dimensions_[dim].roundWithDefault(dpi_scale, width, height);
       flex_area -= dimension + margin_before + margin_after;
 
       dimensions.push_back(dimension);
       margins_before.push_back(margin_before);
       margins_after.push_back(margin_after);
       total_flex_grow += child->flex_grow_;
-      total_flex_shrink += child->flex_shrink_;
+      total_flex_shrink += child->flex_shrink_ * dimension;
     }
 
     if (flex_area > 0) {
       for (int i = 0; i < children.size(); ++i) {
         if (children[i]->flex_grow_) {
-          int delta = flex_area * children[i]->flex_grow_ / total_flex_grow;
+          int delta = std::round(flex_area * children[i]->flex_grow_ / total_flex_grow);
           dimensions[i] += delta;
           flex_area -= delta;
           total_flex_grow -= children[i]->flex_grow_;
@@ -61,10 +61,11 @@ namespace visage {
     if (flex_area < 0) {
       for (int i = 0; i < children.size(); ++i) {
         if (children[i]->flex_shrink_) {
-          int delta = flex_area * children[i]->flex_shrink_ / total_flex_shrink;
+          int delta = std::round(flex_area * children[i]->flex_shrink_ * dimensions[i] / total_flex_shrink);
+          delta = std::max(delta, -dimensions[i]);
+          total_flex_shrink -= children[i]->flex_shrink_ * dimensions[i];
           dimensions[i] += delta;
           flex_area -= delta;
-          total_flex_shrink -= children[i]->flex_shrink_;
         }
       }
     }
@@ -74,23 +75,25 @@ namespace visage {
 
     int position = 0;
     int cross_area = flex_rows_ ? width : height;
-    bool stretch = item_alignment_ == ItemAlignment::Stretch;
-    float cross_alignment_mult = 0.0f;
-    if (item_alignment_ == ItemAlignment::Center)
-      cross_alignment_mult = 0.5f;
-    else if (item_alignment_ == ItemAlignment::End)
-      cross_alignment_mult = 1.0f;
-
     for (int i = 0; i < children.size(); ++i) {
-      int cross_before = children[i]->margin_before_[cross_dim].computeWithDefault(dpi_scale, width, height);
-      int cross_after = children[i]->margin_after_[cross_dim].computeWithDefault(dpi_scale, width, height);
+      int cross_before = children[i]->margin_before_[cross_dim].roundWithDefault(dpi_scale, width, height);
+      int cross_after = children[i]->margin_after_[cross_dim].roundWithDefault(dpi_scale, width, height);
       int default_cross_size = 0;
-      if ((stretch && children[i]->item_alignment_ == ItemAlignment::Default) ||
-          children[i]->item_alignment_ == ItemAlignment::Stretch) {
+
+      ItemAlignment alignment = children[i]->self_alignment_;
+      if (alignment == ItemAlignment::NotSet)
+        alignment = item_alignment_;
+
+      float cross_alignment_mult = 0.0f;
+      if (alignment == ItemAlignment::Stretch)
         default_cross_size = cross_area - cross_before - cross_after;
-      }
-      int cross_size = children[i]->dimensions_[cross_dim].computeWithDefault(dpi_scale, width, height,
-                                                                              default_cross_size);
+      else if (alignment == ItemAlignment::Center)
+        cross_alignment_mult = 0.5f;
+      else if (alignment == ItemAlignment::End)
+        cross_alignment_mult = 1.0f;
+
+      int cross_size = children[i]->dimensions_[cross_dim].roundWithDefault(dpi_scale, width, height,
+                                                                            default_cross_size);
       int cross_offset = cross_alignment_mult * (cross_area - cross_before - cross_size - cross_after);
       position += margins_before[i];
       results.push_back({ position, cross_before + cross_offset, dimensions[i], cross_size });
@@ -180,16 +183,16 @@ namespace visage {
     int total_flex_area = flex_rows_ ? height : width;
     int flex_area = total_flex_area;
     int cross_max = 0;
-    int flex_gap = flex_gap_.compute(dpi_scale, width, height);
+    int flex_gap = flex_gap_.roundWithDefault(dpi_scale, width, height);
 
     std::vector<int> breaks;
     std::vector<int> cross_sizes;
 
     for (int i = 0; i < children.size(); ++i) {
       const Layout* child = children[i];
-      int dimension = child->dimensions_[dim].computeWithDefault(dpi_scale, width, height);
-      int margin_before = child->margin_before_[dim].computeWithDefault(dpi_scale, width, height);
-      int margin_after = child->margin_after_[dim].computeWithDefault(dpi_scale, width, height);
+      int dimension = child->dimensions_[dim].roundWithDefault(dpi_scale, width, height);
+      int margin_before = child->margin_before_[dim].roundWithDefault(dpi_scale, width, height);
+      int margin_after = child->margin_after_[dim].roundWithDefault(dpi_scale, width, height);
       int total = dimension + margin_before + margin_after;
       flex_area -= total;
 
@@ -200,9 +203,9 @@ namespace visage {
         cross_max = 0;
       }
 
-      int cross_amount = child->dimensions_[cross_dim].computeWithDefault(dpi_scale, width, height) +
-                         child->margin_before_[cross_dim].computeWithDefault(dpi_scale, width, height) +
-                         child->margin_after_[cross_dim].computeWithDefault(dpi_scale, width, height);
+      int cross_amount = child->dimensions_[cross_dim].roundWithDefault(dpi_scale, width, height) +
+                         child->margin_before_[cross_dim].roundWithDefault(dpi_scale, width, height) +
+                         child->margin_after_[cross_dim].roundWithDefault(dpi_scale, width, height);
       cross_max = std::max(cross_amount, cross_max);
 
       flex_area -= flex_gap;
@@ -218,25 +221,21 @@ namespace visage {
     results.reserve(children.size());
     for (int i = 0; i < breaks.size(); ++i) {
       Bounds group_bounds;
-      if (flex_wrap_ < 0) {
-        int offset = cross_positions[i] + cross_sizes[i];
-        if (flex_rows_)
-          group_bounds = { bounds.right() - offset, bounds.y(), cross_sizes[i], bounds.height() };
-        else
-          group_bounds = { bounds.x(), bounds.bottom() - offset, bounds.width(), cross_sizes[i] };
-      }
-      else {
-        if (flex_rows_)
-          group_bounds = { bounds.x() + cross_positions[i], bounds.y(), cross_sizes[i], bounds.height() };
-        else
-          group_bounds = { bounds.x(), bounds.y() + cross_positions[i], bounds.width(), cross_sizes[i] };
-      }
+      if (flex_rows_)
+        group_bounds = { bounds.x() + cross_positions[i], bounds.y(), cross_sizes[i], bounds.height() };
+      else
+        group_bounds = { bounds.x(), bounds.y() + cross_positions[i], bounds.width(), cross_sizes[i] };
 
       auto group = std::vector<const Layout*>(children.begin() + group_index,
                                               children.begin() + breaks[i]);
       group_index = breaks[i];
       std::vector<Bounds> bounds = flexChildGroup(group, group_bounds, dpi_scale);
       results.insert(results.end(), bounds.begin(), bounds.end());
+    }
+
+    if (flex_wrap_ < 0) {
+      for (Bounds& result : results)
+        result.setX(bounds.x() + bounds.right() - result.right());
     }
 
     return results;

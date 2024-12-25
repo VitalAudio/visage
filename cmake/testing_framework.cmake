@@ -17,8 +17,9 @@ if (VISAGE_BUILD_TESTS AND NOT EMSCRIPTEN)
 endif ()
 
 function(add_test_target)
-  set(options TARGET TEST_DIRECTORY DEPENDENCIES INCLUDE_PATHS)
-  cmake_parse_arguments(PARSE "" "${options}" "" ${ARGN})
+  set(single_options TARGET TEST_DIRECTORY)
+  set(multi_options DEPENDENCIES INCLUDE_PATHS)
+  cmake_parse_arguments(PARSE "" "${single_options}" "${multi_options}" ${ARGN})
 
   if (VISAGE_BUILD_TESTS AND NOT EMSCRIPTEN)
     file(GLOB_RECURSE HEADERS ${PARSE_TEST_DIRECTORY}/*.h)

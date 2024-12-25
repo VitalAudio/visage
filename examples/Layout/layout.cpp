@@ -30,20 +30,21 @@ public:
     layout().setPadding(10_px);
     layout().setFlexGap(10_px);
     layout().setFlexWrap(true);
-    layout().setFlexWrapAlignment(visage::Layout::WrapAlignment::Stretch);
-    layout().setFlexItemAlignment(visage::Layout::ItemAlignment::Center);
-    // layout().setFlexReverseDirection(true);
+    layout().setFlexReverseDirection(true);
+    layout().setFlexWrapReverse(true);
 
+    int i = 0;
     for (Frame& frame : frames_) {
       addChild(&frame);
       frame.layout().setHeight(100);
-      frame.layout().setWidth(100);
+      frame.layout().setWidth(100 + i * 10);
       frame.layout().setFlexGrow(1.0f);
 
       frame.onDraw() = [this, &frame](visage::Canvas& canvas) {
         canvas.setColor(0xff888888);
         canvas.roundedRectangle(0, 0, frame.width(), frame.height(), 16);
       };
+      ++i;
     }
   }
 

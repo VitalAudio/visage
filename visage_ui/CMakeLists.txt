@@ -8,3 +8,9 @@ add_library(VisageUi OBJECT ${SOURCE_FILES} ${HEADERS})
 target_include_directories(VisageUi PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VISAGE_INCLUDE_PATH})
 target_link_libraries(VisageUi PRIVATE VisageGraphicsEmbeds)
 set_target_properties(VisageUi PROPERTIES FOLDER "visage")
+
+add_test_target(
+  TARGET VisageUiTests
+  TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
+  DEPENDENCIES visage
+)

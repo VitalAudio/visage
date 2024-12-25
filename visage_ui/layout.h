@@ -18,13 +18,14 @@
 
 #include <functional>
 #include <visage_utils/dimension.h>
+#include <visage_utils/space.h>
 
 namespace visage {
 
   class Layout {
   public:
     enum class ItemAlignment {
-      Default,
+      NotSet,
       Stretch,
       Start,
       Center,
@@ -43,10 +44,10 @@ namespace visage {
 
     std::vector<Bounds> flexPositions(const std::vector<const Layout*>& children,
                                       const Bounds& bounds, float dpi_scale) {
-      int pad_left = padding_before_[0].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
-      int pad_right = padding_after_[0].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
-      int pad_top = padding_before_[1].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
-      int pad_bottom = padding_after_[1].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
+      int pad_left = padding_before_[0].roundWithDefault(dpi_scale, bounds.width(), bounds.height());
+      int pad_right = padding_after_[0].roundWithDefault(dpi_scale, bounds.width(), bounds.height());
+      int pad_top = padding_before_[1].roundWithDefault(dpi_scale, bounds.width(), bounds.height());
+      int pad_bottom = padding_after_[1].roundWithDefault(dpi_scale, bounds.width(), bounds.height());
 
       Bounds flex_bounds = { bounds.x() + pad_left, bounds.y() + pad_top,
                              bounds.width() - pad_left - pad_right,
@@ -99,6 +100,7 @@ namespace visage {
     void setFlexReverseDirection(bool reverse) { flex_reverse_direction_ = reverse; }
     void setFlexWrap(bool wrap) { flex_wrap_ = wrap ? 1 : 0; }
     void setFlexItemAlignment(ItemAlignment alignment) { item_alignment_ = alignment; }
+    void setFlexSelfAlignment(ItemAlignment alignment) { self_alignment_ = alignment; }
     void setFlexWrapAlignment(WrapAlignment alignment) { wrap_alignment_ = alignment; }
     void setFlexWrapReverse(bool wrap) { flex_wrap_ = wrap ? -1 : 0; }
     void setFlexGap(Dimension gap) { flex_gap_ = std::move(gap); }
@@ -119,14 +121,14 @@ namespace visage {
     Dimension padding_after_[2];
     Dimension dimensions_[2];
 
-    ItemAlignment item_alignment_ = ItemAlignment::Default;
-    ItemAlignment self_alignment_ = ItemAlignment::Default;
+    ItemAlignment item_alignment_ = ItemAlignment::Stretch;
+    ItemAlignment self_alignment_ = ItemAlignment::NotSet;
     WrapAlignment wrap_alignment_ = WrapAlignment::Start;
     float flex_grow_ = 0.0f;
     float flex_shrink_ = 0.0f;
     bool flex_rows_ = true;
     bool flex_reverse_direction_ = false;
     int flex_wrap_ = 0;
-    Dimension flex_gap_ = 0;
+    Dimension flex_gap_;
   };
 }

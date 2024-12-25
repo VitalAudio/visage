@@ -30,6 +30,13 @@ namespace visage {
       return default_value;
     }
 
+    int roundWithDefault(float dpi_scale, float parent_width, float parent_height,
+                         int default_value = 0) const {
+      if (compute)
+        return static_cast<int>(std::round(compute(dpi_scale, parent_width, parent_height)));
+      return default_value;
+    }
+
     Dimension() = default;
     Dimension(float amount) : compute([amount](float, float, float) { return amount; }) { }
     Dimension(std::function<float(float, float, float)> compute) : compute(std::move(compute)) { }
