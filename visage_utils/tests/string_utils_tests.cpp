@@ -29,3 +29,21 @@ TEST_CASE("String conversion", "[utils]") {
   REQUIRE(String(std).toUtf32() == original);
   REQUIRE(String(wide).toUtf32() == original);
 }
+
+TEST_CASE("Base 64 conversion", "[utils]") {
+  int size = 1 + rand();
+
+  std::unique_ptr<char[]> random_data = std::make_unique<char[]>(size);
+  for (int i = 0; i < size; ++i)
+    random_data[i] = static_cast<char>(rand() % 256);
+
+  std::string encoded = visage::encodeDataBase64(random_data.get(), size);
+  int decoded_size = 0;
+  std::unique_ptr<char[]> decoded = visage::decodeBase64Data(encoded, decoded_size);
+  REQUIRE(decoded_size == size);
+  bool equal = true;
+  for (int i = 0; i < size; ++i)
+    equal = equal && (random_data[i] == decoded[i]);
+
+  REQUIRE(equal);
+}

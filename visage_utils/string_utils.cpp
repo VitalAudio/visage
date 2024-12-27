@@ -72,10 +72,12 @@ namespace visage {
         return nullptr;
 
       result[write_index++] = (value0 << 2) | (value1 >> 4);
-      if (value2 != 64)
+      if (value2 != 64) {
         result[write_index++] = (value1 << 4) | (value2 >> 2);
-      else if (value3 != 64)
-        result[write_index++] = (value2 << 6) | value3;
+
+        if (value3 != 64)
+          result[write_index++] = (value2 << 6) | value3;
+      }
     }
 
     size = write_index;
