@@ -31,7 +31,8 @@ TEST_CASE("String conversion", "[utils]") {
 }
 
 TEST_CASE("Base 64 conversion", "[utils]") {
-  int size = 1 + rand();
+  static constexpr int kMaxSize = 10000;
+  int size = 1 + (rand() % (kMaxSize - 1));
 
   std::unique_ptr<char[]> random_data = std::make_unique<char[]>(size);
   for (int i = 0; i < size; ++i)

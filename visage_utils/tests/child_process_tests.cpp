@@ -24,11 +24,15 @@
 using namespace visage;
 
 TEST_CASE("Echo child process", "[utils]") {
-  std::string output;
-
 #if VISAGE_WINDOWS
-  REQUIRE(spawnChildProcess("cmd.exe", "/C echo Hello, World!", output, 1000));
-  REQUIRE(String(output).trim().toUtf8() == "Hello, World!");
+  std::string command = "cmd.exe";
+  std::string argument = "/C echo Hello, World!";
 #else
+  std::string command = "/bin/echo";
+  std::string argument = "Hello, World!";
 #endif
+
+  std::string output;
+  REQUIRE(spawnChildProcess(command, argument, output, 1000));
+  REQUIRE(String(output).trim().toUtf8() == "Hello, World!");
 }
