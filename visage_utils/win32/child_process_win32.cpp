@@ -53,9 +53,15 @@ namespace visage {
     si.dwFlags |= STARTF_USESTDHANDLES;
     ZeroMemory(&pi, sizeof(pi));
 
-    std::string full_command = "\"" + command + "\" " + arguments;
+    std::string full_command = "" + command + " " + arguments;
     if (!CreateProcess(nullptr, const_cast<LPSTR>(full_command.c_str()), nullptr, nullptr, TRUE,
                        CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+      DWORD error_code = GetLastError();
+      char message_buffer[256];
+      FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, error_code,
+                     0, message_buffer, sizeof(message_buffer), NULL);
+      output = message_buffer;
+
       CloseHandle(std_out_read);
       CloseHandle(std_out_write);
       return false;
