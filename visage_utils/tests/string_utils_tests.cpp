@@ -48,3 +48,41 @@ TEST_CASE("Base 64 conversion", "[utils]") {
 
   REQUIRE(equal);
 }
+
+TEST_CASE("String trim", "[utils]") {
+  String test = "\n \t \r \nHello \n World \r Again\n \t \r \n";
+  REQUIRE(test.trim().toUtf8() == "Hello \n World \r Again");
+
+  String all_space = "\n \t \r \n\n\r\n \t \r \n";
+  REQUIRE(all_space.trim().toUtf8() == "");
+}
+
+TEST_CASE("String remove characters", "[utils]") {
+  String test = "\n \t \r \nHello \n World \r Again\n \t \r \n";
+  REQUIRE(test.removeCharacters("\n ").toUtf8() == "\t\rHelloWorld\rAgain\t\r");
+  REQUIRE(test.removeCharacters("\n HeloAgain").toUtf8() == "\t\rWrd\r\t\r");
+}
+
+TEST_CASE("String numerical precision", "[utils]") {
+  String test1 = "0.123456";
+  REQUIRE(test1.withPrecision(0).toUtf8() == "0");
+  REQUIRE(test1.withPrecision(1).toUtf8() == "0.1");
+  REQUIRE(test1.withPrecision(2).toUtf8() == "0.12");
+  REQUIRE(test1.withPrecision(3).toUtf8() == "0.123");
+  REQUIRE(test1.withPrecision(4).toUtf8() == "0.1235");
+  REQUIRE(test1.withPrecision(5).toUtf8() == "0.12346");
+  REQUIRE(test1.withPrecision(6).toUtf8() == "0.123456");
+  REQUIRE(test1.withPrecision(7).toUtf8() == "0.1234560");
+  REQUIRE(test1.withPrecision(8).toUtf8() == "0.12345600");
+
+  String test2 = "9.9995493";
+  REQUIRE(test2.withPrecision(0).toUtf8() == "10");
+  REQUIRE(test2.withPrecision(1).toUtf8() == "10.0");
+  REQUIRE(test2.withPrecision(2).toUtf8() == "10.00");
+  REQUIRE(test2.withPrecision(3).toUtf8() == "10.000");
+  REQUIRE(test2.withPrecision(4).toUtf8() == "9.9995");
+  REQUIRE(test2.withPrecision(5).toUtf8() == "9.99955");
+  REQUIRE(test2.withPrecision(6).toUtf8() == "9.999549");
+  REQUIRE(test2.withPrecision(7).toUtf8() == "9.9995493");
+  REQUIRE(test2.withPrecision(8).toUtf8() == "9.99954930");
+}

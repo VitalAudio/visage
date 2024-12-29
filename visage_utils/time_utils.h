@@ -46,13 +46,14 @@ namespace visage::time {
     static constexpr int kMaxLength = 100;
 
     auto time_t = std::chrono::system_clock::to_time_t(time);
-    char buffer[kMaxLength];
     tm time_info {};
 #if VISAGE_WINDOWS
     localtime_s(&time_info, &time_t);
 #else
     localtime_r(&time_t, &time_info);
 #endif
+
+    char buffer[kMaxLength];
     std::strftime(buffer, kMaxLength, format_string, &time_info);
     return buffer;
   }

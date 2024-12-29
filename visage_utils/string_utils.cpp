@@ -98,19 +98,15 @@ namespace visage {
 
   String String::removeCharacters(const std::string& characters) const {
     std::u32string result = string_;
-    result.erase(std::remove_if(result.begin(), result.end(),
-                                [&characters](char32_t c) {
-                                  return characters.find(c) != std::string::npos;
-                                }),
-                 result.end());
+    auto filter = [&characters](char32_t c) { return characters.find(c) != std::string::npos; };
+    result.erase(std::remove_if(result.begin(), result.end(), filter), result.end());
     return result;
   }
 
   String String::removeEmojiVariations() const {
     std::u32string result = string_;
-    result.erase(std::remove_if(result.begin(), result.end(),
-                                [](char32_t c) { return (c & 0xfffffff0) == 0xfe00; }),
-                 result.end());
+    auto filter = [](char32_t c) { return (c & 0xfffffff0) == 0xfe00; };
+    result.erase(std::remove_if(result.begin(), result.end(), filter), result.end());
     return result;
   }
 }

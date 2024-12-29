@@ -23,6 +23,13 @@
 
 using namespace visage;
 
+TEST_CASE("Child process doesn't exist", "[utils]") {
+  std::string command = "asdfjkasdfjkabjbizkejzvbieizieizeiezize";
+  std::string argument = "Hello, World!";
+  std::string output;
+  REQUIRE(!spawnChildProcess(command, argument, output, 1000));
+}
+
 TEST_CASE("Echo child process", "[utils]") {
 #if VISAGE_WINDOWS
   std::string command = "cmd.exe";

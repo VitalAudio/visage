@@ -206,23 +206,40 @@ namespace visage {
     String(unsigned long long value) : String(std::to_string(value)) { }
     String(float value) : String(std::to_string(value)) { removeTrailingZeros(); }
     String(float value, int precision) : String(std::to_string(value)) {
-      trimToPrecision(precision);
+      *this = withPrecision(precision);
     }
 
     String(double value) : String(std::to_string(value)) { removeTrailingZeros(); }
     String(double value, int precision) : String(std::to_string(value)) {
-      trimToPrecision(precision);
+      *this = withPrecision(precision);
     }
 
-    void trimToPrecision(int precision) {
+    String withPrecision(int precision) const {
       size_t pos = find('.');
 
-      if (pos != std::string::npos) {
-        pos += precision + 1;
+      if (pos == std::string::npos)
+        return string_;
 
-        if (pos < string_.length())
-          string_.erase(pos);
+      pos += precision + 1;
+      if (pos < string_.length()) {
+        std::u32string result = string_.substr(0, string_[pos - 1] == '.' ? pos - 1 : pos);
+        bool carry = string_[pos] >= '5';
+        while (pos > 0 && carry) {
+          --pos;
+          if (string_[pos] == '9')
+            result[pos] = '0';
+          else if (string_[pos] != '.') {
+            ++result[pos];
+            carry = false;
+          }
+        }
+        if (carry)
+          return U"1" + result;
+
+        return result;
       }
+
+      return string_ + std::u32string(pos - string_.length(), '0');
     }
 
     std::wstring toWide() const { return convertToWide(string_); }
