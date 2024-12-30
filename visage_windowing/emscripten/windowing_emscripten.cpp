@@ -218,18 +218,18 @@ namespace visage {
       delta_x *= kPreciseScrollingScale;
       delta_y *= kPreciseScrollingScale;
     }
-    int x = event->mouse.targetX - EM_ASM_INT({
-          var canvas = document.getElementById('canvas');
-          var rect = canvas.getBoundingClientRect();
-          return rect.left;
-        });
-
-    int y = event->mouse.targetY - EM_ASM_INT({
-              var canvas = document.getElementById('canvas');
-              var rect = canvas.getBoundingClientRect();
-              return rect.top;
-            });
-    window->handleMouseWheel(delta_x, delta_y, delta_x, delta_y, x, y,
+    // int x = event->mouse.targetX - EM_ASM_INT({
+    //       var canvas = document.getElementById('canvas');
+    //       var rect = canvas.getBoundingClientRect();
+    //       return rect.left;
+    //     });
+// 
+    // int y = event->mouse.targetY - EM_ASM_INT({
+    //           var canvas = document.getElementById('canvas');
+    //           var rect = canvas.getBoundingClientRect();
+    //           return rect.top;
+    //         });
+    window->handleMouseWheel(delta_x, delta_y, delta_x, delta_y, event->mouse.targetX, event->mouse.targetX,
                              mouseButtonState(&event->mouse), keyboardModifiers(&event->mouse));
     return true;
   }
