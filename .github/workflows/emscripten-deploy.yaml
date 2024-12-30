@@ -23,7 +23,7 @@ jobs:
           source emsdk/emsdk_env.sh
           mkdir cmake_build
           cd cmake_build
-          emcmake cmake -DCMAKE_BUILD_TYPE=Release ..
+          emcmake cmake -DCMAKE_BUILD_TYPE=Debug ..
           emmake make -j$(nproc)
           cd ..
           mkdir cmake_package
