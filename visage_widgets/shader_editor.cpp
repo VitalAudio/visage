@@ -69,8 +69,10 @@ namespace visage {
     for (const auto& file : files)
       watched_edit_times_[file.string()] = shaderEditTime(file.string());
 
+#ifndef VISAGE_EMSCRIPTEN
     if (!running())
       start();
+#endif
   }
 
   void ShaderCompiler::compileWaitingShader() {

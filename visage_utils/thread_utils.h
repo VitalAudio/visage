@@ -54,6 +54,9 @@ namespace visage {
 
     void start() {
       VISAGE_ASSERT(!running());
+#if VISAGE_EMSCRIPTEN
+      VISAGE_ASSERT(false);
+#endif
 
       if (running())
         return;
