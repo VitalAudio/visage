@@ -34,10 +34,11 @@ namespace visage {
     debugLogString(file, line, buffer);
   }
 
-  void debugAssert(bool condition) {
+  void debugAssert(bool condition, const char* file, unsigned int line) {
     if (condition)
       return;
 
+    debugLogString(file, line, "Assertion failed");
 #if defined(__clang__)
     __builtin_debugtrap();
 #else

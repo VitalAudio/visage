@@ -36,7 +36,7 @@ namespace visage {
     va_end(args);
   }
 
-  void debugAssert(bool condition);
+  void debugAssert(bool condition, const char* file, unsigned int line);
   void forceCrash();
 }
 
@@ -46,7 +46,7 @@ namespace visage {
 
 #define VISAGE_LOG(log, ...) visage::debugLog(__FILE__, int(__LINE__), log, ##__VA_ARGS__)
 
-#define VISAGE_ASSERT(condition) visage::debugAssert((condition))
+#define VISAGE_ASSERT(condition) visage::debugAssert((condition), __FILE__, int(__LINE__))
 #define no_except
 
 namespace visage {
