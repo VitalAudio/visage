@@ -44,6 +44,8 @@ namespace visage {
 
       if (canvas_)
         region->setCanvas(canvas_);
+
+      region->setLayerIndex(layer_index_);
     }
 
     void removeRegion(Region* region) {
@@ -105,8 +107,9 @@ namespace visage {
     Region* intermediateRegion() const { return intermediate_region_.get(); }
 
   private:
-    void incrementLayer();
-    void decrementLayer();
+    void setLayerIndex(int layer_index);
+    void incrementLayer() { setLayerIndex(layer_index_ + 1); }
+    void decrementLayer() { setLayerIndex(layer_index_ - 1); }
 
     Text* addText(const String& string, const Font& font, Font::Justification justification) {
       text_store_.push_back(std::make_unique<Text>(string, font, justification));

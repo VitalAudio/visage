@@ -388,7 +388,7 @@ namespace visage {
     }
 
     void addRegion(Region* region) {
-      composite_layer_.addRegion(region);
+      default_region_.addRegion(region);
       region->setCanvas(this);
     }
 
@@ -472,6 +472,7 @@ namespace visage {
     std::vector<State> state_memory_;
     State state_;
 
+    Region window_region_;
     Region default_region_;
     Layer composite_layer_;
     std::vector<std::unique_ptr<Layer>> intermediate_layers_;

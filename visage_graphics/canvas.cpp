@@ -25,13 +25,17 @@ namespace visage {
   Canvas::Canvas() {
     state_.current_region = &default_region_;
     layers_.push_back(&composite_layer_);
-    composite_layer_.addRegion(&default_region_);
-    composite_layer_.setIntermediateLayer(false);
+    composite_layer_.addRegion(&window_region_);
+
+    window_region_.setCanvas(this);
+    window_region_.addRegion(&default_region_);
+    default_region_.setCanvas(this);
+    default_region_.setNeedsLayer(true);
   }
 
   void Canvas::clearDrawnShapes() {
     composite_layer_.clear();
-    composite_layer_.addRegion(&default_region_);
+    composite_layer_.addRegion(&window_region_);
   }
 
   void Canvas::setDimensions(int width, int height) {
@@ -39,19 +43,20 @@ namespace visage {
     width = std::max(1, width);
     height = std::max(1, height);
     composite_layer_.setDimensions(width, height);
+    window_region_.setBounds(0, 0, width, height);
     default_region_.setBounds(0, 0, width, height);
     setClampBounds(0, 0, width, height);
   }
 
   int Canvas::submit(int submit_pass) {
     int submission = submit_pass;
-    for (auto layer = layers_.rbegin(); layer != layers_.rend(); ++layer)
-      submission = (*layer)->submit(submission);
-
-    if (submission > submit_pass)
-      render_frame_++;
+    for (int i = layers_.size() - 1; i > 0; --i)
+      submission = layers_[i]->submit(submission);
 
     if (submission > submit_pass) {
+      composite_layer_.invalidate();
+      submission = composite_layer_.submit(submission);
+      render_frame_++;
       bgfx::frame();
       FontCache::clearStaleFonts();
     }

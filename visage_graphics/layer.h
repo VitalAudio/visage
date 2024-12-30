@@ -60,16 +60,7 @@ namespace visage {
 
     void invalidateRect(Bounds rect);
     void invalidateRectInRegion(Bounds rect, const Region* region);
-
-    bool anyInvalidRects() {
-      if (!invalid_rects_.empty())
-        return true;
-      for (auto& invalid_rects : prev_invalid_rects_) {
-        if (!invalid_rects.empty())
-          return true;
-      }
-      return false;
-    }
+    bool anyInvalidRects() { return !invalid_rects_.empty(); }
 
     void setDimensions(int width, int height) {
       if (width == width_ && height == height_)
@@ -104,7 +95,10 @@ namespace visage {
       destroyFrameBuffer();
     }
 
-    void clear() { regions_.clear(); }
+    void clear() {
+      regions_.clear();
+      atlas_.clear();
+    }
 
   private:
     bool bottom_left_origin_ = false;
@@ -119,7 +113,6 @@ namespace visage {
     PackedAtlas<const Region*> atlas_;
     std::vector<Region*> regions_;
     std::vector<Bounds> invalid_rects_;
-    std::vector<Bounds> prev_invalid_rects_[kInvalidRectMemory];
     std::vector<Bounds> invalid_rect_pieces_;
   };
 }

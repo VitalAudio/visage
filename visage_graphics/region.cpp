@@ -38,7 +38,7 @@ namespace visage {
       region = region->parent_;
     }
 
-    canvas_->invalidateRectInRegion(rect, region, 0);
+    canvas_->invalidateRectInRegion(rect, region, region->layer_index_);
   }
 
   Layer* Region::layer() const {
@@ -75,23 +75,16 @@ namespace visage {
     invalidate();
   }
 
-  void Region::incrementLayer() {
+  void Region::setLayerIndex(int layer_index) {
     if (needsLayer())
-      canvas_->changePackedLayer(this, layer_index_, layer_index_ + 1);
+      canvas_->changePackedLayer(this, layer_index_, layer_index);
 
-    ++layer_index_;
-    for (auto& sub_region : sub_regions_)
-      sub_region->incrementLayer();
-  }
-
-  void Region::decrementLayer() {
-    if (needsLayer())
-      canvas_->changePackedLayer(this, layer_index_, layer_index_ + 1);
-
-    --layer_index_;
-    VISAGE_ASSERT(layer_index_ >= 0);
-
-    for (auto& sub_region : sub_regions_)
-      sub_region->decrementLayer();
+    layer_index_ = layer_index;
+    for (auto& sub_region : sub_regions_) {
+      if (sub_region->needsLayer())
+        sub_region->setLayerIndex(layer_index + 1);
+      else
+        sub_region->setLayerIndex(layer_index);
+    }
   }
 }

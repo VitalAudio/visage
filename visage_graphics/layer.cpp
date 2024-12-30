@@ -232,17 +232,6 @@ namespace visage {
 
     if (intermediate_layer_)
       clearInvalidRectAreas(submit_pass);
-    else {
-      std::vector<Bounds> current_invalid_rects = invalid_rects_;
-      for (auto& prev_invalid_rects : prev_invalid_rects_) {
-        for (const Bounds& rect : prev_invalid_rects)
-          invalidateRect(rect);
-      }
-
-      for (int i = kInvalidRectMemory - 1; i > 0; --i)
-        prev_invalid_rects_[i] = std::move(prev_invalid_rects_[i - 1]);
-      prev_invalid_rects_[0] = std::move(current_invalid_rects);
-    }
 
     std::vector<RegionPosition> region_positions;
     std::vector<RegionPosition> overlapping_regions;
