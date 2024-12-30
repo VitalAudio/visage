@@ -218,13 +218,13 @@ namespace visage {
       delta_x *= kPreciseScrollingScale;
       delta_y *= kPreciseScrollingScale;
     }
-    int x = event->targetX - EM_ASM_INT({
+    int x = event->mouse.targetX - EM_ASM_INT({
           var canvas = document.getElementById('canvas');
           var rect = canvas.getBoundingClientRect();
           return rect.left;
         });
 
-    int y = event->targetY - EM_ASM_INT({
+    int y = event->mouse.targetY - EM_ASM_INT({
               var canvas = document.getElementById('canvas');
               var rect = canvas.getBoundingClientRect();
               return rect.top;
