@@ -57,9 +57,6 @@ class ExampleEditor : public visage::WindowedEditor {
 public:
   ExampleEditor() {
     shapes_.onDraw() = [this](visage::Canvas& canvas) {
-      canvas.setColor(0xff000000);
-      canvas.fill(0, 0, shapes_.width(), shapes_.height());
-
       drawRotatingCircles(canvas, shapes_.width(), shapes_.height());
       shapes_.redraw();
     };
@@ -72,6 +69,11 @@ public:
     shapes_.setPostEffect(post_effect_.get());
     addChild(&shapes_);
     addChild(&shader_editor_);
+  }
+
+  void draw(visage::Canvas& canvas) override {
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, shader_editor_.x(), height());
   }
 
   void resized() override {

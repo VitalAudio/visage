@@ -67,10 +67,11 @@ namespace visage {
 
     void* nativeHandle() const override { return (__bridge void*)view_; }
     void* initWindow() const override;
-    
+
     void runEventLoop() override;
     void windowContentsResized(int width, int height) override;
     void show() override;
+    void showMaximized() override;
     void hide() override;
     void setWindowTitle(const std::string& title) override;
     Point maxWindowDimensions() const override;

@@ -703,36 +703,46 @@ namespace visage {
     });
   }
 
-  std::unique_ptr<Window> createWindow(int x, int y, int width, int height, bool popup) {
-    return std::make_unique<WindowMac>(x, y, width, height, popup);
-  }
-
-  std::unique_ptr<Window> createPluginWindow(int width, int height, void* parent_handle) {
-    return std::make_unique<WindowMac>(width, height, parent_handle);
-  }
-
-  Bounds scaledWindowBounds(float aspect_ratio, float display_scale, int x, int y) {
+  Bounds scaledWindowBounds(const Dimension& x, const Dimension& y, const Dimension& w,
+                            const Dimension& h) {
     NSScreen* screen = [NSScreen mainScreen];
-    if (x != Window::kNotSet && y != Window::kNotSet) {
-      for (NSScreen* s in [NSScreen screens]) {
-        if (NSPointInRect(CGPointMake(x, y), [s frame])) {
-          screen = s;
-          break;
-        }
+    CGRect screen_frame = [screen frame];
+    int x_pos = x.computeWithDefault(screen.backingScaleFactor, screen_frame.size.width,
+                                     screen_frame.size.height);
+    int y_pos = x.computeWithDefault(screen.backingScaleFactor, screen_frame.size.width,
+                                     screen_frame.size.height);
+    for (NSScreen* s in [NSScreen screens]) {
+      if (NSPointInRect(CGPointMake(x_pos, y_pos), [s frame])) {
+        screen = s;
+        break;
       }
     }
 
-    CGRect screen_frame = [screen frame];
-    int scaled_width = screen_frame.size.width * display_scale;
-    int scaled_height = screen_frame.size.height * display_scale;
-    int width = std::min<int>(scaled_width, scaled_height * aspect_ratio);
-    int height = std::min<int>(scaled_height, scaled_width / aspect_ratio);
-    if (x == Window::kNotSet)
-      x = (screen_frame.size.width - width) / 2;
-    if (y == Window::kNotSet)
-      y = (screen_frame.size.height - height) / 2;
+    screen_frame = [screen frame];
+    int width = w.computeWithDefault(screen.backingScaleFactor, screen_frame.size.width,
+                                     screen_frame.size.height);
+    int height = h.computeWithDefault(screen.backingScaleFactor, screen_frame.size.width,
+                                      screen_frame.size.height);
 
-    return { x, y, width, height };
+    int default_x = (screen_frame.size.width - width) / 2;
+    int default_y = (screen_frame.size.height - height) / 2;
+    x_pos = x.computeWithDefault(screen.backingScaleFactor, screen_frame.size.width,
+                                 screen_frame.size.height, default_x);
+    y_pos = x.computeWithDefault(screen.backingScaleFactor, screen_frame.size.width,
+                                 screen_frame.size.height, default_y);
+
+    return { x_pos, y_pos, width, height };
+  }
+
+  std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
+                                       bool popup) {
+    Bounds bounds = scaledWindowBounds(x, y, width, height);
+    return std::make_unique<WindowMac>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), popup);
+  }
+
+  std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle) {
+    Bounds bounds = scaledWindowBounds({}, {}, width, height);
+    return std::make_unique<WindowMac>(bounds.width(), bounds.height(), parent_handle);
   }
 
   WindowMac::WindowMac(int x, int y, int width, int height, bool popup) :
@@ -820,6 +830,11 @@ namespace visage {
       else
         [window_handle_ makeKeyAndOrderFront:nil];
     }
+  }
+
+  void WindowMac::showMaximized() {
+    [window_handle_ zoom:nil];
+    [window_handle_ makeKeyAndOrderFront:nil];
   }
 
   void WindowMac::hide() {

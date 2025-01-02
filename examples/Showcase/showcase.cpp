@@ -56,6 +56,7 @@ public:
     const visage::Font font(text_height, resources::fonts::Lato_Regular_ttf);
     for (int i = 0; i < info.size(); ++i)
       canvas.text(info[i], font, visage::Font::kLeft, line_height, line_height * i, width(), line_height);
+    redraw();
   }
 };
 
