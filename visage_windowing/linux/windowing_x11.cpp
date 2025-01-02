@@ -444,14 +444,8 @@ namespace visage {
 
     XSizeHints* size_hints = XAllocSizeHints();
     size_hints->flags = USPosition;
-    if (x == kNotSet || y == kNotSet) {
-      size_hints->x = bounds.x();
-      size_hints->y = bounds.y();
-    }
-    else {
-      size_hints->x = x;
-      size_hints->y = y;
-    }
+    size_hints->x = x;
+    size_hints->y = y;
     XSetWMNormalHints(display, window_handle_, size_hints);
     XFree(size_hints);
 
