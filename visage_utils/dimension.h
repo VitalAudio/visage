@@ -32,7 +32,7 @@ namespace visage {
     }
 
     Dimension() = default;
-    Dimension(float amount) { *this = logicalPixels(amount); }
+    Dimension(float amount) { *this = devicePixels(amount); }
     Dimension(std::function<float(float, float, float)> compute) : compute(std::move(compute)) { }
 
     static Dimension devicePixels(float pixels) {

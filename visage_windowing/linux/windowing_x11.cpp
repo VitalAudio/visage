@@ -1248,20 +1248,40 @@ namespace visage {
 
   void WindowX11::show() {
     X11Connection::DisplayLock lock(x11_);
-    ::Display* display = x11_.display();
-    XMapWindow(display, window_handle_);
-    XFlush(display);
+    XMapWindow(x11_.display(), window_handle_);
+    XFlush(x11_.display());
   }
 
   void WindowX11::showMaximized() {
+    show();
     Atom wm_state = XInternAtom(x11_.display(), "_NET_WM_STATE", False);
     Atom max_horizontal = XInternAtom(x11_.display(), "_NET_WM_STATE_MAXIMIZED_HORZ", False);
     Atom max_vertical = XInternAtom(x11_.display(), "_NET_WM_STATE_MAXIMIZED_VERT", False);
 
-    Atom states[2] = { max_horizontal, max_vertical };
-    XChangeProperty(x11_.display(), window_handle_, wm_state, XA_ATOM, 32, PropModeReplace,
-                    reinterpret_cast<unsigned char*>(&states), 2);
-    show();
+    XEvent event = {};
+    event.type = ClientMessage;
+    event.xclient.window = window_handle_;
+    event.xclient.message_type = wm_state;
+    event.xclient.format = 32;
+    event.xclient.data.l[0] = 2;
+    event.xclient.data.l[1] = max_horizontal;
+    event.xclient.data.l[2] = max_vertical;
+    event.xclient.data.l[3] = 0;
+    event.xclient.data.l[4] = 0;
+
+    XSendEvent(x11_.display(), x11_.rootWindow(), False,
+               SubstructureRedirectMask | SubstructureNotifyMask, &event);
+
+    for (int retries = 0; retries < 10; ++retries) {
+      Thread::sleep(10);
+      while (XPending(x11_.display())) {
+        XEvent e;
+        XNextEvent(x11_.display(), &e);
+
+        if (e.type == ConfigureNotify && e.xconfigure.window == window_handle_)
+          return;
+      }
+    }
   }
 
   void WindowX11::hide() {
