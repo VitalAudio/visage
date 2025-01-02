@@ -153,57 +153,6 @@ namespace visage {
 #endif
   }
 
-  File audioPluginFile() {
-#if VISAGE_WINDOWS
-    HMODULE module = nullptr;
-    auto flags = GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT;
-    auto status = GetModuleHandleExA(flags, reinterpret_cast<LPCSTR>(&audioPluginFile), &module);
-    if (status == 0 || module == nullptr)
-      module = GetModuleHandleA(nullptr);
-
-    WCHAR dest[MAX_PATH] {};
-    auto result = GetModuleFileNameW((HINSTANCE)module, dest, MAX_PATH);
-    if (result == 0)
-      return {};
-
-    return dest;
-#else
-    Dl_info info;
-    File file;
-    if (dladdr((void*)audioPluginFile, &info))
-      file = info.dli_fname;
-
-#if VISAGE_MAC
-    if (file.has_parent_path()) {
-      File parent = file.parent_path();
-      if (parent.filename() == "MacOS" && parent.parent_path().filename() == "Contents")
-        return parent.parent_path().parent_path();
-    }
-#endif
-    return file;
-#endif
-  }
-
-  File audioPluginDataFolder() {
-#if VISAGE_WINDOWS
-    static File path;
-    if (path.empty()) {
-      char buffer[MAX_PATH];
-      SHGetFolderPathA(nullptr, CSIDL_PERSONAL, nullptr, 0, buffer);
-      path = buffer;
-      path = path / VISAGE_APPLICATION_NAME;
-    }
-    return path;
-#elif VISAGE_MAC
-    return "~/Music/" VISAGE_APPLICATION_NAME;
-#elif VISAGE_LINUX
-    File path = xdgFolder("XDG_DOCUMENTS_DIR", "~/Documents");
-    return path / VISAGE_APPLICATION_NAME;
-#else
-    return {};
-#endif
-  }
-
   File createTemporaryFile(const std::string& extension) {
     auto now = std::chrono::system_clock::now().time_since_epoch();
     long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();

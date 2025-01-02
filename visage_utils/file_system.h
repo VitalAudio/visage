@@ -33,8 +33,6 @@ namespace visage {
   File hostExecutable();
   File appDataDirectory();
   File userDocumentsDirectory();
-  File audioPluginDataFolder();
-  File audioPluginFile();
   File createTemporaryFile(const std::string& extension);
   std::string fileName(const File& file);
   std::string fileStem(const File& file);
