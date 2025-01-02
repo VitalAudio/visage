@@ -72,7 +72,7 @@ namespace visage {
     maximized_ = true;
     initial_width_ = EM_ASM_INT({ return window.innerWidth; });
     initial_height_ = EM_ASM_INT({ return window.innerHeight; });
-    handleResized(initial_width_, initial_height_);
+    handleWindowResize(initial_width_, initial_height_);
   }
 
   std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height, bool popup) {
