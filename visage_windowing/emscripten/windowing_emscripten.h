@@ -33,6 +33,8 @@ namespace visage {
     void runEventLoop() override;
     void windowContentsResized(int width, int height) override;
     void show() override { }
+    void showMaximized() override;
+    bool maximized() { return false; }
     void hide() override { }
     void setWindowTitle(const std::string& title) override;
     Point maxWindowDimensions() const override;
@@ -54,6 +56,7 @@ namespace visage {
     int initial_width_ = 0;
     int initial_height_ = 0;
     float display_scale_ = 1.0f;
+    bool maximized_ = false;
     int mouse_x_ = 0;
     int mouse_y_ = 0;
     long long start_microseconds_ = 0;

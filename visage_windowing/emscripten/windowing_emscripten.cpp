@@ -68,11 +68,23 @@ namespace visage {
     return EM_ASM_DOUBLE({ return window.devicePixelRatio; });
   }
 
-  std::unique_ptr<Window> createWindow(int x, int y, int width, int height, bool popup) {
-    return std::make_unique<WindowEmscripten>(width, height);
+  void WindowEmscripten::showMaximized() {
+    maximized_ = true;
+    initial_width_ = EM_ASM_INT({ return window.innerWidth; });
+    initial_height_ = EM_ASM_INT({ return window.innerHeight; });
+    handleResized(initial_width_, initial_height_);
   }
 
-  std::unique_ptr<Window> createPluginWindow(int width, int height, void* parent_handle) {
+  std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height, bool popup) {
+    int display_width = EM_ASM_INT({ return window.innerWidth; });
+    int display_height = EM_ASM_INT({ return window.innerHeight; });
+    float scale = windowPixelScale();
+
+    return std::make_unique<WindowEmscripten>(width.compute(scale, display_width, display_height),
+                                              height.compute(scale, display_width, display_height));
+  }
+
+  std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle) {
     VISAGE_ASSERT(false);
     return nullptr;
   }
@@ -514,17 +526,16 @@ namespace visage {
   }
 
   static EM_BOOL resizeCallback(int event_type, const EmscriptenUiEvent* event, void* user_data) {
-    static constexpr float kWindowPadding = 0.1f;
-
     WindowEmscripten* window = (WindowEmscripten*)user_data;
     if (event == nullptr || window == nullptr)
       return false;
 
-    int new_width = event->windowInnerWidth * (1.0f - kWindowPadding);
-    int new_height = event->windowInnerHeight * (1.0f - kWindowPadding);
-    new_width = std::min<int>(window->initialWidth() / window->pixelScale(), new_width);
-    new_height = std::min<int>(window->initialHeight() / window->pixelScale(), new_height);
-
+    int new_width = event->windowInnerWidth;
+    int new_height = event->windowInnerHeight;
+    if (!window->maximized()) {
+      new_width = std::min<int>(window->initialWidth() / window->pixelScale(), new_width);
+      new_height = std::min<int>(window->initialHeight() / window->pixelScale(), new_height);
+    }
     window->handleWindowResize(new_width, new_height);
     return true;
   }
@@ -574,9 +585,13 @@ namespace visage {
   }
 
   void WindowEmscripten::handleWindowResize(int window_width, int window_height) {
-    float aspect_ratio = aspectRatio();
-    int width = std::min<int>(window_width, window_height * aspect_ratio);
-    int height = std::min<int>(window_height, window_width / aspect_ratio);
+    int width = window_width;
+    int height = window_height;
+    if (!maximized_) {
+      float aspect_ratio = aspectRatio();
+      int width = std::min<int>(window_width, window_height * aspect_ratio);
+      int height = std::min<int>(window_height, window_width / aspect_ratio);
+    }
     handleResized(width * pixelScale(), height * pixelScale());
     emscripten_set_element_css_size("canvas", width, height);
     emscripten_set_canvas_element_size("canvas", clientWidth(), clientHeight());
