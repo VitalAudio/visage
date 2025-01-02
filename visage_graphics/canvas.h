@@ -461,6 +461,7 @@ namespace visage {
       state_.current_region->shape_batcher_.addShape(std::move(shape), state_.blend_mode);
     }
 
+    bool always_render_ = false;
     Palette* palette_ = nullptr;
     float width_scale_ = 1.0f;
     float height_scale_ = 1.0f;
