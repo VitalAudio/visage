@@ -20,8 +20,11 @@
 #include "embedded/example_shaders.h"
 
 #include <visage_graphics/post_effects.h>
+#include <visage_utils/dimension.h>
 #include <visage_widgets/shader_editor.h>
 #include <visage_windowing/windowing.h>
+
+using namespace visage::dimension;
 
 namespace {
   constexpr int kPaletteWidth = 200;
@@ -96,6 +99,7 @@ float Overlay::getBodyRounding() {
 }
 
 Showcase::Showcase() : color_editor_(palette()), value_editor_(palette()) {
+  setReferenceDimensions(kDefaultWidth, kDefaultHeight);
   setAcceptsKeystrokes(true);
   setFixedAspectRatio(true);
 
@@ -226,8 +230,10 @@ bool Showcase::keyPress(const visage::KeyEvent& key) {
 int runExample() {
   visage::ShaderCompiler compiler;
   compiler.watchShaderFolder(SHADERS_FOLDER);
+
   std::unique_ptr<Showcase> editor = std::make_unique<Showcase>();
-  editor->showWithEventLoop(0.6f);
+  editor->show(80_vmin, 70_vmin);
+  editor->runEventLoop();
 
   return 0;
 }

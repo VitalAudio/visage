@@ -1223,20 +1223,22 @@ namespace visage {
     return MonitorFromPoint(cursor_position, MONITOR_DEFAULTTONEAREST);
   }
 
-  static Bounds boundsInMonitor(HMONITOR monitor, float aspect_ratio, float display_scale) {
+  static Bounds boundsInMonitor(HMONITOR monitor, float dpi_scale, Dimension x, Dimension y,
+                                Dimension width, Dimension height) {
     MONITORINFO monitor_info {};
     monitor_info.cbSize = sizeof(MONITORINFO);
     GetMonitorInfo(monitor, &monitor_info);
 
     int monitor_width = monitor_info.rcWork.right - monitor_info.rcWork.left;
     int monitor_height = monitor_info.rcWork.bottom - monitor_info.rcWork.top;
+    int bounds_width = width.computeWithDefault(dpi_scale, monitor_width, monitor_height);
+    int bounds_height = height.computeWithDefault(dpi_scale, monitor_width, monitor_height);
 
-    float scale_width = monitor_width * display_scale;
-    int height = static_cast<int>(std::min(monitor_height * display_scale, scale_width / aspect_ratio));
-    int width = static_cast<int>(std::round(height * aspect_ratio));
-    int x = monitor_info.rcWork.left + (monitor_width - width) / 2;
-    int y = monitor_info.rcWork.top + (monitor_height - height) / 2;
-    return { x, y, width, height };
+    int default_x = monitor_info.rcWork.left + (monitor_width - bounds_width) / 2;
+    int default_y = monitor_info.rcWork.top + (monitor_height - bounds_height) / 2;
+    int bounds_x = x.computeWithDefault(dpi_scale, monitor_width, monitor_height, default_x);
+    int bounds_y = y.computeWithDefault(dpi_scale, monitor_width, monitor_height, default_y);
+    return { bounds_x, bounds_y, bounds_width, bounds_height };
   }
 
   static Point windowBorderSize(HWND hwnd) {
@@ -1248,24 +1250,6 @@ namespace visage {
       return { width, height };
     }
     return { 0, 0 };
-  }
-
-  Bounds scaledWindowBounds(float aspect_ratio, float display_scale, int x, int y) {
-    DpiAwareness dpi_awareness;
-    Bounds bounds;
-    if (x == Window::kNotSet || y == Window::kNotSet)
-      bounds = boundsInMonitor(monitorFromMousePosition(), aspect_ratio, display_scale);
-    else {
-      HMONITOR monitor = MonitorFromPoint({ x, y }, MONITOR_DEFAULTTONEAREST);
-      bounds = boundsInMonitor(monitor, aspect_ratio, display_scale);
-    }
-
-    if (x != Window::kNotSet)
-      bounds.setX(x);
-    if (y != Window::kNotSet)
-      bounds.setY(y);
-
-    return bounds;
   }
 
   static inline void clearMessage(MSG* message) {
@@ -1351,12 +1335,27 @@ namespace visage {
     drag_drop_target_ = new DragDropTarget(this);
   }
 
-  std::unique_ptr<Window> createWindow(int x, int y, int width, int height, bool popup) {
-    return std::make_unique<WindowWin32>(x, y, width, height, popup);
+  static Bounds computeBounds(Dimension x, Dimension y, Dimension width, Dimension height) {
+    DpiAwareness dpi_awareness;
+    POINT cursor_position;
+    GetCursorPos(&cursor_position);
+    float dpi_scale = dpi_awareness.dpiScale();
+    int x_position = x.computeWithDefault(dpi_scale, 0, 0, cursor_position.x);
+    int y_position = y.computeWithDefault(dpi_scale, 0, 0, cursor_position.y);
+
+    HMONITOR monitor = MonitorFromPoint({ x_position, y_position }, MONITOR_DEFAULTTONEAREST);
+    return boundsInMonitor(monitor, dpi_scale, x, y, width, height);
   }
 
-  std::unique_ptr<Window> createPluginWindow(int width, int height, void* parent_handle) {
-    return std::make_unique<WindowWin32>(width, height, parent_handle);
+  std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
+                                       bool popup) {
+    Bounds bounds = computeBounds(x, y, width, height);
+    return std::make_unique<WindowWin32>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), popup);
+  }
+
+  std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle) {
+    Bounds bounds = computeBounds(0, 0, width, height);
+    return std::make_unique<WindowWin32>(bounds.width(), bounds.height(), parent_handle);
   }
 
   WindowWin32::WindowWin32(int x, int y, int width, int height, bool popup) :
@@ -1382,8 +1381,8 @@ namespace visage {
     }
 
     Point borders = windowBorderSize(window_handle_);
-    SetWindowPos(window_handle_, nullptr, x, y, width + borders.x, height + borders.y,
-                 SWP_NOZORDER | SWP_NOMOVE);
+    SetWindowPos(window_handle_, nullptr, x - borders.x / 2, y, width + borders.x,
+                 height + borders.y, SWP_NOZORDER);
 
     SetWindowLongPtr(window_handle_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
@@ -1465,8 +1464,8 @@ namespace visage {
                  rect.bottom - rect.top + borders.y, SWP_NOZORDER | SWP_NOMOVE);
   }
 
-  void WindowWin32::show() {
-    ShowWindow(window_handle_, 1);
+  void WindowWin32::show(int show_flag) {
+    ShowWindow(window_handle_, show_flag);
     SetFocus(window_handle_);
 
     if (v_blank_thread_ == nullptr) {
@@ -1475,8 +1474,16 @@ namespace visage {
     }
   }
 
+  void WindowWin32::show() {
+    show(SW_SHOWNORMAL);
+  }
+
   void WindowWin32::hide() {
-    ShowWindow(window_handle_, 0);
+    ShowWindow(window_handle_, SW_HIDE);
+  }
+
+  void WindowWin32::showMaximized() {
+    show(SW_MAXIMIZE);
   }
 
   void WindowWin32::setWindowTitle(const std::string& title) {

@@ -47,9 +47,13 @@ namespace visage {
     void removeFromWindow();
     void drawWindow();
 
-    virtual int defaultWidth() const { return 800; }
-    virtual int defaultHeight() const { return 600; }
-    float defaultAspectRatio() const { return defaultWidth() * 1.0f / defaultHeight(); }
+    void setReferenceDimensions(int width, int height) {
+      reference_width_ = width;
+      reference_height_ = height;
+    }
+
+    int referenceWidth() const { return reference_width_; }
+    int referenceHeight() const { return reference_height_; }
 
     bool isFixedAspectRatio() const { return fixed_aspect_ratio_; }
     void setFixedAspectRatio(bool fixed) { fixed_aspect_ratio_ = fixed; }
@@ -66,6 +70,9 @@ namespace visage {
     std::unique_ptr<WindowEventHandler> window_event_handler_;
     bool fixed_aspect_ratio_ = false;
 
+    int reference_width_ = 0;
+    int reference_height_ = 0;
+
     std::set<Frame*> stale_children_;
     std::set<Frame*> drawing_children_;
 
@@ -77,20 +84,20 @@ namespace visage {
     ~WindowedEditor() override;
 
     void setTitle(std::string title) { title_ = std::move(title); }
-    void setPopup(bool popup) { popup_ = popup; }
 
-    void show(float window_scale);
-    void show(int x, int y, int width, int height);
-    void show(int width, int height);
+    void show(Dimension width, Dimension height);
+    void show(Dimension x, Dimension y, Dimension width, Dimension height);
+    void showPopup(Dimension width, Dimension height);
+    void showPopup(Dimension x, Dimension y, Dimension width, Dimension height);
+    void showMaximized();
 
-    void showWithEventLoop(float window_scale);
-    void showWithEventLoop(int x, int y, int width, int height);
-    void showWithEventLoop(int width, int height);
+    void runEventLoop();
+    Window* window() const { return window_.get(); }
 
   private:
-    void showWindow();
+    void show(Dimension x, Dimension y, Dimension width, Dimension height, bool popup);
+    void showWindow(bool maximized);
 
-    bool popup_ = false;
     std::string title_;
     std::unique_ptr<Window> window_;
   };

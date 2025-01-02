@@ -63,6 +63,7 @@ namespace visage {
 
     void windowContentsResized(int width, int height) override;
     void show() override;
+    void showMaximized() override;
     void hide() override;
     void setWindowTitle(const std::string& title) override;
     Point maxWindowDimensions() const override;
@@ -82,6 +83,7 @@ namespace visage {
     WNDPROC parentWindowProc() const { return parent_window_proc_; }
 
   private:
+    void show(int show_flag);
     void registerWindowClass();
 
     std::wstring unique_window_class_name_;

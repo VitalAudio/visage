@@ -24,22 +24,15 @@ namespace visage {
   struct Dimension {
     std::function<float(float dpi_scale, float parent_width, float parent_height)> compute = nullptr;
 
-    float computeWithDefault(float dpi_scale, float parent_width, float parent_height,
-                             float default_value = 0.0f) const {
+    int computeWithDefault(float dpi_scale, float parent_width, float parent_height,
+                           float default_value = 0.0f) const {
       if (compute)
-        return compute(dpi_scale, parent_width, parent_height);
-      return default_value;
-    }
-
-    int roundWithDefault(float dpi_scale, float parent_width, float parent_height,
-                         int default_value = 0) const {
-      if (compute)
-        return static_cast<int>(std::round(compute(dpi_scale, parent_width, parent_height)));
+        return std::round(compute(dpi_scale, parent_width, parent_height));
       return default_value;
     }
 
     Dimension() = default;
-    Dimension(float amount) : compute([amount](float, float, float) { return amount; }) { }
+    Dimension(float amount) { *this = logicalPixels(amount); }
     Dimension(std::function<float(float, float, float)> compute) : compute(std::move(compute)) { }
 
     static Dimension devicePixels(float pixels) {
@@ -111,6 +104,7 @@ namespace visage {
       };
       return *this;
     }
+
     Dimension operator*(float scalar) const {
       auto compute1 = compute;
       return Dimension([compute1, scalar](float dpi_scale, float parent_width, float parent_height) {

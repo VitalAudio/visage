@@ -23,6 +23,7 @@
 #include <visage_graphics/palette.h>
 #include <visage_ui/popup_menu.h>
 #include <visage_ui/undo_history.h>
+#include <visage_utils/dimension.h>
 #include <visage_widgets/palette_editor.h>
 #include <visage_widgets/shader_editor.h>
 
@@ -58,10 +59,7 @@ public:
   Showcase();
   ~Showcase() override;
 
-  int defaultWidth() const override { return kDefaultWidth; }
-  int defaultHeight() const override { return kDefaultHeight; }
   void resized() override;
-
   void draw(visage::Canvas& canvas) override;
 
   void clearEditors();

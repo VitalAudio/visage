@@ -24,8 +24,14 @@
 namespace visage {
   void TopLevelFrame::resized() {
     float dpi_scale = editor_->window() ? editor_->window()->dpiScale() : 1.0f;
-    float width_scale = width() * 1.0f / editor_->defaultWidth();
-    float height_scale = height() * 1.0f / editor_->defaultHeight();
+
+    float width_scale = 1.0f;
+    if (editor_->referenceWidth())
+      width_scale = width() * 1.0f / editor_->referenceWidth();
+    float height_scale = 1.0f;
+    if (editor_->referenceHeight())
+      height_scale = height() * 1.0f / editor_->referenceHeight();
+
     setDimensionScaling(dpi_scale, width_scale, height_scale);
     editor_->setBounds(localBounds());
     editor_->setCanvasDetails();
@@ -64,8 +70,10 @@ namespace visage {
 
   void ApplicationEditor::setCanvasDetails() {
     canvas_->setDimensions(width(), height());
-    canvas_->setWidthScale(width() * 1.0f / defaultWidth());
-    canvas_->setHeightScale(height() * 1.0f / defaultHeight());
+    if (referenceWidth())
+      canvas_->setWidthScale(width() * 1.0f / referenceWidth());
+    if (referenceHeight())
+      canvas_->setHeightScale(height() * 1.0f / referenceHeight());
 
     if (window_)
       canvas_->setDpiScale(window_->dpiScale());
@@ -129,44 +137,46 @@ namespace visage {
     removeFromWindow();
   }
 
-  void WindowedEditor::show(float window_scale) {
-    removeFromWindow();
-    window_ = createScaledWindow(defaultAspectRatio(), window_scale, popup_);
-    showWindow();
+  void WindowedEditor::show(Dimension width, Dimension height) {
+    show({}, {}, width, height);
   }
 
-  void WindowedEditor::show(int width, int height) {
-    removeFromWindow();
-    window_ = createWindow(width, height, popup_);
-    showWindow();
+  void WindowedEditor::show(Dimension x, Dimension y, Dimension width, Dimension height) {
+    show(x, y, width, height, false);
   }
 
-  void WindowedEditor::show(int x, int y, int width, int height) {
-    removeFromWindow();
-    window_ = createWindow(x, y, width, height, popup_);
-    showWindow();
+  void WindowedEditor::showPopup(Dimension width, Dimension height) {
+    showPopup({}, {}, width, height);
   }
 
-  void WindowedEditor::showWithEventLoop(float window_scale) {
-    show(window_scale);
+  void WindowedEditor::showPopup(Dimension x, Dimension y, Dimension width, Dimension height) {
+    show(x, y, width, height, true);
+  }
+
+  void WindowedEditor::show(Dimension x, Dimension y, Dimension width, Dimension height, bool popup) {
+    removeFromWindow();
+    window_ = createWindow(x, y, width, height, popup);
+    showWindow(false);
+  }
+
+  void WindowedEditor::showMaximized() {
+    removeFromWindow();
+    window_ = createWindow({}, {}, Dimension::widthPercent(85.0f), Dimension::heightPercent(85.0f), false);
+    showWindow(true);
+  }
+
+  void WindowedEditor::runEventLoop() {
     window_->runEventLoop();
   }
 
-  void WindowedEditor::showWithEventLoop(int x, int y, int width, int height) {
-    show(x, y, width, height);
-    window_->runEventLoop();
-  }
-
-  void WindowedEditor::showWithEventLoop(int width, int height) {
-    show(width, height);
-    window_->runEventLoop();
-  }
-
-  void WindowedEditor::showWindow() {
+  void WindowedEditor::showWindow(bool maximized) {
     if (!title_.empty())
       window_->setWindowTitle(title_);
 
     addToWindow(window_.get());
-    window_->show();
+    if (maximized)
+      window_->showMaximized();
+    else
+      window_->show();
   }
 }

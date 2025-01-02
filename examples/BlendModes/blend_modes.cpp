@@ -1,17 +1,17 @@
 /* Copyright Vital Audio, LLC
 *
-* va is free software: you can redistribute it and/or modify
+* visage is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
 * the Free Software Foundation, either version 3 of the License, or
 * (at your option) any later version.
 *
-* va is distributed in the hope that it will be useful,
+* visage is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 * GNU General Public License for more details.
 *
 * You should have received a copy of the GNU General Public License
-* along with va.  If not, see <http://www.gnu.org/licenses/>.
+* along with visage.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "embedded/example_fonts.h"
@@ -148,7 +148,8 @@ private:
 
 int runExample() {
   ExampleEditor editor;
-  editor.showWithEventLoop(0.5f);
+  editor.show(800, 600);
+  editor.runEventLoop();
 
   return 0;
 }

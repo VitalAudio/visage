@@ -17,6 +17,7 @@
 #pragma once
 
 #include "visage_utils/defines.h"
+#include "visage_utils/dimension.h"
 #include "visage_utils/keycodes.h"
 #include "visage_utils/space.h"
 
@@ -89,6 +90,7 @@ namespace visage {
     virtual int posixFd() const { return 0; }
 
     virtual void show() = 0;
+    virtual void showMaximized() = 0;
     virtual void hide() = 0;
     virtual void setWindowTitle(const std::string& title) = 0;
     virtual Point maxWindowDimensions() const = 0;
@@ -204,19 +206,11 @@ namespace visage {
   int doubleClickSpeed();
   void setDoubleClickSpeed(int ms);
 
-  Bounds scaledWindowBounds(float aspect_ratio, float display_scale, int x = Window::kNotSet,
-                            int y = Window::kNotSet);
-  std::unique_ptr<Window> createWindow(int x, int y, int width, int height, bool popup = false);
-  std::unique_ptr<Window> createPluginWindow(int width, int height, void* parent_handle);
+  std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
+                                       bool popup = false);
+  std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle);
 
-  inline std::unique_ptr<Window> createWindow(int width, int height, bool popup = false) {
-    return createWindow(Window::kNotSet, Window::kNotSet, width, height, popup);
-  }
-
-  inline std::unique_ptr<Window> createScaledWindow(float aspect_ratio, float display_scale = 0.7f,
-                                                    bool popup = false, int x = Window::kNotSet,
-                                                    int y = Window::kNotSet) {
-    Bounds bounds = scaledWindowBounds(aspect_ratio, display_scale, x, y);
-    return createWindow(bounds.x(), bounds.y(), bounds.width(), bounds.height(), popup);
+  inline std::unique_ptr<Window> createWindow(Dimension width, Dimension height, bool popup = false) {
+    return createWindow({}, {}, width, height, popup);
   }
 }

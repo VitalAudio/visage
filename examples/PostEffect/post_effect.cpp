@@ -1,17 +1,17 @@
 /* Copyright Vital Audio, LLC
  *
- * va is free software: you can redistribute it and/or modify
+ * visage is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * va is distributed in the hope that it will be useful,
+ * visage is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with va.  If not, see <http://www.gnu.org/licenses/>.
+ * along with visage.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "embedded/example_shaders.h"
@@ -20,6 +20,8 @@
 #include <visage_app/application_editor.h>
 #include <visage_widgets/shader_editor.h>
 #include <visage_windowing/windowing.h>
+
+using namespace visage::dimension;
 
 static void drawRing(visage::Canvas& canvas, int width, int height, float radius,
                      float circle_diameter, int num, float phase_offset) {
@@ -79,9 +81,6 @@ public:
     shader_editor_.setBounds(center, 0, width() - center, height());
   }
 
-  int defaultWidth() const override { return 1000; }
-  int defaultHeight() const override { return 500; }
-
 private:
   Frame shapes_;
   std::unique_ptr<visage::ShaderPostEffect> post_effect_;
@@ -90,7 +89,8 @@ private:
 
 int runExample() {
   ExampleEditor editor;
-  editor.showWithEventLoop(0.6f);
+  editor.showMaximized();
+  editor.runEventLoop();
 
   return 0;
 }
