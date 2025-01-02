@@ -245,7 +245,8 @@ namespace visage {
         Bounds bounds(info->x, info->y, info->width, info->height);
         if (result.bounds.width() == 0 || bounds.contains(point)) {
           result.bounds = bounds;
-          result.dpi = bounds.height() * kInchToMm / output_info->mm_height;
+          if (output_info->mm_height && bounds.height())
+            result.dpi = bounds.height() * kInchToMm / output_info->mm_height;
           result.refresh_rate = refreshRate(screen_resources, info);
         }
         XRRFreeCrtcInfo(info);
@@ -257,21 +258,23 @@ namespace visage {
     return result;
   }
 
-  MonitorInfo activeMonitorInfo() {
+  static MonitorInfo activeMonitorInfo() {
     return monitorInfoForPosition(cursorScreenPosition());
   }
 
-  Bounds boundsInDisplay(MonitorInfo monitor_info, float aspect_ratio, float display_scale) {
-    int scale_width = monitor_info.bounds.width() * display_scale;
-    int height = std::min(monitor_info.bounds.height() * display_scale, scale_width / aspect_ratio);
-    int width = height * aspect_ratio + 0.5f;
-    int x = (monitor_info.bounds.width() - width) / 2;
-    int y = (monitor_info.bounds.height() - height) / 2;
-    return { monitor_info.bounds.x() + x, monitor_info.bounds.y() + y, width, height };
+  static Bounds boundsInDisplay(MonitorInfo monitor_info, Dimension width, Dimension height) {
+    int monitor_width = monitor_info.bounds.width();
+    int monitor_height = monitor_info.bounds.height();
+    float dpi_scale = monitor_info.dpi / Window::kDefaultDpi;
+    int w = width.computeWithDefault(dpi_scale, monitor_width, monitor_height, 100);
+    int h = height.computeWithDefault(dpi_scale, monitor_width, monitor_height, 100);
+    int x = (monitor_width - w) / 2;
+    int y = (monitor_height - h) / 2;
+    return { monitor_info.bounds.x() + x, monitor_info.bounds.y() + y, w, h };
   }
 
-  void drawMessageBox(int width, int height, Display* display, ::Window window, GC gc,
-                      const std::string& message) {
+  static void drawMessageBox(int width, int height, Display* display, ::Window window, GC gc,
+                             const std::string& message) {
     XClearWindow(display, window);
 
     XFontStruct* font = XLoadQueryFont(display, "-misc-fixed-medium-r-*-*-24-*-*-*-*-*-*-*");
@@ -344,6 +347,7 @@ namespace visage {
       if (event.type == Expose) {
         drawMessageBox(bounds.width(), bounds.height(), display, message_window, gc, message);
       }
+
       else if (event.type == ButtonPress) {
         int button_width = bounds.width() / 2;
         int button_height = bounds.height() / 8;
@@ -368,12 +372,15 @@ namespace visage {
     XDestroyWindow(display, message_window);
   }
 
-  std::unique_ptr<Window> createWindow(int x, int y, int width, int height, bool popup) {
-    return std::make_unique<WindowX11>(x, y, width, height, popup);
+  std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
+                                       bool popup) {
+    Bounds bounds = boundsInDisplay(activeMonitorInfo(), width, height);
+    return std::make_unique<WindowX11>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), popup);
   }
 
-  std::unique_ptr<Window> createPluginWindow(int width, int height, void* parent_handle) {
-    return std::make_unique<WindowX11>(width, height, parent_handle);
+  std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle) {
+    Bounds bounds = boundsInDisplay(activeMonitorInfo(), std::move(width), std::move(height));
+    return std::make_unique<WindowX11>(bounds.width(), bounds.height(), parent_handle);
   }
 
   X11Connection::Cursors::Cursors(Display* display) {
@@ -427,10 +434,6 @@ namespace visage {
   }
 
   WindowX11* WindowX11::last_active_window_ = nullptr;
-
-  Bounds scaledWindowBounds(float aspect_ratio, float display_scale, int x, int y) {
-    return boundsInDisplay(activeMonitorInfo(), aspect_ratio, display_scale);
-  }
 
   WindowX11::WindowX11(int x, int y, int width, int height, bool popup) : Window(width, height) {
     monitor_info_ = activeMonitorInfo();
@@ -1248,6 +1251,17 @@ namespace visage {
     ::Display* display = x11_.display();
     XMapWindow(display, window_handle_);
     XFlush(display);
+  }
+
+  void WindowX11::showMaximized() {
+    Atom wm_state = XInternAtom(x11_.display(), "_NET_WM_STATE", False);
+    Atom max_horizontal = XInternAtom(x11_.display(), "_NET_WM_STATE_MAXIMIZED_HORZ", False);
+    Atom max_vertical = XInternAtom(x11_.display(), "_NET_WM_STATE_MAXIMIZED_VERT", False);
+
+    Atom states[2] = { max_horizontal, max_vertical };
+    XChangeProperty(x11_.display(), window_handle_, wm_state, XA_ATOM, 32, PropModeReplace,
+                    reinterpret_cast<unsigned char*>(&states), 2);
+    show();
   }
 
   void WindowX11::hide() {

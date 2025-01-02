@@ -171,7 +171,7 @@ namespace visage {
 
     Bounds bounds;
     double refresh_rate = kDefaultRefreshRate;
-    float dpi = 1.0f;
+    float dpi = Window::kDefaultDpi;
   };
 
   class WindowX11 : public Window {
@@ -204,6 +204,7 @@ namespace visage {
 
     void windowContentsResized(int width, int height) override;
     void show() override;
+    void showMaximized() override;
     void hide() override;
     void setWindowTitle(const std::string& title) override;
     Point maxWindowDimensions() const override;
