@@ -62,7 +62,7 @@ private:
 
 int runExample() {
   ExampleEditor editor;
-  editor.show(800, 600);
+  editor.show(visage::Dimension::logicalPixels(800), visage::Dimension::logicalPixels(600));
   editor.runEventLoop();
 
   return 0;

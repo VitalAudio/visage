@@ -23,7 +23,7 @@ class ExampleEditor : public visage::WindowedEditor {
 public:
   ExampleEditor() {
     blur_bloom_.setBlurAmount(1.0f);
-    blur_bloom_.setBlurSize(40.0f);
+    blur_bloom_.setBlurSize(80.0f);
     blur_bloom_.setBloomSize(40.0f);
     blur_bloom_.setBloomIntensity(10.0f);
     setPostEffect(&blur_bloom_);
@@ -67,7 +67,7 @@ public:
   };
 
   void resized() override {
-    font_ = visage::Font(18.0f * heightScale(), resources::fonts::Lato_Regular_ttf);
+    font_ = visage::Font(18.0f * dpiScale(), resources::fonts::Lato_Regular_ttf);
   }
 
   void mouseDown(const visage::MouseEvent& e) override { mouse_down_ = true; }
