@@ -707,10 +707,12 @@ namespace visage {
                             const Dimension& h) {
     NSScreen* screen = [NSScreen mainScreen];
     CGRect screen_frame = [screen frame];
-    int x_pos = x.computeWithDefault(screen.backingScaleFactor, screen_frame.size.width,
-                                     screen_frame.size.height);
-    int y_pos = x.computeWithDefault(screen.backingScaleFactor, screen_frame.size.width,
-                                     screen_frame.size.height);
+    float scale = screen.backingScaleFactor;
+    int screen_width = screen_frame.size.width * scale;
+    int screen_height = screen_frame.size.height * scale;
+    int x_pos = x.computeWithDefault(scale, screen_width, screen_height);
+    int y_pos = x.computeWithDefault(scale, screen_width, screen_height);
+
     for (NSScreen* s in [NSScreen screens]) {
       if (NSPointInRect(CGPointMake(x_pos, y_pos), [s frame])) {
         screen = s;
@@ -719,17 +721,18 @@ namespace visage {
     }
 
     screen_frame = [screen frame];
-    int width = w.computeWithDefault(screen.backingScaleFactor, screen_frame.size.width,
-                                     screen_frame.size.height);
-    int height = h.computeWithDefault(screen.backingScaleFactor, screen_frame.size.width,
-                                      screen_frame.size.height);
+    scale = screen.backingScaleFactor;
+    screen_width = screen_frame.size.width * scale;
+    screen_height = screen_frame.size.height * scale;
+    int width = w.computeWithDefault(scale, screen_width, screen_height);
+    int height = h.computeWithDefault(scale, screen_width, screen_height);
 
-    int default_x = (screen_frame.size.width - width) / 2;
-    int default_y = (screen_frame.size.height - height) / 2;
-    x_pos = x.computeWithDefault(screen.backingScaleFactor, screen_frame.size.width,
-                                 screen_frame.size.height, default_x);
-    y_pos = x.computeWithDefault(screen.backingScaleFactor, screen_frame.size.width,
-                                 screen_frame.size.height, default_y);
+    int default_x = (screen_width - width) / 2;
+    int default_y = (screen_height - height) / 2;
+    x_pos = x.computeWithDefault(scale, screen_width, screen_height, default_x) / scale;
+    y_pos = x.computeWithDefault(scale, screen_width, screen_height, default_y) / scale;
+    width /= scale;
+    height /= scale;
 
     return { x_pos, y_pos, width, height };
   }
