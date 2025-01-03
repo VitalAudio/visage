@@ -83,11 +83,13 @@ namespace visage {
     }
 
     void compile(const std::string& shader_name, std::string code, std::function<void(std::string)> callback) {
+#if !VISAGE_EMSCRIPTEN
       setCode(shader_name, std::move(code), std::move(callback));
       if (completed()) {
         stop();
         start();
       }
+#endif
     }
 
     void compile(const EmbeddedFile& shader, std::string code, std::function<void(std::string)> callback) {
@@ -95,14 +97,15 @@ namespace visage {
     }
 
     void run() override;
-
     void watchShaderFolder(const std::string& folder_path);
 
     void watchShaders(const std::vector<std::string>& shaders) {
+#if !VISAGE_EMSCRIPTEN
       for (const std::string& shader : shaders)
         watched_edit_times_[shader] = 0;
 
       start();
+#endif
     }
 
   private:
