@@ -78,9 +78,9 @@ namespace visage {
   }
 
   std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height, bool popup) {
-    int display_width = EM_ASM_INT({ return window.innerWidth; });
-    int display_height = EM_ASM_INT({ return window.innerHeight; });
     float scale = windowPixelScale();
+    int display_width = scale * EM_ASM_INT({ return window.innerWidth; });
+    int display_height = scale * EM_ASM_INT({ return window.innerHeight; });
 
     return std::make_unique<WindowEmscripten>(width.compute(scale, display_width, display_height),
                                               height.compute(scale, display_width, display_height));

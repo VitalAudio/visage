@@ -82,7 +82,7 @@ private:
 
 int runExample() {
   ExampleEditor editor;
-  editor.show(visage::Dimension::widthPercent(40.0f), visage::Dimension::widthPercent(30.0f));
+  editor.show(visage::Dimension::widthPercent(50.0f), visage::Dimension::widthPercent(40.0f));
   editor.runEventLoop();
 
   return 0;
