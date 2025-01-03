@@ -70,9 +70,11 @@ namespace visage {
 
   void WindowEmscripten::showMaximized() {
     maximized_ = true;
-    initial_width_ = EM_ASM_INT({ return window.innerWidth; });
-    initial_height_ = EM_ASM_INT({ return window.innerHeight; });
-    handleWindowResize(initial_width_, initial_height_);
+    int width = EM_ASM_INT({ return window.innerWidth; });
+    int height = EM_ASM_INT({ return window.innerHeight; });
+    initial_width_ = width * pixelScale();
+    initial_height_ = height * pixelScale();
+    handleWindowResize(width, height);
   }
 
   std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height, bool popup) {
