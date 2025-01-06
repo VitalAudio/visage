@@ -41,6 +41,7 @@ namespace visage {
     uint32_t cacheReadSize(uint64_t) override { return 0; }
     bool cacheRead(uint64_t, void*, uint32_t) override { return false; }
     void cacheWrite(uint64_t, const void*, uint32_t) override { }
+
     void screenShot(const char* file_path, uint32_t width, uint32_t height, uint32_t pitch,
                     const void* data, uint32_t size, bool y_flip) override {
       bx::FileWriter writer;
@@ -50,6 +51,7 @@ namespace visage {
         bx::close(&writer);
       }
     }
+
     void captureBegin(uint32_t, uint32_t, uint32_t, bgfx::TextureFormat::Enum, bool) override { }
     void captureEnd() override { }
     void captureFrame(const void*, uint32_t) override { }
