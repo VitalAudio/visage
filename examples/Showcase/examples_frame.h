@@ -42,9 +42,11 @@ public:
     shadow_rounding_ = rounding;
   }
 
+  auto& onScrenshot() { return on_screenshot_; }
   auto& onShowOverlay() { return on_show_overlay_; }
 
 private:
+  visage::CallbackList<void(const std::string& file_path)> on_screenshot_;
   visage::CallbackList<void()> on_show_overlay_;
   std::unique_ptr<DragDropExample> drag_drop_;
   std::unique_ptr<visage::BarList> bar_list_;

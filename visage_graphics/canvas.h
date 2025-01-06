@@ -48,6 +48,8 @@ namespace visage {
     void clearDrawnShapes();
     int submit(int submit_pass = 0);
 
+    void takeScreenshot(const std::string& filename);
+
     void ensureLayerExists(int layer);
     Layer* layer(int index) {
       ensureLayerExists(index);

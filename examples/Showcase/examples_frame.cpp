@@ -261,7 +261,7 @@ ExamplesFrame::ExamplesFrame() {
   action_button_->setActionButton();
   action_button_->onToggle() = [this](visage::Button* button, bool toggled) {
     visage::PopupMenu menu;
-    menu.addOption(0, "Test 1");
+    menu.addOption(0, "Take Screenshot");
     menu.addOption(1, "Hello World");
     menu.addBreak();
     menu.addOption(2, "Another Item 1");
@@ -284,7 +284,11 @@ ExamplesFrame::ExamplesFrame() {
     menu.addOption(12, "Force Crash");
 
     menu.onSelection() = [this](int id) {
-      if (id == 12)
+      if (id == 0) {
+        visage::File file = visage::hostExecutable().parent_path() / "screenshot.png";
+        on_screenshot_.callback(file.string());
+      }
+      else if (id == 12)
         VISAGE_FORCE_CRASH();
     };
 

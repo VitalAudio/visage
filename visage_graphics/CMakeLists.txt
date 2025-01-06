@@ -93,6 +93,7 @@ set(VisageGraphicsDependencies
   bgfx
   bx
   bimg_decode
+  bimg_encode
   freetype
   nanosvg
   nanosvgrast

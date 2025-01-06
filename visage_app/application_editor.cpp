@@ -68,6 +68,10 @@ namespace visage {
     top_level_.removeAllChildren();
   }
 
+  void ApplicationEditor::takeScreenshot(const std::string& filename) {
+    canvas_->takeScreenshot(filename);
+  }
+
   void ApplicationEditor::setCanvasDetails() {
     canvas_->setDimensions(width(), height());
     if (referenceWidth())

@@ -67,6 +67,10 @@ namespace visage {
     return submission;
   }
 
+  void Canvas::takeScreenshot(const std::string& filename) {
+    bgfx::requestScreenShot(composite_layer_.frameBuffer(), filename.c_str());
+  }
+
   void Canvas::ensureLayerExists(int layer) {
     int layers_to_add = layer + 1 - layers_.size();
     for (int i = 0; i < layers_to_add; ++i) {

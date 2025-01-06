@@ -41,6 +41,8 @@ namespace visage {
     ApplicationEditor();
     ~ApplicationEditor() override;
 
+    void takeScreenshot(const std::string& filename);
+
     void setCanvasDetails();
 
     void addToWindow(Window* handle);

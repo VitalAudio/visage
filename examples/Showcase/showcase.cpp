@@ -113,6 +113,7 @@ Showcase::Showcase() : color_editor_(palette()), value_editor_(palette()) {
   examples_ = std::make_unique<ExamplesFrame>();
   examples_->setPostEffect(blur_bloom_.get());
   examples_->onShowOverlay() = [this] { overlay_.setVisible(true); };
+  examples_->onScrenshot() = [this](const std::string& file_path) { takeScreenshot(file_path); };
   addChild(examples_.get());
 
   addChild(&color_editor_, false);
