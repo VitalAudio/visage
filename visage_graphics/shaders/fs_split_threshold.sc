@@ -1,6 +1,6 @@
 $input v_coordinates
 
-#include <shader_utils.sh>
+#include <shader_include.sh>
 
 uniform vec4 u_threshold;
 uniform vec4 u_limit_mult;

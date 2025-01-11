@@ -1,8 +1,3 @@
-#include <bgfx_shader.sh>
-
-#define kPi 3.141592653589793238462643383279
-#define kArcRounded 1.5
-#define kArcFlat 0.5
 
 float smoothed(float from, float to, float value) {
   float t = clamp((value - from) / (to - from), 0.0, 1.0);
@@ -198,6 +193,14 @@ vec3 arcRadsDistance(vec2 coordinates, float width, float thickness, float cente
   float distance_from_thickness = mix(distance_arc, length(vec2(distance_arc, dist_curve)), rounding);
   float radians_alpha = mix(max(1.0 - dist_curve * pixel_scale, 0.0), 1.0, rounding);
   return vec3(clamp((scaled_thickness - distance_from_thickness) * pixel_scale, 0.0, 1.0) * radians_alpha, rads, delta_center);
+}
+
+vec3 roundedArcRadsDistance(vec2 coordinates, float width, float thickness, float center_radians, float radian_radius) {
+  return arcRadsDistance(coordinates, width, thickness, center_radians, radian_radius, 1.5);
+}
+
+vec3 flatArcRadsDistance(vec2 coordinates, float width, float thickness, float center_radians, float radian_radius) {
+  return arcRadsDistance(coordinates, width, thickness, center_radians, radian_radius, 0.5);
 }
 
 float isosceles(vec2 coordinates, vec2 dimensions) {

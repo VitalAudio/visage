@@ -1,9 +1,8 @@
 $input v_coordinates, v_dimensions, v_color0, v_color1, v_color2, v_shader_values
 
-#include <shader_utils.sh>
+#include <shader_include.sh>
 
 uniform vec4 u_time;
-
 
 float shape(vec2 position, vec2 dimensions, float fade_mult, float hover_amount) {
   const float kRoundingMult = 0.8;
@@ -55,7 +54,7 @@ void main() {
   float ring = width * kRingWidth;
   gl_FragColor.a = shape_alpha * dist_value;
 
-  vec3 arc_rads_distance = arcRadsDistance(v_coordinates, v_dimensions.x, thickness, 0.0, max_arc, kArcRounded);
+  vec3 arc_rads_distance = roundedArcRadsDistance(v_coordinates, v_dimensions.x, thickness, 0.0, max_arc);
   float rads = arc_rads_distance.y;
 
   float delta_rads = -rads - value;

@@ -1,6 +1,6 @@
 $input v_texture_uv, v_color0
 
-#include <shader_utils.sh>
+#include <shader_include.sh>
 
 SAMPLER2D(s_texture, 0);
 

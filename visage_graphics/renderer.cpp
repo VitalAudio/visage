@@ -25,6 +25,8 @@
 namespace visage {
   class GraphicsCallbackHandler : public bgfx::CallbackI {
     void fatal(const char* file_path, uint16_t line, bgfx::Fatal::Enum _code, const char* error) override {
+      VISAGE_LOG(String(file_path) + String(" (") + line + String(") "));
+      VISAGE_LOG(error);
       VISAGE_LOG("Graphics fatal error");
       VISAGE_ASSERT(false);
     }

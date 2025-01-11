@@ -1,7 +1,7 @@
 $input a_position, a_texcoord0, a_texcoord1, a_texcoord2, a_texcoord3, a_color0, a_color1
 $output v_coordinates, v_dimensions, v_color0, v_shader_values, v_shader_values1
 
-#include <bgfx_shader.sh>
+#include <shader_include.sh>
 
 uniform vec4 u_color_mult;
 uniform vec4 u_bounds;

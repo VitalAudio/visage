@@ -1,6 +1,6 @@
 $input v_shader_values
 
-#include <shader_utils.sh>
+#include <shader_include.sh>
 
 uniform vec4 u_time;
 uniform vec4 u_color_mult;

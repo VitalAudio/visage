@@ -1,6 +1,6 @@
 $input v_shader_values
 
-#include <shader_utils.sh>
+#include <shader_include.sh>
 
 uniform vec4 u_top_left_color;
 uniform vec4 u_top_right_color;

@@ -1,7 +1,7 @@
 $input a_position, a_texcoord0
 $output v_shader_values
 
-#include <bgfx_shader.sh>
+#include <shader_include.sh>
 
 uniform vec4 u_color_mult;
 

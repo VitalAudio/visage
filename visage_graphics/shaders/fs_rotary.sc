@@ -1,6 +1,6 @@
 $input v_coordinates, v_dimensions, v_color0, v_color1, v_color2, v_shader_values
 
-#include <shader_utils.sh>
+#include <shader_include.sh>
 
 uniform vec4 u_time;
 uniform vec4 u_settings;
@@ -16,7 +16,7 @@ void main() {
   float start_pos = floor(raw_value * 0.5);
   float value = (2.0 * (raw_value - start_pos * 2.0) - 1.0) * max_arc;
 
-  vec3 arc_rads_distance = arcRadsDistance(v_coordinates, v_dimensions.x, thickness, 0.0, max_arc, kArcRounded);
+  vec3 arc_rads_distance = roundedArcRadsDistance(v_coordinates, v_dimensions.x, thickness, 0.0, max_arc);
   float rads = arc_rads_distance.y;
 
   float delta_rads = -rads - value;

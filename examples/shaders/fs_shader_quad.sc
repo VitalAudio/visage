@@ -1,6 +1,6 @@
 $input v_coordinates, v_dimensions, v_color0, v_shader_values
 
-#include <shader_utils.sh>
+#include <shader_include.sh>
 
 uniform vec4 u_time;
 

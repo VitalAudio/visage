@@ -1,6 +1,6 @@
 $input v_coordinates, v_dimensions, v_color0, v_shader_values
 
-#include <shader_utils.sh>
+#include <shader_include.sh>
 
 void main() {
   vec2 dimensions = mix(v_dimensions, v_dimensions.yx, v_shader_values.w) - vec2(0.5, 0.5);
