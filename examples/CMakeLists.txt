@@ -42,8 +42,8 @@ foreach (EXAMPLE ${EXAMPLES})
         -sGL_ENABLE_GET_PROC_ADDRESS
         -sALLOW_MEMORY_GROWTH
         --bind
-        "-sEXPORTED_FUNCTIONS=['_main']"
-        "-sEXPORTED_RUNTIME_METHODS=['ccall', 'cwrap']"
+        "-sEXPORTED_FUNCTIONS=['_main', '_pasteCallback']"
+        "-sEXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'UTF8ToString']"
       )
 
       set_target_properties(Example${EXAMPLE} PROPERTIES

@@ -20,6 +20,7 @@
 
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
+#include <bimg/bimg.h>
 #include <bx/file.h>
 
 namespace visage {

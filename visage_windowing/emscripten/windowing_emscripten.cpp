@@ -24,11 +24,41 @@
 #include <map>
 
 namespace visage {
+  std::string clipboard_text_ = "";
+}
+
+extern "C" void pasteCallback(const char* text) {
+  visage::clipboard_text_ = text;
+  visage::WindowEmscripten::runningInstance()->handleKeyDown(visage::KeyCode::V,
+                                                             visage::Modifiers::kModifierRegCtrl, 0);
+}
+
+namespace visage {
   std::string readClipboardText() {
-    return "";
+    return clipboard_text_;
   }
 
-  void setClipboardText(const std::string& text) { }
+  void setupPasteCallback() {
+    EM_ASM({
+      document.addEventListener(
+          'paste', function(event) {
+            navigator.clipboard.readText()
+                .then(function(text) { ccall('pasteCallback', null, ['string'], [text]); })
+                .catch(function(err) { console.error("Failed to access clipboard:", err); });
+          });
+    });
+  }
+
+  void setClipboardText(const std::string& text) {
+    EM_ASM(
+        {
+          var text = UTF8ToString($0);
+          navigator.clipboard.writeText(text).then(function() {}).catch(function(err) {
+            console.error("Failed to copy text: ", err);
+          });
+        },
+        text.c_str());
+  }
 
   std::string cursorString(MouseCursor cursor) {
     switch (cursor) {
@@ -77,7 +107,8 @@ namespace visage {
     handleWindowResize(width, height);
   }
 
-  std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height, bool popup) {
+  std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
+                                       bool popup) {
     float scale = windowPixelScale();
     int display_width = scale * EM_ASM_INT({ return window.innerWidth; });
     int display_height = scale * EM_ASM_INT({ return window.innerHeight; });
@@ -233,10 +264,10 @@ namespace visage {
       delta_y *= kPreciseScrollingScale;
     }
     int x = event->mouse.targetX - EM_ASM_INT({
-          var canvas = document.getElementById('canvas');
-          var rect = canvas.getBoundingClientRect();
-          return rect.left;
-        });
+              var canvas = document.getElementById('canvas');
+              var rect = canvas.getBoundingClientRect();
+              return rect.left;
+            });
 
     int y = event->mouse.targetY - EM_ASM_INT({
               var canvas = document.getElementById('canvas');
@@ -516,6 +547,9 @@ namespace visage {
         return true;
       return window->handleTextInput(event->key);
     case EMSCRIPTEN_EVENT_KEYDOWN: {
+      if (modifier_state != 0 && code == KeyCode::V)
+        return false;
+
       bool down_used = window->handleKeyDown(code, modifier_state, event->repeat);
       return modifier_state != 0 && modifier_state != kModifierShift && down_used;
     }
@@ -553,6 +587,7 @@ namespace visage {
     emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, keyCallback);
     emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, keyCallback);
     emscripten_set_keypress_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, keyCallback);
+    setupPasteCallback();
 
     emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, resizeCallback);
 

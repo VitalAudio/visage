@@ -93,7 +93,7 @@ namespace visage {
 
   class IconButton : public Button {
   public:
-    static constexpr float kDefaultShadowRatio = 0.1f;
+    static constexpr float kDefaultShadowProportion = 0.1f;
 
     IconButton() = default;
     explicit IconButton(const Svg& icon, bool shadow = false) { setIcon(icon, shadow); }
@@ -117,7 +117,7 @@ namespace visage {
     void setIcon(Svg icon, bool shadow = false) {
       icon_ = icon;
       if (shadow) {
-        shadow_ratio_ = kDefaultShadowRatio;
+        shadow_proportion_ = kDefaultShadowProportion;
         shadow_ = icon_;
       }
     }
@@ -139,17 +139,17 @@ namespace visage {
       icon_.height = icon_.width;
       shadow_.width = icon_.width;
       shadow_.height = icon_.height;
-      shadow_.blur_radius = shadow_ratio_ * icon_.width;
+      shadow_.blur_radius = shadow_proportion_ * icon_.width;
     }
 
-    void setShadowRatio(float ratio) {
-      shadow_ratio_ = ratio;
-      shadow_.blur_radius = shadow_ratio_ * shadow_.width;
+    void setShadowProportion(float proportion) {
+      shadow_proportion_ = proportion;
+      shadow_.blur_radius = shadow_proportion_ * shadow_.width;
     }
 
     void setMarginRatio(float ratio) {
       margin_ratio_ = ratio;
-      shadow_.blur_radius = shadow_ratio_ * shadow_.width;
+      shadow_.blur_radius = shadow_proportion_ * shadow_.width;
       setIconSizes();
     }
 
@@ -157,7 +157,7 @@ namespace visage {
     Svg icon_;
     Svg shadow_;
 
-    float shadow_ratio_ = 0.0f;
+    float shadow_proportion_ = 0.0f;
     float margin_ratio_ = 0.0f;
   };
 
@@ -237,7 +237,7 @@ namespace visage {
 
     void initSettings(bool shadow) {
       if (shadow) {
-        shadow_ratio_ = kDefaultShadowRatio;
+        shadow_proportion_ = kDefaultShadowRatio;
         shadow_ = icon_;
       }
     }
@@ -249,27 +249,27 @@ namespace visage {
       setIconSizes();
     }
 
-    int getMargin() const { return std::min(width(), height()) * margin_ratio_; }
+    int getMargin() const { return std::min(width(), height()) * margin_proportion_; }
     int getIconX() const { return getMargin() + std::max(0, width() - height()) / 2; }
     int getIconY() const { return getMargin() + std::max(0, height() - width()) / 2; }
 
     void setIconSizes() {
-      int margin = std::min(width(), height()) * margin_ratio_;
+      int margin = std::min(width(), height()) * margin_proportion_;
       icon_.width = std::min(width(), height()) - 2 * margin;
       icon_.height = icon_.width;
       shadow_.width = icon_.width;
       shadow_.height = icon_.height;
-      shadow_.blur_radius = shadow_ratio_ * icon_.width;
+      shadow_.blur_radius = shadow_proportion_ * icon_.width;
     }
 
-    void setShadowRatio(float ratio) {
-      shadow_ratio_ = ratio;
-      shadow_.blur_radius = shadow_ratio_ * shadow_.width;
+    void setShadowProportion(float proportion) {
+      shadow_proportion_ = proportion;
+      shadow_.blur_radius = shadow_proportion_ * shadow_.width;
     }
 
-    void setMarginRatio(float ratio) {
-      margin_ratio_ = ratio;
-      shadow_.blur_radius = shadow_ratio_ * shadow_.width;
+    void setMarginProportion(float proportion) {
+      margin_proportion_ = proportion;
+      shadow_.blur_radius = shadow_proportion_ * shadow_.width;
       setIconSizes();
     }
 
@@ -277,8 +277,8 @@ namespace visage {
     Svg icon_;
     Svg shadow_;
 
-    float shadow_ratio_ = 0.0f;
-    float margin_ratio_ = 0.0f;
+    float shadow_proportion_ = 0.0f;
+    float margin_proportion_ = 0.0f;
   };
 
   class ToggleTextButton : public ToggleButton {

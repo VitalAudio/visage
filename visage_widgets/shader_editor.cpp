@@ -19,6 +19,7 @@
 #include "embedded/fonts.h"
 #include "embedded/icons.h"
 #include "embedded/shaders.h"
+#include "visage_graphics/graphics_utils.h"
 #include "visage_utils/child_process.h"
 #include "visage_utils/file_system.h"
 
@@ -47,6 +48,20 @@ namespace visage {
         compiler_path_ = app_path;
     }
 #endif
+  }
+
+  void ShaderCompiler::compileWebGlShader(const std::string& shader_name, const std::string& code,
+                                          std::function<void(std::string)> callback) {
+    std::string varying(shaders::varying_def_sc.data, shaders::varying_def_sc.size);
+    std::string utils(shaders::shader_utils_sh.data, shaders::shader_utils_sh.size);
+    std::string result;
+    if (visage::preprocessWebGlShader(result, code, utils, varying)) {
+      if (ShaderCache::swapShader(shader_name, result.c_str(), result.length()))
+        ProgramCache::refreshAllProgramsWithShader(shader_name);
+      callback("");
+    }
+    else
+      callback(result);
   }
 
   void ShaderCompiler::run() {
@@ -108,8 +123,8 @@ namespace visage {
     File output_file = compile_path / "output.bin";
     replaceFileWithData(compile_path / "varying.def.sc", shaders::varying_def_sc.data,
                         shaders::varying_def_sc.size);
-    replaceFileWithData(include_path / "bgfx_shader.sh", shaders::bgfx_shader_sh.data,
-                        shaders::bgfx_shader_sh.size);
+    replaceFileWithData(include_path / "shader_include.sh", shaders::shader_include_sh.data,
+                        shaders::shader_include_sh.size);
     replaceFileWithData(include_path / "shader_utils.sh", shaders::shader_utils_sh.data,
                         shaders::shader_utils_sh.size);
 

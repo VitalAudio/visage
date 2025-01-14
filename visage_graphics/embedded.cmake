@@ -54,7 +54,7 @@ function(visage_embed_shaders project include_filename namespace original_shader
       list(APPEND SHADER_BINS ${ESSL_PATH})
       add_custom_command(
         OUTPUT ${ESSL_PATH}
-        COMMAND ${SHADERC} -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders -O3 -f ${SHADER} -o ${ESSL_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM}
+        COMMAND ${SHADERC} -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders -O3 -f ${SHADER} -o ${ESSL_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p 100_es
         DEPENDS ${SHADER}
       )
     endif()

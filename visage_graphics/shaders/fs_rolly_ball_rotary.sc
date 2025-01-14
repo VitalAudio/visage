@@ -23,10 +23,10 @@ vec2 sphereWarp(vec2 coordinates, float hover_amount) {
 
 void main() {
   const float kCycles = 2.5;
-  const float kDimRatio = 0.65;
+  const float kDimAmount = 0.65;
   const float kSpread = 0.66;
   const float kRingWidth = 0.00;
-  
+
   float raw_value = v_shader_values.x;
   float hover_amount = v_shader_values.y;
   float thickness = v_shader_values.z;
@@ -36,11 +36,11 @@ void main() {
   float unipolar = floor(raw_value * 0.5);
   float current_value = raw_value - 2.0 * unipolar;
   float value = current_value * max_arc * 2.0 - max_arc;
-  
-  float dim_ratio = kDimRatio + 0.06 * hover_amount;
+
+  float dim_amount = kDimAmount + 0.06 * hover_amount;
   float min_dimension = min(v_dimensions.x, v_dimensions.y);
-  float base_width = min_dimension * kDimRatio;
-  float width = min_dimension * dim_ratio;
+  float base_width = min_dimension * kDimAmount;
+  float width = min_dimension * dim_amount;
   vec2 adjusted_coordinates = v_coordinates * v_dimensions / width;
 
   float time_position = -5.0 * current_value;
@@ -79,4 +79,3 @@ void main() {
   float thumb_alpha = clamp(thickness * 0.5 - thumb_distance, 0.0, 1.0);
   gl_FragColor = gl_FragColor * (1.0 - thumb_alpha) + v_color2 * thumb_alpha;
 }
-

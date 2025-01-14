@@ -50,6 +50,9 @@ namespace visage {
   static constexpr int kVerticesPerQuad = 4;
   static constexpr int kIndicesPerQuad = 6;
 
+  bool preprocessWebGlShader(std::string& result, const std::string& code,
+                             const std::string& utils_source, const std::string& varying_source);
+
   const uint16_t kQuadTriangles[] = {
     0, 1, 2, 2, 1, 3,
   };
