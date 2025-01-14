@@ -14,14 +14,14 @@ float random(vec2 uv) {
 }
 
 vec3 glitch1(vec2 value) {
-  float random_size = random(floor(value * vec2(5, 0.1)));
-  float random_off = random(floor(value * vec2(25 * random_size + 5, 3)));
-  float offset = random(floor(value * vec2(0.2 * mod(random_off, 1), random_off)));
+  float random_size = random(floor(value * vec2(5.0, 0.1)));
+  float random_off = random(floor(value * vec2(25.0 * random_size + 5.0, 3.0)));
+  float offset = random(floor(value * vec2(0.2 * mod(random_off, 1.0), random_off)));
   offset = floor(offset * 1.05);
 
-  float random_color_off1 = random(floor(value * vec2(15, 5)));
-  float random_color_off2 = random(floor(value * vec2(17, 5)));
-  float random_color_off3 = random(floor(value * vec2(19, 5)));
+  float random_color_off1 = random(floor(value * vec2(15.0, 5.0)));
+  float random_color_off2 = random(floor(value * vec2(17.0, 5.0)));
+  float random_color_off3 = random(floor(value * vec2(19.0, 5.0)));
   return vec3(offset, offset, offset) * 0.018 * vec3(random_color_off1, random_color_off2, random_color_off3);
 }
 
@@ -45,9 +45,9 @@ vec3 glitch2(vec2 value, float time) {
 
 void main() {
   vec3 g = glitch1(vec2(v_texture_uv.y, u_time.x + 150.9)) + glitch2(v_texture_uv, u_time.x);
-  gl_FragColor.r = texture2D(s_texture, v_texture_uv + vec2(g.r, 0)).r;
-  gl_FragColor.g = texture2D(s_texture, v_texture_uv + vec2(g.b, 0)).g;
-  gl_FragColor.b = texture2D(s_texture, v_texture_uv + vec2(g.g, 0)).b;
+  gl_FragColor.r = texture2D(s_texture, v_texture_uv + vec2(g.r, 0.0)).r;
+  gl_FragColor.g = texture2D(s_texture, v_texture_uv + vec2(g.b, 0.0)).g;
+  gl_FragColor.b = texture2D(s_texture, v_texture_uv + vec2(g.g, 0.0)).b;
   gl_FragColor.rgb = gl_FragColor.rgb * u_color_mult.rgb;
   gl_FragColor.a = 1.0;
 }
