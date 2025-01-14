@@ -76,6 +76,7 @@ namespace visage {
   class UiButton : public Button {
   public:
     explicit UiButton(const std::string& text);
+    UiButton() : UiButton("") { }
     explicit UiButton(const std::string& text, const Font& font);
 
     virtual void drawBackground(Canvas& canvas, float hover_amount);

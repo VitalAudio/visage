@@ -285,6 +285,8 @@ namespace visage {
   void Frame::setPostEffect(PostEffect* post_effect) {
     post_effect_ = post_effect;
     region_.setPostEffect(post_effect);
+    if (parent_)
+      parent_->redraw();
   }
 
   void Frame::removePostEffect() {
