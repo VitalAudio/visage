@@ -37,9 +37,9 @@ float noise(vec2 uv) {
 }
 
 vec3 glitch2(vec2 value, float time) {
-  float r = pow((noise(value * vec2(0,3) + time * 0.250100001 + 5) - 0.5) * 0.8, 5);
-  float g = pow((noise(value * vec2(0,3) + time * 0.2509999888 + 4) - 0.5) * 0.8, 5);
-  float b = pow((noise(value * vec2(0,3) + time* 0.25) - 0.5) * 0.8, 5);
+  float r = pow((noise(value * vec2(0.0, 3.0) + time * 0.250100001 + 5.0) - 0.5) * 0.8, 5.0);
+  float g = pow((noise(value * vec2(0.0, 3.0) + time * 0.2509999888 + 4.0) - 0.5) * 0.8, 5.0);
+  float b = pow((noise(value * vec2(0.0, 3.0) + time * 0.25) - 0.5) * 0.8, 5.0);
   return vec3(r, g, b);
 }
 
