@@ -28,7 +28,7 @@ int main() {
 - [Layout Flexing](https://visage.dev/examples/Layout/)
 
 ## Supported Platforms
-- **Windows**: Direct3D  
-- **macOS**: Metal  
-- **Linux**: OpenGL (Vulkan support coming soon)  
+- **Windows**: Direct3D11
+- **MacOS**: Metal  
+- **Linux**: OpenGL
 - **Web**: WebGL  
