@@ -74,19 +74,27 @@ namespace visage {
       color_map_[0][i] = existing_colors[default_color];
     }
 
+    colors_.clear();
+    computed_colors_.clear();
+
     for (const auto& color : existing_colors) {
+      while (colors_.size() <= color.second) {
+        colors_.push_back({});
+        computed_colors_.push_back({});
+      }
+
       colors_[color.second] = EditColor(color.first);
       computed_colors_[color.second] = colors_[color.second].toQuadColor();
     }
-    num_colors_ = existing_colors.size();
 
     sortColors();
   }
 
   void Palette::sortColors() {
-    std::vector<std::pair<EditColor, int>> sorted(num_colors_);
-    for (int i = 0; i < num_colors_; ++i)
-      sorted[i] = { colors_[i], i };
+    std::vector<std::pair<EditColor, int>> sorted;
+    sorted.reserve(colors_.size());
+    for (auto& color : colors_)
+      sorted.push_back({ color, sorted.size() });
 
     auto color_sort = [](const std::pair<EditColor, int>& one, const std::pair<EditColor, int>& two) {
       static constexpr float kSaturationCutoff = 0.2f;
@@ -100,8 +108,8 @@ namespace visage {
     };
     std::sort(sorted.begin(), sorted.end(), color_sort);
 
-    std::vector<int> color_movement(num_colors_);
-    for (int i = 0; i < num_colors_; ++i) {
+    std::vector<int> color_movement(colors_.size());
+    for (int i = 0; i < colors_.size(); ++i) {
       colors_[i] = sorted[i].first;
       computed_colors_[i] = sorted[i].first.toQuadColor();
       color_movement[sorted[i].second] = i;
@@ -130,11 +138,8 @@ namespace visage {
   }
 
   void Palette::removeColor(int index) {
-    num_colors_--;
-    for (int i = index; i < num_colors_; ++i) {
-      colors_[i] = colors_[i + 1];
-      computed_colors_[i] = computed_colors_[i + 1];
-    }
+    colors_.erase(colors_.begin() + index);
+    computed_colors_.erase(computed_colors_.begin() + index);
 
     for (auto& override_map : color_map_) {
       for (auto& color : override_map.second) {
@@ -170,9 +175,9 @@ namespace visage {
     }
     stream << std::endl;
 
-    stream << num_colors_ << std::endl;
-    for (int i = 0; i < num_colors_; ++i)
-      colors_[i].encode(stream);
+    stream << colors_.size() << std::endl;
+    for (auto& color : colors_)
+      color.encode(stream);
     return stream.str();
   }
 
@@ -231,11 +236,21 @@ namespace visage {
 
     std::string line;
     std::getline(stream, line);
-    num_colors_ = std::stoi(line);
-    for (int i = 0; i < num_colors_; ++i)
-      colors_[i].decode(stream);
+    int num_colors = std::stoi(line);
 
-    for (int i = 0; i < num_colors_; ++i)
+    colors_.clear();
+    computed_colors_.clear();
+    colors_.reserve(num_colors);
+    computed_colors_.reserve(num_colors);
+
+    for (int i = 0; i < num_colors; ++i) {
+      colors_.push_back({});
+      colors_[i].decode(stream);
+    }
+
+    for (int i = 0; i < num_colors; ++i) {
+      computed_colors_.push_back({});
       computed_colors_[i] = colors_[i].toQuadColor();
+    }
   }
 }

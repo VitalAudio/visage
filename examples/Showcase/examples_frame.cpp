@@ -38,7 +38,6 @@ inline float sin1(float phase) {
 
 static constexpr float kHalfPi = 3.14159265358979323846f * 0.5f;
 
-THEME_COLOR(BackgroundColor, 0xff33393f);
 THEME_COLOR(TextColor, 0xffffffff);
 THEME_COLOR(ShapeColor, 0xffaaff88);
 THEME_COLOR(LabelColor, 0x44212529);
@@ -49,10 +48,11 @@ THEME_COLOR(ShadowColor, 0x88000000);
 class AnimatedLines : public visage::Frame {
 public:
   static constexpr int kNumLines = 2;
+  static constexpr int kNumPoints = 400;
 
   AnimatedLines() {
     for (auto& graph_line : graph_lines_) {
-      graph_line = std::make_unique<visage::GraphLine>(400);
+      graph_line = std::make_unique<visage::GraphLine>(kNumPoints);
       addChild(graph_line.get());
     }
   }
@@ -74,8 +74,8 @@ public:
       int offset = render_height * 0.05f;
 
       float position = 0.0f;
-      for (int i = 0; i < 400; ++i) {
-        float t = i / 399.0f;
+      for (int i = 0; i < kNumPoints; ++i) {
+        float t = i / (kNumPoints - 1.0f);
         float delta = std::min(t, 1.0f - t);
         position += 0.1f * delta * delta + 0.003f;
         double phase = (render_time + r) * 0.5;
@@ -469,8 +469,6 @@ void ExamplesFrame::resized() {
 void ExamplesFrame::draw(visage::Canvas& canvas) {
   int w = width();
   int h = height();
-  canvas.setPaletteColor(kBackgroundColor);
-  canvas.fill(0, 0, w, h);
 
   int section_height = h / 4;
   int section_head_height = section_height / 4;

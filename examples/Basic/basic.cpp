@@ -20,7 +20,6 @@
  */
 
 #include <visage_app/application_editor.h>
-#include <visage_windowing/windowing.h>
 
 int runExample() {
   visage::WindowedEditor editor;

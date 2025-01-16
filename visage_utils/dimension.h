@@ -72,6 +72,24 @@ namespace visage {
       });
     }
 
+    static Dimension min(const Dimension& a, const Dimension& b) {
+      auto compute1 = a.compute;
+      auto compute2 = b.compute;
+      return Dimension([compute1, compute2](float dpi_scale, float parent_width, float parent_height) {
+        return std::min(compute1(dpi_scale, parent_width, parent_height),
+                        compute2(dpi_scale, parent_width, parent_height));
+      });
+    }
+
+    static Dimension max(const Dimension& a, const Dimension& b) {
+      auto compute1 = a.compute;
+      auto compute2 = b.compute;
+      return Dimension([compute1, compute2](float dpi_scale, float parent_width, float parent_height) {
+        return std::max(compute1(dpi_scale, parent_width, parent_height),
+                        compute2(dpi_scale, parent_width, parent_height));
+      });
+    }
+
     Dimension operator+(const Dimension& other) const {
       auto compute1 = compute;
       auto compute2 = other.compute;
@@ -127,6 +145,10 @@ namespace visage {
         return compute1(dpi_scale, parent_width, parent_height) / scalar;
       });
     }
+
+    Dimension min(const Dimension& other) const { return min(*this, other); }
+
+    Dimension max(const Dimension& other) const { return max(*this, other); }
   };
 
   namespace dimension {

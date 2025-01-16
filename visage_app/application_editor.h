@@ -88,6 +88,7 @@ namespace visage {
 
   class WindowedEditor : public ApplicationEditor {
   public:
+    WindowedEditor();
     ~WindowedEditor() override;
 
     void setTitle(std::string title) { title_ = std::move(title); }

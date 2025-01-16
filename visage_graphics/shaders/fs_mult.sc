@@ -8,5 +8,4 @@ uniform vec4 u_mult;
 
 void main() {
   gl_FragColor = texture2D(s_texture, v_coordinates) * u_mult;
-  gl_FragColor.a = 1.0;
 }

@@ -30,7 +30,6 @@
 namespace visage {
   class Palette {
   public:
-    static constexpr int kMaxColors = 256;
     static constexpr int kInvalidId = -2;
     static constexpr unsigned int kInvalidColor = 0xffff00ff;
     static constexpr float kNotSetValue = -99999.0f;
@@ -117,19 +116,16 @@ namespace visage {
       void decode(std::istringstream& stream);
     };
 
-    Palette() : colors_() { }
+    Palette() = default;
 
-    int numColors() const { return num_colors_; }
+    int numColors() const { return colors_.size(); }
 
-    EditColor colorIndex(int index) const { return colors_[index]; }
-
-    std::vector<EditColor> colorList() const {
-      std::vector<EditColor> results;
-      results.reserve(num_colors_);
-      for (int i = 0; i < num_colors_; ++i)
-        results.push_back(colors_[i]);
-      return results;
+    EditColor colorIndex(int index) const {
+      VISAGE_ASSERT(index >= 0 && index < colors_.size());
+      return colors_[index];
     }
+
+    std::vector<EditColor> colorList() const { return colors_; }
 
     void initWithDefaults();
     void sortColors();
@@ -138,16 +134,19 @@ namespace visage {
     std::map<std::string, std::vector<unsigned int>> valueIdList(int override_id);
 
     void setEditColor(int index, const EditColor& color) {
+      VISAGE_ASSERT(index >= 0 && index < colors_.size());
       colors_[index] = color;
       computed_colors_[index] = colors_[index].toQuadColor();
     }
 
     void setColorIndex(int index, int corner, const Color& color) {
+      VISAGE_ASSERT(index >= 0 && index < colors_.size());
       colors_[index].colors[corner] = color;
       computed_colors_[index] = colors_[index].toQuadColor();
     }
 
     void toggleColorIndexStyle(int index) {
+      VISAGE_ASSERT(index >= 0 && index < colors_.size());
       colors_[index].toggleStyle();
       computed_colors_[index] = colors_[index].toQuadColor();
     }
@@ -175,9 +174,13 @@ namespace visage {
       color_map_[override_id][color_id] = index;
     }
 
+    void setColor(int color_id, const Color& color) { setColor(0, color_id, color); }
+
     void setValue(unsigned int override_id, int value_id, float value) {
       value_map_[override_id][value_id] = value;
     }
+
+    void setValue(int value_id, float value) { setValue(0, value_id, value); }
 
     void removeValue(unsigned int override_id, int value_id) {
       if (value_map_[override_id].count(value_id))
@@ -211,7 +214,8 @@ namespace visage {
     void clear() {
       color_map_.clear();
       value_map_.clear();
-      num_colors_ = 0;
+      colors_.clear();
+      computed_colors_.clear();
     }
 
     void removeColor(int index);
@@ -221,9 +225,9 @@ namespace visage {
 
   private:
     int addColorInternal(const Color& color = 0xffff00ff) {
-      colors_[num_colors_] = EditColor(color);
-      computed_colors_[num_colors_] = color;
-      return num_colors_++;
+      colors_.emplace_back(color);
+      computed_colors_.push_back(color);
+      return colors_.size() - 1;
     }
 
     int addVerticalGradientInternal(const VerticalGradient& gradient) {
@@ -232,15 +236,15 @@ namespace visage {
       color.colors[1] = gradient.bottom();
       color.colors[2] = gradient.bottom();
       color.colors[3] = gradient.bottom();
-      colors_[num_colors_] = color;
-      computed_colors_[num_colors_] = color.toQuadColor();
-      return num_colors_++;
+
+      colors_.emplace_back(color);
+      computed_colors_.push_back(color.toQuadColor());
+      return colors_.size() - 1;
     }
 
-    int num_colors_ = 0;
     std::string name_;
-    EditColor colors_[kMaxColors];
-    QuadColor computed_colors_[kMaxColors];
+    std::vector<EditColor> colors_;
+    std::vector<QuadColor> computed_colors_;
     std::map<unsigned int, std::map<unsigned int, int>> color_map_;
     std::map<unsigned int, std::map<unsigned int, float>> value_map_;
   };

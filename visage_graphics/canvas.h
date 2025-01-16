@@ -409,7 +409,6 @@ namespace visage {
       state_.blend_mode = BlendMode::Alpha;
       setClampBounds(0, 0, region->width(), region->height());
       state_.color = {};
-      region->palette_override_ = state_.palette_override;
       state_.current_region = region;
     }
 

@@ -24,7 +24,6 @@
 #include <iomanip>
 #include <sstream>
 #include <visage_app/application_editor.h>
-#include <visage_windowing/windowing.h>
 
 class ExampleEditor : public visage::WindowedEditor {
 public:

@@ -193,7 +193,13 @@ namespace visage {
 
     Palette* palette() const { return palette_; }
 
-    void setPaletteOverride(int override_id) { palette_override_ = override_id; }
+    void setPaletteOverride(int override_id, bool recursive = true) {
+      palette_override_ = override_id;
+      if (recursive) {
+        for (Frame* child : children_)
+          child->setPaletteOverride(override_id, true);
+      }
+    }
     int paletteOverride() const { return palette_override_; }
 
     bool initialized() const { return initialized_; }

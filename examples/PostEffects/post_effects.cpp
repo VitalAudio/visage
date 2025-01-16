@@ -25,7 +25,6 @@
 #include <complex>
 #include <visage_app/application_editor.h>
 #include <visage_widgets/shader_editor.h>
-#include <visage_windowing/windowing.h>
 
 using namespace visage::dimension;
 
@@ -116,9 +115,7 @@ public:
     glitch_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_glitch,
                                                          resources::shaders::fs_glitch);
 
-    blur_ = std::make_unique<visage::BlurBloomPostEffect>();
-    blur_->setBloomSize(0.0f);
-    blur_->setBloomIntensity(0.0f);
+    blur_ = std::make_unique<visage::BlurPostEffect>();
     blur_->setBlurSize(40.0f);
     blur_->setBlurAmount(1.0f);
 
@@ -157,7 +154,7 @@ private:
   std::unique_ptr<visage::ShaderPostEffect> gray_scale_;
   std::unique_ptr<visage::ShaderPostEffect> sepia_;
   std::unique_ptr<visage::ShaderPostEffect> glitch_;
-  std::unique_ptr<visage::BlurBloomPostEffect> blur_;
+  std::unique_ptr<visage::BlurPostEffect> blur_;
 };
 
 int runExample() {

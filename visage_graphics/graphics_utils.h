@@ -42,6 +42,7 @@ namespace bgfx {
 namespace visage {
   enum class BlendMode {
     Opaque,
+    Composite,
     Alpha,
     Add,
     Sub,
@@ -282,6 +283,8 @@ namespace visage {
     float clamp_top;
     float clamp_right;
     float clamp_bottom;
+    float shader_value1;
+    float shader_value2;
     uint32_t color;
     float hdr;
 

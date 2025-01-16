@@ -39,47 +39,72 @@ namespace visage {
     bool hdr_ = false;
   };
 
-  struct BlurBloomHandles;
+  struct DownsampleHandles;
 
-  class BlurBloomPostEffect : public PostEffect {
+  class DownsamplePostEffect : public PostEffect {
   public:
     static constexpr int kMaxDownsamples = 6;
 
-    BlurBloomPostEffect();
-    ~BlurBloomPostEffect() override;
+    DownsamplePostEffect(bool hdr = false);
 
+  protected:
     void setInitialVertices(Region* region);
+    void checkBuffers(const Region* region);
+
+    int full_width_ = 0;
+    int full_height_ = 0;
+    int widths_[kMaxDownsamples] {};
+    int heights_[kMaxDownsamples] {};
+    std::unique_ptr<DownsampleHandles> handles_;
+    UvVertex screen_vertices_[4] {};
+    int format_ = 0;
+  };
+
+  class BlurPostEffect : public DownsamplePostEffect {
+  public:
+    BlurPostEffect();
+    ~BlurPostEffect() override;
+
+    int preprocess(Region* region, int submit_pass) override;
+    int preprocessBlend(int submit_pass);
+    void submitPassthrough(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y);
+    void blendPassthrough(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y);
+    void submitBlurred(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y);
+    void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y) override;
+
+    void setBlurSize(float size) { blur_size_ = std::log2(size); }
+    void setBlurAmount(float amount) { blur_amount_ = amount; }
+
+  private:
+    float blur_size_ = 0.0f;
+    float blur_amount_ = 0.0f;
+    float stages_ = 0.0f;
+
+    VISAGE_LEAK_CHECKER(BlurPostEffect)
+  };
+
+  class BloomPostEffect : public DownsamplePostEffect {
+  public:
+    BloomPostEffect();
+    ~BloomPostEffect() override;
+
     int preprocess(Region* region, int submit_pass) override;
     void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y) override;
     void submitPassthrough(const SampleRegion& source, const Layer& destination, int submit_pass,
                            int x, int y) const;
     void submitBloom(const SampleRegion& source, const Layer& destination, int submit_pass, int x,
                      int y) const;
-    void checkBuffers(const Region* region);
 
     void setBloomSize(float size) { bloom_size_ = std::log2(size); }
     void setBloomIntensity(float intensity) { bloom_intensity_ = intensity; }
-    void setBlurSize(float size) { blur_size_ = std::log2(size); }
-    void setBlurAmount(float amount) { blur_amount_ = amount; }
 
   private:
     float bloom_size_ = 0.0f;
     float bloom_intensity_ = 1.0f;
-    float blur_size_ = 0.0f;
-    float blur_amount_ = 0.0f;
 
-    int full_width_ = 0;
-    int full_height_ = 0;
-    int format_ = 0;
-    int widths_[kMaxDownsamples] {};
-    int heights_[kMaxDownsamples] {};
+    int downsamples_ = 0;
 
-    int cutoff_ = 0;
-
-    UvVertex screen_vertices_[4] {};
-    std::unique_ptr<BlurBloomHandles> handles_;
-
-    VISAGE_LEAK_CHECKER(BlurBloomPostEffect)
+    VISAGE_LEAK_CHECKER(BloomPostEffect)
   };
 
   class ShaderPostEffect : public PostEffect {

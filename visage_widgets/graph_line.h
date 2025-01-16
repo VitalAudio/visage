@@ -87,7 +87,7 @@ namespace visage {
     float yAt(int index) const { return line_.y[index]; }
     float xAt(int index) const { return line_.x[index]; }
 
-    void setBoost(int index, float val) {
+    void setBoostAt(int index, float val) {
       VISAGE_ASSERT(index < line_.num_points && index >= 0);
       boost_.setValue(index, val);
       redraw();

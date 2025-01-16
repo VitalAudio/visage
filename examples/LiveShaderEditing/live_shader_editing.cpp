@@ -24,7 +24,6 @@
 #include <complex>
 #include <visage_app/application_editor.h>
 #include <visage_widgets/shader_editor.h>
-#include <visage_windowing/windowing.h>
 
 using namespace visage::dimension;
 

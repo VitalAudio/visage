@@ -17,7 +17,6 @@
 #include "embedded/example_fonts.h"
 
 #include <visage_app/application_editor.h>
-#include <visage_windowing/windowing.h>
 
 static void drawRgbCircles(visage::Canvas& canvas, float width, float height) {
   static constexpr float kCircleRadiusRatio = 0.2f;

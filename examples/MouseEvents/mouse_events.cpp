@@ -21,7 +21,6 @@
 
 #include <visage_app/application_editor.h>
 #include <visage_ui/popup_menu.h>
-#include <visage_windowing/windowing.h>
 
 class ExampleEditor : public visage::WindowedEditor {
 public:

@@ -50,12 +50,9 @@ private:
   visage::CallbackList<void(float)> on_animate_;
 };
 
-class Showcase : public visage::WindowedEditor,
+class Showcase : public visage::Frame,
                  public visage::UndoHistory {
 public:
-  static constexpr int kDefaultWidth = 700;
-  static constexpr int kDefaultHeight = 600;
-
   Showcase();
   ~Showcase() override;
 
@@ -67,7 +64,7 @@ public:
   bool keyPress(const visage::KeyEvent& key) override;
 
 private:
-  std::unique_ptr<visage::BlurBloomPostEffect> blur_bloom_;
+  std::unique_ptr<visage::BlurPostEffect> blur_;
   std::unique_ptr<visage::ShaderPostEffect> overlay_zoom_;
   std::unique_ptr<ExamplesFrame> examples_;
   std::unique_ptr<DebugInfo> debug_info_;
