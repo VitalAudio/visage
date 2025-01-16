@@ -142,6 +142,8 @@ namespace visage {
     drawing_children_.clear();
   }
 
+  WindowedEditor::WindowedEditor() = default;
+
   WindowedEditor::~WindowedEditor() {
     removeFromWindow();
   }
