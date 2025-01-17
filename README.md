@@ -21,6 +21,7 @@ int main() {
 ```
 
 ## Demos
+- [Showcase](https://visage.dev/examples/Showcase/)
 - [Blend Modes](https://visage.dev/examples/BlendModes/)
 - [Blur and Bloom](https://visage.dev/examples/BlurAndBloom/)
 - [Post Shader Effects](https://visage.dev/examples/PostEffects/)
