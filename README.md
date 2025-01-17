@@ -1,6 +1,6 @@
 # Visage: UI library meets creative coding
 
-**Visage** is a GPU-accelerated, cross-platform C++ library for native UI and 2D graphics. It merges the structure of a UI framework with the features of a creative graphics libraries, supporting custom shaders for advanced effects.
+**Visage** is a GPU-accelerated, cross-platform C++ library for native UI and 2D graphics. It merges the structure of a UI framework with the features of a creative graphics libraries.
 
 ## Full Basic Example
 ```cpp
