@@ -1,17 +1,22 @@
-/* Copyright Matt Tytel
+/* Copyright Vital Audio, LLC
  *
- * test plugin is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
  *
- * test plugin is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
- * You should have received a copy of the GNU General Public License
- * along with test plugin.  If not, see <http://www.gnu.org/licenses/>.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  */
 
 #include "examples_frame.h"
@@ -25,6 +30,8 @@
 #include <visage_graphics/theme.h>
 #include <visage_ui/popup_menu.h>
 #include <visage_utils/file_system.h>
+
+using namespace visage::dimension;
 
 inline float quickSin1(float phase) {
   phase = 0.5f - phase;
@@ -210,14 +217,95 @@ private:
   std::unique_ptr<visage::Text> text_;
 };
 
+void TitleBar::draw(visage::Canvas& canvas) {
+  canvas.setPaletteColor(kDarkBackgroundColor);
+  canvas.rectangle(0, 0, width(), height());
+
+  canvas.setPaletteColor(kTextColor);
+  const visage::Font font(height() / 2, resources::fonts::Lato_Regular_ttf);
+  canvas.text(title_, font, visage::Font::kCenter, 0, 0, width(), height());
+}
+
+ExampleSection::ExampleSection(const std::string& title, visage::Frame* example) :
+    title_bar_(title), example_(example) {
+  addChild(&title_bar_);
+  addChild(example_);
+
+  layout().setFlex(true);
+  layout().setFlexGrow(1.0f);
+  layout().setPaddingTop(8_px);
+  layout().setFlexGap(8_px);
+  layout().setWidth(400_px);
+  layout().setHeight(220_px);
+  title_bar_.layout().setWidth(100_vw);
+  title_bar_.layout().setHeight(32_px);
+  example_->layout().setWidth(100_vw);
+  example_->layout().setFlexGrow(1.0f);
+}
+
 ExamplesFrame::ExamplesFrame() {
   static constexpr int kBars = kNumBars;
 
-  drag_drop_ = std::make_unique<DragDropExample>();
-  addChild(drag_drop_.get());
+  animated_lines_ = std::make_unique<AnimatedLines>();
+  sections_.push_back(std::make_unique<ExampleSection>("Line Rendering", animated_lines_.get()));
 
-  bar_list_ = std::make_unique<visage::BarList>(kBars);
-  addChild(bar_list_.get());
+  setupButtons();
+  sections_.push_back(std::make_unique<ExampleSection>("Buttons", button_container_.get()));
+
+  setupShapes();
+  sections_.push_back(std::make_unique<ExampleSection>("Shapes", shapes_.get()));
+
+  text_ = std::make_unique<CachedText>();
+  sections_.push_back(std::make_unique<ExampleSection>("Text", text_.get()));
+
+  setupTextEditors();
+  sections_.push_back(std::make_unique<ExampleSection>("Text Editing", text_editor_container_.get()));
+
+  shader_container_ = std::make_unique<visage::Frame>();
+  shader_quad_ = std::make_unique<visage::ShaderQuad>(resources::shaders::vs_shader_quad,
+                                                      resources::shaders::fs_shader_quad,
+                                                      visage::BlendMode::Alpha);
+  shader_container_->layout().setFlex(true);
+  shader_container_->layout().setFlexItemAlignment(visage::Layout::ItemAlignment::Center);
+  shader_container_->addChild(shader_quad_.get());
+  shader_quad_->layout().setWidth(100_vmin);
+  shader_quad_->layout().setHeight(100_vmin);
+  sections_.push_back(std::make_unique<ExampleSection>("Shaders", shader_container_.get()));
+
+  setupBars();
+  sections_.push_back(std::make_unique<ExampleSection>("Bars", bar_list_.get()));
+
+  drag_drop_ = std::make_unique<DragDropExample>();
+  sections_.push_back(std::make_unique<ExampleSection>("File Drag and Drop", drag_drop_.get()));
+
+  scrollableLayout().setFlex(true);
+  scrollableLayout().setPaddingLeft(20_px);
+  scrollableLayout().setPaddingRight(20_px);
+  scrollableLayout().setFlexRows(false);
+  scrollableLayout().setFlexWrap(true);
+
+  for (auto& section : sections_)
+    addScrolledChild(section.get());
+}
+
+ExamplesFrame::~ExamplesFrame() = default;
+
+void ExamplesFrame::resized() {
+  ScrollableFrame::resized();
+
+  visage::Font font(computeSize(20_px), resources::fonts::Lato_Regular_ttf);
+  left_text_editor_->setFont(font);
+  number_editor_->setFont(font);
+  right_text_editor_->setFont(font);
+  text_editor_->setFont(font);
+  text_button_->setFont(font);
+  ui_button_->setFont(font);
+  action_button_->setFont(font);
+  setScrollableHeight(sections_.back()->bottom() + computeSize(8_px));
+}
+
+void ExamplesFrame::setupBars() {
+  bar_list_ = std::make_unique<visage::BarList>(kNumBars);
   bar_list_->setHorizontalAntiAliasing(false);
 
   bar_list_->onDraw() += [this](visage::Canvas& canvas) {
@@ -231,33 +319,21 @@ ExamplesFrame::ExamplesFrame() {
       bar_list_->positionBar(i, x, current_height, bar_width - space, bar_height - current_height);
     }
   };
+}
 
-  visage::Font font(24, resources::fonts::Lato_Regular_ttf);
-  shader_quad_ = std::make_unique<visage::ShaderQuad>(resources::shaders::vs_shader_quad,
-                                                      resources::shaders::fs_shader_quad,
-                                                      visage::BlendMode::Alpha);
-  addChild(shader_quad_.get());
-
+void ExamplesFrame::setupButtons() {
   icon_button_ = std::make_unique<visage::ToggleIconButton>(resources::icons::check_circle_svg.data,
                                                             resources::icons::check_circle_svg.size, true);
-  addChild(icon_button_.get());
 
-  text_button_ = std::make_unique<visage::ToggleTextButton>("Toggle", font);
-  addChild(text_button_.get());
-
-  text_ = std::make_unique<CachedText>();
-  addChild(text_.get());
-
-  ui_button_ = std::make_unique<visage::UiButton>("Trigger Overlay", font);
+  text_button_ = std::make_unique<visage::ToggleTextButton>("Toggle");
+  ui_button_ = std::make_unique<visage::UiButton>("Trigger Overlay");
   ui_button_->onToggle() = [this](visage::Button* button, bool toggled) {
     on_show_overlay_.callback();
   };
 
-  addChild(ui_button_.get());
   ui_button_->setToggleOnMouseDown(true);
 
-  action_button_ = std::make_unique<visage::UiButton>("Popup Menu", font);
-  addChild(action_button_.get());
+  action_button_ = std::make_unique<visage::UiButton>("Popup Menu");
   action_button_->setActionButton();
   action_button_->onToggle() = [this](visage::Button* button, bool toggled) {
     visage::PopupMenu menu;
@@ -296,8 +372,26 @@ ExamplesFrame::ExamplesFrame() {
   };
   action_button_->setToggleOnMouseDown(true);
 
+  icon_button_->layout().setHeight(40_px);
+  action_button_->layout().setHeight(40_px);
+  text_button_->layout().setHeight(40_px);
+  ui_button_->layout().setHeight(40_px);
+
+  button_container_ = std::make_unique<visage::Frame>();
+  button_container_->layout().setFlex(true);
+  button_container_->layout().setFlexWrap(true);
+  button_container_->layout().setFlexGap(16_px);
+  button_container_->layout().setFlexItemAlignment(visage::Layout::ItemAlignment::Stretch);
+  button_container_->layout().setFlexWrapAlignment(visage::Layout::WrapAlignment::Stretch);
+  button_container_->layout().setPadding(16_px);
+  button_container_->addChild(ui_button_.get());
+  button_container_->addChild(action_button_.get());
+  button_container_->addChild(icon_button_.get());
+  button_container_->addChild(text_button_.get());
+}
+
+void ExamplesFrame::setupShapes() {
   shapes_ = std::make_unique<visage::Frame>();
-  addChild(shapes_.get());
   shapes_->onDraw() = [this](visage::Canvas& canvas) {
     double render_time = canvas.time();
 
@@ -305,7 +399,7 @@ ExamplesFrame::ExamplesFrame() {
     double phase = render_time * 0.1;
     float radians = kHalfPi * sin1(phase) + kHalfPi;
 
-    int min_shape_padding = heightScale() * 10.0f;
+    int min_shape_padding = dpiScale() * 20.0f;
     int shape_width = std::min(shapes_->width() / 5, shapes_->height() / 2) - min_shape_padding;
     int shape_padding_x = shapes_->width() / 5 - shape_width;
     int shape_padding_y = shapes_->height() / 2 - shape_width;
@@ -372,155 +466,42 @@ ExamplesFrame::ExamplesFrame() {
 
     shapes_->redraw();
   };
+}
 
-  text_editor_ = std::make_unique<visage::TextEditor>();
-  addChild(text_editor_.get());
-
+void ExamplesFrame::setupTextEditors() {
   left_text_editor_ = std::make_unique<visage::TextEditor>();
-  addChild(left_text_editor_.get());
   left_text_editor_->setJustification(visage::Font::kLeft);
   left_text_editor_->setDefaultText("Left Text");
+  left_text_editor_->layout().setHeight(40_px);
+  left_text_editor_->layout().setFlexGrow(1.0f);
 
   number_editor_ = std::make_unique<visage::TextEditor>();
-  addChild(number_editor_.get());
-  number_editor_->setDefaultText("Center Select");
+  number_editor_->setDefaultText("Center Text");
   number_editor_->setNumberEntry();
+  number_editor_->layout().setHeight(40_px);
+  number_editor_->layout().setFlexGrow(1.0f);
 
   right_text_editor_ = std::make_unique<visage::TextEditor>();
-  addChild(right_text_editor_.get());
   right_text_editor_->setJustification(visage::Font::kRight);
   right_text_editor_->setDefaultText("Right Text");
+  right_text_editor_->layout().setHeight(40_px);
+  right_text_editor_->layout().setFlexGrow(1.0f);
 
-  animated_lines_ = std::make_unique<AnimatedLines>();
-  addChild(animated_lines_.get());
-
-  setIgnoresMouseEvents(true, true);
-}
-
-ExamplesFrame::~ExamplesFrame() = default;
-
-void ExamplesFrame::resized() {
-  int w = width();
-  int h = height();
-  int x_division = w / 2;
-  int right_width = w - x_division;
-  int section_height = h / 4;
-  int section_head_height = section_height / 4;
-  int section_body_height = section_height - section_head_height;
-
-  animated_lines_->setBounds(0, section_head_height, x_division, section_body_height);
-
-  bar_list_->setBounds(0, section_height + section_head_height, x_division / 2, section_body_height);
-  int shader_x = x_division / 2 + (x_division / 2 - section_body_height) / 2;
-  shader_quad_->setBounds(shader_x, section_height + section_head_height, section_body_height,
-                          section_body_height);
-  shapes_->setBounds(x_division, bar_list_->y(), right_width, section_body_height);
-
-  int font_height = section_head_height * 0.45f;
-  int text_y = 2 * section_height + section_head_height;
-  int text_section_padding = w / 50;
-  int text_section_width = (w - text_section_padding) / 4 - text_section_padding;
-  int padding = section_body_height / 16;
-  int single_line_height = (section_body_height + padding) / 3 - padding;
-  int margin = font_height / 3;
-  left_text_editor_->setBounds(text_section_padding, text_y, text_section_width, single_line_height);
-  left_text_editor_->setFont(visage::Font(font_height, resources::fonts::Lato_Regular_ttf));
-  left_text_editor_->setBackgroundRounding(margin / 2);
-
-  number_editor_->setBounds(text_section_padding, text_y + single_line_height + padding,
-                            text_section_width, single_line_height);
-  number_editor_->setFont(visage::Font(font_height, resources::fonts::Lato_Regular_ttf));
-  number_editor_->setBackgroundRounding(margin / 2);
-
-  right_text_editor_->setBounds(text_section_padding, text_y + 2 * (single_line_height + padding),
-                                text_section_width, single_line_height);
-  right_text_editor_->setFont(visage::Font(font_height, resources::fonts::Lato_Regular_ttf));
-  right_text_editor_->setBackgroundRounding(margin / 2);
-
-  text_editor_->setFont(visage::Font(font_height, resources::fonts::Lato_Regular_ttf));
+  text_editor_ = std::make_unique<visage::TextEditor>();
+  text_editor_->setDefaultText("Multiline Text");
+  text_editor_->layout().setHeight(100_px);
+  text_editor_->layout().setFlexGrow(1.0f);
   text_editor_->setMultiLine(true);
   text_editor_->setJustification(visage::Font::kTopLeft);
-  text_editor_->setBounds(text_section_width + 2 * text_section_padding, text_y, text_section_width,
-                          section_body_height);
-  text_editor_->setBackgroundRounding(margin / 2);
-  text_editor_->setDefaultText("Multiline Text");
 
-  text_->setBounds(x_division, text_editor_->y(), right_width / 2, text_editor_->height());
-
-  int widget_y = 3 * section_height + section_head_height;
-  int buttons_width = right_width / 2;
-  int button_padding = buttons_width / 16;
-  int button_width = (buttons_width - button_padding) / 2;
-  int button_height = button_width / 3;
-  int button_font_height = button_height / 3;
-  action_button_->setBounds(x_division, widget_y, button_width, button_height);
-  action_button_->setFont(visage::Font(button_font_height, resources::fonts::Lato_Regular_ttf));
-  ui_button_->setBounds(x_division, (h + widget_y) / 2, button_width, button_height);
-  ui_button_->setFont(visage::Font(button_font_height, resources::fonts::Lato_Regular_ttf));
-
-  text_button_->setBounds(x_division + button_width + button_padding, widget_y, button_width, button_height);
-  text_button_->setFont(visage::Font(button_font_height, resources::fonts::Lato_Regular_ttf));
-  icon_button_->setBounds(x_division + button_width + button_padding, (h + widget_y) / 2,
-                          button_height, button_height);
-
-  drag_drop_->setBounds(x_division + right_width / 2, widget_y, right_width / 2, h - widget_y);
-}
-
-void ExamplesFrame::draw(visage::Canvas& canvas) {
-  int w = width();
-  int h = height();
-
-  int section_height = h / 4;
-  int section_head_height = section_height / 4;
-  int x_division = w / 2;
-  int right_width = w - x_division;
-
-  int label_height = section_head_height / 2;
-  int label_offset = (section_head_height - label_height) / 2;
-  canvas.setPaletteColor(kLabelColor);
-  canvas.fill(0, label_offset, w, label_height);
-  canvas.fill(0, section_height + label_offset, w, label_height);
-  canvas.fill(0, 2 * section_height + label_offset, w, label_height);
-  canvas.fill(0, 3 * section_height + label_offset, w, label_height);
-
-  canvas.setPaletteColor(kTextColor);
-  visage::Font font(section_head_height / 3, resources::fonts::Lato_Regular_ttf);
-
-  canvas.text("Line Rendering", font, visage::Font::kCenter, 0, 0, x_division, section_head_height);
-  canvas.text("Line Editing", font, visage::Font::kCenter, x_division, 0, right_width, section_head_height);
-
-  canvas.text("Bars", font, visage::Font::kCenter, 0, section_height, x_division / 2, section_head_height);
-  canvas.text("Shaders", font, visage::Font::kCenter, x_division / 2, section_height,
-              x_division / 2, section_head_height);
-  canvas.text("Shapes", font, visage::Font::kCenter, x_division, section_height, right_width,
-              section_head_height);
-
-  canvas.text("Text Editing", font, visage::Font::kCenter, 0, 2 * section_height, x_division,
-              section_head_height);
-  canvas.text("Text", font, visage::Font::kCenter, x_division, 2 * section_height, right_width / 2,
-              section_head_height);
-  canvas.text("Image", font, visage::Font::kCenter, x_division + right_width / 2,
-              2 * section_height, right_width / 2, section_head_height);
-
-  canvas.text("Controls", font, visage::Font::kCenter, 0, 3 * section_height, x_division,
-              section_head_height);
-  canvas.text("Buttons", font, visage::Font::kCenter, x_division, 3 * section_height,
-              right_width / 2, section_head_height);
-  canvas.text("Drag + Drop", font, visage::Font::kCenter, x_division + right_width / 2,
-              3 * section_height, right_width / 2, section_head_height);
-
-  int icon_width = std::min(w / 4, text_editor_->height());
-  int icon_x = x_division + right_width / 2 + right_width / 4 - icon_width / 2;
-  int icon_y = text_editor_->y();
-
-  canvas.setColor(0xffffffff);
-  canvas.image(resources::images::test_png, icon_x, icon_y, icon_width, icon_width);
-
-  if (shadow_amount_) {
-    float shadow_mult = std::max(0.0f, 2.0f * shadow_amount_ - 1.0f);
-    shadow_mult = shadow_mult * shadow_mult;
-    canvas.setColor(canvas.color(kOverlayShadowColor).withMultipliedAlpha(shadow_mult));
-    canvas.roundedRectangle(shadow_bounds_.x(), shadow_bounds_.y(), shadow_bounds_.width(),
-                            shadow_bounds_.height(), shadow_rounding_);
-  }
+  text_editor_container_ = std::make_unique<visage::Frame>();
+  text_editor_container_->layout().setFlex(true);
+  text_editor_container_->layout().setFlexWrap(true);
+  text_editor_container_->layout().setFlexGap(16_px);
+  text_editor_container_->layout().setFlexWrapAlignment(visage::Layout::WrapAlignment::Stretch);
+  text_editor_container_->addChild(left_text_editor_.get());
+  text_editor_->layout().setHeight(100_px);
+  text_editor_container_->addChild(number_editor_.get());
+  text_editor_container_->addChild(right_text_editor_.get());
+  text_editor_container_->addChild(text_editor_.get());
 }

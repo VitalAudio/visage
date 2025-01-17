@@ -62,7 +62,7 @@ namespace visage {
     void mouseDown(const MouseEvent& e) override;
     void mouseDrag(const MouseEvent& e) override;
     void mouseUp(const MouseEvent& e) override;
-    void mouseWheel(const MouseEvent& e) override;
+    bool mouseWheel(const MouseEvent& e) override;
     bool keyPress(const KeyEvent& key) override;
 
     void resized() override {

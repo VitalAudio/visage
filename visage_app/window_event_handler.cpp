@@ -319,8 +319,19 @@ namespace visage {
 
     mouse_hovered_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
     if (mouse_hovered_frame_) {
-      mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
-      mouse_hovered_frame_->processMouseWheel(mouse_event);
+      Frame* mouse_frame = mouse_hovered_frame_;
+      bool used = false;
+
+      while (!used && mouse_frame) {
+        while (mouse_frame && mouse_frame->ignoresMouseEvents())
+          mouse_frame = mouse_frame->parent();
+
+        if (mouse_frame) {
+          mouse_event.position = mouse_event.window_position - mouse_frame->positionInWindow();
+          used = mouse_frame->processMouseWheel(mouse_event);
+          mouse_frame = mouse_frame->parent();
+        }
+      }
     }
   }
 

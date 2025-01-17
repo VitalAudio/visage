@@ -134,14 +134,15 @@ namespace visage {
   }
 
   void Frame::setBounds(Bounds bounds) {
-    if (bounds_ != bounds) {
-      bounds_ = bounds;
-      on_resize_.callback();
-    }
+    if (bounds_ == bounds)
+      return;
 
+    bounds_ = bounds;
     region_.setBounds(bounds.x(), bounds.y(), bounds.width(), bounds.height());
     if (layout_.get())
       computeLayout();
+
+    on_resize_.callback();
     redraw();
   }
 

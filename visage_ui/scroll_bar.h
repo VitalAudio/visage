@@ -96,18 +96,18 @@ namespace visage {
   class ScrollableFrame : public Frame {
   public:
     explicit ScrollableFrame(const std::string& name = "") : Frame(name) {
-      addChild(&scroll_bar_);
-      scroll_bar_.addScrollCallback([this](int position) { scrollPositionChanged(position); });
-      scroll_bar_.setOnTop(true);
-
       addChild(&container_);
       container_.setIgnoresMouseEvents(true, true);
       container_.setVisible(false);
+
+      addChild(&scroll_bar_);
+      scroll_bar_.addScrollCallback([this](int position) { scrollPositionChanged(position); });
+      scroll_bar_.setOnTop(true);
     }
 
     void resized() override;
 
-    void addScrolledFrame(Frame* frame, bool make_visible = true) {
+    void addScrolledChild(Frame* frame, bool make_visible = true) {
       container_.setVisible(true);
       container_.addChild(frame);
       frame->setVisible(make_visible);
@@ -152,21 +152,27 @@ namespace visage {
     }
     int yPosition() const { return y_position_; }
 
-    void mouseWheel(const MouseEvent& e) override {
+    bool mouseWheel(const MouseEvent& e) override {
       static constexpr float kScale = 30.0f;
 
-      float y = float_position_ - kScale * e.precise_wheel_delta_y * heightScale();
       float max = scroll_bar_.viewRange() - scroll_bar_.viewHeight();
+      if (max <= 0)
+        return false;
+
+      float y = float_position_ - kScale * e.precise_wheel_delta_y * heightScale();
       y = std::min(max, y);
       y = std::max(0.0f, y);
       scrollPositionChanged(y);
       scroll_bar_.setViewPosition(scroll_bar_.viewRange(), scroll_bar_.viewHeight(), y);
+      return true;
     }
 
     void setScrollBarLeft(bool left) {
       scroll_bar_left_ = left;
       scroll_bar_.setLeftSide(left);
     }
+
+    Layout& scrollableLayout() { return container_.layout(); }
 
     auto& onScroll() { return on_scroll_; }
     ScrollBar& scrollBar() { return scroll_bar_; }

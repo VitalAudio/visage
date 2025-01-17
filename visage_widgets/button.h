@@ -177,8 +177,6 @@ namespace visage {
     THEME_DEFINE_COLOR(ToggleButtonOn);
     THEME_DEFINE_COLOR(ToggleButtonOnHover);
 
-    THEME_DEFINE_VALUE(ButtonTextHeight);
-
     ToggleButton() = default;
     explicit ToggleButton(const std::string& name) : Button(name) { }
 
@@ -294,8 +292,10 @@ namespace visage {
 
     virtual void drawBackground(Canvas& canvas, float hover_amount);
     void draw(Canvas& canvas, float hover_amount) override;
-    void resized() override;
-    void setFont(const Font& font) { text_.setFont(font); }
+    void setFont(const Font& font) {
+      text_.setFont(font);
+      redraw();
+    }
     void setText(const std::string& text) { text_.setText(text); }
     void setDrawBackground(bool draw_background) { draw_background_ = draw_background; }
 

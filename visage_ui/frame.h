@@ -168,7 +168,7 @@ namespace visage {
     virtual void mouseUp(const MouseEvent& e) { }
     virtual void mouseMove(const MouseEvent& e) { }
     virtual void mouseDrag(const MouseEvent& e) { }
-    virtual void mouseWheel(const MouseEvent& e) { }
+    virtual bool mouseWheel(const MouseEvent& e) { return false; }
     virtual bool keyPress(const KeyEvent& e) { return false; }
     virtual bool keyRelease(const KeyEvent& e) { return false; }
 
@@ -330,6 +330,10 @@ namespace visage {
 
     void drawToRegion(Canvas& canvas);
 
+    float computeSize(const Dimension& size) const {
+      return size.computeWithDefault(dpi_scale_, width(), height());
+    }
+
     void setDimensionScaling(float dpi_scale, float width_scale, float height_scale) {
       dpi_scale_ = dpi_scale;
       width_scale_ = width_scale;
@@ -393,7 +397,7 @@ namespace visage {
     void processMouseUp(const MouseEvent& e) { on_mouse_up_.callback(e); }
     void processMouseMove(const MouseEvent& e) { on_mouse_move_.callback(e); }
     void processMouseDrag(const MouseEvent& e) { on_mouse_drag_.callback(e); }
-    void processMouseWheel(const MouseEvent& e) { on_mouse_wheel_.callback(e); }
+    bool processMouseWheel(const MouseEvent& e) { return on_mouse_wheel_.callback(e); }
     void processFocusChanged(bool is_focused, bool was_clicked) {
       keyboard_focus_ = is_focused && accepts_keystrokes_;
       focusChanged(is_focused, was_clicked);
@@ -442,7 +446,7 @@ namespace visage {
     CallbackList<void(const MouseEvent&)> on_mouse_up_ { [this](auto& e) { mouseUp(e); } };
     CallbackList<void(const MouseEvent&)> on_mouse_move_ { [this](auto& e) { mouseMove(e); } };
     CallbackList<void(const MouseEvent&)> on_mouse_drag_ { [this](auto& e) { mouseDrag(e); } };
-    CallbackList<void(const MouseEvent&)> on_mouse_wheel_ { [this](auto& e) { mouseWheel(e); } };
+    CallbackList<bool(const MouseEvent&)> on_mouse_wheel_ { [this](auto& e) { return mouseWheel(e); } };
     CallbackList<bool(const KeyEvent&)> on_key_press_ { [this](auto& e) { return keyPress(e); } };
     CallbackList<bool(const KeyEvent&)> on_key_release_ { [this](auto& e) { return keyRelease(e); } };
     CallbackList<void(const std::string&)> on_text_input_ { [this](auto& text) { textInput(text); } };

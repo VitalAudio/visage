@@ -43,7 +43,7 @@ namespace visage {
   THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOn, 0xffaa88ff);
   THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOnHover, 0xffbb99ff);
 
-  THEME_IMPLEMENT_VALUE(ToggleButton, ButtonTextHeight, 13.5f, ScaledHeight, true);
+  THEME_IMPLEMENT_VALUE(ToggleButton, ButtonTextHeight, 13.5f, ScaledDpi, true);
 
   THEME_COLOR(UiButtonBackground, 0xff4c4f52);
   THEME_COLOR(UiButtonBackgroundHover, 0xff606265);
@@ -216,11 +216,5 @@ namespace visage {
     else
       canvas.setBlendedPaletteColor(kTextButtonTextOff, kTextButtonTextOffHover, hover_amount);
     canvas.text(&text_, 0, 0, width(), height());
-  }
-
-  void ToggleTextButton::resized() {
-    ToggleButton::resized();
-    float height = paletteValue(kButtonTextHeight);
-    setFont(Font(height, fonts::Lato_Regular_ttf));
   }
 }

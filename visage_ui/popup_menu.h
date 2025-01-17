@@ -108,12 +108,14 @@ namespace visage {
     void mouseMove(const MouseEvent& e) override;
     void mouseDrag(const MouseEvent& e) override;
     void mouseUp(const MouseEvent& e) override;
-    void mouseWheel(const MouseEvent& e) override {
-      ScrollableFrame::mouseWheel(e);
-      if (isVisible()) {
-        for (Listener* listener : listeners_)
-          listener->mouseMovedOnMenu(e.relativeTo(this).position, this);
-      }
+    bool mouseWheel(const MouseEvent& e) override {
+      bool result = ScrollableFrame::mouseWheel(e);
+      if (!isVisible())
+        return result;
+
+      for (Listener* listener : listeners_)
+        listener->mouseMovedOnMenu(e.relativeTo(this).position, this);
+      return result;
     }
     void addListener(Listener* listener) { listeners_.push_back(listener); }
     void resetOpenMenu() { menu_open_index_ = -1; }

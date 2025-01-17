@@ -1,17 +1,22 @@
-/* Copyright Matt Tytel
+/* Copyright Vital Audio, LLC
  *
- * test plugin is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
  *
- * test plugin is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
- * You should have received a copy of the GNU General Public License
- * along with test plugin.  If not, see <http://www.gnu.org/licenses/>.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  */
 
 #pragma once
@@ -26,7 +31,27 @@ class DragDropExample;
 class CachedText;
 class AnimatedLines;
 
-class ExamplesFrame : public visage::Frame {
+class TitleBar : public visage::Frame {
+public:
+  TitleBar(const std::string& title) : title_(title) { setIgnoresMouseEvents(true, true); }
+
+  void draw(visage::Canvas& canvas) override;
+
+private:
+  std::string title_;
+};
+
+class ExampleSection : public visage::Frame {
+public:
+  ExampleSection(const std::string& title, visage::Frame* example);
+
+private:
+  std::string title_;
+  TitleBar title_bar_;
+  visage::Frame* example_;
+};
+
+class ExamplesFrame : public visage::ScrollableFrame {
 public:
   static constexpr int kNumLines = 2;
   static constexpr int kNumBars = 21;
@@ -35,17 +60,21 @@ public:
   ~ExamplesFrame() override;
 
   void resized() override;
-  void draw(visage::Canvas& canvas) override;
-  void setShadow(visage::Bounds bounds, float amount, float rounding) {
-    shadow_bounds_ = bounds;
-    shadow_amount_ = amount;
-    shadow_rounding_ = rounding;
-  }
+  void setupBars();
+  void setupButtons();
+  void setupShapes();
+  void setupTextEditors();
 
   auto& onScrenshot() { return on_screenshot_; }
   auto& onShowOverlay() { return on_show_overlay_; }
 
 private:
+  std::vector<std::unique_ptr<ExampleSection>> sections_;
+
+  std::unique_ptr<visage::Frame> button_container_;
+  std::unique_ptr<visage::Frame> text_editor_container_;
+  std::unique_ptr<visage::Frame> shader_container_;
+
   visage::CallbackList<void(const std::string& file_path)> on_screenshot_;
   visage::CallbackList<void()> on_show_overlay_;
   std::unique_ptr<DragDropExample> drag_drop_;
@@ -62,8 +91,4 @@ private:
   std::unique_ptr<visage::TextEditor> right_text_editor_;
   std::unique_ptr<visage::Frame> shapes_;
   std::unique_ptr<AnimatedLines> animated_lines_;
-
-  float shadow_amount_ = 0.0f;
-  visage::Bounds shadow_bounds_;
-  float shadow_rounding_ = 0.0f;
 };

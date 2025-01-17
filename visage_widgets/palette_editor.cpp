@@ -313,12 +313,13 @@ namespace visage {
     redraw();
   }
 
-  void PaletteColorEditor::mouseWheel(const MouseEvent& e) {
-    if (e.position.x < width() * kPaletteWidthRatio)
-      color_list_.mouseWheel(e);
-    else
-      ScrollableFrame::mouseWheel(e);
+  bool PaletteColorEditor::mouseWheel(const MouseEvent& e) {
     redraw();
+
+    if (e.position.x < width() * kPaletteWidthRatio)
+      return color_list_.mouseWheel(e);
+
+    return ScrollableFrame::mouseWheel(e);
   }
 
   bool PaletteColorEditor::keyPress(const KeyEvent& key) {
@@ -361,7 +362,7 @@ namespace visage {
       text_editor.setDefaultText("Not Set");
       text_editor.setMargin(8, 0);
       text_editor.setFont(Font(kValueIdHeight / 3, fonts::Lato_Regular_ttf));
-      addScrolledFrame(&text_editor, false);
+      addScrolledChild(&text_editor, false);
     }
   }
 
