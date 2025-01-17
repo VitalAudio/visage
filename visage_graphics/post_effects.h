@@ -50,6 +50,7 @@ namespace visage {
   protected:
     void setInitialVertices(Region* region);
     void checkBuffers(const Region* region);
+    void setScreenVertexBuffer(bool inverted);
 
     int full_width_ = 0;
     int full_height_ = 0;
@@ -57,6 +58,7 @@ namespace visage {
     int heights_[kMaxDownsamples] {};
     std::unique_ptr<DownsampleHandles> handles_;
     UvVertex screen_vertices_[4] {};
+    UvVertex inv_screen_vertices_[4] {};
     int format_ = 0;
   };
 
@@ -66,7 +68,7 @@ namespace visage {
     ~BlurPostEffect() override;
 
     int preprocess(Region* region, int submit_pass) override;
-    int preprocessBlend(int submit_pass);
+    int preprocessBlend(Region* region, int submit_pass);
     void submitPassthrough(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y);
     void blendPassthrough(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y);
     void submitBlurred(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y);

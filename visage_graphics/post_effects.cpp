@@ -52,6 +52,7 @@ namespace visage {
   struct DownsampleHandles {
     bgfx::IndexBufferHandle screen_index_buffer = BGFX_INVALID_HANDLE;
     bgfx::VertexBufferHandle screen_vertex_buffer = BGFX_INVALID_HANDLE;
+    bgfx::VertexBufferHandle inv_screen_vertex_buffer = BGFX_INVALID_HANDLE;
     bgfx::FrameBufferHandle downsample_buffers1[DownsamplePostEffect::kMaxDownsamples] {};
     bgfx::FrameBufferHandle downsample_buffers2[DownsamplePostEffect::kMaxDownsamples] {};
 
@@ -99,9 +100,13 @@ namespace visage {
     screen_vertices_[3].x = 1.0f;
     screen_vertices_[3].y = -1.0f;
 
-    for (auto& screen_vertex : screen_vertices_) {
-      screen_vertex.u = screen_vertex.x * 0.5f + 0.5f;
-      screen_vertex.v = screen_vertex.y * -0.5f + 0.5f;
+    for (int i = 0; i < kVerticesPerQuad; ++i) {
+      screen_vertices_[i].u = screen_vertices_[i].x * 0.5f + 0.5f;
+      screen_vertices_[i].v = screen_vertices_[i].y * -0.5f + 0.5f;
+      inv_screen_vertices_[i].x = screen_vertices_[i].x;
+      inv_screen_vertices_[i].y = screen_vertices_[i].y;
+      inv_screen_vertices_[i].u = screen_vertices_[i].u;
+      inv_screen_vertices_[i].v = screen_vertices_[i].y * 0.5f + 0.5f;
     }
   }
 
@@ -118,6 +123,9 @@ namespace visage {
                                                                             sizeof(visage::kQuadTriangles)));
       const bgfx::Memory* vertex_memory = bgfx::makeRef(screen_vertices_, sizeof(screen_vertices_));
       handles_->screen_vertex_buffer = bgfx::createVertexBuffer(vertex_memory, UvVertex::layout());
+      const bgfx::Memory* inv_vertex_memory = bgfx::makeRef(inv_screen_vertices_,
+                                                            sizeof(inv_screen_vertices_));
+      handles_->inv_screen_vertex_buffer = bgfx::createVertexBuffer(inv_vertex_memory, UvVertex::layout());
     }
 
     if (full_width != full_width_ || full_height != full_height_ || format_ != format) {
@@ -179,6 +187,10 @@ namespace visage {
     bgfx::setVertexBuffer(0, &first_sample_buffer);
   }
 
+  void DownsamplePostEffect::setScreenVertexBuffer(bool inverted) {
+    bgfx::setVertexBuffer(0, inverted ? handles_->inv_screen_vertex_buffer : handles_->screen_vertex_buffer);
+  }
+
   BlurPostEffect::BlurPostEffect() : DownsamplePostEffect(false) { }
 
   BlurPostEffect::~BlurPostEffect() = default;
@@ -210,7 +222,7 @@ namespace visage {
         setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
       }
       else {
-        bgfx::setVertexBuffer(0, handles_->screen_vertex_buffer);
+        setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
         setPostEffectUniform<Uniforms::kResampleValues>(x_downsample_scale, y_downsample_scale);
       }
 
@@ -224,7 +236,8 @@ namespace visage {
       if (i > 0) {
         setBlendMode(BlendMode::Opaque);
         setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(destination));
-        bgfx::setVertexBuffer(0, handles_->screen_vertex_buffer);
+        setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
+
         bgfx::setIndexBuffer(handles_->screen_index_buffer);
         bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers2[i]);
         bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
@@ -236,7 +249,7 @@ namespace visage {
 
         setBlendMode(BlendMode::Opaque);
         setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers2[i]));
-        bgfx::setVertexBuffer(0, handles_->screen_vertex_buffer);
+        setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
         bgfx::setIndexBuffer(handles_->screen_index_buffer);
         bgfx::setViewFrameBuffer(submit_pass, destination);
         bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
@@ -249,7 +262,7 @@ namespace visage {
       source = destination;
     }
 
-    submit_pass = preprocessBlend(submit_pass);
+    submit_pass = preprocessBlend(region, submit_pass);
 
     for (int i = stage_index - 3; i > 0; --i) {
       bgfx::FrameBufferHandle destination = handles_->downsample_buffers1[i - 1];
@@ -259,7 +272,7 @@ namespace visage {
       setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[i]));
       setPostEffectUniform<Uniforms::kResampleValues>(dest_width * 0.5f / widths_[i],
                                                       dest_height * 0.5f / heights_[i]);
-      bgfx::setVertexBuffer(0, handles_->screen_vertex_buffer);
+      setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
       bgfx::setIndexBuffer(handles_->screen_index_buffer);
       bgfx::setViewFrameBuffer(submit_pass, destination);
       bgfx::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
@@ -273,7 +286,7 @@ namespace visage {
     return submit_pass;
   }
 
-  int BlurPostEffect::preprocessBlend(int submit_pass) {
+  int BlurPostEffect::preprocessBlend(Region* region, int submit_pass) {
     int stage_index = stages_;
     if (stage_index < 2)
       return submit_pass;
@@ -281,7 +294,7 @@ namespace visage {
     float blend = stages_ - stage_index;
     setBlendMode(BlendMode::Opaque);
     setPostEffectUniform<Uniforms::kMult>(blend, blend, blend, blend);
-    bgfx::FrameBufferHandle destination;
+    bgfx::FrameBufferHandle destination {};
     int dest_width = 0;
     int dest_height = 0;
 
@@ -306,7 +319,7 @@ namespace visage {
 
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[stage_index - 1]));
     setPostEffectTexture<Uniforms::kTexture2>(1, bgfx::getTexture(handles_->downsample_buffers1[stage_index - 2]));
-    bgfx::setVertexBuffer(0, handles_->screen_vertex_buffer);
+    setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
     bgfx::setIndexBuffer(handles_->screen_index_buffer);
     bgfx::setViewFrameBuffer(submit_pass, destination);
     bgfx::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
@@ -389,6 +402,11 @@ namespace visage {
     vertices[3].shader_value1 = widths_[0];
     vertices[3].shader_value2 = heights_[0];
 
+    if (destination.bottomLeftOrigin()) {
+      for (int i = 0; i < kVerticesPerQuad; ++i)
+        vertices[i].shader_value2 = heights_[0] - vertices[i].shader_value2;
+    }
+
     setBlendMode(BlendMode::Composite);
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source.region->layer()->frameBuffer()));
     setPostEffectTexture<Uniforms::kTexture2>(1, bgfx::getTexture(handles_->downsample_buffers1[0]));
@@ -456,7 +474,7 @@ namespace visage {
       setBlendMode(BlendMode::Opaque);
       setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source));
       bgfx::setIndexBuffer(handles_->screen_index_buffer);
-      bgfx::setVertexBuffer(0, handles_->screen_vertex_buffer);
+      setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
       setPostEffectUniform<Uniforms::kResampleValues>(x_downsample_scale, y_downsample_scale);
 
       bgfx::setViewFrameBuffer(submit_pass, destination);
@@ -468,7 +486,7 @@ namespace visage {
 
       setBlendMode(BlendMode::Opaque);
       setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(destination));
-      bgfx::setVertexBuffer(0, handles_->screen_vertex_buffer);
+      setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
       bgfx::setIndexBuffer(handles_->screen_index_buffer);
       bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers2[i]);
       bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
@@ -480,7 +498,7 @@ namespace visage {
 
       setBlendMode(BlendMode::Opaque);
       setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers2[i]));
-      bgfx::setVertexBuffer(0, handles_->screen_vertex_buffer);
+      setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
       bgfx::setIndexBuffer(handles_->screen_index_buffer);
       bgfx::setViewFrameBuffer(submit_pass, destination);
       bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
@@ -496,7 +514,6 @@ namespace visage {
       bgfx::FrameBufferHandle destination = handles_->downsample_buffers1[i - 1];
       int dest_width = widths_[i - 1];
       int dest_height = heights_[i - 1];
-      float mult_amount = 1.0f;
 
       setBlendMode(BlendMode::Add);
 
@@ -504,7 +521,7 @@ namespace visage {
       setPostEffectUniform<Uniforms::kResampleValues>(dest_width * 0.5f / widths_[i],
                                                       dest_height * 0.5f / heights_[i]);
       setPostEffectUniform<Uniforms::kMult>(2.0f, 2.0f, 2.0f, 1.0f);
-      bgfx::setVertexBuffer(0, handles_->screen_vertex_buffer);
+      setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
       bgfx::setIndexBuffer(handles_->screen_index_buffer);
       bgfx::setViewFrameBuffer(submit_pass, destination);
       bgfx::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
@@ -564,8 +581,6 @@ namespace visage {
       for (int i = 0; i < kVerticesPerQuad; ++i)
         vertices[i].texture_y = heights_[0] - vertices[i].texture_y;
     }
-
-    float hdr_range = hdr() ? visage::kHdrColorRange : 1.0f;
 
     setBlendMode(BlendMode::Add);
 
