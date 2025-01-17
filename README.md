@@ -23,7 +23,7 @@ int main() {
 ## Demos
 - [Showcase](https://visage.dev/examples/Showcase/)
 - [Blend Modes](https://visage.dev/examples/BlendModes/)
-- [Blur and Bloom](https://visage.dev/examples/BlurAndBloom/)
+- [Bloom](https://visage.dev/examples/Bloom/)
 - [Post Shader Effects](https://visage.dev/examples/PostEffects/)
 - [Live Shader Editing](https://visage.dev/examples/LiveShaderEditing/)
 - [Layout Flexing](https://visage.dev/examples/Layout/)

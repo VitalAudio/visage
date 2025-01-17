@@ -5,7 +5,7 @@ on:
       - main
 jobs:
   Deploy-Emscripten:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
