@@ -43,8 +43,6 @@ namespace visage {
   THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOn, 0xffaa88ff);
   THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOnHover, 0xffbb99ff);
 
-  THEME_IMPLEMENT_VALUE(ToggleButton, ButtonTextHeight, 13.5f, ScaledDpi, true);
-
   THEME_COLOR(UiButtonBackground, 0xff4c4f52);
   THEME_COLOR(UiButtonBackgroundHover, 0xff606265);
   THEME_COLOR(UiButtonText, 0xffdddddd);
