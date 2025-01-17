@@ -32,4 +32,4 @@ int main() {
 - **Windows**: Direct3D11
 - **MacOS**: Metal  
 - **Linux**: OpenGL
-- **Web**: WebGL  
+- **Web**: WebGL
