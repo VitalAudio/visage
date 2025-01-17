@@ -67,16 +67,20 @@ public:
 
   auto& onScrenshot() { return on_screenshot_; }
   auto& onShowOverlay() { return on_show_overlay_; }
+  auto& onToggleDebug() { return on_toggle_debug_; }
 
 private:
   std::vector<std::unique_ptr<ExampleSection>> sections_;
 
-  std::unique_ptr<visage::Frame> button_container_;
-  std::unique_ptr<visage::Frame> text_editor_container_;
-  std::unique_ptr<visage::Frame> shader_container_;
+  visage::Frame button_container_;
+  visage::Frame text_editor_container_;
+  visage::Frame shader_container_;
+  visage::Frame image_container_;
 
   visage::CallbackList<void(const std::string& file_path)> on_screenshot_;
   visage::CallbackList<void()> on_show_overlay_;
+  visage::CallbackList<void()> on_toggle_debug_;
+
   std::unique_ptr<DragDropExample> drag_drop_;
   std::unique_ptr<visage::BarList> bar_list_;
   std::unique_ptr<visage::ShaderQuad> shader_quad_;

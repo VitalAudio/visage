@@ -64,8 +64,7 @@ public:
   void resized() override;
   void draw(visage::Canvas& canvas) override;
 
-  void clearEditors();
-  void showEditor(const Frame* editor, int default_width);
+  void toggleDebug();
   bool keyPress(const visage::KeyEvent& key) override;
 
 private:
@@ -75,9 +74,6 @@ private:
   std::unique_ptr<DebugInfo> debug_info_;
 
   visage::Palette palette_;
-  visage::PaletteColorEditor color_editor_;
-  visage::PaletteValueEditor value_editor_;
-  visage::ShaderEditor shader_editor_;
   Overlay overlay_;
 
   VISAGE_LEAK_CHECKER(Showcase)

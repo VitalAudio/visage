@@ -250,7 +250,7 @@ ExamplesFrame::ExamplesFrame() {
   sections_.push_back(std::make_unique<ExampleSection>("Line Rendering", animated_lines_.get()));
 
   setupButtons();
-  sections_.push_back(std::make_unique<ExampleSection>("Buttons", button_container_.get()));
+  sections_.push_back(std::make_unique<ExampleSection>("Buttons", &button_container_));
 
   setupShapes();
   sections_.push_back(std::make_unique<ExampleSection>("Shapes", shapes_.get()));
@@ -259,18 +259,26 @@ ExamplesFrame::ExamplesFrame() {
   sections_.push_back(std::make_unique<ExampleSection>("Text", text_.get()));
 
   setupTextEditors();
-  sections_.push_back(std::make_unique<ExampleSection>("Text Editing", text_editor_container_.get()));
+  sections_.push_back(std::make_unique<ExampleSection>("Text Editing", &text_editor_container_));
 
-  shader_container_ = std::make_unique<visage::Frame>();
+  image_container_.onDraw() = [this](visage::Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    int offset = (image_container_.width() - image_container_.height()) / 2;
+    canvas.image(resources::images::test_png.data, resources::images::test_png.size, offset, 0,
+                 image_container_.height(), image_container_.height());
+  };
+
+  sections_.push_back(std::make_unique<ExampleSection>("Images", &image_container_));
+
   shader_quad_ = std::make_unique<visage::ShaderQuad>(resources::shaders::vs_shader_quad,
                                                       resources::shaders::fs_shader_quad,
                                                       visage::BlendMode::Alpha);
-  shader_container_->layout().setFlex(true);
-  shader_container_->layout().setFlexItemAlignment(visage::Layout::ItemAlignment::Center);
-  shader_container_->addChild(shader_quad_.get());
+  shader_container_.layout().setFlex(true);
+  shader_container_.layout().setFlexItemAlignment(visage::Layout::ItemAlignment::Center);
+  shader_container_.addChild(shader_quad_.get());
   shader_quad_->layout().setWidth(100_vmin);
   shader_quad_->layout().setHeight(100_vmin);
-  sections_.push_back(std::make_unique<ExampleSection>("Shaders", shader_container_.get()));
+  sections_.push_back(std::make_unique<ExampleSection>("Shaders", &shader_container_));
 
   setupBars();
   sections_.push_back(std::make_unique<ExampleSection>("Bars", bar_list_.get()));
@@ -338,7 +346,7 @@ void ExamplesFrame::setupButtons() {
   action_button_->onToggle() = [this](visage::Button* button, bool toggled) {
     visage::PopupMenu menu;
     menu.addOption(0, "Take Screenshot");
-    menu.addOption(1, "Hello World");
+    menu.addOption(1, "Toggle Debug Info");
     menu.addBreak();
     menu.addOption(2, "Another Item 1");
     visage::PopupMenu sub_menu("Sub Menu");
@@ -364,6 +372,8 @@ void ExamplesFrame::setupButtons() {
         visage::File file = visage::hostExecutable().parent_path() / "screenshot.png";
         on_screenshot_.callback(file.string());
       }
+      else if (id == 1)
+        on_toggle_debug_.callback();
       else if (id == 12)
         VISAGE_FORCE_CRASH();
     };
@@ -377,17 +387,16 @@ void ExamplesFrame::setupButtons() {
   text_button_->layout().setHeight(40_px);
   ui_button_->layout().setHeight(40_px);
 
-  button_container_ = std::make_unique<visage::Frame>();
-  button_container_->layout().setFlex(true);
-  button_container_->layout().setFlexWrap(true);
-  button_container_->layout().setFlexGap(16_px);
-  button_container_->layout().setFlexItemAlignment(visage::Layout::ItemAlignment::Stretch);
-  button_container_->layout().setFlexWrapAlignment(visage::Layout::WrapAlignment::Stretch);
-  button_container_->layout().setPadding(16_px);
-  button_container_->addChild(ui_button_.get());
-  button_container_->addChild(action_button_.get());
-  button_container_->addChild(icon_button_.get());
-  button_container_->addChild(text_button_.get());
+  button_container_.layout().setFlex(true);
+  button_container_.layout().setFlexWrap(true);
+  button_container_.layout().setFlexGap(16_px);
+  button_container_.layout().setFlexItemAlignment(visage::Layout::ItemAlignment::Stretch);
+  button_container_.layout().setFlexWrapAlignment(visage::Layout::WrapAlignment::Stretch);
+  button_container_.layout().setPadding(16_px);
+  button_container_.addChild(ui_button_.get());
+  button_container_.addChild(action_button_.get());
+  button_container_.addChild(icon_button_.get());
+  button_container_.addChild(text_button_.get());
 }
 
 void ExamplesFrame::setupShapes() {
@@ -494,14 +503,13 @@ void ExamplesFrame::setupTextEditors() {
   text_editor_->setMultiLine(true);
   text_editor_->setJustification(visage::Font::kTopLeft);
 
-  text_editor_container_ = std::make_unique<visage::Frame>();
-  text_editor_container_->layout().setFlex(true);
-  text_editor_container_->layout().setFlexWrap(true);
-  text_editor_container_->layout().setFlexGap(16_px);
-  text_editor_container_->layout().setFlexWrapAlignment(visage::Layout::WrapAlignment::Stretch);
-  text_editor_container_->addChild(left_text_editor_.get());
+  text_editor_container_.layout().setFlex(true);
+  text_editor_container_.layout().setFlexWrap(true);
+  text_editor_container_.layout().setFlexGap(16_px);
+  text_editor_container_.layout().setFlexWrapAlignment(visage::Layout::WrapAlignment::Stretch);
+  text_editor_container_.addChild(left_text_editor_.get());
   text_editor_->layout().setHeight(100_px);
-  text_editor_container_->addChild(number_editor_.get());
-  text_editor_container_->addChild(right_text_editor_.get());
-  text_editor_container_->addChild(text_editor_.get());
+  text_editor_container_.addChild(number_editor_.get());
+  text_editor_container_.addChild(right_text_editor_.get());
+  text_editor_container_.addChild(text_editor_.get());
 }

@@ -34,6 +34,8 @@ namespace visage {
     region_.setVisible(visible);
     if (visible)
       redraw();
+    else
+      redrawing_ = false;
 
     setDrawing(visible && (parent_ == nullptr || parent_->isDrawing()));
   }

@@ -99,18 +99,18 @@ float Overlay::getBodyRounding() {
   return paletteValue(kOverlayRounding);
 }
 
-Showcase::Showcase() : color_editor_(palette()), value_editor_(palette()) {
+Showcase::Showcase() {
   setAcceptsKeystrokes(true);
 
   palette_.initWithDefaults();
   setPalette(&palette_);
-  color_editor_.setEditedPalette(&palette_);
-  value_editor_.setEditedPalette(&palette_);
 
   blur_ = std::make_unique<visage::BlurPostEffect>();
   examples_ = std::make_unique<ExamplesFrame>();
   examples_->setPostEffect(blur_.get());
   examples_->onShowOverlay() = [this] { overlay_.setVisible(true); };
+  examples_->onToggleDebug() = [this]() { toggleDebug(); };
+
   examples_->onScrenshot() = [this](const std::string& file_path) {
     visage::WindowedEditor* parent = findParent<visage::WindowedEditor>();
     if (parent)
@@ -118,11 +118,6 @@ Showcase::Showcase() : color_editor_(palette()), value_editor_(palette()) {
   };
 
   addChild(examples_.get());
-
-  addChild(&color_editor_, false);
-  addChild(&value_editor_, false);
-  addChild(&shader_editor_, false);
-
   overlay_zoom_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_overlay,
                                                              resources::shaders::fs_overlay);
   overlay_.setPostEffect(overlay_zoom_.get());
@@ -151,9 +146,6 @@ void Showcase::resized() {
   debug_info_->setBounds(0, 0, main_width, h);
 
   examples_->setBounds(0, 0, main_width, h);
-  color_editor_.setBounds(main_width, 0, w - main_width, h);
-  value_editor_.setBounds(main_width, 0, w - main_width, h);
-  shader_editor_.setBounds(main_width, 0, w - main_width, h);
 
   overlay_.setBounds(examples_->bounds());
 }
@@ -164,26 +156,8 @@ void Showcase::draw(visage::Canvas& canvas) {
   blur_->setBlurSize(canvas.value(kBlurSize));
 }
 
-void Showcase::clearEditors() {
-  color_editor_.setVisible(false);
-  value_editor_.setVisible(false);
-  shader_editor_.setVisible(false);
-
-  // TODO
-  // int new_width = std::round((height() * kDefaultWidth * 1.0f) / kDefaultHeight);
-  // color_editor_.setVisible(false);
-  // setBounds(0, 0, new_width, height());
-}
-
-void Showcase::showEditor(const Frame* editor, int default_width) {
-  color_editor_.setVisible(editor == &color_editor_);
-  value_editor_.setVisible(editor == &value_editor_);
-  shader_editor_.setVisible(editor == &shader_editor_);
-
-  // TODO
-  // int new_default_width = kDefaultWidth + default_width;
-  // int new_width = std::round((height() * new_default_width * 1.0f) / kDefaultHeight);
-  // setBounds(0, 0, new_width, height());
+void Showcase::toggleDebug() {
+  debug_info_->setVisible(!debug_info_->isVisible());
 }
 
 bool Showcase::keyPress(const visage::KeyEvent& key) {
@@ -191,31 +165,8 @@ bool Showcase::keyPress(const visage::KeyEvent& key) {
   static constexpr int kShaderEditorWidth = 600;
 
   bool modifier = key.isMainModifier();
-  if (key.keyCode() == visage::KeyCode::Number0 && key.isMainModifier())
-    clearEditors();
-  else if (key.keyCode() == visage::KeyCode::Number1 && modifier) {
-    if (color_editor_.isVisible())
-      clearEditors();
-    else
-      showEditor(&color_editor_, kPaletteWidth);
-    return true;
-  }
-  else if (key.keyCode() == visage::KeyCode::Number2 && modifier) {
-    if (value_editor_.isVisible())
-      clearEditors();
-    else
-      showEditor(&value_editor_, kPaletteWidth);
-    return true;
-  }
-  else if (key.keyCode() == visage::KeyCode::Number3 && modifier) {
-    if (shader_editor_.isVisible())
-      clearEditors();
-    else
-      showEditor(&shader_editor_, kShaderEditorWidth);
-    return true;
-  }
-  else if (key.keyCode() == visage::KeyCode::D && modifier && key.isShiftDown()) {
-    debug_info_->setVisible(!debug_info_->isVisible());
+  if (key.keyCode() == visage::KeyCode::D && modifier && key.isShiftDown()) {
+    toggleDebug();
     return true;
   }
   else if (key.keyCode() == visage::KeyCode::Z && modifier) {
