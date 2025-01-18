@@ -2,6 +2,15 @@
 
 **Visage** is a GPU-accelerated, cross-platform C++ library for native UI and 2D graphics. It merges the structure of a UI framework with the features of a creative graphics libraries.
 
+## Features
+- Event normalization : cross platform normalization of keyboard and mouse input events
+- Automatic shape batching : automatically batches shapes together for the GPU for faster rendering
+- Partial rendering : only redraws dirty areas
+- Blend modes : blend layers with additive, subtractive or by drawing a custom stencil
+- Shaders : write shaders once which are transpiled to Direct3d, Metal, and OpenGL
+- Included effects : real-time large blur and bloom
+- Pixel accurate : access to device pixel size so you can draw without having 1 pixel blurs
+
 ## Full Basic Example
 ```cpp
 #include <visage_app/application_editor.h>
