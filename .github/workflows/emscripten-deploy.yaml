@@ -40,3 +40,4 @@ jobs:
           export AWS_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET }}
           export AWS_DEFAULT_REGION=auto
           aws --endpoint-url ${{ secrets.R2_ENDPOINT }} s3 cp cmake_package/ s3://visage/examples/ --recursive
+          curl https://api.cloudflare.com/client/v4/zones/${{ secrets.VISAGE_ZONE_ID }}/purge_cache -H 'Content-Type: application/json' -H "X-Auth-Email: ${{ secrets.CLOUDFLARE_USER }}" -H "X-Auth-Key: ${{ secrets.CLOUDFLARE_API_KEY }}" --data '{"purge_everything":true}'
