@@ -51,6 +51,7 @@ namespace visage {
     }
     void addPackedRegion(Region* region);
     void removePackedRegion(Region* region);
+    Bounds boundsForRegion(const Region* region) const;
     Point coordinatesForRegion(const Region* region) const;
 
     template<typename V>
@@ -60,10 +61,10 @@ namespace visage {
 
     void invalidate() {
       invalid_rects_.clear();
-      invalid_rects_.emplace_back(0, 0, width_, height_);
+      for (const auto& region : regions_)
+        invalid_rects_[region].push_back(boundsForRegion(region));
     }
 
-    void invalidateRect(Bounds rect);
     void invalidateRectInRegion(Bounds rect, const Region* region);
     bool anyInvalidRects() { return !invalid_rects_.empty(); }
 
@@ -116,8 +117,8 @@ namespace visage {
     void* window_handle_ = nullptr;
     std::unique_ptr<FrameBufferData> frame_buffer_data_;
     PackedAtlas<const Region*> atlas_;
-    std::vector<Region*> regions_;
-    std::vector<Bounds> invalid_rects_;
+    std::map<const Region*, std::vector<Bounds>> invalid_rects_;
     std::vector<Bounds> invalid_rect_pieces_;
+    std::vector<Region*> regions_;
   };
 }

@@ -186,42 +186,48 @@ namespace visage {
     return frame_buffer_data_->format;
   }
 
-  void Layer::invalidateRect(Bounds rect) {
-    for (auto it = invalid_rects_.begin(); it != invalid_rects_.end();) {
+  void Layer::invalidateRectInRegion(Bounds rect, const Region* region) {
+    Bounds region_bounds = boundsForRegion(region);
+    rect = rect + Point(region_bounds.x(), region_bounds.y());
+    rect = rect.intersection(region_bounds);
+
+    std::vector<Bounds>& invalid_rects = invalid_rects_[region];
+
+    for (auto it = invalid_rects.begin(); it != invalid_rects.end();) {
       Bounds& invalid_rect = *it;
       if (invalid_rect.contains(rect)) {
-        moveToVector(invalid_rects_, invalid_rect_pieces_);
+        moveToVector(invalid_rects, invalid_rect_pieces_);
         return;
       }
 
       if (rect.contains(invalid_rect)) {
-        it = invalid_rects_.erase(it);
+        it = invalid_rects.erase(it);
         continue;
       }
       Bounds::breakIntoNonOverlapping(rect, invalid_rect, invalid_rect_pieces_);
       ++it;
     }
 
-    invalid_rects_.push_back(rect);
-    moveToVector(invalid_rects_, invalid_rect_pieces_);
-  }
-
-  void Layer::invalidateRectInRegion(Bounds rect, const Region* region) {
-    invalidateRect(rect + coordinatesForRegion(region));
+    invalid_rects.push_back(rect);
+    moveToVector(invalid_rects, invalid_rect_pieces_);
   }
 
   void Layer::clearInvalidRectAreas(int submit_pass) {
     ShapeBatch<Fill> clear_batch(BlendMode::Opaque);
     QuadColor color;
-    for (const Bounds& rect : invalid_rects_) {
-      float x = rect.x();
-      float y = rect.y();
-      float width = rect.width();
-      float height = rect.height();
-      clear_batch.addShape(Fill({ x, y, x + width, y + height }, color, x, y, width, height));
+    std::vector<Bounds> invalid_rects;
+    for (auto& region_invalid_rects : invalid_rects_) {
+      for (const Bounds& rect : region_invalid_rects.second) {
+        invalid_rects.push_back(rect);
+        float x = rect.x();
+        float y = rect.y();
+        float width = rect.width();
+        float height = rect.height();
+        clear_batch.addShape(Fill({ x, y, x + width, y + height }, color, x, y, width, height));
+      }
     }
 
-    PositionedBatch positioned_clear = { &clear_batch, &invalid_rects_, 0, 0 };
+    PositionedBatch positioned_clear = { &clear_batch, &invalid_rects, 0, 0 };
     clear_batch.submit(*this, submit_pass, { positioned_clear });
   }
 
@@ -244,10 +250,10 @@ namespace visage {
       Point point = coordinatesForRegion(region);
       if (region->isEmpty()) {
         addSubRegions(region_positions, overlapping_regions,
-                      { region, invalid_rects_, 0, point.x, point.y });
+                      { region, invalid_rects_[region], 0, point.x, point.y });
       }
       else
-        region_positions.emplace_back(region, invalid_rects_, 0, point.x, point.y);
+        region_positions.emplace_back(region, invalid_rects_[region], 0, point.x, point.y);
     }
 
     invalid_rects_.clear();
@@ -317,6 +323,14 @@ namespace visage {
   void Layer::removePackedRegion(Region* region) {
     removeRegion(region);
     atlas_.removeRect(region);
+  }
+
+  Bounds Layer::boundsForRegion(const Region* region) const {
+    if (intermediate_layer_) {
+      const PackedRect& rect = atlas_.rectForId(region);
+      return { rect.x, rect.y, rect.w, rect.h };
+    }
+    return { region->x(), region->y(), region->width(), region->height() };
   }
 
   Point Layer::coordinatesForRegion(const Region* region) const {
