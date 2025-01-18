@@ -2,32 +2,6 @@
 
 **Visage** is a GPU-accelerated, cross-platform C++ library for native UI and 2D graphics. It merges the structure of a UI framework with the features of a creative graphics libraries.
 
-## Features
-
-- **Event Normalization**  
-&nbsp;&nbsp;&nbsp;Cross-platform support for keyboard and mouse input normalization.
-
-- **Window Normalization**  
-&nbsp;&nbsp;&nbsp;Cross-platform support for opening and handling windows.
-
-- **Automatic Shape Batching**  
-&nbsp;&nbsp;&nbsp;Automatically groups shapes for efficient GPU rendering.
-
-- **Partial Rendering**  
-&nbsp;&nbsp;&nbsp;Redraws only the dirty regions for optimal performance.
-
-- **Blend Modes**  
-&nbsp;&nbsp;&nbsp;Supports blending layers with additive, subtractive or by drawing a custom stencil
-
-- **Shaders**  
-&nbsp;&nbsp;&nbsp;Write shaders once and transpile them for Direct3d, Metal and OpenGL
-
-- **Included Effects**  
-&nbsp;&nbsp;&nbsp;Real-time effects such as large blur and bloom
-
-- **Pixel Accuracy**  
-&nbsp;&nbsp;&nbsp;Access to device pixel size ensures precise rendering without blurring.
-
 ## Full Basic Example
 ```cpp
 #include <visage_app/application_editor.h>
@@ -53,6 +27,32 @@ int main() {
 - [Post Shader Effects](https://visage.dev/examples/PostEffects/)
 - [Live Shader Editing](https://visage.dev/examples/LiveShaderEditing/)
 - [Layout Flexing](https://visage.dev/examples/Layout/)
+
+## Features
+
+- **Event Normalization**  
+&nbsp;&nbsp;&nbsp;Cross-platform support for keyboard and mouse input normalization.
+
+- **Window Normalization**  
+&nbsp;&nbsp;&nbsp;Cross-platform support for opening and handling windows.
+
+- **Automatic Shape Batching**  
+&nbsp;&nbsp;&nbsp;Automatically groups shapes for efficient GPU rendering.
+
+- **Partial Rendering**  
+&nbsp;&nbsp;&nbsp;Redraws only the dirty regions for optimal performance.
+
+- **Blend Modes**  
+&nbsp;&nbsp;&nbsp;Supports blending layers with additive, subtractive or by drawing a custom stencil
+
+- **Shaders**  
+&nbsp;&nbsp;&nbsp;Write shaders once and transpile them for Direct3d, Metal and OpenGL
+
+- **Included Effects**  
+&nbsp;&nbsp;&nbsp;Real-time effects such as large blur and bloom
+
+- **Pixel Accuracy**  
+&nbsp;&nbsp;&nbsp;Access to device pixel size ensures precise rendering without blurring.
 
 ## Supported Platforms
 - **Windows**: Direct3D11
