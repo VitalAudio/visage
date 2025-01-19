@@ -20,12 +20,42 @@ else (UNIX)
   file(COPY "${CMAKE_SOURCE_DIR}/visage_graphics/bin/linux/shaderc" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 endif ()
 
+if (NOT EMSCRIPTEN)
+  message(STATUS "Downloading CLAP SDK for plugin example")
+  FetchContent_Declare(clap GIT_REPOSITORY https://github.com/free-audio/clap.git
+    GIT_TAG main
+    GIT_SHALLOW TRUE
+    EXCLUDE_FROM_ALL
+  )
+
+  FetchContent_Declare(clap_helpers GIT_REPOSITORY https://github.com/free-audio/clap-helpers.git
+    GIT_TAG main
+    GIT_SHALLOW TRUE
+    EXCLUDE_FROM_ALL
+  )
+
+  FetchContent_MakeAvailable(clap)
+  FetchContent_MakeAvailable(clap_helpers)
+  set(CLAP_LIBRARIES clap clap-helpers)
+endif ()
+
 foreach (EXAMPLE ${EXAMPLES})
   file(GLOB SOURCE_FILES ${EXAMPLE}/*.cpp)
   file(GLOB HEADER_FILES ${EXAMPLE}/*.h)
 
-  if (IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${EXAMPLE}" AND SOURCE_FILES)
-    add_executable(Example${EXAMPLE} main.cpp ${SOURCE_FILES} ${HEADER_FILES})
+  set(SHOULD_BUILD ON)
+  if (EMSCRIPTEN AND EXAMPLE STREQUAL "ClapPlugin")
+    set(SHOULD_BUILD OFF)
+  endif ()
+
+  if (IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${EXAMPLE}" AND SOURCE_FILES AND SHOULD_BUILD)
+    if (EXAMPLE STREQUAL "ClapPlugin")
+      add_library(Example${EXAMPLE} MODULE ${SOURCE_FILES} ${HEADER_FILES})
+      set_target_properties(Example${EXAMPLE} PROPERTIES SUFFIX ".clap" PREFIX "")
+    else ()
+      add_executable(Example${EXAMPLE} main.cpp ${SOURCE_FILES} ${HEADER_FILES})
+    endif ()
+
     if (WIN32)
       set_target_properties(Example${EXAMPLE} PROPERTIES WIN32_EXECUTABLE YES)
     elseif (APPLE)
@@ -59,6 +89,7 @@ foreach (EXAMPLE ${EXAMPLES})
       EmbeddedFontResources
       EmbeddedIconResources
       EmbeddedImageResources
+      ${CLAP_LIBRARIES}
     )
   endif ()
 endforeach ()
