@@ -21,6 +21,8 @@
 
 #include "clap_plugin.h"
 
+#include <cstring>
+
 namespace plugin_entry {
   uint32_t getPluginCount(const clap_plugin_factory* f) {
     return 1;

@@ -25,18 +25,17 @@
 #include <clap/helpers/host-proxy.hxx>
 #include <clap/helpers/plugin.hh>
 #include <clap/helpers/plugin.hxx>
-#include <cstring>
 #include <visage_windowing/windowing.h>
 
 using namespace visage::dimension;
 
-static const char* kClapFeatures[] = { CLAP_PLUGIN_FEATURE_AUDIO_EFFECT, nullptr };
+static const char* kClapFeatures[] = { nullptr };
 
-clap_plugin_descriptor ClapPlugin::descriptor = { CLAP_VERSION,         "dev.visage.example",
-                                                  "Visage Clap Plugin", "Visage",
-                                                  "visage.dev",         "visage.dev",
-                                                  "visage.dev",         "0.0.1",
-                                                  "Example plugin",     kClapFeatures };
+clap_plugin_descriptor ClapPlugin::descriptor = { CLAP_VERSION,          "dev.visage.example",
+                                                  "Example Clap Plugin", "Visage",
+                                                  "visage.dev",          "visage.dev",
+                                                  "visage.dev",          "0.0.1",
+                                                  "Example Clap Plugin", kClapFeatures };
 
 ClapPlugin::ClapPlugin(const clap_host* host) : ClapPluginBase(&descriptor, host) { }
 
