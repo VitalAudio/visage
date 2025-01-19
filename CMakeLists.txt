@@ -19,22 +19,13 @@ set(VISAGE_APPLICATION_NAME ${CMAKE_PROJECT_NAME} CACHE STRING "Application name
 if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   option(VISAGE_BUILD_EXAMPLES "Build examples" ON)
   option(VISAGE_BUILD_TESTS "Build tests" ON)
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 else ()
   option(VISAGE_BUILD_EXAMPLES "Build examples" OFF)
   option(VISAGE_BUILD_TESTS "Build tests" OFF)
 endif ()
 
 set(VISAGE_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
-
-if (MSVC)
-  # set(SANITIZER_FLAGS "/fsanitize=address")
-elseif (NOT EMSCRIPTEN)
-  # set(SANITIZER_FLAGS "-fsanitize=address")
-  # set(SANITIZER_FLAGS "-fsanitize=thread")
-endif ()
-
-add_compile_options("$<$<CONFIG:Debug>:${SANITIZER_FLAGS}>")
-add_link_options("$<$<CONFIG:Debug>:${SANITIZER_FLAGS}>")
 
 include(cmake/compile_flags.cmake)
 include(cmake/testing_framework.cmake)
