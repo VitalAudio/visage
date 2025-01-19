@@ -379,8 +379,13 @@ namespace visage {
 
   std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
                                        bool popup) {
-    Bounds bounds = boundsInDisplay(activeMonitorInfo(), width, height);
-    return std::make_unique<WindowX11>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), popup);
+    MonitorInfo monitor_info = activeMonitorInfo();
+    Bounds bounds = boundsInDisplay(monitor_info, width, height);
+    int window_x = x.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi, monitor_info.bounds.width(),
+                                        monitor_info.bounds.height(), bounds.x());
+    int window_y = y.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi, monitor_info.bounds.width(),
+                                        monitor_info.bounds.height(), bounds.y());
+    return std::make_unique<WindowX11>(window_x, window_y, bounds.width(), bounds.height(), popup);
   }
 
   std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle) {

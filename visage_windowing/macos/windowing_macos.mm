@@ -708,8 +708,7 @@ namespace visage {
     });
   }
 
-  Bounds scaledWindowBounds(const Dimension& x, const Dimension& y, const Dimension& w,
-                            const Dimension& h) {
+  Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& w, const Dimension& h) {
     NSScreen* screen = [NSScreen mainScreen];
     CGRect screen_frame = [screen frame];
     float scale = screen.backingScaleFactor;
@@ -744,12 +743,12 @@ namespace visage {
 
   std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
                                        bool popup) {
-    Bounds bounds = scaledWindowBounds(x, y, width, height);
+    Bounds bounds = computeWindowBounds(x, y, width, height);
     return std::make_unique<WindowMac>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), popup);
   }
 
   std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle) {
-    Bounds bounds = scaledWindowBounds({}, {}, width, height);
+    Bounds bounds = computeWindowBounds({}, {}, width, height);
     return std::make_unique<WindowMac>(bounds.width(), bounds.height(), parent_handle);
   }
 
