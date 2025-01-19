@@ -22,7 +22,9 @@
 #pragma once
 
 #if VISAGE_WINDOWS
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 
 #include "windowing.h"
 

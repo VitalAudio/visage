@@ -210,11 +210,18 @@ namespace visage {
   int doubleClickSpeed();
   void setDoubleClickSpeed(int ms);
 
+  Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
+                             const Dimension& height);
+
   std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
                                        bool popup = false);
   std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle);
 
   inline std::unique_ptr<Window> createWindow(Dimension width, Dimension height, bool popup = false) {
     return createWindow({}, {}, width, height, popup);
+  }
+
+  inline Bounds computeWindowBounds(const Dimension& width, const Dimension& height) {
+    return computeWindowBounds({}, {}, width, height);
   }
 }

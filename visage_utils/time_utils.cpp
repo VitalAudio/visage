@@ -19,33 +19,22 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
-
-#include <chrono>
-#include <ctime>
-#include <string>
+#include "time_utils.h"
 
 namespace visage::time {
-  typedef std::chrono::time_point<std::chrono::system_clock> Time;
+  std::string formatTime(const Time& time, const char* format_string) {
+    static constexpr int kMaxLength = 100;
 
-  inline long long milliseconds() {
-    auto now = std::chrono::system_clock::now().time_since_epoch();
-    return std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+    auto time_t = std::chrono::system_clock::to_time_t(time);
+    tm time_info {};
+#if VISAGE_WINDOWS
+    localtime_s(&time_info, &time_t);
+#else
+    localtime_r(&time_t, &time_info);
+#endif
+
+    char buffer[kMaxLength];
+    std::strftime(buffer, kMaxLength, format_string, &time_info);
+    return buffer;
   }
-
-  inline long long microseconds() {
-    auto now = std::chrono::system_clock::now().time_since_epoch();
-    return std::chrono::duration_cast<std::chrono::microseconds>(now).count();
-  }
-
-  inline int seconds() {
-    auto now = std::chrono::system_clock::now().time_since_epoch();
-    return std::chrono::duration_cast<std::chrono::seconds>(now).count();
-  }
-
-  inline Time now() {
-    return std::chrono::system_clock::now();
-  }
-
-  std::string formatTime(const Time& time, const char* format_string);
 }

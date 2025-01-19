@@ -20,9 +20,15 @@
  */
 
 #if VISAGE_WINDOWS
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
+#ifndef UNICODE
 #define UNICODE
+#endif
+#ifndef _UNICODE
 #define _UNICODE
+#endif
 
 #include "windowing_win32.h"
 
@@ -1340,7 +1346,8 @@ namespace visage {
     drag_drop_target_ = new DragDropTarget(this);
   }
 
-  static Bounds computeBounds(Dimension x, Dimension y, Dimension width, Dimension height) {
+  Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
+                             const Dimension& height) {
     DpiAwareness dpi_awareness;
     POINT cursor_position;
     GetCursorPos(&cursor_position);
@@ -1354,12 +1361,12 @@ namespace visage {
 
   std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
                                        bool popup) {
-    Bounds bounds = computeBounds(x, y, width, height);
+    Bounds bounds = computeWindowBounds(x, y, width, height);
     return std::make_unique<WindowWin32>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), popup);
   }
 
   std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle) {
-    Bounds bounds = computeBounds(0, 0, width, height);
+    Bounds bounds = computeWindowBounds(0, 0, width, height);
     return std::make_unique<WindowWin32>(bounds.width(), bounds.height(), parent_handle);
   }
 
