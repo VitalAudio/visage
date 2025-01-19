@@ -25,6 +25,7 @@
 #include <clap/helpers/host-proxy.hxx>
 #include <clap/helpers/plugin.hh>
 #include <clap/helpers/plugin.hxx>
+#include <cstring>
 #include <visage_windowing/windowing.h>
 
 using namespace visage::dimension;
