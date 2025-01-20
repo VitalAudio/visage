@@ -28,7 +28,7 @@ int main() {
 - [Live Shader Editing](https://visage.dev/examples/LiveShaderEditing/)
 - [Layout Flexing](https://visage.dev/examples/Layout/)
 
-## Features
+## UI Features
 
 - **Event Normalization**  
 &nbsp;&nbsp;&nbsp;Cross-platform support for keyboard and mouse input normalization.
@@ -36,11 +36,16 @@ int main() {
 - **Window Normalization**  
 &nbsp;&nbsp;&nbsp;Cross-platform support for opening and handling windows.
 
-- **Automatic Shape Batching**  
-&nbsp;&nbsp;&nbsp;Automatically groups shapes for efficient GPU rendering.
-
 - **Partial Rendering**  
 &nbsp;&nbsp;&nbsp;Redraws only the dirty regions for optimal performance.
+
+## Graphics Features
+
+- **Fluid motion**  
+&nbsp;&nbsp;&nbsp;New frames are displayed at the monitor's refresh rate and animations are smooth
+
+- **Automatic Shape Batching**  
+&nbsp;&nbsp;&nbsp;Automatically groups shapes for efficient GPU rendering.
 
 - **Blend Modes**  
 &nbsp;&nbsp;&nbsp;Supports blending layers with additive, subtractive or by drawing a custom stencil
