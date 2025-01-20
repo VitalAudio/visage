@@ -55,5 +55,4 @@ protected:
 private:
   std::unique_ptr<visage::ApplicationEditor> editor_;
   std::unique_ptr<visage::Window> window_;
-  float pixel_scale_ = 1.0f;
 };

@@ -43,6 +43,7 @@ namespace visage {
   }
 
   ApplicationEditor::ApplicationEditor() : top_level_(this) {
+    pixel_scale_ = windowPixelScale();
     canvas_ = std::make_unique<Canvas>();
     canvas_->addRegion(top_level_.region());
     top_level_.addChild(this);
@@ -90,6 +91,8 @@ namespace visage {
 
   void ApplicationEditor::addToWindow(Window* window) {
     window_ = window;
+    pixel_scale_ = window_->pixelScale();
+    
     Renderer::instance().checkInitialization(window_->initWindow(), window->globalDisplay());
     canvas_->pairToWindow(window_->nativeHandle(), window->clientWidth(), window->clientHeight());
     top_level_.setBounds(0, 0, window->clientWidth(), window->clientHeight());
@@ -107,6 +110,7 @@ namespace visage {
   }
 
   void ApplicationEditor::removeFromWindow() {
+    pixel_scale_ = windowPixelScale();
     window_event_handler_ = nullptr;
     window_ = nullptr;
     canvas_->removeFromWindow();

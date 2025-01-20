@@ -29,7 +29,7 @@
 
 using namespace visage::dimension;
 
-static const char* kClapFeatures[] = { nullptr };
+static const char* kClapFeatures[] = { CLAP_PLUGIN_FEATURE_INSTRUMENT, nullptr };
 
 clap_plugin_descriptor ClapPlugin::descriptor = { CLAP_VERSION,          "dev.visage.example",
                                                   "Example Clap Plugin", "Visage",
@@ -70,22 +70,29 @@ bool ClapPlugin::guiCreate(const char* api, bool is_floating) noexcept {
   if (is_floating)
     return false;
 
-  if (editor_ == nullptr) {
-    editor_ = std::make_unique<visage::ApplicationEditor>();
-    editor_->onDraw() = [this](visage::Canvas& canvas) {
-      canvas.setColor(0xff000066);
-      canvas.fill(0, 0, editor_->width(), editor_->height());
+  if (editor_.get())
+    return true;
 
-      float circle_radius = editor_->height() * 0.1f;
-      float x = editor_->width() * 0.5f - circle_radius;
-      float y = editor_->height() * 0.5f - circle_radius;
-      canvas.setColor(0xff00ffff);
-      canvas.circle(x, y, 2.0f * circle_radius);
-    };
+  editor_ = std::make_unique<visage::ApplicationEditor>();
+  
+  editor_->onDraw() = [this](visage::Canvas& canvas) {
+    canvas.setColor(0xff000066);
+    canvas.fill(0, 0, editor_->width(), editor_->height());
 
-    visage::Bounds bounds = visage::computeWindowBounds(80_vmin, 60_vmin);
-    editor_->setBounds(0, 0, bounds.width(), bounds.height());
-  }
+    float circle_radius = editor_->height() * 0.1f;
+    float x = editor_->width() * 0.5f - circle_radius;
+    float y = editor_->height() * 0.5f - circle_radius;
+    canvas.setColor(0xff00ffff);
+    canvas.circle(x, y, 2.0f * circle_radius);
+  };
+
+  visage::Bounds bounds = visage::computeWindowBounds(80_vmin, 60_vmin);
+  editor_->setBounds(0, 0, bounds.width(), bounds.height());
+
+  editor_->onResize() += [this]() {
+    _host.guiResizeHintsChanged();
+    _host.guiRequestResize(editor_->logicalWidth(), editor_->logicalHeight());
+  };
 
   return true;
 }
@@ -103,15 +110,9 @@ bool ClapPlugin::guiSetParent(const clap_window* window) noexcept {
   if (editor_ == nullptr)
     return false;
 
-  pixel_scale_ = visage::windowPixelScale();
   window_ = visage::createPluginWindow(editor_->width(), editor_->height(), window->ptr);
   window_->setFixedAspectRatio(editor_->isFixedAspectRatio());
   editor_->addToWindow(window_.get());
-  editor_->onResize() += [this]() {
-    _host.guiResizeHintsChanged();
-    _host.guiRequestResize(std::round(editor_->width() / pixel_scale_),
-                           std::round(editor_->height() / pixel_scale_));
-  };
   window_->show();
 
 #if VA_LINUX
@@ -126,11 +127,15 @@ bool ClapPlugin::guiGetResizeHints(clap_gui_resize_hints_t* hints) noexcept {
   if (editor_ == nullptr)
     return false;
 
-  hints->can_resize_horizontally = false;
-  hints->can_resize_vertically = false;
-  hints->preserve_aspect_ratio = editor_->isFixedAspectRatio();
-  hints->aspect_ratio_width = editor_->height() * editor_->aspectRatio();
-  hints->aspect_ratio_height = editor_->width();
+  bool fixed_aspect_ratio = editor_->isFixedAspectRatio();
+  hints->can_resize_horizontally = !fixed_aspect_ratio;
+  hints->can_resize_vertically = !fixed_aspect_ratio;
+  hints->preserve_aspect_ratio = fixed_aspect_ratio;
+
+  if (fixed_aspect_ratio) {
+    hints->aspect_ratio_width = editor_->height() * editor_->aspectRatio();
+    hints->aspect_ratio_height = editor_->width();
+  }
   return true;
 }
 
@@ -163,10 +168,9 @@ bool ClapPlugin::guiSetSize(uint32_t width, uint32_t height) noexcept {
 
   if (window_)
     window_->setWindowSize(width, height);
-  else {
-    editor_->setBounds(editor_->x(), editor_->y(), std::round(width * pixel_scale_),
-                       std::round(height * pixel_scale_));
-  }
+  else
+    editor_->setLogicalDimensions(width, height);
+
   return true;
 }
 
@@ -174,12 +178,7 @@ bool ClapPlugin::guiGetSize(uint32_t* width, uint32_t* height) noexcept {
   if (editor_ == nullptr)
     return false;
 
-  if (window_)
-    pixel_scale_ = window_->pixelScale();
-  else
-    pixel_scale_ = visage::windowPixelScale();
-
-  *width = std::round(editor_->width() / pixel_scale_);
-  *height = std::round(editor_->height() / pixel_scale_);
+  *width = std::round(editor_->logicalWidth());
+  *height = std::round(editor_->logicalHeight());
   return true;
 }

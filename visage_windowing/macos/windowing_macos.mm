@@ -708,11 +708,11 @@ namespace visage {
     });
   }
 
-  Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& w,
-                             const Dimension& h) {
+  static Bounds computeWindowBoundsWithScale(const Dimension& x, const Dimension& y,
+                                             const Dimension& w, const Dimension& h, float& scale) {
     NSScreen* screen = [NSScreen mainScreen];
     CGRect screen_frame = [screen frame];
-    float scale = screen.backingScaleFactor;
+    scale = screen.backingScaleFactor;
     int screen_width = screen_frame.size.width * scale;
     int screen_height = screen_frame.size.height * scale;
     int x_pos = x.computeWithDefault(scale, screen_width, screen_height);
@@ -742,14 +742,28 @@ namespace visage {
     return { x_pos, y_pos, width, height };
   }
 
+  Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& w,
+                             const Dimension& h) {
+    float scale = 1.0f;
+    Bounds bounds = computeWindowBoundsWithScale(x, y, w, h, scale);
+    return {
+      static_cast<int>(std::round(scale * bounds.x())),
+      static_cast<int>(std::round(scale * bounds.y())),
+      static_cast<int>(std::round(scale * bounds.width())),
+      static_cast<int>(std::round(scale * bounds.height())),
+    };
+  }
+
   std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
                                        bool popup) {
-    Bounds bounds = computeWindowBounds(x, y, width, height);
+    float scale = 1.0f;
+    Bounds bounds = computeWindowBoundsWithScale(x, y, width, height, scale);
     return std::make_unique<WindowMac>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), popup);
   }
 
   std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle) {
-    Bounds bounds = computeWindowBounds({}, {}, width, height);
+    float scale = 1.0f;
+    Bounds bounds = computeWindowBoundsWithScale({}, {}, width, height, scale);
     return std::make_unique<WindowMac>(bounds.width(), bounds.height(), parent_handle);
   }
 
@@ -793,6 +807,7 @@ namespace visage {
       setPixelScale([parent_view_.window backingScaleFactor]);
       setDpiScale([parent_view_.window backingScaleFactor]);
       window_handle_ = parent_view_.window;
+      handleResized(std::round(width * pixelScale()), std::round(height * pixelScale()));
     }
 
     CGRect view_frame = CGRectMake(0.0f, 0.0f, width / pixelScale(), height / pixelScale());
@@ -820,11 +835,12 @@ namespace visage {
     frame.size.width = width + borders.x;
     frame.size.height = height + borders.y;
 
-    bool animate = true;  //TODO !isFixedAspectRatio();
-    [window_handle_ setFrame:NSMakeRect(x, y, frame.size.width, frame.size.height)
-                     display:YES
-                     animate:animate];
     [view_ setFrameSize:CGSizeMake(width, height)];
+    if (parent_view_ == nullptr) {
+      [window_handle_ setFrame:NSMakeRect(x, y, frame.size.width, frame.size.height)
+                       display:YES
+                       animate:true];
+    }
   }
 
   void WindowMac::show() {
