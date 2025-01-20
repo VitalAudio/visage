@@ -256,7 +256,7 @@ namespace visage {
   }
 
   static EM_BOOL wheelCallback(int event_type, const EmscriptenWheelEvent* event, void* user_data) {
-    static constexpr float kPreciseScrollingScale = 0.02f;
+    static constexpr float kPreciseScrollingScale = 0.01f;
 
     WindowEmscripten* window = (WindowEmscripten*)user_data;
     if (event_type != EMSCRIPTEN_EVENT_WHEEL || window == nullptr)
@@ -279,6 +279,7 @@ namespace visage {
               var rect = canvas.getBoundingClientRect();
               return rect.top;
             });
+
     window->handleMouseWheel(delta_x, delta_y, delta_x, delta_y, x, y,
                              mouseButtonState(&event->mouse), keyboardModifiers(&event->mouse));
     return true;
