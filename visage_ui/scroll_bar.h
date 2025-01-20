@@ -23,6 +23,7 @@
 
 #include "frame.h"
 #include "visage_graphics/animation.h"
+#include "visage_utils/time_utils.h"
 
 namespace visage {
   class ScrollBar : public Frame {
@@ -95,7 +96,11 @@ namespace visage {
 
   class ScrollableFrame : public Frame {
   public:
+    static constexpr float kDefaultSmoothTime = 0.1f;
+
     explicit ScrollableFrame(const std::string& name = "") : Frame(name) {
+      sensitivity_ = Dimension::logicalPixels(100.0f);
+
       addChild(&container_);
       container_.setIgnoresMouseEvents(true, true);
       container_.setVisible(false);
@@ -111,11 +116,6 @@ namespace visage {
       container_.setVisible(true);
       container_.addChild(frame);
       frame->setVisible(make_visible);
-    }
-
-    void scrollPositionChanged(int position) {
-      setYPosition(position);
-      on_scroll_.callback(this);
     }
 
     bool scrollUp() {
@@ -143,28 +143,18 @@ namespace visage {
     }
 
     void setYPosition(float position) {
-      float_position_ = position;
       y_position_ = position;
       container_.setTopLeft(container_.x(), -y_position_);
       scroll_bar_.setPosition(position);
       redraw();
       container_.redraw();
     }
+
     int yPosition() const { return y_position_; }
 
     bool mouseWheel(const MouseEvent& e) override {
-      static constexpr float kScale = 30.0f;
-
-      float max = scroll_bar_.viewRange() - scroll_bar_.viewHeight();
-      if (max <= 0)
-        return false;
-
-      float y = float_position_ - kScale * e.precise_wheel_delta_y * heightScale();
-      y = std::min(max, y);
-      y = std::max(0.0f, y);
-      scrollPositionChanged(y);
-      scroll_bar_.setViewPosition(scroll_bar_.viewRange(), scroll_bar_.viewHeight(), y);
-      return true;
+      float sensitivity = sensitivity_.compute(dpiScale(), width(), height());
+      return smoothScroll(-e.precise_wheel_delta_y * sensitivity);
     }
 
     void setScrollBarLeft(bool left) {
@@ -177,13 +167,61 @@ namespace visage {
     auto& onScroll() { return on_scroll_; }
     ScrollBar& scrollBar() { return scroll_bar_; }
 
+    void setSensitivity(Dimension sensitivity) { sensitivity_ = sensitivity; }
+    void setSmoothTime(float seconds) { smooth_time_ = seconds; }
+
   private:
+    void scrollPositionChanged(int position) {
+      setYPosition(position);
+      on_scroll_.callback(this);
+    }
+
+    bool smoothScroll(float offset) {
+      float max = scroll_bar_.viewRange() - scroll_bar_.viewHeight();
+      if (max <= 0)
+        return false;
+
+      if (offset == 0.0f)
+        return false;
+
+      float t = (time::milliseconds() - smooth_start_time_) / (smooth_time_ * 1000.0f);
+      if (t <= 1.0f && t >= 0.0f)
+        smooth_start_position_ += (float_position_ - smooth_start_position_) * t;
+      else
+        smooth_start_position_ = float_position_;
+
+      float_position_ += offset;
+      float_position_ = std::min(max, float_position_);
+      float_position_ = std::max(0.0f, float_position_);
+
+      smooth_start_time_ = time::milliseconds();
+      runOnEventThread([this]() { smoothScrollUpdate(); });
+      return true;
+    }
+
+    void smoothScrollUpdate() {
+      float t = (time::milliseconds() - smooth_start_time_) / (smooth_time_ * 1000.0f);
+      int position = smooth_start_position_ + (float_position_ - smooth_start_position_) * t;
+      if (t >= 1.0f)
+        position = float_position_;
+      else if (t >= 0.0f)
+        runOnEventThread([this]() { smoothScrollUpdate(); });
+
+      scrollPositionChanged(position);
+      scroll_bar_.setViewPosition(scroll_bar_.viewRange(), scroll_bar_.viewHeight(), position);
+    }
+
     CallbackList<void(ScrollableFrame*)> on_scroll_;
     float float_position_ = 0.0f;
     int y_position_ = 0;
     bool scroll_bar_left_ = false;
     Frame container_;
     ScrollBar scroll_bar_;
+    Dimension sensitivity_;
+    float smooth_time_ = kDefaultSmoothTime;
+
+    float smooth_start_position_ = 0;
+    long long smooth_start_time_ = 0;
 
     VISAGE_LEAK_CHECKER(ScrollableFrame)
   };
