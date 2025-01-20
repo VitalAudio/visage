@@ -199,7 +199,7 @@ int runExample() {
   showcase->layout().setWidth(visage::Dimension::min(1000_px, 100_vw));
   showcase->layout().setHeight(100_vh);
 
-  editor.show(90_vmin, 70_vmin);
+  editor.show(100_vmin, 70_vmin);
   editor.runEventLoop();
 
   return 0;

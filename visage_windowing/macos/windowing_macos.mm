@@ -431,7 +431,7 @@ namespace visage {
 }
 
 - (void)scrollWheel:(NSEvent*)event {
-  static constexpr float kPreciseScrollingScale = 0.02f;
+  static constexpr float kPreciseScrollingScale = 0.008f;
   visage::Point point = [self eventPosition:event];
   float delta_x = [event deltaX];
   float precise_x = delta_x;
@@ -708,7 +708,8 @@ namespace visage {
     });
   }
 
-  Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& w, const Dimension& h) {
+  Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& w,
+                             const Dimension& h) {
     NSScreen* screen = [NSScreen mainScreen];
     CGRect screen_frame = [screen frame];
     float scale = screen.backingScaleFactor;

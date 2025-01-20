@@ -154,7 +154,19 @@ namespace visage {
 
     bool mouseWheel(const MouseEvent& e) override {
       float sensitivity = sensitivity_.compute(dpiScale(), width(), height());
-      return smoothScroll(-e.precise_wheel_delta_y * sensitivity);
+      float delta = -e.precise_wheel_delta_y * sensitivity;
+      if (e.wheel_momentum) {
+        float new_position = std::max(0.0f, std::min(maxScroll(), float_position_ + delta));
+        if (new_position == float_position_)
+          return false;
+
+        float_position_ = new_position;
+        scrollPositionChanged(float_position_);
+        scroll_bar_.setViewPosition(scroll_bar_.viewRange(), scroll_bar_.viewHeight(), float_position_);
+        return true;
+      }
+      else
+        return smoothScroll(delta);
     }
 
     void setScrollBarLeft(bool left) {
@@ -171,13 +183,15 @@ namespace visage {
     void setSmoothTime(float seconds) { smooth_time_ = seconds; }
 
   private:
+    float maxScroll() const { return scroll_bar_.viewRange() - scroll_bar_.viewHeight(); }
+
     void scrollPositionChanged(int position) {
       setYPosition(position);
       on_scroll_.callback(this);
     }
 
     bool smoothScroll(float offset) {
-      float max = scroll_bar_.viewRange() - scroll_bar_.viewHeight();
+      float max = maxScroll();
       if (max <= 0)
         return false;
 
