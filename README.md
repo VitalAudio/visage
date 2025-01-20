@@ -36,6 +36,12 @@ int main() {
 - **Window Normalization**  
 &nbsp;&nbsp;&nbsp;Cross-platform support for opening and handling windows.
 
+- **Text entry**  
+&nbsp;&nbsp;&nbsp;Unicode text entry with multi line text editing
+
+- **✨ Emojis ✨**  
+&nbsp;&nbsp;&nbsp;If you're into that kind of thing 🤷
+
 - **Partial Rendering**  
 &nbsp;&nbsp;&nbsp;Redraws only the dirty regions for optimal performance.
 
