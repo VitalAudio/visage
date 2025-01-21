@@ -94,7 +94,7 @@ bool ClapPlugin::guiCreate(const char* api, bool is_floating) noexcept {
 void ClapPlugin::guiDestroy() noexcept {
 #if __linux__
   if (window_)
-    _host.posixFdSupportUnregister(window_->getPosixFd());
+    _host.posixFdSupportUnregister(window_->posixFd());
 #endif
   editor_->removeFromWindow();
   window_.reset();
@@ -110,8 +110,8 @@ bool ClapPlugin::guiSetParent(const clap_window* window) noexcept {
   window_->show();
 
 #if __linux__
-  return _host.posixFdSupportRegister(window_->getPosixFd(),
-                                      CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE | CLAP_POSIX_FD_ERROR);
+  return _host.posixFdSupportRegister(window_->posixFd(), CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE |
+                                                              CLAP_POSIX_FD_ERROR);
 #else
   return true;
 #endif
