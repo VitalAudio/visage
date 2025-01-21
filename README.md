@@ -54,7 +54,7 @@ int main() {
 &nbsp;&nbsp;&nbsp;Automatically groups shapes for efficient GPU rendering.
 
 - **Blend Modes**  
-&nbsp;&nbsp;&nbsp;Supports blending layers with additive, subtractive or by drawing a custom stencil
+&nbsp;&nbsp;&nbsp;Supports blending layers with additive, subtractive or by drawing a custom mask for the UI to pass through
 
 - **Shaders**  
 &nbsp;&nbsp;&nbsp;Write shaders once and transpile them for Direct3d, Metal and OpenGL
