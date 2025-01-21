@@ -196,27 +196,6 @@ private:
   DragDropTarget target_;
 };
 
-class CachedText : public visage::Frame {
-public:
-  CachedText() {
-    setCached(true);
-    std::string text = "This is a bunch of center justified and wrapped text fit into an area.";
-    text_ = std::make_unique<visage::Text>(text, visage::Font(10, resources::fonts::Lato_Regular_ttf));
-    text_->setMultiLine(true);
-    text_->setJustification(visage::Font::kCenter);
-  }
-
-  void draw(visage::Canvas& canvas) override {
-    int font_height = height() / 6;
-    text_->setFont(visage::Font(font_height, resources::fonts::Lato_Regular_ttf));
-    canvas.setColor(0xffffffff);
-    canvas.text(text_.get(), 0, 0, width(), height());
-  }
-
-private:
-  std::unique_ptr<visage::Text> text_;
-};
-
 void TitleBar::draw(visage::Canvas& canvas) {
   canvas.setPaletteColor(kDarkBackgroundColor);
   canvas.rectangle(0, 0, width(), height());
@@ -254,9 +233,6 @@ ExamplesFrame::ExamplesFrame() {
 
   setupShapes();
   sections_.push_back(std::make_unique<ExampleSection>("Shapes", shapes_.get()));
-
-  text_ = std::make_unique<CachedText>();
-  sections_.push_back(std::make_unique<ExampleSection>("Text", text_.get()));
 
   setupTextEditors();
   sections_.push_back(std::make_unique<ExampleSection>("Text Editing", &text_editor_container_));
