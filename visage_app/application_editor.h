@@ -101,29 +101,4 @@ namespace visage {
 
     VISAGE_LEAK_CHECKER(ApplicationEditor)
   };
-
-  class WindowedEditor : public ApplicationEditor {
-  public:
-    WindowedEditor();
-    ~WindowedEditor() override;
-
-    void setTitle(std::string title) { title_ = std::move(title); }
-
-    void show(const Dimension& width, const Dimension& height);
-    void show(const Dimension& x, const Dimension& y, const Dimension& width, const Dimension& height);
-    void showPopup(const Dimension& width, const Dimension& height);
-    void showPopup(const Dimension& x, const Dimension& y, const Dimension& width, const Dimension& height);
-    void showMaximized();
-
-    void runEventLoop();
-    Window* window() const { return window_.get(); }
-
-  private:
-    void show(const Dimension& x, const Dimension& y, const Dimension& width,
-              const Dimension& height, bool popup);
-    void showWindow(bool maximized);
-
-    std::string title_;
-    std::unique_ptr<Window> window_;
-  };
 }

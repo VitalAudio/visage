@@ -23,7 +23,6 @@
 
 #include "examples_frame.h"
 
-#include <visage_app/application_editor.h>
 #include <visage_graphics/animation.h>
 #include <visage_graphics/palette.h>
 #include <visage_ui/popup_menu.h>

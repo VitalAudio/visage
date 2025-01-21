@@ -4,18 +4,18 @@
 
 ## Full Basic Example
 ```cpp
-#include <visage_app/application_editor.h>
+#include <visage_app/application_window.h>
 
 int main() {
-  visage::WindowedEditor editor;
+  visage::ApplicationWindow app;
 
-  editor.onDraw() = [&editor](visage::Canvas& canvas) {
+  app.onDraw() = [&app](visage::Canvas& canvas) {
     canvas.setColor(0xffff00ff);
-    canvas.fill(0, 0, editor.width(), editor.height());
+    canvas.fill(0, 0, app.width(), app.height());
   };
 
-  editor.show(800, 600); // Opens as 800 x 600 pixel window
-  editor.runEventLoop(); // Runs window events. Returns when window is closed.
+  app.show(800, 600); // Opens as 800 x 600 pixel window
+  app.runEventLoop(); // Runs window events. Returns when window is closed.
   return 0;
 }
 ```

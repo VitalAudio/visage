@@ -21,7 +21,7 @@
 
 #include "embedded/example_fonts.h"
 
-#include <visage_app/application_editor.h>
+#include <visage_app/application_window.h>
 
 static void drawRgbCircles(visage::Canvas& canvas, float width, float height) {
   static constexpr float kCircleRadiusRatio = 0.2f;
@@ -44,7 +44,7 @@ static void drawRgbCircles(visage::Canvas& canvas, float width, float height) {
   canvas.circle(start_x + venn_offset, start_y - venn_radius * 0.5f, 2 * circle_radius);
 }
 
-class ExampleEditor : public visage::WindowedEditor {
+class ExampleEditor : public visage::ApplicationWindow {
 public:
   ExampleEditor() {
     addChild(&additive_frame_);

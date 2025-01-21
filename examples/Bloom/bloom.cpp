@@ -21,7 +21,7 @@
 
 #include "embedded/example_fonts.h"
 
-#include <visage_app/application_editor.h>
+#include <visage_app/application_window.h>
 #include <visage_widgets/graph_line.h>
 
 THEME_PALETTE_OVERRIDE(BloomPalette);
@@ -89,7 +89,7 @@ private:
   visage::GraphLine graph_line_;
 };
 
-class ExampleEditor : public visage::WindowedEditor {
+class ExampleEditor : public visage::ApplicationWindow {
 public:
   ExampleEditor() {
     bloom_.setBloomSize(40.0f);

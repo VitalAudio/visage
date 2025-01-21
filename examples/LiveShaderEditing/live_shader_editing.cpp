@@ -22,7 +22,7 @@
 #include "embedded/example_shaders.h"
 
 #include <complex>
-#include <visage_app/application_editor.h>
+#include <visage_app/application_window.h>
 #include <visage_widgets/shader_editor.h>
 
 using namespace visage::dimension;
@@ -57,7 +57,7 @@ static void drawRotatingCircles(visage::Canvas& canvas, int width, int height) {
   }
 }
 
-class ExampleEditor : public visage::WindowedEditor {
+class ExampleEditor : public visage::ApplicationWindow {
 public:
   ExampleEditor() {
     shapes_.onDraw() = [this](visage::Canvas& canvas) {

@@ -24,6 +24,7 @@
 #include "embedded/example_fonts.h"
 #include "embedded/example_shaders.h"
 
+#include <visage_app/application_window.h>
 #include <visage_graphics/post_effects.h>
 #include <visage_utils/dimension.h>
 #include <visage_widgets/shader_editor.h>
@@ -112,7 +113,7 @@ Showcase::Showcase() {
   examples_->onToggleDebug() = [this]() { toggleDebug(); };
 
   examples_->onScrenshot() = [this](const std::string& file_path) {
-    visage::WindowedEditor* parent = findParent<visage::WindowedEditor>();
+    visage::ApplicationEditor* parent = findParent<visage::ApplicationEditor>();
     if (parent)
       parent->takeScreenshot(file_path);
   };
@@ -185,7 +186,7 @@ int runExample() {
   visage::ShaderCompiler compiler;
   compiler.watchShaderFolder(SHADERS_FOLDER);
 
-  visage::WindowedEditor editor;
+  visage::ApplicationWindow editor;
 
   editor.onDraw() = [&editor](visage::Canvas& canvas) {
     canvas.setPaletteColor(kBackgroundColor);
