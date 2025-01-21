@@ -267,7 +267,7 @@ namespace visage {
     return monitorInfoForPosition(cursorScreenPosition());
   }
 
-  static Bounds boundsInDisplay(MonitorInfo monitor_info, Dimension width, Dimension height) {
+  static Bounds boundsInDisplay(MonitorInfo monitor_info, const Dimension& width, const Dimension& height) {
     int monitor_width = monitor_info.bounds.width();
     int monitor_height = monitor_info.bounds.height();
     float dpi_scale = monitor_info.dpi / Window::kDefaultDpi;
@@ -377,18 +377,21 @@ namespace visage {
     XDestroyWindow(display, message_window);
   }
 
-  std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
-                                       bool popup) {
+  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y,
+                                       const Dimension& width, const Dimension& height, bool popup) {
     MonitorInfo monitor_info = activeMonitorInfo();
     Bounds bounds = boundsInDisplay(monitor_info, width, height);
-    int window_x = x.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi, monitor_info.bounds.width(),
-                                        monitor_info.bounds.height(), bounds.x());
-    int window_y = y.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi, monitor_info.bounds.width(),
-                                        monitor_info.bounds.height(), bounds.y());
+    int window_x = x.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi,
+                                        monitor_info.bounds.width(), monitor_info.bounds.height(),
+                                        bounds.x());
+    int window_y = y.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi,
+                                        monitor_info.bounds.width(), monitor_info.bounds.height(),
+                                        bounds.y());
     return std::make_unique<WindowX11>(window_x, window_y, bounds.width(), bounds.height(), popup);
   }
 
-  std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle) {
+  std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
+                                             void* parent_handle) {
     Bounds bounds = boundsInDisplay(activeMonitorInfo(), std::move(width), std::move(height));
     return std::make_unique<WindowX11>(bounds.width(), bounds.height(), parent_handle);
   }

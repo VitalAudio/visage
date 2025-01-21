@@ -112,8 +112,8 @@ namespace visage {
     handleWindowResize(width, height);
   }
 
-  std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
-                                       bool popup) {
+  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y,
+                                       const Dimension& width, const Dimension& height, bool popup) {
     float scale = windowPixelScale();
     int display_width = scale * EM_ASM_INT({ return window.innerWidth; });
     int display_height = scale * EM_ASM_INT({ return window.innerHeight; });
@@ -122,7 +122,8 @@ namespace visage {
                                               height.compute(scale, display_width, display_height));
   }
 
-  std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle) {
+  std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
+                                             void* parent_handle) {
     VISAGE_ASSERT(false);
     return nullptr;
   }

@@ -1234,8 +1234,8 @@ namespace visage {
     return MonitorFromPoint(cursor_position, MONITOR_DEFAULTTONEAREST);
   }
 
-  static Bounds boundsInMonitor(HMONITOR monitor, float dpi_scale, Dimension x, Dimension y,
-                                Dimension width, Dimension height) {
+  static Bounds boundsInMonitor(HMONITOR monitor, float dpi_scale, const Dimension& x,
+                                const Dimension& y, const Dimension& width, const Dimension& height) {
     MONITORINFO monitor_info {};
     monitor_info.cbSize = sizeof(MONITORINFO);
     GetMonitorInfo(monitor, &monitor_info);
@@ -1359,13 +1359,14 @@ namespace visage {
     return boundsInMonitor(monitor, dpi_scale, x, y, width, height);
   }
 
-  std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
-                                       bool popup) {
+  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y,
+                                       const Dimension& width, const Dimension& height, bool popup) {
     Bounds bounds = computeWindowBounds(x, y, width, height);
     return std::make_unique<WindowWin32>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), popup);
   }
 
-  std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle) {
+  std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
+                                             void* parent_handle) {
     Bounds bounds = computeWindowBounds(0, 0, width, height);
     return std::make_unique<WindowWin32>(bounds.width(), bounds.height(), parent_handle);
   }

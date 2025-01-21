@@ -92,7 +92,7 @@ namespace visage {
   void ApplicationEditor::addToWindow(Window* window) {
     window_ = window;
     pixel_scale_ = window_->pixelScale();
-    
+
     Renderer::instance().checkInitialization(window_->initWindow(), window->globalDisplay());
     canvas_->pairToWindow(window_->nativeHandle(), window->clientWidth(), window->clientHeight());
     top_level_.setBounds(0, 0, window->clientWidth(), window->clientHeight());
@@ -152,23 +152,26 @@ namespace visage {
     removeFromWindow();
   }
 
-  void WindowedEditor::show(Dimension width, Dimension height) {
+  void WindowedEditor::show(const Dimension& width, const Dimension& height) {
     show({}, {}, width, height);
   }
 
-  void WindowedEditor::show(Dimension x, Dimension y, Dimension width, Dimension height) {
+  void WindowedEditor::show(const Dimension& x, const Dimension& y, const Dimension& width,
+                            const Dimension& height) {
     show(x, y, width, height, false);
   }
 
-  void WindowedEditor::showPopup(Dimension width, Dimension height) {
+  void WindowedEditor::showPopup(const Dimension& width, const Dimension& height) {
     showPopup({}, {}, width, height);
   }
 
-  void WindowedEditor::showPopup(Dimension x, Dimension y, Dimension width, Dimension height) {
+  void WindowedEditor::showPopup(const Dimension& x, const Dimension& y, const Dimension& width,
+                                 const Dimension& height) {
     show(x, y, width, height, true);
   }
 
-  void WindowedEditor::show(Dimension x, Dimension y, Dimension width, Dimension height, bool popup) {
+  void WindowedEditor::show(const Dimension& x, const Dimension& y, const Dimension& width,
+                            const Dimension& height, bool popup) {
     removeFromWindow();
     window_ = createWindow(x, y, width, height, popup);
     showWindow(false);

@@ -68,10 +68,10 @@ namespace visage {
     Window* window() const { return window_; }
 
     void drawStaleChildren();
-    
+
     int logicalWidth() const { return std::round(width() / pixel_scale_); }
     int logicalHeight() const { return std::round(height() / pixel_scale_); }
-    
+
     void setLogicalDimensions(int logical_width, int logical_height) {
       setBounds(x(), y(), std::round(logical_width * pixel_scale_),
                 std::round(logical_height * pixel_scale_));
@@ -102,17 +102,18 @@ namespace visage {
 
     void setTitle(std::string title) { title_ = std::move(title); }
 
-    void show(Dimension width, Dimension height);
-    void show(Dimension x, Dimension y, Dimension width, Dimension height);
-    void showPopup(Dimension width, Dimension height);
-    void showPopup(Dimension x, Dimension y, Dimension width, Dimension height);
+    void show(const Dimension& width, const Dimension& height);
+    void show(const Dimension& x, const Dimension& y, const Dimension& width, const Dimension& height);
+    void showPopup(const Dimension& width, const Dimension& height);
+    void showPopup(const Dimension& x, const Dimension& y, const Dimension& width, const Dimension& height);
     void showMaximized();
 
     void runEventLoop();
     Window* window() const { return window_.get(); }
 
   private:
-    void show(Dimension x, Dimension y, Dimension width, Dimension height, bool popup);
+    void show(const Dimension& x, const Dimension& y, const Dimension& width,
+              const Dimension& height, bool popup);
     void showWindow(bool maximized);
 
     std::string title_;

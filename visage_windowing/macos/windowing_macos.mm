@@ -333,9 +333,6 @@ namespace visage {
     [super keyUp:event];
 }
 
-- (void)paste:(id)sender {
-}
-
 - (void)insertText:(id)string {
   self.visage_window->handleTextInput([string UTF8String]);
 }
@@ -754,14 +751,15 @@ namespace visage {
     };
   }
 
-  std::unique_ptr<Window> createWindow(Dimension x, Dimension y, Dimension width, Dimension height,
-                                       bool popup) {
+  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y,
+                                       const Dimension& width, const Dimension& height, bool popup) {
     float scale = 1.0f;
     Bounds bounds = computeWindowBoundsWithScale(x, y, width, height, scale);
     return std::make_unique<WindowMac>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), popup);
   }
 
-  std::unique_ptr<Window> createPluginWindow(Dimension width, Dimension height, void* parent_handle) {
+  std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
+                                             void* parent_handle) {
     float scale = 1.0f;
     Bounds bounds = computeWindowBoundsWithScale({}, {}, width, height, scale);
     return std::make_unique<WindowMac>(bounds.width(), bounds.height(), parent_handle);
