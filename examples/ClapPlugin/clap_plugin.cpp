@@ -22,7 +22,6 @@
 #include "clap_plugin.h"
 
 #include <clap/helpers/host-proxy.hh>
-#include <clap/helpers/host-proxy.hxx>
 #include <clap/helpers/plugin.hh>
 #include <clap/helpers/plugin.hxx>
 #include <visage_windowing/windowing.h>
@@ -70,7 +69,7 @@ bool ClapPlugin::guiCreate(const char* api, bool is_floating) noexcept {
   if (is_floating)
     return false;
 
-  if (editor_.get())
+  if (editor_)
     return true;
 
   editor_ = std::make_unique<visage::ApplicationEditor>();
@@ -93,7 +92,7 @@ bool ClapPlugin::guiCreate(const char* api, bool is_floating) noexcept {
 
 void ClapPlugin::guiDestroy() noexcept {
 #if __linux__
-  if (window_)
+  if (window_ && _host.canUsePosixFdSupport())
     _host.posixFdSupportUnregister(window_->posixFd());
 #endif
   editor_->removeFromWindow();
@@ -110,8 +109,11 @@ bool ClapPlugin::guiSetParent(const clap_window* window) noexcept {
   window_->show();
 
 #if __linux__
-  return _host.posixFdSupportRegister(window_->posixFd(), CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE |
-                                                              CLAP_POSIX_FD_ERROR);
+  if (!_host.canUsePosixFdSupport())
+    return true;
+
+  int fd_flags = CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE | CLAP_POSIX_FD_ERROR;
+  return _host.posixFdSupportRegister(window_->posixFd(), fd_flags);
 #else
   return true;
 #endif
