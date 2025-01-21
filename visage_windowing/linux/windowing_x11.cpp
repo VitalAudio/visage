@@ -267,17 +267,6 @@ namespace visage {
     return monitorInfoForPosition(cursorScreenPosition());
   }
 
-  static Bounds boundsInDisplay(MonitorInfo monitor_info, const Dimension& width, const Dimension& height) {
-    int monitor_width = monitor_info.bounds.width();
-    int monitor_height = monitor_info.bounds.height();
-    float dpi_scale = monitor_info.dpi / Window::kDefaultDpi;
-    int w = width.computeWithDefault(dpi_scale, monitor_width, monitor_height, 100);
-    int h = height.computeWithDefault(dpi_scale, monitor_width, monitor_height, 100);
-    int x = (monitor_width - w) / 2;
-    int y = (monitor_height - h) / 2;
-    return { monitor_info.bounds.x() + x, monitor_info.bounds.y() + y, w, h };
-  }
-
   static void drawMessageBox(int width, int height, Display* display, ::Window window, GC gc,
                              const std::string& message) {
     XClearWindow(display, window);
@@ -309,9 +298,7 @@ namespace visage {
     constexpr float kAspectRatio = 1.5f;
     constexpr float kDisplayScale = 0.2f;
 
-    MonitorInfo monitor_info = activeMonitorInfo();
-    Bounds bounds = boundsInDisplay(monitor_info, kAspectRatio, kDisplayScale);
-
+    Bounds bounds = computeWindowBounds(Dimension::viewMinPercent(30.0f), Dimension::viewMinPercent(20.0f));
     X11Connection& x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
     Display* display = x11.display();
@@ -377,10 +364,28 @@ namespace visage {
     XDestroyWindow(display, message_window);
   }
 
+  Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
+                             const Dimension& height) {
+    MonitorInfo monitor_info = activeMonitorInfo();
+    int monitor_width = monitor_info.bounds.width();
+    int monitor_height = monitor_info.bounds.height();
+    float dpi_scale = monitor_info.dpi / Window::kDefaultDpi;
+    int result_w = width.computeWithDefault(dpi_scale, monitor_width, monitor_height, 100);
+    int result_h = height.computeWithDefault(dpi_scale, monitor_width, monitor_height, 100);
+
+    int result_x = x.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi,
+                                        monitor_info.bounds.width(), monitor_info.bounds.height(),
+                                        (monitor_width - result_w) / 2);
+    int result_y = y.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi,
+                                        monitor_info.bounds.width(), monitor_info.bounds.height(),
+                                        (monitor_height - result_h) / 2);
+    return { monitor_info.bounds.x() + result_x, monitor_info.bounds.y() + result_y, result_w, result_h };
+  }
+
   std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y,
                                        const Dimension& width, const Dimension& height, bool popup) {
+    Bounds bounds = computeWindowBounds(width, height);
     MonitorInfo monitor_info = activeMonitorInfo();
-    Bounds bounds = boundsInDisplay(monitor_info, width, height);
     int window_x = x.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi,
                                         monitor_info.bounds.width(), monitor_info.bounds.height(),
                                         bounds.x());
@@ -392,7 +397,7 @@ namespace visage {
 
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle) {
-    Bounds bounds = boundsInDisplay(activeMonitorInfo(), std::move(width), std::move(height));
+    Bounds bounds = computeWindowBounds(width, height);
     return std::make_unique<WindowX11>(bounds.width(), bounds.height(), parent_handle);
   }
 
