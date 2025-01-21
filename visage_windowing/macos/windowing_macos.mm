@@ -824,7 +824,10 @@ namespace visage {
     [NSApp activateIgnoringOtherApps:YES];
   }
 
-  WindowMac::~WindowMac() = default;
+  WindowMac::~WindowMac() {
+    if (parent_view_)
+      [view_ removeFromSuperview];
+  }
 
   void WindowMac::windowContentsResized(int width, int height) {
     NSRect frame = [window_handle_ frame];
