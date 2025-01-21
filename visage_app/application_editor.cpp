@@ -107,6 +107,7 @@ namespace visage {
 
     drawWindow();
     drawWindow();
+    redraw();
   }
 
   void ApplicationEditor::removeFromWindow() {

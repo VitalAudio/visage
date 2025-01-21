@@ -36,10 +36,6 @@ namespace visage {
     window_region_.addRegion(&default_region_);
     default_region_.setCanvas(this);
     default_region_.setNeedsLayer(true);
-
-#if VISAGE_EMSCRIPTEN
-    always_render_ = true;
-#endif
   }
 
   void Canvas::clearDrawnShapes() {
@@ -62,7 +58,7 @@ namespace visage {
     for (int i = layers_.size() - 1; i > 0; --i)
       submission = layers_[i]->submit(submission);
 
-    if (submission > submit_pass || always_render_) {
+    if (submission > submit_pass) {
       composite_layer_.invalidate();
       submission = composite_layer_.submit(submission);
       render_frame_++;
