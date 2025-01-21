@@ -143,11 +143,8 @@ namespace visage {
     }
 
     void setYPosition(float position) {
-      y_position_ = position;
-      container_.setTopLeft(container_.x(), -y_position_);
-      scroll_bar_.setPosition(position);
-      redraw();
-      container_.redraw();
+      scrollPositionChanged(position);
+      float_position_ = position;
     }
 
     int yPosition() const { return y_position_; }
@@ -186,7 +183,11 @@ namespace visage {
     float maxScroll() const { return scroll_bar_.viewRange() - scroll_bar_.viewHeight(); }
 
     void scrollPositionChanged(int position) {
-      setYPosition(position);
+      y_position_ = position;
+      container_.setTopLeft(container_.x(), -y_position_);
+      scroll_bar_.setPosition(position);
+      redraw();
+      container_.redraw();
       on_scroll_.callback(this);
     }
 
