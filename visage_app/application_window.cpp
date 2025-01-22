@@ -21,6 +21,8 @@
 
 #include "application_window.h"
 
+#include <visage_windowing/windowing.h>
+
 namespace visage {
   ApplicationWindow::ApplicationWindow() = default;
 

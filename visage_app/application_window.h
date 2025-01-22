@@ -39,7 +39,6 @@ namespace visage {
     void showMaximized();
 
     void runEventLoop();
-    Window* window() const { return window_.get(); }
 
   private:
     void show(const Dimension& x, const Dimension& y, const Dimension& width,
