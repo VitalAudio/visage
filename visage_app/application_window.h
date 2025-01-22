@@ -19,23 +19,34 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <visage_app/application_window.h>
+#pragma once
 
-int runExample() {
-  visage::ApplicationWindow app;
+#include "application_editor.h"
 
-  app.onDraw() = [&app](visage::Canvas& canvas) {
-    canvas.setColor(0xff000066);
-    canvas.fill(0, 0, app.width(), app.height());
+namespace visage {
 
-    float circle_radius = app.height() * 0.1f;
-    float x = app.width() * 0.5f - circle_radius;
-    float y = app.height() * 0.5f - circle_radius;
-    canvas.setColor(0xff00ffff);
-    canvas.circle(x, y, 2.0f * circle_radius);
+  class ApplicationWindow : public ApplicationEditor {
+  public:
+    ApplicationWindow();
+    ~ApplicationWindow() override;
+
+    void setTitle(std::string title) { title_ = std::move(title); }
+
+    void show(const Dimension& width, const Dimension& height);
+    void show(const Dimension& x, const Dimension& y, const Dimension& width, const Dimension& height);
+    void showPopup(const Dimension& width, const Dimension& height);
+    void showPopup(const Dimension& x, const Dimension& y, const Dimension& width, const Dimension& height);
+    void showMaximized();
+
+    void runEventLoop();
+    Window* window() const { return window_.get(); }
+
+  private:
+    void show(const Dimension& x, const Dimension& y, const Dimension& width,
+              const Dimension& height, bool popup);
+    void showWindow(bool maximized);
+
+    std::string title_;
+    std::unique_ptr<Window> window_;
   };
-
-  app.show(800, 600);
-  app.runEventLoop();
-  return 0;
 }

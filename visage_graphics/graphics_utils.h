@@ -47,8 +47,8 @@ namespace visage {
     Add,
     Sub,
     Mult,
-    StencilAdd,
-    StencilRemove,
+    MaskAdd,
+    MaskRemove,
   };
 
   static constexpr float kHdrColorRange = 4.0f;

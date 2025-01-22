@@ -55,8 +55,6 @@ namespace visage {
     if (frame == nullptr)
       return;
 
-    if (keyboard_focused_frame_ == frame)
-      keyboard_focused_frame_ = nullptr;
     if (mouse_hovered_frame_ == frame)
       mouse_hovered_frame_ = nullptr;
     if (mouse_down_frame_ == frame)
@@ -89,6 +87,7 @@ namespace visage {
   void WindowEventHandler::handleResized(int width, int height) {
     VISAGE_ASSERT(width >= 0 && height >= 0);
     content_frame_->setBounds(0, 0, width, height);
+    content_frame_->redraw();
   }
 
   bool WindowEventHandler::handleKeyDown(const KeyEvent& e) const {

@@ -22,7 +22,6 @@
 #include "clap_plugin.h"
 
 #include <clap/helpers/host-proxy.hh>
-#include <clap/helpers/host-proxy.hxx>
 #include <clap/helpers/plugin.hh>
 #include <clap/helpers/plugin.hxx>
 #include <visage_windowing/windowing.h>
@@ -70,11 +69,13 @@ bool ClapPlugin::guiCreate(const char* api, bool is_floating) noexcept {
   if (is_floating)
     return false;
 
-  if (editor_.get())
+  if (editor_)
     return true;
 
   editor_ = std::make_unique<visage::ApplicationEditor>();
-  
+  visage::Bounds bounds = visage::computeWindowBounds(80_vmin, 60_vmin);
+  editor_->setBounds(0, 0, bounds.width(), bounds.height());
+
   editor_->onDraw() = [this](visage::Canvas& canvas) {
     canvas.setColor(0xff000066);
     canvas.fill(0, 0, editor_->width(), editor_->height());
@@ -86,21 +87,13 @@ bool ClapPlugin::guiCreate(const char* api, bool is_floating) noexcept {
     canvas.circle(x, y, 2.0f * circle_radius);
   };
 
-  visage::Bounds bounds = visage::computeWindowBounds(80_vmin, 60_vmin);
-  editor_->setBounds(0, 0, bounds.width(), bounds.height());
-
-  editor_->onResize() += [this]() {
-    _host.guiResizeHintsChanged();
-    _host.guiRequestResize(editor_->logicalWidth(), editor_->logicalHeight());
-  };
-
   return true;
 }
 
 void ClapPlugin::guiDestroy() noexcept {
-#if VA_LINUX
-  if (window_)
-    _host.posixFdSupportUnregister(window_->getPosixFd());
+#if __linux__
+  if (window_ && _host.canUsePosixFdSupport())
+    _host.posixFdSupportUnregister(window_->posixFd());
 #endif
   editor_->removeFromWindow();
   window_.reset();
@@ -115,9 +108,12 @@ bool ClapPlugin::guiSetParent(const clap_window* window) noexcept {
   editor_->addToWindow(window_.get());
   window_->show();
 
-#if VA_LINUX
-  return _host.posixFdSupportRegister(window_->getPosixFd(),
-                                      CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE | CLAP_POSIX_FD_ERROR);
+#if __linux__
+  if (!_host.canUsePosixFdSupport())
+    return true;
+
+  int fd_flags = CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE | CLAP_POSIX_FD_ERROR;
+  return _host.posixFdSupportRegister(window_->posixFd(), fd_flags);
 #else
   return true;
 #endif
@@ -128,8 +124,8 @@ bool ClapPlugin::guiGetResizeHints(clap_gui_resize_hints_t* hints) noexcept {
     return false;
 
   bool fixed_aspect_ratio = editor_->isFixedAspectRatio();
-  hints->can_resize_horizontally = !fixed_aspect_ratio;
-  hints->can_resize_vertically = !fixed_aspect_ratio;
+  hints->can_resize_horizontally = true;
+  hints->can_resize_vertically = true;
   hints->preserve_aspect_ratio = fixed_aspect_ratio;
 
   if (fixed_aspect_ratio) {

@@ -107,6 +107,7 @@ namespace visage {
 
     drawWindow();
     drawWindow();
+    redraw();
   }
 
   void ApplicationEditor::removeFromWindow() {
@@ -144,57 +145,5 @@ namespace visage {
         ++it;
     }
     drawing_children_.clear();
-  }
-
-  WindowedEditor::WindowedEditor() = default;
-
-  WindowedEditor::~WindowedEditor() {
-    removeFromWindow();
-  }
-
-  void WindowedEditor::show(const Dimension& width, const Dimension& height) {
-    show({}, {}, width, height);
-  }
-
-  void WindowedEditor::show(const Dimension& x, const Dimension& y, const Dimension& width,
-                            const Dimension& height) {
-    show(x, y, width, height, false);
-  }
-
-  void WindowedEditor::showPopup(const Dimension& width, const Dimension& height) {
-    showPopup({}, {}, width, height);
-  }
-
-  void WindowedEditor::showPopup(const Dimension& x, const Dimension& y, const Dimension& width,
-                                 const Dimension& height) {
-    show(x, y, width, height, true);
-  }
-
-  void WindowedEditor::show(const Dimension& x, const Dimension& y, const Dimension& width,
-                            const Dimension& height, bool popup) {
-    removeFromWindow();
-    window_ = createWindow(x, y, width, height, popup);
-    showWindow(false);
-  }
-
-  void WindowedEditor::showMaximized() {
-    removeFromWindow();
-    window_ = createWindow({}, {}, Dimension::widthPercent(85.0f), Dimension::heightPercent(85.0f), false);
-    showWindow(true);
-  }
-
-  void WindowedEditor::runEventLoop() {
-    window_->runEventLoop();
-  }
-
-  void WindowedEditor::showWindow(bool maximized) {
-    if (!title_.empty())
-      window_->setWindowTitle(title_);
-
-    addToWindow(window_.get());
-    if (maximized)
-      window_->showMaximized();
-    else
-      window_->show();
   }
 }

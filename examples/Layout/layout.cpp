@@ -21,11 +21,11 @@
 
 #include "embedded/example_fonts.h"
 
-#include <visage_app/application_editor.h>
+#include <visage_app/application_window.h>
 
 using namespace visage::dimension;
 
-class ExampleEditor : public visage::WindowedEditor {
+class ExampleEditor : public visage::ApplicationWindow {
 public:
   static constexpr int kNumFrames = 10;
 

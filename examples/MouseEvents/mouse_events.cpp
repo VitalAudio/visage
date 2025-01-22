@@ -19,10 +19,10 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <visage_app/application_editor.h>
+#include <visage_app/application_window.h>
 #include <visage_ui/popup_menu.h>
 
-class ExampleEditor : public visage::WindowedEditor {
+class ExampleEditor : public visage::ApplicationWindow {
 public:
   void draw(visage::Canvas& canvas) override {
     static constexpr float kRadius = 50.0f;

@@ -21,7 +21,7 @@
 
 #include "embedded/example_fonts.h"
 
-#include <visage_app/application_editor.h>
+#include <visage_app/application_window.h>
 
 static void drawRgbCircles(visage::Canvas& canvas, float width, float height) {
   static constexpr float kCircleRadiusRatio = 0.2f;
@@ -44,13 +44,13 @@ static void drawRgbCircles(visage::Canvas& canvas, float width, float height) {
   canvas.circle(start_x + venn_offset, start_y - venn_radius * 0.5f, 2 * circle_radius);
 }
 
-class ExampleEditor : public visage::WindowedEditor {
+class ExampleEditor : public visage::ApplicationWindow {
 public:
   ExampleEditor() {
     addChild(&additive_frame_);
     addChild(&subtractive_frame_);
-    stenciled_frame_.setStenciled(true);
-    addChild(&stenciled_frame_);
+    masked_frame_.setMasked(true);
+    addChild(&masked_frame_);
     transparent_frame_.setAlphaTransparency(0.5f);
     addChild(&transparent_frame_);
 
@@ -73,10 +73,10 @@ public:
       drawRgbCircles(canvas, subtractive_frame_.width(), subtractive_frame_.height());
     };
 
-    stenciled_frame_.onDraw() = [this](visage::Canvas& canvas) {
+    masked_frame_.onDraw() = [this](visage::Canvas& canvas) {
       static constexpr int kColumns = 12;
-      int w = stenciled_frame_.width();
-      int h = stenciled_frame_.height();
+      int w = masked_frame_.width();
+      int h = masked_frame_.height();
       int last_x = 0;
       int color1 = 0xffff00ff;
       int color2 = 0xffffffff;
@@ -88,17 +88,17 @@ public:
         last_x = x;
       }
 
-      canvas.setBlendMode(visage::BlendMode::StencilRemove);
+      canvas.setBlendMode(visage::BlendMode::MaskRemove);
       canvas.setColor(0xffffffff);
       canvas.fill(0, 0, w, h);
 
-      canvas.setBlendMode(visage::BlendMode::StencilAdd);
+      canvas.setBlendMode(visage::BlendMode::MaskAdd);
       canvas.setColor(0xffffffff);
       drawRgbCircles(canvas, w, h);
 
       canvas.setBlendMode(visage::BlendMode::Alpha);
       canvas.setColor(0xffffffff);
-      canvas.text("Stencil", font_, visage::Font::kCenter, 0, 0, w, font_.size() * 3);
+      canvas.text("Masked", font_, visage::Font::kCenter, 0, 0, w, font_.size() * 3);
     };
 
     transparent_frame_.onDraw() = [this](visage::Canvas& canvas) {
@@ -136,7 +136,7 @@ public:
 
     additive_frame_.setBounds(0, 0, center_x, center_y);
     subtractive_frame_.setBounds(center_x, 0, width() - center_x, center_y);
-    stenciled_frame_.setBounds(0, center_y, center_x, height() - center_y);
+    masked_frame_.setBounds(0, center_y, center_x, height() - center_y);
     transparent_frame_.setBounds(center_x, center_y, width() - center_x, height() - center_y);
 
     font_ = visage::Font(16.0f * dpiScale(), resources::fonts::Lato_Regular_ttf);
@@ -145,7 +145,7 @@ public:
 private:
   Frame additive_frame_;
   Frame subtractive_frame_;
-  Frame stenciled_frame_;
+  Frame masked_frame_;
   Frame transparent_frame_;
   visage::Font font_;
 };

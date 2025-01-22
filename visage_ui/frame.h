@@ -235,8 +235,8 @@ namespace visage {
       redraw();
     }
 
-    void setStenciled(bool stenciled) {
-      stenciled_ = stenciled;
+    void setMasked(bool masked) {
+      masked_ = masked;
       redraw();
     }
 
@@ -427,7 +427,7 @@ namespace visage {
     void destroyChildren();
 
     bool requiresLayer() const {
-      return post_effect_ || cached_ || stenciled_ || alpha_transparency_ != 1.0f;
+      return post_effect_ || cached_ || masked_ || alpha_transparency_ != 1.0f;
     }
 
     std::string name_;
@@ -471,7 +471,7 @@ namespace visage {
 
     PostEffect* post_effect_ = nullptr;
     bool cached_ = false;
-    bool stenciled_ = false;
+    bool masked_ = false;
     float alpha_transparency_ = 1.0f;
     Region region_;
     std::unique_ptr<Layout> layout_;

@@ -56,10 +56,10 @@ namespace visage {
                                                 BGFX_STATE_BLEND_EQUATION_ADD);
     case BlendMode::Mult:
       return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_MULTIPLY;
-    case BlendMode::StencilAdd:
+    case BlendMode::MaskAdd:
       return BGFX_STATE_WRITE_A |
              BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
-    case BlendMode::StencilRemove:
+    case BlendMode::MaskRemove:
       return BGFX_STATE_WRITE_A |
              BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE) |
              BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_REVSUB);
