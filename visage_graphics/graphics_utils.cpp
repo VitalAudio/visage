@@ -285,7 +285,7 @@ namespace visage {
     packed_ = false;
   }
 
-  bool AtlasPacker::pack(std::vector<PackedRect>& rects, int width) {
+  bool AtlasPacker::pack(std::vector<PackedRect>& rects, int width, int height) {
     data_->pack_nodes = std::make_unique<stbrp_node[]>(width);
     std::vector<stbrp_rect> packed_rects;
     rect_index_ = 0;
@@ -297,7 +297,7 @@ namespace visage {
       packed_rects.push_back(r);
     }
 
-    stbrp_init_target(&data_->pack_context, width, width, data_->pack_nodes.get(), width);
+    stbrp_init_target(&data_->pack_context, width, height, data_->pack_nodes.get(), width);
     packed_ = stbrp_pack_rects(&data_->pack_context, packed_rects.data(), packed_rects.size());
     if (packed_) {
       for (int i = 0; i < packed_rects.size(); ++i) {

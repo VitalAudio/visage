@@ -140,7 +140,7 @@ namespace visage {
       int size = packed_glyph->width * packed_glyph->height;
       if (size == 0)
         return;
-      
+
       std::unique_ptr<unsigned int[]> texture = std::make_unique<unsigned int[]>(size);
       if (packed_glyph->type_face) {
         FT_GlyphSlot glyph = packed_glyph->type_face->characterRasterData(character);
@@ -203,7 +203,7 @@ namespace visage {
 
     void checkInit() {
       if (!bgfx::isValid(texture_handle_)) {
-        texture_handle_ = bgfx::createTexture2D(atlas_.width(), atlas_.width(), false, 1,
+        texture_handle_ = bgfx::createTexture2D(atlas_.width(), atlas_.height(), false, 1,
                                                 bgfx::TextureFormat::BGRA8);
 
         for (auto& glyph : packed_glyphs_)
@@ -212,6 +212,7 @@ namespace visage {
     }
 
     int atlasWidth() const { return atlas_.width(); }
+    int atlasHeight() const { return atlas_.width(); }
     bgfx::TextureHandle& textureHandle() { return texture_handle_; }
     int lineHeight() const { return type_faces_[0]->lineHeight(); }
     int size() const { return size_; }
@@ -437,6 +438,10 @@ namespace visage {
 
   int Font::atlasWidth() const {
     return packed_font_->atlasWidth();
+  }
+
+  int Font::atlasHeight() const {
+    return packed_font_->atlasHeight();
   }
 
   const bgfx::TextureHandle& Font::textureHandle() const {

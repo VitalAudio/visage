@@ -238,6 +238,7 @@ namespace visage {
     checkFrameBuffer();
     bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
     bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
+
     if (bgfx::isValid(frame_buffer_data_->handle))
       bgfx::setViewFrameBuffer(submit_pass, frame_buffer_data_->handle);
 
@@ -316,7 +317,7 @@ namespace visage {
     if (!atlas_.addRect(region, region->width(), region->height())) {
       invalidate();
       atlas_.pack();
-      setDimensions(atlas_.width(), atlas_.width());
+      setDimensions(atlas_.width(), atlas_.height());
     }
   }
 

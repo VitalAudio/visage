@@ -97,6 +97,7 @@ namespace visage {
     float lowerDipHeight() const;
 
     int atlasWidth() const;
+    int atlasHeight() const;
     int size() const { return size_; }
     const char* fontData() const { return font_data_; }
     int dataSize() const { return data_size_; }

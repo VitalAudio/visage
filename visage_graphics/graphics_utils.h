@@ -79,8 +79,9 @@ namespace visage {
 
     bool addRect(PackedRect& rect);
     void clear();
-    bool pack(std::vector<PackedRect>& rects, int width);
+    bool pack(std::vector<PackedRect>& rects, int width, int height);
     void setPadding(int padding) { padding_ = padding; }
+    int padding() const { return padding_; }
 
     bool packed() const { return packed_; }
 
@@ -114,9 +115,16 @@ namespace visage {
 
       checkRemovedRects();
       bool packed = false;
-      for (int m = 0; !packed && m < kMaxMultiples; ++m) {
-        width_ = kDefaultWidth << m;
-        packed = packer_.pack(packed_rects_, width_);
+      if (packed_rects_.size() == 1) {
+        width_ = std::max(1, packed_rects_[0].w + packer_.padding());
+        height_ = std::max(1, packed_rects_[0].h + packer_.padding());
+        packed = packer_.pack(packed_rects_, width_, height_);
+      }
+      else if (!packed_rects_.empty()) {
+        for (int m = 0; !packed && m < kMaxMultiples; ++m) {
+          width_ = height_ = kDefaultWidth << m;
+          packed = packer_.pack(packed_rects_, width_, height_);
+        }
       }
 
       VISAGE_ASSERT(packed);
@@ -150,7 +158,7 @@ namespace visage {
 
       if (bottom_left_origin) {
         for (int i = 0; i < kVerticesPerQuad; ++i)
-          vertices[i].texture_y = width_ - vertices[i].texture_y;
+          vertices[i].texture_y = height_ - vertices[i].texture_y;
       }
     }
 
@@ -166,6 +174,7 @@ namespace visage {
     }
 
     int width() const { return width_; }
+    int height() const { return height_; }
     bool packed() const { return packer_.packed(); }
     int numRects() const { return packed_rects_.size(); }
 
@@ -184,6 +193,7 @@ namespace visage {
     }
 
     int width_ = 0;
+    int height_ = 0;
     std::vector<PackedRect> packed_rects_;
     AtlasPacker packer_;
     std::map<T, int> lookup_;

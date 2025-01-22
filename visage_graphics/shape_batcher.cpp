@@ -428,7 +428,8 @@ namespace visage {
 
     const ImageGroup* image_group = batches[0].shapes->front().image_group;
     setBlendMode(BlendMode::Alpha);
-    float atlas_scale[] = { 1.0f / image_group->atlasWidth(), 1.0f / image_group->atlasWidth(), 0.0f, 0.0f };
+    float atlas_scale[] = { 1.0f / image_group->atlasWidth(), 1.0f / image_group->atlasHeight(),
+                            0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale);
     setTexture<Uniforms::kTexture>(0, image_group->textureHandle());
     setUniformDimensions(layer.width(), layer.height());
@@ -593,7 +594,7 @@ namespace visage {
 
     VISAGE_ASSERT(vertex_index == total_length * kVerticesPerQuad);
 
-    float atlas_scale_uniform[] = { 1.0f / font.atlasWidth(), 1.0f / font.atlasWidth(), 0.0f, 0.0f };
+    float atlas_scale_uniform[] = { 1.0f / font.atlasWidth(), 1.0f / font.atlasHeight(), 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale_uniform);
     setTexture<Uniforms::kTexture>(0, font.textureHandle());
     setUniformDimensions(layer.width(), layer.height());

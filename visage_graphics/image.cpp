@@ -126,7 +126,7 @@ namespace visage {
 
   class ImageGroupTexture {
   public:
-    explicit ImageGroupTexture(int width) : width_(width) { }
+    explicit ImageGroupTexture(int width, int height) : width_(width), height_(height) { }
 
     ~ImageGroupTexture() { destroyHandle(); }
 
@@ -143,7 +143,7 @@ namespace visage {
 
     void checkHandle() {
       if (!bgfx::isValid(texture_handle_))
-        texture_handle_ = bgfx::createTexture2D(width_, width_, false, 1, bgfx::TextureFormat::BGRA8);
+        texture_handle_ = bgfx::createTexture2D(width_, height_, false, 1, bgfx::TextureFormat::RGBA8);
     }
 
     void updateTexture(const unsigned char* data, int x, int y, int width, int height) {
@@ -154,6 +154,7 @@ namespace visage {
 
   private:
     int width_ = 0;
+    int height_ = 0;
     bgfx::TextureHandle texture_handle_ = BGFX_INVALID_HANDLE;
   };
 
@@ -172,7 +173,7 @@ namespace visage {
     }
 
     atlas_.pack();
-    texture_ = std::make_unique<ImageGroupTexture>(atlas_.width());
+    texture_ = std::make_unique<ImageGroupTexture>(atlas_.width(), atlas_.height());
   }
 
   ImageGroup::~ImageGroup() = default;

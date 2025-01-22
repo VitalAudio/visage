@@ -87,6 +87,7 @@ namespace visage {
     Point incrementImage(const ImageFile& image);
     void decrementImage(const ImageFile& image);
     int atlasWidth() const { return atlas_.width(); }
+    int atlasHeight() const { return atlas_.height(); }
     const bgfx::TextureHandle& textureHandle() const;
     void setImageCoordinates(TextureVertex* vertices, const ImageFile& image) const;
 
