@@ -36,7 +36,7 @@ namespace visage {
   public:
     static constexpr int kDndVersion = 5;
     static constexpr int kNumDndActions = 2;
-    static constexpr int kNumDndTypes = 6;
+    static constexpr int kNumDndTypes = 1;
 
     static int xErrorHandler(Display* display, XErrorEvent* error_event) {
       VISAGE_LOG(String("X11 Error: ") + static_cast<int>(error_event->error_code));
@@ -101,12 +101,7 @@ namespace visage {
       dnd_action_list_ = XInternAtom(display_, "XdndActionList", False);
       dnd_action_description_ = XInternAtom(display_, "XdndActionDescription", False);
       dnd_type_list_ = XInternAtom(display_, "XdndTypeList", False);
-      dnd_types_[0] = XInternAtom(display_, "text/uri-list", False);
-      dnd_types_[1] = XInternAtom(display_, "UTF8_STRING", False);
-      dnd_types_[2] = XInternAtom(display_, "TEXT", False);
-      dnd_types_[3] = XInternAtom(display_, "STRING", False);
-      dnd_types_[4] = XInternAtom(display_, "text/plain;charset=utf-8", False);
-      dnd_types_[5] = XInternAtom(display_, "text/plain", False);
+      dnd_types_[0] = dnd_uri_list_;
       dnd_actions_[0] = dnd_action_copy_;
       dnd_actions_[1] = dnd_action_none_;
       cursors_ = std::make_unique<Cursors>(display_);

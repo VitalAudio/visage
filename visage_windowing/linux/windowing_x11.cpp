@@ -437,8 +437,6 @@ namespace visage {
     XStoreName(display, window_handle_, VISAGE_APPLICATION_NAME);
 
     unsigned char blank = 0;
-    XChangeProperty(display, window_handle_, x11_.dndTypeList(), XA_ATOM, 32, PropModeReplace,
-                    x11_.dndTypes(), X11Connection::kNumDndTypes);
     XChangeProperty(display, window_handle_, x11_.dndActionList(), XA_ATOM, 32, PropModeReplace,
                     x11_.dndActions(), X11Connection::kNumDndActions);
     XChangeProperty(display, window_handle_, x11_.dndActionDescription(), XA_STRING, 8,
@@ -785,20 +783,21 @@ namespace visage {
   }
 
   void WindowX11::sendDragDropEnter(::Window source, ::Window target) const {
-    XEvent message;
+    XClientMessageEvent message;
     memset(&message, 0, sizeof(message));
-    message.xclient.type = ClientMessage;
-    message.xclient.display = x11_.display();
-    message.xclient.window = target;
-    message.xclient.message_type = x11_.dndEnter();
-    message.xclient.format = 32;
-    message.xclient.data.l[0] = source;
-    message.xclient.data.l[1] = X11Connection::kDndVersion << 24;
-    message.xclient.data.l[2] = x11_.dndType(0);
-    message.xclient.data.l[3] = None;
-    message.xclient.data.l[4] = None;
+    message.type = ClientMessage;
+    message.display = x11_.display();
+    message.window = target;
+    message.message_type = x11_.dndEnter();
+    message.format = 32;
+    message.data.l[0] = source;
+    message.data.l[1] = 5 << 24;
+    message.data.l[2] = x11_.dndUriList();
+    message.data.l[3] = None;
+    message.data.l[4] = None;
 
-    XSendEvent(x11_.display(), target, False, 0, &message);
+    XSendEvent(x11_.display(), target, False, 0, reinterpret_cast<XEvent*>(&message));
+    XFlush(x11_.display());
   }
 
   void WindowX11::sendDragDropLeave(::Window source, ::Window target) const {
@@ -812,6 +811,7 @@ namespace visage {
     message.xclient.data.l[0] = source;
 
     XSendEvent(x11_.display(), target, False, 0, &message);
+    XFlush(x11_.display());
   }
 
   void WindowX11::sendDragDropPosition(::Window source, ::Window target, int x, int y,
@@ -824,11 +824,12 @@ namespace visage {
     message.xclient.message_type = x11_.dndPosition();
     message.xclient.format = 32;
     message.xclient.data.l[0] = source;
-    message.xclient.data.l[2] = x << 16 | y;
+    message.xclient.data.l[2] = (x << 16) | (y & 0xffff);
     message.xclient.data.l[3] = time;
     message.xclient.data.l[4] = x11_.dndActionCopy();
 
     XSendEvent(x11_.display(), drag_drop_out_state_.target, False, 0, &message);
+    XFlush(x11_.display());
   }
 
   ::Window WindowX11::dragDropProxy(::Window window) const {
@@ -883,27 +884,35 @@ namespace visage {
   }
 
   void WindowX11::sendDragDropSelectionNotify(XSelectionRequestEvent* request) const {
-    std::string selection_data;
-    for (int i = 0; i < drag_drop_files_.size(); ++i) {
-      selection_data += "file://" + drag_drop_files_[i];
-      if (i < drag_drop_files_.size() - 1)
-        selection_data += "\n";
+    X11Connection::DisplayLock lock(x11_);
+
+    XSelectionEvent result = { 0 };
+    result.type = SelectionNotify;
+    result.display = request->display;
+    result.requestor = request->requestor;
+    result.selection = request->selection;
+    result.time = request->time;
+    result.target = request->target;
+    result.property = None;
+
+    if (request->target == x11_.targets()) {
+      Atom supported_types[] = { x11_.dndUriList() };
+      XChangeProperty(request->display, request->requestor, request->property, XA_ATOM, 32,
+                      PropModeReplace, (unsigned char*)supported_types, 2);
+      result.property = request->property;
+    }
+    else if (request->target == x11_.dndUriList()) {
+      std::string selection_data;
+      for (const auto& drag_drop_file : drag_drop_files_)
+        selection_data += "file://" + drag_drop_file + "\r\n";
+
+      XChangeProperty(request->display, request->requestor, request->property, request->target, 8,
+                      PropModeReplace, (unsigned char*)selection_data.c_str(), selection_data.length());
+      result.property = request->property;
     }
 
-    XChangeProperty(x11_.display(), request->requestor, request->property, x11_.dndType(0), 8,
-                    PropModeReplace, (unsigned char*)selection_data.c_str(), selection_data.size() + 1);
-
-    XEvent message;
-    memset(&message, 0, sizeof(message));
-    message.xselection.type = SelectionNotify;
-    message.xselection.display = x11_.display();
-    message.xselection.requestor = request->requestor;
-    message.xselection.selection = request->selection;
-    message.xselection.target = request->target;
-    message.xselection.property = request->property;
-    message.xselection.time = request->time;
-
-    XSendEvent(x11_.display(), request->requestor, False, 0, &message);
+    if (result.property != None)
+      XSendEvent(request->display, result.requestor, 0, NoEventMask, (XEvent*)&result);
   }
 
   void WindowX11::sendDragDropFinished(::Window source, ::Window target, bool accepted_drag) const {
@@ -1094,7 +1103,6 @@ namespace visage {
           drag_drop_out_state_.target = windowUnderCursor();
         }
         if (last_target != drag_drop_out_state_.target) {
-          XSetSelectionOwner(x11_.display(), x11_.dndSelection(), window_handle_, event.xmotion.time);
           if (last_target)
             sendDragDropLeave(window_handle_, last_target);
           if (drag_drop_out_state_.target)
@@ -1129,6 +1137,8 @@ namespace visage {
 
         drag_drop_out_state_.dragging = isDragDropSource();
         if (drag_drop_out_state_.dragging) {
+          XSetSelectionOwner(x11_.display(), x11_.dndSelection(), window_handle_, event.xmotion.time);
+
           setCursorStyle(MouseCursor::MultiDirectionalResize);
           drag_drop_files_.clear();
           drag_drop_files_.push_back(startDragDropSource());
