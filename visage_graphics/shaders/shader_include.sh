@@ -8,19 +8,19 @@
 #	endif // BGFX_SHADER_LANGUAGE_HLSL
 
 #	if BGFX_SHADER_LANGUAGE_HLSL > 300 || BGFX_SHADER_LANGUAGE_PSSL || BGFX_SHADER_LANGUAGE_SPIRV || BGFX_SHADER_LANGUAGE_METAL
-struct InternalSampler2D {
+struct BgfxSampler2D {
 	SamplerState m_sampler;
 	Texture2D m_texture;
 };
 
-vec4 internalTexture2D(InternalSampler2D _sampler, vec2 _coord) {
+vec4 internalTexture2D(BgfxSampler2D _sampler, vec2 _coord) {
 	return _sampler.m_texture.Sample(_sampler.m_sampler, _coord);
 }
 
 #		define SAMPLER2D(_name, _reg) \
 			uniform SamplerState _name ## Sampler : REGISTER(s, _reg); \
 			uniform Texture2D _name ## Texture : REGISTER(t, _reg); \
-			static InternalSampler2D _name = { _name ## Sampler, _name ## Texture }
+			static BgfxSampler2D _name = { _name ## Sampler, _name ## Texture }
 #		define sampler2D BgfxSampler2D
 #		define texture2D(_sampler, _coord) internalTexture2D(_sampler, _coord)
 #	else

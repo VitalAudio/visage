@@ -1196,6 +1196,8 @@ namespace visage {
     case ConfigureNotify: {
       visage::Point dimensions = retrieveWindowDimensions();
       handleResized(dimensions.x, dimensions.y);
+      long long us_time = time::microseconds() - start_microseconds_;
+      drawCallback(us_time / 1000000.0);
       break;
     }
     }
@@ -1212,8 +1214,8 @@ namespace visage {
     fd_set read_fds;
     unsigned int fd = ConnectionNumber(display);
 
-    long long start_timer_microseconds = time::microseconds();
-    long long last_timer_microseconds = start_timer_microseconds;
+    start_microseconds_ = time::microseconds();
+    long long last_timer_microseconds = start_microseconds_;
 
     XEvent event;
     bool running = true;
@@ -1232,7 +1234,7 @@ namespace visage {
         running = false;
       else if (result == 0) {
         last_timer_microseconds = time::microseconds();
-        long long us_time = last_timer_microseconds - start_timer_microseconds;
+        long long us_time = last_timer_microseconds - start_microseconds_;
         drawCallback(us_time / 1000000.0);
 
         while (XPending(X11Connection::globalInstance().display())) {

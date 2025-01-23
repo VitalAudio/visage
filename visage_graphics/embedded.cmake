@@ -35,7 +35,7 @@ function(visage_embed_shaders project include_filename namespace original_shader
     set(METAL TRUE)
   elseif (UNIX)
     set(LINUX TRUE)
-    set(OPENGL TRUE)
+    set(VULKAN TRUE)
     set(SHADER_PLATFORM "linux")
   endif()
 

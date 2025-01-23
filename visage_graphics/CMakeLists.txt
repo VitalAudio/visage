@@ -53,7 +53,7 @@ message(STATUS "Downloading graphics dependencies")
 set(CMAKE_MESSAGE_LOG_LEVEL "ERROR")
 FetchContent_Declare(bgfx GIT_REPOSITORY https://github.com/bkaradzic/bgfx.cmake.git
   GIT_SHALLOW TRUE
-  GIT_TAG v1.128.8832-486
+  GIT_TAG v1.129.8863-490
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(bgfx)
@@ -84,7 +84,7 @@ target_compile_options(bimg PRIVATE ${DISABLE_WARNINGS})
 
 target_link_libraries(
   VisageGraphics
-  PRIVATE 
+  PRIVATE
   bx
 )
 

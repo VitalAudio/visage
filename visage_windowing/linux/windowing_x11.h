@@ -256,7 +256,8 @@ namespace visage {
     ::Window window_handle_ = 0;
     ::Window parent_handle_ = 0;
     std::map<KeySym, bool> pressed_;
-    std::atomic<int> timer_microseconds_ = 16667;
+    long long start_microseconds_ = 0;
+    std::atomic<long long> timer_microseconds_ = 16667;
     std::atomic<bool> timer_thread_running_ = false;
     std::unique_ptr<std::thread> timer_thread_;
   };
