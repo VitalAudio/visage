@@ -68,5 +68,5 @@ int main() {
 ## Supported Platforms
 - **Windows**: Direct3D11
 - **MacOS**: Metal  
-- **Linux**: OpenGL
-- **Web**: WebGL
+- **Linux**: Vulkan
+- **Web/Emscripten**: WebGL
