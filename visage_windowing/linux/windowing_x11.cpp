@@ -205,15 +205,11 @@ namespace visage {
     return { root_x, root_y };
   }
 
-  bool shouldWindowDraw(void* window_handle) {
-    return true;
-  }
-
   float windowPixelScale() {
     return 1.0f;
   }
 
-  double refreshRate(XRRScreenResources* screen_resources, XRRCrtcInfo* info) {
+  static double refreshRate(XRRScreenResources* screen_resources, XRRCrtcInfo* info) {
     for (int i = 0; i < screen_resources->nmode; ++i) {
       if (screen_resources->modes[i].id == info->mode)
         return screen_resources->modes[i].dotClock * 1.0 /
@@ -222,7 +218,7 @@ namespace visage {
     return MonitorInfo::kDefaultRefreshRate;
   }
 
-  MonitorInfo monitorInfoForPosition(Point point) {
+  static MonitorInfo monitorInfoForPosition(Point point) {
     static constexpr float kInchToMm = 25.4;
 
     X11Connection& x11 = X11Connection::globalInstance();
@@ -634,7 +630,7 @@ namespace visage {
     return result;
   }
 
-  MouseButton buttonFromEvent(XEvent& event) {
+  static MouseButton buttonFromEvent(XEvent& event) {
     if (event.xbutton.button == Button1)
       return kMouseButtonLeft;
     if (event.xbutton.button == Button2)
@@ -644,7 +640,7 @@ namespace visage {
     return kMouseButtonNone;
   }
 
-  KeyCode translateKeyCode(KeySym keysym) {
+  static KeyCode translateKeyCode(KeySym keysym) {
     switch (keysym) {
     case XK_a: return KeyCode::A;
     case XK_b: return KeyCode::B;
@@ -858,7 +854,7 @@ namespace visage {
     message.xclient.message_type = x11_.dndStatus();
     message.xclient.format = 32;
     message.xclient.data.l[0] = source;
-    message.xclient.data.l[2] = 0;
+    message.xclient.data.l[2] = 1;
     message.xclient.data.l[3] = 0;
     if (accept_drag) {
       message.xclient.data.l[1] = 1;
@@ -1001,21 +997,28 @@ namespace visage {
       X11Connection::DisplayLock lock(x11_);
       if (event.xclient.message_type == x11_.dndEnter()) {
         drag_drop_files_.clear();
-        XConvertSelection(x11_.display(), x11_.dndSelection(), XA_STRING, x11_.dndSelection(),
+        XConvertSelection(x11_.display(), x11_.dndSelection(), x11_.dndUriList(), x11_.dndUriList(),
                           window_handle_, CurrentTime);
+        XFlush(x11_.display());
         sendDragDropStatus(event.xclient.window, event.xclient.data.l[0], false);
       }
       else if (event.xclient.message_type == x11_.dndLeave()) {
         handleFileDragLeave();
       }
       else if (event.xclient.message_type == x11_.dndDrop()) {
-        Point position = cursorPosition(window_handle_);
-        bool accepted = handleFileDrop(position.x, position.y, drag_drop_files_);
-        sendDragDropFinished(event.xclient.window, event.xclient.data.l[0], accepted);
+        bool success = handleFileDrop(drag_drop_target_x_, drag_drop_target_y_, drag_drop_files_);
+        sendDragDropFinished(event.xclient.window, event.xclient.data.l[0], success);
       }
       else if (event.xclient.message_type == x11_.dndPosition()) {
-        Point position = cursorPosition(event.xclient.window);
-        bool accepts = handleFileDrag(position.x, position.y, drag_drop_files_);
+        int win_x = 0;
+        int win_y = 0;
+        ::Window child_return;
+        XTranslateCoordinates(x11_.display(), window_handle_, x11_.rootWindow(), 0, 0, &win_x,
+                              &win_y, &child_return);
+
+        drag_drop_target_x_ = (event.xclient.data.l[2] >> 16) - win_x;
+        drag_drop_target_y_ = (event.xclient.data.l[2] & 0xffff) - win_y;
+        bool accepts = handleFileDrag(drag_drop_target_x_, drag_drop_target_y_, drag_drop_files_);
         sendDragDropStatus(event.xclient.window, event.xclient.data.l[0], accepts);
       }
       else if (event.xclient.message_type == x11_.dndStatus()) {
@@ -1046,8 +1049,8 @@ namespace visage {
           unsigned long num_items = 0, bytes_after = 0;
           unsigned char* files_string = nullptr;
 
-          XGetWindowProperty(x11_.display(), event.xany.window, x11_.dndSelection(), 0, ~0, False,
-                             AnyPropertyType, &actual_type, &actual_format, &num_items,
+          XGetWindowProperty(x11_.display(), event.xany.window, event.xselection.property, 0, ~0,
+                             False, AnyPropertyType, &actual_type, &actual_format, &num_items,
                              &bytes_after, &files_string);
 
           if (files_string) {
@@ -1060,10 +1063,11 @@ namespace visage {
 
             drag_drop_files_.clear();
             while (std::getline(stream, line)) {
-              if (line.substr(0, kFilePrefix.size()) == kFilePrefix)
-                drag_drop_files_.push_back(line.substr(kFilePrefix.size()));
+              std::string trimmed = String(line).trim().toUtf8();
+              if (trimmed.substr(0, kFilePrefix.size()) == kFilePrefix)
+                drag_drop_files_.push_back(trimmed.substr(kFilePrefix.size()));
               else
-                drag_drop_files_.push_back(line);
+                drag_drop_files_.push_back(trimmed);
             }
 
             XFree(files_string);
@@ -1143,6 +1147,10 @@ namespace visage {
         }
         else if (drag_drop_out_state_.target)
           sendDragDropDrop(window_handle_, drag_drop_out_state_.target);
+
+        cleanupDragDropSource();
+        drag_drop_out_state_.dragging = false;
+        setCursorStyle(MouseCursor::Arrow);
       }
       if (button == kMouseButtonNone)
         passEventToParent(event);

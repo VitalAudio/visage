@@ -92,6 +92,7 @@ namespace visage {
       dnd_leave_ = XInternAtom(display_, "XdndLeave", False);
       dnd_drop_ = XInternAtom(display_, "XdndDrop", False);
       dnd_selection_ = XInternAtom(display_, "XdndSelection", False);
+      dnd_uri_list_ = XInternAtom(display_, "text/uri-list", False);
       dnd_position_ = XInternAtom(display_, "XdndPosition", False);
       dnd_finished_ = XInternAtom(display_, "XdndFinished", False);
       dnd_status_ = XInternAtom(display_, "XdndStatus", False);
@@ -128,6 +129,7 @@ namespace visage {
     Atom dndDrop() const { return dnd_drop_; }
     Atom dndPosition() const { return dnd_position_; }
     Atom dndSelection() const { return dnd_selection_; }
+    Atom dndUriList() const { return dnd_uri_list_; }
     Atom dndFinished() const { return dnd_finished_; }
     Atom dndStatus() const { return dnd_status_; }
     Atom dndActionNone() const { return dnd_action_none_; }
@@ -157,6 +159,7 @@ namespace visage {
     Atom dnd_leave_ = 0;
     Atom dnd_drop_ = 0;
     Atom dnd_selection_ = 0;
+    Atom dnd_uri_list_ = 0;
     Atom dnd_position_ = 0;
     Atom dnd_finished_ = 0;
     Atom dnd_status_ = 0;
@@ -238,6 +241,7 @@ namespace visage {
     ::Window windowUnderCursor(::Window inside);
     ::Window windowUnderCursor();
     ::Window dragDropProxy(::Window window) const;
+
     void sendDragDropEnter(::Window source, ::Window target) const;
     void sendDragDropLeave(::Window source, ::Window target) const;
     void sendDragDropPosition(::Window source, ::Window target, int x, int y, unsigned long time) const;
@@ -249,6 +253,8 @@ namespace visage {
     X11Connection x11_;
     DragDropOutState drag_drop_out_state_;
     std::vector<std::string> drag_drop_files_;
+    int drag_drop_target_x_ = 0;
+    int drag_drop_target_y_ = 0;
 
     long long start_draw_microseconds_ = 0;
     Point mouse_down_position_;
