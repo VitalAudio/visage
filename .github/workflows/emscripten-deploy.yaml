@@ -34,11 +34,11 @@ jobs:
           name: EmscriptenBuilds
           path: cmake_package/
 
-      - name: Install AWS CLI v2.22.35 # R2 checksum issue
+      - name: Install AWS CLI v2.22.35 # Install this version because of R2 checksum issue
         run: |
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.22.35.zip" -o "awscliv2.zip"
           unzip awscliv2.zip
-          ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update
+          sudo ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update
 
       - name: Upload to S3
         run: |
