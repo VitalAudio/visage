@@ -378,6 +378,7 @@ namespace visage {
     return { monitor_info.bounds.x() + result_x, monitor_info.bounds.y() + result_y, result_w, result_h };
   }
 
+#if !VISAGE_WAYLAND
   std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y,
                                        const Dimension& width, const Dimension& height, bool popup) {
     Bounds bounds = computeWindowBounds(width, height);
@@ -390,6 +391,7 @@ namespace visage {
                                         bounds.y());
     return std::make_unique<WindowX11>(window_x, window_y, bounds.width(), bounds.height(), popup);
   }
+#endif
 
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle) {
