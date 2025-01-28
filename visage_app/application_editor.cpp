@@ -122,9 +122,11 @@ namespace visage {
       drawWindow();
     });
 
+#if !VISAGE_LINUX
     drawWindow();
     drawWindow();
     redraw();
+#endif
   }
 
   void ApplicationEditor::removeFromWindow() {

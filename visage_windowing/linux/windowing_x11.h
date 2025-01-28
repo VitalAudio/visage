@@ -86,6 +86,7 @@ namespace visage {
       utf8_string_ = XInternAtom(display_, "UTF8_STRING", False);
       targets_ = XInternAtom(display_, "TARGETS", False);
       timer_event_ = XInternAtom(display_, "VISAGE_TIMER_EVENT", False);
+      delete_message_ = XInternAtom(display_, "WM_DELETE_WINDOW", False);
       dnd_aware_ = XInternAtom(display_, "XdndAware", False);
       dnd_proxy_ = XInternAtom(display_, "XdndProxy", False);
       dnd_enter_ = XInternAtom(display_, "XdndEnter", False);
@@ -117,6 +118,8 @@ namespace visage {
     Atom utf8String() const { return utf8_string_; }
     Atom targets() const { return targets_; }
     Atom timerEvent() const { return timer_event_; }
+    Atom* deleteMessageRef() { return &delete_message_; }
+    Atom deleteMessage() { return delete_message_; }
     Atom dndAware() const { return dnd_aware_; }
     Atom dndProxy() const { return dnd_proxy_; }
     Atom dndEnter() const { return dnd_enter_; }
@@ -148,6 +151,7 @@ namespace visage {
     Atom utf8_string_ = 0;
     Atom targets_ = 0;
     Atom timer_event_ = 0;
+    Atom delete_message_ = 0;
     Atom dnd_aware_ = 0;
     Atom dnd_proxy_ = 0;
     Atom dnd_enter_ = 0;
@@ -187,7 +191,7 @@ namespace visage {
 
     static WindowX11* lastActiveWindow() { return last_active_window_; }
 
-    WindowX11(int x, int y, int width, int height, bool popup);
+    WindowX11(int x, int y, int width, int height, Decoration decoration);
     WindowX11(int width, int height, void* parent_handle);
 
     ~WindowX11() override;
@@ -250,6 +254,9 @@ namespace visage {
     std::vector<std::string> drag_drop_files_;
     int drag_drop_target_x_ = 0;
     int drag_drop_target_y_ = 0;
+    bool dragging_window_ = false;
+    int dragging_window_x_ = 0;
+    int dragging_window_y_ = 0;
 
     long long start_draw_microseconds_ = 0;
     Point mouse_down_position_;

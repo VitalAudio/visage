@@ -47,7 +47,6 @@ namespace visage {
 
     void draw(Canvas& canvas) override {
       canvas.setColor(color_.withAlpha(color_.alpha() * hover_animation_.update()));
-      VISAGE_LOG(hover_animation_.value());
       canvas.fill(0, 0, width(), height());
 
       if (hover_animation_.isAnimating())

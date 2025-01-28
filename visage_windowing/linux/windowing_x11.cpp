@@ -332,9 +332,8 @@ namespace visage {
       if (event.xany.window != message_window)
         continue;
 
-      if (event.type == Expose) {
+      if (event.type == Expose)
         drawMessageBox(bounds.width(), bounds.height(), display, message_window, gc, message);
-      }
 
       else if (event.type == ButtonPress) {
         int button_width = bounds.width() / 2;
@@ -347,9 +346,8 @@ namespace visage {
           break;
         }
       }
-      else if (event.type == KeyPress || event.type == DestroyNotify) {
+      else if (event.type == KeyPress || event.type == DestroyNotify)
         break;
-      }
       else if (event.type == ClientMessage) {
         if (event.xclient.data.l[0] == wm_delete_message)
           break;
@@ -378,8 +376,8 @@ namespace visage {
     return { monitor_info.bounds.x() + result_x, monitor_info.bounds.y() + result_y, result_w, result_h };
   }
 
-  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y,
-                                       const Dimension& width, const Dimension& height, bool popup) {
+  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
+                                       const Dimension& height, Window::Decoration decoration) {
     Bounds bounds = computeWindowBounds(width, height);
     MonitorInfo monitor_info = activeMonitorInfo();
     int window_x = x.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi,
@@ -388,7 +386,7 @@ namespace visage {
     int window_y = y.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi,
                                         monitor_info.bounds.width(), monitor_info.bounds.height(),
                                         bounds.y());
-    return std::make_unique<WindowX11>(window_x, window_y, bounds.width(), bounds.height(), popup);
+    return std::make_unique<WindowX11>(window_x, window_y, bounds.width(), bounds.height(), decoration);
   }
 
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
@@ -447,12 +445,34 @@ namespace visage {
 
   WindowX11* WindowX11::last_active_window_ = nullptr;
 
-  WindowX11::WindowX11(int x, int y, int width, int height, bool popup) : Window(width, height) {
+  WindowX11::WindowX11(int x, int y, int width, int height, Decoration decoration) :
+      Window(width, height) {
     monitor_info_ = activeMonitorInfo();
     X11Connection::DisplayLock lock(x11_);
     ::Display* display = x11_.display();
     Bounds bounds(x, y, width, height);
     createWindow(bounds);
+
+    if (decoration == Decoration::Popup) {
+      XSetWindowAttributes attributes;
+      attributes.override_redirect = True;
+      XChangeWindowAttributes(display, window_handle_, CWOverrideRedirect, &attributes);
+    }
+    else if (decoration == Decoration::Client) {
+      Atom mwm_hints = XInternAtom(display, "_MOTIF_WM_HINTS", False);
+      struct MwmHints {
+        unsigned long flags = 0;
+        unsigned long functions = 0;
+        unsigned long decorations = 0;
+        long input_mode = 0;
+        unsigned long status = 0;
+      };
+
+      MwmHints hints;
+      hints.flags = 2;
+      XChangeProperty(x11_.display(), window_handle_, mwm_hints, mwm_hints, 32, PropModeReplace,
+                      reinterpret_cast<unsigned char*>(&hints), 5);
+    }
 
     XSizeHints* size_hints = XAllocSizeHints();
     size_hints->flags = USPosition;
@@ -461,16 +481,10 @@ namespace visage {
     XSetWMNormalHints(display, window_handle_, size_hints);
     XFree(size_hints);
 
-    if (popup) {
-      XSetWindowAttributes attributes;
-      attributes.override_redirect = True;
-      XChangeWindowAttributes(display, window_handle_, CWOverrideRedirect, &attributes);
-    }
-
     XSelectInput(display, window_handle_, kEventMask);
-    XFlush(display);
     start_draw_microseconds_ = time::microseconds();
     setDpiScale(monitor_info_.dpi / kDefaultDpi);
+    XFlush(display);
   }
 
   static void threadTimerCallback(WindowX11* window) {
@@ -1089,6 +1103,12 @@ namespace visage {
       X11Connection::DisplayLock lock(x11_);
       last_active_window_ = this;
 
+      if (dragging_window_) {
+        int x_offset = event.xmotion.x_root - dragging_window_x_;
+        int y_offset = event.xmotion.y_root - dragging_window_y_;
+        XMoveWindow(x11_.display(), window_handle_, x_offset, y_offset);
+      }
+
       if (drag_drop_out_state_.dragging) {
         ::Window last_target = drag_drop_out_state_.target;
         if (event.xmotion.x >= 0 && event.xmotion.x < clientWidth() && event.xmotion.y >= 0 &&
@@ -1133,6 +1153,19 @@ namespace visage {
           passEventToParent(event);
         else
           handleMouseDown(button, event.xbutton.x, event.xbutton.y, mouseButtonState(), modifierState());
+
+        HitTestResult hit_test = handleHitTest(event.xbutton.x, event.xbutton.y);
+        if (hit_test == HitTestResult::TitleBar) {
+          dragging_window_ = true;
+          ::Window root;
+          int window_x, window_y;
+          unsigned int window_width, window_height, border, depth;
+          XGetGeometry(x11_.display(), window_handle_, &root, &window_x, &window_y, &window_width,
+                       &window_height, &border, &depth);
+          dragging_window_x_ = event.xbutton.x_root - window_x;
+          dragging_window_y_ = event.xbutton.y_root - window_y;
+        }
+
         mouse_down_position_ = { event.xbutton.x, event.xbutton.y };
 
         drag_drop_out_state_.dragging = isDragDropSource();
@@ -1147,7 +1180,9 @@ namespace visage {
       break;
     }
     case ButtonRelease: {
+      dragging_window_ = false;
       MouseButton button = buttonFromEvent(event);
+      HitTestResult hit_test = currentHitTest();
       if (drag_drop_out_state_.dragging && button == kMouseButtonLeft) {
         if (event.xbutton.x >= 0 && event.xbutton.x < clientWidth() && event.xbutton.y >= 0 &&
             event.xbutton.y < clientHeight()) {
@@ -1167,6 +1202,41 @@ namespace visage {
       else
         handleMouseUp(buttonFromEvent(event), event.xbutton.x, event.xbutton.y, mouseButtonState(),
                       modifierState());
+
+      if (button == kMouseButtonLeft) {
+        if (hit_test == HitTestResult::CloseButton &&
+            handleHitTest(event.xbutton.x, event.xbutton.y) == HitTestResult::CloseButton) {
+          XEvent close_event = {};
+          close_event.xclient.type = ClientMessage;
+          close_event.xclient.window = window_handle_;
+          close_event.xclient.message_type = XInternAtom(x11_.display(), "WM_PROTOCOLS", True);
+          close_event.xclient.format = 32;
+          close_event.xclient.data.l[0] = x11_.deleteMessage();
+          close_event.xclient.data.l[1] = CurrentTime;
+
+          XSendEvent(x11_.display(), window_handle_, False, NoEventMask, &close_event);
+          XFlush(x11_.display());
+        }
+        else if (hit_test == HitTestResult::MaximizeButton &&
+                 handleHitTest(event.xbutton.x, event.xbutton.y) == HitTestResult::MaximizeButton) {
+          showMaximized();
+        }
+        else if (hit_test == HitTestResult::MinimizeButton &&
+                 handleHitTest(event.xbutton.x, event.xbutton.y) == HitTestResult::MinimizeButton) {
+          Atom wm_change_state = XInternAtom(x11_.display(), "WM_CHANGE_STATE", False);
+          XEvent min_event = {};
+          min_event.xclient.type = ClientMessage;
+          min_event.xclient.message_type = wm_change_state;
+          min_event.xclient.display = x11_.display();
+          min_event.xclient.window = window_handle_;
+          min_event.xclient.format = 32;
+          min_event.xclient.data.l[0] = IconicState;
+
+          XSendEvent(x11_.display(), x11_.rootWindow(), False,
+                     SubstructureRedirectMask | SubstructureNotifyMask, &min_event);
+          XFlush(x11_.display());
+        }
+      }
       break;
     }
     case EnterNotify: {
@@ -1223,8 +1293,7 @@ namespace visage {
 
   void WindowX11::runEventLoop() {
     Display* display = x11_.display();
-    Atom wm_delete_message = XInternAtom(display, "WM_DELETE_WINDOW", False);
-    XSetWMProtocols(x11_.display(), window_handle_, &wm_delete_message, 1);
+    XSetWMProtocols(x11_.display(), window_handle_, x11_.deleteMessageRef(), 1);
 
     timeval timeout {};
     timeout.tv_sec = 0;
@@ -1263,8 +1332,15 @@ namespace visage {
       else if (FD_ISSET(fd, &read_fds)) {
         while (running && XPending(x11_.display())) {
           XNextEvent(x11_.display(), &event);
+
+          if (event.type == Expose) {
+            int height = clientHeight();
+            handleResized(clientWidth(), height + 1);
+            handleResized(clientWidth(), height);
+          }
+
           if (event.type == DestroyNotify ||
-              (event.type == ClientMessage && event.xclient.data.l[0] == wm_delete_message))
+              (event.type == ClientMessage && event.xclient.data.l[0] == x11_.deleteMessage()))
             running = false;
           else
             processEvent(event);
@@ -1303,6 +1379,7 @@ namespace visage {
 
     XSendEvent(x11_.display(), x11_.rootWindow(), False,
                SubstructureRedirectMask | SubstructureNotifyMask, &event);
+    XFlush(x11_.display());
 
     for (int retries = 0; retries < 10; ++retries) {
       Thread::sleep(10);
@@ -1310,8 +1387,11 @@ namespace visage {
         XEvent e;
         XNextEvent(x11_.display(), &e);
 
-        if (e.type == ConfigureNotify && e.xconfigure.window == window_handle_)
+        if (e.type == ConfigureNotify && e.xconfigure.window == window_handle_) {
+          visage::Point dimensions = retrieveWindowDimensions();
+          handleResized(dimensions.x, dimensions.y);
           return;
+        }
       }
     }
   }
