@@ -147,12 +147,8 @@ namespace visage {
     if (bgfx::isValid(frame_buffer_data_->handle))
       return;
 
-    if (hdr_) {
-      if (bgfx::getRendererType() == bgfx::RendererType::Vulkan)
-        frame_buffer_data_->format = bgfx::TextureFormat::RGBA16F;
-      else
-        frame_buffer_data_->format = bgfx::TextureFormat::RGB10A2;
-    }
+    if (hdr_)
+      frame_buffer_data_->format = bgfx::TextureFormat::RGB10A2;
     else
       frame_buffer_data_->format = bgfx::TextureFormat::RGBA8;
 
