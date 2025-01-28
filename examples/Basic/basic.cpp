@@ -32,7 +32,9 @@ int runExample() {
     float x = app.width() * 0.5f - circle_radius;
     float y = app.height() * 0.5f - circle_radius;
     canvas.setColor(0xff00ffff);
-    canvas.circle(x, y, 2.0f * circle_radius);
+    canvas.circle(x + std::sin(canvas.time()) * 300.0f, y, 2.0f * circle_radius);
+
+    app.redraw();
   };
 
   app.show(800, 600);

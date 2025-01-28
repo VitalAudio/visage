@@ -24,6 +24,7 @@
 #if VISAGE_LINUX && VISAGE_WAYLAND
 #include "visage_utils/string_utils.h"
 #include "windowing.h"
+#include "xdg-decoration-unstable-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
 
 #include <atomic>
@@ -59,7 +60,7 @@ namespace visage {
     Point maxWindowDimensions() const override;
     Point minWindowDimensions() const override;
 
-    xdg_toplevel* topLevel() const { return xdg_toplevel_; }
+    xdg_toplevel* topLevel() const { return xdg_top_level_; }
     wl_surface* surface() const { return surface_; }
 
   private:
@@ -75,7 +76,8 @@ namespace visage {
     Point mouse_down_position_;
     wl_surface* surface_ = nullptr;
     xdg_surface* xdg_surface_ = nullptr;
-    xdg_toplevel* xdg_toplevel_ = nullptr;
+    xdg_toplevel* xdg_top_level_ = nullptr;
+    zxdg_toplevel_decoration_v1* decoration_ = nullptr;
   };
 }
 

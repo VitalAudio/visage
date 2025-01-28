@@ -64,6 +64,7 @@ namespace visage {
     static wl_display* display() { return instance().display_; }
     static wl_compositor* compositor() { return instance().compositor_; }
     static xdg_wm_base* windowManager() { return instance().xdg_wm_base_; }
+    static auto decorationManager() { return instance().decoration_manager_; }
 
     static int fd() { return wl_display_get_fd(instance().display_); }
 
@@ -106,6 +107,9 @@ namespace visage {
                                      struct wl_array* capabilities) {
       VISAGE_LOG("test2");
     }
+
+    static void handleDecorationConfigure(void* data, struct zxdg_toplevel_decoration_v1* decoration,
+                                          uint32_t mode) { }
 
   private:
     static void handlePointerMotion(void* data, struct wl_pointer* pointer, uint32_t time,
@@ -231,6 +235,10 @@ namespace visage {
         wl_seat_add_listener(*seat, &seat_listener, self);
         wl_display_roundtrip(self->display_);
       }
+      else if (strcmp(interface, "zxdg_decoration_manager_v1") == 0) {
+        auto decoration = wl_registry_bind(registry, id, &zxdg_decoration_manager_v1_interface, 1);
+        instance().decoration_manager_ = static_cast<zxdg_decoration_manager_v1*>(decoration);
+      }
       else if (std::strcmp(interface, xdg_wm_base_interface.name) == 0) {
         self->xdg_wm_base_ = static_cast<xdg_wm_base*>(wl_registry_bind(registry, id, &xdg_wm_base_interface,
                                                                         version));
@@ -248,9 +256,6 @@ namespace visage {
 
       display_ = wl_display_connect(nullptr);
       registry_ = wl_display_get_registry(display_);
-      struct zxdg_decoration_manager_v1* decoration_manager = wl_registry_bind(registry_, id,
-                                                                               &zxdg_decoration_manager_v1_interface,
-                                                                               1);
       wl_registry_add_listener(registry_, &registry_listener, this);
       wl_display_roundtrip(display_);
       start_microseconds_ = time::microseconds();
@@ -272,6 +277,7 @@ namespace visage {
     wl_compositor* compositor_ = nullptr;
     wl_seat* seat_ = nullptr;
     xdg_wm_base* xdg_wm_base_ = nullptr;
+    zxdg_decoration_manager_v1* decoration_manager_ = nullptr;
     WindowWayland* current_window_ = nullptr;
     uint32_t current_serial_ = 0;
     unsigned long long start_microseconds_ = 0;
@@ -338,6 +344,7 @@ namespace visage {
                                                        WaylandHandler::handleClose,
                                                        WaylandHandler::handleConfigureBounds,
                                                        WaylandHandler::handleWmCapabilities };
+    static zxdg_toplevel_decoration_v1_listener decoration_listener = { WaylandHandler::handleDecorationConfigure };
 
     MonitorInfo monitor = WaylandHandler::defaultMonitor();
 
@@ -346,17 +353,24 @@ namespace visage {
     surface_ = wl_compositor_create_surface(WaylandHandler::compositor());
     wl_surface_set_buffer_scale(surface_, monitor.pixel_scale);
     xdg_surface_ = xdg_wm_base_get_xdg_surface(WaylandHandler::windowManager(), surface_);
-    xdg_toplevel_ = xdg_surface_get_toplevel(xdg_surface_);
+    xdg_top_level_ = xdg_surface_get_toplevel(xdg_surface_);
 
-    xdg_toplevel_add_listener(xdg_toplevel_, &toplevel_listener, nullptr);
+    xdg_toplevel_add_listener(xdg_top_level_, &toplevel_listener, nullptr);
 
-    xdg_toplevel_set_title(xdg_toplevel_, "Wayland Window Example");
+    xdg_toplevel_set_title(xdg_top_level_, "Wayland Window Example");
     static const xdg_surface_listener surface_listener = { WaylandHandler::handleConfigure };
     xdg_surface_add_listener(xdg_surface_, &surface_listener, nullptr);
 
     wl_display_roundtrip(WaylandHandler::display());
-
     wl_surface_commit(surface_);
+
+    if (WaylandHandler::decorationManager()) {
+      decoration_ = zxdg_decoration_manager_v1_get_toplevel_decoration(WaylandHandler::decorationManager(),
+                                                                       xdg_top_level_);
+      zxdg_toplevel_decoration_v1_add_listener(decoration_, &decoration_listener, nullptr);
+      zxdg_toplevel_decoration_v1_set_mode(decoration_, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+    }
+
     WaylandHandler::registerWindow(this);
 
     struct wl_callback* callback = wl_surface_frame(surface_);
@@ -369,7 +383,7 @@ namespace visage {
   WindowWayland::~WindowWayland() {
     WaylandHandler::unregisterWindow(this);
 
-    xdg_toplevel_destroy(xdg_toplevel_);
+    xdg_toplevel_destroy(xdg_top_level_);
     xdg_surface_destroy(xdg_surface_);
     wl_surface_destroy(surface_);
   }

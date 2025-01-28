@@ -27,13 +27,24 @@ elseif (UNIX)
     set(XDG_SHELL_XML ${WAYLAND_PROTOCOLS_DATADIR}/stable/xdg-shell/xdg-shell.xml)
     set(XDG_SHELL_HEADER ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-client-protocol.h)
     set(XDG_SHELL_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/xdg-shell-protocol.c)
+    set(XDG_DECORATION_XML ${WAYLAND_PROTOCOLS_DATADIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml)
+    set(XDG_DECORATION_HEADER ${CMAKE_CURRENT_BINARY_DIR}/xdg-decoration-unstable-v1-client-protocol.h)
+    set(XDG_DECORATION_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/xdg-decoration-unstable-v1-client-protocol.c)
 
     add_custom_command(
       OUTPUT ${XDG_SHELL_HEADER} ${XDG_SHELL_SOURCE}
       COMMAND wayland-scanner client-header ${XDG_SHELL_XML} ${XDG_SHELL_HEADER}
       COMMAND wayland-scanner private-code ${XDG_SHELL_XML} ${XDG_SHELL_SOURCE}
-      DEPENDS ${XDG_SHELL_XML}
+      DEPENDS ${XDG_SHELL_XML} ${XDG_DECORATION_XML}
       COMMENT "Generating xdg-shell protocol files"
+    )
+
+    add_custom_command(
+      OUTPUT ${XDG_DECORATION_HEADER} ${XDG_DECORATION_SOURCE}
+      COMMAND wayland-scanner client-header ${XDG_DECORATION_XML} ${XDG_DECORATION_HEADER}
+      COMMAND wayland-scanner private-code ${XDG_DECORATION_XML} ${XDG_DECORATION_SOURCE}
+      DEPENDS ${XDG_DECORATION_XML}
+      COMMENT "Generating xdg-decoration protocol files"
     )
   endif ()
 endif ()
@@ -41,7 +52,7 @@ endif ()
 file(GLOB HEADERS windowing.h ${PLATFORM_HEADER_FILES})
 file(GLOB SOURCE_FILES windowing.cpp ${PLATFORM_SOURCE_FILES})
 
-add_library(VisageWindowing OBJECT ${SOURCE_FILES} ${HEADERS} ${XDG_SHELL_HEADER} ${XDG_SHELL_SOURCE})
+add_library(VisageWindowing OBJECT ${SOURCE_FILES} ${HEADERS} ${XDG_SHELL_HEADER} ${XDG_SHELL_SOURCE} ${XDG_DECORATION_HEADER} ${XDG_DECORATION_SOURCE})
 target_compile_definitions(VisageWindowing PUBLIC VISAGE_WAYLAND=${VISAGE_WAYLAND})
 target_include_directories(VisageWindowing
   PRIVATE
