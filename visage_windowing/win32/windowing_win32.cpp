@@ -1221,9 +1221,39 @@ namespace visage {
   }
 
   static LRESULT WINAPI standaloneWindowProcedure(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
+    static constexpr int kDefaultTitleBarHeight = 40;
+
+    WindowWin32* window = reinterpret_cast<WindowWin32*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+    if (window == nullptr)
+      return DefWindowProc(hwnd, msg, w_param, l_param);
+
     if (msg == WM_DESTROY) {
       PostQuitMessage(0);
       return 0;
+    }
+    if (msg == WM_NCCALCSIZE && window->decoration() == Window::Decoration::Client) {
+      NCCALCSIZE_PARAMS* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(l_param);
+      params->rgrc[0].top -= window->titleBarRemoval();
+    }
+    if (msg == WM_NCHITTEST && window->decoration() == Window::Decoration::Client) {
+      LRESULT result = DefWindowProc(hwnd, msg, w_param, l_param);
+      if (result != HTCLIENT)
+        return result;
+
+      POINT position = { GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param) };
+      ScreenToClient(hwnd, &position);
+      HitTestResult hit_test = window->handleHitTest(position.x, position.y);
+
+      switch (hit_test) {
+      case HitTestResult::TitleBar: return HTCAPTION;
+      case HitTestResult::CloseButton: return HTCLOSE;
+      case HitTestResult::MaximizeButton: return HTMAXBUTTON;
+      case HitTestResult::MinimizeButton: return HTMINBUTTON;
+      default:
+        if (kDefaultTitleBarHeight * window->dpiScale() > position.y)
+          return HTCAPTION;
+        return HTCLIENT;
+      }
     }
     return windowProcedure(hwnd, msg, w_param, l_param);
   }
@@ -1252,15 +1282,17 @@ namespace visage {
     return { bounds_x, bounds_y, bounds_width, bounds_height };
   }
 
-  static Point windowBorderSize(HWND hwnd) {
+  static Bounds windowBorderSize(HWND hwnd) {
     WINDOWINFO info {};
     info.cbSize = sizeof(info);
-    if (GetWindowInfo(hwnd, &info)) {
-      int width = (info.rcClient.left - info.rcWindow.left) + (info.rcWindow.right - info.rcClient.right);
-      int height = (info.rcClient.top - info.rcWindow.top) + (info.rcWindow.bottom - info.rcClient.bottom);
-      return { width, height };
-    }
-    return { 0, 0 };
+    if (!GetWindowInfo(hwnd, &info))
+      return {};
+
+    int x = info.rcWindow.left - info.rcClient.left;
+    int y = info.rcWindow.top - info.rcClient.top;
+    int width = -x + info.rcWindow.right - info.rcClient.right;
+    int height = -y + info.rcWindow.bottom - info.rcClient.bottom;
+    return { x, y, width, height };
   }
 
   static inline void clearMessage(MSG* message) {
@@ -1359,10 +1391,11 @@ namespace visage {
     return boundsInMonitor(monitor, dpi_scale, x, y, width, height);
   }
 
-  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y,
-                                       const Dimension& width, const Dimension& height, bool popup) {
+  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
+                                       const Dimension& height, Window::Decoration decoration_style) {
     Bounds bounds = computeWindowBounds(x, y, width, height);
-    return std::make_unique<WindowWin32>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), popup);
+    return std::make_unique<WindowWin32>(bounds.x(), bounds.y(), bounds.width(), bounds.height(),
+                                         decoration_style);
   }
 
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
@@ -1371,11 +1404,13 @@ namespace visage {
     return std::make_unique<WindowWin32>(bounds.width(), bounds.height(), parent_handle);
   }
 
-  WindowWin32::WindowWin32(int x, int y, int width, int height, bool popup) :
-      Window(width, height) {
+  WindowWin32::WindowWin32(int x, int y, int width, int height, Window::Decoration decoration) :
+      Window(width, height), decoration_(decoration) {
     static constexpr int kWindowFlags = WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX |
                                         WS_MAXIMIZEBOX;
+    static constexpr int kClientDecorationFlags = WS_POPUP | WS_THICKFRAME;
     static constexpr int kPopupFlags = WS_POPUP;
+
     DpiAwareness dpi_awareness;
     setDpiScale(dpi_awareness.dpiScale());
 
@@ -1383,19 +1418,30 @@ namespace visage {
     window_class_.lpfnWndProc = standaloneWindowProcedure;
     RegisterClassEx(&window_class_);
 
-    int flags = popup ? kPopupFlags : kWindowFlags;
+    int flags = kWindowFlags;
+    if (decoration_ == Window::Decoration::Client)
+      flags = kClientDecorationFlags;
+    else if (decoration_ == Window::Decoration::Popup)
+      flags = kPopupFlags;
+
     std::string app_name = VISAGE_APPLICATION_NAME;
     window_handle_ = CreateWindow(window_class_.lpszClassName,
                                   String::convertToWide(app_name).c_str(), flags, x, y, width,
                                   height, nullptr, nullptr, window_class_.hInstance, nullptr);
+
     if (window_handle_ == nullptr) {
       VISAGE_LOG("Error creating window");
       return;
     }
 
-    Point borders = windowBorderSize(window_handle_);
-    SetWindowPos(window_handle_, nullptr, x - borders.x / 2, y, width + borders.x,
-                 height + borders.y, SWP_NOZORDER);
+    Bounds borders = windowBorderSize(window_handle_);
+    int window_height = height + borders.height();
+    if (decoration_ == Window::Decoration::Client)
+      window_height = height + borders.bottom() + 2;
+
+    title_bar_removal_ = -borders.y();
+    SetWindowPos(window_handle_, nullptr, x - borders.width() / 2, y, width + borders.width(),
+                 window_height, SWP_NOZORDER);
 
     SetWindowLongPtr(window_handle_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
@@ -1472,9 +1518,9 @@ namespace visage {
     rect.right = rect.left + rect_width;
     rect.bottom = rect.top + rect_height;
 
-    Point borders = windowBorderSize(window_handle_);
-    SetWindowPos(window_handle_, nullptr, x, y, rect.right - rect.left + borders.x,
-                 rect.bottom - rect.top + borders.y, SWP_NOZORDER | SWP_NOMOVE);
+    Bounds borders = windowBorderSize(window_handle_);
+    SetWindowPos(window_handle_, nullptr, x, y, rect.right - rect.left + borders.width(),
+                 rect.bottom - rect.top + borders.height(), SWP_NOZORDER | SWP_NOMOVE);
   }
 
   void WindowWin32::show(int show_flag) {
@@ -1505,16 +1551,16 @@ namespace visage {
   }
 
   Point WindowWin32::maxWindowDimensions() const {
-    Point borders = windowBorderSize(window_handle_);
-    if (borders.x == 0 && borders.y == 0 && parent_handle_)
+    Bounds borders = windowBorderSize(window_handle_);
+    if (borders.width() == 0 && borders.height() == 0 && parent_handle_)
       borders = windowBorderSize(parent_handle_);
 
     MONITORINFO monitor_info {};
     monitor_info.cbSize = sizeof(MONITORINFO);
     GetMonitorInfo(monitor_, &monitor_info);
 
-    int display_width = monitor_info.rcWork.right - monitor_info.rcWork.left - borders.x;
-    int display_height = monitor_info.rcWork.bottom - monitor_info.rcWork.top - borders.y;
+    int display_width = monitor_info.rcWork.right - monitor_info.rcWork.left - borders.width();
+    int display_height = monitor_info.rcWork.bottom - monitor_info.rcWork.top - borders.height();
 
     float aspect_ratio = aspectRatio();
     int width_from_height = static_cast<int>(display_height * aspect_ratio);
@@ -1588,10 +1634,10 @@ namespace visage {
   }
 
   void WindowWin32::handleResizing(HWND hwnd, LPARAM l_param, WPARAM w_param) {
-    Point borders = windowBorderSize(hwnd);
+    Bounds borders = windowBorderSize(hwnd);
     RECT* rect = reinterpret_cast<RECT*>(l_param);
-    int width = rect->right - rect->left - borders.x;
-    int height = rect->bottom - rect->top - borders.y;
+    int width = rect->right - rect->left - borders.width();
+    int height = rect->bottom - rect->top - borders.height();
 
     if (!isFixedAspectRatio()) {
       handleResized(width, height);
@@ -1614,36 +1660,36 @@ namespace visage {
 
     switch (w_param) {
     case WMSZ_LEFT:
-      rect->bottom = rect->top + adjusted_dimensions.y + borders.y;
-      rect->left = rect->right - adjusted_dimensions.x - borders.x;
+      rect->bottom = rect->top + adjusted_dimensions.y + borders.height();
+      rect->left = rect->right - adjusted_dimensions.x - borders.width();
       break;
     case WMSZ_RIGHT:
-      rect->bottom = rect->top + adjusted_dimensions.y + borders.y;
-      rect->right = rect->left + adjusted_dimensions.x + borders.x;
+      rect->bottom = rect->top + adjusted_dimensions.y + borders.height();
+      rect->right = rect->left + adjusted_dimensions.x + borders.width();
       break;
     case WMSZ_TOP:
-      rect->right = rect->left + adjusted_dimensions.x + borders.x;
-      rect->top = rect->bottom - adjusted_dimensions.y - borders.y;
+      rect->right = rect->left + adjusted_dimensions.x + borders.width();
+      rect->top = rect->bottom - adjusted_dimensions.y - borders.height();
       break;
     case WMSZ_BOTTOM:
-      rect->right = rect->left + adjusted_dimensions.x + borders.x;
-      rect->bottom = rect->top + adjusted_dimensions.y + borders.y;
+      rect->right = rect->left + adjusted_dimensions.x + borders.width();
+      rect->bottom = rect->top + adjusted_dimensions.y + borders.height();
       break;
     case WMSZ_TOPLEFT:
-      rect->top = rect->bottom - adjusted_dimensions.y - borders.y;
-      rect->left = rect->right - adjusted_dimensions.x - borders.x;
+      rect->top = rect->bottom - adjusted_dimensions.y - borders.height();
+      rect->left = rect->right - adjusted_dimensions.x - borders.width();
       break;
     case WMSZ_TOPRIGHT:
-      rect->top = rect->bottom - adjusted_dimensions.y - borders.y;
-      rect->right = rect->left + adjusted_dimensions.x + borders.x;
+      rect->top = rect->bottom - adjusted_dimensions.y - borders.height();
+      rect->right = rect->left + adjusted_dimensions.x + borders.width();
       break;
     case WMSZ_BOTTOMLEFT:
-      rect->bottom = rect->top + adjusted_dimensions.y + borders.y;
-      rect->left = rect->right - adjusted_dimensions.x - borders.x;
+      rect->bottom = rect->top + adjusted_dimensions.y + borders.height();
+      rect->left = rect->right - adjusted_dimensions.x - borders.width();
       break;
     case WMSZ_BOTTOMRIGHT:
-      rect->bottom = rect->top + adjusted_dimensions.y + borders.y;
-      rect->right = rect->left + adjusted_dimensions.x + borders.x;
+      rect->bottom = rect->top + adjusted_dimensions.y + borders.height();
+      rect->right = rect->left + adjusted_dimensions.x + borders.width();
       break;
     default: break;
     }
@@ -1653,29 +1699,29 @@ namespace visage {
     float aspect_ratio = aspectRatio();
     VISAGE_ASSERT(aspect_ratio > 0.0f);
 
-    Point borders = windowBorderSize(hwnd);
+    Bounds borders = windowBorderSize(hwnd);
 
     RECT rect;
     GetWindowRect(hwnd, &rect);
-    int width = rect.right - rect.left - borders.x;
-    int height = rect.bottom - rect.top - borders.y;
+    int width = rect.right - rect.left - borders.width();
+    int height = rect.bottom - rect.top - borders.height();
     handleResized(width, height);
   }
 
   void WindowWin32::handleDpiChange(HWND hwnd, LPARAM l_param, WPARAM w_param) {
     Point max_dimensions = maxWindowDimensions();
     Point min_dimensions = minWindowDimensions();
-    Point borders = windowBorderSize(hwnd);
+    Bounds borders = windowBorderSize(hwnd);
     RECT* suggested = reinterpret_cast<RECT*>(l_param);
-    Point point(suggested->right - suggested->left - borders.x,
-                suggested->bottom - suggested->top - borders.y);
+    Point point(suggested->right - suggested->left - borders.width(),
+                suggested->bottom - suggested->top - borders.height());
     Point adjusted_dimensions = adjustBoundsForAspectRatio(point, min_dimensions, max_dimensions,
                                                            aspectRatio(), true, true);
 
     int width = adjusted_dimensions.x;
     int height = adjusted_dimensions.y;
-    SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, width + borders.x,
-                 height + borders.y, SWP_NOZORDER | SWP_NOACTIVATE);
+    SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, width + borders.width(),
+                 height + borders.height(), SWP_NOZORDER | SWP_NOACTIVATE);
 
     handleResized(width, height);
   }

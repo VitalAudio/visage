@@ -21,8 +21,6 @@
 
 #include "application_window.h"
 
-#include <visage_windowing/windowing.h>
-
 namespace visage {
   ApplicationWindow::ApplicationWindow() = default;
 
@@ -36,28 +34,17 @@ namespace visage {
 
   void ApplicationWindow::show(const Dimension& x, const Dimension& y, const Dimension& width,
                                const Dimension& height) {
-    show(x, y, width, height, false);
-  }
-
-  void ApplicationWindow::showPopup(const Dimension& width, const Dimension& height) {
-    showPopup({}, {}, width, height);
-  }
-
-  void ApplicationWindow::showPopup(const Dimension& x, const Dimension& y, const Dimension& width,
-                                    const Dimension& height) {
-    show(x, y, width, height, true);
-  }
-
-  void ApplicationWindow::show(const Dimension& x, const Dimension& y, const Dimension& width,
-                               const Dimension& height, bool popup) {
     removeFromWindow();
-    window_ = createWindow(x, y, width, height, popup);
+    window_ = createWindow(x, y, width, height, decoration_);
     showWindow(false);
   }
 
   void ApplicationWindow::showMaximized() {
+    static constexpr float kUnmaximizedWidthPercent = 85.0f;
+
     removeFromWindow();
-    window_ = createWindow({}, {}, Dimension::widthPercent(85.0f), Dimension::heightPercent(85.0f), false);
+    window_ = createWindow({}, {}, Dimension::widthPercent(kUnmaximizedWidthPercent),
+                           Dimension::heightPercent(kUnmaximizedWidthPercent), decoration_);
     showWindow(true);
   }
 

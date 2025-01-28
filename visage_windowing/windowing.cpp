@@ -116,6 +116,13 @@ namespace visage {
     return event_handler_->handleFileDrop(x, y, files);
   }
 
+  HitTestResult Window::handleHitTest(int x, int y) {
+    if (event_handler_ == nullptr)
+      return HitTestResult::Client;
+
+    return event_handler_->handleHitTest(x, y);
+  }
+
   void Window::handleMouseMove(int x, int y, int button_state, int modifiers) {
     if (event_handler_ == nullptr)
       return;

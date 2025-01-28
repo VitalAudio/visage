@@ -55,6 +55,14 @@ namespace visage {
     kModifierMeta = 1 << 5,
   };
 
+  enum class HitTestResult {
+    Client,
+    TitleBar,
+    CloseButton,
+    MinimizeButton,
+    MaximizeButton,
+  };
+
   enum class KeyCode {
     Unknown = 0,
     A = 'a',

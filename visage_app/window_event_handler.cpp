@@ -211,6 +211,15 @@ namespace visage {
     return mouse_event;
   }
 
+  HitTestResult WindowEventHandler::handleHitTest(int x, int y) const {
+    Point window_position = convertPointToFramePosition({ x, y });
+    Frame* hovered_frame = content_frame_->frameAtPoint(window_position);
+    if (hovered_frame == nullptr)
+      return HitTestResult::Client;
+
+    return hovered_frame->hitTestResult();
+  }
+
   void WindowEventHandler::handleMouseMove(int x, int y, int button_state, int modifiers) {
     MouseEvent mouse_event = getMouseEvent(x, y, button_state, modifiers);
     if (window_->mouseRelativeMode() && mouse_event.relative_position == Point(0, 0))

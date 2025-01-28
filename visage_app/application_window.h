@@ -23,6 +23,8 @@
 
 #include "application_editor.h"
 
+#include <visage_windowing/windowing.h>
+
 namespace visage {
 
   class ApplicationWindow : public ApplicationEditor {
@@ -30,21 +32,20 @@ namespace visage {
     ApplicationWindow();
     ~ApplicationWindow() override;
 
+    const std::string& title() const { return title_; }
     void setTitle(std::string title) { title_ = std::move(title); }
+    void setWindowDecoration(Window::Decoration decoration) { decoration_ = decoration; }
 
     void show(const Dimension& width, const Dimension& height);
     void show(const Dimension& x, const Dimension& y, const Dimension& width, const Dimension& height);
-    void showPopup(const Dimension& width, const Dimension& height);
-    void showPopup(const Dimension& x, const Dimension& y, const Dimension& width, const Dimension& height);
     void showMaximized();
 
     void runEventLoop();
 
   private:
-    void show(const Dimension& x, const Dimension& y, const Dimension& width,
-              const Dimension& height, bool popup);
     void showWindow(bool maximized);
 
+    Window::Decoration decoration_ = Window::Decoration::Native;
     std::string title_;
     std::unique_ptr<Window> window_;
   };

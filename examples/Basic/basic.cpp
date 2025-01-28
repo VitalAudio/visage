@@ -35,6 +35,7 @@ int runExample() {
     canvas.circle(x, y, 2.0f * circle_radius);
   };
 
+  app.setTitle("Visage Basic Example");
   app.show(800, 600);
   app.runEventLoop();
   return 0;

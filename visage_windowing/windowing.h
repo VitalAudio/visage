@@ -39,6 +39,12 @@ namespace visage {
     static constexpr float kDefaultDpi = 96.0f;
     static constexpr float kDefaultMinWindowScale = 0.1f;
 
+    enum class Decoration {
+      Native,
+      Client,
+      Popup
+    };
+
     static void setDoubleClickSpeed(int ms) { double_click_speed_ = ms; }
     static int doubleClickSpeed() { return double_click_speed_; }
 
@@ -46,6 +52,7 @@ namespace visage {
     public:
       virtual ~EventHandler() = default;
 
+      virtual HitTestResult handleHitTest(int x, int y) const = 0;
       virtual void handleMouseMove(int x, int y, int button_state, int modifiers) = 0;
       virtual void handleMouseDown(MouseButton button_id, int x, int y, int button_state,
                                    int modifiers, int repeat_clicks) = 0;
@@ -142,6 +149,7 @@ namespace visage {
 
     bool hasActiveTextEntry() const;
 
+    HitTestResult handleHitTest(int x, int y);
     void handleMouseMove(int x, int y, int button_state, int modifiers);
     void handleMouseDown(MouseButton button_id, int x, int y, int button_state, int modifiers);
     void handleMouseUp(MouseButton button_id, int x, int y, int button_state, int modifiers) const;
@@ -213,14 +221,15 @@ namespace visage {
   Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
                              const Dimension& height);
 
-  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
-                                       const Dimension& height, bool popup = false);
+  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y,
+                                       const Dimension& width, const Dimension& height,
+                                       Window::Decoration decoration_style = Window::Decoration::Native);
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle);
 
   inline std::unique_ptr<Window> createWindow(const Dimension& width, const Dimension& height,
-                                              bool popup = false) {
-    return createWindow({}, {}, width, height, popup);
+                                              Window::Decoration decoration_style = Window::Decoration::Native) {
+    return createWindow({}, {}, width, height, decoration_style);
   }
 
   inline Bounds computeWindowBounds(const Dimension& width, const Dimension& height) {

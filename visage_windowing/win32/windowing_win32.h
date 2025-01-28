@@ -54,7 +54,7 @@ namespace visage {
     static void setCursor(HCURSOR cursor);
     static HCURSOR cursor() { return cursor_; }
 
-    WindowWin32(int x, int y, int width, int height, bool popup);
+    WindowWin32(int x, int y, int width, int height, Window::Decoration decoration);
     WindowWin32(int width, int height, void* parent_handle);
 
     ~WindowWin32() override;
@@ -89,6 +89,9 @@ namespace visage {
     HMONITOR monitor() const { return monitor_; }
     WNDPROC parentWindowProc() const { return parent_window_proc_; }
 
+    int titleBarRemoval() const { return title_bar_removal_; }
+    Window::Decoration decoration() const { return decoration_; }
+
   private:
     void show(int show_flag);
     void registerWindowClass();
@@ -104,10 +107,12 @@ namespace visage {
     DragDropTarget* drag_drop_target_ = nullptr;
     std::unique_ptr<VBlankThread> v_blank_thread_;
 
+    Window::Decoration decoration_ = Window::Decoration::Native;
     std::wstring utf16_string_entry_;
     bool initialized_ = false;
     bool mouse_tracked_ = false;
     int mouse_down_flags_ = 0;
+    int title_bar_removal_ = 0;
   };
 }
 

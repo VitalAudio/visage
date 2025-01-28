@@ -54,6 +54,7 @@ namespace visage {
     MouseEvent getMouseEvent(int x, int y, int button_state, int modifiers);
     MouseEvent getButtonMouseEvent(MouseButton button_id, int x, int y, int button_state, int modifiers);
 
+    HitTestResult handleHitTest(int x, int y) const override;
     void handleMouseMove(int x, int y, int button_state, int modifiers) override;
     void handleMouseDown(MouseButton button_id, int x, int y, int button_state, int modifiers,
                          int repeat) override;
