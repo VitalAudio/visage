@@ -101,6 +101,7 @@ float Overlay::getBodyRounding() {
 }
 
 Showcase::Showcase() {
+  setIgnoresMouseEvents(true, true);
   setAcceptsKeystrokes(true);
 
   palette_.initWithDefaults();
@@ -200,7 +201,6 @@ int runExample() {
   showcase->layout().setWidth(visage::Dimension::min(1000_px, 100_vw));
   showcase->layout().setHeight(100_vh);
 
-  editor.setWindowDecoration(visage::Window::Decoration::Client);
   editor.setTitle("Visage Showcase");
   editor.show(100_vmin, 70_vmin);
   editor.runEventLoop();

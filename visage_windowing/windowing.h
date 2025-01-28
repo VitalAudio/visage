@@ -52,7 +52,8 @@ namespace visage {
     public:
       virtual ~EventHandler() = default;
 
-      virtual HitTestResult handleHitTest(int x, int y) const = 0;
+      virtual HitTestResult handleHitTest(int x, int y) = 0;
+      virtual HitTestResult currentHitTest() const = 0;
       virtual void handleMouseMove(int x, int y, int button_state, int modifiers) = 0;
       virtual void handleMouseDown(MouseButton button_id, int x, int y, int button_state,
                                    int modifiers, int repeat_clicks) = 0;
@@ -150,33 +151,34 @@ namespace visage {
     bool hasActiveTextEntry() const;
 
     HitTestResult handleHitTest(int x, int y);
+    HitTestResult currentHitTest() const;
     void handleMouseMove(int x, int y, int button_state, int modifiers);
     void handleMouseDown(MouseButton button_id, int x, int y, int button_state, int modifiers);
-    void handleMouseUp(MouseButton button_id, int x, int y, int button_state, int modifiers) const;
+    void handleMouseUp(MouseButton button_id, int x, int y, int button_state, int modifiers);
     void handleMouseEnter(int x, int y);
-    void handleMouseLeave(int button_state, int modifiers) const;
+    void handleMouseLeave(int button_state, int modifiers);
 
     void handleMouseWheel(float delta_x, float delta_y, float precise_x, float precise_y, int x,
-                          int y, int button_state, int modifiers, bool momentum = false) const;
+                          int y, int button_state, int modifiers, bool momentum = false);
     void handleMouseWheel(float delta_x, float delta_y, int x, int y, int button_state,
-                          int modifiers, bool momentum = false) const;
+                          int modifiers, bool momentum = false);
 
     void handleFocusLost();
-    void handleFocusGained() const;
+    void handleFocusGained();
     void handleResized(int width, int height);
 
-    bool handleKeyDown(KeyCode key_code, int modifiers, bool repeat) const;
-    bool handleKeyUp(KeyCode key_code, int modifiers) const;
-    bool handleTextInput(const std::string& text) const;
+    bool handleKeyDown(KeyCode key_code, int modifiers, bool repeat);
+    bool handleKeyUp(KeyCode key_code, int modifiers);
+    bool handleTextInput(const std::string& text);
 
-    bool handleFileDrag(int x, int y, const std::vector<std::string>& files) const;
-    void handleFileDragLeave() const;
-    bool handleFileDrop(int x, int y, const std::vector<std::string>& files) const;
+    bool handleFileDrag(int x, int y, const std::vector<std::string>& files);
+    void handleFileDragLeave();
+    bool handleFileDrop(int x, int y, const std::vector<std::string>& files);
 
     bool isDragDropSource() const;
-    std::string startDragDropSource() const;
+    std::string startDragDropSource();
     Bounds dragDropSourceBounds();
-    void cleanupDragDropSource() const;
+    void cleanupDragDropSource();
     void setVisible(bool visible) { visible_ = visible; }
 
   private:

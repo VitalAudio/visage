@@ -1063,6 +1063,12 @@ namespace visage {
       ShowCaret(hwnd);
       return 0;
     }
+    case WM_NCMOUSEMOVE: {
+      POINT position = { GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param) };
+      ScreenToClient(window_handle_, &position);
+      handleMouseMove(position.x, position.y, mouseButtonState(w_param), keyboardModifiers());
+      break;
+    }
     case WM_MOUSEMOVE: {
       int x = GET_X_LPARAM(l_param);
       int y = GET_Y_LPARAM(l_param);
@@ -1087,9 +1093,18 @@ namespace visage {
 
       return 0;
     }
+    case WM_NCMOUSELEAVE: {
+      if (currentHitTest() != HitTestResult::Client) {
+        setMouseTracked(false);
+        handleMouseLeave(mouseButtonState(0), keyboardModifiers());
+      }
+      break;
+    }
     case WM_MOUSELEAVE: {
-      setMouseTracked(false);
-      handleMouseLeave(mouseButtonState(0), keyboardModifiers());
+      if (currentHitTest() == HitTestResult::Client) {
+        setMouseTracked(false);
+        handleMouseLeave(mouseButtonState(0), keyboardModifiers());
+      }
       return 0;
     }
     case WM_LBUTTONDOWN: {
@@ -1114,6 +1129,26 @@ namespace visage {
         SetCapture(hwnd);
 
       return 0;
+    }
+    case WM_NCLBUTTONDOWN: {
+      if (w_param == HTCLOSE || w_param == HTMAXBUTTON || w_param == HTMINBUTTON)
+        return 0;
+      break;
+    }
+    case WM_NCLBUTTONUP: {
+      if (w_param == HTCLOSE) {
+        PostMessage(hwnd, WM_CLOSE, 0, 0);
+        return 0;
+      }
+      else if (w_param == HTMAXBUTTON) {
+        ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE);
+        return 0;
+      }
+      else if (w_param == HTMINBUTTON) {
+        ShowWindow(hwnd, SW_MINIMIZE);
+        return 0;
+      }
+      break;
     }
     case WM_LBUTTONUP: {
       int button_state = mouseButtonState(w_param);
@@ -1221,8 +1256,6 @@ namespace visage {
   }
 
   static LRESULT WINAPI standaloneWindowProcedure(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
-    static constexpr int kDefaultTitleBarHeight = 40;
-
     WindowWin32* window = reinterpret_cast<WindowWin32*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
     if (window == nullptr)
       return DefWindowProc(hwnd, msg, w_param, l_param);
@@ -1233,7 +1266,17 @@ namespace visage {
     }
     if (msg == WM_NCCALCSIZE && window->decoration() == Window::Decoration::Client) {
       NCCALCSIZE_PARAMS* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(l_param);
-      params->rgrc[0].top -= window->titleBarRemoval();
+      if (IsZoomed(hwnd)) {
+        HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        MONITORINFO monitor_info = {};
+        monitor_info.cbSize = sizeof(MONITORINFO);
+        GetMonitorInfo(monitor, &monitor_info);
+        params->rgrc[0] = monitor_info.rcWork;
+        return 0;
+      }
+
+      params->rgrc[0].top -= GetSystemMetrics(SM_CYCAPTION) + GetSystemMetrics(SM_CYSIZEFRAME) +
+                             GetSystemMetrics(SM_CXPADDEDBORDER);
     }
     if (msg == WM_NCHITTEST && window->decoration() == Window::Decoration::Client) {
       LRESULT result = DefWindowProc(hwnd, msg, w_param, l_param);
@@ -1249,10 +1292,7 @@ namespace visage {
       case HitTestResult::CloseButton: return HTCLOSE;
       case HitTestResult::MaximizeButton: return HTMAXBUTTON;
       case HitTestResult::MinimizeButton: return HTMINBUTTON;
-      default:
-        if (kDefaultTitleBarHeight * window->dpiScale() > position.y)
-          return HTCAPTION;
-        return HTCLIENT;
+      default: return HTCLIENT;
       }
     }
     return windowProcedure(hwnd, msg, w_param, l_param);
@@ -1408,7 +1448,6 @@ namespace visage {
       Window(width, height), decoration_(decoration) {
     static constexpr int kWindowFlags = WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX |
                                         WS_MAXIMIZEBOX;
-    static constexpr int kClientDecorationFlags = WS_POPUP | WS_THICKFRAME;
     static constexpr int kPopupFlags = WS_POPUP;
 
     DpiAwareness dpi_awareness;
@@ -1419,9 +1458,7 @@ namespace visage {
     RegisterClassEx(&window_class_);
 
     int flags = kWindowFlags;
-    if (decoration_ == Window::Decoration::Client)
-      flags = kClientDecorationFlags;
-    else if (decoration_ == Window::Decoration::Popup)
+    if (decoration_ == Window::Decoration::Popup)
       flags = kPopupFlags;
 
     std::string app_name = VISAGE_APPLICATION_NAME;
@@ -1439,7 +1476,6 @@ namespace visage {
     if (decoration_ == Window::Decoration::Client)
       window_height = height + borders.bottom() + 2;
 
-    title_bar_removal_ = -borders.y();
     SetWindowPos(window_handle_, nullptr, x - borders.width() / 2, y, width + borders.width(),
                  window_height, SWP_NOZORDER);
 
@@ -1535,6 +1571,7 @@ namespace visage {
 
   void WindowWin32::show() {
     show(SW_SHOWNORMAL);
+    SetWindowPos(window_handle_, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
   }
 
   void WindowWin32::hide() {

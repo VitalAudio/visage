@@ -175,6 +175,8 @@ namespace visage {
     virtual bool receivesTextInput() { return false; }
     virtual void textInput(const std::string& text) { }
 
+    virtual HitTestResult hitTest(const Point& position) const { return HitTestResult::Client; }
+
     virtual bool receivesDragDropFiles() { return false; }
     virtual std::string dragDropFileExtensionRegex() { return ".*"; }
     virtual bool receivesMultipleDragDropFiles() { return false; }
@@ -416,9 +418,6 @@ namespace visage {
     bool canUndo() const;
     bool canRedo() const;
 
-    HitTestResult hitTestResult() const { return hit_test_result_; }
-    void setHitTestResult(HitTestResult result) { hit_test_result_ = result; }
-
   private:
     void notifyHierarchyChanged() {
       on_hierarchy_change_.callback();
@@ -460,7 +459,6 @@ namespace visage {
     bool accepts_keystrokes_ = false;
     bool ignores_mouse_events_ = false;
     bool pass_mouse_events_to_children_ = true;
-    HitTestResult hit_test_result_ = HitTestResult::Client;
 
     std::vector<Frame*> children_;
     Frame* parent_ = nullptr;

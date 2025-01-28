@@ -34,7 +34,11 @@ namespace visage {
 
     const std::string& title() const { return title_; }
     void setTitle(std::string title) { title_ = std::move(title); }
-    void setWindowDecoration(Window::Decoration decoration) { decoration_ = decoration; }
+    void setWindowDecoration(Window::Decoration decoration) {
+      decoration_ = decoration;
+      if (decoration_ == Window::Decoration::Client)
+        addClientDecoration();
+    }
 
     void show(const Dimension& width, const Dimension& height);
     void show(const Dimension& x, const Dimension& y, const Dimension& width, const Dimension& height);

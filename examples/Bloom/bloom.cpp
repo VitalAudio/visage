@@ -40,7 +40,10 @@ public:
     return approx * (0.776f + 0.224f * fabsf(approx));
   }
 
-  AnimatedLine() : graph_line_(kNumPoints) { addChild(&graph_line_); }
+  AnimatedLine() : graph_line_(kNumPoints) {
+    addChild(&graph_line_);
+    setIgnoresMouseEvents(true, false);
+  }
 
   void resized() override { graph_line_.setBounds(0, 0, width(), height()); }
 
@@ -123,6 +126,7 @@ private:
 
 int runExample() {
   ExampleEditor editor;
+  editor.setWindowDecoration(visage::Window::Decoration::Client);
   editor.show(visage::Dimension::widthPercent(50.0f), visage::Dimension::widthPercent(14.0f));
   editor.runEventLoop();
 

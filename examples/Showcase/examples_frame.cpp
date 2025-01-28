@@ -207,6 +207,8 @@ void TitleBar::draw(visage::Canvas& canvas) {
 
 ExampleSection::ExampleSection(const std::string& title, visage::Frame* example) :
     title_bar_(title), example_(example) {
+  setIgnoresMouseEvents(true, true);
+
   addChild(&title_bar_);
   addChild(example_);
 

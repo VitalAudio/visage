@@ -211,13 +211,16 @@ namespace visage {
     return mouse_event;
   }
 
-  HitTestResult WindowEventHandler::handleHitTest(int x, int y) const {
+  HitTestResult WindowEventHandler::handleHitTest(int x, int y) {
     Point window_position = convertPointToFramePosition({ x, y });
     Frame* hovered_frame = content_frame_->frameAtPoint(window_position);
     if (hovered_frame == nullptr)
-      return HitTestResult::Client;
-
-    return hovered_frame->hitTestResult();
+      current_hit_test_ = HitTestResult::Client;
+    else {
+      Point position = window_position - hovered_frame->positionInWindow();
+      current_hit_test_ = hovered_frame->hitTest(position);
+    }
+    return current_hit_test_;
   }
 
   void WindowEventHandler::handleMouseMove(int x, int y, int button_state, int modifiers) {

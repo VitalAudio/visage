@@ -54,7 +54,8 @@ namespace visage {
     MouseEvent getMouseEvent(int x, int y, int button_state, int modifiers);
     MouseEvent getButtonMouseEvent(MouseButton button_id, int x, int y, int button_state, int modifiers);
 
-    HitTestResult handleHitTest(int x, int y) const override;
+    HitTestResult handleHitTest(int x, int y) override;
+    HitTestResult currentHitTest() const override { return current_hit_test_; }
     void handleMouseMove(int x, int y, int button_state, int modifiers) override;
     void handleMouseDown(MouseButton button_id, int x, int y, int button_state, int modifiers,
                          int repeat) override;
@@ -98,6 +99,7 @@ namespace visage {
     Frame* drag_drop_target_frame_ = nullptr;
 
     Point last_mouse_position_ = { 0, 0 };
+    HitTestResult current_hit_test_ = HitTestResult::Client;
 
     VISAGE_LEAK_CHECKER(WindowEventHandler)
   };

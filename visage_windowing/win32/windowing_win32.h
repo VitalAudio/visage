@@ -88,8 +88,6 @@ namespace visage {
     void updateMonitor();
     HMONITOR monitor() const { return monitor_; }
     WNDPROC parentWindowProc() const { return parent_window_proc_; }
-
-    int titleBarRemoval() const { return title_bar_removal_; }
     Window::Decoration decoration() const { return decoration_; }
 
   private:
@@ -112,7 +110,6 @@ namespace visage {
     bool initialized_ = false;
     bool mouse_tracked_ = false;
     int mouse_down_flags_ = 0;
-    int title_bar_removal_ = 0;
   };
 }
 

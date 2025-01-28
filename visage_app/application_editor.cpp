@@ -21,12 +21,17 @@
 
 #include "application_editor.h"
 
+#include "client_window_decoration.h"
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/renderer.h"
 #include "visage_windowing/windowing.h"
 #include "window_event_handler.h"
 
 namespace visage {
+  TopLevelFrame::TopLevelFrame(ApplicationEditor* editor) : editor_(editor) { }
+
+  TopLevelFrame::~TopLevelFrame() = default;
+
   void TopLevelFrame::resized() {
     float dpi_scale = editor_->window() ? editor_->window()->dpiScale() : 1.0f;
 
@@ -40,6 +45,18 @@ namespace visage {
     setDimensionScaling(dpi_scale, width_scale, height_scale);
     editor_->setBounds(localBounds());
     editor_->setCanvasDetails();
+
+    if (client_decoration_) {
+      int decoration_width = client_decoration_->requiredWidth();
+      client_decoration_->setBounds(width() - decoration_width, 0, decoration_width,
+                                    client_decoration_->requiredHeight());
+    }
+  }
+
+  void TopLevelFrame::addClientDecoration() {
+    client_decoration_ = std::make_unique<ClientWindowDecoration>();
+    addChild(client_decoration_.get());
+    client_decoration_->setOnTop(true);
   }
 
   ApplicationEditor::ApplicationEditor() : top_level_(this) {

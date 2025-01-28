@@ -40,7 +40,7 @@ namespace visage {
       event_handler_->handleFocusLost();
   }
 
-  void Window::handleFocusGained() const {
+  void Window::handleFocusGained() {
     if (event_handler_)
       event_handler_->handleFocusGained();
   }
@@ -53,21 +53,21 @@ namespace visage {
       event_handler_->handleResized(width, height);
   }
 
-  bool Window::handleKeyDown(KeyCode key_code, int modifiers, bool repeat) const {
+  bool Window::handleKeyDown(KeyCode key_code, int modifiers, bool repeat) {
     if (event_handler_ == nullptr)
       return false;
 
     return event_handler_->handleKeyDown(key_code, modifiers, repeat);
   }
 
-  bool Window::handleKeyUp(KeyCode key_code, int modifiers) const {
+  bool Window::handleKeyUp(KeyCode key_code, int modifiers) {
     if (event_handler_ == nullptr)
       return false;
 
     return event_handler_->handleKeyUp(key_code, modifiers);
   }
 
-  bool Window::handleTextInput(const std::string& text) const {
+  bool Window::handleTextInput(const std::string& text) {
     if (event_handler_ == nullptr)
       return false;
 
@@ -97,19 +97,19 @@ namespace visage {
     return event_handler_->hasActiveTextEntry();
   }
 
-  bool Window::handleFileDrag(int x, int y, const std::vector<std::string>& files) const {
+  bool Window::handleFileDrag(int x, int y, const std::vector<std::string>& files) {
     if (files.empty() || event_handler_ == nullptr)
       return false;
 
     return event_handler_->handleFileDrag(x, y, files);
   }
 
-  void Window::handleFileDragLeave() const {
+  void Window::handleFileDragLeave() {
     if (event_handler_)
       event_handler_->handleFileDragLeave();
   }
 
-  bool Window::handleFileDrop(int x, int y, const std::vector<std::string>& files) const {
+  bool Window::handleFileDrop(int x, int y, const std::vector<std::string>& files) {
     if (files.empty() || event_handler_ == nullptr)
       return false;
 
@@ -121,6 +121,13 @@ namespace visage {
       return HitTestResult::Client;
 
     return event_handler_->handleHitTest(x, y);
+  }
+
+  HitTestResult Window::currentHitTest() const {
+    if (event_handler_ == nullptr)
+      return HitTestResult::Client;
+
+    return event_handler_->currentHitTest();
   }
 
   void Window::handleMouseMove(int x, int y, int button_state, int modifiers) {
@@ -152,7 +159,7 @@ namespace visage {
                                     mouse_repeat_clicks_.click_count);
   }
 
-  void Window::handleMouseUp(MouseButton button_id, int x, int y, int button_state, int modifiers) const {
+  void Window::handleMouseUp(MouseButton button_id, int x, int y, int button_state, int modifiers) {
     if (event_handler_ == nullptr)
       return;
 
@@ -165,7 +172,7 @@ namespace visage {
       event_handler_->handleMouseEnter(x, y);
   }
 
-  void Window::handleMouseLeave(int button_state, int modifiers) const {
+  void Window::handleMouseLeave(int button_state, int modifiers) {
     if (event_handler_) {
       event_handler_->handleMouseLeave(last_window_mouse_position_.x, last_window_mouse_position_.y,
                                        button_state, modifiers);
@@ -173,14 +180,14 @@ namespace visage {
   }
 
   void Window::handleMouseWheel(float delta_x, float delta_y, float precise_x, float precise_y,
-                                int x, int y, int button_state, int modifiers, bool momentum) const {
+                                int x, int y, int button_state, int modifiers, bool momentum) {
     if (event_handler_)
       event_handler_->handleMouseWheel(delta_x, delta_y, precise_x, precise_y, x, y, button_state,
                                        modifiers, momentum);
   }
 
   void Window::handleMouseWheel(float delta_x, float delta_y, int x, int y, int button_state,
-                                int modifiers, bool momentum) const {
+                                int modifiers, bool momentum) {
     handleMouseWheel(delta_x, delta_y, delta_x, delta_y, x, y, button_state, modifiers, momentum);
   }
 
@@ -191,7 +198,7 @@ namespace visage {
     return event_handler_->isDragDropSource();
   }
 
-  std::string Window::startDragDropSource() const {
+  std::string Window::startDragDropSource() {
     if (event_handler_ == nullptr)
       return {};
 
@@ -205,7 +212,7 @@ namespace visage {
     return event_handler_->dragDropSourceBounds();
   }
 
-  void Window::cleanupDragDropSource() const {
+  void Window::cleanupDragDropSource() {
     if (event_handler_)
       event_handler_->cleanupDragDropSource();
   }

@@ -30,19 +30,26 @@ namespace visage {
   class Canvas;
   class Window;
   class WindowEventHandler;
+  class ClientWindowDecoration;
 
   class TopLevelFrame : public Frame {
   public:
-    explicit TopLevelFrame(ApplicationEditor* editor) : editor_(editor) { }
+    explicit TopLevelFrame(ApplicationEditor* editor);
+    ~TopLevelFrame() override;
 
     void resized() override;
+    void addClientDecoration();
+    bool hasClientDecoration() const { return client_decoration_ != nullptr; }
 
   private:
     ApplicationEditor* editor_ = nullptr;
+    std::unique_ptr<ClientWindowDecoration> client_decoration_;
   };
 
   class ApplicationEditor : public Frame {
   public:
+    static constexpr int kDefaultClientTitleBarHeight = 30;
+
     ApplicationEditor();
     ~ApplicationEditor() override;
 
@@ -82,6 +89,14 @@ namespace visage {
     void setLogicalDimensions(int logical_width, int logical_height) {
       setBounds(x(), y(), std::round(logical_width * pixel_scale_),
                 std::round(logical_height * pixel_scale_));
+    }
+
+    void addClientDecoration() { top_level_.addClientDecoration(); }
+    HitTestResult hitTest(const Point& position) const override {
+      if (position.y < kDefaultClientTitleBarHeight * dpiScale() && top_level_.hasClientDecoration())
+        return HitTestResult::TitleBar;
+
+      return HitTestResult::Client;
     }
 
   private:
