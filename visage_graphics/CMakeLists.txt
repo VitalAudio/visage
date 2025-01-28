@@ -86,10 +86,6 @@ target_link_libraries(
   VisageGraphics
   PRIVATE
   bx
-)
-
-set(VisageGraphicsDependencies
-  VisageGraphicsEmbeds
   bgfx
   bx
   bimg_decode
@@ -100,7 +96,6 @@ set(VisageGraphicsDependencies
   ${WIN_LIBS}
   ${METAL_LIBS}
   ${FONTCONFIG_LIBRARIES}
-  PARENT_SCOPE
 )
 
 include(embedded.cmake)

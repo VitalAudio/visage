@@ -27,9 +27,10 @@ target_include_directories(VisageWindowing
   ${VISAGE_INCLUDE_PATH}
   ${X11_INCLUDES}
 )
+target_link_libraries(VisageWindowing PRIVATE ${X11_LIBS} ${WIN_LIBS})
+
 set_target_properties(VisageWindowing PROPERTIES FOLDER "visage")
 if (APPLE)
   set_target_properties(VisageWindowing PROPERTIES COMPILE_FLAGS "-fobjc-arc")
 endif ()
 
-set(VisageWindowingDependencies ${X11_LIBS} ${WIN_LIBS} PARENT_SCOPE)

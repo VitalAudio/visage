@@ -56,21 +56,18 @@ endif ()
 
 add_library(visage STATIC
   ${DUMMY_FILE}
-  $<TARGET_OBJECTS:VisageApp>
-  $<TARGET_OBJECTS:VisageGraphics>
-  $<TARGET_OBJECTS:VisageUtils>
-  $<TARGET_OBJECTS:VisageUi>
-  $<TARGET_OBJECTS:VisageWidgets>
-  $<TARGET_OBJECTS:VisageWindowing>
-)
-
-target_link_libraries(visage
-  PRIVATE
-  ${VisageGraphicsDependencies}
-  ${VisageWindowingDependencies}
 )
 
 target_include_directories(visage SYSTEM PUBLIC ${VISAGE_INCLUDE_PATH})
+target_link_libraries(visage PRIVATE
+  VisageApp
+  VisageGraphics
+  VisageUtils
+  VisageUi
+  VisageWidgets
+  VisageWindowing
+)
+
 set_target_properties(visage PROPERTIES FOLDER "visage")
 
 if (VISAGE_BUILD_EXAMPLES)
