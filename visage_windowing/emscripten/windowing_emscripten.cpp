@@ -112,8 +112,8 @@ namespace visage {
     handleWindowResize(width, height);
   }
 
-  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y,
-                                       const Dimension& width, const Dimension& height, bool popup) {
+  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
+                                       const Dimension& height, Window::Decoration decoration) {
     float scale = windowPixelScale();
     int display_width = scale * EM_ASM_INT({ return window.innerWidth; });
     int display_height = scale * EM_ASM_INT({ return window.innerHeight; });

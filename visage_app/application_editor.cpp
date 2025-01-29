@@ -54,9 +54,11 @@ namespace visage {
   }
 
   void TopLevelFrame::addClientDecoration() {
+#if !VISAGE_MAC
     client_decoration_ = std::make_unique<ClientWindowDecoration>();
     addChild(client_decoration_.get());
     client_decoration_->setOnTop(true);
+#endif
   }
 
   ApplicationEditor::ApplicationEditor() : top_level_(this) {

@@ -751,11 +751,11 @@ namespace visage {
     };
   }
 
-  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y,
-                                       const Dimension& width, const Dimension& height, bool popup) {
+  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
+                                       const Dimension& height, Window::Decoration decoration) {
     float scale = 1.0f;
     Bounds bounds = computeWindowBoundsWithScale(x, y, width, height, scale);
-    return std::make_unique<WindowMac>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), popup);
+    return std::make_unique<WindowMac>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), decoration);
   }
 
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
@@ -765,20 +765,28 @@ namespace visage {
     return std::make_unique<WindowMac>(bounds.width(), bounds.height(), parent_handle);
   }
 
-  WindowMac::WindowMac(int x, int y, int width, int height, bool popup) :
-      Window(width, height), popup_(popup) {
-    static const NSUInteger kWindowStyleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskResizable |
-                                               NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskClosable;
-    static const NSUInteger kPopupStyleMask = NSWindowStyleMaskBorderless;
+  WindowMac::WindowMac(int x, int y, int width, int height, Decoration decoration) :
+      Window(width, height), decoration_(decoration) {
+    static const NSUInteger kNativeStyle = NSWindowStyleMaskTitled | NSWindowStyleMaskResizable |
+                                           NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskClosable;
+    static const NSUInteger kClientStyle = kNativeStyle | NSWindowStyleMaskFullSizeContentView;
+    static const NSUInteger kPopupStyle = NSWindowStyleMaskBorderless;
 
-    int style_mask = popup ? kPopupStyleMask : kWindowStyleMask;
+    int style_mask = kNativeStyle;
+    if (decoration_ == Decoration::Popup)
+      style_mask = kPopupStyle;
+    else if (decoration_ == Decoration::Client)
+      style_mask = kClientStyle;
+
     NSRect content_rect = NSMakeRect(x, y, width, height);
     NSWindow* window = [[NSWindow alloc] initWithContentRect:content_rect
                                                    styleMask:style_mask
                                                      backing:NSBackingStoreBuffered
                                                        defer:NO];
-    if (popup)
+    if (decoration_ == Decoration::Popup)
       [window setLevel:NSStatusWindowLevel];
+    else if (decoration_ == Decoration::Client)
+      window.titlebarAppearsTransparent = YES;
 
     window_handle_ = window;
     content_rect.origin.x = 0;
@@ -850,7 +858,7 @@ namespace visage {
       [parent_view_.window makeKeyAndOrderFront:nil];
     }
     else {
-      if (popup_)
+      if (isPopup())
         [window_handle_ orderFront:nil];
       else
         [window_handle_ makeKeyAndOrderFront:nil];

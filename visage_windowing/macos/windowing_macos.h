@@ -65,7 +65,7 @@ namespace visage {
 namespace visage {
   class WindowMac : public Window {
   public:
-    WindowMac(int x, int y, int width, int height, bool popup);
+    WindowMac(int x, int y, int width, int height, Decoration decoration);
     WindowMac(int width, int height, void* parent_handle);
 
     ~WindowMac() override;
@@ -83,14 +83,14 @@ namespace visage {
     Point minWindowDimensions() const override;
 
     void handleNativeResize(int width, int height);
-    bool isPopup() const { return popup_; }
+    bool isPopup() const { return decoration_ == Decoration::Popup; }
 
   private:
     NSWindow* window_handle_ = nullptr;
     NSView* parent_view_ = nullptr;
     AppView* view_ = nullptr;
     AppViewDelegate* view_delegate_ = nullptr;
-    bool popup_ = false;
+    Decoration decoration_ = Decoration::Native;
   };
 
 }
