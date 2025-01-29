@@ -131,6 +131,10 @@ namespace visage {
     case MouseCursor::Pointing: cursor = x11.cursors().pointing_cursor; break;
     case MouseCursor::HorizontalResize: cursor = x11.cursors().horizontal_resize_cursor; break;
     case MouseCursor::VerticalResize: cursor = x11.cursors().vertical_resize_cursor; break;
+    case MouseCursor::TopLeftResize: cursor = x11.cursors().top_left_resize_cursor; break;
+    case MouseCursor::TopRightResize: cursor = x11.cursors().top_right_resize_cursor; break;
+    case MouseCursor::BottomLeftResize: cursor = x11.cursors().bottom_left_resize_cursor; break;
+    case MouseCursor::BottomRightResize: cursor = x11.cursors().bottom_right_resize_cursor; break;
     case MouseCursor::Dragging:
     case MouseCursor::MultiDirectionalResize:
       cursor = x11.cursors().multi_directional_resize_cursor;
@@ -140,6 +144,20 @@ namespace visage {
 
     XDefineCursor(x11.display(), (::Window)window->nativeHandle(), cursor);
     XFlush(x11.display());
+  }
+
+  static MouseCursor windowResizeCursor(int operation) {
+    switch (operation) {
+    case kResizeLeft | kResizeTop: return MouseCursor::TopLeftResize;
+    case kResizeRight | kResizeTop: return MouseCursor::TopRightResize;
+    case kResizeLeft | kResizeBottom: return MouseCursor::BottomLeftResize;
+    case kResizeRight | kResizeBottom: return MouseCursor::BottomRightResize;
+    case kResizeLeft:
+    case kResizeRight: return MouseCursor::HorizontalResize;
+    case kResizeTop:
+    case kResizeBottom: return MouseCursor::VerticalResize;
+    default: return MouseCursor::Arrow;
+    }
   }
 
   void setCursorVisible(bool visible) {
@@ -413,6 +431,10 @@ namespace visage {
     pointing_cursor = XCreateFontCursor(display, XC_hand2);
     horizontal_resize_cursor = XCreateFontCursor(display, XC_sb_h_double_arrow);
     vertical_resize_cursor = XCreateFontCursor(display, XC_sb_v_double_arrow);
+    top_left_resize_cursor = XCreateFontCursor(display, XC_top_left_corner);
+    top_right_resize_cursor = XCreateFontCursor(display, XC_top_right_corner);
+    bottom_left_resize_cursor = XCreateFontCursor(display, XC_bottom_left_corner);
+    bottom_right_resize_cursor = XCreateFontCursor(display, XC_bottom_right_corner);
     multi_directional_resize_cursor = XCreateFontCursor(display, XC_fleur);
     XUnlockDisplay(display);
   }
@@ -446,7 +468,7 @@ namespace visage {
   WindowX11* WindowX11::last_active_window_ = nullptr;
 
   WindowX11::WindowX11(int x, int y, int width, int height, Decoration decoration) :
-      Window(width, height) {
+      Window(width, height), decoration_(decoration) {
     monitor_info_ = activeMonitorInfo();
     X11Connection::DisplayLock lock(x11_);
     ::Display* display = x11_.display();
@@ -458,26 +480,15 @@ namespace visage {
       attributes.override_redirect = True;
       XChangeWindowAttributes(display, window_handle_, CWOverrideRedirect, &attributes);
     }
-    else if (decoration == Decoration::Client) {
-      Atom mwm_hints = XInternAtom(display, "_MOTIF_WM_HINTS", False);
-      struct MwmHints {
-        unsigned long flags = 0;
-        unsigned long functions = 0;
-        unsigned long decorations = 0;
-        long input_mode = 0;
-        unsigned long status = 0;
-      };
-
-      MwmHints hints;
-      hints.flags = 2;
-      XChangeProperty(x11_.display(), window_handle_, mwm_hints, mwm_hints, 32, PropModeReplace,
-                      reinterpret_cast<unsigned char*>(&hints), 5);
-    }
+    else if (decoration == Decoration::Client)
+      removeWindowDecorationButtons();
 
     XSizeHints* size_hints = XAllocSizeHints();
-    size_hints->flags = USPosition;
+    size_hints->flags = USPosition | PMinSize;
     size_hints->x = x;
     size_hints->y = y;
+    size_hints->min_width = kMinWidth;
+    size_hints->min_height = kMinHeight;
     XSetWMNormalHints(display, window_handle_, size_hints);
     XFree(size_hints);
 
@@ -551,6 +562,40 @@ namespace visage {
     X11Connection::DisplayLock lock(x11_);
     if (window_handle_)
       XDestroyWindow(x11_.display(), window_handle_);
+  }
+
+  int WindowX11::resizeOperationForPosition(int x, int y) const {
+    if (decoration_ != Decoration::Client)
+      return 0;
+
+    int border = kClientResizeBorder * dpiScale();
+    int operation = 0;
+    if (x <= border)
+      operation = kResizeLeft;
+    else if (x >= clientWidth() - border)
+      operation = kResizeRight;
+    if (y <= border)
+      operation |= kResizeTop;
+    else if (y >= clientHeight() - border)
+      operation |= kResizeBottom;
+
+    return operation;
+  }
+
+  void WindowX11::removeWindowDecorationButtons() {
+    Atom mwm_hints = XInternAtom(x11_.display(), "_MOTIF_WM_HINTS", False);
+    struct MwmHints {
+      unsigned long flags = 0;
+      unsigned long functions = 0;
+      unsigned long decorations = 0;
+      long input_mode = 0;
+      unsigned long status = 0;
+    };
+
+    MwmHints hints;
+    hints.flags = 2;
+    XChangeProperty(x11_.display(), window_handle_, mwm_hints, mwm_hints, 32, PropModeReplace,
+                    reinterpret_cast<unsigned char*>(&hints), 5);
   }
 
   void* WindowX11::initWindow() const {
@@ -1103,12 +1148,35 @@ namespace visage {
       X11Connection::DisplayLock lock(x11_);
       last_active_window_ = this;
 
-      if (dragging_window_) {
-        int x_offset = event.xmotion.x_root - dragging_window_x_;
-        int y_offset = event.xmotion.y_root - dragging_window_y_;
+      if (window_operation_ & kMoveWindow) {
+        int x_offset = event.xmotion.x_root - dragging_window_position_.x;
+        int y_offset = event.xmotion.y_root - dragging_window_position_.y;
         XMoveWindow(x11_.display(), window_handle_, x_offset, y_offset);
       }
+      else if (window_operation_) {
+        ::Window root;
+        int window_x, window_y;
+        unsigned int window_width, window_height, border, depth;
+        XGetGeometry(x11_.display(), window_handle_, &root, &window_x, &window_y, &window_width,
+                     &window_height, &border, &depth);
+        int window_right = window_x + window_width;
+        int window_bottom = window_y + window_height;
 
+        if (window_operation_ & kResizeLeft)
+          window_x = std::min(window_right - kMinWidth, event.xmotion.x_root);
+        else if (window_operation_ & kResizeRight)
+          window_right = std::max(window_x + kMinHeight, event.xmotion.x_root);
+        if (window_operation_ & kResizeTop)
+          window_y = std::min(window_bottom - kMinHeight, event.xmotion.y_root);
+        else if (window_operation_ & kResizeBottom)
+          window_bottom = std::max(window_y + kMinHeight, event.xmotion.y_root);
+
+        handleResized(window_right - window_x, window_bottom - window_y);
+        XMoveResizeWindow(x11_.display(), window_handle_, window_x, window_y,
+                          window_right - window_x, window_bottom - window_y);
+      }
+
+      setCursorStyle(windowResizeCursor(resizeOperationForPosition(event.xmotion.x, event.xmotion.y)));
       if (drag_drop_out_state_.dragging) {
         ::Window last_target = drag_drop_out_state_.target;
         if (event.xmotion.x >= 0 && event.xmotion.x < clientWidth() && event.xmotion.y >= 0 &&
@@ -1136,9 +1204,11 @@ namespace visage {
       if (mouseRelativeMode() && mouse_down_position_ == Point(event.xmotion.x, event.xmotion.y))
         break;
 
-      handleMouseMove(event.xmotion.x, event.xmotion.y, mouseButtonState(), modifierState());
-      if (mouseRelativeMode())
-        setCursorPosition(mouse_down_position_);
+      if (window_operation_ == 0) {
+        handleMouseMove(event.xmotion.x, event.xmotion.y, mouseButtonState(), modifierState());
+        if (mouseRelativeMode())
+          setCursorPosition(mouse_down_position_);
+      }
       break;
     }
     case ButtonPress: {
@@ -1155,15 +1225,16 @@ namespace visage {
           handleMouseDown(button, event.xbutton.x, event.xbutton.y, mouseButtonState(), modifierState());
 
         HitTestResult hit_test = handleHitTest(event.xbutton.x, event.xbutton.y);
-        if (hit_test == HitTestResult::TitleBar) {
-          dragging_window_ = true;
+
+        window_operation_ = resizeOperationForPosition(event.xbutton.x, event.xbutton.y);
+        if (hit_test == HitTestResult::TitleBar && window_operation_ == 0) {
+          window_operation_ = kMoveWindow;
           ::Window root;
           int window_x, window_y;
           unsigned int window_width, window_height, border, depth;
           XGetGeometry(x11_.display(), window_handle_, &root, &window_x, &window_y, &window_width,
                        &window_height, &border, &depth);
-          dragging_window_x_ = event.xbutton.x_root - window_x;
-          dragging_window_y_ = event.xbutton.y_root - window_y;
+          dragging_window_position_ = { event.xbutton.x_root - window_x, event.xbutton.y_root - window_y };
         }
 
         mouse_down_position_ = { event.xbutton.x, event.xbutton.y };
@@ -1180,7 +1251,7 @@ namespace visage {
       break;
     }
     case ButtonRelease: {
-      dragging_window_ = false;
+      window_operation_ = 0;
       MouseButton button = buttonFromEvent(event);
       HitTestResult hit_test = currentHitTest();
       if (drag_drop_out_state_.dragging && button == kMouseButtonLeft) {
@@ -1244,9 +1315,7 @@ namespace visage {
       break;
     }
     case LeaveNotify: {
-      if (event.xbutton.x < 0 || event.xbutton.x >= clientWidth() || event.xbutton.y < 0 ||
-          event.xbutton.y >= clientHeight())
-        handleMouseLeave(mouseButtonState(), modifierState());
+      handleMouseLeave(mouseButtonState(), modifierState());
       break;
     }
     case KeyPress: {

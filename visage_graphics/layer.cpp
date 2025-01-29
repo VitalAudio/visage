@@ -168,9 +168,6 @@ namespace visage {
     if (bgfx::isValid(frame_buffer_data_->handle)) {
       bgfx::destroy(frame_buffer_data_->handle);
       frame_buffer_data_->handle = BGFX_INVALID_HANDLE;
-
-      bgfx::frame();
-      bgfx::frame();
     }
   }
 

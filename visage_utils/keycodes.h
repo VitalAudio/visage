@@ -41,6 +41,10 @@ namespace visage {
     Dragging,
     HorizontalResize,
     VerticalResize,
+    TopLeftResize,
+    TopRightResize,
+    BottomLeftResize,
+    BottomRightResize,
     MultiDirectionalResize,
   };
 

@@ -32,6 +32,14 @@
 #include <X11/Xlib.h>
 
 namespace visage {
+  enum DecoratorOperation {
+    kMoveWindow = 1 << 0,
+    kResizeLeft = 1 << 1,
+    kResizeTop = 1 << 2,
+    kResizeRight = 1 << 3,
+    kResizeBottom = 1 << 4,
+  };
+
   class X11Connection {
   public:
     static constexpr int kDndVersion = 5;
@@ -68,6 +76,10 @@ namespace visage {
       Cursor pointing_cursor;
       Cursor horizontal_resize_cursor;
       Cursor vertical_resize_cursor;
+      Cursor top_left_resize_cursor;
+      Cursor top_right_resize_cursor;
+      Cursor bottom_left_resize_cursor;
+      Cursor bottom_right_resize_cursor;
       Cursor multi_directional_resize_cursor;
     };
 
@@ -119,7 +131,7 @@ namespace visage {
     Atom targets() const { return targets_; }
     Atom timerEvent() const { return timer_event_; }
     Atom* deleteMessageRef() { return &delete_message_; }
-    Atom deleteMessage() { return delete_message_; }
+    Atom deleteMessage() const { return delete_message_; }
     Atom dndAware() const { return dnd_aware_; }
     Atom dndProxy() const { return dnd_proxy_; }
     Atom dndEnter() const { return dnd_enter_; }
@@ -189,6 +201,10 @@ namespace visage {
                                        Button1MotionMask | Button2MotionMask | Button3MotionMask |
                                        VisibilityChangeMask | FocusChangeMask;
 
+    static constexpr int kMinWidth = 80;
+    static constexpr int kMinHeight = 80;
+    static constexpr int kClientResizeBorder = 8;
+
     static WindowX11* lastActiveWindow() { return last_active_window_; }
 
     WindowX11(int x, int y, int width, int height, Decoration decoration);
@@ -203,6 +219,8 @@ namespace visage {
 
     void* nativeHandle() const override { return (void*)window_handle_; }
 
+    int resizeOperationForPosition(int x, int y) const;
+    void removeWindowDecorationButtons();
     void* initWindow() const override;
     void* globalDisplay() const override { return X11Connection::globalInstance().display(); }
     int posixFd() const override { return x11_.fd(); }
@@ -254,12 +272,12 @@ namespace visage {
     std::vector<std::string> drag_drop_files_;
     int drag_drop_target_x_ = 0;
     int drag_drop_target_y_ = 0;
-    bool dragging_window_ = false;
-    int dragging_window_x_ = 0;
-    int dragging_window_y_ = 0;
+    int window_operation_ = 0;
+    Point dragging_window_position_;
 
     long long start_draw_microseconds_ = 0;
     Point mouse_down_position_;
+    Decoration decoration_ = Decoration::Native;
     MonitorInfo monitor_info_;
     ::Window window_handle_ = 0;
     ::Window parent_handle_ = 0;
