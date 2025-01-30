@@ -1275,8 +1275,10 @@ namespace visage {
         return 0;
       }
 
-      params->rgrc[0].top -= GetSystemMetrics(SM_CYCAPTION) + GetSystemMetrics(SM_CYSIZEFRAME) +
-                             GetSystemMetrics(SM_CXPADDEDBORDER);
+      auto dpi = GetDpiForWindow(hwnd);
+      params->rgrc[0].top -= GetSystemMetricsForDpi(SM_CYCAPTION, dpi) +
+                             GetSystemMetricsForDpi(SM_CYSIZEFRAME, dpi) +
+                             GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
     }
     if (msg == WM_NCHITTEST && window->decoration() == Window::Decoration::Client) {
       LRESULT result = DefWindowProc(hwnd, msg, w_param, l_param);
