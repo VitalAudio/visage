@@ -51,19 +51,19 @@ namespace visage {
       return 0;
     }
 
-    static X11Connection& globalInstance() {
+    static X11Connection* globalInstance() {
       static X11Connection connection;
-      return connection;
+      return &connection;
     }
 
     class DisplayLock {
     public:
-      explicit DisplayLock(const X11Connection& x11) : x11_(x11) { XLockDisplay(x11_.display()); }
+      explicit DisplayLock(const X11Connection* x11) : x11_(x11) { XLockDisplay(x11_->display()); }
 
-      ~DisplayLock() { XUnlockDisplay(x11_.display()); }
+      ~DisplayLock() { XUnlockDisplay(x11_->display()); }
 
     private:
-      const X11Connection& x11_;
+      const X11Connection* x11_;
     };
 
     struct Cursors {
@@ -222,8 +222,8 @@ namespace visage {
     int resizeOperationForPosition(int x, int y) const;
     void removeWindowDecorationButtons();
     void* initWindow() const override;
-    void* globalDisplay() const override { return X11Connection::globalInstance().display(); }
-    int posixFd() const override { return x11_.fd(); }
+    void* globalDisplay() const override { return X11Connection::globalInstance()->display(); }
+    int posixFd() const override { return x11_->fd(); }
 
     void setFixedAspectRatio(bool fixed) override;
 
@@ -231,11 +231,13 @@ namespace visage {
     void show() override;
     void showMaximized() override;
     void hide() override;
+    bool isShowing() const override;
+
     void setWindowTitle(const std::string& title) override;
     Point maxWindowDimensions() const override;
     Point minWindowDimensions() const override;
     MonitorInfo monitorInfo() { return monitor_info_; }
-    X11Connection& x11Connection() { return x11_; }
+    X11Connection* x11Connection() { return x11_; }
     bool timerThreadRunning() { return timer_thread_running_.load(); }
     int timerMs() const { return timer_microseconds_.load() / 1000; }
 
@@ -267,7 +269,8 @@ namespace visage {
     void sendDragDropSelectionNotify(XSelectionRequestEvent* request) const;
     void sendDragDropFinished(::Window source, ::Window target, bool accepted_drag) const;
 
-    X11Connection x11_;
+    X11Connection* x11_ = nullptr;
+    std::unique_ptr<X11Connection> plugin_x11_;
     DragDropOutState drag_drop_out_state_;
     std::vector<std::string> drag_drop_files_;
     int drag_drop_target_x_ = 0;

@@ -33,6 +33,40 @@
 namespace visage {
   static std::string _clipboard_text;
 
+  class NativeWindowLookup {
+  public:
+    static NativeWindowLookup& instance() {
+      static NativeWindowLookup instance;
+      return instance;
+    }
+
+    void addWindow(WindowX11* window) { native_window_lookup_[window->nativeHandle()] = window; }
+
+    void removeWindow(WindowX11* window) {
+      if (native_window_lookup_.count(window->nativeHandle()))
+        native_window_lookup_.erase(window->nativeHandle());
+    }
+
+    bool anyWindowOpen() const {
+      for (auto& window : native_window_lookup_) {
+        if (window.second->isShowing())
+          return true;
+      }
+      return false;
+    }
+
+    WindowX11* findWindow(::Window handle) {
+      auto it = native_window_lookup_.find((void*)handle);
+      return it != native_window_lookup_.end() ? it->second : nullptr;
+    }
+
+  private:
+    NativeWindowLookup() = default;
+    ~NativeWindowLookup() = default;
+
+    std::map<void*, WindowX11*> native_window_lookup_;
+  };
+
   class SharedMessageWindow {
   public:
     static ::Window handle() {
@@ -42,15 +76,15 @@ namespace visage {
 
   private:
     SharedMessageWindow() {
-      X11Connection& x11 = X11Connection::globalInstance();
-      ::Display* display = x11.display();
-      window_handle_ = XCreateSimpleWindow(display, x11.rootWindow(), -100, -100, 1, 1, 0, 0, 0);
+      X11Connection* x11 = X11Connection::globalInstance();
+      ::Display* display = x11->display();
+      window_handle_ = XCreateSimpleWindow(display, x11->rootWindow(), -100, -100, 1, 1, 0, 0, 0);
       XSelectInput(display, window_handle_, StructureNotifyMask);
       XFlush(display);
     }
 
     ~SharedMessageWindow() {
-      XDestroyWindow(X11Connection::globalInstance().display(), window_handle_);
+      XDestroyWindow(X11Connection::globalInstance()->display(), window_handle_);
     }
 
     ::Window window_handle_ = 0;
@@ -60,21 +94,21 @@ namespace visage {
     static constexpr int kSleepWait = 5;
     static constexpr int kMaxWaitTime = 250;
     static constexpr int kTries = kMaxWaitTime / kSleepWait;
-    X11Connection& x11 = X11Connection::globalInstance();
+    X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
 
     WindowX11* window = WindowX11::lastActiveWindow();
     if (window == nullptr)
       return "";
 
-    Display* display = x11.display();
+    Display* display = x11->display();
 
-    ::Window selection_owner = XGetSelectionOwner(display, x11.clipboard());
+    ::Window selection_owner = XGetSelectionOwner(display, x11->clipboard());
     if (selection_owner == SharedMessageWindow::handle())
       return _clipboard_text;
 
     Atom selection_property = XInternAtom(display, "VISAGE_SELECT", False);
-    XConvertSelection(display, x11.clipboard(), x11.utf8String(), selection_property,
+    XConvertSelection(display, x11->clipboard(), x11->utf8String(), selection_property,
                       SharedMessageWindow::handle(), CurrentTime);
 
     XEvent event;
@@ -89,7 +123,7 @@ namespace visage {
                              False, AnyPropertyType, &actual_type, &actual_format, &num_items,
                              &bytes_after, &property);
 
-          if (actual_type == x11.utf8String()) {
+          if (actual_type == x11->utf8String()) {
             if (num_items && property[num_items - 1] == 0)
               num_items--;
 
@@ -109,9 +143,9 @@ namespace visage {
   void setClipboardText(const std::string& text) {
     _clipboard_text = text;
 
-    X11Connection& x11 = X11Connection::globalInstance();
-    XSetSelectionOwner(x11.display(), XA_PRIMARY, SharedMessageWindow::handle(), CurrentTime);
-    XSetSelectionOwner(x11.display(), x11.clipboard(), SharedMessageWindow::handle(), CurrentTime);
+    X11Connection* x11 = X11Connection::globalInstance();
+    XSetSelectionOwner(x11->display(), XA_PRIMARY, SharedMessageWindow::handle(), CurrentTime);
+    XSetSelectionOwner(x11->display(), x11->clipboard(), SharedMessageWindow::handle(), CurrentTime);
   }
 
   void setCursorStyle(MouseCursor style) {
@@ -119,31 +153,31 @@ namespace visage {
     if (window == nullptr)
       return;
 
-    X11Connection& x11 = window->x11Connection();
+    X11Connection* x11 = window->x11Connection();
     X11Connection::DisplayLock lock(x11);
 
     Cursor cursor;
     switch (style) {
-    case MouseCursor::Invisible: cursor = x11.cursors().no_cursor; break;
-    case MouseCursor::Arrow: cursor = x11.cursors().arrow_cursor; break;
-    case MouseCursor::IBeam: cursor = x11.cursors().ibeam_cursor; break;
-    case MouseCursor::Crosshair: cursor = x11.cursors().crosshair_cursor; break;
-    case MouseCursor::Pointing: cursor = x11.cursors().pointing_cursor; break;
-    case MouseCursor::HorizontalResize: cursor = x11.cursors().horizontal_resize_cursor; break;
-    case MouseCursor::VerticalResize: cursor = x11.cursors().vertical_resize_cursor; break;
-    case MouseCursor::TopLeftResize: cursor = x11.cursors().top_left_resize_cursor; break;
-    case MouseCursor::TopRightResize: cursor = x11.cursors().top_right_resize_cursor; break;
-    case MouseCursor::BottomLeftResize: cursor = x11.cursors().bottom_left_resize_cursor; break;
-    case MouseCursor::BottomRightResize: cursor = x11.cursors().bottom_right_resize_cursor; break;
+    case MouseCursor::Invisible: cursor = x11->cursors().no_cursor; break;
+    case MouseCursor::Arrow: cursor = x11->cursors().arrow_cursor; break;
+    case MouseCursor::IBeam: cursor = x11->cursors().ibeam_cursor; break;
+    case MouseCursor::Crosshair: cursor = x11->cursors().crosshair_cursor; break;
+    case MouseCursor::Pointing: cursor = x11->cursors().pointing_cursor; break;
+    case MouseCursor::HorizontalResize: cursor = x11->cursors().horizontal_resize_cursor; break;
+    case MouseCursor::VerticalResize: cursor = x11->cursors().vertical_resize_cursor; break;
+    case MouseCursor::TopLeftResize: cursor = x11->cursors().top_left_resize_cursor; break;
+    case MouseCursor::TopRightResize: cursor = x11->cursors().top_right_resize_cursor; break;
+    case MouseCursor::BottomLeftResize: cursor = x11->cursors().bottom_left_resize_cursor; break;
+    case MouseCursor::BottomRightResize: cursor = x11->cursors().bottom_right_resize_cursor; break;
     case MouseCursor::Dragging:
     case MouseCursor::MultiDirectionalResize:
-      cursor = x11.cursors().multi_directional_resize_cursor;
+      cursor = x11->cursors().multi_directional_resize_cursor;
       break;
     default: return;
     }
 
-    XDefineCursor(x11.display(), (::Window)window->nativeHandle(), cursor);
-    XFlush(x11.display());
+    XDefineCursor(x11->display(), (::Window)window->nativeHandle(), cursor);
+    XFlush(x11->display());
   }
 
   static MouseCursor windowResizeCursor(int operation) {
@@ -168,14 +202,14 @@ namespace visage {
   }
 
   Point cursorPosition(::Window window_handle) {
-    X11Connection& x11 = X11Connection::globalInstance();
+    X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
     ::Window root_return, child_return;
     int root_x = 0, root_y = 0;
     int win_x = 0, win_y = 0;
     unsigned int mask_return = 0;
 
-    XQueryPointer(x11.display(), window_handle, &root_return, &child_return, &root_x, &root_y,
+    XQueryPointer(x11->display(), window_handle, &root_return, &child_return, &root_x, &root_y,
                   &win_x, &win_y, &mask_return);
     return { win_x, win_y };
   }
@@ -193,24 +227,24 @@ namespace visage {
     if (window == nullptr)
       return;
 
-    X11Connection& x11 = window->x11Connection();
+    X11Connection* x11 = window->x11Connection();
     X11Connection::DisplayLock lock(x11);
-    XWarpPointer(x11.display(), None, (::Window)window->nativeHandle(), 0, 0, 0, 0,
+    XWarpPointer(x11->display(), None, (::Window)window->nativeHandle(), 0, 0, 0, 0,
                  window_position.x, window_position.y);
-    XFlush(x11.display());
+    XFlush(x11->display());
   }
 
   void setCursorScreenPosition(Point window_position) {
-    X11Connection& x11 = X11Connection::globalInstance();
+    X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
 
-    XWarpPointer(x11.display(), None, x11.rootWindow(), 0, 0, 0, 0, window_position.x,
+    XWarpPointer(x11->display(), None, x11->rootWindow(), 0, 0, 0, 0, window_position.x,
                  window_position.y);
-    XFlush(x11.display());
+    XFlush(x11->display());
   }
 
   Point cursorScreenPosition() {
-    X11Connection& x11 = X11Connection::globalInstance();
+    X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
 
     ::Window root_return, child_return;
@@ -218,7 +252,7 @@ namespace visage {
     int win_x = 0, win_y = 0;
     unsigned int mask_return = 0;
 
-    XQueryPointer(x11.display(), x11.rootWindow(), &root_return, &child_return, &root_x, &root_y,
+    XQueryPointer(x11->display(), x11->rootWindow(), &root_return, &child_return, &root_x, &root_y,
                   &win_x, &win_y, &mask_return);
     return { root_x, root_y };
   }
@@ -239,16 +273,16 @@ namespace visage {
   static MonitorInfo monitorInfoForPosition(Point point) {
     static constexpr float kInchToMm = 25.4;
 
-    X11Connection& x11 = X11Connection::globalInstance();
+    X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
-    Display* display = x11.display();
+    Display* display = x11->display();
 
     Bounds default_bounds(0, 0, DisplayWidth(display, DefaultScreen(display)),
                           DisplayWidth(display, DefaultScreen(display)));
     MonitorInfo result;
     result.bounds = default_bounds;
 
-    XRRScreenResources* screen_resources = XRRGetScreenResources(display, x11.rootWindow());
+    XRRScreenResources* screen_resources = XRRGetScreenResources(display, x11->rootWindow());
     if (screen_resources == nullptr)
       return result;
 
@@ -313,13 +347,13 @@ namespace visage {
     constexpr float kDisplayScale = 0.2f;
 
     Bounds bounds = computeWindowBounds(Dimension::viewMinPercent(30.0f), Dimension::viewMinPercent(20.0f));
-    X11Connection& x11 = X11Connection::globalInstance();
+    X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
-    Display* display = x11.display();
+    Display* display = x11->display();
     int screen = DefaultScreen(display);
 
-    ::Window message_window = XCreateSimpleWindow(display, x11.rootWindow(), bounds.x(), bounds.y(),
-                                                  bounds.width(), bounds.height(), 0,
+    ::Window message_window = XCreateSimpleWindow(display, x11->rootWindow(), bounds.x(),
+                                                  bounds.y(), bounds.width(), bounds.height(), 0,
                                                   BlackPixel(display, screen),
                                                   WhitePixel(display, screen));
     XStoreName(display, message_window, title.c_str());
@@ -449,29 +483,31 @@ namespace visage {
   void WindowX11::createWindow(Bounds bounds) {
     VISAGE_ASSERT(bounds.width() && bounds.height());
 
-    ::Display* display = x11_.display();
+    ::Display* display = x11_->display();
     int screen = DefaultScreen(display);
-    window_handle_ = XCreateSimpleWindow(display, x11_.rootWindow(), bounds.x(), bounds.y(),
+    window_handle_ = XCreateSimpleWindow(display, x11_->rootWindow(), bounds.x(), bounds.y(),
                                          bounds.width(), bounds.height(), 0,
                                          BlackPixel(display, screen), BlackPixel(display, screen));
     XStoreName(display, window_handle_, VISAGE_APPLICATION_NAME);
 
     unsigned char blank = 0;
-    XChangeProperty(display, window_handle_, x11_.dndActionList(), XA_ATOM, 32, PropModeReplace,
-                    x11_.dndActions(), X11Connection::kNumDndActions);
-    XChangeProperty(display, window_handle_, x11_.dndActionDescription(), XA_STRING, 8,
+    XChangeProperty(display, window_handle_, x11_->dndActionList(), XA_ATOM, 32, PropModeReplace,
+                    x11_->dndActions(), X11Connection::kNumDndActions);
+    XChangeProperty(display, window_handle_, x11_->dndActionDescription(), XA_STRING, 8,
                     PropModeReplace, &blank, 0);
-    XChangeProperty(display, window_handle_, x11_.dndAware(), XA_ATOM, 32, PropModeReplace,
-                    x11_.dndVersion(), 1);
+    XChangeProperty(display, window_handle_, x11_->dndAware(), XA_ATOM, 32, PropModeReplace,
+                    x11_->dndVersion(), 1);
   }
 
   WindowX11* WindowX11::last_active_window_ = nullptr;
 
   WindowX11::WindowX11(int x, int y, int width, int height, Decoration decoration) :
       Window(width, height), decoration_(decoration) {
+    x11_ = X11Connection::globalInstance();
+
     monitor_info_ = activeMonitorInfo();
     X11Connection::DisplayLock lock(x11_);
-    ::Display* display = x11_.display();
+    ::Display* display = x11_->display();
     Bounds bounds(x, y, width, height);
     createWindow(bounds);
 
@@ -496,13 +532,14 @@ namespace visage {
     start_draw_microseconds_ = time::microseconds();
     setDpiScale(monitor_info_.dpi / kDefaultDpi);
     XFlush(display);
+    NativeWindowLookup::instance().addWindow(this);
   }
 
   static void threadTimerCallback(WindowX11* window) {
     while (window->timerThreadRunning()) {
       Thread::sleep(window->timerMs());
 
-      X11Connection& x11 = window->x11Connection();
+      X11Connection* x11 = window->x11Connection();
       X11Connection::DisplayLock lock(x11);
       ::Window window_handle = (::Window)window->nativeHandle();
 
@@ -510,12 +547,12 @@ namespace visage {
       memset(&event, 0, sizeof(event));
       event.type = ClientMessage;
       event.xclient.window = window_handle;
-      event.xclient.message_type = x11.timerEvent();
+      event.xclient.message_type = x11->timerEvent();
       event.xclient.format = 32;
       event.xclient.data.l[0] = 0;
 
-      XSendEvent(x11.display(), window_handle, False, NoEventMask, &event);
-      XFlush(x11.display());
+      XSendEvent(x11->display(), window_handle, False, NoEventMask, &event);
+      XFlush(x11->display());
     }
   }
 
@@ -523,9 +560,12 @@ namespace visage {
     static constexpr long kEmbedVersion = 0;
     static constexpr long kEmbedMapped = 1;
 
+    plugin_x11_ = std::make_unique<X11Connection>();
+    x11_ = plugin_x11_.get();
+
     monitor_info_ = activeMonitorInfo();
     X11Connection::DisplayLock lock(x11_);
-    ::Display* display = x11_.display();
+    ::Display* display = x11_->display();
 
     parent_handle_ = (::Window)parent_handle;
     XSelectInput(display, parent_handle_, StructureNotifyMask);
@@ -537,9 +577,9 @@ namespace visage {
     XChangeProperty(display, window_handle_, atom_embed_info, atom_embed_info, 32, PropModeReplace,
                     reinterpret_cast<unsigned char*>(embed_info), 2);
 
-    XChangeProperty(display, parent_handle_, x11_.dndAware(), XA_ATOM, 32, PropModeReplace,
-                    x11_.dndVersion(), 1);
-    XChangeProperty(display, parent_handle_, x11_.dndProxy(), XA_WINDOW, 32, PropModeReplace,
+    XChangeProperty(display, parent_handle_, x11_->dndAware(), XA_ATOM, 32, PropModeReplace,
+                    x11_->dndVersion(), 1);
+    XChangeProperty(display, parent_handle_, x11_->dndProxy(), XA_WINDOW, 32, PropModeReplace,
                     (unsigned char*)&window_handle_, 1);
     XReparentWindow(display, window_handle_, parent_handle_, 0, 0);
 
@@ -550,9 +590,12 @@ namespace visage {
     timer_thread_ = std::make_unique<std::thread>(threadTimerCallback, this);
     start_draw_microseconds_ = time::microseconds();
     setDpiScale(monitor_info_.dpi / kDefaultDpi);
+    NativeWindowLookup::instance().addWindow(this);
   }
 
   WindowX11::~WindowX11() {
+    NativeWindowLookup::instance().removeWindow(this);
+
     timer_thread_running_ = false;
     if (timer_thread_ && timer_thread_->joinable())
       timer_thread_->join();
@@ -561,7 +604,7 @@ namespace visage {
 
     X11Connection::DisplayLock lock(x11_);
     if (window_handle_)
-      XDestroyWindow(x11_.display(), window_handle_);
+      XDestroyWindow(x11_->display(), window_handle_);
   }
 
   int WindowX11::resizeOperationForPosition(int x, int y) const {
@@ -583,7 +626,7 @@ namespace visage {
   }
 
   void WindowX11::removeWindowDecorationButtons() {
-    Atom mwm_hints = XInternAtom(x11_.display(), "_MOTIF_WM_HINTS", False);
+    Atom mwm_hints = XInternAtom(x11_->display(), "_MOTIF_WM_HINTS", False);
     struct MwmHints {
       unsigned long flags = 0;
       unsigned long functions = 0;
@@ -594,7 +637,7 @@ namespace visage {
 
     MwmHints hints;
     hints.flags = 2;
-    XChangeProperty(x11_.display(), window_handle_, mwm_hints, mwm_hints, 32, PropModeReplace,
+    XChangeProperty(x11_->display(), window_handle_, mwm_hints, mwm_hints, 32, PropModeReplace,
                     reinterpret_cast<unsigned char*>(&hints), 5);
   }
 
@@ -610,20 +653,20 @@ namespace visage {
     ::Window handle = parent_handle_ ? parent_handle_ : window_handle_;
 
     long supplied_return;
-    XGetWMNormalHints(x11_.display(), handle, size_hints, &supplied_return);
+    XGetWMNormalHints(x11_->display(), handle, size_hints, &supplied_return);
     size_hints->flags = fixed ? (size_hints->flags | PAspect) : (size_hints->flags & ~PAspect);
     size_hints->min_aspect.x = clientWidth();
     size_hints->min_aspect.y = clientHeight();
     size_hints->max_aspect.x = clientWidth();
     size_hints->max_aspect.y = clientHeight();
-    XSetWMNormalHints(x11_.display(), handle, size_hints);
+    XSetWMNormalHints(x11_->display(), handle, size_hints);
     XFree(size_hints);
   }
 
   visage::Point WindowX11::retrieveWindowDimensions() {
     X11Connection::DisplayLock lock(x11_);
     XWindowAttributes attributes;
-    XGetWindowAttributes(x11_.display(), window_handle_, &attributes);
+    XGetWindowAttributes(x11_->display(), window_handle_, &attributes);
 
     return { attributes.width, attributes.height };
   }
@@ -634,7 +677,7 @@ namespace visage {
     ::Window root = 0, parent = 0;
     ::Window* children = nullptr;
     unsigned int num_children = 0;
-    Display* display = x11_.display();
+    Display* display = x11_->display();
 
     if (XQueryTree(display, window_handle_, &root, &parent, &children, &num_children) == 0)
       return;
@@ -654,7 +697,7 @@ namespace visage {
     int root_x = 0, root_y = 0, win_x = 0, win_y = 0;
     unsigned int mask_return = 0;
 
-    XQueryPointer(x11_.display(), window_handle_, &root_return, &child_return, &root_x, &root_y,
+    XQueryPointer(x11_->display(), window_handle_, &root_return, &child_return, &root_x, &root_y,
                   &win_x, &win_y, &mask_return);
     int result = 0;
     if (mask_return & Button1Mask)
@@ -673,7 +716,7 @@ namespace visage {
     int root_x, root_y, win_x, win_y;
     unsigned int mask_return;
 
-    XQueryPointer(x11_.display(), window_handle_, &root_return, &child_return, &root_x, &root_y,
+    XQueryPointer(x11_->display(), window_handle_, &root_return, &child_return, &root_x, &root_y,
                   &win_x, &win_y, &mask_return);
     int result = 0;
     if (mask_return & ShiftMask)
@@ -828,8 +871,8 @@ namespace visage {
     ::Window root_return, child_return;
     int root_x, root_y, win_x, win_y;
     unsigned int mask_return;
-    if (XQueryPointer(x11_.display(), inside, &root_return, &child_return, &root_x, &root_y, &win_x,
-                      &win_y, &mask_return)) {
+    if (XQueryPointer(x11_->display(), inside, &root_return, &child_return, &root_x, &root_y,
+                      &win_x, &win_y, &mask_return)) {
       if (child_return != None)
         return windowUnderCursor(child_return);
     }
@@ -838,39 +881,39 @@ namespace visage {
   }
 
   ::Window WindowX11::windowUnderCursor() {
-    return windowUnderCursor(x11_.rootWindow());
+    return windowUnderCursor(x11_->rootWindow());
   }
 
   void WindowX11::sendDragDropEnter(::Window source, ::Window target) const {
     XClientMessageEvent message;
     memset(&message, 0, sizeof(message));
     message.type = ClientMessage;
-    message.display = x11_.display();
+    message.display = x11_->display();
     message.window = target;
-    message.message_type = x11_.dndEnter();
+    message.message_type = x11_->dndEnter();
     message.format = 32;
     message.data.l[0] = source;
     message.data.l[1] = 5 << 24;
-    message.data.l[2] = x11_.dndUriList();
+    message.data.l[2] = x11_->dndUriList();
     message.data.l[3] = None;
     message.data.l[4] = None;
 
-    XSendEvent(x11_.display(), target, False, 0, reinterpret_cast<XEvent*>(&message));
-    XFlush(x11_.display());
+    XSendEvent(x11_->display(), target, False, 0, reinterpret_cast<XEvent*>(&message));
+    XFlush(x11_->display());
   }
 
   void WindowX11::sendDragDropLeave(::Window source, ::Window target) const {
     XEvent message;
     memset(&message, 0, sizeof(message));
     message.xclient.type = ClientMessage;
-    message.xclient.display = x11_.display();
+    message.xclient.display = x11_->display();
     message.xclient.window = target;
-    message.xclient.message_type = x11_.dndLeave();
+    message.xclient.message_type = x11_->dndLeave();
     message.xclient.format = 32;
     message.xclient.data.l[0] = source;
 
-    XSendEvent(x11_.display(), target, False, 0, &message);
-    XFlush(x11_.display());
+    XSendEvent(x11_->display(), target, False, 0, &message);
+    XFlush(x11_->display());
   }
 
   void WindowX11::sendDragDropPosition(::Window source, ::Window target, int x, int y,
@@ -878,17 +921,17 @@ namespace visage {
     XEvent message;
     memset(&message, 0, sizeof(message));
     message.xclient.type = ClientMessage;
-    message.xclient.display = x11_.display();
+    message.xclient.display = x11_->display();
     message.xclient.window = target;
-    message.xclient.message_type = x11_.dndPosition();
+    message.xclient.message_type = x11_->dndPosition();
     message.xclient.format = 32;
     message.xclient.data.l[0] = source;
     message.xclient.data.l[2] = (x << 16) | (y & 0xffff);
     message.xclient.data.l[3] = time;
-    message.xclient.data.l[4] = x11_.dndActionCopy();
+    message.xclient.data.l[4] = x11_->dndActionCopy();
 
-    XSendEvent(x11_.display(), drag_drop_out_state_.target, False, 0, &message);
-    XFlush(x11_.display());
+    XSendEvent(x11_->display(), drag_drop_out_state_.target, False, 0, &message);
+    XFlush(x11_->display());
   }
 
   ::Window WindowX11::dragDropProxy(::Window window) const {
@@ -896,7 +939,7 @@ namespace visage {
     int actual_format;
     unsigned long num_items = 0, bytes_after = 0;
     unsigned char* proxy_data = nullptr;
-    XGetWindowProperty(x11_.display(), window, x11_.dndProxy(), 0, ~0, False, AnyPropertyType,
+    XGetWindowProperty(x11_->display(), window, x11_->dndProxy(), 0, ~0, False, AnyPropertyType,
                        &actual_type, &actual_format, &num_items, &bytes_after, &proxy_data);
     if (proxy_data && num_items * actual_format == 32)
       return ((long*)proxy_data)[0];
@@ -909,37 +952,37 @@ namespace visage {
 
     XEvent message { 0 };
     message.xclient.type = ClientMessage;
-    message.xclient.display = x11_.display();
+    message.xclient.display = x11_->display();
     message.xclient.window = receiver;
-    message.xclient.message_type = x11_.dndStatus();
+    message.xclient.message_type = x11_->dndStatus();
     message.xclient.format = 32;
     message.xclient.data.l[0] = source;
     message.xclient.data.l[2] = 1;
     message.xclient.data.l[3] = 0;
     if (accept_drag) {
       message.xclient.data.l[1] = 1;
-      message.xclient.data.l[4] = x11_.dndActionCopy();
+      message.xclient.data.l[4] = x11_->dndActionCopy();
     }
     else {
       message.xclient.data.l[1] = 0;
-      message.xclient.data.l[4] = x11_.dndActionNone();
+      message.xclient.data.l[4] = x11_->dndActionNone();
     }
 
-    XSendEvent(x11_.display(), receiver, False, NoEventMask, &message);
+    XSendEvent(x11_->display(), receiver, False, NoEventMask, &message);
   }
 
   void WindowX11::sendDragDropDrop(::Window source, ::Window target) const {
     XEvent message;
     memset(&message, 0, sizeof(message));
     message.xclient.type = ClientMessage;
-    message.xclient.display = x11_.display();
+    message.xclient.display = x11_->display();
     message.xclient.window = target;
-    message.xclient.message_type = x11_.dndDrop();
+    message.xclient.message_type = x11_->dndDrop();
     message.xclient.format = 32;
     message.xclient.data.l[0] = source;
     message.xclient.data.l[2] = CurrentTime;
 
-    XSendEvent(x11_.display(), target, False, 0, &message);
+    XSendEvent(x11_->display(), target, False, 0, &message);
   }
 
   void WindowX11::sendDragDropSelectionNotify(XSelectionRequestEvent* request) const {
@@ -954,13 +997,13 @@ namespace visage {
     result.target = request->target;
     result.property = None;
 
-    if (request->target == x11_.targets()) {
-      Atom supported_types[] = { x11_.dndUriList() };
+    if (request->target == x11_->targets()) {
+      Atom supported_types[] = { x11_->dndUriList() };
       XChangeProperty(request->display, request->requestor, request->property, XA_ATOM, 32,
                       PropModeReplace, (unsigned char*)supported_types, 2);
       result.property = request->property;
     }
-    else if (request->target == x11_.dndUriList()) {
+    else if (request->target == x11_->dndUriList()) {
       std::string selection_data;
       for (const auto& drag_drop_file : drag_drop_files_)
         selection_data += "file://" + drag_drop_file + "\r\n";
@@ -981,37 +1024,37 @@ namespace visage {
     XEvent message;
     memset(&message, 0, sizeof(message));
     message.xclient.type = ClientMessage;
-    message.xclient.display = x11_.display();
+    message.xclient.display = x11_->display();
     message.xclient.window = receiver;
-    message.xclient.message_type = x11_.dndFinished();
+    message.xclient.message_type = x11_->dndFinished();
     message.xclient.format = 32;
     message.xclient.data.l[0] = source;
     if (accepted_drag) {
       message.xclient.data.l[1] = 1;
-      message.xclient.data.l[2] = x11_.dndActionCopy();
+      message.xclient.data.l[2] = x11_->dndActionCopy();
     }
     else {
       message.xclient.data.l[1] = 0;
-      message.xclient.data.l[2] = x11_.dndActionNone();
+      message.xclient.data.l[2] = x11_->dndActionNone();
     }
 
-    XSendEvent(x11_.display(), receiver, False, NoEventMask, &message);
+    XSendEvent(x11_->display(), receiver, False, NoEventMask, &message);
   }
 
   void WindowX11::processPluginFdEvents() {
     bool timer_fired = false;
     XEvent event;
-    while (XPending(x11_.display())) {
-      XNextEvent(x11_.display(), &event);
+    while (XPending(x11_->display())) {
+      XNextEvent(x11_->display(), &event);
 
       if (event.xany.window == parent_handle_ && event.type == ConfigureNotify) {
         X11Connection::DisplayLock lock(x11_);
         XWindowAttributes attributes;
-        XGetWindowAttributes(x11_.display(), parent_handle_, &attributes);
+        XGetWindowAttributes(x11_->display(), parent_handle_, &attributes);
         setWindowSize(attributes.width, attributes.height);
       }
       else if (event.xany.window == window_handle_ && event.type == ClientMessage &&
-               event.xclient.message_type == x11_.timerEvent()) {
+               event.xclient.message_type == x11_->timerEvent()) {
         if (!timer_fired) {
           timer_fired = true;
           long long microseconds = time::microseconds() - start_draw_microseconds_;
@@ -1026,7 +1069,7 @@ namespace visage {
   void WindowX11::processMessageWindowEvent(XEvent& event) {
     switch (event.type) {
     case SelectionRequest: {
-      X11Connection& x11 = X11Connection::globalInstance();
+      X11Connection* x11 = X11Connection::globalInstance();
       X11Connection::DisplayLock lock(x11);
       XSelectionRequestEvent* request = &event.xselectionrequest;
 
@@ -1039,13 +1082,13 @@ namespace visage {
       result.target = request->target;
       result.property = None;
 
-      if (request->target == x11.targets()) {
-        Atom supported_types[] = { x11.utf8String(), XA_STRING };
+      if (request->target == x11->targets()) {
+        Atom supported_types[] = { x11->utf8String(), XA_STRING };
         XChangeProperty(request->display, request->requestor, request->property, XA_ATOM, 32,
                         PropModeReplace, (unsigned char*)supported_types, 2);
         result.property = request->property;
       }
-      else if (request->target == x11.utf8String() || request->target == XA_STRING) {
+      else if (request->target == x11->utf8String() || request->target == XA_STRING) {
         XChangeProperty(request->display, request->requestor, request->property, request->target, 8,
                         PropModeReplace, (unsigned char*)_clipboard_text.c_str(),
                         _clipboard_text.length());
@@ -1063,25 +1106,25 @@ namespace visage {
     switch (event.type) {
     case ClientMessage: {
       X11Connection::DisplayLock lock(x11_);
-      if (event.xclient.message_type == x11_.dndEnter()) {
+      if (event.xclient.message_type == x11_->dndEnter()) {
         drag_drop_files_.clear();
-        XConvertSelection(x11_.display(), x11_.dndSelection(), x11_.dndUriList(), x11_.dndUriList(),
-                          window_handle_, CurrentTime);
-        XFlush(x11_.display());
+        XConvertSelection(x11_->display(), x11_->dndSelection(), x11_->dndUriList(),
+                          x11_->dndUriList(), window_handle_, CurrentTime);
+        XFlush(x11_->display());
         sendDragDropStatus(event.xclient.window, event.xclient.data.l[0], false);
       }
-      else if (event.xclient.message_type == x11_.dndLeave()) {
+      else if (event.xclient.message_type == x11_->dndLeave()) {
         handleFileDragLeave();
       }
-      else if (event.xclient.message_type == x11_.dndDrop()) {
+      else if (event.xclient.message_type == x11_->dndDrop()) {
         bool success = handleFileDrop(drag_drop_target_x_, drag_drop_target_y_, drag_drop_files_);
         sendDragDropFinished(event.xclient.window, event.xclient.data.l[0], success);
       }
-      else if (event.xclient.message_type == x11_.dndPosition()) {
+      else if (event.xclient.message_type == x11_->dndPosition()) {
         int win_x = 0;
         int win_y = 0;
         ::Window child_return;
-        XTranslateCoordinates(x11_.display(), window_handle_, x11_.rootWindow(), 0, 0, &win_x,
+        XTranslateCoordinates(x11_->display(), window_handle_, x11_->rootWindow(), 0, 0, &win_x,
                               &win_y, &child_return);
 
         drag_drop_target_x_ = (event.xclient.data.l[2] >> 16) - win_x;
@@ -1089,9 +1132,9 @@ namespace visage {
         bool accepts = handleFileDrag(drag_drop_target_x_, drag_drop_target_y_, drag_drop_files_);
         sendDragDropStatus(event.xclient.window, event.xclient.data.l[0], accepts);
       }
-      else if (event.xclient.message_type == x11_.dndStatus()) {
+      else if (event.xclient.message_type == x11_->dndStatus()) {
       }
-      else if (event.xclient.message_type == x11_.dndFinished()) {
+      else if (event.xclient.message_type == x11_->dndFinished()) {
         drag_drop_out_state_.target = 0;
         drag_drop_out_state_.dragging = false;
         setCursorStyle(MouseCursor::Arrow);
@@ -1101,14 +1144,14 @@ namespace visage {
     case SelectionRequest: {
       X11Connection::DisplayLock lock(x11_);
       XSelectionRequestEvent* request = &event.xselectionrequest;
-      if (request->selection == x11_.dndSelection())
+      if (request->selection == x11_->dndSelection())
         sendDragDropSelectionNotify(request);
       break;
     }
     case SelectionNotify: {
       X11Connection::DisplayLock lock(x11_);
 
-      if (event.xselection.selection == x11_.dndSelection()) {
+      if (event.xselection.selection == x11_->dndSelection()) {
         if (event.xselection.property) {
           const std::string kFilePrefix = "file://";
 
@@ -1117,7 +1160,7 @@ namespace visage {
           unsigned long num_items = 0, bytes_after = 0;
           unsigned char* files_string = nullptr;
 
-          XGetWindowProperty(x11_.display(), event.xany.window, event.xselection.property, 0, ~0,
+          XGetWindowProperty(x11_->display(), event.xany.window, event.xselection.property, 0, ~0,
                              False, AnyPropertyType, &actual_type, &actual_format, &num_items,
                              &bytes_after, &files_string);
 
@@ -1151,13 +1194,13 @@ namespace visage {
       if (window_operation_ & kMoveWindow) {
         int x_offset = event.xmotion.x_root - dragging_window_position_.x;
         int y_offset = event.xmotion.y_root - dragging_window_position_.y;
-        XMoveWindow(x11_.display(), window_handle_, x_offset, y_offset);
+        XMoveWindow(x11_->display(), window_handle_, x_offset, y_offset);
       }
       else if (window_operation_) {
         ::Window root;
         int window_x, window_y;
         unsigned int window_width, window_height, border, depth;
-        XGetGeometry(x11_.display(), window_handle_, &root, &window_x, &window_y, &window_width,
+        XGetGeometry(x11_->display(), window_handle_, &root, &window_x, &window_y, &window_width,
                      &window_height, &border, &depth);
         int window_right = window_x + window_width;
         int window_bottom = window_y + window_height;
@@ -1172,7 +1215,7 @@ namespace visage {
           window_bottom = std::max(window_y + kMinHeight, event.xmotion.y_root);
 
         handleResized(window_right - window_x, window_bottom - window_y);
-        XMoveResizeWindow(x11_.display(), window_handle_, window_x, window_y,
+        XMoveResizeWindow(x11_->display(), window_handle_, window_x, window_y,
                           window_right - window_x, window_bottom - window_y);
       }
 
@@ -1232,7 +1275,7 @@ namespace visage {
           ::Window root;
           int window_x, window_y;
           unsigned int window_width, window_height, border, depth;
-          XGetGeometry(x11_.display(), window_handle_, &root, &window_x, &window_y, &window_width,
+          XGetGeometry(x11_->display(), window_handle_, &root, &window_x, &window_y, &window_width,
                        &window_height, &border, &depth);
           dragging_window_position_ = { event.xbutton.x_root - window_x, event.xbutton.y_root - window_y };
         }
@@ -1241,7 +1284,7 @@ namespace visage {
 
         drag_drop_out_state_.dragging = isDragDropSource();
         if (drag_drop_out_state_.dragging) {
-          XSetSelectionOwner(x11_.display(), x11_.dndSelection(), window_handle_, event.xmotion.time);
+          XSetSelectionOwner(x11_->display(), x11_->dndSelection(), window_handle_, event.xmotion.time);
 
           setCursorStyle(MouseCursor::MultiDirectionalResize);
           drag_drop_files_.clear();
@@ -1280,13 +1323,13 @@ namespace visage {
           XEvent close_event = {};
           close_event.xclient.type = ClientMessage;
           close_event.xclient.window = window_handle_;
-          close_event.xclient.message_type = XInternAtom(x11_.display(), "WM_PROTOCOLS", True);
+          close_event.xclient.message_type = XInternAtom(x11_->display(), "WM_PROTOCOLS", True);
           close_event.xclient.format = 32;
-          close_event.xclient.data.l[0] = x11_.deleteMessage();
+          close_event.xclient.data.l[0] = x11_->deleteMessage();
           close_event.xclient.data.l[1] = CurrentTime;
 
-          XSendEvent(x11_.display(), window_handle_, False, NoEventMask, &close_event);
-          XFlush(x11_.display());
+          XSendEvent(x11_->display(), window_handle_, False, NoEventMask, &close_event);
+          XFlush(x11_->display());
         }
         else if (hit_test == HitTestResult::MaximizeButton &&
                  handleHitTest(event.xbutton.x, event.xbutton.y) == HitTestResult::MaximizeButton) {
@@ -1294,18 +1337,18 @@ namespace visage {
         }
         else if (hit_test == HitTestResult::MinimizeButton &&
                  handleHitTest(event.xbutton.x, event.xbutton.y) == HitTestResult::MinimizeButton) {
-          Atom wm_change_state = XInternAtom(x11_.display(), "WM_CHANGE_STATE", False);
+          Atom wm_change_state = XInternAtom(x11_->display(), "WM_CHANGE_STATE", False);
           XEvent min_event = {};
           min_event.xclient.type = ClientMessage;
           min_event.xclient.message_type = wm_change_state;
-          min_event.xclient.display = x11_.display();
+          min_event.xclient.display = x11_->display();
           min_event.xclient.window = window_handle_;
           min_event.xclient.format = 32;
           min_event.xclient.data.l[0] = IconicState;
 
-          XSendEvent(x11_.display(), x11_.rootWindow(), False,
+          XSendEvent(x11_->display(), x11_->rootWindow(), False,
                      SubstructureRedirectMask | SubstructureNotifyMask, &min_event);
-          XFlush(x11_.display());
+          XFlush(x11_->display());
         }
       }
       break;
@@ -1361,8 +1404,7 @@ namespace visage {
   }
 
   void WindowX11::runEventLoop() {
-    Display* display = x11_.display();
-    XSetWMProtocols(x11_.display(), window_handle_, x11_.deleteMessageRef(), 1);
+    Display* display = x11_->display();
 
     timeval timeout {};
     timeout.tv_sec = 0;
@@ -1393,26 +1435,33 @@ namespace visage {
         long long us_time = last_timer_microseconds - start_microseconds_;
         drawCallback(us_time / 1000000.0);
 
-        while (XPending(X11Connection::globalInstance().display())) {
-          XNextEvent(X11Connection::globalInstance().display(), &event);
+        while (XPending(X11Connection::globalInstance()->display())) {
+          XNextEvent(X11Connection::globalInstance()->display(), &event);
           processMessageWindowEvent(event);
         }
       }
       else if (FD_ISSET(fd, &read_fds)) {
-        while (running && XPending(x11_.display())) {
-          XNextEvent(x11_.display(), &event);
+        while (running && XPending(x11_->display())) {
+          XNextEvent(x11_->display(), &event);
+          WindowX11* window = NativeWindowLookup::instance().findWindow(event.xany.window);
+          if (window == nullptr)
+            continue;
 
           if (event.type == Expose) {
             int height = clientHeight();
-            handleResized(clientWidth(), height + 1);
-            handleResized(clientWidth(), height);
+            window->handleResized(clientWidth(), height + 1);
+            window->handleResized(clientWidth(), height);
           }
 
           if (event.type == DestroyNotify ||
-              (event.type == ClientMessage && event.xclient.data.l[0] == x11_.deleteMessage()))
-            running = false;
+              (event.type == ClientMessage && event.xclient.data.l[0] == x11_->deleteMessage())) {
+            NativeWindowLookup::instance().removeWindow(window);
+            window->hide();
+            if (!NativeWindowLookup::instance().anyWindowOpen())
+              running = false;
+          }
           else
-            processEvent(event);
+            window->processEvent(event);
         }
       }
     }
@@ -1420,20 +1469,22 @@ namespace visage {
 
   void WindowX11::windowContentsResized(int width, int height) {
     setFixedAspectRatio(isFixedAspectRatio());
-    XResizeWindow(x11_.display(), window_handle_, width, height);
+    XResizeWindow(x11_->display(), window_handle_, width, height);
   }
 
   void WindowX11::show() {
     X11Connection::DisplayLock lock(x11_);
-    XMapWindow(x11_.display(), window_handle_);
-    XFlush(x11_.display());
+    XMapWindow(x11_->display(), window_handle_);
+    XSetWMProtocols(x11_->display(), window_handle_, x11_->deleteMessageRef(), 1);
+    XFlush(x11_->display());
+    notifyShow();
   }
 
   void WindowX11::showMaximized() {
     show();
-    Atom wm_state = XInternAtom(x11_.display(), "_NET_WM_STATE", False);
-    Atom max_horizontal = XInternAtom(x11_.display(), "_NET_WM_STATE_MAXIMIZED_HORZ", False);
-    Atom max_vertical = XInternAtom(x11_.display(), "_NET_WM_STATE_MAXIMIZED_VERT", False);
+    Atom wm_state = XInternAtom(x11_->display(), "_NET_WM_STATE", False);
+    Atom max_horizontal = XInternAtom(x11_->display(), "_NET_WM_STATE_MAXIMIZED_HORZ", False);
+    Atom max_vertical = XInternAtom(x11_->display(), "_NET_WM_STATE_MAXIMIZED_VERT", False);
 
     XEvent event = {};
     event.type = ClientMessage;
@@ -1446,15 +1497,15 @@ namespace visage {
     event.xclient.data.l[3] = 0;
     event.xclient.data.l[4] = 0;
 
-    XSendEvent(x11_.display(), x11_.rootWindow(), False,
+    XSendEvent(x11_->display(), x11_->rootWindow(), False,
                SubstructureRedirectMask | SubstructureNotifyMask, &event);
-    XFlush(x11_.display());
+    XFlush(x11_->display());
 
     for (int retries = 0; retries < 10; ++retries) {
       Thread::sleep(10);
-      while (XPending(x11_.display())) {
+      while (XPending(x11_->display())) {
         XEvent e;
-        XNextEvent(x11_.display(), &e);
+        XNextEvent(x11_->display(), &e);
 
         if (e.type == ConfigureNotify && e.xconfigure.window == window_handle_) {
           visage::Point dimensions = retrieveWindowDimensions();
@@ -1467,14 +1518,23 @@ namespace visage {
 
   void WindowX11::hide() {
     X11Connection::DisplayLock lock(x11_);
-    ::Display* display = x11_.display();
+    ::Display* display = x11_->display();
     XUnmapWindow(display, window_handle_);
     XFlush(display);
+    notifyHide();
+  }
+
+  bool WindowX11::isShowing() const {
+    X11Connection::DisplayLock lock(x11_);
+    XWindowAttributes attributes;
+    if (XGetWindowAttributes(x11_->display(), window_handle_, &attributes) == 0)
+      return false;
+    return attributes.map_state == IsViewable;
   }
 
   void WindowX11::setWindowTitle(const std::string& title) {
     X11Connection::DisplayLock lock(x11_);
-    XStoreName(x11_.display(), window_handle_, title.c_str());
+    XStoreName(x11_->display(), window_handle_, title.c_str());
   }
 
   Point WindowX11::maxWindowDimensions() const {
