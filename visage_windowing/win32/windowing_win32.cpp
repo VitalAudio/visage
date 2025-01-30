@@ -32,8 +32,8 @@
 
 #include "windowing_win32.h"
 
+#include "visage_utils/events.h"
 #include "visage_utils/file_system.h"
-#include "visage_utils/keycodes.h"
 #include "visage_utils/string_utils.h"
 #include "visage_utils/thread_utils.h"
 
@@ -280,19 +280,25 @@ namespace visage {
       return instance;
     }
 
-    void addWindow(HWND parent, WindowWin32* window) {
-      parent_window_lookup_[parent] = window;
+    void addWindow(WindowWin32* window) {
       native_window_lookup_[window->nativeHandle()] = window;
+      if (window->parentHandle())
+        parent_window_lookup_[window->parentHandle()] = window;
     }
 
-    void removeWindow(HWND parent) {
-      if (parent_window_lookup_.count(parent)) {
-        void* handle = parent_window_lookup_[parent]->nativeHandle();
-        if (native_window_lookup_.count(handle))
-          native_window_lookup_.erase(handle);
+    void removeWindow(WindowWin32* window) {
+      if (parent_window_lookup_.count(window->parentHandle()))
+        parent_window_lookup_.erase(window->parentHandle());
+      if (native_window_lookup_.count(window->nativeHandle()))
+        native_window_lookup_.erase(window->nativeHandle());
+    }
 
-        parent_window_lookup_.erase(parent);
+    bool anyWindowOpen() const {
+      for (auto& window : native_window_lookup_) {
+        if (window.second->isShowing())
+          return true;
       }
+      return false;
     }
 
     WindowWin32* findByNativeHandle(HWND hwnd) {
@@ -1261,7 +1267,10 @@ namespace visage {
       return DefWindowProc(hwnd, msg, w_param, l_param);
 
     if (msg == WM_DESTROY) {
-      PostQuitMessage(0);
+      window->hide();
+      NativeWindowLookup::instance().removeWindow(window);
+      if (!NativeWindowLookup::instance().anyWindowOpen())
+        PostQuitMessage(0);
       return 0;
     }
     if (msg == WM_NCCALCSIZE && window->decoration() == Window::Decoration::Client) {
@@ -1482,7 +1491,6 @@ namespace visage {
                  window_height, SWP_NOZORDER);
 
     SetWindowLongPtr(window_handle_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
-
     finishWindowSetup();
   }
 
@@ -1508,7 +1516,6 @@ namespace visage {
     auto parent_proc = SetWindowLongPtr(parent_handle_, GWLP_WNDPROC,
                                         reinterpret_cast<LONG_PTR>(pluginParentWindowProc));
     parent_window_proc_ = reinterpret_cast<WNDPROC>(parent_proc);
-    NativeWindowLookup::instance().addWindow(parent_handle_, this);
 
     DpiAwareness dpi_awareness;
     setPixelScale(dpi_awareness.conversionFactor());
@@ -1518,6 +1525,8 @@ namespace visage {
   }
 
   void WindowWin32::finishWindowSetup() {
+    NativeWindowLookup::instance().addWindow(this);
+
     UpdateWindow(window_handle_);
     if (drag_drop_target_)
       RegisterDragDrop(window_handle_, drag_drop_target_);
@@ -1531,11 +1540,10 @@ namespace visage {
       drag_drop_target_->Release();
     }
 
-    if (parent_handle_) {
+    if (parent_handle_)
       SetWindowLongPtr(parent_handle_, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(parent_window_proc_));
-      NativeWindowLookup::instance().removeWindow(parent_handle_);
-    }
 
+    NativeWindowLookup::instance().removeWindow(this);
     KillTimer(window_handle_, kTimerId);
     DestroyWindow(window_handle_);
     UnregisterClass(window_class_.lpszClassName, module_handle_);
@@ -1569,6 +1577,7 @@ namespace visage {
       v_blank_thread_ = std::make_unique<VBlankThread>(this);
       v_blank_thread_->start();
     }
+    notifyShow();
   }
 
   void WindowWin32::show() {
@@ -1578,6 +1587,11 @@ namespace visage {
 
   void WindowWin32::hide() {
     ShowWindow(window_handle_, SW_HIDE);
+    notifyHide();
+  }
+
+  bool WindowWin32::isShowing() const {
+    return IsWindowVisible(window_handle_);
   }
 
   void WindowWin32::showMaximized() {

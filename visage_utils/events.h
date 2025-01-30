@@ -21,6 +21,9 @@
 
 #pragma once
 
+#include <functional>
+#include <memory>
+
 namespace visage {
   static constexpr int kUnprintableKeycodeMask = 1 << 30;
 
@@ -319,4 +322,81 @@ namespace visage {
   static constexpr bool isPrintableKeyCode(KeyCode key_code) {
     return key_code != KeyCode::Unknown && (static_cast<int>(key_code) & kUnprintableKeycodeMask) == 0;
   }
+
+  template<typename T>
+  class CallbackList {
+  public:
+    template<typename R>
+    static R getDefaultResult() {
+      if constexpr (std::is_default_constructible_v<R>)
+        return {};
+      else
+        static_assert(std::is_void_v<R>, "Callback return value must be default constructable");
+    }
+
+    CallbackList() = default;
+    explicit CallbackList(std::function<T> callback) :
+        original_(std::make_unique<std::function<T>>(callback)) {
+      add(callback);
+    }
+    CallbackList(const CallbackList& other) {
+      if (other.original_)
+        original_ = std::make_unique<std::function<T>>(*other.original_);
+      callbacks_ = other.callbacks_;
+    }
+
+    void add(std::function<T> callback) { callbacks_.push_back(std::move(callback)); }
+
+    CallbackList& operator+=(std::function<T> callback) {
+      add(callback);
+      return *this;
+    }
+
+    void set(std::function<T> callback) {
+      callbacks_.clear();
+      callbacks_.push_back(std::move(callback));
+    }
+
+    CallbackList& operator=(const std::function<T>& callback) {
+      set(callback);
+      return *this;
+    }
+
+    void remove(const std::function<T>& callback) {
+      auto compare = [&](const std::function<T>& other) {
+        return other.target_type() == callback.target_type();
+      };
+
+      auto it = std::remove_if(callbacks_.begin(), callbacks_.end(), compare);
+      callbacks_.erase(it);
+    }
+
+    CallbackList& operator-=(const std::function<T>& callback) {
+      remove(callback);
+      return *this;
+    }
+
+    void reset() {
+      callbacks_.clear();
+      if (original_)
+        callbacks_.push_back(*original_);
+    }
+
+    void clear() { callbacks_.clear(); }
+
+    template<typename... Args>
+    auto callback(Args&&... args) {
+      if (callbacks_.empty())
+        return getDefaultResult<decltype(std::declval<std::function<T>>()(args...))>();
+
+      for (size_t i = 0; i < callbacks_.size() - 1; ++i)
+        callbacks_[i](std::forward<Args>(args)...);
+
+      return callbacks_.back()(std::forward<Args>(args)...);
+    }
+
+  private:
+    std::unique_ptr<std::function<T>> original_;
+    std::vector<std::function<T>> callbacks_;
+  };
 }

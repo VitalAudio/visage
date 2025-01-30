@@ -86,9 +86,18 @@ namespace visage {
 
     virtual void drawBackground(Canvas& canvas, float hover_amount);
     void draw(Canvas& canvas, float hover_amount) override;
-    void setFont(const Font& font) { text_.setFont(font); }
-    void setActionButton(bool action = true) { action_ = action; }
-    void setText(const std::string& text) { text_.setText(text); }
+    void setFont(const Font& font) {
+      text_.setFont(font);
+      redraw();
+    }
+    void setActionButton(bool action = true) {
+      action_ = action;
+      redraw();
+    }
+    void setText(const std::string& text) {
+      text_.setText(text);
+      redraw();
+    }
     void drawBorderWhenInactive(bool border) { border_when_inactive_ = border; }
 
   private:

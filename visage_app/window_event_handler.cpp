@@ -69,8 +69,9 @@ namespace visage {
     if (keyboard_focused_frame_)
       keyboard_focused_frame_->processFocusChanged(false, false);
     if (mouse_down_frame_) {
-      mouse_down_frame_->processMouseUp(getMouseEvent(last_mouse_position_.x, last_mouse_position_.y, 0, 0));
+      Frame* mouse_down_frame = mouse_down_frame_;
       mouse_down_frame_ = nullptr;
+      mouse_down_frame_->processMouseUp(getMouseEvent(last_mouse_position_.x, last_mouse_position_.y, 0, 0));
     }
     if (mouse_hovered_frame_) {
       mouse_hovered_frame_->processMouseExit(getMouseEvent(last_mouse_position_.x,
@@ -291,11 +292,13 @@ namespace visage {
 
     if (mouse_down_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
-      mouse_event.frame = mouse_down_frame_;
-      mouse_down_frame_->processMouseUp(mouse_event);
-      if (exited)
-        mouse_down_frame_->processMouseExit(mouse_event);
+      Frame* mouse_down_frame = mouse_down_frame_;
       mouse_down_frame_ = nullptr;
+
+      mouse_event.frame = mouse_down_frame;
+      mouse_down_frame->processMouseUp(mouse_event);
+      if (exited)
+        mouse_down_frame->processMouseExit(mouse_event);
     }
 
     mouse_event.frame = mouse_hovered_frame_;

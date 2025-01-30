@@ -23,7 +23,7 @@
 
 #include "visage_utils/defines.h"
 #include "visage_utils/dimension.h"
-#include "visage_utils/keycodes.h"
+#include "visage_utils/events.h"
 #include "visage_utils/space.h"
 
 #include <climits>
@@ -92,6 +92,9 @@ namespace visage {
     Window(int width, int height);
     virtual ~Window() = default;
 
+    auto& onShow() { return on_show_; }
+    auto& onHide() { return on_hide_; }
+
     virtual void runEventLoop() = 0;
     virtual void* nativeHandle() const = 0;
     virtual void windowContentsResized(int width, int height) = 0;
@@ -104,9 +107,13 @@ namespace visage {
     virtual void show() = 0;
     virtual void showMaximized() = 0;
     virtual void hide() = 0;
+    virtual bool isShowing() const = 0;
     virtual void setWindowTitle(const std::string& title) = 0;
     virtual Point maxWindowDimensions() const = 0;
     virtual Point minWindowDimensions() const = 0;
+
+    void notifyShow() { on_show_.callback(); }
+    void notifyHide() { on_hide_.callback(); }
 
     void setDrawCallback(std::function<void(double)> callback) {
       draw_callback_ = std::move(callback);
@@ -194,6 +201,8 @@ namespace visage {
     RepeatClick mouse_repeat_clicks_;
 
     std::function<void(double)> draw_callback_ = nullptr;
+    CallbackList<void()> on_show_;
+    CallbackList<void()> on_hide_;
     float dpi_scale_ = 1.0f;
     float pixel_scale_ = 1.0f;
     float min_window_scale_ = kDefaultMinWindowScale;

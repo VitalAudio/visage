@@ -19,9 +19,28 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "embedded/example_fonts.h"
+
 #include <visage_app/application_window.h>
+#include <visage_widgets/button.h>
 
 using namespace visage::dimension;
+
+class SubWindow : public visage::ApplicationWindow {
+public:
+  void draw(visage::Canvas& canvas) override {
+    static constexpr int kColumns = 12;
+
+    canvas.setColor(0xff222026);
+    canvas.fill(0, 0, width(), height());
+
+    canvas.setColor(0xffaa88ff);
+    int radius = std::min(width(), height()) / 4;
+    canvas.circle(width() / 2 - radius, height() / 2 - radius, 2 * radius);
+  }
+
+private:
+};
 
 class ExampleEditor : public visage::ApplicationWindow {
 public:
@@ -29,25 +48,22 @@ public:
 
   ExampleEditor() {
     setFlexLayout(true);
-    layout().setPadding(10_px);
-    layout().setFlexGap(10_px);
-    layout().setFlexWrap(true);
-    layout().setFlexReverseDirection(true);
-    layout().setFlexWrapReverse(true);
+    layout().setPadding(50_px);
 
-    int i = 0;
-    for (Frame& frame : frames_) {
-      addChild(&frame);
-      frame.layout().setHeight(100);
-      frame.layout().setWidth(100 + i * 10);
-      frame.layout().setFlexGrow(1.0f);
+    addChild(&button_);
+    button_.setText("Open Window");
+    button_.layout().setHeight(100_vh);
+    button_.layout().setWidth(100_vw);
 
-      frame.onDraw() = [this, &frame](visage::Canvas& canvas) {
-        canvas.setColor(0xff888888);
-        canvas.roundedRectangle(0, 0, frame.width(), frame.height(), 16);
-      };
-      ++i;
-    }
+    sub_window_.onShow() += [this] { button_.setText("Close Window"); };
+    sub_window_.onHide() += [this] { button_.setText("Open Window"); };
+
+    button_.onToggle() += [this](visage::Button* button, bool is_toggled) {
+      if (sub_window_.isShowing())
+        sub_window_.hide();
+      else
+        sub_window_.show(10_vw, 10_vh, 400_px, 400_px);
+    };
   }
 
   void draw(visage::Canvas& canvas) override {
@@ -57,14 +73,19 @@ public:
     canvas.fill(0, 0, width(), height());
   }
 
+  void resized() {
+    button_.setFont(visage::Font(dpiScale() * 24.0f, resources::fonts::Lato_Regular_ttf));
+  }
+
 private:
-  Frame frames_[kNumFrames];
+  visage::UiButton button_;
   visage::Font font_;
+  SubWindow sub_window_;
 };
 
 int runExample() {
   ExampleEditor editor;
-  editor.show(visage::Dimension::logicalPixels(800), visage::Dimension::logicalPixels(600));
+  editor.show(500_px, 200_px);
   editor.runEventLoop();
 
   return 0;

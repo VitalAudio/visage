@@ -43,6 +43,11 @@ namespace visage {
     void show(const Dimension& width, const Dimension& height);
     void show(const Dimension& x, const Dimension& y, const Dimension& width, const Dimension& height);
     void showMaximized();
+    void hide();
+    bool isShowing() const;
+
+    auto& onShow() { return on_show_; }
+    auto& onHide() { return on_hide_; }
 
     void runEventLoop();
 
@@ -50,6 +55,8 @@ namespace visage {
     void showWindow(bool maximized);
 
     Window::Decoration decoration_ = Window::Decoration::Native;
+    CallbackList<void()> on_show_;
+    CallbackList<void()> on_hide_;
     std::string title_;
     std::unique_ptr<Window> window_;
   };

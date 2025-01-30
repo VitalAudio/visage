@@ -22,7 +22,7 @@
 #pragma once
 
 #include "visage_utils/defines.h"
-#include "visage_utils/keycodes.h"
+#include "visage_utils/events.h"
 #include "visage_utils/space.h"
 
 #include <functional>
@@ -40,6 +40,7 @@ namespace visage {
     void stopTimer();
     bool checkTimer(long long current_time);
     virtual void timerCallback() = 0;
+
     bool isRunning() const {
       VISAGE_ASSERT(ms_ >= -1);
       return ms_ > 0;

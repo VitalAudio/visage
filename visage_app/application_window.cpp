@@ -36,6 +36,8 @@ namespace visage {
                                const Dimension& height) {
     removeFromWindow();
     window_ = createWindow(x, y, width, height, decoration_);
+    window_->onShow() = [this] { on_show_.callback(); };
+    window_->onHide() = [this] { on_hide_.callback(); };
     showWindow(false);
   }
 
@@ -45,7 +47,18 @@ namespace visage {
     removeFromWindow();
     window_ = createWindow({}, {}, Dimension::widthPercent(kUnmaximizedWidthPercent),
                            Dimension::heightPercent(kUnmaximizedWidthPercent), decoration_);
+    window_->onShow() = [this] { on_show_.callback(); };
+    window_->onHide() = [this] { on_hide_.callback(); };
     showWindow(true);
+  }
+
+  void ApplicationWindow::hide() {
+    if (window_)
+      return window_->hide();
+  }
+
+  bool ApplicationWindow::isShowing() const {
+    return window_ && window_->isShowing();
   }
 
   void ApplicationWindow::runEventLoop() {
