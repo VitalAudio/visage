@@ -37,6 +37,9 @@ set(BGFX_CONFIG_MAX_FRAME_BUFFERS 1024 CACHE INTERNAL "" FORCE)
 set(BGFX_CONFIG_MAX_VIEWS 256 CACHE INTERNAL "" FORCE)
 set(BGFX_CONFIG_MAX_DRAW_CALLS 8192 CACHE INTERNAL "" FORCE)
 set(BGFX_WITH_WAYLAND OFF CACHE INTERNAL "" FORCE)
+if (APPLE)
+  set(FT_DISABLE_PNG ON CACHE INTERNAL "" FORCE)
+endif ()
 
 if (VISAGE_ENABLE_GRAPHICS_DEBUG_LOGGING)
   target_compile_definitions(VisageGraphics PUBLIC VISAGE_GRAPHICS_DEBUG_LOGGING=1)
@@ -57,6 +60,7 @@ FetchContent_Declare(bgfx GIT_REPOSITORY https://github.com/bkaradzic/bgfx.cmake
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(bgfx)
+
 
 FetchContent_Declare(freetype GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
   GIT_SHALLOW TRUE
