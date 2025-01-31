@@ -62,7 +62,7 @@ public:
       if (sub_window_.isShowing())
         sub_window_.hide();
       else
-        sub_window_.show(10_vw, 10_vh, 400_px, 400_px);
+        sub_window_.show(10_vw, 10_vh, 400_px, 300_px);
     };
   }
 
@@ -73,7 +73,7 @@ public:
     canvas.fill(0, 0, width(), height());
   }
 
-  void resized() {
+  void resized() override {
     button_.setFont(visage::Font(dpiScale() * 24.0f, resources::fonts::Lato_Regular_ttf));
   }
 

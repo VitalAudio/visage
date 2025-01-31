@@ -25,7 +25,44 @@
 #include "visage_utils/file_system.h"
 #include "visage_utils/time_utils.h"
 
+#include <map>
+
 namespace visage {
+
+  class NativeWindowLookup {
+  public:
+    static NativeWindowLookup& instance() {
+      static NativeWindowLookup instance;
+      return instance;
+    }
+
+    void addWindow(WindowMac* window) { native_window_lookup_[window->nativeHandle()] = window; }
+
+    void removeWindow(WindowMac* window) {
+      if (native_window_lookup_.count(window->nativeHandle()))
+        native_window_lookup_.erase(window->nativeHandle());
+    }
+
+    bool anyWindowOpen() const {
+      for (auto& window : native_window_lookup_) {
+        if (window.second->isShowing())
+          return true;
+      }
+      return false;
+    }
+
+    WindowMac* findWindow(void* handle) {
+      auto it = native_window_lookup_.find((void*)handle);
+      return it != native_window_lookup_.end() ? it->second : nullptr;
+    }
+
+  private:
+    NativeWindowLookup() = default;
+    ~NativeWindowLookup() = default;
+
+    std::map<void*, WindowMac*> native_window_lookup_;
+  };
+
   class InitialMetalLayer {
   public:
     static CAMetalLayer* layer() { return instance().metal_layer_; }
@@ -556,14 +593,17 @@ namespace visage {
     [new_window setAcceptsMouseMovedEvents:YES];
     [new_window setIgnoresMouseEvents:NO];
     [new_window makeFirstResponder:self];
-    self.visage_window->setPixelScale([new_window backingScaleFactor]);
-    self.visage_window->setDpiScale([new_window backingScaleFactor]);
-
+    if (self.visage_window) {
+      self.visage_window->setPixelScale([new_window backingScaleFactor]);
+      self.visage_window->setDpiScale([new_window backingScaleFactor]);
+    }
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(windowOcclusionChanged:)
                                                  name:NSWindowDidChangeOcclusionStateNotification
                                                object:new_window];
   }
+  else if (self.visage_window)
+    self.visage_window->closeWindow();
 }
 
 - (void)windowOcclusionChanged:(NSNotification*)notification {
@@ -621,7 +661,11 @@ namespace visage {
 
 @implementation AppWindowDelegate
 - (void)windowWillClose:(NSNotification*)notification {
-  [NSApp stop:nil];
+  NSWindow* ns_window = notification.object;
+  NSView* view = ns_window.contentView;
+  visage::WindowMac* window = visage::NativeWindowLookup::instance().findWindow((__bridge void*)view);
+  if (window)
+    window->closeWindow();
 }
 
 - (void)windowWillStartLiveResize:(NSNotification*)notification {
@@ -678,7 +722,11 @@ namespace visage {
 @end
 
 namespace visage {
+  bool WindowMac::running_event_loop_ = false;
+
   void WindowMac::runEventLoop() {
+    running_event_loop_ = true;
+
     @autoreleasepool {
       NSApplication* app = [NSApplication sharedApplication];
       AppDelegate* delegate = [[AppDelegate alloc] init];
@@ -713,7 +761,7 @@ namespace visage {
     int screen_width = screen_frame.size.width * scale;
     int screen_height = screen_frame.size.height * scale;
     int x_pos = x.computeWithDefault(scale, screen_width, screen_height);
-    int y_pos = x.computeWithDefault(scale, screen_width, screen_height);
+    int y_pos = y.computeWithDefault(scale, screen_width, screen_height);
 
     for (NSScreen* s in [NSScreen screens]) {
       if (NSPointInRect(CGPointMake(x_pos, y_pos), [s frame])) {
@@ -732,11 +780,11 @@ namespace visage {
     int default_x = (screen_width - width) / 2;
     int default_y = (screen_height - height) / 2;
     x_pos = x.computeWithDefault(scale, screen_width, screen_height, default_x) / scale;
-    y_pos = x.computeWithDefault(scale, screen_width, screen_height, default_y) / scale;
+    y_pos = y.computeWithDefault(scale, screen_width, screen_height, default_y) / scale;
     width /= scale;
     height /= scale;
 
-    return { x_pos, y_pos, width, height };
+    return { x_pos, static_cast<int>(screen_height / scale) - y_pos - height, width, height };
   }
 
   Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& w,
@@ -767,43 +815,18 @@ namespace visage {
 
   WindowMac::WindowMac(int x, int y, int width, int height, Decoration decoration) :
       Window(width, height), decoration_(decoration) {
-    static const NSUInteger kNativeStyle = NSWindowStyleMaskTitled | NSWindowStyleMaskResizable |
-                                           NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskClosable;
-    static const NSUInteger kClientStyle = kNativeStyle | NSWindowStyleMaskFullSizeContentView;
-    static const NSUInteger kPopupStyle = NSWindowStyleMaskBorderless;
+    last_content_rect_ = NSMakeRect(x, y, width, height);
+    NSRect rect = last_content_rect_;
 
-    int style_mask = kNativeStyle;
-    if (decoration_ == Decoration::Popup)
-      style_mask = kPopupStyle;
-    else if (decoration_ == Decoration::Client)
-      style_mask = kClientStyle;
-
-    NSRect content_rect = NSMakeRect(x, y, width, height);
-    NSWindow* window = [[NSWindow alloc] initWithContentRect:content_rect
-                                                   styleMask:style_mask
-                                                     backing:NSBackingStoreBuffered
-                                                       defer:NO];
-    if (decoration_ == Decoration::Popup)
-      [window setLevel:NSStatusWindowLevel];
-    else if (decoration_ == Decoration::Client)
-      window.titlebarAppearsTransparent = YES;
-
-    window_handle_ = window;
-    content_rect.origin.x = 0;
-    content_rect.origin.y = 0;
-    view_ = [[AppView alloc] initWithFrame:content_rect inWindow:this];
+    rect.origin.x = 0;
+    rect.origin.y = 0;
+    view_ = [[AppView alloc] initWithFrame:rect inWindow:this];
     view_delegate_ = [[AppViewDelegate alloc] initWithWindow:this];
     view_.delegate = view_delegate_;
     view_.allow_quit = true;
 
-    setPixelScale([window_handle_ backingScaleFactor]);
-    setDpiScale([window_handle_ backingScaleFactor]);
-    int client_width = std::round(content_rect.size.width * pixelScale());
-    int client_height = std::round(content_rect.size.height * pixelScale());
-    handleResized(client_width, client_height);
-
-    [window_handle_ setContentView:view_];
-    [window_handle_ makeFirstResponder:view_];
+    createWindow();
+    NativeWindowLookup::instance().addWindow(this);
   }
 
   WindowMac::WindowMac(int width, int height, void* parent_handle) : Window(width, height) {
@@ -828,11 +851,58 @@ namespace visage {
       [window_handle_ makeFirstResponder:view_];
 
     [NSApp activateIgnoringOtherApps:YES];
+    NativeWindowLookup::instance().addWindow(this);
   }
 
   WindowMac::~WindowMac() {
+    NativeWindowLookup::instance().removeWindow(this);
+    hide();
+    view_.visage_window = nullptr;
+
     if (parent_view_)
       [view_ removeFromSuperview];
+  }
+
+  void WindowMac::createWindow() {
+    static const NSUInteger kNativeStyle = NSWindowStyleMaskTitled | NSWindowStyleMaskResizable |
+                                           NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskClosable;
+    static const NSUInteger kClientStyle = kNativeStyle | NSWindowStyleMaskFullSizeContentView;
+    static const NSUInteger kPopupStyle = NSWindowStyleMaskBorderless;
+
+    int style_mask = kNativeStyle;
+    if (decoration_ == Decoration::Popup)
+      style_mask = kPopupStyle;
+    else if (decoration_ == Decoration::Client)
+      style_mask = kClientStyle;
+
+    NSWindow* window = [[NSWindow alloc] initWithContentRect:last_content_rect_
+                                                   styleMask:style_mask
+                                                     backing:NSBackingStoreBuffered
+                                                       defer:NO];
+    if (decoration_ == Decoration::Popup)
+      [window setLevel:NSStatusWindowLevel];
+    else if (decoration_ == Decoration::Client)
+      window.titlebarAppearsTransparent = YES;
+
+    window_handle_ = window;
+    setPixelScale([window_handle_ backingScaleFactor]);
+    setDpiScale([window_handle_ backingScaleFactor]);
+    int client_width = std::round(last_content_rect_.size.width * pixelScale());
+    int client_height = std::round(last_content_rect_.size.height * pixelScale());
+    handleResized(client_width, client_height);
+
+    [window_handle_ setContentView:view_];
+    [window_handle_ makeFirstResponder:view_];
+  }
+
+  void WindowMac::closeWindow() {
+    last_content_rect_ = window_handle_.contentLayoutRect;
+    visage::NativeWindowLookup::instance().removeWindow(this);
+    hide();
+    window_handle_ = nullptr;
+
+    if (running_event_loop_ && !visage::NativeWindowLookup::instance().anyWindowOpen())
+      [NSApp stop:nil];
   }
 
   void WindowMac::windowContentsResized(int width, int height) {
@@ -858,20 +928,35 @@ namespace visage {
       [parent_view_.window makeKeyAndOrderFront:nil];
     }
     else {
+      if (window_handle_ == nullptr)
+        createWindow();
+
       if (isPopup())
         [window_handle_ orderFront:nil];
       else
         [window_handle_ makeKeyAndOrderFront:nil];
     }
+    notifyShow();
   }
 
   void WindowMac::showMaximized() {
+    if (window_handle_ == nullptr)
+      createWindow();
+
     [window_handle_ zoom:nil];
     [window_handle_ makeKeyAndOrderFront:nil];
+    notifyShow();
   }
 
   void WindowMac::hide() {
-    [window_handle_ orderOut:nil];
+    if (window_handle_) {
+      [window_handle_ orderOut:nil];
+      notifyHide();
+    }
+  }
+
+  bool WindowMac::isShowing() const {
+    return window_handle_ && [window_handle_ isVisible];
   }
 
   void WindowMac::setWindowTitle(const std::string& title) {

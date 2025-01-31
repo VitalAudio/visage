@@ -70,6 +70,9 @@ namespace visage {
 
     ~WindowMac() override;
 
+    void createWindow();
+    void closeWindow();
+
     void* nativeHandle() const override { return (__bridge void*)view_; }
     void* initWindow() const override;
 
@@ -78,6 +81,8 @@ namespace visage {
     void show() override;
     void showMaximized() override;
     void hide() override;
+    bool isShowing() const override;
+
     void setWindowTitle(const std::string& title) override;
     Point maxWindowDimensions() const override;
     Point minWindowDimensions() const override;
@@ -86,13 +91,14 @@ namespace visage {
     bool isPopup() const { return decoration_ == Decoration::Popup; }
 
   private:
+    static bool running_event_loop_;
     NSWindow* window_handle_ = nullptr;
     NSView* parent_view_ = nullptr;
     AppView* view_ = nullptr;
     AppViewDelegate* view_delegate_ = nullptr;
+    NSRect last_content_rect_ {};
     Decoration decoration_ = Decoration::Native;
   };
-
 }
 
 #endif
