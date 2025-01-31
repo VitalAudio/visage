@@ -1,0 +1,21 @@
+name: Windows Test
+on:
+  push:
+    branches:
+      - main
+jobs:
+  Build-Windows:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: CMake build
+        run: |
+          mkdir cmake_build
+          cd cmake_build
+          cmake -G "Visual Studio 17 2022" -DCMAKE_BUILD_TYPE=Release -A x64 ..
+          cmake --build . --config Release --parallel
+          ctest --output-on-failure

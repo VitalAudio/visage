@@ -1,4 +1,4 @@
-name: Linux Deploy
+name: Linux Test
 on:
   push:
     branches:
@@ -16,8 +16,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh-known-hosts: ${{ secrets.KNOWN_HOSTS }}
 
       - name: Build, Package and Test
         run: |
