@@ -99,9 +99,7 @@ public:
     bloom_.setBloomIntensity(1.0f);
     setPostEffect(&bloom_);
     addChild(&animated_line_);
-    layout().setFlex(true);
-    animated_line_.layout().setWidth(visage::Dimension::widthPercent(100.0f));
-    animated_line_.layout().setHeight(visage::Dimension::heightPercent(100.0f));
+    animated_line_.layout().setMargin(0);
 
     onDraw() = [this](visage::Canvas& canvas) {
       canvas.setColor(0xff22282d);
