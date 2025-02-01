@@ -41,8 +41,8 @@ ClapPlugin::~ClapPlugin() = default;
 
 #ifdef __linux__
 void ClapPlugin::onPosixFd(int fd, clap_posix_fd_flags_t flags) noexcept {
-  if (window_)
-    window_->processPluginFdEvents();
+  if (app_ && app_->window())
+    app_->window()->processPluginFdEvents();
 }
 #endif
 
