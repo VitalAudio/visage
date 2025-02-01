@@ -180,10 +180,12 @@ namespace visage {
 
     int x = child->layout_->marginLeft().computeWithDefault(dpi_scale_, width(), height(), child->x());
     int y = child->layout_->marginTop().computeWithDefault(dpi_scale_, width(), height(), child->y());
+    int margin_right = width() - child->right();
     int right = width() - child->layout_->marginRight().computeWithDefault(dpi_scale_, width(),
-                                                                           height(), child->right());
+                                                                           height(), margin_right);
+    int margin_bottom = height() - child->bottom();
     int bottom = height() - child->layout_->marginBottom().computeWithDefault(dpi_scale_, width(),
-                                                                              height(), child->bottom());
+                                                                              height(), margin_bottom);
     int w = child->layout_->width().computeWithDefault(dpi_scale_, width(), height(), right - x);
     int h = child->layout_->height().computeWithDefault(dpi_scale_, width(), height(), bottom - y);
     child->setBounds(x, y, w, h);
