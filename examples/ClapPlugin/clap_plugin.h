@@ -22,7 +22,7 @@
 #pragma once
 
 #include <clap/helpers/plugin.hh>
-#include <visage_app/application_editor.h>
+#include <visage_app/application_window.h>
 
 using ClapPluginBase = clap::helpers::Plugin<clap::helpers::MisbehaviourHandler::Terminate,
                                              clap::helpers::CheckingLevel::Maximal>;
@@ -53,6 +53,5 @@ protected:
   bool guiGetSize(uint32_t* width, uint32_t* height) noexcept override;
 
 private:
-  std::unique_ptr<visage::ApplicationEditor> editor_;
-  std::unique_ptr<visage::Window> window_;
+  std::unique_ptr<visage::ApplicationWindow> app_;
 };

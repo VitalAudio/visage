@@ -34,29 +34,46 @@ namespace visage {
 
     const std::string& title() const { return title_; }
     void setTitle(std::string title) { title_ = std::move(title); }
+
     void setWindowDecoration(Window::Decoration decoration) {
       decoration_ = decoration;
       if (decoration_ == Window::Decoration::Client)
         addClientDecoration();
     }
 
+    void setWindowDimensions(int width, int height) {
+      setLogicalDimensions(width, height);
+      if (window_)
+        window_->setWindowSize(width, height);
+    }
+
+    void show(const Dimension& width, const Dimension& height, void* parent_window);
     void show(const Dimension& width, const Dimension& height);
     void show(const Dimension& x, const Dimension& y, const Dimension& width, const Dimension& height);
     void showMaximized();
     void hide();
+    void close();
     bool isShowing() const;
 
     auto& onShow() { return on_show_; }
     auto& onHide() { return on_hide_; }
+    auto& onWindowContentsResized() { return on_window_contents_resized_; }
+
+    Point minWindowDimensions();
+    Point maxWindowDimensions();
+    virtual void adjustWindowDimensions(unsigned int* width, unsigned int* height,
+                                        bool horizontal_resize = true, bool vertical_resize = true);
 
     void runEventLoop();
 
   private:
+    void registerCallbacks();
     void showWindow(bool maximized);
 
     Window::Decoration decoration_ = Window::Decoration::Native;
     CallbackList<void()> on_show_;
     CallbackList<void()> on_hide_;
+    CallbackList<void()> on_window_contents_resized_;
     std::string title_;
     std::unique_ptr<Window> window_;
   };

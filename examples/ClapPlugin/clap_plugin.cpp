@@ -24,7 +24,6 @@
 #include <clap/helpers/host-proxy.hh>
 #include <clap/helpers/plugin.hh>
 #include <clap/helpers/plugin.hxx>
-#include <visage_windowing/windowing.h>
 
 using namespace visage::dimension;
 
@@ -69,22 +68,24 @@ bool ClapPlugin::guiCreate(const char* api, bool is_floating) noexcept {
   if (is_floating)
     return false;
 
-  if (editor_)
+  if (app_)
     return true;
 
-  editor_ = std::make_unique<visage::ApplicationEditor>();
-  visage::Bounds bounds = visage::computeWindowBounds(80_vmin, 60_vmin);
-  editor_->setBounds(0, 0, bounds.width(), bounds.height());
+  app_ = std::make_unique<visage::ApplicationWindow>();
 
-  editor_->onDraw() = [this](visage::Canvas& canvas) {
+  app_->onDraw() = [this](visage::Canvas& canvas) {
     canvas.setColor(0xff000066);
-    canvas.fill(0, 0, editor_->width(), editor_->height());
+    canvas.fill(0, 0, app_->width(), app_->height());
 
-    float circle_radius = editor_->height() * 0.1f;
-    float x = editor_->width() * 0.5f - circle_radius;
-    float y = editor_->height() * 0.5f - circle_radius;
+    float circle_radius = app_->height() * 0.1f;
+    float x = app_->width() * 0.5f - circle_radius;
+    float y = app_->height() * 0.5f - circle_radius;
     canvas.setColor(0xff00ffff);
     canvas.circle(x, y, 2.0f * circle_radius);
+  };
+
+  app_->onWindowContentsResized() = [this] {
+    _host.guiRequestResize(app_->logicalWidth(), app_->logicalHeight());
   };
 
   return true;
@@ -92,89 +93,64 @@ bool ClapPlugin::guiCreate(const char* api, bool is_floating) noexcept {
 
 void ClapPlugin::guiDestroy() noexcept {
 #if __linux__
-  if (window_ && _host.canUsePosixFdSupport())
-    _host.posixFdSupportUnregister(window_->posixFd());
+  if (app_ && app_->window() && _host.canUsePosixFdSupport())
+    _host.posixFdSupportUnregister(app_->window()->posixFd());
 #endif
-  editor_->removeFromWindow();
-  window_.reset();
+  app_->close();
 }
 
 bool ClapPlugin::guiSetParent(const clap_window* window) noexcept {
-  if (editor_ == nullptr)
+  if (app_ == nullptr)
     return false;
 
-  window_ = visage::createPluginWindow(editor_->width(), editor_->height(), window->ptr);
-  window_->setFixedAspectRatio(editor_->isFixedAspectRatio());
-  editor_->addToWindow(window_.get());
-  window_->show();
+  app_->show(80_vmin, 60_vmin, window->ptr);
 
 #if __linux__
-  if (!_host.canUsePosixFdSupport())
-    return true;
-
-  int fd_flags = CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE | CLAP_POSIX_FD_ERROR;
-  return _host.posixFdSupportRegister(window_->posixFd(), fd_flags);
-#else
-  return true;
+  if (_host.canUsePosixFdSupport() && app_->window() == nullptr) {
+    int fd_flags = CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE | CLAP_POSIX_FD_ERROR;
+    return _host.posixFdSupportRegister(app_->window()->posixFd(), fd_flags);
+  }
 #endif
+  return true;
 }
 
 bool ClapPlugin::guiGetResizeHints(clap_gui_resize_hints_t* hints) noexcept {
-  if (editor_ == nullptr)
+  if (app_ == nullptr)
     return false;
 
-  bool fixed_aspect_ratio = editor_->isFixedAspectRatio();
+  bool fixed_aspect_ratio = app_->isFixedAspectRatio();
   hints->can_resize_horizontally = true;
   hints->can_resize_vertically = true;
   hints->preserve_aspect_ratio = fixed_aspect_ratio;
 
   if (fixed_aspect_ratio) {
-    hints->aspect_ratio_width = editor_->height() * editor_->aspectRatio();
-    hints->aspect_ratio_height = editor_->width();
+    hints->aspect_ratio_width = app_->height() * app_->aspectRatio();
+    hints->aspect_ratio_height = app_->width();
   }
   return true;
 }
 
 bool ClapPlugin::guiAdjustSize(uint32_t* width, uint32_t* height) noexcept {
-  if (editor_ == nullptr)
+  if (app_ == nullptr)
     return false;
 
-  if (!editor_->isFixedAspectRatio())
-    return true;
-
-  visage::Point max_dimensions = { INT_MAX, INT_MAX };
-  visage::Point min_dimensions = { 0, 0 };
-  if (window_) {
-    max_dimensions = window_->maxWindowDimensions();
-    min_dimensions = window_->minWindowDimensions();
-  }
-
-  visage::Point point(static_cast<int>(*width), static_cast<int>(*height));
-  visage::Point adjusted_dimensions = adjustBoundsForAspectRatio(point, min_dimensions, max_dimensions,
-                                                                 editor_->aspectRatio(), true, true);
-  *width = adjusted_dimensions.x;
-  *height = adjusted_dimensions.y;
-
+  app_->adjustWindowDimensions(width, height, true, true);
   return true;
 }
 
 bool ClapPlugin::guiSetSize(uint32_t width, uint32_t height) noexcept {
-  if (editor_ == nullptr)
+  if (app_ == nullptr)
     return false;
 
-  if (window_)
-    window_->setWindowSize(width, height);
-  else
-    editor_->setLogicalDimensions(width, height);
-
+  app_->setWindowDimensions(width, height);
   return true;
 }
 
 bool ClapPlugin::guiGetSize(uint32_t* width, uint32_t* height) noexcept {
-  if (editor_ == nullptr)
+  if (app_ == nullptr)
     return false;
 
-  *width = std::round(editor_->logicalWidth());
-  *height = std::round(editor_->logicalHeight());
+  *width = app_->logicalWidth();
+  *height = app_->logicalHeight();
   return true;
 }

@@ -94,6 +94,7 @@ namespace visage {
 
     auto& onShow() { return on_show_; }
     auto& onHide() { return on_hide_; }
+    auto& onWindowContentsResized() { return on_contents_resized_; }
 
     virtual void runEventLoop() = 0;
     virtual void* nativeHandle() const = 0;
@@ -203,6 +204,7 @@ namespace visage {
     std::function<void(double)> draw_callback_ = nullptr;
     CallbackList<void()> on_show_;
     CallbackList<void()> on_hide_;
+    CallbackList<void()> on_contents_resized_;
     float dpi_scale_ = 1.0f;
     float pixel_scale_ = 1.0f;
     float min_window_scale_ = kDefaultMinWindowScale;

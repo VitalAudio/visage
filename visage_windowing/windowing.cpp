@@ -88,6 +88,7 @@ namespace visage {
     if (fixed_aspect_ratio_)
       aspect_ratio_ = width * 1.0f / height;
     windowContentsResized(std::round(width / pixel_scale_), std::round(height / pixel_scale_));
+    on_contents_resized_.callback();
   }
 
   bool Window::hasActiveTextEntry() const {
