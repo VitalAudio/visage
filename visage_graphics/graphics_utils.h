@@ -100,7 +100,7 @@ namespace visage {
 
       int index = packed_rects_.size();
       lookup_[id] = index;
-      packed_rects_.push_back({ 0, 0, width, height });
+      packed_rects_.push_back({ 0, 0, std::max(0, width), std::max(0, height) });
       return packer_.addRect(packed_rects_.back());
     }
 
