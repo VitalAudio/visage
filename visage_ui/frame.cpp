@@ -178,16 +178,41 @@ namespace visage {
     if (child->layout_ == nullptr || (layout_ && layout_->flex()))
       return;
 
-    int x = child->layout_->marginLeft().computeWithDefault(dpi_scale_, width(), height(), child->x());
-    int y = child->layout_->marginTop().computeWithDefault(dpi_scale_, width(), height(), child->y());
-    int margin_right = width() - child->right();
-    int right = width() - child->layout_->marginRight().computeWithDefault(dpi_scale_, width(),
-                                                                           height(), margin_right);
-    int margin_bottom = height() - child->bottom();
-    int bottom = height() - child->layout_->marginBottom().computeWithDefault(dpi_scale_, width(),
-                                                                              height(), margin_bottom);
-    int w = child->layout_->width().computeWithDefault(dpi_scale_, width(), height(), right - x);
-    int h = child->layout_->height().computeWithDefault(dpi_scale_, width(), height(), bottom - y);
+    int width = this->width();
+    int height = this->height();
+
+    int padding_left = 0;
+    int padding_top = 0;
+    int padding_right = 0;
+    int padding_bottom = 0;
+
+    if (layout_) {
+      padding_left = layout_->paddingLeft().computeWithDefault(dpi_scale_, width, height, 0);
+      padding_top = layout_->paddingTop().computeWithDefault(dpi_scale_, width, height, 0);
+      padding_right = layout_->paddingRight().computeWithDefault(dpi_scale_, width, height, 0);
+      padding_bottom = layout_->paddingBottom().computeWithDefault(dpi_scale_, width, height, 0);
+    }
+
+    int x = child->x();
+    int y = child->y();
+    int dist_right = width - child->right();
+    int dist_bottom = height - child->bottom();
+
+    x = padding_left +
+        child->layout_->marginLeft().computeWithDefault(dpi_scale_, width, height, x - padding_left);
+    y = padding_top +
+        child->layout_->marginTop().computeWithDefault(dpi_scale_, width, height, y - padding_top);
+    dist_right = padding_right +
+                 child->layout_->marginRight().computeWithDefault(dpi_scale_, width, height,
+                                                                  dist_right - padding_right);
+    dist_bottom = padding_bottom +
+                  child->layout_->marginBottom().computeWithDefault(dpi_scale_, width, height,
+                                                                    dist_bottom - padding_bottom);
+
+    int right = width - dist_right;
+    int bottom = height - dist_bottom;
+    int w = child->layout_->width().computeWithDefault(dpi_scale_, width, height, right - x);
+    int h = child->layout_->height().computeWithDefault(dpi_scale_, width, height, bottom - y);
     child->setBounds(x, y, w, h);
   }
 
