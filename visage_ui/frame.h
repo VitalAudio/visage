@@ -214,6 +214,7 @@ namespace visage {
     void setBounds(Bounds bounds);
     void setBounds(int x, int y, int width, int height) { setBounds({ x, y, width, height }); }
     void computeLayout();
+    void computeLayout(Frame* child);
     const Bounds& bounds() const { return bounds_; }
     void setTopLeft(int x, int y) { setBounds(x, y, width(), height()); }
     Point topLeft() const { return { bounds_.x(), bounds_.y() }; }

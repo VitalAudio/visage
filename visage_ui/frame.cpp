@@ -75,6 +75,7 @@ namespace visage {
       child->init();
 
     computeLayout();
+    computeLayout(child);
     child->redraw();
   }
 
@@ -147,6 +148,10 @@ namespace visage {
     bounds_ = bounds;
     region_.setBounds(bounds.x(), bounds.y(), bounds.width(), bounds.height());
     computeLayout();
+    if (layout_ == nullptr || !layout_->flex()) {
+      for (Frame* child : children_)
+        computeLayout(child);
+    }
 
     on_resize_.callback();
     redraw();
@@ -167,6 +172,21 @@ namespace visage {
           children_[i]->setBounds(children_bounds[i]);
       }
     }
+  }
+
+  void Frame::computeLayout(Frame* child) {
+    if (child->layout_ == nullptr || (layout_ && layout_->flex()))
+      return;
+
+    int x = child->layout_->marginLeft().computeWithDefault(dpi_scale_, width(), height(), child->x());
+    int y = child->layout_->marginTop().computeWithDefault(dpi_scale_, width(), height(), child->y());
+    int right = width() - child->layout_->marginRight().computeWithDefault(dpi_scale_, width(),
+                                                                           height(), child->right());
+    int bottom = height() - child->layout_->marginBottom().computeWithDefault(dpi_scale_, width(),
+                                                                              height(), child->bottom());
+    int w = child->layout_->width().computeWithDefault(dpi_scale_, width(), height(), right - x);
+    int h = child->layout_->height().computeWithDefault(dpi_scale_, width(), height(), bottom - y);
+    child->setBounds(x, y, w, h);
   }
 
   Point Frame::positionInWindow() const {

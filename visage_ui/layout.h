@@ -78,6 +78,10 @@ namespace visage {
     void setMarginRight(const Dimension& margin) { margin_after_[0] = margin; }
     void setMarginTop(const Dimension& margin) { margin_before_[1] = margin; }
     void setMarginBottom(const Dimension& margin) { margin_after_[1] = margin; }
+    const Dimension& marginLeft() { return margin_before_[0]; }
+    const Dimension& marginRight() { return margin_after_[0]; }
+    const Dimension& marginTop() { return margin_before_[1]; }
+    const Dimension& marginBottom() { return margin_after_[1]; }
 
     void setPadding(const Dimension& padding) {
       padding_before_[0] = padding;
@@ -90,6 +94,10 @@ namespace visage {
     void setPaddingRight(const Dimension& padding) { padding_after_[0] = padding; }
     void setPaddingTop(const Dimension& padding) { padding_before_[1] = padding; }
     void setPaddingBottom(const Dimension& padding) { padding_after_[1] = padding; }
+    const Dimension& paddingLeft() { return padding_before_[0]; }
+    const Dimension& paddingRight() { return padding_after_[0]; }
+    const Dimension& paddingTop() { return padding_before_[1]; }
+    const Dimension& paddingBottom() { return padding_after_[1]; }
 
     void setDimensions(const Dimension& width, const Dimension& height) {
       dimensions_[0] = width;
@@ -98,6 +106,8 @@ namespace visage {
 
     void setWidth(const Dimension& width) { dimensions_[0] = width; }
     void setHeight(const Dimension& height) { dimensions_[1] = height; }
+    const Dimension& width() { return dimensions_[0]; }
+    const Dimension& height() { return dimensions_[1]; }
 
     void setFlexGrow(float grow) { flex_grow_ = grow; }
     void setFlexShrink(float shrink) { flex_shrink_ = shrink; }
