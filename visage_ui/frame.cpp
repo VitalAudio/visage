@@ -73,6 +73,9 @@ namespace visage {
     child->setDimensionScaling(dpi_scale_, width_scale_, height_scale_);
     if (initialized_)
       child->init();
+
+    computeLayout();
+    child->redraw();
   }
 
   void Frame::removeChild(Frame* child) {
@@ -88,6 +91,8 @@ namespace visage {
 
     children_.erase(std::find(children_.begin(), children_.end(), child));
     child->notifyHierarchyChanged();
+
+    computeLayout();
   }
 
   void Frame::removeAllChildren() {
@@ -141,8 +146,7 @@ namespace visage {
 
     bounds_ = bounds;
     region_.setBounds(bounds.x(), bounds.y(), bounds.width(), bounds.height());
-    if (layout_.get())
-      computeLayout();
+    computeLayout();
 
     on_resize_.callback();
     redraw();
