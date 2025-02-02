@@ -275,6 +275,7 @@ namespace visage {
     std::vector<std::string> drag_drop_files_;
     int drag_drop_target_x_ = 0;
     int drag_drop_target_y_ = 0;
+    int hover_window_operation_ = 0;
     int window_operation_ = 0;
     Point dragging_window_position_;
 

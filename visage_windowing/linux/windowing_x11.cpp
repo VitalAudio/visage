@@ -1219,9 +1219,12 @@ namespace visage {
                           window_right - window_x, window_bottom - window_y);
       }
 
-      int resize_operation = resizeOperationForPosition(event.xmotion.x, event.xmotion.y);
-      if (resize_operation)
-        setCursorStyle(windowResizeCursor(resize_operation));
+      int last_hover_operation = hover_window_operation_;
+      hover_window_operation_ = resizeOperationForPosition(event.xmotion.x, event.xmotion.y);
+      if (hover_window_operation_)
+        setCursorStyle(windowResizeCursor(hover_window_operation_));
+      else if (last_hover_operation)
+        setCursorStyle(MouseCursor::Arrow);
 
       if (drag_drop_out_state_.dragging) {
         ::Window last_target = drag_drop_out_state_.target;
