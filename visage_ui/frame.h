@@ -55,7 +55,7 @@ namespace visage {
     virtual ~Frame() {
       notifyRemoveFromHierarchy();
       if (parent_)
-        parent_->removeChild(this);
+        parent_->eraseChild(this);
 
       removeAllChildren();
     }
@@ -351,6 +351,7 @@ namespace visage {
 
     void initChildren();
     void destroyChildren();
+    void eraseChild(Frame* child);
 
     bool requiresLayer() const {
       return post_effect_ || cached_ || masked_ || alpha_transparency_ != 1.0f;

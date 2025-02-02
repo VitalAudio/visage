@@ -86,11 +86,7 @@ namespace visage {
 
     child->region()->invalidate();
     child->notifyRemoveFromHierarchy();
-    child->parent_ = nullptr;
-    child->event_handler_ = nullptr;
-    region_.removeRegion(child->region());
-
-    children_.erase(std::find(children_.begin(), children_.end(), child));
+    eraseChild(child);
     child->notifyHierarchyChanged();
 
     computeLayout();
@@ -98,7 +94,9 @@ namespace visage {
 
   void Frame::removeAllChildren() {
     while (!children_.empty())
-      removeChild(children_.back());
+      eraseChild(children_.back());
+
+    computeLayout();
   }
 
   int Frame::indexOfChild(const Frame* child) const {
@@ -336,6 +334,13 @@ namespace visage {
     initialized_ = false;
     for (Frame* child : children_)
       child->destroy();
+  }
+
+  void Frame::eraseChild(Frame* child) {
+    child->parent_ = nullptr;
+    child->event_handler_ = nullptr;
+    region_.removeRegion(child->region());
+    children_.erase(std::find(children_.begin(), children_.end(), child));
   }
 
   void Frame::setPostEffect(PostEffect* post_effect) {
