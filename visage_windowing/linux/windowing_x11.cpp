@@ -261,6 +261,10 @@ namespace visage {
     return 1.0f;
   }
 
+  bool isMobileDevice() {
+    return false;
+  }
+
   static double refreshRate(XRRScreenResources* screen_resources, XRRCrtcInfo* info) {
     for (int i = 0; i < screen_resources->nmode; ++i) {
       if (screen_resources->modes[i].id == info->mode)

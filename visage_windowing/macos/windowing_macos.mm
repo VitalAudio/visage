@@ -174,6 +174,10 @@ namespace visage {
     return [NSScreen.mainScreen backingScaleFactor];
   }
 
+  bool isMobileDevice() {
+    return false;
+  }
+
   KeyCode translateKeyCode(int mac_key_code) {
     switch (mac_key_code) {
     case kVK_ANSI_A: return KeyCode::A;

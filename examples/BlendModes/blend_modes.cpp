@@ -152,7 +152,10 @@ private:
 
 int runExample() {
   ExampleEditor editor;
-  editor.show(visage::Dimension::logicalPixels(800), visage::Dimension::logicalPixels(600));
+  if (visage::isMobileDevice())
+    editor.showMaximized();
+  else
+    editor.show(visage::Dimension::logicalPixels(800), visage::Dimension::logicalPixels(600));
   editor.runEventLoop();
 
   return 0;

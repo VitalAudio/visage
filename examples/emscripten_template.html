@@ -119,6 +119,36 @@
       var spinnerElement = document.getElementById('spinner');
       var canvas = document.getElementById('canvas');
 
+      function isMobileDevice() {
+        return true;
+        // return /Mobi|Android|iPhone|iPad|iPod/.test(navigator.userAgent);
+      }
+
+      function enforceCanvasSize() {
+        const originalSetCanvasElementSize = Browser.setCanvasSize || function(width, height) {};
+        Browser.setCanvasSize = function(width, height) {
+          if (isMobileDevice()) {
+            width = window.innerWidth;
+            height = window.innerHeight;
+          }
+
+          originalSetCanvasElementSize(width, height);
+        };
+        /*if (isMobileDevice()) {
+          const css = "#canvas { width: 100vw !important; height: 100vh !important; }";
+
+          let styleTag = document.getElementById('canvas-style');
+          if (!styleTag) {
+            styleTag = document.createElement('style');
+            styleTag.id = 'canvas-style';
+            document.head.appendChild(styleTag);
+          }
+          styleTag.innerHTML = css;
+        }*/
+      }
+
+      window.addEventListener('load', enforceCanvasSize);
+
       var Module = {
         print: (function() {
           var element = document.getElementById('output');
@@ -169,6 +199,7 @@
           this.totalDependencies = Math.max(this.totalDependencies, left);
         }
       };
+
       window.onerror = () => {
         Module.setStatus('Exception thrown, see JavaScript console');
         spinnerElement.style.display = 'none';

@@ -736,6 +736,10 @@ namespace visage {
     return dpi_awareness.conversionFactor();
   }
 
+  bool isMobileDevice() {
+    return false;
+  }
+
   void showMessageBox(std::string title, std::string message) {
     std::wstring w_title = String::convertToWide(title);
     std::wstring w_message = String::convertToWide(message);

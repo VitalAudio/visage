@@ -224,6 +224,7 @@ namespace visage {
   void setCursorPosition(Point window_position);
   void setCursorScreenPosition(Point screen_position);
   float windowPixelScale();
+  bool isMobileDevice();
   void showMessageBox(std::string title, std::string message);
   std::string readClipboardText();
   void setClipboardText(const std::string& text);

@@ -103,6 +103,15 @@ namespace visage {
     return EM_ASM_DOUBLE({ return window.devicePixelRatio; });
   }
 
+  bool isMobileDevice() {
+    return EM_ASM_INT({
+      if (navigator.userAgentData && navigator.userAgentData.mobile)
+        return 1;
+      return new RegExp("Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini", "i")
+          .test(navigator.userAgent);
+    });
+  }
+
   void WindowEmscripten::showMaximized() {
     maximized_ = true;
     int width = EM_ASM_INT({ return window.innerWidth; });

@@ -202,7 +202,10 @@ int runExample() {
   showcase->layout().setHeight(100_vh);
 
   editor.setTitle("Visage Showcase");
-  editor.show(100_vmin, 70_vmin);
+  if (visage::isMobileDevice())
+    editor.showMaximized();
+  else
+    editor.show(100_vmin, 70_vmin);
   editor.runEventLoop();
 
   return 0;

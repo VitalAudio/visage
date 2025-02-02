@@ -125,7 +125,11 @@ private:
 int runExample() {
   ExampleEditor editor;
   editor.setWindowDecoration(visage::Window::Decoration::Client);
-  editor.show(visage::Dimension::widthPercent(50.0f), visage::Dimension::widthPercent(14.0f));
+  if (visage::isMobileDevice())
+    editor.showMaximized();
+  else
+    editor.show(visage::Dimension::widthPercent(50.0f), visage::Dimension::widthPercent(14.0f));
+
   editor.runEventLoop();
 
   return 0;
