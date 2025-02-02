@@ -138,16 +138,12 @@ namespace visage {
     if (!bgfx::isValid(handles_->downsample_buffers1[0])) {
       for (int i = 0; i < kMaxDownsamples; ++i) {
         int scale = 1 << (i + 1);
-        int width = (full_width + scale - 1) / scale;
-        int height = (full_height + scale - 1) / scale;
-        if (height > 0 && width > 0) {
-          widths_[i] = width;
-          heights_[i] = height;
-          handles_->downsample_buffers1[i] = bgfx::createFrameBuffer(width, height, format,
-                                                                     kFrameBufferFlags);
-          handles_->downsample_buffers2[i] = bgfx::createFrameBuffer(width, height, format,
-                                                                     kFrameBufferFlags);
-        }
+        widths_[i] = std::max(1, (full_width + scale - 1) / scale);
+        heights_[i] = std::max(1, (full_height + scale - 1) / scale);
+        handles_->downsample_buffers1[i] = bgfx::createFrameBuffer(widths_[i], heights_[i], format,
+                                                                   kFrameBufferFlags);
+        handles_->downsample_buffers2[i] = bgfx::createFrameBuffer(widths_[i], heights_[i], format,
+                                                                   kFrameBufferFlags);
       }
     }
   }
