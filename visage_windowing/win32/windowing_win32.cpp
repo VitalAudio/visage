@@ -51,6 +51,7 @@ typedef DPI_AWARENESS_CONTEXT(WINAPI* GetThreadDpiAwarenessContext_t)();
 typedef DPI_AWARENESS_CONTEXT(WINAPI* SetThreadDpiAwarenessContext_t)(DPI_AWARENESS_CONTEXT);
 typedef UINT(WINAPI* GetDpiForWindow_t)(HWND);
 typedef UINT(WINAPI* GetDpiForSystem_t)();
+typedef INT(WINAPI* GetSystemMetricsForDpi_t)(INT, UINT);
 
 namespace visage {
   template<typename T>
@@ -540,6 +541,7 @@ namespace visage {
     explicit DragDropSourceObject(const File& file) {
       drop_ = DragDropSourceObject::createHDrop(file);
     }
+
     virtual ~DragDropSourceObject() = default;
 
     HRESULT __stdcall QueryInterface(REFIID riid, void** ppv_object) override {
@@ -615,9 +617,11 @@ namespace visage {
 
     HRESULT __stdcall GetDataHere(FORMATETC*, STGMEDIUM*) override { return E_NOTIMPL; }
     HRESULT __stdcall SetData(FORMATETC*, STGMEDIUM*, BOOL) override { return E_NOTIMPL; }
+
     HRESULT __stdcall DAdvise(FORMATETC*, DWORD, IAdviseSink*, DWORD*) override {
       return E_NOTIMPL;
     }
+
     HRESULT __stdcall DUnadvise(DWORD) override { return E_NOTIMPL; }
     HRESULT __stdcall EnumDAdvise(IEnumSTATDATA**) override { return E_NOTIMPL; }
 
@@ -1288,10 +1292,12 @@ namespace visage {
         return 0;
       }
 
-      auto dpi = GetDpiForWindow(hwnd);
-      params->rgrc[0].top -= GetSystemMetricsForDpi(SM_CYCAPTION, dpi) +
-                             GetSystemMetricsForDpi(SM_CYSIZEFRAME, dpi) +
-                             GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+      HMODULE user32 = LoadLibraryA("user32.dll");
+      auto dpiForWindow = procedure<GetDpiForWindow_t>(user32, "GetDpiForWindow");
+      auto dpi = dpiForWindow(hwnd);
+      auto systemMetrics = procedure<GetSystemMetricsForDpi_t>(user32, "GetSystemMetricsForDpi");
+      params->rgrc[0].top -= systemMetrics(SM_CYCAPTION, dpi) + systemMetrics(SM_CYSIZEFRAME, dpi) +
+                             systemMetrics(SM_CXPADDEDBORDER, dpi);
     }
     if (msg == WM_NCHITTEST && window->decoration() == Window::Decoration::Client) {
       LRESULT result = DefWindowProc(hwnd, msg, w_param, l_param);
@@ -1396,6 +1402,7 @@ namespace visage {
   }
 
   HCURSOR WindowWin32::cursor_ = LoadCursor(nullptr, IDC_ARROW);
+
   void WindowWin32::setCursor(HCURSOR cursor) {
     cursor_ = cursor;
     SetCursor(cursor);
