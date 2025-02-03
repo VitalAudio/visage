@@ -13,11 +13,11 @@ add_embedded_resources(EmbeddedIconResources "example_icons.h" "resources::icons
 add_embedded_resources(EmbeddedImageResources "example_images.h" "resources::images" "${IMAGE_FILES}")
 
 if (WIN32)
-  file(COPY "${CMAKE_SOURCE_DIR}/visage_graphics/bin/win32/shaderc.exe" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/../visage_graphics/bin/win32/shaderc.exe" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 elseif (APPLE)
-  file(COPY "${CMAKE_SOURCE_DIR}/visage_graphics/bin/macos/shaderc" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/../visage_graphics/bin/macos/shaderc" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 else (UNIX)
-  file(COPY "${CMAKE_SOURCE_DIR}/visage_graphics/bin/linux/shaderc" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/../visage_graphics/bin/linux/shaderc" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 endif ()
 
 foreach (EXAMPLE ${EXAMPLES})
