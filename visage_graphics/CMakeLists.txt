@@ -80,6 +80,7 @@ else ()
   set(DISABLE_WARNINGS -w)
 endif ()
 
+target_compile_options(freetype PRIVATE ${DISABLE_WARNINGS})
 target_compile_options(nanosvg PRIVATE ${DISABLE_WARNINGS})
 target_compile_options(nanosvgrast PRIVATE ${DISABLE_WARNINGS})
 target_compile_options(bgfx PRIVATE ${DISABLE_WARNINGS})
