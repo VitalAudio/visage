@@ -38,8 +38,6 @@ public:
     int radius = std::min(width(), height()) / 4;
     canvas.circle(width() / 2 - radius, height() / 2 - radius, 2 * radius);
   }
-
-private:
 };
 
 class ExampleEditor : public visage::ApplicationWindow {
@@ -79,7 +77,7 @@ public:
 
 private:
   visage::UiButton button_;
-  visage::Font font_;
+  visage::Font font_ {};
   SubWindow sub_window_;
 };
 
