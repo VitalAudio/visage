@@ -37,7 +37,6 @@ function(amalgamate_sources AMALGAMATED_SOURCE FILE_SOURCES)
     set(FILE_CONTENTS "${FILE_CONTENTS}#include \"${FILE}\"\n")
   endforeach ()
   file(CONFIGURE OUTPUT "${AMALGAMATED_SOURCE}" CONTENT "${FILE_CONTENTS}")
-  set_source_files_properties("${AMALGAMATED_SOURCE}" PROPERTIES GENERATED TRUE)
 endfunction()
 
 add_subdirectory(visage_file_embed)
