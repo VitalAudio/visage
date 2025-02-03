@@ -17,13 +17,13 @@ elseif (UNIX)
   set(X11_INCLUDES ${X11_INCLUDE_DIR} ${Xrandr_INCLUDE_DIR})
 endif ()
 
-file(GLOB HEADERS windowing.h ${PLATFORM_HEADER_FILES})
-file(GLOB SOURCE_FILES windowing.cpp ${PLATFORM_SOURCE_FILES})
+file(GLOB HEADERS *.h)
+file(GLOB SOURCE_FILES *.cpp)
 
 amalgamate_headers(${VISAGE_INCLUDE}/visage/windowing.h "${HEADERS}")
 list(APPEND HEADERS ${VISAGE_INCLUDE}/visage/windowing.h)
 
-add_library(VisageWindowing OBJECT ${SOURCE_FILES} ${HEADERS})
+add_library(VisageWindowing OBJECT ${SOURCE_FILES} ${PLATFORM_SOURCE_FILES} ${HEADERS} ${PLATFORM_HEADER_FILES})
 target_include_directories(VisageWindowing
   PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
