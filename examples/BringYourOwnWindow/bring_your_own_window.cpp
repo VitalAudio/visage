@@ -19,9 +19,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <visage_graphics/canvas.h>
-#include <visage_graphics/renderer.h>
-#include <visage_windowing/windowing.h>
+#include <visage/graphics.h>
+#include <visage/windowing.h>
 
 int runExample() {
   std::unique_ptr<visage::Window> window = visage::createWindow(800, 800);

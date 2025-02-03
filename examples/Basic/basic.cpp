@@ -19,7 +19,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <visage_app/application_window.h>
+#include <visage/app.h>
 
 int runExample() {
   visage::ApplicationWindow app;

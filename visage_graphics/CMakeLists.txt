@@ -14,6 +14,9 @@ if (VISAGE_AMALGAMATED_BUILD)
   list(APPEND SOURCE_FILES ${CMAKE_CURRENT_BINARY_DIR}/visage_graphics_amalgamated.cpp)
 endif ()
 
+amalgamate_headers(${VISAGE_INCLUDE}/visage/graphics.h "${HEADERS}")
+list(APPEND HEADERS ${VISAGE_INCLUDE}/visage/graphics.h)
+
 add_library(VisageGraphics OBJECT ${SOURCE_FILES} ${HEADERS})
 
 if (APPLE)

@@ -13,6 +13,10 @@ if (VISAGE_AMALGAMATED_BUILD)
   amalgamate_sources(${CMAKE_CURRENT_BINARY_DIR}/visage_utils_amalgamated.cpp "${SOURCE_FILES}")
   list(APPEND SOURCE_FILES ${CMAKE_CURRENT_BINARY_DIR}/visage_utils_amalgamated.cpp)
 endif ()
+
+amalgamate_headers(${VISAGE_INCLUDE}/visage/utils.h "${HEADERS}")
+list(APPEND HEADERS ${VISAGE_INCLUDE}/visage/utils.h)
+
 add_library(VisageUtils OBJECT ${SOURCE_FILES} ${HEADERS})
 target_include_directories(VisageUtils PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(VisageUtilsDefinitions INTERFACE)

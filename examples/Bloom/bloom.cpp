@@ -21,7 +21,7 @@
 
 #include "embedded/example_fonts.h"
 
-#include <visage_app/application_window.h>
+#include <visage/app.h>
 #include <visage_widgets/graph_line.h>
 
 THEME_PALETTE_OVERRIDE(BloomPalette);

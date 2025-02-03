@@ -4,6 +4,10 @@ if (VISAGE_AMALGAMATED_BUILD)
   amalgamate_sources(${CMAKE_CURRENT_BINARY_DIR}/visage_ui_amalgamated.cpp "${SOURCE_FILES}")
   list(APPEND SOURCE_FILES ${CMAKE_CURRENT_BINARY_DIR}/visage_ui_amalgamated.cpp)
 endif ()
+
+amalgamate_headers(${VISAGE_INCLUDE}/visage/ui.h "${HEADERS}")
+list(APPEND HEADERS ${VISAGE_INCLUDE}/visage/ui.h)
+
 add_library(VisageUi OBJECT ${SOURCE_FILES} ${HEADERS})
 target_include_directories(VisageUi PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VISAGE_INCLUDE_PATH})
 target_link_libraries(VisageUi PRIVATE VisageGraphicsEmbeds)

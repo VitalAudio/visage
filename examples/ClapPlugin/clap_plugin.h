@@ -22,7 +22,7 @@
 #pragma once
 
 #include <clap/helpers/plugin.hh>
-#include <visage_app/application_window.h>
+#include <visage/app.h>
 
 using ClapPluginBase = clap::helpers::Plugin<clap::helpers::MisbehaviourHandler::Terminate,
                                              clap::helpers::CheckingLevel::Maximal>;

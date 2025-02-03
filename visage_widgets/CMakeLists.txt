@@ -5,6 +5,10 @@ if (VISAGE_ENABLE_WIDGETS)
     amalgamate_sources(${CMAKE_CURRENT_BINARY_DIR}/visage_widgets_amalgamated.cpp "${SOURCE_FILES}")
     list(APPEND SOURCE_FILES ${CMAKE_CURRENT_BINARY_DIR}/visage_widgets_amalgamated.cpp)
   endif ()
+
+  amalgamate_headers(${VISAGE_INCLUDE}/visage/widgets.h "${HEADERS}")
+  list(APPEND HEADERS ${VISAGE_INCLUDE}/visage/widgets.h)
+
   add_library(VisageWidgets OBJECT ${SOURCE_FILES} ${HEADERS})
 
   target_include_directories(VisageWidgets PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VISAGE_INCLUDE_PATH})

@@ -19,7 +19,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <visage_app/application_window.h>
+#include <visage/app.h>
 #include <visage_ui/popup_menu.h>
 
 class ExampleEditor : public visage::ApplicationWindow {

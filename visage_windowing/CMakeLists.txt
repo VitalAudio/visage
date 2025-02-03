@@ -20,6 +20,9 @@ endif ()
 file(GLOB HEADERS windowing.h ${PLATFORM_HEADER_FILES})
 file(GLOB SOURCE_FILES windowing.cpp ${PLATFORM_SOURCE_FILES})
 
+amalgamate_headers(${VISAGE_INCLUDE}/visage/windowing.h "${HEADERS}")
+list(APPEND HEADERS ${VISAGE_INCLUDE}/visage/windowing.h)
+
 add_library(VisageWindowing OBJECT ${SOURCE_FILES} ${HEADERS})
 target_include_directories(VisageWindowing
   PRIVATE

@@ -22,7 +22,7 @@
 #include "embedded/example_shaders.h"
 
 #include <complex>
-#include <visage_app/application_window.h>
+#include <visage/app.h>
 #include <visage_widgets/shader_editor.h>
 
 using namespace visage::dimension;

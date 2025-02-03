@@ -30,6 +30,16 @@ set(VISAGE_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 include(cmake/compile_flags.cmake)
 include(cmake/testing_framework.cmake)
 
+set(VISAGE_INCLUDE ${CMAKE_CURRENT_BINARY_DIR}/include)
+
+function(amalgamate_headers AMALGAMATED_HEADER_NAME FILE_HEADERS)
+  set(FILE_CONTENTS "// Auto generated amalgamated header.\n")
+  foreach (FILE ${FILE_HEADERS})
+    set(FILE_CONTENTS "${FILE_CONTENTS}#include \"${FILE}\"\n")
+  endforeach ()
+  file(CONFIGURE OUTPUT "${AMALGAMATED_HEADER_NAME}" CONTENT "${FILE_CONTENTS}")
+endfunction()
+
 function(amalgamate_sources AMALGAMATED_SOURCE FILE_SOURCES)
   set(FILE_CONTENTS "// Auto generated amalgamated source.\n")
   foreach (FILE ${FILE_SOURCES})
@@ -56,7 +66,7 @@ add_library(visage STATIC
   ${DUMMY_FILE}
 )
 
-target_include_directories(visage SYSTEM PUBLIC ${VISAGE_INCLUDE_PATH})
+target_include_directories(visage SYSTEM PUBLIC ${VISAGE_INCLUDE_PATH} ${VISAGE_INCLUDE})
 target_link_libraries(visage PRIVATE
   VisageApp
   VisageGraphics

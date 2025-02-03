@@ -24,10 +24,9 @@
 #include "embedded/example_fonts.h"
 #include "embedded/example_shaders.h"
 
-#include <visage_app/application_window.h>
-#include <visage_graphics/post_effects.h>
-#include <visage_utils/dimension.h>
-#include <visage_widgets/shader_editor.h>
+#include <visage/app.h>
+#include <visage/graphics.h>
+#include <visage/widgets.h>
 
 using namespace visage::dimension;
 
