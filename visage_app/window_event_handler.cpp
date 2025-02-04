@@ -69,9 +69,8 @@ namespace visage {
     if (keyboard_focused_frame_)
       keyboard_focused_frame_->processFocusChanged(false, false);
     if (mouse_down_frame_) {
-      Frame* mouse_down_frame = mouse_down_frame_;
-      mouse_down_frame_ = nullptr;
       mouse_down_frame_->processMouseUp(getMouseEvent(last_mouse_position_.x, last_mouse_position_.y, 0, 0));
+      mouse_down_frame_ = nullptr;
     }
     if (mouse_hovered_frame_) {
       mouse_hovered_frame_->processMouseExit(getMouseEvent(last_mouse_position_.x,
