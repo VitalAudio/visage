@@ -28,27 +28,6 @@
 namespace visage {
   class GraphLine : public Frame {
   public:
-    class BoostBuffer {
-    public:
-      explicit BoostBuffer(float* values, int num_points) :
-          values_(values), num_points_(num_points) { }
-
-      void boostRange(float start, float end, float min);
-      void enableBackwardBoost(bool enable) { enable_backward_boost_ = enable; }
-      void decayBoosts(float decay);
-      bool anyBoostValue() const { return any_boost_value_; }
-      const float* values() const { return values_; }
-      void setValue(int index, float value) const { values_[index] = value; }
-
-    private:
-      float* values_ = nullptr;
-      int num_points_ = 0;
-
-      bool enable_backward_boost_ = true;
-      bool last_negative_boost_ = false;
-      bool any_boost_value_ = false;
-    };
-
     static constexpr int kLineVerticesPerPoint = 6;
     static constexpr int kFillVerticesPerPoint = 2;
 
@@ -83,13 +62,13 @@ namespace visage {
     void drawPosition(Canvas& canvas, float x, float y);
     void resized() override;
 
-    float boostAt(int index) const { return boost_.values()[index]; }
+    float boostAt(int index) const { return line_.values[index]; }
     float yAt(int index) const { return line_.y[index]; }
     float xAt(int index) const { return line_.x[index]; }
 
     void setBoostAt(int index, float val) {
       VISAGE_ASSERT(index < line_.num_points && index >= 0);
-      boost_.setValue(index, val);
+      line_.values[index] = val;
       redraw();
     }
     void setYAt(int index, float val) {
@@ -114,7 +93,6 @@ namespace visage {
     int fillLocation() const;
 
     int numPoints() const { return line_.num_points; }
-    BoostBuffer& boost() { return boost_; }
 
     bool active() const { return active_; }
     void setActive(bool active) { active_ = active; }
@@ -122,7 +100,6 @@ namespace visage {
 
   private:
     Line line_;
-    BoostBuffer boost_;
     float line_width_ = 1.0f;
 
     bool fill_ = false;

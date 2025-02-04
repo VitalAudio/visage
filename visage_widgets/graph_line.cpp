@@ -37,70 +37,8 @@ namespace visage {
   THEME_IMPLEMENT_VALUE(GraphLine, LineFillBoost, 1.0f, Constant, false);
   THEME_VALUE(PositionBulbWidth, 4.0f, ScaledDpi, true);
 
-  void GraphLine::BoostBuffer::boostRange(float start, float end, float decay) {
-    any_boost_value_ = true;
-
-    int active_points = num_points_;
-    int start_index = std::max(static_cast<int>(std::ceil(start * (active_points - 1))), 0);
-    float end_position = end * (active_points - 1);
-    int end_index = std::max(std::ceil(end_position), 0.0f);
-    float progress = end_position - static_cast<int>(end_position);
-
-    start_index %= active_points;
-    end_index %= active_points;
-    int num_points = end_index - start_index;
-    int direction = 1;
-    if (enable_backward_boost_) {
-      if ((num_points < 0 && num_points > -num_points_ / 2) || (num_points == 0 && last_negative_boost_)) {
-        num_points = -num_points;
-        direction = -1;
-      }
-      else if (num_points > num_points_ / 2) {
-        num_points -= active_points;
-        num_points = -num_points;
-        direction = -1;
-      }
-    }
-
-    last_negative_boost_ = direction < 0;
-    if (last_negative_boost_) {
-      start_index = std::max(static_cast<int>(std::floor(start * (active_points - 1))), 0);
-      end_index = std::max(std::floor(end_position), 0.0f);
-      start_index %= active_points;
-      end_index %= active_points;
-
-      num_points = start_index - end_index;
-      progress = 1.0f - progress;
-    }
-
-    float delta = (1.0f - decay) / num_points;
-    float val = decay;
-
-    for (int i = start_index; i != end_index; i = (i + active_points + direction) % active_points) {
-      val += delta;
-      val = std::min(1.0f, val);
-      float last_value = values_[i];
-      values_[i] = std::max(last_value, val);
-    }
-
-    float end_value = values_[end_index];
-    values_[end_index] = std::max(end_value, progress * progress);
-  }
-
-  void GraphLine::BoostBuffer::decayBoosts(float mult) {
-    bool any_boost = false;
-    for (int i = 0; i < num_points_; ++i) {
-      values_[i] *= mult;
-      any_boost = any_boost || values_[i];
-    }
-
-    any_boost_value_ = any_boost;
-  }
-
   GraphLine::GraphLine(int num_points, bool loop) :
-      line_(num_points), boost_(line_.values.get(), num_points), fill_center_(kCenter), loop_(loop) {
-    boost_.enableBackwardBoost(loop_);
-
+      line_(num_points), fill_center_(kCenter), loop_(loop) {
     for (int i = 0; i < line_.num_points; ++i)
       setXAt(i, i / (line_.num_points - 1.0f));
   }

@@ -32,35 +32,22 @@ namespace visage {
     explicit Line(int points = 0) { setNumPoints(points); }
 
     void setNumPoints(int points) {
-      num_line_vertices = kLineVerticesPerPoint * points;
-      num_fill_vertices = kFillVerticesPerPoint * points;
-
-      std::unique_ptr<float[]> old_x = std::move(x);
-      std::unique_ptr<float[]> old_y = std::move(y);
-      std::unique_ptr<float[]> old_values = std::move(values);
-      if (points) {
-        x = std::make_unique<float[]>(points);
-        y = std::make_unique<float[]>(points);
-        values = std::make_unique<float[]>(points);
-
-        if (num_points) {
-          const int pointsToCopy = std::min(num_points, points);
-          std::memcpy(x.get(), old_x.get(), pointsToCopy * sizeof(float));
-          std::memcpy(y.get(), old_y.get(), pointsToCopy * sizeof(float));
-          std::memcpy(values.get(), old_values.get(), pointsToCopy * sizeof(float));
-        }
-      }
-
       num_points = points;
+
+      num_line_vertices = kLineVerticesPerPoint * num_points;
+      num_fill_vertices = kFillVerticesPerPoint * num_points;
+      x.resize(num_points, 0.0f);
+      y.resize(num_points, 0.0f);
+      values.resize(num_points, 0.0f);
     }
 
     int num_points = 0;
     int num_line_vertices = 0;
     int num_fill_vertices = 0;
 
-    std::unique_ptr<float[]> x;
-    std::unique_ptr<float[]> y;
-    std::unique_ptr<float[]> values;
+    std::vector<float> x;
+    std::vector<float> y;
+    std::vector<float> values;
 
     float line_value_scale = 1.0f;
     float fill_value_scale = 1.0f;
