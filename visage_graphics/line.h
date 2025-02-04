@@ -44,9 +44,10 @@ namespace visage {
         values = std::make_unique<float[]>(points);
 
         if (num_points) {
-          std::memcpy(x.get(), old_x.get(), num_points * sizeof(float));
-          std::memcpy(y.get(), old_y.get(), num_points * sizeof(float));
-          std::memcpy(values.get(), old_values.get(), num_points * sizeof(float));
+          const int pointsToCopy = std::min(num_points, points);
+          std::memcpy(x.get(), old_x.get(), pointsToCopy * sizeof(float));
+          std::memcpy(y.get(), old_y.get(), pointsToCopy * sizeof(float));
+          std::memcpy(values.get(), old_values.get(), pointsToCopy * sizeof(float));
         }
       }
 
