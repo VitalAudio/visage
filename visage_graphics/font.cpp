@@ -73,7 +73,7 @@ namespace visage {
 
     TypeFace(int size, const unsigned char* data, int data_size) {
       face_ = FreeTypeLibrary::newMemoryFace(data, data_size);
-      FT_Set_Pixel_Sizes(face_, 0, size);
+      FT_Set_Pixel_Sizes(face_, 0, std::max(0, size));
     }
 
     ~TypeFace() { FreeTypeLibrary::doneFace(face_); }
