@@ -260,7 +260,7 @@ namespace visage {
         else if (SUCCEEDED(monitor_outputs_[monitor]->WaitForVBlank())) {
           long long us = time::microseconds() - start_us_;
           time_ = us * (1.0 / 1000000.0);
-          PostMessage(window_->windowHandle(), WM_VBLANK, 0, 0);
+          SendMessage(window_->windowHandle(), WM_VBLANK, 0, 0);
         }
         else
           sleep(1);
@@ -1061,6 +1061,7 @@ namespace visage {
       drawCallback(v_blank_thread_->vBlankTime());
       return 0;
     }
+    case WM_PAINT: return 0;
     case WM_SYSKEYDOWN:
     case WM_KEYDOWN: {
       KeyCode key_code = keyCodeFromScanCode(w_param, l_param);
