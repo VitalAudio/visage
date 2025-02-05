@@ -213,15 +213,21 @@ namespace visage {
 
     static IDXGIFactory* factory() { return instance().dxgi_factory_; }
 
+    static void recreate() { instance().createFactory(); }
+
   private:
-    DxgiFactory() {
-      if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&dxgi_factory_))))
-        dxgi_factory_ = nullptr;
-    }
+    DxgiFactory() { createFactory(); }
 
     ~DxgiFactory() {
       if (dxgi_factory_)
         dxgi_factory_->Release();
+    }
+
+    void createFactory() {
+      if (dxgi_factory_)
+        dxgi_factory_->Release();
+      if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&dxgi_factory_))))
+        dxgi_factory_ = nullptr;
     }
 
     IDXGIFactory* dxgi_factory_ = nullptr;
@@ -233,25 +239,38 @@ namespace visage {
 
     ~VBlankThread() override {
       stop();
-      if (dxgi_output_)
-        dxgi_output_->Release();
-      if (dxgi_adapter_)
-        dxgi_adapter_->Release();
+      for (auto& output : monitor_outputs_)
+        output.second->Release();
+      for (auto& adapter : dxgi_adapters_)
+        adapter->Release();
+    }
+
+    void updateMonitors() {
+      DxgiFactory::recreate();
+
+      IDXGIAdapter* adapter;
+      for (int i = 0; DxgiFactory::factory()->EnumAdapters(i, &adapter) != DXGI_ERROR_NOT_FOUND; ++i) {
+        dxgi_adapters_.push_back(adapter);
+        IDXGIOutput* output;
+        for (int j = 0; adapter->EnumOutputs(j, &output) != DXGI_ERROR_NOT_FOUND; ++j) {
+          DXGI_OUTPUT_DESC desc;
+          if (SUCCEEDED(output->GetDesc(&desc)))
+            monitor_outputs_[desc.Monitor] = output;
+        }
+      }
     }
 
     void run() override {
-      // TODO get correct monitor for vblank notifications.
-
-      if (FAILED(DxgiFactory::factory()->EnumAdapters(0, &dxgi_adapter_)))
-        return;
-
-      if (FAILED(dxgi_adapter_->EnumOutputs(0, &dxgi_output_)))
-        return;
-
+      updateMonitors();
       start_us_ = time::microseconds();
 
       while (shouldRun()) {
-        if (SUCCEEDED(dxgi_output_->WaitForVBlank())) {
+        HMONITOR monitor = window_->monitor();
+        if (monitor_outputs_.count(monitor) == 0) {
+          updateMonitors();
+          sleep(1);
+        }
+        else if (SUCCEEDED(monitor_outputs_[monitor]->WaitForVBlank())) {
           long long us = time::microseconds() - start_us_;
           time_ = us * (1.0 / 1000000.0);
           PostMessage(window_->windowHandle(), WM_VBLANK, 0, 0);
@@ -266,8 +285,8 @@ namespace visage {
   private:
     WindowWin32* window_ = nullptr;
 
-    IDXGIAdapter* dxgi_adapter_ = nullptr;
-    IDXGIOutput* dxgi_output_ = nullptr;
+    std::vector<IDXGIAdapter*> dxgi_adapters_;
+    std::map<HMONITOR, IDXGIOutput*> monitor_outputs_;
 
     std::atomic<double> time_ = 0.0;
     long long start_us_ = 0;

@@ -28,6 +28,7 @@
 
 #include "windowing.h"
 
+#include <atomic>
 #include <windows.h>
 
 namespace visage {
@@ -87,7 +88,7 @@ namespace visage {
     void handleResizeEnd(HWND hwnd);
     void handleDpiChange(HWND hwnd, LPARAM l_param, WPARAM w_param);
     void updateMonitor();
-    HMONITOR monitor() const { return monitor_; }
+    HMONITOR monitor() const { return monitor_.load(); }
     WNDPROC parentWindowProc() const { return parent_window_proc_; }
     Window::Decoration decoration() const { return decoration_; }
 
@@ -100,7 +101,7 @@ namespace visage {
     HWND window_handle_ = nullptr;
     HWND parent_handle_ = nullptr;
     HMODULE module_handle_ = nullptr;
-    HMONITOR monitor_ = nullptr;
+    std::atomic<HMONITOR> monitor_ = nullptr;
     WNDPROC parent_window_proc_ = nullptr;
     std::unique_ptr<EventHooks> event_hooks_;
     DragDropTarget* drag_drop_target_ = nullptr;
