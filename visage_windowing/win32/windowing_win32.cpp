@@ -204,54 +204,41 @@ namespace visage {
     SetCursorPos(position.x, position.y);
   }
 
-  class DxgiFactory {
-  public:
-    static DxgiFactory& instance() {
-      static DxgiFactory instance;
-      return instance;
-    }
-
-    static IDXGIFactory* factory() { return instance().dxgi_factory_; }
-
-    static void recreate() { instance().createFactory(); }
-
-  private:
-    DxgiFactory() { createFactory(); }
-
-    ~DxgiFactory() {
-      if (dxgi_factory_)
-        dxgi_factory_->Release();
-    }
-
-    void createFactory() {
-      if (dxgi_factory_)
-        dxgi_factory_->Release();
-      if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&dxgi_factory_))))
-        dxgi_factory_ = nullptr;
-    }
-
-    IDXGIFactory* dxgi_factory_ = nullptr;
-  };
-
   class VBlankThread : public Thread {
   public:
     explicit VBlankThread(WindowWin32* window) : window_(window) { }
 
     ~VBlankThread() override {
       stop();
+      clear();
+    }
+
+    void clear() {
+      if (factory_) {
+        factory_->Release();
+        factory_ = nullptr;
+      }
+
       for (auto& output : monitor_outputs_)
         output.second->Release();
-      for (auto& adapter : dxgi_adapters_)
+      for (auto& adapter : adapters_)
         adapter->Release();
+
+      monitor_outputs_.clear();
+      adapters_.clear();
     }
 
     void updateMonitors() {
-      DxgiFactory::recreate();
+      clear();
+      if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&factory_)))) {
+        factory_ = nullptr;
+        return;
+      }
 
-      IDXGIAdapter* adapter;
-      for (int i = 0; DxgiFactory::factory()->EnumAdapters(i, &adapter) != DXGI_ERROR_NOT_FOUND; ++i) {
-        dxgi_adapters_.push_back(adapter);
-        IDXGIOutput* output;
+      IDXGIAdapter* adapter = nullptr;
+      for (int i = 0; factory_->EnumAdapters(i, &adapter) != DXGI_ERROR_NOT_FOUND; ++i) {
+        adapters_.push_back(adapter);
+        IDXGIOutput* output = nullptr;
         for (int j = 0; adapter->EnumOutputs(j, &output) != DXGI_ERROR_NOT_FOUND; ++j) {
           DXGI_OUTPUT_DESC desc;
           if (SUCCEEDED(output->GetDesc(&desc)))
@@ -285,12 +272,12 @@ namespace visage {
   private:
     WindowWin32* window_ = nullptr;
 
-    std::vector<IDXGIAdapter*> dxgi_adapters_;
+    IDXGIFactory* factory_ = nullptr;
+    std::vector<IDXGIAdapter*> adapters_;
     std::map<HMONITOR, IDXGIOutput*> monitor_outputs_;
 
     std::atomic<double> time_ = 0.0;
     long long start_us_ = 0;
-    long long us_ = 0;
   };
 
   class NativeWindowLookup {
