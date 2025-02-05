@@ -581,6 +581,10 @@ namespace visage {
     return key.modifierMask() == 0 || key.modifierMask() == kModifierShift;
   }
 
+  bool TextEditor::keyRelease(const KeyEvent& key) {
+    return active_;
+  }
+
   String TextEditor::translateDeadKeyText(const String& text) const {
     if (text.length() != 1 || dead_key_entry_ == DeadKey::None)
       return text;

@@ -118,6 +118,7 @@ namespace visage {
     void tripleClick(const MouseEvent& e);
     bool handleDeadKey(const KeyEvent& key);
     bool keyPress(const KeyEvent& key) override;
+    bool keyRelease(const KeyEvent& key) override;
     bool receivesTextInput() override { return active_; }
     String translateDeadKeyText(const String& text) const;
     void textInput(const std::string& text) override;
@@ -224,6 +225,7 @@ namespace visage {
     void setBackgroundColorId(int color_id) { background_color_id_ = color_id; }
 
   private:
+    bool processKeyPress(const KeyEvent& key);
     void addUndoPosition() { undo_history_.emplace_back(text_.text(), caret_position_); }
 
     CallbackList<void()> on_text_change_;

@@ -567,11 +567,13 @@ namespace visage {
         return false;
 
       bool down_used = window->handleKeyDown(code, modifier_state, event->repeat);
-      return modifier_state != 0 && modifier_state != kModifierShift && down_used;
+      bool text_input = modifier_state == 0 || modifier_state == kModifierShift;
+      return (code == KeyCode::Tab || !text_input) && down_used;
     }
     case EMSCRIPTEN_EVENT_KEYUP: {
       bool up_used = window->handleKeyUp(code, modifier_state);
-      return modifier_state != 0 && modifier_state != kModifierShift && up_used;
+      bool text_input = modifier_state == 0 || modifier_state == kModifierShift;
+      return (code == KeyCode::Tab || !text_input) && up_used;
     }
     default: return false;
     }
