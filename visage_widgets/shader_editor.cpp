@@ -44,15 +44,17 @@ namespace visage {
   }
 
   ShaderCompiler::ShaderCompiler() : Thread("Shader Compiler") {
-    compiler_path_ = (std::filesystem::current_path() / shaderExecutable()).string();
-#if VISAGE_MAC
-    if (!std::filesystem::exists(File(compiler_path_))) {
-      std::filesystem::path app_path = std::filesystem::current_path().parent_path().parent_path().parent_path() /
-                                       shaderExecutable();
-      if (std::filesystem::exists(app_path))
-        compiler_path_ = app_path;
+    static constexpr int kMaxParentDirectories = 4;
+    std::string executable = shaderExecutable();
+    std::filesystem::path path = std::filesystem::current_path();
+    for (int i = 0; i < kMaxParentDirectories && std::filesystem::exists(path); ++i) {
+      std::filesystem::path compiler_path = path / executable;
+      if (std::filesystem::exists(compiler_path)) {
+        compiler_path_ = compiler_path.string();
+        break;
+      }
+      path = path.parent_path();
     }
-#endif
   }
 
   void ShaderCompiler::compileWebGlShader(const std::string& shader_name, const std::string& code,
