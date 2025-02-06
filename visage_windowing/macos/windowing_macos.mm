@@ -297,14 +297,14 @@ namespace visage {
   }
 }
 
-@implementation DraggingSource
+@implementation VisageDraggingSource
 - (NSDragOperation)draggingSession:(NSDraggingSession*)session
     sourceOperationMaskForDraggingContext:(NSDraggingContext)context {
   return NSDragOperationCopy;
 }
 @end
 
-@implementation AppViewDelegate
+@implementation VisageAppViewDelegate
 - (instancetype)initWithWindow:(visage::WindowMac*)window {
   self = [super init];
   self.visage_window = window;
@@ -329,7 +329,7 @@ namespace visage {
 }
 @end
 
-@implementation AppView
+@implementation VisageAppView
 - (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window {
   self = [super initWithFrame:frame_rect];
   self.visage_window = window;
@@ -341,7 +341,7 @@ namespace visage {
   self.preferredFramesPerSecond = 120;
 
   [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
-  self.drag_source = [[DraggingSource alloc] init];
+  self.drag_source = [[VisageDraggingSource alloc] init];
 
   return self;
 }
@@ -663,7 +663,7 @@ namespace visage {
 
 @end
 
-@implementation AppWindowDelegate
+@implementation VisageAppWindowDelegate
 - (void)windowWillClose:(NSNotification*)notification {
   NSWindow* ns_window = notification.object;
   NSView* view = ns_window.contentView;
@@ -701,9 +701,9 @@ namespace visage {
 
 @end
 
-@implementation AppDelegate
+@implementation VisageAppDelegate
 - (void)applicationDidFinishLaunching:(NSNotification*)notification {
-  self.window_delegate = [[AppWindowDelegate alloc] init];
+  self.window_delegate = [[VisageAppWindowDelegate alloc] init];
   self.window_delegate.visage_window = self.visage_window;
   self.window_delegate.window_handle = self.window_handle;
   [self.window_handle setDelegate:self.window_delegate];
@@ -733,7 +733,7 @@ namespace visage {
 
     @autoreleasepool {
       NSApplication* app = [NSApplication sharedApplication];
-      AppDelegate* delegate = [[AppDelegate alloc] init];
+      VisageAppDelegate* delegate = [[VisageAppDelegate alloc] init];
       delegate.visage_window = this;
       delegate.window_handle = window_handle_;
       [app setDelegate:delegate];
@@ -824,8 +824,8 @@ namespace visage {
 
     rect.origin.x = 0;
     rect.origin.y = 0;
-    view_ = [[AppView alloc] initWithFrame:rect inWindow:this];
-    view_delegate_ = [[AppViewDelegate alloc] initWithWindow:this];
+    view_ = [[VisageAppView alloc] initWithFrame:rect inWindow:this];
+    view_delegate_ = [[VisageAppViewDelegate alloc] initWithWindow:this];
     view_.delegate = view_delegate_;
     view_.allow_quit = true;
 
@@ -845,8 +845,8 @@ namespace visage {
 
     CGRect view_frame = CGRectMake(0.0f, 0.0f, width / pixelScale(), height / pixelScale());
 
-    view_ = [[AppView alloc] initWithFrame:view_frame inWindow:this];
-    view_delegate_ = [[AppViewDelegate alloc] initWithWindow:this];
+    view_ = [[VisageAppView alloc] initWithFrame:view_frame inWindow:this];
+    view_delegate_ = [[VisageAppViewDelegate alloc] initWithWindow:this];
     view_.delegate = view_delegate_;
     view_.allow_quit = false;
     [parent_view_ addSubview:view_];

@@ -32,33 +32,33 @@ namespace visage {
   class WindowMac;
 }
 
-@interface DraggingSource : NSObject <NSDraggingSource>
+@interface VisageDraggingSource : NSObject <NSDraggingSource>
 @end
 
-@interface AppViewDelegate : NSObject <MTKViewDelegate>
+@interface VisageAppViewDelegate : NSObject <MTKViewDelegate>
 @property(nonatomic) visage::WindowMac* visage_window;
 @property long long start_microseconds;
 @end
 
-@interface AppView : MTKView <NSDraggingDestination>
+@interface VisageAppView : MTKView <NSDraggingDestination>
 @property(nonatomic) visage::WindowMac* visage_window;
-@property(strong) DraggingSource* drag_source;
+@property(strong) VisageDraggingSource* drag_source;
 @property bool allow_quit;
 @property NSPoint mouse_down_screen_position;
 
 - (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window;
 @end
 
-@interface AppWindowDelegate : NSObject <NSWindowDelegate>
+@interface VisageAppWindowDelegate : NSObject <NSWindowDelegate>
 @property(nonatomic) visage::WindowMac* visage_window;
 @property(nonatomic, retain) NSWindow* window_handle;
 @property bool resizing_horizontal;
 @property bool resizing_vertical;
 @end
 
-@interface AppDelegate : NSObject <NSApplicationDelegate>
+@interface VisageAppDelegate : NSObject <NSApplicationDelegate>
 @property(nonatomic, retain) NSWindow* window_handle;
-@property(nonatomic, strong) AppWindowDelegate* window_delegate;
+@property(nonatomic, strong) VisageAppWindowDelegate* window_delegate;
 @property visage::WindowMac* visage_window;
 @end
 
@@ -94,8 +94,8 @@ namespace visage {
     static bool running_event_loop_;
     NSWindow* window_handle_ = nullptr;
     NSView* parent_view_ = nullptr;
-    AppView* view_ = nullptr;
-    AppViewDelegate* view_delegate_ = nullptr;
+    VisageAppView* view_ = nullptr;
+    VisageAppViewDelegate* view_delegate_ = nullptr;
     NSRect last_content_rect_ {};
     Decoration decoration_ = Decoration::Native;
   };
