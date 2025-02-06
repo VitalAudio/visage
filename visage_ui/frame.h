@@ -185,6 +185,7 @@ namespace visage {
         setPalette(parent->palette());
     }
     Frame* parent() const { return parent_; }
+    const std::vector<Frame*>& children() const { return children_; }
 
     void setEventHandler(FrameEventHandler* handler) {
       event_handler_ = handler;
