@@ -31,9 +31,9 @@
 
 #define THEME_DEFINE_COLOR(color) static const ::visage::theme::ColorId color
 
-#define THEME_IMPLEMENT_COLOR(container, color, default_color)                                           \
-  const ::visage::theme::ColorId container::##color = ::visage::theme::ColorId::nextId(#color, __FILE__, \
-                                                                                       default_color)
+#define THEME_IMPLEMENT_COLOR(container, color, default_color)                                         \
+  const ::visage::theme::ColorId container::color = ::visage::theme::ColorId::nextId(#color, __FILE__, \
+                                                                                     default_color)
 
 #define THEME_VALUE(value, default_value, scale_type, round_to_pixel)                                                      \
   const ::visage::theme::ValueId value = ::visage::theme::ValueId::nextId(#value, __FILE__, default_value,                 \
@@ -43,7 +43,7 @@
 #define THEME_DEFINE_VALUE(value) static const ::visage::theme::ValueId value
 
 #define THEME_IMPLEMENT_VALUE(container, value, default_value, scale_type, round_to_pixel) \
-  const ::visage::theme::ValueId container::##value =                                      \
+  const ::visage::theme::ValueId container::value =                                        \
       ::visage::theme::ValueId::nextId(#value, __FILE__, default_value,                    \
                                        ::visage::theme::ValueId::ScaleType::scale_type, round_to_pixel)
 
