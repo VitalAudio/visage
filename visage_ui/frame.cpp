@@ -280,20 +280,6 @@ namespace visage {
     return false;
   }
 
-  inline QuadColor colorForSampledFrame(const Frame* parent, const Frame* child, const QuadColor& background) {
-    Bounds bounds = parent->relativeBounds(child);
-    float width = parent->width();
-    float height = parent->height();
-    return { background.sampleColor(bounds.x() / width, bounds.y() / height),
-             background.sampleColor(bounds.right() / width, bounds.y() / height),
-             background.sampleColor(bounds.x() / width, bounds.bottom() / height),
-             background.sampleColor(bounds.right() / width, bounds.bottom() / height),
-             background.sampleHdr(bounds.x() / width, bounds.y() / height),
-             background.sampleHdr(bounds.right() / width, bounds.y() / height),
-             background.sampleHdr(bounds.x() / width, bounds.bottom() / height),
-             background.sampleHdr(bounds.right() / width, bounds.bottom() / height) };
-  }
-
   void Frame::initChildren() {
     VISAGE_ASSERT(!initialized_);
 
