@@ -207,7 +207,7 @@ namespace visage {
 
   void Layer::clearInvalidRectAreas(int submit_pass) {
     ShapeBatch<Fill> clear_batch(BlendMode::Opaque);
-    QuadColor color;
+    ColorGradient color;
     std::vector<Bounds> invalid_rects;
     for (auto& region_invalid_rects : invalid_rects_) {
       for (const Bounds& rect : region_invalid_rects.second) {

@@ -31,7 +31,7 @@ int runExample() {
     float circle_radius = app.height() * 0.1f;
     float x = app.width() * 0.5f - circle_radius;
     float y = app.height() * 0.5f - circle_radius;
-    canvas.setColor(0xff00ffff);
+    canvas.setColor(visage::VerticalGradient(0xffff00ff, 0xffffff00));
     canvas.circle(x, y, 2.0f * circle_radius);
   };
 

@@ -52,7 +52,7 @@ namespace visage {
   VISAGE_SET_PROGRAM(LineFillWrapper, shaders::vs_line_fill, shaders::fs_line_fill)
   VISAGE_SET_PROGRAM(SampleRegion, shaders::vs_post_effect, shaders::fs_post_effect)
 
-  SampleRegion::SampleRegion(const ClampBounds& clamp, const QuadColor& color, float x, float y,
+  SampleRegion::SampleRegion(const ClampBounds& clamp, const ColorGradient& color, float x, float y,
                              float width, float height, const Region* region, PostEffect* post_effect) :
       Shape(region->layer(), clamp, color, x, y, width, height), region(region),
       post_effect(post_effect) {

@@ -320,15 +320,16 @@ namespace visage {
         line->num_line_vertices)
       return;
 
-    QuadColor line_color = line_wrapper.color;
-    Color top_left_line = Color::fromABGR(line_color.corners[0]);
-    top_left_line.multRgb(line_color.hdr[0]);
-    Color top_right_line = Color::fromABGR(line_color.corners[1]);
-    top_right_line.multRgb(line_color.hdr[1]);
-    Color bottom_left_line = Color::fromABGR(line_color.corners[2]);
-    bottom_left_line.multRgb(line_color.hdr[2]);
-    Color bottom_right_line = Color::fromABGR(line_color.corners[3]);
-    bottom_right_line.multRgb(line_color.hdr[3]);
+    // TODO: fix colors
+    ColorGradient line_color = line_wrapper.color;
+    Color top_left_line = Color::fromABGR(line_color.color_from);
+    top_left_line.multRgb(line_color.hdr_from);
+    Color top_right_line = Color::fromABGR(line_color.color_from);
+    top_right_line.multRgb(line_color.hdr_from);
+    Color bottom_left_line = Color::fromABGR(line_color.color_from);
+    bottom_left_line.multRgb(line_color.hdr_from);
+    Color bottom_right_line = Color::fromABGR(line_color.color_from);
+    bottom_right_line.multRgb(line_color.hdr_from);
 
     float dimensions[4] = { line_wrapper.width, line_wrapper.height, 1.0f, 1.0f };
     float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
@@ -390,15 +391,16 @@ namespace visage {
     float fill_location = static_cast<int>(line_fill_wrapper.fill_center);
     float center[] = { 0.0f, fill_location, 0.0f, 0.0f };
 
-    QuadColor fill_color = line_fill_wrapper.color;
-    Color top_left_fill = Color::fromABGR(fill_color.corners[0]);
-    top_left_fill.multRgb(fill_color.hdr[0]);
-    Color top_right_fill = Color::fromABGR(fill_color.corners[1]);
-    top_right_fill.multRgb(fill_color.hdr[1]);
-    Color bottom_left_fill = Color::fromABGR(fill_color.corners[2]);
-    bottom_left_fill.multRgb(fill_color.hdr[2]);
-    Color bottom_right_fill = Color::fromABGR(fill_color.corners[3]);
-    bottom_right_fill.multRgb(fill_color.hdr[3]);
+    // TODO: fix colors
+    ColorGradient fill_color = line_fill_wrapper.color;
+    Color top_left_fill = Color::fromABGR(fill_color.color_from);
+    top_left_fill.multRgb(fill_color.hdr_from);
+    Color top_right_fill = Color::fromABGR(fill_color.color_from);
+    top_right_fill.multRgb(fill_color.hdr_from);
+    Color bottom_left_fill = Color::fromABGR(fill_color.color_from);
+    bottom_left_fill.multRgb(fill_color.hdr_from);
+    Color bottom_right_fill = Color::fromABGR(fill_color.color_from);
+    bottom_right_fill.multRgb(fill_color.hdr_from);
 
     bgfx::TransientVertexBuffer fill_vertex_buffer {};
     bgfx::allocTransientVertexBuffer(&fill_vertex_buffer, line->num_fill_vertices, LineVertex::layout());
@@ -547,25 +549,26 @@ namespace visage {
             float texture_width = text_block.quads[i].packed_glyph->width;
             float texture_height = text_block.quads[i].packed_glyph->height;
 
+            // TODO fix colors
             vertices[vertex_index].x = left;
             vertices[vertex_index].y = top;
-            vertices[vertex_index].color = text_block.color.corners[0];
-            vertices[vertex_index].hdr = text_block.color.hdr[0];
+            vertices[vertex_index].color = text_block.color.color_from;
+            vertices[vertex_index].hdr = text_block.color.hdr_from;
 
             vertices[vertex_index + 1].x = right;
             vertices[vertex_index + 1].y = top;
-            vertices[vertex_index + 1].color = text_block.color.corners[1];
-            vertices[vertex_index + 1].hdr = text_block.color.hdr[1];
+            vertices[vertex_index + 1].color = text_block.color.color_from;
+            vertices[vertex_index + 1].hdr = text_block.color.hdr_from;
 
             vertices[vertex_index + 2].x = left;
             vertices[vertex_index + 2].y = bottom;
-            vertices[vertex_index + 2].color = text_block.color.corners[2];
-            vertices[vertex_index + 2].hdr = text_block.color.hdr[2];
+            vertices[vertex_index + 2].color = text_block.color.color_from;
+            vertices[vertex_index + 2].hdr = text_block.color.hdr_from;
 
             vertices[vertex_index + 3].x = right;
             vertices[vertex_index + 3].y = bottom;
-            vertices[vertex_index + 3].color = text_block.color.corners[3];
-            vertices[vertex_index + 3].hdr = text_block.color.hdr[3];
+            vertices[vertex_index + 3].color = text_block.color.color_from;
+            vertices[vertex_index + 3].hdr = text_block.color.hdr_from;
 
             vertices[vertex_index + coordinate_index0].texture_x = texture_x;
             vertices[vertex_index + coordinate_index0].texture_y = texture_y;

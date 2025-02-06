@@ -35,8 +35,8 @@ namespace visage {
   }
 
   void Palette::EditColor::encode(std::ostringstream& stream) const {
-    for (const auto& color : colors)
-      color.encode(stream);
+    color_from.encode(stream);
+    color_to.encode(stream);
     stream << static_cast<int>(style) << std::endl;
   }
 
@@ -46,11 +46,8 @@ namespace visage {
   }
 
   void Palette::EditColor::decode(std::istringstream& stream) {
-    std::string line;
-
-    for (auto& color : colors)
-      color.decode(stream);
-
+    color_from.decode(stream);
+    color_to.decode(stream);
     int int_style = 0;
     stream >> int_style;
     style = static_cast<Style>(int_style);
@@ -87,7 +84,7 @@ namespace visage {
       }
 
       colors_[color.second] = EditColor(color.first);
-      computed_colors_[color.second] = colors_[color.second].toQuadColor();
+      computed_colors_[color.second] = colors_[color.second].toGradient();
     }
 
     sortColors();
@@ -101,12 +98,12 @@ namespace visage {
 
     auto color_sort = [](const std::pair<EditColor, int>& one, const std::pair<EditColor, int>& two) {
       static constexpr float kSaturationCutoff = 0.2f;
-      float saturation1 = one.first.colors[0].saturation();
-      float saturation2 = two.first.colors[0].saturation();
+      float saturation1 = one.first.color_from.saturation();
+      float saturation2 = two.first.color_from.saturation();
       if (saturation1 >= kSaturationCutoff && saturation2 >= kSaturationCutoff)
-        return one.first.colors[0].hue() < two.first.colors[0].hue();
+        return one.first.color_from.hue() < two.first.color_from.hue();
       if (saturation1 < kSaturationCutoff && saturation2 < kSaturationCutoff)
-        return one.first.colors[0].value() < two.first.colors[0].value();
+        return one.first.color_from.value() < two.first.color_from.value();
       return saturation2 < kSaturationCutoff;
     };
     std::sort(sorted.begin(), sorted.end(), color_sort);
@@ -114,7 +111,7 @@ namespace visage {
     std::vector<int> color_movement(colors_.size());
     for (int i = 0; i < colors_.size(); ++i) {
       colors_[i] = sorted[i].first;
-      computed_colors_[i] = sorted[i].first.toQuadColor();
+      computed_colors_[i] = sorted[i].first.toGradient();
       color_movement[sorted[i].second] = i;
     }
 
@@ -253,7 +250,7 @@ namespace visage {
 
     for (int i = 0; i < num_colors; ++i) {
       computed_colors_.push_back({});
-      computed_colors_[i] = colors_[i].toQuadColor();
+      computed_colors_[i] = colors_[i].toGradient();
     }
   }
 }

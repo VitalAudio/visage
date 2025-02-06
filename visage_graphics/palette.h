@@ -41,73 +41,29 @@ namespace visage {
         kSingle,
         kHorizontal,
         kVertical,
-        kFourCorners,
         kNumStyles
       };
 
       EditColor() = default;
       explicit EditColor(const Color& color) {
-        for (auto& i : colors)
-          i = color;
+        color_from = color;
+        color_to = color;
       }
 
-      Color colors[4];
+      Color color_from;
+      Color color_to;
       Style style = kSingle;
 
       void toggleStyle() { style = static_cast<Style>((style + 1) % kNumStyles); }
 
-      int numActiveCorners() const {
-        switch (style) {
-        case kVertical:
-        case kHorizontal: return 2;
-        case kFourCorners: return 4;
-        default: return 1;
-        }
-      }
+      bool isGradient() const { return style != kSingle; }
 
-      QuadColor toQuadColor() const {
-        if (style == kSingle)
-          return colors[QuadColor::kTopLeft];
-        if (style == kHorizontal) {
-          unsigned int left = colors[QuadColor::kTopLeft].toABGR();
-          unsigned int right = colors[QuadColor::kTopRight].toABGR();
-          float left_hdr = colors[QuadColor::kTopLeft].hdr();
-          float right_hdr = colors[QuadColor::kTopRight].hdr();
-          QuadColor result;
-          result.corners[QuadColor::kTopLeft] = left;
-          result.corners[QuadColor::kTopRight] = right;
-          result.corners[QuadColor::kBottomLeft] = left;
-          result.corners[QuadColor::kBottomRight] = right;
-          result.hdr[QuadColor::kTopLeft] = left_hdr;
-          result.hdr[QuadColor::kTopRight] = right_hdr;
-          result.hdr[QuadColor::kBottomLeft] = left_hdr;
-          result.hdr[QuadColor::kBottomRight] = right_hdr;
-          return result;
-        }
-        else if (style == kVertical) {
-          unsigned int top = colors[QuadColor::kTopLeft].toABGR();
-          unsigned int bottom = colors[QuadColor::kTopRight].toABGR();
-          float top_hdr = colors[QuadColor::kTopLeft].hdr();
-          float bottom_hdr = colors[QuadColor::kTopRight].hdr();
-          QuadColor result;
-          result.corners[QuadColor::kTopLeft] = top;
-          result.corners[QuadColor::kTopRight] = top;
-          result.corners[QuadColor::kBottomLeft] = bottom;
-          result.corners[QuadColor::kBottomRight] = bottom;
-          result.hdr[QuadColor::kTopLeft] = top_hdr;
-          result.hdr[QuadColor::kTopRight] = top_hdr;
-          result.hdr[QuadColor::kBottomLeft] = bottom_hdr;
-          result.hdr[QuadColor::kBottomRight] = bottom_hdr;
-          return result;
-        }
-
-        QuadColor result;
-        for (int i = 0; i < QuadColor::kNumCorners; ++i) {
-          result.corners[i] = colors[i].toABGR();
-          result.hdr[i] = colors[i].hdr();
-        }
-
-        return result;
+      ColorGradient toGradient() const {
+        if (style == kHorizontal)
+          return HorizontalGradient(color_from, color_to);
+        else if (style == kVertical)
+          return VerticalGradient(color_from, color_to);
+        return ColorGradient(color_from);
       }
 
       std::string encode() const;
@@ -136,22 +92,28 @@ namespace visage {
     void setEditColor(int index, const EditColor& color) {
       VISAGE_ASSERT(index >= 0 && index < colors_.size());
       colors_[index] = color;
-      computed_colors_[index] = colors_[index].toQuadColor();
+      computed_colors_[index] = colors_[index].toGradient();
     }
 
-    void setColorIndex(int index, int corner, const Color& color) {
+    void setColorIndexFrom(int index, const Color& color) {
       VISAGE_ASSERT(index >= 0 && index < colors_.size());
-      colors_[index].colors[corner] = color;
-      computed_colors_[index] = colors_[index].toQuadColor();
+      colors_[index].color_from = color;
+      computed_colors_[index] = colors_[index].toGradient();
+    }
+
+    void setColorIndexTo(int index, const Color& color) {
+      VISAGE_ASSERT(index >= 0 && index < colors_.size());
+      colors_[index].color_to = color;
+      computed_colors_[index] = colors_[index].toGradient();
     }
 
     void toggleColorIndexStyle(int index) {
       VISAGE_ASSERT(index >= 0 && index < colors_.size());
       colors_[index].toggleStyle();
-      computed_colors_[index] = colors_[index].toQuadColor();
+      computed_colors_[index] = colors_[index].toGradient();
     }
 
-    bool color(theme::OverrideId override_id, theme::ColorId color_id, QuadColor& color) {
+    bool color(theme::OverrideId override_id, theme::ColorId color_id, ColorGradient& color) {
       if (color_map_[override_id].count(color_id) == 0)
         color_map_[override_id][color_id] = kNotSetId;
 
@@ -229,17 +191,16 @@ namespace visage {
     int addVerticalGradientInternal(const VerticalGradient& gradient) {
       EditColor color(gradient.top());
       color.style = EditColor::kVertical;
-      color.colors[1] = gradient.bottom();
-      color.colors[2] = gradient.bottom();
-      color.colors[3] = gradient.bottom();
+      color.color_from = gradient.top();
+      color.color_to = gradient.bottom();
 
       colors_.emplace_back(color);
-      computed_colors_.push_back(color.toQuadColor());
+      computed_colors_.push_back(color.toGradient());
       return colors_.size() - 1;
     }
 
     std::vector<EditColor> colors_;
-    std::vector<QuadColor> computed_colors_;
+    std::vector<ColorGradient> computed_colors_;
     std::map<theme::OverrideId, std::map<theme::ColorId, int>> color_map_;
     std::map<theme::OverrideId, std::map<theme::ValueId, float>> value_map_;
   };

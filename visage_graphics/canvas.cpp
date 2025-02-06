@@ -106,9 +106,9 @@ namespace visage {
     addToPackedLayer(region, to);
   }
 
-  QuadColor Canvas::color(theme::ColorId color_id) {
+  ColorGradient Canvas::color(theme::ColorId color_id) {
     if (palette_) {
-      QuadColor result;
+      ColorGradient result;
       theme::OverrideId last_check;
       for (auto it = state_memory_.rbegin(); it != state_memory_.rend(); ++it) {
         theme::OverrideId override_id = it->palette_override;

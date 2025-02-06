@@ -375,9 +375,9 @@ namespace visage {
     return scale * theme::ValueId::defaultValue(value_id);
   }
 
-  QuadColor Frame::paletteColor(theme::ColorId color_id) const {
+  ColorGradient Frame::paletteColor(theme::ColorId color_id) const {
     if (palette_) {
-      QuadColor result;
+      ColorGradient result;
       const Frame* frame = this;
       while (frame) {
         theme::OverrideId override_id = frame->palette_override_;

@@ -41,7 +41,7 @@ namespace visage {
       int x = 0;
       int y = 0;
       theme::OverrideId palette_override;
-      QuadColor color;
+      ColorGradient color;
       ClampBounds clamp;
       BlendMode blend_mode = BlendMode::Alpha;
       Region* current_region = nullptr;
@@ -89,7 +89,7 @@ namespace visage {
 
     void setBlendMode(BlendMode blend_mode) { state_.blend_mode = blend_mode; }
     void setColor(unsigned int color) { state_.color = color; }
-    void setColor(const QuadColor& color) { state_.color = color; }
+    void setColor(const ColorGradient& color) { state_.color = color; }
     void setColor(theme::ColorId color_id) { state_.color = color(color_id); }
 
     void setBlendedColor(theme::ColorId color_from, theme::ColorId color_to, float t) {
@@ -215,7 +215,7 @@ namespace visage {
     }
 
     void rotary(float x, float y, float width, float value, float hover_amount, float arc_thickness,
-                const QuadColor& back_color, const QuadColor& thumb_color, bool bipolar = false) {
+                const ColorGradient& back_color, const ColorGradient& thumb_color, bool bipolar = false) {
       addShape(Rotary(state_.clamp, state_.color, back_color, thumb_color, state_.x + x,
                       state_.y + y, width, value, bipolar, hover_amount, arc_thickness));
     }
@@ -467,9 +467,9 @@ namespace visage {
     int x() const { return state_.x; }
     int y() const { return state_.y; }
 
-    QuadColor color(theme::ColorId color_id);
-    QuadColor blendedColor(theme::ColorId color_from, theme::ColorId color_to, float t) {
-      return color(color_from).interpolate(color(color_to), t);
+    ColorGradient color(theme::ColorId color_id);
+    ColorGradient blendedColor(theme::ColorId color_from, theme::ColorId color_to, float t) {
+      return color(color_from).interpolateWith(color(color_to), t);
     }
 
     float value(theme::ValueId value_id);
