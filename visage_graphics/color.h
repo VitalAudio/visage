@@ -21,6 +21,8 @@
 
 #pragma once
 
+#include "visage_utils/space.h"
+
 #include <cmath>
 #include <iosfwd>
 #include <string>
@@ -311,17 +313,22 @@ namespace visage {
     Color bottom_;
   };
 
-  struct QuadColor {
-    enum {
-      kTopLeft,
-      kTopRight,
-      kBottomLeft,
-      kBottomRight,
-      kNumCorners
+  struct ColorGradient {
+    enum class InterpolationShape {
+      None,
+      Horizontal,
+      Vertical,
+      PointsLinear,
+      PointsRadial
     };
 
-    unsigned int corners[kNumCorners] {};
-    float hdr[kNumCorners] {};
+    unsigned int color_from = 0;
+    unsigned int color_to = 0;
+    float hdr_from = 1.0f;
+    float hdr_to = 1.0f;
+    FloatPoint point_from;
+    FloatPoint point_to;
+    InterpolationShape interpolation_shape = InterpolationShape::None;
 
     static unsigned int toABGR(unsigned int argb) {
       int abgr = argb;
@@ -330,7 +337,7 @@ namespace visage {
       return abgr;
     }
 
-    static int interpolateColor(unsigned int hex_color1, unsigned int hex_color2, float t) {
+    static unsigned int interpolateColor(unsigned int hex_color1, unsigned int hex_color2, float t) {
       unsigned int result = 0;
       for (int i = 0; i < Color::kNumChannels; ++i) {
         int hex_shift = i * Color::kBitsPerColor;
@@ -343,174 +350,66 @@ namespace visage {
       return result;
     }
 
-    static float interpolateHdr(float from, float to, float t) { return from + (to - from) * t; }
+    ColorGradient() = default;
 
-    QuadColor() : corners() { }
-
-    QuadColor(const Color& color) {
-      unsigned int value = color.toABGR();
-      float hdr_value = color.hdr();
-      corners[kTopLeft] = value;
-      corners[kTopRight] = value;
-      corners[kBottomLeft] = value;
-      corners[kBottomRight] = value;
-      hdr[kTopLeft] = hdr_value;
-      hdr[kTopRight] = hdr_value;
-      hdr[kBottomLeft] = hdr_value;
-      hdr[kBottomRight] = hdr_value;
+    ColorGradient(const Color& color) {
+      color_from = color_to = color.toABGR();
+      hdr_from = hdr_to = color.hdr();
     }
 
-    QuadColor(unsigned int top_left, unsigned int top_right, unsigned int bottom_left,
-              unsigned int bottom_right, float top_left_hdr, float top_right_hdr,
-              float bottom_left_hdr, float bottom_right_hdr) {
-      corners[kTopLeft] = top_left;
-      corners[kTopRight] = top_right;
-      corners[kBottomLeft] = bottom_left;
-      corners[kBottomRight] = bottom_right;
-      hdr[kTopLeft] = top_left_hdr;
-      hdr[kTopRight] = top_right_hdr;
-      hdr[kBottomLeft] = bottom_left_hdr;
-      hdr[kBottomRight] = bottom_right_hdr;
+    ColorGradient(const Color& from, const Color& to) {
+      color_from = from.toABGR();
+      color_to = to.toABGR();
+      hdr_from = from.hdr();
+      hdr_to = to.hdr();
     }
 
-    QuadColor(const HorizontalGradient& gradient) {
-      unsigned int left = gradient.left().toABGR();
-      unsigned int right = gradient.right().toABGR();
-      float left_hdr = gradient.left().hdr();
-      float right_hdr = gradient.right().hdr();
-      corners[kTopLeft] = left;
-      corners[kTopRight] = right;
-      corners[kBottomLeft] = left;
-      corners[kBottomRight] = right;
-      hdr[kTopLeft] = left_hdr;
-      hdr[kTopRight] = right_hdr;
-      hdr[kBottomLeft] = left_hdr;
-      hdr[kBottomRight] = right_hdr;
+    ColorGradient(const HorizontalGradient& gradient) :
+        ColorGradient(gradient.left(), gradient.right()) {
+      interpolation_shape = InterpolationShape::Horizontal;
     }
 
-    QuadColor(const VerticalGradient& gradient) {
-      unsigned int top = gradient.top().toABGR();
-      unsigned int bottom = gradient.bottom().toABGR();
-      float top_hdr = gradient.top().hdr();
-      float bottom_hdr = gradient.bottom().hdr();
-      corners[kTopLeft] = top;
-      corners[kTopRight] = top;
-      corners[kBottomLeft] = bottom;
-      corners[kBottomRight] = bottom;
-      hdr[kTopLeft] = top_hdr;
-      hdr[kTopRight] = top_hdr;
-      hdr[kBottomLeft] = bottom_hdr;
-      hdr[kBottomRight] = bottom_hdr;
+    ColorGradient(const VerticalGradient& gradient) :
+        ColorGradient(gradient.top(), gradient.bottom()) {
+      interpolation_shape = InterpolationShape::Vertical;
     }
 
-    QuadColor(int argb, float hdr_value = 1.0f) {
-      unsigned int abgr = toABGR(argb);
-      corners[kTopLeft] = abgr;
-      corners[kTopRight] = abgr;
-      corners[kBottomLeft] = abgr;
-      corners[kBottomRight] = abgr;
-      hdr[kTopLeft] = hdr_value;
-      hdr[kTopRight] = hdr_value;
-      hdr[kBottomLeft] = hdr_value;
-      hdr[kBottomRight] = hdr_value;
-    }
+    ColorGradient(int argb, float hdr_value = 1.0f) : ColorGradient(Color(argb, hdr_value)) { }
 
-    QuadColor withAlpha(float alpha) const {
+    ColorGradient withAlpha(float alpha) const {
       int alpha_value = alpha * 0xff;
       alpha_value = alpha_value << (Color::kBitsPerColor * 3);
-      QuadColor result;
-      result.corners[kTopLeft] = alpha_value + (corners[kTopLeft] & 0xffffff);
-      result.corners[kTopRight] = alpha_value + (corners[kTopRight] & 0xffffff);
-      result.corners[kBottomLeft] = alpha_value + (corners[kBottomLeft] & 0xffffff);
-      result.corners[kBottomRight] = alpha_value + (corners[kBottomRight] & 0xffffff);
-      result.hdr[kTopLeft] = hdr[kTopLeft];
-      result.hdr[kTopRight] = hdr[kTopRight];
-      result.hdr[kBottomLeft] = hdr[kBottomLeft];
-      result.hdr[kBottomRight] = hdr[kBottomRight];
+      ColorGradient result = *this;
+      result.color_from = (color_from & 0xffffff) | alpha_value;
+      result.color_to = (color_to & 0xffffff) | alpha_value;
       return result;
     }
 
-    QuadColor withMultipliedAlpha(float multiply) const {
-      QuadColor result;
-      result.corners[kTopLeft] = interpolateColor(corners[kTopLeft] & 0xffffff, corners[kTopLeft], multiply);
-      result.corners[kTopRight] = interpolateColor(corners[kTopRight] & 0xffffff,
-                                                   corners[kTopRight], multiply);
-      result.corners[kBottomLeft] = interpolateColor(corners[kBottomLeft] & 0xffffff,
-                                                     corners[kBottomLeft], multiply);
-      result.corners[kBottomRight] = interpolateColor(corners[kBottomRight] & 0xffffff,
-                                                      corners[kBottomRight], multiply);
-      result.hdr[kTopLeft] = hdr[kTopLeft];
-      result.hdr[kTopRight] = hdr[kTopRight];
-      result.hdr[kBottomLeft] = hdr[kBottomLeft];
-      result.hdr[kBottomRight] = hdr[kBottomRight];
+    ColorGradient withMultipliedAlpha(float multiply) const {
+      ColorGradient result = *this;
+      result.color_from = interpolateColor(color_from & 0xffffff, color_from, multiply);
+      result.color_to = interpolateColor(color_to & 0xffffff, color_to, multiply);
       return result;
     }
 
-    QuadColor withMultipliedHdr(float multiply) const {
-      QuadColor result = *this;
-      result.hdr[kTopLeft] = multiply * hdr[kTopLeft];
-      result.hdr[kTopRight] = multiply * hdr[kTopRight];
-      result.hdr[kBottomLeft] = multiply * hdr[kBottomLeft];
-      result.hdr[kBottomRight] = multiply * hdr[kBottomRight];
+    ColorGradient withMultipliedHdr(float multiply) const {
+      ColorGradient result = *this;
+      result.hdr_from *= multiply;
+      result.hdr_to *= multiply;
       return result;
     }
 
-    QuadColor interpolate(const QuadColor& other, float t) const {
-      QuadColor result;
-      result.corners[kTopLeft] = interpolateColor(corners[kTopLeft], other.corners[kTopLeft], t);
-      result.corners[kTopRight] = interpolateColor(corners[kTopRight], other.corners[kTopRight], t);
-      result.corners[kBottomLeft] = interpolateColor(corners[kBottomLeft], other.corners[kBottomLeft], t);
-      result.corners[kBottomRight] = interpolateColor(corners[kBottomRight],
-                                                      other.corners[kBottomRight], t);
-      result.hdr[kTopLeft] = interpolateHdr(hdr[kTopLeft], other.hdr[kTopLeft], t);
-      result.hdr[kTopRight] = interpolateHdr(hdr[kTopRight], other.hdr[kTopRight], t);
-      result.hdr[kBottomLeft] = interpolateHdr(hdr[kBottomLeft], other.hdr[kBottomLeft], t);
-      result.hdr[kBottomRight] = interpolateHdr(hdr[kBottomRight], other.hdr[kBottomRight], t);
+    ColorGradient interpolateWith(const ColorGradient& other, float t) const {
+      ColorGradient result;
+      result.color_from = interpolateColor(color_from, other.color_from, t);
+      result.color_to = interpolateColor(color_to, other.color_to, t);
+      result.interpolation_shape = interpolation_shape;
+      if (interpolation_shape == InterpolationShape::None)
+        result.interpolation_shape = other.interpolation_shape;
+
+      result.point_from = point_from + (other.point_from - point_from) * t;
+      result.point_to = point_to + (other.point_to - point_to) * t;
       return result;
-    }
-
-    QuadColor sampleQuad(float x, float y, float width, float height) const {
-      QuadColor result;
-      result.corners[kTopLeft] = sampleColor(x, y);
-      result.corners[kBottomLeft] = sampleColor(x, y + height);
-      result.corners[kTopRight] = sampleColor(x + width, y);
-      result.corners[kBottomRight] = sampleColor(x + width, y + height);
-      result.hdr[kTopLeft] = sampleHdr(x, y);
-      result.hdr[kBottomLeft] = sampleHdr(x, y + height);
-      result.hdr[kTopRight] = sampleHdr(x + width, y);
-      result.hdr[kBottomRight] = sampleHdr(x + width, y + height);
-      return result;
-    }
-
-    QuadColor clipRight(float t) const {
-      QuadColor result;
-      result.corners[kTopLeft] = corners[kTopLeft];
-      result.corners[kBottomLeft] = corners[kBottomLeft];
-      result.corners[kTopRight] = interpolateColor(corners[kTopLeft], corners[kTopRight], t);
-      result.corners[kBottomRight] = interpolateColor(corners[kBottomLeft], corners[kBottomRight], t);
-      result.hdr[kTopLeft] = hdr[kTopLeft];
-      result.hdr[kBottomLeft] = hdr[kBottomLeft];
-      result.hdr[kTopRight] = interpolateHdr(hdr[kTopLeft], hdr[kTopRight], t);
-      result.hdr[kBottomRight] = interpolateHdr(hdr[kBottomLeft], hdr[kBottomRight], t);
-      return result;
-    }
-
-    unsigned int sampleColor(float x, float y) const {
-      unsigned int top = interpolateColor(corners[kTopLeft], corners[kTopRight], x);
-      unsigned int bottom = interpolateColor(corners[kBottomLeft], corners[kBottomRight], x);
-      return interpolateColor(top, bottom, y);
-    }
-
-    float sampleAlpha(float x, float y) const {
-      unsigned int top = interpolateColor(corners[kTopLeft], corners[kTopRight], x);
-      unsigned int bottom = interpolateColor(corners[kBottomLeft], corners[kBottomRight], x);
-      return (0xff & (interpolateColor(top, bottom, y) >> (3 * Color::kBitsPerColor))) * (1.0f / 0xff);
-    }
-
-    float sampleHdr(float x, float y) const {
-      float top = interpolateHdr(hdr[kTopLeft], hdr[kTopRight], x);
-      float bottom = interpolateHdr(hdr[kBottomLeft], hdr[kBottomRight], x);
-      return interpolateHdr(top, bottom, y);
     }
   };
 }

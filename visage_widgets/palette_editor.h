@@ -39,10 +39,9 @@ namespace visage {
 
     explicit PaletteColorEditor(Palette* palette) : palette_(palette) {
       setAcceptsKeystrokes(true);
-      for (int i = 0; i < QuadColor::kNumCorners; ++i) {
-        addChild(&color_pickers_[i]);
-        color_pickers_[i].setVisible(i == 0);
-      }
+      addChild(&color_picker_from_);
+      addChild(&color_picker_to_);
+      color_picker_to_.setVisible(false);
 
       color_list_.setIgnoresMouseEvents(true, true);
       color_list_.setScrollBarLeft(true);
@@ -96,13 +95,14 @@ namespace visage {
     float colorHeight();
 
   private:
-    void setNumColorsEditing(int num);
+    void setEditingGradient(bool gradient);
 
     Palette* palette_ = nullptr;
     ScrollableFrame color_list_;
-    ColorPicker color_pickers_[QuadColor::kNumCorners];
+    ColorPicker color_picker_from_;
+    ColorPicker color_picker_to_;
     std::set<std::string> expanded_groups_;
-    int num_colors_editing_ = 1;
+    bool editing_gradient_ = false;
 
     theme::OverrideId current_override_id_;
     int mouse_down_index_ = -1;
