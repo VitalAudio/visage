@@ -24,8 +24,6 @@
 #include <visage/app.h>
 #include <visage_widgets/graph_line.h>
 
-THEME_PALETTE_OVERRIDE(BloomPalette);
-
 class AnimatedLine : public visage::Frame {
 public:
   static constexpr int kNumPoints = 1200;
@@ -107,8 +105,8 @@ public:
     };
 
     setPalette(&palette_);
-    palette_.setColor(visage::GraphLine::kLineColor, 0xffdd8833);
-    palette_.setValue(visage::GraphLine::kLineWidth, 3.0f);
+    palette_.setColor(visage::GraphLine::LineColor, 0xffdd8833);
+    palette_.setValue(visage::GraphLine::LineWidth, 3.0f);
   }
 
   void resized() override {

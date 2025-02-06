@@ -76,10 +76,10 @@ void Overlay::draw(visage::Canvas& canvas) {
 
   visage::Bounds body = getBodyBounds();
   float rounding = getBodyRounding();
-  canvas.setPaletteColor(kOverlayBody);
+  canvas.setColor(OverlayBody);
   canvas.roundedRectangle(body.x(), body.y(), body.width(), body.height(), rounding);
 
-  canvas.setPaletteColor(kOverlayBorder);
+  canvas.setColor(OverlayBorder);
   canvas.roundedRectangleBorder(body.x(), body.y(), body.width(), body.height(), rounding, 1.0f);
 
   on_animate_.callback(overlay_amount);
@@ -96,10 +96,10 @@ visage::Bounds Overlay::getBodyBounds() const {
 }
 
 float Overlay::getBodyRounding() {
-  return paletteValue(kOverlayRounding);
+  return paletteValue(OverlayRounding);
 }
 
-Showcase::Showcase() {
+Showcase::Showcase() : palette_color_window_(&palette_), palette_value_window_(&palette_) {
   setIgnoresMouseEvents(true, true);
   setAcceptsKeystrokes(true);
 
@@ -152,9 +152,8 @@ void Showcase::resized() {
 }
 
 void Showcase::draw(visage::Canvas& canvas) {
-  static constexpr float kMaxZoom = 0.075f;
   canvas.setPalette(palette());
-  blur_->setBlurSize(canvas.value(kBlurSize));
+  blur_->setBlurSize(canvas.value(BlurSize));
 }
 
 void Showcase::toggleDebug() {
@@ -178,6 +177,10 @@ bool Showcase::keyPress(const visage::KeyEvent& key) {
     redo();
     return true;
   }
+  else if (key.keyCode() == visage::KeyCode::Number1 && modifier) {
+    palette_color_window_.show(300_px, 800_px);
+    return true;
+  }
 
   return false;
 }
@@ -189,7 +192,7 @@ int runExample() {
   visage::ApplicationWindow editor;
 
   editor.onDraw() = [&editor](visage::Canvas& canvas) {
-    canvas.setPaletteColor(kBackgroundColor);
+    canvas.setColor(BackgroundColor);
     canvas.fill(0, 0, editor.width(), editor.height());
   };
 

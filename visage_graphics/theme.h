@@ -27,28 +27,30 @@
 #include <string>
 
 #define THEME_COLOR(color, default_color) \
-  const unsigned int k##color = theme::ColorId::nextId(#color, __FILE__, default_color)
+  const ::visage::theme::ColorId color = ::visage::theme::ColorId::nextId(#color, __FILE__, default_color)
 
-#define THEME_DEFINE_COLOR(color) static const unsigned int k##color
+#define THEME_DEFINE_COLOR(color) static const ::visage::theme::ColorId color
 
-#define THEME_IMPLEMENT_COLOR(container, color, default_color) \
-  const unsigned int container::k##color = theme::ColorId::nextId(#color, __FILE__, default_color)
+#define THEME_IMPLEMENT_COLOR(container, color, default_color)                                           \
+  const ::visage::theme::ColorId container::##color = ::visage::theme::ColorId::nextId(#color, __FILE__, \
+                                                                                       default_color)
 
-#define THEME_VALUE(value, default_value, scale_type, round_to_pixel)                   \
-  const unsigned int k##value = theme::ValueId::nextId(#value, __FILE__, default_value, \
-                                                       theme::ValueId::k##scale_type, round_to_pixel)
+#define THEME_VALUE(value, default_value, scale_type, round_to_pixel)                                                      \
+  const ::visage::theme::ValueId value = ::visage::theme::ValueId::nextId(#value, __FILE__, default_value,                 \
+                                                                          ::visage::theme::ValueId::ScaleType::scale_type, \
+                                                                          round_to_pixel)
 
-#define THEME_DEFINE_VALUE(value) static const unsigned int k##value
+#define THEME_DEFINE_VALUE(value) static const ::visage::theme::ValueId value
 
-#define THEME_IMPLEMENT_VALUE(container, value, default_value, scale_type, round_to_pixel)         \
-  const unsigned int container::k##value = theme::ValueId::nextId(#value, __FILE__, default_value, \
-                                                                  theme::ValueId::k##scale_type,   \
-                                                                  round_to_pixel)
+#define THEME_IMPLEMENT_VALUE(container, value, default_value, scale_type, round_to_pixel) \
+  const ::visage::theme::ValueId container::##value =                                      \
+      ::visage::theme::ValueId::nextId(#value, __FILE__, default_value,                    \
+                                       ::visage::theme::ValueId::ScaleType::scale_type, round_to_pixel)
 
 #define THEME_PALETTE_OVERRIDE(override_name) \
-  const unsigned int k##override_name = theme::OverrideId::nextId(#override_name)
+  const ::visage::theme::OverrideId override_name = ::visage::theme::OverrideId::nextId(#override_name)
 
-namespace theme {
+namespace visage::theme {
   static std::string nameFromPath(const std::string& file_path) {
     size_t start = file_path.find_last_of("\\/");
     size_t end = file_path.find_last_of('.');
@@ -61,157 +63,194 @@ namespace theme {
 
   class ColorId {
   public:
+    static constexpr unsigned int kInvalidId = 0xFFFFFFFF;
+
     struct ColorIdInfo {
       std::string name;
       std::string group;
       unsigned int default_color = 0;
     };
 
-    static ColorId* instance() {
-      static ColorId instance;
-      return &instance;
+    explicit ColorId(unsigned int id) : id(id) { }
+    ColorId() = default;
+
+    unsigned int id = kInvalidId;
+
+    bool operator==(const ColorId& other) const { return id == other.id; }
+    bool operator!=(const ColorId& other) const { return id != other.id; }
+    bool operator<(const ColorId& other) const { return id < other.id; }
+
+    bool isValid() const { return id != kInvalidId; }
+
+    static ColorId nextId(std::string name, const std::string& file_path, unsigned int default_color) {
+      Map* id = Map::instance();
+      id->info_map_[ColorId(id->next_id_)] = { std::move(name), nameFromPath(file_path), default_color };
+      return ColorId(id->next_id_++);
     }
 
-    static unsigned int nextId(std::string name, const std::string& file_path, unsigned int default_color) {
-      ColorId* id = instance();
-      id->info_map_[id->next_id_] = { std::move(name), nameFromPath(file_path), default_color };
-      return id->next_id_++;
+    static unsigned int defaultColor(ColorId color_id) {
+      return Map::instance()->info_map_[color_id].default_color;
     }
 
-    static inline unsigned int defaultColor(unsigned int color_id) {
-      return instance()->info_map_[color_id].default_color;
+    static const std::string& groupName(ColorId color_id) {
+      return Map::instance()->info_map_[color_id].group;
     }
 
-    static inline const std::string& groupName(unsigned int color_id) {
-      return instance()->info_map_[color_id].group;
+    static const std::string& name(ColorId color_id) {
+      return Map::instance()->info_map_[color_id].name;
     }
 
-    static inline const std::string& name(unsigned int color_id) {
-      return instance()->info_map_[color_id].name;
-    }
-
-    static std::map<std::string, unsigned int> nameIdMap() {
-      std::map<std::string, unsigned int> result;
-      for (const auto& assignment : instance()->info_map_)
+    static std::map<std::string, ColorId> nameIdMap() {
+      std::map<std::string, ColorId> result;
+      for (const auto& assignment : Map::instance()->info_map_)
         result[assignment.second.name] = assignment.first;
 
       return result;
     }
 
-    static int numColorIds() { return instance()->next_id_; }
+    static int numColorIds() { return Map::instance()->next_id_; }
 
   private:
-    ColorId() = default;
+    struct Map {
+      static Map* instance() {
+        static Map instance;
+        return &instance;
+      }
 
-    unsigned int next_id_ = 0;
-    std::map<unsigned int, ColorIdInfo> info_map_;
+      unsigned int next_id_ = 0;
+      std::map<ColorId, ColorIdInfo> info_map_;
+    };
   };
 
   class ValueId {
   public:
-    enum ScaleType {
-      kConstant,
-      kScaledDpi,
-      kScaledWidth,
-      kScaledHeight,
-      kNumScaleTypes
+    static constexpr unsigned int kInvalidId = 0xFFFFFFFF;
+
+    enum class ScaleType {
+      Constant,
+      ScaledDpi,
+      ScaledWidth,
+      ScaledHeight,
     };
 
     struct ValueIdInfo {
       std::string name;
       std::string group;
       float default_value = 0.0f;
-      ScaleType scale_type = kConstant;
+      ScaleType scale_type = ScaleType::Constant;
       bool round_to_pixel = false;
     };
 
-    static ValueId* instance() {
-      static ValueId instance;
-      return &instance;
+    explicit ValueId(unsigned int id) : id(id) { }
+    ValueId() = default;
+
+    unsigned int id = kInvalidId;
+
+    bool operator==(const ValueId& other) const { return id == other.id; }
+    bool operator!=(const ValueId& other) const { return id != other.id; }
+    bool operator<(const ValueId& other) const { return id < other.id; }
+
+    static ValueId nextId(std::string name, const std::string& file_path, float default_value,
+                          ScaleType scale_type, bool round_to_pixel) noexcept {
+      Map* id = Map::instance();
+      id->info_map_[ValueId(id->next_id_)] = { std::move(name), nameFromPath(file_path),
+                                               default_value, scale_type, round_to_pixel };
+      return ValueId(id->next_id_++);
     }
 
-    static unsigned int nextId(std::string name, const std::string& file_path, float default_value,
-                               ScaleType scale_type, bool round_to_pixel) noexcept {
-      ValueId* id = instance();
-      id->info_map_[id->next_id_] = { std::move(name), nameFromPath(file_path), default_value,
-                                      scale_type, round_to_pixel };
-      return id->next_id_++;
+    static inline float defaultValue(ValueId value_id) {
+      return Map::instance()->info_map_[value_id].default_value;
     }
 
-    static inline float defaultValue(unsigned int value_id) {
-      return instance()->info_map_[value_id].default_value;
+    static inline ValueIdInfo info(ValueId value_id) {
+      return Map::instance()->info_map_[value_id];
     }
 
-    static inline ValueIdInfo info(unsigned int value_id) {
-      return instance()->info_map_[value_id];
+    static inline const std::string& groupName(ValueId value_id) {
+      return Map::instance()->info_map_[value_id].group;
     }
 
-    static inline const std::string& groupName(unsigned int value_id) {
-      return instance()->info_map_[value_id].group;
+    static inline const std::string& name(ValueId value_id) {
+      return Map::instance()->info_map_[value_id].name;
     }
 
-    static inline const std::string& name(unsigned int value_id) {
-      return instance()->info_map_[value_id].name;
-    }
-
-    static std::map<std::string, unsigned int> nameIdMap() {
-      std::map<std::string, unsigned int> result;
-      for (const auto& assignment : instance()->info_map_)
+    static std::map<std::string, ValueId> nameIdMap() {
+      std::map<std::string, ValueId> result;
+      for (const auto& assignment : Map::instance()->info_map_)
         result[assignment.second.name] = assignment.first;
 
       return result;
     }
 
-    static int numValueIds() { return instance()->next_id_; }
+    static int numValueIds() { return Map::instance()->next_id_; }
 
   private:
-    ValueId() = default;
+    struct Map {
+      static Map* instance() {
+        static Map instance;
+        return &instance;
+      }
 
-    unsigned int next_id_ = 0;
-    std::map<unsigned int, ValueIdInfo> info_map_;
+      unsigned int next_id_ = 0;
+      std::map<ValueId, ValueIdInfo> info_map_;
+    };
   };
 
   class OverrideId {
   public:
-    static OverrideId* instance() {
-      static OverrideId instance;
-      return &instance;
+    static constexpr unsigned int kInvalidId = 0xFFFFFFFF;
+    static constexpr unsigned int kDefaultId = 0;
+
+    bool operator==(const OverrideId& other) const { return id == other.id; }
+    bool operator!=(const OverrideId& other) const { return id != other.id; }
+    bool operator<(const OverrideId& other) const { return id < other.id; }
+
+    explicit OverrideId(unsigned int id) : id(id) { }
+    OverrideId() = default;
+
+    unsigned int id = kDefaultId;
+
+    bool isDefault() const { return id == kDefaultId; }
+
+    static OverrideId nextId(std::string name) noexcept {
+      Map* id = Map::instance();
+      id->name_map_[OverrideId(id->next_id_)] = std::move(name);
+      return OverrideId(id->next_id_++);
     }
 
-    static unsigned int nextId(std::string name) noexcept {
-      OverrideId* id = instance();
-      id->name_map_[id->next_id_] = std::move(name);
-      return id->next_id_++;
+    static inline const std::string& name(OverrideId value_id) {
+      return Map::instance()->name_map_[value_id];
     }
 
-    static inline const std::string& name(unsigned int value_id) {
-      return instance()->name_map_[value_id];
-    }
-
-    static inline unsigned int id(const std::string& name) {
-      OverrideId* id = instance();
+    static inline OverrideId idFromName(const std::string& name) {
+      Map* id = Map::instance();
       for (const auto& assignment : id->name_map_) {
         if (assignment.second == name)
           return assignment.first;
       }
       VISAGE_ASSERT(false);
-      return -1;
+      return OverrideId(kInvalidId);
     }
 
-    static std::map<std::string, unsigned int> nameIdMap() {
-      std::map<std::string, unsigned int> result;
-      for (const auto& assignment : instance()->name_map_)
+    static std::map<std::string, OverrideId> nameIdMap() {
+      std::map<std::string, OverrideId> result;
+      for (const auto& assignment : Map::instance()->name_map_)
         result[assignment.second] = assignment.first;
 
       return result;
     }
 
-    static int numOverrideIds() { return instance()->next_id_; }
+    static int numOverrideIds() { return Map::instance()->next_id_; }
 
   private:
-    OverrideId() = default;
+    struct Map {
+      static Map* instance() {
+        static Map instance;
+        return &instance;
+      }
 
-    unsigned int next_id_ = 1;
-    std::map<unsigned int, std::string> name_map_ = { { 0, "Global" } };
+      unsigned int next_id_ = 0;
+      std::map<OverrideId, std::string> name_map_ = { { OverrideId(0), "Global" } };
+    };
   };
 }

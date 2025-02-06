@@ -108,9 +108,9 @@ namespace visage {
   }
 
   void TextEditor::drawBackground(Canvas& canvas) const {
-    canvas.setPaletteColor(background_color_id_);
+    canvas.setColor(background_color_id_);
     canvas.roundedRectangle(0, 0, width(), height(), background_rounding_);
-    canvas.setPaletteColor(kTextEditorBorder);
+    canvas.setColor(TextEditorBorder);
     canvas.roundedRectangleBorder(0, 0, width(), height(), background_rounding_, 2.0f);
   }
 
@@ -139,7 +139,7 @@ namespace visage {
       y_offset = (height() - num_lines * line_height) * 0.5f - yPosition();
     }
 
-    canvas.setPaletteColor(kTextEditorCaret);
+    canvas.setColor(TextEditorCaret);
     if (caret_position_ == selection_start)
       selectionRectangle(canvas, start_position.first - x_position_,
                          start_position.second + y_offset, 1.0f, line_height);
@@ -147,7 +147,7 @@ namespace visage {
       selectionRectangle(canvas, end_position.first - x_position_, end_position.second + y_offset,
                          1.0f, line_height);
 
-    canvas.setPaletteColor(kTextEditorSelection);
+    canvas.setColor(TextEditorSelection);
     if (start_position.second == end_position.second) {
       int width = end_position.first - start_position.first;
       selectionRectangle(canvas, start_position.first - x_position_,
@@ -181,13 +181,13 @@ namespace visage {
     if (text_.text().isEmpty()) {
       bool center = (justification() & Font::kLeft) == 0 && (justification() & Font::kRight) == 0;
       if (!default_text_.text().isEmpty() && (!center || !hasKeyboardFocus())) {
-        canvas.setPaletteColor(kTextEditorDefaultText);
+        canvas.setColor(TextEditorDefaultText);
         canvas.text(&default_text_, x_margin - x_position_, -yPosition(),
                     x_position_ + text_bounds.width(), text_bounds.height());
       }
     }
     else {
-      canvas.setPaletteColor(kTextEditorText);
+      canvas.setColor(TextEditorText);
       if (justification() & Font::kLeft) {
         canvas.text(&text_, x_margin - x_position_, -yPosition(), x_position_ + text_bounds.width(),
                     text_bounds.height());

@@ -60,31 +60,22 @@ namespace visage {
       return;
 
     if (fill_)
-      drawFill(canvas, active_ ? kLineFillColor : kLineDisabledFillColor);
-    drawLine(canvas, active_ ? kLineColor : kLineDisabledColor);
+      drawFill(canvas, active_ ? LineFillColor : LineDisabledFillColor);
+    drawLine(canvas, active_ ? LineColor : LineDisabledColor);
   }
 
-  void GraphLine::drawLine(Canvas& canvas, unsigned int color_id) {
-    line_.line_value_scale = canvas.value(kLineColorBoost);
-    canvas.setPaletteColor(color_id);
-    canvas.line(&line_, 0.0f, 0.0f, width(), height(), line_width_);
+  void GraphLine::drawLine(Canvas& canvas, theme::ColorId color_id) {
+    line_.line_value_scale = canvas.value(LineColorBoost);
+    canvas.setColor(color_id);
+    float line_width = line_width_.computeWithDefault(canvas.dpiScale(), width(), height(),
+                                                      paletteValue(LineWidth));
+    canvas.line(&line_, 0.0f, 0.0f, width(), height(), line_width);
   }
 
-  void GraphLine::drawFill(Canvas& canvas, unsigned int color_id) {
+  void GraphLine::drawFill(Canvas& canvas, theme::ColorId color_id) {
     QuadColor color = canvas.color(color_id);
-    line_.fill_value_scale = canvas.value(kLineFillBoost);
+    line_.fill_value_scale = canvas.value(LineFillBoost);
     canvas.setColor(color.withMultipliedAlpha(fill_alpha_mult_));
     canvas.lineFill(&line_, 0.0f, 0.0f, width(), height(), fillLocation());
-  }
-
-  void GraphLine::drawPosition(Canvas& canvas, float x, float y) {
-    float marker_width = canvas.value(kPositionBulbWidth);
-    canvas.setColor(canvas.color(kLineColor).withMultipliedHdr(1.0f + canvas.value(kLineColorBoost)));
-    canvas.circle(x - marker_width * 0.5f, y - marker_width * 0.5f, marker_width);
-  }
-
-  void GraphLine::resized() {
-    line_width_ = paletteValue(kLineWidth);
-    Frame::resized();
   }
 }

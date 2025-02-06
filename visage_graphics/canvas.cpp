@@ -106,44 +106,44 @@ namespace visage {
     addToPackedLayer(region, to);
   }
 
-  QuadColor Canvas::color(unsigned int color_id) {
+  QuadColor Canvas::color(theme::ColorId color_id) {
     if (palette_) {
       QuadColor result;
-      int last_check = -1;
+      theme::OverrideId last_check;
       for (auto it = state_memory_.rbegin(); it != state_memory_.rend(); ++it) {
-        int override_id = it->palette_override;
-        if (override_id != last_check && palette_->color(override_id, color_id, result))
+        theme::OverrideId override_id = it->palette_override;
+        if (override_id.id != last_check.id && palette_->color(override_id, color_id, result))
           return result;
         last_check = override_id;
       }
-      if (palette_->color(0, color_id, result))
+      if (palette_->color({}, color_id, result))
         return result;
     }
 
     return theme::ColorId::defaultColor(color_id);
   }
 
-  float Canvas::value(unsigned int value_id) {
+  float Canvas::value(theme::ValueId value_id) {
     float scale = 1.0f;
     theme::ValueId::ValueIdInfo info = theme::ValueId::info(value_id);
-    if (info.scale_type == theme::ValueId::kScaledWidth)
+    if (info.scale_type == theme::ValueId::ScaleType::ScaledWidth)
       scale = width_scale_;
-    else if (info.scale_type == theme::ValueId::kScaledHeight)
+    else if (info.scale_type == theme::ValueId::ScaleType::ScaledHeight)
       scale = height_scale_;
-    else if (info.scale_type == theme::ValueId::kScaledDpi)
+    else if (info.scale_type == theme::ValueId::ScaleType::ScaledDpi)
       scale = dpi_scale_;
 
     if (palette_) {
       float result = 0.0f;
-      int last_check = -1;
+      theme::OverrideId last_check;
       for (auto it = state_memory_.rbegin(); it != state_memory_.rend(); ++it) {
-        int override_id = it->palette_override;
-        if (override_id != last_check && palette_->value(override_id, value_id, result))
+        theme::OverrideId override_id = it->palette_override;
+        if (override_id.id != last_check.id && palette_->value(override_id, value_id, result))
           return scale * result;
 
         last_check = override_id;
       }
-      if (palette_->value(0, value_id, result))
+      if (palette_->value({}, value_id, result))
         return scale * result;
     }
 

@@ -111,16 +111,16 @@ namespace visage {
 
   void UiButton::drawBackground(Canvas& canvas, float hover_amount) {
     if (action_)
-      canvas.setBlendedPaletteColor(kUiActionButtonBackground, kUiActionButtonBackgroundHover, hover_amount);
+      canvas.setBlendedColor(UiActionButtonBackground, UiActionButtonBackgroundHover, hover_amount);
     else
-      canvas.setBlendedPaletteColor(kUiButtonBackground, kUiButtonBackgroundHover, hover_amount);
+      canvas.setBlendedColor(UiButtonBackground, UiButtonBackgroundHover, hover_amount);
 
     int w = width();
     int h = height();
-    float rounding = canvas.value(kUiButtonRounding);
+    float rounding = canvas.value(UiButtonRounding);
 
     if (isActive() || !border_when_inactive_) {
-      float mult = hover_amount * canvas.value(kUiButtonHoverRoundingMult) + (1.0f - hover_amount);
+      float mult = hover_amount * canvas.value(UiButtonHoverRoundingMult) + (1.0f - hover_amount);
       canvas.roundedRectangle(0, 0, w, h, rounding * mult);
     }
     else
@@ -132,14 +132,14 @@ namespace visage {
 
     if (border_when_inactive_ && !isActive()) {
       if (action_)
-        canvas.setPaletteColor(kUiActionButtonBackground);
+        canvas.setColor(UiActionButtonBackground);
       else
-        canvas.setPaletteColor(kUiButtonBackground);
+        canvas.setColor(UiButtonBackground);
     }
     else if (action_)
-      canvas.setBlendedPaletteColor(kUiActionButtonText, kUiActionButtonTextHover, hover_amount);
+      canvas.setBlendedColor(UiActionButtonText, UiActionButtonTextHover, hover_amount);
     else
-      canvas.setBlendedPaletteColor(kUiButtonText, kUiButtonTextHover, hover_amount);
+      canvas.setBlendedColor(UiButtonText, UiButtonTextHover, hover_amount);
     canvas.text(&text_, 0, 0, width(), height());
   }
 
@@ -148,15 +148,14 @@ namespace visage {
     int y = getIconY();
 
     if (shadow_.blur_radius) {
-      canvas.setPaletteColor(kButtonShadow);
+      canvas.setColor(ButtonShadow);
       canvas.svg(shadow_, x, y);
     }
 
     if (isActive())
-      canvas.setBlendedPaletteColor(ToggleButton::kToggleButtonOff,
-                                    ToggleButton::kToggleButtonOffHover, hover_amount);
+      canvas.setBlendedColor(ToggleButton::ToggleButtonOff, ToggleButton::ToggleButtonOffHover, hover_amount);
     else
-      canvas.setPaletteColor(ToggleButton::kToggleButtonDisabled);
+      canvas.setColor(ToggleButton::ToggleButtonDisabled);
 
     canvas.svg(icon_, x, y);
   }
@@ -178,14 +177,14 @@ namespace visage {
     int x = getIconX();
     int y = getIconY();
     if (shadow_.blur_radius) {
-      canvas.setPaletteColor(kButtonShadow);
+      canvas.setColor(ButtonShadow);
       canvas.svg(shadow_, x, y);
     }
 
     if (toggled())
-      canvas.setBlendedPaletteColor(kToggleButtonOn, kToggleButtonOnHover, hover_amount);
+      canvas.setBlendedColor(ToggleButtonOn, ToggleButtonOnHover, hover_amount);
     else
-      canvas.setBlendedPaletteColor(kToggleButtonOff, kToggleButtonOffHover, hover_amount);
+      canvas.setBlendedColor(ToggleButtonOff, ToggleButtonOffHover, hover_amount);
     canvas.svg(icon_, x, y);
   }
 
@@ -197,11 +196,11 @@ namespace visage {
 
   void ToggleTextButton::drawBackground(Canvas& canvas, float hover_amount) {
     if (toggled())
-      canvas.setBlendedPaletteColor(kTextButtonBackgroundOn, kTextButtonBackgroundOnHover, hover_amount);
+      canvas.setBlendedColor(TextButtonBackgroundOn, TextButtonBackgroundOnHover, hover_amount);
     else
-      canvas.setBlendedPaletteColor(kTextButtonBackgroundOff, kTextButtonBackgroundOffHover, hover_amount);
+      canvas.setBlendedColor(TextButtonBackgroundOff, TextButtonBackgroundOffHover, hover_amount);
 
-    float rounding = canvas.value(kTextButtonRounding);
+    float rounding = canvas.value(TextButtonRounding);
     canvas.roundedRectangle(0, 0, width(), height(), rounding);
   }
 
@@ -210,9 +209,9 @@ namespace visage {
       drawBackground(canvas, hover_amount);
 
     if (toggled())
-      canvas.setBlendedPaletteColor(kTextButtonTextOn, kTextButtonTextOnHover, hover_amount);
+      canvas.setBlendedColor(TextButtonTextOn, TextButtonTextOnHover, hover_amount);
     else
-      canvas.setBlendedPaletteColor(kTextButtonTextOff, kTextButtonTextOffHover, hover_amount);
+      canvas.setBlendedColor(TextButtonTextOff, TextButtonTextOffHover, hover_amount);
     canvas.text(&text_, 0, 0, width(), height());
   }
 }

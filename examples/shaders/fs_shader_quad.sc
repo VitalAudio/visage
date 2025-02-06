@@ -45,5 +45,6 @@ void main() {
 
   col *= 1.4 - 0.14 / length(w);
   gl_FragColor = max(0.0, col) * vec4(v_color0.rgb, 1.0);
+  gl_FragColor.r = 0.0;
 }
 

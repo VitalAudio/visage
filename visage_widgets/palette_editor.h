@@ -35,7 +35,7 @@ namespace visage {
     static constexpr float kPaletteWidthRatio = 0.25f;
     static constexpr int kColorSpacing = 2;
     static constexpr int kColorIdHeight = 70;
-    static constexpr float kMinColorHeight = 16.0f;
+    static constexpr float kMinColorHeight = 24.0f;
 
     explicit PaletteColorEditor(Palette* palette) : palette_(palette) {
       setAcceptsKeystrokes(true);
@@ -47,13 +47,14 @@ namespace visage {
       color_list_.setIgnoresMouseEvents(true, true);
       color_list_.setScrollBarLeft(true);
       addChild(&color_list_);
+      color_list_.onScroll() += [this](ScrollableFrame*) { redraw(); };
     }
 
     void draw(Canvas& canvas) override;
 
-    int listLength(const std::map<std::string, std::vector<unsigned int>>& color_ids) const;
+    int listLength(const std::map<std::string, std::vector<theme::ColorId>>& color_ids) const;
     int colorIndex(const MouseEvent& e);
-    int colorIdIndex(const MouseEvent& e) const;
+    theme::ColorId colorIdIndex(const MouseEvent& e) const;
     void toggleGroup(const MouseEvent& e);
     void mouseMove(const MouseEvent& e) override {
       checkScrollHeight();
@@ -90,8 +91,8 @@ namespace visage {
       palette_ = palette;
     }
 
-    void setCurrentOverrideId(int override_id) { current_override_id_ = override_id; }
-    int currentOverrideId() const { return current_override_id_; }
+    void setCurrentOverrideId(theme::OverrideId override_id) { current_override_id_ = override_id; }
+    theme::OverrideId currentOverrideId() const { return current_override_id_; }
     float colorHeight();
 
   private:
@@ -103,12 +104,12 @@ namespace visage {
     std::set<std::string> expanded_groups_;
     int num_colors_editing_ = 1;
 
-    int current_override_id_ = 0;
+    theme::OverrideId current_override_id_;
     int mouse_down_index_ = -1;
     int dragging_ = -1;
     int editing_ = -1;
     int highlight_ = -1;
-    int temporary_set_ = -1;
+    theme::ColorId temporary_set_;
     int previous_color_index_ = -1;
     int mouse_drag_x_ = 0;
     int mouse_drag_y_ = 0;
@@ -129,7 +130,7 @@ namespace visage {
       setTextEditorBounds();
     }
 
-    int listLength(const std::map<std::string, std::vector<unsigned int>>& value_ids) const;
+    int listLength(const std::map<std::string, std::vector<theme::ValueId>>& value_ids) const;
     void toggleGroup(const MouseEvent& e);
     void mouseMove(const MouseEvent& e) override { checkScrollHeight(); }
     void mouseDown(const MouseEvent& e) override { toggleGroup(e); }
@@ -150,17 +151,17 @@ namespace visage {
       setTextEditorBounds();
     }
 
-    void setCurrentOverrideId(int override_id) {
-      if (current_override_id_ == override_id)
+    void setCurrentOverrideId(theme::OverrideId override_id) {
+      if (current_override_id_.id == override_id.id)
         return;
       current_override_id_ = override_id;
       resized();
     }
-    int currentOverrideId() const { return current_override_id_; }
+    theme::OverrideId currentOverrideId() const { return current_override_id_; }
 
   private:
     Palette* palette_ = nullptr;
-    int current_override_id_ = 0;
+    theme::OverrideId current_override_id_;
     std::set<std::string> expanded_groups_;
     TextEditor text_editors_[kMaxValues];
 

@@ -23,7 +23,7 @@
 
 #include "examples_frame.h"
 
-#include <visage_graphics/animation.h>
+#include <visage/app.h>
 #include <visage_graphics/palette.h>
 #include <visage_ui/popup_menu.h>
 #include <visage_ui/undo_history.h>
@@ -54,6 +54,28 @@ private:
   visage::CallbackList<void(float)> on_animate_;
 };
 
+class PaletteColorWindow : public visage::ApplicationWindow {
+public:
+  PaletteColorWindow(visage::Palette* palette) : editor_(palette) {
+    addChild(&editor_);
+    editor_.layout().setMargin(0);
+  }
+
+private:
+  visage::PaletteColorEditor editor_;
+};
+
+class PaletteValueWindow : public visage::ApplicationWindow {
+public:
+  PaletteValueWindow(visage::Palette* palette) : editor_(palette) {
+    addChild(&editor_);
+    editor_.layout().setMargin(0);
+  }
+
+private:
+  visage::PaletteValueEditor editor_;
+};
+
 class Showcase : public visage::Frame,
                  public visage::UndoHistory {
 public:
@@ -73,6 +95,8 @@ private:
   std::unique_ptr<DebugInfo> debug_info_;
 
   visage::Palette palette_;
+  PaletteColorWindow palette_color_window_;
+  PaletteValueWindow palette_value_window_;
   Overlay overlay_;
 
   VISAGE_LEAK_CHECKER(Showcase)

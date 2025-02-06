@@ -32,7 +32,7 @@ namespace visage {
                          BlendMode state) : shader_(vertex_shader, fragment_shader, state) { }
 
   void ShaderQuad::draw(Canvas& canvas) {
-    canvas.setPaletteColor(kShaderQuadColor);
+    canvas.setColor(ShaderQuadColor);
     canvas.shader(&shader_, 0.0f, 0.0f, width(), height());
     redraw();
   }

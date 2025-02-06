@@ -104,7 +104,7 @@ namespace visage {
 
     void resized() override {
       ScrollableFrame::resized();
-      setBackgroundRounding(paletteValue(kTextEditorRounding));
+      setBackgroundRounding(paletteValue(TextEditorRounding));
       setLineBreaks();
       makeCaretVisible();
     }
@@ -160,12 +160,12 @@ namespace visage {
 
     int xMargin() const {
       if (text_.justification() & (Font::kLeft | Font::kRight))
-        return set_x_margin_ ? set_x_margin_ : paletteValue(kTextEditorMarginX);
+        return set_x_margin_ ? set_x_margin_ : paletteValue(TextEditorMarginX);
       return 0;
     }
     int yMargin() const {
       if (text_.justification() & Font::kTop)
-        return set_y_margin_ ? set_y_margin_ : paletteValue(kTextEditorMarginY);
+        return set_y_margin_ ? set_y_margin_ : paletteValue(TextEditorMarginY);
       return 0;
     }
 
@@ -222,7 +222,7 @@ namespace visage {
     int textLength() const { return text_.text().length(); }
     const Font& font() const { return text_.font(); }
     Font::Justification justification() const { return text_.justification(); }
-    void setBackgroundColorId(int color_id) { background_color_id_ = color_id; }
+    void setBackgroundColorId(theme::ColorId color_id) { background_color_id_ = color_id; }
 
   private:
     bool processKeyPress(const KeyEvent& key);
@@ -247,7 +247,7 @@ namespace visage {
     bool mouse_focus_ = false;
     bool active_ = true;
 
-    int background_color_id_ = kTextEditorBackground;
+    theme::ColorId background_color_id_ = TextEditorBackground;
     float background_rounding_ = 1.0f;
     int set_x_margin_ = 0;
     int set_y_margin_ = 0;

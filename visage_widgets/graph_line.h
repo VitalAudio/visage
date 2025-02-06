@@ -57,25 +57,22 @@ namespace visage {
     ~GraphLine() override;
 
     void draw(Canvas& canvas) override;
-    void drawLine(Canvas& canvas, unsigned int color_id);
-    void drawFill(Canvas& canvas, unsigned int color_id);
-    void drawPosition(Canvas& canvas, float x, float y);
-    void resized() override;
 
     float boostAt(int index) const { return line_.values[index]; }
-    float yAt(int index) const { return line_.y[index]; }
-    float xAt(int index) const { return line_.x[index]; }
-
     void setBoostAt(int index, float val) {
       VISAGE_ASSERT(index < line_.num_points && index >= 0);
       line_.values[index] = val;
       redraw();
     }
+
+    float yAt(int index) const { return line_.y[index]; }
     void setYAt(int index, float val) {
       VISAGE_ASSERT(index < line_.num_points && index >= 0);
       line_.y[index] = val;
       redraw();
     }
+
+    float xAt(int index) const { return line_.x[index]; }
     void setXAt(int index, float val) {
       VISAGE_ASSERT(index < line_.num_points && index >= 0);
       line_.x[index] = val;
@@ -89,6 +86,7 @@ namespace visage {
     void setFillCenter(float center) {
       custom_fill_center_ = center;
       fill_center_ = kCustom;
+      redraw();
     }
     int fillLocation() const;
 
@@ -99,8 +97,11 @@ namespace visage {
     void setFillAlphaMult(float mult) { fill_alpha_mult_ = mult; }
 
   private:
+    void drawLine(Canvas& canvas, theme::ColorId color_id);
+    void drawFill(Canvas& canvas, theme::ColorId color_id);
+
     Line line_;
-    float line_width_ = 1.0f;
+    Dimension line_width_;
 
     bool fill_ = false;
     FillCenter fill_center_ = kCenter;

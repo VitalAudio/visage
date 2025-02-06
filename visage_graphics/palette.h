@@ -130,8 +130,8 @@ namespace visage {
     void initWithDefaults();
     void sortColors();
 
-    std::map<std::string, std::vector<unsigned int>> colorIdList(int override_id);
-    std::map<std::string, std::vector<unsigned int>> valueIdList(int override_id);
+    std::map<std::string, std::vector<theme::ColorId>> colorIdList(theme::OverrideId override_id);
+    std::map<std::string, std::vector<theme::ValueId>> valueIdList(theme::OverrideId override_id);
 
     void setEditColor(int index, const EditColor& color) {
       VISAGE_ASSERT(index >= 0 && index < colors_.size());
@@ -151,7 +151,7 @@ namespace visage {
       computed_colors_[index] = colors_[index].toQuadColor();
     }
 
-    bool color(unsigned int override_id, int color_id, QuadColor& color) {
+    bool color(theme::OverrideId override_id, theme::ColorId color_id, QuadColor& color) {
       if (color_map_[override_id].count(color_id) == 0)
         color_map_[override_id][color_id] = kNotSetId;
 
@@ -165,39 +165,35 @@ namespace visage {
       return true;
     }
 
-    void setColorMap(unsigned int override_id, int color_id, int index) {
+    void setColorMap(theme::OverrideId override_id, theme::ColorId color_id, int index) {
       color_map_[override_id][color_id] = index;
     }
 
-    void setColor(unsigned int override_id, int color_id, const Color& color) {
+    void setColor(theme::OverrideId override_id, theme::ColorId color_id, const Color& color) {
       int index = addColor(color);
       color_map_[override_id][color_id] = index;
     }
 
-    void setColor(int color_id, const Color& color) { setColor(0, color_id, color); }
+    void setColor(theme::ColorId color_id, const Color& color) { setColor({}, color_id, color); }
 
-    void setValue(unsigned int override_id, int value_id, float value) {
+    void setValue(theme::OverrideId override_id, theme::ValueId value_id, float value) {
       value_map_[override_id][value_id] = value;
     }
 
-    void setValue(int value_id, float value) { setValue(0, value_id, value); }
+    void setValue(theme::ValueId value_id, float value) { setValue({}, value_id, value); }
 
-    void removeValue(unsigned int override_id, int value_id) {
+    void removeValue(theme::OverrideId override_id, theme::ValueId value_id) {
       if (value_map_[override_id].count(value_id))
         value_map_[override_id].erase(value_id);
     }
 
-    void setName(std::string name) { name_ = std::move(name); }
+    void removeValue(theme::ValueId value_id) { removeValue({}, value_id); }
 
-    std::string name() { return name_; }
-
-    void removeValue(int value_id) { value_map_.erase(value_id); }
-
-    int colorMap(unsigned int override_id, unsigned int color_id) {
+    int colorMap(theme::OverrideId override_id, theme::ColorId color_id) {
       return color_map_[override_id][color_id];
     }
 
-    bool value(unsigned int override_id, unsigned int value_id, float& result) {
+    bool value(theme::OverrideId override_id, theme::ValueId value_id, float& result) {
       if (value_map_[override_id].count(value_id) == 0)
         value_map_[override_id][value_id] = kNotSetValue;
 
@@ -242,10 +238,9 @@ namespace visage {
       return colors_.size() - 1;
     }
 
-    std::string name_;
     std::vector<EditColor> colors_;
     std::vector<QuadColor> computed_colors_;
-    std::map<unsigned int, std::map<unsigned int, int>> color_map_;
-    std::map<unsigned int, std::map<unsigned int, float>> value_map_;
+    std::map<theme::OverrideId, std::map<theme::ColorId, int>> color_map_;
+    std::map<theme::OverrideId, std::map<theme::ValueId, float>> value_map_;
   };
 }

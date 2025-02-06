@@ -118,14 +118,14 @@ namespace visage {
 
     Palette* palette() const { return palette_; }
 
-    void setPaletteOverride(int override_id, bool recursive = true) {
+    void setPaletteOverride(theme::OverrideId override_id, bool recursive = true) {
       palette_override_ = override_id;
       if (recursive) {
         for (Frame* child : children_)
           child->setPaletteOverride(override_id, true);
       }
     }
-    int paletteOverride() const { return palette_override_; }
+    theme::OverrideId paletteOverride() const { return palette_override_; }
 
     bool initialized() const { return initialized_; }
     void redraw() {
@@ -333,8 +333,8 @@ namespace visage {
     bool processKeyRelease(const KeyEvent& e) { return on_key_release_.callback(e); }
     void processTextInput(const std::string& text) { textInput(text); }
 
-    float paletteValue(unsigned int value_id) const;
-    QuadColor paletteColor(unsigned int color_id) const;
+    float paletteValue(theme::ValueId value_id) const;
+    QuadColor paletteColor(theme::ColorId color_id) const;
 
     void addUndoableAction(std::unique_ptr<UndoableAction> action) const;
     void triggerUndo() const;
@@ -393,7 +393,7 @@ namespace visage {
     float width_scale_ = 1.0f;
     float height_scale_ = 1.0f;
     Palette* palette_ = nullptr;
-    int palette_override_ = 0;
+    theme::OverrideId palette_override_;
     bool initialized_ = false;
 
     PostEffect* post_effect_ = nullptr;

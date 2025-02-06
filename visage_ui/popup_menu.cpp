@@ -45,14 +45,14 @@ namespace visage {
   }
 
   int PopupList::renderHeight() {
-    int popup_height = paletteValue(kPopupOptionHeight);
-    int selection_padding = paletteValue(kPopupSelectionPadding);
+    int popup_height = paletteValue(PopupOptionHeight);
+    int selection_padding = paletteValue(PopupSelectionPadding);
     return options_.size() * popup_height + 2 * selection_padding;
   }
 
   int PopupList::renderWidth() {
-    int width = paletteValue(kPopupMinWidth);
-    int x_padding = paletteValue(kPopupSelectionPadding) + paletteValue(kPopupTextPadding);
+    int width = paletteValue(PopupMinWidth);
+    int x_padding = paletteValue(PopupSelectionPadding) + paletteValue(PopupTextPadding);
     for (const PopupMenu& option : options_) {
       int string_width = font_.stringWidth(option.name().c_str(), option.name().size()) + 2 * x_padding;
       width = std::max<int>(width, string_width);
@@ -62,7 +62,7 @@ namespace visage {
   }
 
   int PopupList::yForIndex(int index) {
-    return (paletteValue(kPopupSelectionPadding) + index * paletteValue(kPopupOptionHeight));
+    return (paletteValue(PopupSelectionPadding) + index * paletteValue(PopupOptionHeight));
   }
 
   void PopupList::selectHoveredIndex() {
@@ -80,9 +80,9 @@ namespace visage {
   }
 
   void PopupList::setHoverFromPosition(Point position) {
-    int y = paletteValue(kPopupSelectionPadding);
+    int y = paletteValue(PopupSelectionPadding);
 
-    int option_height = paletteValue(kPopupOptionHeight);
+    int option_height = paletteValue(PopupOptionHeight);
     for (int i = 0; i < options_.size(); ++i) {
       if (!options_[i].isBreak() && position.y >= y && position.y < y + option_height) {
         hover_index_ = i;
@@ -104,29 +104,29 @@ namespace visage {
     static constexpr float kTriangleWidthRatio = 0.25f;
     int dpi_scale = canvas.dpiScale();
 
-    QuadColor background = canvas.color(kPopupMenuBackground).withMultipliedAlpha(opacity_);
-    QuadColor border = canvas.color(kPopupMenuBorder).withMultipliedAlpha(opacity_);
+    QuadColor background = canvas.color(PopupMenuBackground).withMultipliedAlpha(opacity_);
+    QuadColor border = canvas.color(PopupMenuBorder).withMultipliedAlpha(opacity_);
     canvas.setColor(background);
     canvas.roundedRectangle(0, 0, width(), height(), 8 * dpi_scale);
 
     canvas.setColor(border);
     canvas.roundedRectangleBorder(0, 0, width(), height(), 8 * dpi_scale, 1);
 
-    canvas.setPaletteColor(kPopupMenuText);
-    int selection_padding = paletteValue(kPopupSelectionPadding);
-    int x_padding = selection_padding + paletteValue(kPopupTextPadding);
-    int option_height = paletteValue(kPopupOptionHeight);
+    canvas.setColor(PopupMenuText);
+    int selection_padding = paletteValue(PopupSelectionPadding);
+    int x_padding = selection_padding + paletteValue(PopupTextPadding);
+    int option_height = paletteValue(PopupOptionHeight);
     int y = selection_padding - yPosition();
 
-    QuadColor text = canvas.color(kPopupMenuText).withMultipliedAlpha(opacity_);
-    QuadColor selected_text = canvas.color(kPopupMenuSelectionText).withMultipliedAlpha(opacity_);
+    QuadColor text = canvas.color(PopupMenuText).withMultipliedAlpha(opacity_);
+    QuadColor selected_text = canvas.color(PopupMenuSelectionText).withMultipliedAlpha(opacity_);
     for (int i = 0; i < options_.size(); ++i) {
       if (y + option_height > 0 && y < height()) {
         if (options_[i].isBreak())
           canvas.rectangle(x_padding, y + option_height / 2, width() - 2 * x_padding, 1);
         else {
           if (i == hover_index_) {
-            QuadColor selected = canvas.color(kPopupMenuSelection).withMultipliedAlpha(opacity_);
+            QuadColor selected = canvas.color(PopupMenuSelection).withMultipliedAlpha(opacity_);
             canvas.setColor(selected);
             canvas.roundedRectangle(selection_padding, y, width() - 2 * selection_padding,
                                     option_height, 4 * dpi_scale);
@@ -135,7 +135,7 @@ namespace visage {
           else
             canvas.setColor(text);
 
-          Font font(paletteValue(kPopupFontSize), font_.fontData(), font_.dataSize());
+          Font font(paletteValue(PopupFontSize), font_.fontData(), font_.dataSize());
           canvas.text(options_[i].name(), font, Font::kLeft, x_padding, y, width(), option_height);
 
           if (options_[i].hasOptions()) {
@@ -259,7 +259,7 @@ namespace visage {
     for (int i = 1; i < kMaxSubMenus; ++i)
       lists_[i].setVisible(false);
 
-    font_ = Font(paletteValue(kPopupFontSize), font_.fontData(), font_.dataSize());
+    font_ = Font(paletteValue(PopupFontSize), font_.fontData(), font_.dataSize());
     setListFonts(font_);
 
     lists_[0].setOptions(menu_.options());
@@ -418,10 +418,10 @@ namespace visage {
 
     text_ = text;
 
-    Font font(paletteValue(kPopupFontSize), font_.fontData(), font_.dataSize());
-    int x_padding = paletteValue(kPopupSelectionPadding) + paletteValue(kPopupTextPadding);
+    Font font(paletteValue(PopupFontSize), font_.fontData(), font_.dataSize());
+    int x_padding = paletteValue(PopupSelectionPadding) + paletteValue(PopupTextPadding);
     int width = font.stringWidth(text.c_str(), text.length()) + 2 * x_padding;
-    int height = paletteValue(kPopupOptionHeight);
+    int height = paletteValue(PopupOptionHeight);
     int x = bounds.xCenter() - width / 2;
     int y = bounds.yCenter() - height / 2;
     if (justification & Font::kLeft)
@@ -438,16 +438,16 @@ namespace visage {
   }
 
   void ValueDisplay::draw(Canvas& canvas) {
-    Font font(canvas.value(kPopupFontSize), font_.fontData(), font_.dataSize());
+    Font font(canvas.value(PopupFontSize), font_.fontData(), font_.dataSize());
     float pixel_scale = canvas.dpiScale();
-    canvas.setPaletteColor(kPopupMenuBackground);
+    canvas.setColor(PopupMenuBackground);
     canvas.roundedRectangle(0, 0, width(), height(), 8 * pixel_scale);
 
-    canvas.setPaletteColor(kPopupMenuBorder);
+    canvas.setColor(PopupMenuBorder);
     canvas.roundedRectangleBorder(0, 0, width(), height(), 8 * pixel_scale, 1);
 
-    canvas.setPaletteColor(kPopupMenuText);
-    canvas.setColor(canvas.color(kPopupMenuText));
+    canvas.setColor(PopupMenuText);
+    canvas.setColor(canvas.color(PopupMenuText));
     canvas.text(text_, font, Font::kCenter, 0, 0, width(), height());
   }
 }

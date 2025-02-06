@@ -316,7 +316,7 @@ namespace visage {
 
     canvas.beginRegion(&region_);
 
-    if (palette_override_)
+    if (!palette_override_.isDefault())
       canvas.setPaletteOverride(palette_override_);
     if (palette_)
       canvas.setPalette(palette_);
@@ -355,43 +355,43 @@ namespace visage {
     post_effect_ = nullptr;
   }
 
-  float Frame::paletteValue(unsigned int value_id) const {
+  float Frame::paletteValue(theme::ValueId value_id) const {
     float scale = 1.0f;
     theme::ValueId::ValueIdInfo info = theme::ValueId::info(value_id);
-    if (info.scale_type == theme::ValueId::kScaledWidth)
+    if (info.scale_type == theme::ValueId::ScaleType::ScaledWidth)
       scale = widthScale();
-    else if (info.scale_type == theme::ValueId::kScaledHeight)
+    else if (info.scale_type == theme::ValueId::ScaleType::ScaledHeight)
       scale = heightScale();
-    else if (info.scale_type == theme::ValueId::kScaledDpi)
+    else if (info.scale_type == theme::ValueId::ScaleType::ScaledDpi)
       scale = dpiScale();
 
     if (palette_) {
       const Frame* frame = this;
       float result = 0.0f;
       while (frame) {
-        int override_id = frame->palette_override_;
-        if (override_id && palette_->value(override_id, value_id, result))
+        theme::OverrideId override_id = frame->palette_override_;
+        if (!override_id.isDefault() && palette_->value(override_id, value_id, result))
           return scale * result;
         frame = frame->parent_;
       }
-      if (palette_->value(0, value_id, result))
+      if (palette_->value({}, value_id, result))
         return scale * result;
     }
 
     return scale * theme::ValueId::defaultValue(value_id);
   }
 
-  QuadColor Frame::paletteColor(unsigned int color_id) const {
+  QuadColor Frame::paletteColor(theme::ColorId color_id) const {
     if (palette_) {
       QuadColor result;
       const Frame* frame = this;
       while (frame) {
-        int override_id = frame->palette_override_;
-        if (override_id && palette_->color(override_id, color_id, result))
+        theme::OverrideId override_id = frame->palette_override_;
+        if (!override_id.isDefault() && palette_->color(override_id, color_id, result))
           return result;
         frame = frame->parent_;
       }
-      if (palette_->color(0, color_id, result))
+      if (palette_->color({}, color_id, result))
         return result;
     }
 

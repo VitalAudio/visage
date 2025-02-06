@@ -27,6 +27,7 @@
 #include "region.h"
 #include "shape_batcher.h"
 #include "text.h"
+#include "theme.h"
 #include "visage_utils/space.h"
 #include "visage_utils/time_utils.h"
 
@@ -39,7 +40,7 @@ namespace visage {
     struct State {
       int x = 0;
       int y = 0;
-      int palette_override = 0;
+      theme::OverrideId palette_override;
       QuadColor color;
       ClampBounds clamp;
       BlendMode blend_mode = BlendMode::Alpha;
@@ -89,9 +90,9 @@ namespace visage {
     void setBlendMode(BlendMode blend_mode) { state_.blend_mode = blend_mode; }
     void setColor(unsigned int color) { state_.color = color; }
     void setColor(const QuadColor& color) { state_.color = color; }
-    void setPaletteColor(int color_id) { state_.color = color(color_id); }
+    void setColor(theme::ColorId color_id) { state_.color = color(color_id); }
 
-    void setBlendedPaletteColor(int color_from, int color_to, float t) {
+    void setBlendedColor(theme::ColorId color_from, theme::ColorId color_to, float t) {
       state_.color = blendedColor(color_from, color_to, t);
     }
 
@@ -415,7 +416,9 @@ namespace visage {
     void endRegion() { restoreState(); }
 
     void setPalette(Palette* palette) { palette_ = palette; }
-    void setPaletteOverride(int override_id) { state_.palette_override = override_id; }
+    void setPaletteOverride(theme::OverrideId override_id) {
+      state_.palette_override = override_id;
+    }
 
     void setClampBounds(int x, int y, int width, int height) {
       VISAGE_ASSERT(width >= 0);
@@ -445,12 +448,12 @@ namespace visage {
     int x() const { return state_.x; }
     int y() const { return state_.y; }
 
-    QuadColor color(unsigned int color_id);
-    QuadColor blendedColor(int color_from, int color_to, float t) {
+    QuadColor color(theme::ColorId color_id);
+    QuadColor blendedColor(theme::ColorId color_from, theme::ColorId color_to, float t) {
       return color(color_from).interpolate(color(color_to), t);
     }
 
-    float value(unsigned int value_id);
+    float value(theme::ValueId value_id);
     std::vector<std::string> debugInfo() const;
 
     ImageGroup* imageGroup() {

@@ -100,10 +100,10 @@ private:
 
 class DragDropSource : public visage::Frame {
   void draw(visage::Canvas& canvas) override {
-    canvas.setPaletteColor(kDarkBackgroundColor);
+    canvas.setColor(DarkBackgroundColor);
     canvas.roundedRectangle(0, 0, width(), height(), height() / 16);
 
-    canvas.setPaletteColor(kTextColor);
+    canvas.setColor(TextColor);
 
     const visage::Font font(height() / 4, resources::fonts::Lato_Regular_ttf);
     if (dragging_)
@@ -136,10 +136,10 @@ private:
 
 class DragDropTarget : public visage::Frame {
   void draw(visage::Canvas& canvas) override {
-    canvas.setPaletteColor(kDarkBackgroundColor);
+    canvas.setColor(DarkBackgroundColor);
     canvas.roundedRectangle(0, 0, width(), height(), height() / 16);
 
-    canvas.setPaletteColor(kTextColor);
+    canvas.setColor(TextColor);
 
     const visage::Font font(height() / 4, resources::fonts::Lato_Regular_ttf);
     if (dragging_)
@@ -197,10 +197,10 @@ private:
 };
 
 void TitleBar::draw(visage::Canvas& canvas) {
-  canvas.setPaletteColor(kDarkBackgroundColor);
+  canvas.setColor(DarkBackgroundColor);
   canvas.rectangle(0, 0, width(), height());
 
-  canvas.setPaletteColor(kTextColor);
+  canvas.setColor(TextColor);
   const visage::Font font(height() / 2, resources::fonts::Lato_Regular_ttf);
   canvas.text(title_, font, visage::Font::kCenter, 0, 0, width(), height());
 }
@@ -326,7 +326,6 @@ void ExamplesFrame::setupButtons() {
     menu.addOption(0, "Take Screenshot");
     menu.addOption(1, "Toggle Debug Info");
     menu.addBreak();
-    menu.addOption(2, "Another Item 1");
     visage::PopupMenu sub_menu("Sub Menu");
     sub_menu.addOption(3, "Sub Item 1");
     sub_menu.addBreak();
@@ -341,7 +340,6 @@ void ExamplesFrame::setupButtons() {
     sub_menu2.addOption(9, "Other Sub Item 3");
     sub_menu2.addOption(10, "Other Sub Item 4");
     menu.addSubMenu(sub_menu2);
-    menu.addOption(11, "Another Item 3");
     menu.addBreak();
     menu.addOption(12, "Force Crash");
 
@@ -401,7 +399,7 @@ void ExamplesFrame::setupShapes() {
     float shape_cycle = sin1(shape_phase) * 0.5f + 0.5f;
     float thickness = shape_width * shape_cycle / 8.0f + 1.0f;
 
-    canvas.setPaletteColor(kShapeColor);
+    canvas.setColor(ShapeColor);
     canvas.rectangle(shape_x, shape_y, shape_width, shape_width);
     canvas.rectangleBorder(shape_x, shape_y2, shape_width, shape_width, thickness);
     canvas.circle(shape_x + shape_width + shape_padding_x, shape_y, shape_width);

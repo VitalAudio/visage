@@ -81,7 +81,7 @@ namespace visage {
     canvas.rectangle(plus_x, additional_y + color_height / 2 - 1, plus_width, 2);
     canvas.restoreState();
 
-    std::map<std::string, std::vector<unsigned int>> color_ids = palette_->colorIdList(current_override_id_);
+    std::map<std::string, std::vector<theme::ColorId>> color_ids = palette_->colorIdList(current_override_id_);
 
     int font_height = kColorIdHeight / 3.0f;
     int label_offset = kColorIdHeight / 4.0f;
@@ -102,7 +102,7 @@ namespace visage {
       index++;
 
       if (isExpanded(group.first)) {
-        for (int color_id : group.second) {
+        for (theme::ColorId color_id : group.second) {
           y = kColorIdHeight * index;
 
           QuadColor matched_color;
@@ -176,8 +176,8 @@ namespace visage {
   }
 
   void PaletteColorEditor::checkColorHover(const MouseEvent& e) {
-    int color_id = colorIdIndex(e);
-    if (color_id >= 0)
+    theme::ColorId color_id = colorIdIndex(e);
+    if (color_id.isValid())
       highlight_ = palette_->colorMap(current_override_id_, color_id);
   }
 
@@ -199,7 +199,7 @@ namespace visage {
     return index;
   }
 
-  int PaletteColorEditor::listLength(const std::map<std::string, std::vector<unsigned int>>& color_ids) const {
+  int PaletteColorEditor::listLength(const std::map<std::string, std::vector<theme::ColorId>>& color_ids) const {
     int length = color_ids.size();
     for (const auto& group : color_ids) {
       if (isExpanded(group.first))
@@ -208,12 +208,12 @@ namespace visage {
     return length;
   }
 
-  int PaletteColorEditor::colorIdIndex(const MouseEvent& e) const {
-    std::map<std::string, std::vector<unsigned int>> color_ids = palette_->colorIdList(current_override_id_);
+  theme::ColorId PaletteColorEditor::colorIdIndex(const MouseEvent& e) const {
+    std::map<std::string, std::vector<theme::ColorId>> color_ids = palette_->colorIdList(current_override_id_);
     int w = width();
     int palette_width = w * kPaletteWidthRatio;
     if (e.position.x > w || e.position.x < palette_width)
-      return -1;
+      return {};
 
     int y_position = std::min(height(), std::max(0, e.position.y));
     int index = (y_position + yPosition()) / kColorIdHeight;
@@ -227,11 +227,11 @@ namespace visage {
       }
     }
 
-    return -1;
+    return {};
   }
 
   void PaletteColorEditor::toggleGroup(const MouseEvent& e) {
-    std::map<std::string, std::vector<unsigned int>> color_ids = palette_->colorIdList(current_override_id_);
+    std::map<std::string, std::vector<theme::ColorId>> color_ids = palette_->colorIdList(current_override_id_);
     int palette_width = width() * kPaletteWidthRatio;
     if (e.position.x > width() || e.position.x < palette_width)
       return;
@@ -284,15 +284,15 @@ namespace visage {
     mouse_drag_x_ = e.position.x;
     mouse_drag_y_ = e.position.y;
 
-    int color_id_index = colorIdIndex(e);
-    if (temporary_set_ != color_id_index) {
-      if (temporary_set_ >= 0) {
+    theme::ColorId color_id_index = colorIdIndex(e);
+    if (temporary_set_.id != color_id_index.id) {
+      if (temporary_set_.isValid()) {
         palette_->setColorMap(current_override_id_, temporary_set_, previous_color_index_);
-        temporary_set_ = -1;
+        temporary_set_ = {};
         previous_color_index_ = -1;
       }
 
-      if (color_id_index >= 0) {
+      if (color_id_index.isValid()) {
         temporary_set_ = color_id_index;
         previous_color_index_ = palette_->colorMap(current_override_id_, temporary_set_);
         palette_->setColorMap(current_override_id_, temporary_set_, dragging_);
@@ -303,12 +303,12 @@ namespace visage {
   }
 
   void PaletteColorEditor::mouseUp(const MouseEvent& e) {
-    if (dragging_ < 0 && temporary_set_ >= 0)
+    if (dragging_ < 0 && temporary_set_.isValid())
       palette_->setColorMap(current_override_id_, temporary_set_, previous_color_index_);
 
     mouse_down_index_ = -1;
     dragging_ = -1;
-    temporary_set_ = -1;
+    temporary_set_ = {};
     previous_color_index_ = -1;
     redraw();
   }
@@ -348,7 +348,7 @@ namespace visage {
     int num_colors = palette_->numColors();
     float color_height = (height() - width() + kColorSpacing) * 1.0f / (num_colors + 1);
     color_height = std::min<float>(color_height, width() * kPaletteWidthRatio + kColorSpacing);
-    return std::max(color_height, kMinColorHeight * heightScale());
+    return std::max(color_height, kMinColorHeight * dpiScale());
   }
 
   void PaletteColorEditor::setNumColorsEditing(int num) {
@@ -375,7 +375,7 @@ namespace visage {
     canvas.setColor(0xff333639);
     canvas.rectangle(0, 0, w, h);
 
-    std::map<std::string, std::vector<unsigned int>> value_ids = palette_->valueIdList(current_override_id_);
+    std::map<std::string, std::vector<theme::ValueId>> value_ids = palette_->valueIdList(current_override_id_);
     int font_height = kValueIdHeight / 3.0f;
     int label_offset = kValueIdHeight / 4.0f;
     Font font(font_height, fonts::Lato_Regular_ttf);
@@ -398,10 +398,10 @@ namespace visage {
 
       canvas.setClampBounds(0, yPosition(), std::max(0, 2 * w / 3 - kValueIdHeight / 4), h);
       if (isExpanded(group.first)) {
-        for (int color_id : group.second) {
+        for (theme::ValueId value_id : group.second) {
           y = kValueIdHeight * index;
           canvas.setColor(0xffffffff);
-          canvas.text(theme::ValueId::name(color_id), font, Font::kLeft, label_offset, y, id_width,
+          canvas.text(theme::ValueId::name(value_id), font, Font::kLeft, label_offset, y, id_width,
                       kValueIdHeight);
 
           index++;
@@ -411,7 +411,7 @@ namespace visage {
     canvas.restoreState();
   }
 
-  int PaletteValueEditor::listLength(const std::map<std::string, std::vector<unsigned int>>& value_ids) const {
+  int PaletteValueEditor::listLength(const std::map<std::string, std::vector<theme::ValueId>>& value_ids) const {
     int length = value_ids.size();
     for (const auto& group : value_ids) {
       if (isExpanded(group.first))
@@ -421,11 +421,11 @@ namespace visage {
   }
 
   void PaletteValueEditor::toggleGroup(const MouseEvent& e) {
-    std::map<std::string, std::vector<unsigned int>> color_ids = palette_->valueIdList(current_override_id_);
+    std::map<std::string, std::vector<theme::ValueId>> value_ids = palette_->valueIdList(current_override_id_);
     int y_position = std::min(height(), std::max(0, e.position.y));
     int index = (y_position + yPosition()) / kValueIdHeight;
 
-    for (const auto& group : color_ids) {
+    for (const auto& group : value_ids) {
       if (index == 0) {
         toggleExpandGroup(group.first);
         return;
@@ -437,7 +437,7 @@ namespace visage {
   }
 
   void PaletteValueEditor::setTextEditorBounds() {
-    std::map<std::string, std::vector<unsigned int>> value_ids = palette_->valueIdList(current_override_id_);
+    std::map<std::string, std::vector<theme::ValueId>> value_ids = palette_->valueIdList(current_override_id_);
     int index = 0;
     int edit_height = kValueIdHeight * 3.0f / 4.0f;
     int y_offset = (kValueIdHeight - edit_height) / 2;
@@ -447,7 +447,7 @@ namespace visage {
 
     for (const auto& group : value_ids) {
       if (isExpanded(group.first)) {
-        for (int value_id : group.second) {
+        for (theme::ValueId value_id : group.second) {
           text_editors_[index].onTextChange() = [this, index, value_id] {
             String text = String(text_editors_[index].text()).trim();
             if (text.isEmpty())

@@ -37,7 +37,7 @@ namespace visage {
     float height_ratio = view_height_ * 1.0f / range_;
     int h = height();
 
-    canvas.setBlendedPaletteColor(kScrollBarDefault, kScrollBarDown, color_.update());
+    canvas.setBlendedColor(ScrollBarDefault, ScrollBarDown, color_.update());
     float w = width_.update();
 
     float rounding = std::min(width_.setSourceValue() / 2.0f, rounding_);
@@ -87,7 +87,7 @@ namespace visage {
   }
 
   void ScrollableFrame::resized() {
-    int scroll_bar_width = paletteValue(kScrollBarWidth);
+    int scroll_bar_width = paletteValue(ScrollBarWidth);
     int x = scroll_bar_left_ ? 0 : width() - scroll_bar_width;
     float_position_ = y_position_;
     scroll_bar_.setBounds(x, 0, scroll_bar_width, height());
