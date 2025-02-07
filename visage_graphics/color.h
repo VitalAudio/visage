@@ -364,6 +364,26 @@ namespace visage {
       hdr_to = to.hdr();
     }
 
+    ColorGradient(const Color& from, const Color& to, FloatPoint start, FloatPoint end) {
+      color_from = from.toABGR();
+      color_to = to.toABGR();
+      hdr_from = from.hdr();
+      hdr_to = to.hdr();
+      point_from = start;
+      point_to = end;
+    }
+
+    ColorGradient(const Color& from, const Color& to, float start_x, float start_y, float end_x,
+                  float end_y) {
+      color_from = from.toABGR();
+      color_to = to.toABGR();
+      hdr_from = from.hdr();
+      hdr_to = to.hdr();
+      point_from = { start_x, start_y };
+      point_to = { end_x, end_y };
+      interpolation_shape = InterpolationShape::PointsLinear;
+    }
+
     ColorGradient(const HorizontalGradient& gradient) :
         ColorGradient(gradient.left(), gradient.right()) {
       interpolation_shape = InterpolationShape::Horizontal;

@@ -220,6 +220,14 @@ namespace visage {
   struct ShapeVertex {
     float x;
     float y;
+    uint32_t color1;
+    uint32_t color2;
+    float hdr1;
+    float hdr2;
+    float gradient_from_x;
+    float gradient_from_y;
+    float gradient_to_x;
+    float gradient_to_y;
     float coordinate_x;
     float coordinate_y;
     float dimension_x;
@@ -228,8 +236,6 @@ namespace visage {
     float clamp_top;
     float clamp_right;
     float clamp_bottom;
-    uint32_t color;
-    float hdr;
     float thickness;
     float fade;
     float value_1;
@@ -241,6 +247,14 @@ namespace visage {
   struct ComplexShapeVertex {
     float x;
     float y;
+    uint32_t color1;
+    uint32_t color2;
+    float hdr1;
+    float hdr2;
+    float gradient_from_x;
+    float gradient_from_y;
+    float gradient_to_x;
+    float gradient_to_y;
     float coordinate_x;
     float coordinate_y;
     float dimension_x;
@@ -249,8 +263,6 @@ namespace visage {
     float clamp_top;
     float clamp_right;
     float clamp_bottom;
-    uint32_t color;
-    float hdr;
     float thickness;
     float fade;
     float value_1;
@@ -266,6 +278,14 @@ namespace visage {
   struct TextureVertex {
     float x;
     float y;
+    uint32_t color1;
+    uint32_t color2;
+    float hdr1;
+    float hdr2;
+    float gradient_from_x;
+    float gradient_from_y;
+    float gradient_to_x;
+    float gradient_to_y;
     float dimension_x;
     float dimension_y;
     float texture_x;
@@ -276,8 +296,6 @@ namespace visage {
     float clamp_top;
     float clamp_right;
     float clamp_bottom;
-    uint32_t color;
-    float hdr;
 
     static bgfx::VertexLayout& layout();
   };
@@ -287,6 +305,14 @@ namespace visage {
     float y;
     float dimension_x;
     float dimension_y;
+    uint32_t color1;
+    uint32_t color2;
+    float hdr1;
+    float hdr2;
+    float gradient_from_x;
+    float gradient_from_y;
+    float gradient_to_x;
+    float gradient_to_y;
     float texture_x;
     float texture_y;
     float clamp_left;
@@ -295,33 +321,6 @@ namespace visage {
     float clamp_bottom;
     float shader_value1;
     float shader_value2;
-    uint32_t color;
-    float hdr;
-
-    static bgfx::VertexLayout& layout();
-  };
-
-  struct RotaryVertex {
-    float x;
-    float y;
-    float coordinate_x;
-    float coordinate_y;
-    float dimension_x;
-    float dimension_y;
-    float clamp_left;
-    float clamp_top;
-    float clamp_right;
-    float clamp_bottom;
-    uint32_t color;
-    uint32_t back_color;
-    uint32_t thumb_color;
-    float hdr;
-    float back_hdr;
-    float thumb_hdr;
-    float value_1;
-    float value_2;
-    float value_3;
-    float value_4;
 
     static bgfx::VertexLayout& layout();
   };

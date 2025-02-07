@@ -121,12 +121,37 @@ namespace visage {
     float top = shape.y + y_offset;
     float right = left + shape.width;
     float bottom = top + shape.height;
+    float gradient_from_x = 0.0f;
+    float gradient_from_y = 0.0f;
+    float gradient_to_x = 1.0f;
+    float gradient_to_y = 1.0f;
+
+    if (shape.color.interpolation_shape == ColorGradient::InterpolationShape::Horizontal) {
+      gradient_from_x = left;
+      gradient_to_x = right;
+    }
+    else if (shape.color.interpolation_shape == ColorGradient::InterpolationShape::Vertical) {
+      gradient_from_y = top;
+      gradient_to_y = bottom;
+    }
+    else if (shape.color.interpolation_shape == ColorGradient::InterpolationShape::PointsLinear) {
+      gradient_from_x = x_offset + shape.color.point_from.x;
+      gradient_from_y = y_offset + shape.color.point_from.y;
+      gradient_to_x = x_offset + shape.color.point_to.x;
+      gradient_to_y = y_offset + shape.color.point_to.y;
+    }
 
     for (int i = 0; i < kVerticesPerQuad; ++i) {
       vertices[i].dimension_x = shape.width;
       vertices[i].dimension_y = shape.height;
-      vertices[i].color = shape.color.color_from;
-      vertices[i].hdr = shape.color.hdr_from;
+      vertices[i].color1 = shape.color.color_from;
+      vertices[i].color2 = shape.color.color_to;
+      vertices[i].hdr1 = shape.color.hdr_from;
+      vertices[i].hdr2 = shape.color.hdr_to;
+      vertices[i].gradient_from_x = gradient_from_x;
+      vertices[i].gradient_from_y = gradient_from_y;
+      vertices[i].gradient_to_x = gradient_to_x;
+      vertices[i].gradient_to_y = gradient_to_y;
       vertices[i].clamp_left = clamp.left;
       vertices[i].clamp_top = clamp.top;
       vertices[i].clamp_right = clamp.right;
@@ -418,45 +443,6 @@ namespace visage {
     }
 
     Direction direction = Direction::Right;
-  };
-
-  struct Rotary : Shape<RotaryVertex> {
-    VISAGE_CREATE_BATCH_ID
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    static constexpr float kDefaultMaxRadians = 2.5f;
-
-    Rotary(const ClampBounds& clamp, const ColorGradient& color, const ColorGradient& back_color,
-           const ColorGradient& thumb_color, float x, float y, float width, float value, bool bipolar,
-           float hover_amount, float arc_thickness, float max_radians = kDefaultMaxRadians) :
-        Shape(batchId(), clamp, color, x, y, width, width), back_color(back_color),
-        thumb_color(thumb_color), value(value), bipolar(bipolar), hover_amount(hover_amount),
-        arc_thickness(arc_thickness), max_radians(max_radians) { }
-
-    void setVertexData(Vertex* vertices) const {
-      float bipolar_adjust = bipolar ? 0.0f : -10.0f;
-      for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = value + bipolar_adjust;
-        vertices[v].value_2 = hover_amount;
-        vertices[v].value_3 = arc_thickness;
-        vertices[v].value_4 = max_radians;
-
-        // TODO
-        //vertices[v].back_color = back_color.corners[v];
-        //vertices[v].thumb_color = thumb_color.corners[v];
-        //vertices[v].back_hdr = back_color.hdr[v];
-        //vertices[v].thumb_hdr = thumb_color.hdr[v];
-      }
-    }
-
-    ColorGradient back_color;
-    ColorGradient thumb_color;
-    float value = 0.0f;
-    bool bipolar = false;
-    float hover_amount = 0.0f;
-    float arc_thickness = 0.0f;
-    float max_radians = 0.0f;
   };
 
   struct ImageWrapper : Shape<TextureVertex> {
