@@ -1,4 +1,4 @@
-$input v_texture_uv, v_color0
+$input v_texture_uv, v_color0, v_color1
 
 #include <shader_include.sh>
 

@@ -552,23 +552,12 @@ namespace visage {
             // TODO fix colors
             vertices[vertex_index].x = left;
             vertices[vertex_index].y = top;
-            vertices[vertex_index].color = text_block.color.color_from;
-            vertices[vertex_index].hdr = text_block.color.hdr_from;
-
             vertices[vertex_index + 1].x = right;
             vertices[vertex_index + 1].y = top;
-            vertices[vertex_index + 1].color = text_block.color.color_from;
-            vertices[vertex_index + 1].hdr = text_block.color.hdr_from;
-
             vertices[vertex_index + 2].x = left;
             vertices[vertex_index + 2].y = bottom;
-            vertices[vertex_index + 2].color = text_block.color.color_from;
-            vertices[vertex_index + 2].hdr = text_block.color.hdr_from;
-
             vertices[vertex_index + 3].x = right;
             vertices[vertex_index + 3].y = bottom;
-            vertices[vertex_index + 3].color = text_block.color.color_from;
-            vertices[vertex_index + 3].hdr = text_block.color.hdr_from;
 
             vertices[vertex_index + coordinate_index0].texture_x = texture_x;
             vertices[vertex_index + coordinate_index0].texture_y = texture_y;
@@ -587,6 +576,10 @@ namespace visage {
               vertices[index].clamp_bottom = positioned_clamp.bottom;
               vertices[index].direction_x = direction_x;
               vertices[index].direction_y = direction_y;
+              vertices[index].color1 = text_block.color.color_from;
+              vertices[index].color2 = text_block.color.color_to;
+              vertices[index].hdr1 = text_block.color.hdr_from;
+              vertices[index].hdr2 = text_block.color.hdr_to;
             }
 
             vertex_index += kVerticesPerQuad;
