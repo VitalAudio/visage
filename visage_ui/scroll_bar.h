@@ -176,7 +176,7 @@ namespace visage {
     auto& onScroll() { return on_scroll_; }
     ScrollBar& scrollBar() { return scroll_bar_; }
 
-    void setSensitivity(Dimension sensitivity) { sensitivity_ = sensitivity; }
+    void setSensitivity(Dimension sensitivity) { sensitivity_ = std::move(sensitivity); }
     void setSmoothTime(float seconds) { smooth_time_ = seconds; }
 
   private:

@@ -147,9 +147,8 @@ namespace visage {
     ~PopupMenuFrame() override;
 
     void draw(Canvas& canvas) override;
-    void ownSelf(std::unique_ptr<PopupMenuFrame> self) { self_ = std::move(self); }
 
-    void show(Frame* source, Point point = {});
+    void show(std::unique_ptr<PopupMenuFrame> self, Frame* source, Point point = {});
     void setFont(const Font& font) {
       font_ = font;
       setListFonts(font);
@@ -159,6 +158,7 @@ namespace visage {
         list.setFont(font);
     }
 
+    void exit();
     void hierarchyChanged() override;
     void focusChanged(bool is_focused, bool was_clicked) override;
     void visibilityChanged() override { opacity_animation_.target(isVisible(), true); }
@@ -174,13 +174,12 @@ namespace visage {
 
   private:
     PopupMenu menu_;
-    std::unique_ptr<PopupMenuFrame> self_;
     Frame* parent_ = nullptr;
+    bool done_ = false;
     Animation<float> opacity_animation_;
     PopupList lists_[kMaxSubMenus];
     int hover_index_ = -1;
     Font font_;
-    Frame* last_source_ = nullptr;
     PopupList* hover_list_ = nullptr;
 
     VISAGE_LEAK_CHECKER(PopupMenuFrame)
@@ -193,7 +192,7 @@ namespace visage {
     void draw(Canvas& canvas) override;
 
     void showDisplay(const String& text, Bounds bounds, Font::Justification justification);
-    void setFont(const Font font) { font_ = font; }
+    void setFont(const Font& font) { font_ = font; }
 
   private:
     Font font_;

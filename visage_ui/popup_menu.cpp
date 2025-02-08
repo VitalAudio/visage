@@ -39,9 +39,8 @@ namespace visage {
 
   void PopupMenu::show(Frame* source, Point position) {
     std::unique_ptr<PopupMenuFrame> frame = std::make_unique<PopupMenuFrame>(*this);
-    frame->show(source, position);
     PopupMenuFrame* frame_ptr = frame.get();
-    frame_ptr->ownSelf(std::move(frame));
+    frame_ptr->show(std::move(frame), source, position);
   }
 
   int PopupList::renderHeight() {
@@ -239,22 +238,16 @@ namespace visage {
 
     if (opacity_animation_.isAnimating())
       redraw();
-    else if (parent_ && !opacity_animation_.isTargeting()) {
-      stopTimer();
-      runOnEventThread([this] {
-        if (parent_)
-          parent_->removeChild(this);
-      });
-    }
+    else if (parent_ && !opacity_animation_.isTargeting())
+      exit();
   }
 
-  void PopupMenuFrame::show(Frame* source, Point point) {
+  void PopupMenuFrame::show(std::unique_ptr<PopupMenuFrame> self, Frame* source, Point point) {
     parent_ = source->topParentFrame();
-    parent_->addChild(this);
+    parent_->addChild(std::move(self));
 
     setOnTop(true);
     setBounds(parent_->bounds());
-    last_source_ = source;
 
     for (int i = 1; i < kMaxSubMenus; ++i)
       lists_[i].setVisible(false);
@@ -297,9 +290,14 @@ namespace visage {
     redraw();
   }
 
+  void PopupMenuFrame::exit() {
+    done_ = true;
+    startTimer(1);
+  }
+
   void PopupMenuFrame::hierarchyChanged() {
     if (parent() == nullptr)
-      self_.reset();
+      startTimer(1);
   }
 
   void PopupMenuFrame::focusChanged(bool is_focused, bool was_clicked) {
@@ -312,6 +310,11 @@ namespace visage {
   }
 
   void PopupMenuFrame::timerCallback() {
+    if (parent_ && done_) {
+      parent_->removeChild(this);
+      return;
+    }
+
     redraw();
     stopTimer();
 
@@ -343,10 +346,7 @@ namespace visage {
     else
       menu_.onCancel().callback();
 
-    if (parent_) {
-      parent_->removeChild(this);
-      parent_ = nullptr;
-    }
+    exit();
   }
 
   void PopupMenuFrame::subMenuSelected(const PopupMenu& option, int selection_y, PopupList* list) {
@@ -409,8 +409,7 @@ namespace visage {
       return;
 
     menu_.onCancel().callback();
-    if (parent_)
-      parent_->removeChild(this);
+    exit();
   }
 
   void ValueDisplay::showDisplay(const String& text, Bounds bounds, Font::Justification justification) {

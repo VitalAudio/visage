@@ -174,6 +174,8 @@ namespace visage {
     bool isDrawing() const { return drawing_; }
 
     void addChild(Frame* child, bool make_visible = true);
+    void addChild(Frame& child, bool make_visible = true) { addChild(&child, make_visible); }
+    void addChild(std::unique_ptr<Frame> child, bool make_visible = true);
     void removeChild(Frame* child);
     void removeAllChildren();
     int indexOfChild(const Frame* child) const;
@@ -345,9 +347,9 @@ namespace visage {
 
   private:
     void notifyHierarchyChanged() {
-      on_hierarchy_change_.callback();
       for (Frame* child : children_)
         child->notifyHierarchyChanged();
+      on_hierarchy_change_.callback();
     }
 
     void initChildren();
@@ -387,6 +389,7 @@ namespace visage {
     bool pass_mouse_events_to_children_ = true;
 
     std::vector<Frame*> children_;
+    std::map<Frame*, std::unique_ptr<Frame>> owned_children_;
     Frame* parent_ = nullptr;
     FrameEventHandler* event_handler_ = nullptr;
 
