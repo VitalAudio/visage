@@ -72,6 +72,8 @@ namespace visage {
 
     void createWindow();
     void closeWindow();
+    void setParentWindow(NSWindow* window);
+    void resetBackingScale();
 
     void* nativeHandle() const override { return (__bridge void*)view_; }
     void* initWindow() const override;
@@ -80,7 +82,7 @@ namespace visage {
     void windowContentsResized(int width, int height) override;
     void show() override;
     void showMaximized() override;
-    void hide() override;
+    void hide() final;
     bool isShowing() const override;
 
     void setWindowTitle(const std::string& title) override;

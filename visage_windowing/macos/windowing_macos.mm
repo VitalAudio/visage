@@ -590,6 +590,12 @@ namespace visage {
   [self checkRelativeMode];
 }
 
+- (void)viewDidChangeBackingProperties {
+  [super viewDidChangeBackingProperties];
+  if (self.visage_window)
+    self.visage_window->resetBackingScale();
+}
+
 - (void)viewWillMoveToWindow:(NSWindow*)new_window {
   [super viewWillMoveToWindow:new_window];
 
@@ -597,10 +603,9 @@ namespace visage {
     [new_window setAcceptsMouseMovedEvents:YES];
     [new_window setIgnoresMouseEvents:NO];
     [new_window makeFirstResponder:self];
-    if (self.visage_window) {
-      self.visage_window->setPixelScale([new_window backingScaleFactor]);
-      self.visage_window->setDpiScale([new_window backingScaleFactor]);
-    }
+    if (self.visage_window)
+      self.visage_window->setParentWindow(new_window);
+
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(windowOcclusionChanged:)
                                                  name:NSWindowDidChangeOcclusionStateNotification
@@ -835,14 +840,6 @@ namespace visage {
 
   WindowMac::WindowMac(int width, int height, void* parent_handle) : Window(width, height) {
     parent_view_ = (__bridge NSView*)parent_handle;
-
-    if (parent_view_.window) {
-      setPixelScale([parent_view_.window backingScaleFactor]);
-      setDpiScale([parent_view_.window backingScaleFactor]);
-      window_handle_ = parent_view_.window;
-      handleResized(std::round(width * pixelScale()), std::round(height * pixelScale()));
-    }
-
     CGRect view_frame = CGRectMake(0.0f, 0.0f, width / pixelScale(), height / pixelScale());
 
     view_ = [[VisageAppView alloc] initWithFrame:view_frame inWindow:this];
@@ -851,10 +848,6 @@ namespace visage {
     view_.allow_quit = false;
     [parent_view_ addSubview:view_];
 
-    if (window_handle_)
-      [window_handle_ makeFirstResponder:view_];
-
-    [NSApp activateIgnoringOtherApps:YES];
     NativeWindowLookup::instance().addWindow(this);
   }
 
@@ -909,6 +902,23 @@ namespace visage {
       [NSApp stop:nil];
   }
 
+  void WindowMac::setParentWindow(NSWindow* window) {
+    if (parent_view_ == nullptr)
+      return;
+
+    window_handle_ = window;
+    [window_handle_ makeFirstResponder:view_];
+    [NSApp activateIgnoringOtherApps:YES];
+    resetBackingScale();
+  }
+
+  void WindowMac::resetBackingScale() {
+    if (window_handle_) {
+      setPixelScale([window_handle_ backingScaleFactor]);
+      setDpiScale([window_handle_ backingScaleFactor]);
+    }
+  }
+
   void WindowMac::windowContentsResized(int width, int height) {
     NSRect frame = [window_handle_ frame];
     int x = frame.origin.x;
@@ -927,11 +937,7 @@ namespace visage {
   }
 
   void WindowMac::show() {
-    if (parent_view_ && parent_view_.window) {
-      [parent_view_.window makeKeyWindow];
-      [parent_view_.window makeKeyAndOrderFront:nil];
-    }
-    else {
+    if (parent_view_ == nullptr) {
       if (window_handle_ == nullptr)
         createWindow();
 
