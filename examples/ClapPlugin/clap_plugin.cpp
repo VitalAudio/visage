@@ -72,6 +72,7 @@ bool ClapPlugin::guiCreate(const char* api, bool is_floating) noexcept {
     return true;
 
   app_ = std::make_unique<visage::ApplicationWindow>();
+  app_->setWindowDimensions(80_vmin, 60_vmin);
 
   app_->onDraw() = [this](visage::Canvas& canvas) {
     canvas.setColor(0xff000066);
@@ -103,7 +104,7 @@ bool ClapPlugin::guiSetParent(const clap_window* window) noexcept {
   if (app_ == nullptr)
     return false;
 
-  app_->show(80_vmin, 60_vmin, window->ptr);
+  app_->show(window->ptr);
 
 #if __linux__
   if (_host.canUsePosixFdSupport() && app_->window() == nullptr) {
