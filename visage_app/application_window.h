@@ -47,6 +47,12 @@ namespace visage {
         window_->setWindowSize(width, height);
     }
 
+    void setWindowDimensions(const Dimension& width, const Dimension& height);
+    void setWindowDimensions(const Dimension& x, const Dimension& y, const Dimension& width,
+                             const Dimension& height);
+
+    void show();
+    void show(void* parent_window);
     void show(const Dimension& width, const Dimension& height, void* parent_window);
     void show(const Dimension& width, const Dimension& height);
     void show(const Dimension& x, const Dimension& y, const Dimension& width, const Dimension& height);
@@ -62,7 +68,7 @@ namespace visage {
     Point minWindowDimensions();
     Point maxWindowDimensions();
     virtual void adjustWindowDimensions(unsigned int* width, unsigned int* height,
-                                        bool horizontal_resize = true, bool vertical_resize = true);
+                                        bool horizontal_resize, bool vertical_resize);
 
     void runEventLoop();
 
@@ -70,6 +76,7 @@ namespace visage {
     void registerCallbacks();
     void showWindow(bool maximized);
 
+    Point initial_position_;
     Window::Decoration decoration_ = Window::Decoration::Native;
     CallbackList<void()> on_show_;
     CallbackList<void()> on_hide_;

@@ -54,8 +54,8 @@ namespace visage {
     VISAGE_ASSERT(isRunning());
 
     if (current_time - last_run_time_ >= ms_) {
-      timerCallback();
       last_run_time_ = current_time;
+      timerCallback();
       return true;
     }
 

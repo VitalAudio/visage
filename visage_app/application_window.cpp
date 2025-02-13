@@ -34,6 +34,29 @@ namespace visage {
     window_->onWindowContentsResized() = [this] { on_window_contents_resized_.callback(); };
   }
 
+  void ApplicationWindow::setWindowDimensions(const Dimension& width, const Dimension& height) {
+    Bounds bounds = computeWindowBounds(width, height);
+    setBounds({ 0, 0, bounds.width(), bounds.height() });
+    initial_position_ = bounds.topLeft();
+  }
+
+  void ApplicationWindow::setWindowDimensions(const Dimension& x, const Dimension& y,
+                                              const Dimension& width, const Dimension& height) {
+    Bounds bounds = computeWindowBounds(width, height);
+    setBounds({ 0, 0, bounds.width(), bounds.height() });
+    initial_position_ = bounds.topLeft();
+  }
+
+  void ApplicationWindow::show() {
+    show(Dimension::devicePixels(initial_position_.x), Dimension::devicePixels(initial_position_.y),
+         Dimension::devicePixels(width()), Dimension::devicePixels(height()));
+  }
+
+  void ApplicationWindow::show(void* parent_window) {
+    VISAGE_ASSERT(width() && height());
+    show(Dimension::devicePixels(width()), Dimension::devicePixels(height()), parent_window);
+  }
+
   void ApplicationWindow::show(const Dimension& width, const Dimension& height, void* parent_window) {
     removeFromWindow();
     window_ = createPluginWindow(width, height, parent_window);

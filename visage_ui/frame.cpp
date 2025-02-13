@@ -79,6 +79,11 @@ namespace visage {
     child->redraw();
   }
 
+  void Frame::addChild(std::unique_ptr<Frame> child, bool make_visible) {
+    addChild(child.get(), make_visible);
+    owned_children_[child.get()] = std::move(child);
+  }
+
   void Frame::removeChild(Frame* child) {
     VISAGE_ASSERT(child && child != this);
     if (child == nullptr)
@@ -88,6 +93,8 @@ namespace visage {
     child->notifyRemoveFromHierarchy();
     eraseChild(child);
     child->notifyHierarchyChanged();
+    if (owned_children_.count(child))
+      owned_children_.erase(child);
 
     computeLayout();
   }
@@ -96,6 +103,7 @@ namespace visage {
     while (!children_.empty())
       eraseChild(children_.back());
 
+    owned_children_.clear();
     computeLayout();
   }
 
