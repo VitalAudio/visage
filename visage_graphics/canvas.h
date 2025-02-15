@@ -400,8 +400,6 @@ namespace visage {
       region->setCanvas(this);
     }
 
-    void clearRegion(Region* region) { region->clear(); }
-
     void beginRegion(Region* region) {
       region->clear();
       saveState();
