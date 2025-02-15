@@ -104,8 +104,6 @@ namespace visage {
 
   class PackedFont {
   public:
-    static constexpr int kPadding = 2;
-
     PackedFont(int size, const unsigned char* data, int data_size) : size_(size), data_(data) {
       std::unique_ptr<TypeFace> face = std::make_unique<TypeFace>(size, data, data_size);
       std::unique_ptr<PackedGlyph[]> glyphs = std::make_unique<PackedGlyph[]>(face->numGlyphs());
