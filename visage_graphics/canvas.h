@@ -41,7 +41,7 @@ namespace visage {
       int x = 0;
       int y = 0;
       theme::OverrideId palette_override;
-      ColorGradient color;
+      Gradient color;
       ClampBounds clamp;
       BlendMode blend_mode = BlendMode::Alpha;
       Region* current_region = nullptr;
@@ -89,7 +89,7 @@ namespace visage {
 
     void setBlendMode(BlendMode blend_mode) { state_.blend_mode = blend_mode; }
     void setColor(unsigned int color) { state_.color = color; }
-    void setColor(const ColorGradient& color) { state_.color = color; }
+    void setColor(const Gradient& color) { state_.color = color; }
     void setColor(theme::ColorId color_id) { state_.color = color(color_id); }
 
     void setBlendedColor(theme::ColorId color_from, theme::ColorId color_to, float t) {
