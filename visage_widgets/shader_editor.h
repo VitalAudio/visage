@@ -82,7 +82,7 @@ namespace visage {
       case Backend::Glsl: return "120";
       case Backend::Vulkan: return "spirv";
       case Backend::Metal: return "metal";
-      case Backend::Dx11: return type == ShaderType::Vertex ? "vs_4_0 -O3" : "ps_4_0 -O3";
+      case Backend::Dx11: return type == ShaderType::Vertex ? "s_4_0 -O3" : "s_4_0 -O3";
       default: return "";
       }
     }

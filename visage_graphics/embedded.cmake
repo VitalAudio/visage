@@ -43,10 +43,8 @@ function(visage_embed_shaders project include_filename namespace original_shader
     get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
 
     set(SHADER_TYPE "v")
-    set(PROFILE_TYPE "v")
     if (${SHADER_NAME} MATCHES fs_*)
       set(SHADER_TYPE "f")
-      set(PROFILE_TYPE "p")
     endif()
 
     if (OPENGLES)
@@ -64,7 +62,7 @@ function(visage_embed_shaders project include_filename namespace original_shader
       list(APPEND SHADER_BINS ${DX_PATH})
       add_custom_command(
         OUTPUT ${DX_PATH}
-        COMMAND ${SHADERC} -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders -O3 -f ${SHADER} -o ${DX_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p ${PROFILE_TYPE}s_4_0
+        COMMAND ${SHADERC} -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders -O3 -f ${SHADER} -o ${DX_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p s_4_0
         DEPENDS ${SHADER}
       )
     endif()
