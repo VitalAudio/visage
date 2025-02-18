@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include "color.h"
+#include "gradient.h"
 #include "image.h"
 #include "text.h"
 
@@ -79,13 +79,15 @@ namespace visage {
   };
 
   struct BaseShape {
-    BaseShape(const void* batch_id, const ClampBounds& clamp, const ColorGradient& color, float x,
-              float y, float width, float height) :
-        batch_id(batch_id), clamp(clamp), color(color), x(x), y(y), width(width), height(height) { }
+    BaseShape(const void* batch_id, const ClampBounds& clamp, const PackedGradient* gradient,
+              GradientPosition gradient_position, float x, float y, float width, float height) :
+        batch_id(batch_id), clamp(clamp), gradient(gradient),
+        gradient_position(std::move(gradient_position)), x(x), y(y), width(width), height(height) { }
 
     const void* batch_id = nullptr;
     ClampBounds clamp;
-    ColorGradient color;
+    const PackedGradient* gradient;
+    GradientPosition gradient_position;
     float x = 0.0f;
     float y = 0.0f;
     float width = 0.0f;
@@ -126,28 +128,28 @@ namespace visage {
     float gradient_to_x = 1.0f;
     float gradient_to_y = 1.0f;
 
-    if (shape.color.interpolation_shape == ColorGradient::InterpolationShape::Horizontal) {
+    if (shape.gradient_position.shape == GradientPosition::InterpolationShape::Horizontal) {
       gradient_from_x = left;
       gradient_to_x = right;
     }
-    else if (shape.color.interpolation_shape == ColorGradient::InterpolationShape::Vertical) {
+    else if (shape.gradient_position.shape == GradientPosition::InterpolationShape::Vertical) {
       gradient_from_y = top;
       gradient_to_y = bottom;
     }
-    else if (shape.color.interpolation_shape == ColorGradient::InterpolationShape::PointsLinear) {
-      gradient_from_x = x_offset + shape.color.point_from.x;
-      gradient_from_y = y_offset + shape.color.point_from.y;
-      gradient_to_x = x_offset + shape.color.point_to.x;
-      gradient_to_y = y_offset + shape.color.point_to.y;
+    else if (shape.gradient_position.shape == GradientPosition::InterpolationShape::PointsLinear) {
+      gradient_from_x = x_offset + shape.gradient_position.point_from.x;
+      gradient_from_y = y_offset + shape.gradient_position.point_from.y;
+      gradient_to_x = x_offset + shape.gradient_position.point_to.x;
+      gradient_to_y = y_offset + shape.gradient_position.point_to.y;
     }
 
     for (int i = 0; i < kVerticesPerQuad; ++i) {
       vertices[i].dimension_x = shape.width;
       vertices[i].dimension_y = shape.height;
-      vertices[i].color1 = shape.color.color_from;
-      vertices[i].color2 = shape.color.color_to;
-      vertices[i].hdr1 = shape.color.hdr_from;
-      vertices[i].hdr2 = shape.color.hdr_to;
+      // vertices[i].color1 = shape.color.color_from;
+      // vertices[i].color2 = shape.color.color_to;
+      // vertices[i].hdr1 = shape.color.hdr_from;
+      // vertices[i].hdr2 = shape.color.hdr_to;
       vertices[i].gradient_from_x = gradient_from_x;
       vertices[i].gradient_from_y = gradient_from_y;
       vertices[i].gradient_to_x = gradient_to_x;
@@ -172,15 +174,16 @@ namespace visage {
   struct Shape : public BaseShape {
     typedef VertexType Vertex;
 
-    Shape(const void* batch_id, const ClampBounds& clamp, const ColorGradient& color, float x, float y,
-          float width, float height) : BaseShape(batch_id, clamp, color, x, y, width, height) { }
+    Shape(const void* batch_id, const ClampBounds& clamp, const PackedGradient* gradient,
+          GradientPosition gradient_position, float x, float y, float width, float height) :
+        BaseShape(batch_id, clamp, gradient, gradient_position, x, y, width, height) { }
   };
 
   template<typename VertexType = ShapeVertex>
   struct Primitive : public Shape<VertexType> {
-    Primitive(const void* batch_id, const ClampBounds& clamp, const ColorGradient& color, float x,
-              float y, float width, float height) :
-        Shape<VertexType>(batch_id, clamp, color, x, y, width, height) { }
+    Primitive(const void* batch_id, const ClampBounds& clamp, const PackedGradient* gradient,
+              GradientPosition gradient_position, float x, float y, float width, float height) :
+        Shape<VertexType>(batch_id, clamp, gradient, gradient_position, x, y, width, height) { }
 
     void setPrimitiveData(VertexType* vertices) const {
       float thick = thickness == kFullThickness ? (this->width + this->height) * pixel_width : thickness;
@@ -201,8 +204,9 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    Fill(const ClampBounds& clamp, const ColorGradient& color, float x, float y, float width,
-         float height) : Primitive(batchId(), clamp, color, x, y, width, height) { }
+    Fill(const ClampBounds& clamp, const PackedGradient* gradient,
+         GradientPosition gradient_position, float x, float y, float width, float height) :
+        Primitive(batchId(), clamp, gradient, gradient_position, x, y, width, height) { }
 
     void setVertexData(Vertex* vertices) const { setPrimitiveData(vertices); }
   };
@@ -212,8 +216,9 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    Rectangle(const ClampBounds& clamp, const ColorGradient& color, float x, float y, float width,
-              float height) : Primitive(batchId(), clamp, color, x, y, width, height) { }
+    Rectangle(const ClampBounds& clamp, const PackedGradient* gradient,
+              GradientPosition gradient_position, float x, float y, float width, float height) :
+        Primitive(batchId(), clamp, gradient, gradient_position, x, y, width, height) { }
 
     void setVertexData(Vertex* vertices) const { setPrimitiveData(vertices); }
   };
@@ -223,9 +228,11 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    RoundedRectangle(const ClampBounds& clamp, const ColorGradient& color, float x, float y,
-                     float width, float height, float rounding) :
-        Primitive(batchId(), clamp, color, x, y, width, height), rounding(rounding) { }
+    RoundedRectangle(const ClampBounds& clamp, const PackedGradient* gradient,
+                     GradientPosition gradient_position, float x, float y, float width,
+                     float height, float rounding) :
+        Primitive(batchId(), clamp, gradient, gradient_position, x, y, width, height),
+        rounding(rounding) { }
 
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
@@ -241,8 +248,9 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    Circle(const ClampBounds& clamp, const ColorGradient& color, float x, float y, float width) :
-        Primitive(batchId(), clamp, color, x, y, width, width) { }
+    Circle(const ClampBounds& clamp, const PackedGradient* gradient,
+           GradientPosition gradient_position, float x, float y, float width) :
+        Primitive(batchId(), clamp, gradient, gradient_position, x, y, width, width) { }
 
     void setVertexData(Vertex* vertices) const { setPrimitiveData(vertices); }
   };
@@ -252,9 +260,9 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    Squircle(const ClampBounds& clamp, const ColorGradient& color, float x, float y, float width,
-             float height, float power) :
-        Primitive(batchId(), clamp, color, x, y, width, height), power(power) { }
+    Squircle(const ClampBounds& clamp, const PackedGradient* gradient, GradientPosition gradient_position,
+             float x, float y, float width, float height, float power) :
+        Primitive(batchId(), clamp, gradient, gradient_position, x, y, width, height), power(power) { }
 
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
@@ -270,10 +278,11 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    FlatArc(const ClampBounds& clamp, const ColorGradient& color, float x, float y, float width,
-            float height, float thickness, float center_radians, float radians) :
-        Primitive(batchId(), clamp, color, x, y, width, height), center_radians(center_radians),
-        radians(radians) {
+    FlatArc(const ClampBounds& clamp, const PackedGradient* gradient,
+            GradientPosition gradient_position, float x, float y, float width, float height,
+            float thickness, float center_radians, float radians) :
+        Primitive(batchId(), clamp, gradient, gradient_position, x, y, width, height),
+        center_radians(center_radians), radians(radians) {
       this->thickness = thickness;
     }
 
@@ -294,10 +303,11 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    RoundedArc(const ClampBounds& clamp, const ColorGradient& color, float x, float y, float width,
-               float height, float thickness, float center_radians, float radians) :
-        Primitive(batchId(), clamp, color, x, y, width, height), center_radians(center_radians),
-        radians(radians) {
+    RoundedArc(const ClampBounds& clamp, const PackedGradient* gradient,
+               GradientPosition gradient_position, float x, float y, float width, float height,
+               float thickness, float center_radians, float radians) :
+        Primitive(batchId(), clamp, gradient, gradient_position, x, y, width, height),
+        center_radians(center_radians), radians(radians) {
       this->thickness = thickness;
     }
 
@@ -318,10 +328,11 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    FlatSegment(const ClampBounds& clamp, const ColorGradient& color, float x, float y, float width,
-                float height, float a_x, float a_y, float b_x, float b_y, float thickness,
-                float pixel_width) :
-        Primitive(batchId(), clamp, color, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x), b_y(b_y) {
+    FlatSegment(const ClampBounds& clamp, const PackedGradient* gradient,
+                GradientPosition gradient_position, float x, float y, float width, float height,
+                float a_x, float a_y, float b_x, float b_y, float thickness, float pixel_width) :
+        Primitive(batchId(), clamp, gradient, gradient_position, x, y, width, height), a_x(a_x),
+        a_y(a_y), b_x(b_x), b_y(b_y) {
       this->thickness = thickness;
       this->pixel_width = pixel_width;
     }
@@ -347,10 +358,11 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    RoundedSegment(const ClampBounds& clamp, const ColorGradient& color, float x, float y,
-                   float width, float height, float a_x, float a_y, float b_x, float b_y,
-                   float thickness, float pixel_width) :
-        Primitive(batchId(), clamp, color, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x), b_y(b_y) {
+    RoundedSegment(const ClampBounds& clamp, const PackedGradient* gradient,
+                   GradientPosition gradient_position, float x, float y, float width, float height,
+                   float a_x, float a_y, float b_x, float b_y, float thickness, float pixel_width) :
+        Primitive(batchId(), clamp, gradient, gradient_position, x, y, width, height), a_x(a_x),
+        a_y(a_y), b_x(b_x), b_y(b_y) {
       this->thickness = thickness;
       this->pixel_width = pixel_width;
     }
@@ -410,9 +422,10 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    Diamond(const ClampBounds& clamp, const ColorGradient& color, float x, float y, float width,
-            float height, float rounding) :
-        Primitive(batchId(), clamp, color, x, y, width, height), rounding(rounding) { }
+    Diamond(const ClampBounds& clamp, const PackedGradient* gradient, GradientPosition gradient_position,
+            float x, float y, float width, float height, float rounding) :
+        Primitive(batchId(), clamp, gradient, gradient_position, x, y, width, height),
+        rounding(rounding) { }
 
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
@@ -428,9 +441,10 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    Triangle(const ClampBounds& clamp, const ColorGradient& color, float x, float y, float width,
-             float height, Direction direction) :
-        Primitive(batchId(), clamp, color, x, y, width, height), direction(direction) { }
+    Triangle(const ClampBounds& clamp, const PackedGradient* gradient, GradientPosition gradient_position,
+             float x, float y, float width, float height, Direction direction) :
+        Primitive(batchId(), clamp, gradient, gradient_position, x, y, width, height),
+        direction(direction) { }
 
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
@@ -449,9 +463,11 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    ImageWrapper(const ClampBounds& clamp, const ColorGradient& color, float x, float y,
-                 float width, float height, const ImageFile& image, ImageGroup* image_group) :
-        Shape(image_group, clamp, color, x, y, width, height), image(image), image_group(image_group) {
+    ImageWrapper(const ClampBounds& clamp, const PackedGradient* gradient,
+                 GradientPosition gradient_position, float x, float y, float width, float height,
+                 const ImageFile& image, ImageGroup* image_group) :
+        Shape(image_group, clamp, gradient, gradient_position, x, y, width, height), image(image),
+        image_group(image_group) {
       Point dimensions = image_group->incrementImage(image);
       if (width == 0.0f && !image.svg) {
         this->width = dimensions.x;
@@ -486,9 +502,10 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    LineWrapper(const ClampBounds& clamp, const ColorGradient& color, float x, float y, float width,
-                float height, Line* line, float line_width) :
-        Shape(batchId(), clamp, color, x, y, width, height), line(line), line_width(line_width) { }
+    LineWrapper(const ClampBounds& clamp, const PackedGradient* gradient, GradientPosition gradient_position,
+                float x, float y, float width, float height, Line* line, float line_width) :
+        Shape(batchId(), clamp, gradient, gradient_position, x, y, width, height), line(line),
+        line_width(line_width) { }
 
     Line* line = nullptr;
     float line_width = 0.0f;
@@ -499,9 +516,11 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    LineFillWrapper(const ClampBounds& clamp, const ColorGradient& color, float x, float y,
-                    float width, float height, Line* line, float fill_center) :
-        Shape(batchId(), clamp, color, x, y, width, height), line(line), fill_center(fill_center) { }
+    LineFillWrapper(const ClampBounds& clamp, const PackedGradient* gradient,
+                    GradientPosition gradient_position, float x, float y, float width, float height,
+                    Line* line, float fill_center) :
+        Shape(batchId(), clamp, gradient, gradient_position, x, y, width, height), line(line),
+        fill_center(fill_center) { }
 
     Line* line = nullptr;
     float fill_center = 0.0f;
@@ -558,10 +577,10 @@ namespace visage {
   };
 
   struct TextBlock : Shape<TextureVertex> {
-    TextBlock(const ClampBounds& clamp, const ColorGradient& color, float x, float y, float width,
-              float height, Text* text, Direction direction) :
-        Shape(text->font().packedFont(), clamp, color, x, y, width, height), text(text),
-        direction(direction) {
+    TextBlock(const ClampBounds& clamp, const PackedGradient* gradient, GradientPosition gradient_position,
+              float x, float y, float width, float height, Text* text, Direction direction) :
+        Shape(text->font().packedFont(), clamp, gradient, gradient_position, x, y, width, height),
+        text(text), direction(direction) {
       quads = VectorPool<FontAtlasQuad>::instance().vector(text->text().length());
       this->clamp = clamp.clamp(x, y, width, height);
 
@@ -630,9 +649,10 @@ namespace visage {
   };
 
   struct ShaderWrapper : Shape<> {
-    ShaderWrapper(const ClampBounds& clamp, const ColorGradient& color, float x, float y,
-                  float width, float height, Shader* shader) :
-        Shape(shader, clamp, color, x, y, width, height), shader(shader) { }
+    ShaderWrapper(const ClampBounds& clamp, const PackedGradient* gradient,
+                  GradientPosition gradient_position, float x, float y, float width, float height,
+                  Shader* shader) :
+        Shape(shader, clamp, gradient, gradient_position, x, y, width, height), shader(shader) { }
 
     static void setVertexData(Vertex* vertices) { setCornerCoordinates(vertices); }
 
@@ -643,8 +663,9 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    SampleRegion(const ClampBounds& clamp, const ColorGradient& color, float x, float y,
-                 float width, float height, const Region* region, PostEffect* post_effect = nullptr);
+    SampleRegion(const ClampBounds& clamp, const PackedGradient* gradient,
+                 GradientPosition gradient_position, float x, float y, float width, float height,
+                 const Region* region, PostEffect* post_effect = nullptr);
 
     void setVertexData(Vertex* vertices) const;
 
