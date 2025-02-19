@@ -67,7 +67,7 @@ float sdQuadraticBezier(vec2 position, vec2 point1, vec2 point2, vec2 point3) {
   if (h >= 0.0) {
     h = sqrt(h);
     vec2 x = (vec2(h, -h) - q) / 2.0;
-    vec2 uv = sign(x) * pow(abs(x), vec2(1.0 / 3.0));
+    vec2 uv = sign(x) * pow(abs(x), 1.0 / 3.0);
     float t = uv.x + uv.y;
 
     t = clamp(t - kx, 0.0, 1.0);
