@@ -94,6 +94,7 @@ namespace visage {
   ApplicationEditor::~ApplicationEditor() {
     top_level_.setEventHandler(nullptr);
     top_level_.removeAllChildren();
+    region()->clear();
   }
 
   void ApplicationEditor::takeScreenshot(const std::string& filename) {

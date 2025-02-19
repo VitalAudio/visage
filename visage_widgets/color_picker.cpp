@@ -35,22 +35,22 @@ namespace visage {
     int bp_y = 2 * h / 3;
     int pr_y = 5 * h / 6;
 
-    canvas.setColor(VerticalGradient(0xffff0000, 0xffffff00));
+    canvas.setColor(Brush::vertical(0xffff0000, 0xffffff00));
     canvas.rectangle(0, 0, w, yg_y);
 
-    canvas.setColor(VerticalGradient(0xffffff00, 0xff00ff00));
+    canvas.setColor(Brush::vertical(0xffffff00, 0xff00ff00));
     canvas.rectangle(0, yg_y, w, gc_y - yg_y);
 
-    canvas.setColor(VerticalGradient(0xff00ff00, 0xff00ffff));
+    canvas.setColor(Brush::vertical(0xff00ff00, 0xff00ffff));
     canvas.rectangle(0, gc_y, w, cb_y - gc_y);
 
-    canvas.setColor(VerticalGradient(0xff00ffff, 0xff0000ff));
+    canvas.setColor(Brush::vertical(0xff00ffff, 0xff0000ff));
     canvas.rectangle(0, cb_y, w, bp_y - cb_y);
 
-    canvas.setColor(VerticalGradient(0xff0000ff, 0xffff00ff));
+    canvas.setColor(Brush::vertical(0xff0000ff, 0xffff00ff));
     canvas.rectangle(0, bp_y, w, pr_y - bp_y);
 
-    canvas.setColor(VerticalGradient(0xffff00ff, 0xffff0000));
+    canvas.setColor(Brush::vertical(0xffff00ff, 0xffff0000));
     canvas.rectangle(0, pr_y, w, h - pr_y);
 
     float y = h * hue_ / Color::kHueRange;
@@ -59,10 +59,10 @@ namespace visage {
   }
 
   void ValueSaturationEditor::draw(Canvas& canvas) {
-    canvas.setColor(HorizontalGradient(0xffffffff, hue_color_));
+    canvas.setColor(Brush::horizontal(0xffffffff, hue_color_));
     canvas.rectangle(0, 0, width(), height());
 
-    canvas.setColor(VerticalGradient(0x00000000, 0xff000000));
+    canvas.setColor(Brush::vertical(0x00000000, 0xff000000));
     canvas.rectangle(0, 0, width(), height());
 
     float x = width() * saturation_;

@@ -375,9 +375,9 @@ namespace visage {
     return scale * theme::ValueId::defaultValue(value_id);
   }
 
-  ColorGradient Frame::paletteColor(theme::ColorId color_id) const {
+  Brush Frame::paletteColor(theme::ColorId color_id) const {
     if (palette_) {
-      ColorGradient result;
+      Brush result;
       const Frame* frame = this;
       while (frame) {
         theme::OverrideId override_id = frame->palette_override_;
@@ -389,7 +389,7 @@ namespace visage {
         return result;
     }
 
-    return theme::ColorId::defaultColor(color_id);
+    return Brush::solid(theme::ColorId::defaultColor(color_id));
   }
 
   void Frame::addUndoableAction(std::unique_ptr<UndoableAction> action) const {

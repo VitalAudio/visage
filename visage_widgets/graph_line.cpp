@@ -73,7 +73,7 @@ namespace visage {
   }
 
   void GraphLine::drawFill(Canvas& canvas, theme::ColorId color_id) {
-    ColorGradient color = canvas.color(color_id);
+    Brush color = canvas.color(color_id);
     line_.fill_value_scale = canvas.value(LineFillBoost);
     canvas.setColor(color.withMultipliedAlpha(fill_alpha_mult_));
     canvas.lineFill(&line_, 0.0f, 0.0f, width(), height(), fillLocation());

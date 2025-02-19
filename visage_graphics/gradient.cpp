@@ -21,11 +21,19 @@
 
 #include "gradient.h"
 
+#include <bgfx/bgfx.h>
+
 namespace visage {
   struct GradientAtlasTexture {
     bgfx::TextureHandle color_handle = { bgfx::kInvalidHandle };
     bgfx::TextureHandle hdr_handle = { bgfx::kInvalidHandle };
   };
+
+  GradientAtlas::GradientAtlas() {
+    addGradient(Gradient(Color(0)));
+  }
+
+  GradientAtlas::~GradientAtlas() = default;
 
   void GradientAtlas::updateGradient(const PackedGradient* gradient) {
     int resolution = gradient->gradient.resolution();

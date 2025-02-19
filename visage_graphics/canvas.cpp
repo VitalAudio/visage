@@ -106,9 +106,9 @@ namespace visage {
     addToPackedLayer(region, to);
   }
 
-  ColorGradient Canvas::color(theme::ColorId color_id) {
+  Brush Canvas::color(theme::ColorId color_id) {
     if (palette_) {
-      ColorGradient result;
+      Brush result;
       theme::OverrideId last_check;
       for (auto it = state_memory_.rbegin(); it != state_memory_.rend(); ++it) {
         theme::OverrideId override_id = it->palette_override;
@@ -120,7 +120,7 @@ namespace visage {
         return result;
     }
 
-    return theme::ColorId::defaultColor(color_id);
+    return Brush::solid(theme::ColorId::defaultColor(color_id));
   }
 
   float Canvas::value(theme::ValueId value_id) {

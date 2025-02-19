@@ -33,6 +33,7 @@ namespace visage {
     friend class Canvas;
 
     Region() = default;
+    ~Region() { clear(); }
 
     SubmitBatch* submitBatchAtPosition(int position) const {
       return shape_batcher_.batchAtIndex(position);
@@ -103,6 +104,7 @@ namespace visage {
     void clear() {
       shape_batcher_.clear();
       text_store_.clear();
+      brushes_.clear();
     }
 
     void setupIntermediateRegion();
@@ -114,6 +116,10 @@ namespace visage {
     PostEffect* postEffect() const { return post_effect_; }
     bool needsLayer() const { return intermediate_region_.get(); }
     Region* intermediateRegion() const { return intermediate_region_.get(); }
+    const PackedBrush* addBrush(GradientAtlas* atlas, const Brush& brush) {
+      brushes_.push_back(std::make_unique<PackedBrush>(atlas, brush));
+      return brushes_.back().get();
+    }
 
   private:
     void setLayerIndex(int layer_index);
@@ -144,6 +150,7 @@ namespace visage {
     Region* parent_ = nullptr;
     PostEffect* post_effect_ = nullptr;
     ShapeBatcher shape_batcher_;
+    std::vector<std::unique_ptr<PackedBrush>> brushes_;
     std::vector<std::unique_ptr<Text>> text_store_;
     std::vector<Region*> sub_regions_;
     std::unique_ptr<Region> intermediate_region_;

@@ -41,7 +41,7 @@ namespace visage {
       int x = 0;
       int y = 0;
       theme::OverrideId palette_override;
-      Gradient color;
+      const PackedBrush* brush = nullptr;
       ClampBounds clamp;
       BlendMode blend_mode = BlendMode::Alpha;
       Region* current_region = nullptr;
@@ -88,58 +88,62 @@ namespace visage {
     int frameCount() const { return render_frame_; }
 
     void setBlendMode(BlendMode blend_mode) { state_.blend_mode = blend_mode; }
-    void setColor(unsigned int color) { state_.color = color; }
-    void setColor(const Gradient& color) { state_.color = color; }
-    void setColor(theme::ColorId color_id) { state_.color = color(color_id); }
+    void setBrush(const Brush& brush) {
+      state_.brush = state_.current_region->addBrush(&gradient_atlas_, brush);
+    }
+    void setColor(const Brush& brush) { setBrush(brush); }
+    void setColor(unsigned int color) { setBrush(Brush::solid(color)); }
+    void setColor(const Color& color) { setBrush(Brush::solid(color)); }
+    void setColor(theme::ColorId color_id) { setBrush(color(color_id)); }
 
     void setBlendedColor(theme::ColorId color_from, theme::ColorId color_to, float t) {
-      state_.color = blendedColor(color_from, color_to, t);
+      setBrush(blendedColor(color_from, color_to, t));
     }
 
     void fill(float x, float y, float width, float height) {
-      addShape(Fill(state_.clamp.clamp(x, y, width, height), state_.color, state_.x + x,
+      addShape(Fill(state_.clamp.clamp(x, y, width, height), state_.brush, state_.x + x,
                     state_.y + y, width, height));
     }
 
     void circle(float x, float y, float width) {
-      addShape(Circle(state_.clamp, state_.color, state_.x + x, state_.y + y, width));
+      addShape(Circle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width));
     }
 
     void fadeCircle(float x, float y, float width, float fade) {
-      Circle circle(state_.clamp, state_.color, state_.x + x, state_.y + y, width);
+      Circle circle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width);
       circle.pixel_width = fade;
       addShape(circle);
     }
 
     void ring(float x, float y, float width, float thickness) {
-      Circle circle(state_.clamp, state_.color, state_.x + x, state_.y + y, width);
+      Circle circle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width);
       circle.thickness = thickness;
       addShape(circle);
     }
 
     void squircle(float x, float y, float width, float power) {
-      addShape(Squircle(state_.clamp, state_.color, state_.x + x, state_.y + y, width, width, power));
+      addShape(Squircle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width, power));
     }
 
     void squircleBorder(float x, float y, float width, float power, float thickness) {
-      Squircle squircle(state_.clamp, state_.color, state_.x + x, state_.y + y, width, width, power);
+      Squircle squircle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width, power);
       squircle.thickness = thickness;
       addShape(squircle);
     }
 
     void superEllipse(float x, float y, float width, float height, float power) {
-      addShape(Squircle(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height, power));
+      addShape(Squircle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height, power));
     }
 
     void roundedArc(float x, float y, float width, float thickness, float center_radians,
                     float radians, float pixel_width = 1.0f) {
-      addShape(RoundedArc(state_.clamp, state_.color, state_.x + x, state_.y + y, width, width,
+      addShape(RoundedArc(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width,
                           thickness + 1.0f, center_radians, radians));
     }
 
     void flatArc(float x, float y, float width, float thickness, float center_radians,
                  float radians, float pixel_width = 1.0f) {
-      addShape(FlatArc(state_.clamp, state_.color, state_.x + x, state_.y + y, width, width,
+      addShape(FlatArc(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width,
                        thickness + 1.0f, center_radians, radians));
     }
 
@@ -154,7 +158,7 @@ namespace visage {
     void roundedArcShadow(float x, float y, float width, float thickness, float center_radians,
                           float radians, float shadow_width, bool rounded = false) {
       float full_width = width + 2.0f * shadow_width;
-      RoundedArc arc(state_.clamp, state_.color, state_.x + x - shadow_width,
+      RoundedArc arc(state_.clamp, state_.brush, state_.x + x - shadow_width,
                      state_.y + y - shadow_width, full_width, full_width,
                      thickness + 1.0f + 2.0f * shadow_width, center_radians, radians);
       arc.pixel_width = shadow_width;
@@ -164,7 +168,7 @@ namespace visage {
     void flatArcShadow(float x, float y, float width, float thickness, float center_radians,
                        float radians, float shadow_width, bool rounded = false) {
       float full_width = width + 2.0f * shadow_width;
-      FlatArc arc(state_.clamp, state_.color, state_.x + x - shadow_width,
+      FlatArc arc(state_.clamp, state_.brush, state_.x + x - shadow_width,
                   state_.y + y - shadow_width, full_width, full_width,
                   thickness + 1.0f + 2.0f * shadow_width, center_radians, radians);
       arc.pixel_width = shadow_width;
@@ -184,11 +188,11 @@ namespace visage {
       float y2 = 2.0f * (b_y - y) / height - 1.0f;
 
       if (rounded) {
-        addShape(RoundedSegment(state_.clamp, state_.color, state_.x + x, state_.y + y, width,
+        addShape(RoundedSegment(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
                                 height, x1, y1, x2, y2, thickness + 1.0f, pixel_width));
       }
       else {
-        addShape(FlatSegment(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height,
+        addShape(FlatSegment(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height,
                              x1, y1, x2, y2, thickness + 1.0f, pixel_width));
       }
     }
@@ -221,29 +225,29 @@ namespace visage {
     }
 
     void rectangle(float x, float y, float width, float height) {
-      addShape(Rectangle(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height));
+      addShape(Rectangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height));
     }
 
     void rectangleBorder(float x, float y, float width, float height, float thickness) {
-      Rectangle border(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height);
+      Rectangle border(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height);
       border.thickness = thickness + 1.0f;
       addShape(border);
     }
 
     void roundedRectangle(float x, float y, float width, float height, float rounding) {
-      addShape(RoundedRectangle(state_.clamp, state_.color, state_.x + x, state_.y + y, width,
+      addShape(RoundedRectangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
                                 height, std::max(1.0f, rounding)));
     }
 
     void diamond(float x, float y, float width, float rounding) {
-      addShape(Diamond(state_.clamp, state_.color, state_.x + x, state_.y + y, width, width,
+      addShape(Diamond(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width,
                        std::max(1.0f, rounding)));
     }
 
     void leftRoundedRectangle(float x, float y, float width, float height, float rounding) {
       ClampBounds clamp = state_.clamp;
       clamp.right = std::min(clamp.right, state_.x + x + width);
-      addShape(RoundedRectangle(clamp, state_.color, state_.x + x, state_.y + y,
+      addShape(RoundedRectangle(clamp, state_.brush, state_.x + x, state_.y + y,
                                 width + rounding + 1.0f, height, std::max(1.0f, rounding)));
     }
 
@@ -251,14 +255,14 @@ namespace visage {
       ClampBounds clamp = state_.clamp;
       clamp.left = std::max(clamp.left, state_.x + x);
       float growth = rounding + 1.0f;
-      addShape(RoundedRectangle(clamp, state_.color, state_.x + x - growth, state_.y + y,
+      addShape(RoundedRectangle(clamp, state_.brush, state_.x + x - growth, state_.y + y,
                                 width + growth, height, std::max(1.0f, rounding)));
     }
 
     void topRoundedRectangle(float x, float y, float width, float height, float rounding) {
       ClampBounds clamp = state_.clamp;
       clamp.bottom = std::min(clamp.bottom, state_.y + y + height);
-      addShape(RoundedRectangle(clamp, state_.color, state_.x + x, state_.y + y, width,
+      addShape(RoundedRectangle(clamp, state_.brush, state_.x + x, state_.y + y, width,
                                 height + rounding + 1.0f, std::max(1.0f, rounding)));
     }
 
@@ -266,13 +270,13 @@ namespace visage {
       ClampBounds clamp = state_.clamp;
       clamp.top = std::max(clamp.top, state_.y + y);
       float growth = rounding + 1.0f;
-      addShape(RoundedRectangle(clamp, state_.color, state_.x + x, state_.y + y - growth, width,
+      addShape(RoundedRectangle(clamp, state_.brush, state_.x + x, state_.y + y - growth, width,
                                 height + growth, std::max(1.0f, rounding)));
     }
 
     void rectangleShadow(float x, float y, float width, float height, float blur_radius) {
       if (blur_radius > 0.0f) {
-        Rectangle rectangle(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height);
+        Rectangle rectangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height);
         rectangle.pixel_width = blur_radius;
         addShape(rectangle);
       }
@@ -288,7 +292,7 @@ namespace visage {
         rectangleShadow(state_.x + x + offset, state_.y + y + offset, width + blur_radius,
                         height + blur_radius, blur_radius);
       else {
-        RoundedRectangle shadow(state_.clamp, state_.color, state_.x + x + offset, state_.y + y + offset,
+        RoundedRectangle shadow(state_.clamp, state_.brush, state_.x + x + offset, state_.y + y + offset,
                                 width + blur_radius, height + blur_radius, rounding);
         shadow.pixel_width = blur_radius;
         addShape(shadow);
@@ -297,7 +301,7 @@ namespace visage {
 
     void fullRoundedRectangleBorder(float x, float y, float width, float height, float rounding,
                                     float thickness) {
-      RoundedRectangle border(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height,
+      RoundedRectangle border(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height,
                               rounding);
       border.thickness = thickness;
       addShape(border);
@@ -329,28 +333,28 @@ namespace visage {
     }
 
     void triangleLeft(float x, float y, float width) {
-      addShape(Triangle(state_.clamp, state_.color, state_.x + x, state_.y + y, width, width * 2.0f,
+      addShape(Triangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width * 2.0f,
                         Direction::Left));
     }
 
     void triangleRight(float x, float y, float width) {
-      addShape(Triangle(state_.clamp, state_.color, state_.x + x, state_.y + y, width, width * 2.0f,
+      addShape(Triangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width * 2.0f,
                         Direction::Right));
     }
 
     void triangleUp(float x, float y, float width) {
-      addShape(Triangle(state_.clamp, state_.color, state_.x + x, state_.y + y, width * 2.0f, width,
+      addShape(Triangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width * 2.0f, width,
                         Direction::Up));
     }
 
     void triangleDown(float x, float y, float width) {
-      addShape(Triangle(state_.clamp, state_.color, state_.x + x, state_.y + y, width * 2.0f, width,
+      addShape(Triangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width * 2.0f, width,
                         Direction::Down));
     }
 
     void text(Text* text, float x, float y, float width, float height, Direction dir = Direction::Up) {
       VISAGE_ASSERT(text->font().packedFont());
-      TextBlock text_block(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height,
+      TextBlock text_block(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height,
                            text, dir);
       addShape(std::move(text_block));
     }
@@ -364,7 +368,7 @@ namespace visage {
     }
 
     void svg(const Svg& svg, float x, float y) {
-      addShape(ImageWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y, svg.width,
+      addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, svg.width,
                             svg.height, svg, imageGroup()));
     }
 
@@ -378,7 +382,7 @@ namespace visage {
     }
 
     void image(const Image& image, float x, float y) {
-      addShape(ImageWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y, image.width,
+      addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, image.width,
                             image.height, image, imageGroup()));
     }
 
@@ -391,16 +395,16 @@ namespace visage {
     }
 
     void shader(Shader* shader, float x, float y, float width, float height) {
-      addShape(ShaderWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height, shader));
+      addShape(ShaderWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height, shader));
     }
 
     void line(Line* line, float x, float y, float width, float height, float line_width) {
-      addShape(LineWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y, width, height,
+      addShape(LineWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height,
                            line, line_width));
     }
 
     void lineFill(Line* line, float x, float y, float width, float height, float fill_position) {
-      addShape(LineFillWrapper(state_.clamp, state_.color, state_.x + x, state_.y + y, width,
+      addShape(LineFillWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
                                height, line, fill_position));
     }
 
@@ -428,7 +432,7 @@ namespace visage {
       state_.y = 0;
       state_.blend_mode = BlendMode::Alpha;
       setClampBounds(0, 0, region->width(), region->height());
-      state_.color = {};
+      state_.brush = {};
       state_.current_region = region;
     }
 
@@ -467,8 +471,8 @@ namespace visage {
     int x() const { return state_.x; }
     int y() const { return state_.y; }
 
-    ColorGradient color(theme::ColorId color_id);
-    ColorGradient blendedColor(theme::ColorId color_from, theme::ColorId color_to, float t) {
+    Brush color(theme::ColorId color_id);
+    Brush blendedColor(theme::ColorId color_from, theme::ColorId color_to, float t) {
       return color(color_from).interpolateWith(color(color_to), t);
     }
 
@@ -480,6 +484,8 @@ namespace visage {
         image_group_ = std::make_unique<ImageGroup>();
       return image_group_.get();
     }
+
+    GradientAtlas* gradientAtlas() { return &gradient_atlas_; }
 
     State* state() { return &state_; }
 
@@ -515,6 +521,7 @@ namespace visage {
     std::vector<State> state_memory_;
     State state_;
 
+    GradientAtlas gradient_atlas_;
     Region window_region_;
     Region default_region_;
     Layer composite_layer_;

@@ -337,7 +337,7 @@ namespace visage {
     void processTextInput(const std::string& text) { textInput(text); }
 
     float paletteValue(theme::ValueId value_id) const;
-    ColorGradient paletteColor(theme::ColorId color_id) const;
+    Brush paletteColor(theme::ColorId color_id) const;
 
     void addUndoableAction(std::unique_ptr<UndoableAction> action) const;
     void triggerUndo() const;
