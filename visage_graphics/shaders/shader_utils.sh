@@ -42,6 +42,49 @@ float sdSegment(vec2 position, vec2 point1, vec2 point2) {
   return length(position_delta - line_delta * t);
 }
 
+float cos_acos_3(float x) {
+  x = sqrt(0.5 + 0.5 * x);
+  return x * (x * (x * (x * -0.008972 + 0.039071) - 0.107074) + 0.576975) + 0.5;
+}
+
+float sdQuadraticBezier(vec2 position, vec2 point1, vec2 point2, vec2 point3) {
+  vec2 a = point2 - point1;
+  vec2 b = point1 - 2.0 * point2 + point3;
+  vec2 c = a * 2.0;
+  vec2 d = point1 - position;
+
+  float kk = 1.0 / dot(b, b);
+  float kx = kk * dot(a, b);
+  float ky = kk * (2.0 * dot(a, a) + dot(d, b)) / 3.0;
+  float kz = kk * dot(d, a);
+
+  float p = ky - kx * kx;
+  float q = kx * (2.0 * kx * kx - 3.0 * ky) + kz;
+  float p3 = p * p * p;
+  float q2 = q * q;
+  float h = q2 + 4.0 * p3;
+
+  if (h >= 0.0) {
+    h = sqrt(h);
+    vec2 x = (vec2(h, -h) - q) / 2.0;
+    vec2 uv = sign(x) * pow(abs(x), vec2(1.0 / 3.0));
+    float t = uv.x + uv.y;
+
+    t = clamp(t - kx, 0.0, 1.0);
+    return length(d + (c + b * t) * t);
+  }
+
+  float z = sqrt(-p);
+  float m = cos_acos_3(q / (p * z * 2.0));
+  float n = sqrt(3.0 - 3.0 * m * m);
+  vec3 t = clamp(vec3(m + m, -n - m, n - m) * z - kx, 0.0, 1.0);
+  vec2 qx = d + (c + b * t.x) * t.x;
+  float dx = dot(qx, qx);
+  vec2 qy = d + (c + b * t.y) * t.y;
+  float dy = dot(qy, qy);
+  return sqrt(min(dx, dy));
+}
+
 float sdFlatSegment(vec2 position, vec2 point1, vec2 point2, float thickness) {
   float size = length(point2 - point1);
   vec2 normalized_delta = (point2 - point1) / size;
@@ -134,6 +177,11 @@ float circle(vec2 coordinates, float width, float thickness, float fade) {
 
 float segment(vec2 coordinates, vec2 dimensions, vec2 point1, vec2 point2, float thickness) {
   float distance = abs(sdSegment(coordinates * dimensions, point1 * dimensions, point2 * dimensions)) - thickness;
+  return 1.0 - smoothed(-2.0, 0.0, distance);
+}
+
+float quadraticBezier(vec2 coordinates, vec2 dimensions, vec2 point1, vec2 point2, vec2 point3, float thickness) {
+  float distance = abs(sdQuadraticBezier(coordinates * dimensions, point1 * dimensions, point2 * dimensions, point3 * dimensions)) - thickness;
   return 1.0 - smoothed(-2.0, 0.0, distance);
 }
 

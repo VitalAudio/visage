@@ -44,6 +44,7 @@ namespace visage {
   VISAGE_SET_PROGRAM(RoundedArc, shaders::vs_arc, shaders::fs_rounded_arc)
   VISAGE_SET_PROGRAM(FlatSegment, shaders::vs_complex_shape, shaders::fs_flat_segment)
   VISAGE_SET_PROGRAM(RoundedSegment, shaders::vs_complex_shape, shaders::fs_rounded_segment)
+  VISAGE_SET_PROGRAM(QuadraticBezier, shaders::vs_complex_shape, shaders::fs_quadratic_bezier)
   VISAGE_SET_PROGRAM(Rotary, shaders::vs_rotary, shaders::fs_rolly_ball_rotary)
   VISAGE_SET_PROGRAM(Diamond, shaders::vs_shape, shaders::fs_diamond)
   VISAGE_SET_PROGRAM(ImageWrapper, shaders::vs_tinted_texture, shaders::fs_tinted_texture)

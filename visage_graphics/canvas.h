@@ -193,6 +193,27 @@ namespace visage {
       }
     }
 
+    void quadratic(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y,
+                   float thickness, float pixel_width = 1.0f) {
+      if (tryDrawCollinearQuadratic(a_x, a_y, b_x, b_y, c_x, c_y, thickness, pixel_width))
+        return;
+
+      float x = std::min(std::min(a_x, b_x), c_x) - thickness;
+      float width = std::max(std::max(a_x, b_x), c_x) + thickness - x;
+      float y = std::min(std::min(a_y, b_y), c_y) - thickness;
+      float height = std::max(std::max(a_y, b_y), c_y) + thickness - y;
+
+      float x1 = 2.0f * (a_x - x) / width - 1.0f;
+      float y1 = 2.0f * (a_y - y) / height - 1.0f;
+      float x2 = 2.0f * (b_x - x) / width - 1.0f;
+      float y2 = 2.0f * (b_y - y) / height - 1.0f;
+      float x3 = 2.0f * (c_x - x) / width - 1.0f;
+      float y3 = 2.0f * (c_y - y) / height - 1.0f;
+
+      addShape(QuadraticBezier(state_.clamp, state_.color, state_.x + x, state_.y + y, width,
+                               height, x1, y1, x2, y2, x3, y3, thickness + 1.0f, pixel_width));
+    }
+
     void rotary(float x, float y, float width, float value, float hover_amount, float arc_thickness,
                 const QuadColor& back_color, const QuadColor& thumb_color, bool bipolar = false) {
       addShape(Rotary(state_.clamp, state_.color, back_color, thumb_color, state_.x + x,
@@ -466,6 +487,21 @@ namespace visage {
     template<typename T>
     void addShape(T shape) {
       state_.current_region->shape_batcher_.addShape(std::move(shape), state_.blend_mode);
+    }
+
+    bool tryDrawCollinearQuadratic(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y,
+                                   float thickness, float pixel_width = 1.0f) {
+      static constexpr float kLinearThreshold = 0.01f;
+
+      float collinear_distance_x = a_x - 2.0f * b_x + c_x;
+      float collinear_distance_y = a_y - 2.0f * b_y + c_y;
+      if (collinear_distance_x > kLinearThreshold || collinear_distance_x < -kLinearThreshold ||
+          collinear_distance_y > kLinearThreshold || collinear_distance_y < -kLinearThreshold) {
+        return false;
+      }
+
+      segment(a_x, a_y, c_x, c_y, thickness, true, pixel_width);
+      return true;
     }
 
     Palette* palette_ = nullptr;
