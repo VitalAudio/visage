@@ -103,8 +103,8 @@ namespace visage {
     static constexpr float kTriangleWidthRatio = 0.25f;
     int dpi_scale = canvas.dpiScale();
 
-    ColorGradient background = canvas.color(PopupMenuBackground).withMultipliedAlpha(opacity_);
-    ColorGradient border = canvas.color(PopupMenuBorder).withMultipliedAlpha(opacity_);
+    Brush background = canvas.color(PopupMenuBackground).withMultipliedAlpha(opacity_);
+    Brush border = canvas.color(PopupMenuBorder).withMultipliedAlpha(opacity_);
     canvas.setColor(background);
     canvas.roundedRectangle(0, 0, width(), height(), 8 * dpi_scale);
 
@@ -117,15 +117,15 @@ namespace visage {
     int option_height = paletteValue(PopupOptionHeight);
     int y = selection_padding - yPosition();
 
-    ColorGradient text = canvas.color(PopupMenuText).withMultipliedAlpha(opacity_);
-    ColorGradient selected_text = canvas.color(PopupMenuSelectionText).withMultipliedAlpha(opacity_);
+    Brush text = canvas.color(PopupMenuText).withMultipliedAlpha(opacity_);
+    Brush selected_text = canvas.color(PopupMenuSelectionText).withMultipliedAlpha(opacity_);
     for (int i = 0; i < options_.size(); ++i) {
       if (y + option_height > 0 && y < height()) {
         if (options_[i].isBreak())
           canvas.rectangle(x_padding, y + option_height / 2, width() - 2 * x_padding, 1);
         else {
           if (i == hover_index_) {
-            ColorGradient selected = canvas.color(PopupMenuSelection).withMultipliedAlpha(opacity_);
+            Brush selected = canvas.color(PopupMenuSelection).withMultipliedAlpha(opacity_);
             canvas.setColor(selected);
             canvas.roundedRectangle(selection_padding, y, width() - 2 * selection_padding,
                                     option_height, 4 * dpi_scale);

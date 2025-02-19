@@ -51,7 +51,7 @@ namespace visage {
       int y = std::round(color_height * i) - color_position;
       int end_y = std::round(color_height * (i + 1) - kColorSpacing) - color_position;
 
-      canvas.setColor(colors[i].toGradient());
+      canvas.setColor(colors[i].toBrush());
       canvas.roundedRectangle(0, y, palette_width, end_y - y, 8);
       if (i == editing_) {
         canvas.setColor(0xffffffff);
@@ -105,7 +105,7 @@ namespace visage {
         for (theme::ColorId color_id : group.second) {
           y = kColorIdHeight * index;
 
-          ColorGradient matched_color;
+          Brush matched_color;
           if (palette_->color(current_override_id_, color_id, matched_color)) {
             canvas.setColor(matched_color);
             canvas.roundedRectangle(palette_width, y, id_width, kColorIdHeight, 8);
@@ -127,7 +127,7 @@ namespace visage {
 
     int dragging = dragging_;
     if (dragging >= 0 && dragging < colors.size()) {
-      canvas.setColor(colors[dragging].toGradient());
+      canvas.setBrush(colors[dragging].toBrush());
       canvas.circle(mouse_drag_x_ - 10, mouse_drag_y_ - 10, 20);
     }
   }

@@ -31,7 +31,7 @@ namespace visage {
   }
 
   void BarList::draw(Canvas& canvas) {
-    ColorGradient bar_color = canvas.color(BarColor);
+    Brush bar_color = canvas.color(BarColor);
 
     float width_scale = 1.0f / width();
     float height_scale = 1.0f / height();

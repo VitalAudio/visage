@@ -207,7 +207,6 @@ namespace visage {
 
   void Layer::clearInvalidRectAreas(int submit_pass) {
     ShapeBatch<Fill> clear_batch(BlendMode::Opaque);
-    ColorGradient color;
     std::vector<Bounds> invalid_rects;
     for (auto& region_invalid_rects : invalid_rects_) {
       for (const Bounds& rect : region_invalid_rects.second) {
@@ -216,7 +215,7 @@ namespace visage {
         float y = rect.y();
         float width = rect.width();
         float height = rect.height();
-        clear_batch.addShape(Fill({ x, y, x + width, y + height }, color, x, y, width, height));
+        clear_batch.addShape(Fill({ x, y, x + width, y + height }, nullptr, x, y, width, height));
       }
     }
 

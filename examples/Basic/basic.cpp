@@ -25,13 +25,13 @@ int runExample() {
   visage::ApplicationWindow app;
 
   app.onDraw() = [&app](visage::Canvas& canvas) {
-    canvas.setColor(0xff000066);
+    canvas.setColor(0xff006600);
     canvas.fill(0, 0, app.width(), app.height());
 
     float circle_radius = app.height() * 0.1f;
     float x = app.width() * 0.5f - circle_radius;
     float y = app.height() * 0.5f - circle_radius;
-    canvas.setColor(visage::VerticalGradient(0xffff00ff, 0xffffff00));
+    canvas.setColor(0xff00ff00);
     canvas.circle(x, y, 2.0f * circle_radius);
   };
 

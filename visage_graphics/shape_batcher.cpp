@@ -321,15 +321,6 @@ namespace visage {
       return;
 
     // TODO: fix colors
-    ColorGradient line_color = line_wrapper.color;
-    Color top_left_line = Color::fromABGR(line_color.color_from);
-    top_left_line.multRgb(line_color.hdr_from);
-    Color top_right_line = Color::fromABGR(line_color.color_from);
-    top_right_line.multRgb(line_color.hdr_from);
-    Color bottom_left_line = Color::fromABGR(line_color.color_from);
-    bottom_left_line.multRgb(line_color.hdr_from);
-    Color bottom_right_line = Color::fromABGR(line_color.color_from);
-    bottom_right_line.multRgb(line_color.hdr_from);
 
     float dimensions[4] = { line_wrapper.width, line_wrapper.height, 1.0f, 1.0f };
     float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
@@ -340,10 +331,6 @@ namespace visage {
 
     bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
     setUniform<Uniforms::kDimensions>(dimensions);
-    setUniform<Uniforms::kTopLeftColor>(&top_left_line);
-    setUniform<Uniforms::kTopRightColor>(&top_right_line);
-    setUniform<Uniforms::kBottomLeftColor>(&bottom_left_line);
-    setUniform<Uniforms::kBottomRightColor>(&bottom_right_line);
     setUniform<Uniforms::kTime>(time);
 
     float line_width[] = { line_wrapper.line_width * 2.0f, 0.0f, 0.0f, 0.0f };
@@ -392,15 +379,6 @@ namespace visage {
     float center[] = { 0.0f, fill_location, 0.0f, 0.0f };
 
     // TODO: fix colors
-    ColorGradient fill_color = line_fill_wrapper.color;
-    Color top_left_fill = Color::fromABGR(fill_color.color_from);
-    top_left_fill.multRgb(fill_color.hdr_from);
-    Color top_right_fill = Color::fromABGR(fill_color.color_from);
-    top_right_fill.multRgb(fill_color.hdr_from);
-    Color bottom_left_fill = Color::fromABGR(fill_color.color_from);
-    bottom_left_fill.multRgb(fill_color.hdr_from);
-    Color bottom_right_fill = Color::fromABGR(fill_color.color_from);
-    bottom_right_fill.multRgb(fill_color.hdr_from);
 
     bgfx::TransientVertexBuffer fill_vertex_buffer {};
     bgfx::allocTransientVertexBuffer(&fill_vertex_buffer, line->num_fill_vertices, LineVertex::layout());
@@ -408,11 +386,6 @@ namespace visage {
 
     bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
     setUniform<Uniforms::kDimensions>(dimensions);
-    setUniform<Uniforms::kTopLeftColor>(&top_left_fill);
-    setUniform<Uniforms::kTopRightColor>(&top_right_fill);
-    setUniform<Uniforms::kBottomLeftColor>(&bottom_left_fill);
-    setUniform<Uniforms::kBottomRightColor>(&bottom_right_fill);
-    setUniform<Uniforms::kBottomRightColor>(&bottom_right_fill);
     setUniform<Uniforms::kTime>(time);
     setUniform<Uniforms::kCenterPosition>(center);
 
@@ -576,10 +549,19 @@ namespace visage {
               vertices[index].clamp_bottom = positioned_clamp.bottom;
               vertices[index].direction_x = direction_x;
               vertices[index].direction_y = direction_y;
-              vertices[index].color1 = text_block.color.color_from;
-              vertices[index].color2 = text_block.color.color_to;
-              vertices[index].hdr1 = text_block.color.hdr_from;
-              vertices[index].hdr2 = text_block.color.hdr_to;
+              // TODO
+              // vertices[index].gradient_color_from_x = text_block.brush->gradient()->x;
+              // vertices[index].gradient_color_from_y = text_block.brush->gradient()->y;
+              // vertices[index].gradient_color_to_x;
+              // vertices[index].gradient_color_to_y;
+              // vertices[index].gradient_position_from_x;
+              // vertices[index].gradient_position_from_y;
+              // vertices[index].gradient_position_to_x;
+              // vertices[index].gradient_position_to_y;
+              // vertices[index].color1 = text_block.color.color_from;
+              // vertices[index].color2 = text_block.color.color_to;
+              // vertices[index].hdr1 = text_block.color.hdr_from;
+              // vertices[index].hdr2 = text_block.color.hdr_to;
             }
 
             vertex_index += kVerticesPerQuad;

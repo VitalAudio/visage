@@ -84,7 +84,7 @@ namespace visage {
       }
 
       colors_[color.second] = EditColor(color.first);
-      computed_colors_[color.second] = colors_[color.second].toGradient();
+      computed_colors_[color.second] = colors_[color.second].toBrush();
     }
 
     sortColors();
@@ -111,7 +111,7 @@ namespace visage {
     std::vector<int> color_movement(colors_.size());
     for (int i = 0; i < colors_.size(); ++i) {
       colors_[i] = sorted[i].first;
-      computed_colors_[i] = sorted[i].first.toGradient();
+      computed_colors_[i] = sorted[i].first.toBrush();
       color_movement[sorted[i].second] = i;
     }
 
@@ -248,9 +248,7 @@ namespace visage {
       colors_[i].decode(stream);
     }
 
-    for (int i = 0; i < num_colors; ++i) {
-      computed_colors_.push_back({});
-      computed_colors_[i] = colors_[i].toGradient();
-    }
+    for (int i = 0; i < num_colors; ++i)
+      computed_colors_.push_back(colors_[i].toBrush());
   }
 }
