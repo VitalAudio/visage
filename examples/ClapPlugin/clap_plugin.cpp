@@ -97,6 +97,7 @@ void ClapPlugin::guiDestroy() noexcept {
   if (app_ && app_->window() && _host.canUsePosixFdSupport())
     _host.posixFdSupportUnregister(app_->window()->posixFd());
 #endif
+  
   app_->close();
 }
 
@@ -107,7 +108,7 @@ bool ClapPlugin::guiSetParent(const clap_window* window) noexcept {
   app_->show(window->ptr);
 
 #if __linux__
-  if (_host.canUsePosixFdSupport() && app_->window() == nullptr) {
+  if (_host.canUsePosixFdSupport() && app_->window()) {
     int fd_flags = CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE | CLAP_POSIX_FD_ERROR;
     return _host.posixFdSupportRegister(app_->window()->posixFd(), fd_flags);
   }
