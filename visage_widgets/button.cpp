@@ -144,8 +144,8 @@ namespace visage {
   }
 
   void IconButton::draw(Canvas& canvas, float hover_amount) {
-    int x = getIconX();
-    int y = getIconY();
+    int x = iconX();
+    int y = iconY();
 
     if (shadow_.blur_radius) {
       canvas.setColor(ButtonShadow);
@@ -174,8 +174,8 @@ namespace visage {
   }
 
   void ToggleIconButton::draw(Canvas& canvas, float hover_amount) {
-    int x = getIconX();
-    int y = getIconY();
+    int x = iconX();
+    int y = iconY();
     if (shadow_.blur_radius) {
       canvas.setColor(ButtonShadow);
       canvas.svg(shadow_, x, y);
