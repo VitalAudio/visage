@@ -31,11 +31,16 @@ namespace visage {
 
   GradientAtlas::GradientAtlas() {
     addGradient(Gradient(Color(0)));
+    addGradient(Gradient(Color(0xffffffff)));
+    addGradient(Gradient(Color(0xff000000)));
   }
 
   GradientAtlas::~GradientAtlas() = default;
 
   void GradientAtlas::updateGradient(const PackedGradient* gradient) {
+    if (texture_ == nullptr || !bgfx::isValid(texture_->color_handle))
+      return;
+
     int resolution = gradient->gradient.resolution();
     bgfx::updateTexture2D(texture_->color_handle, 0, 0, gradient->x, gradient->y, resolution, 1,
                           bgfx::copy(gradient->gradient.colors().data(), resolution * 4));
@@ -48,10 +53,10 @@ namespace visage {
       texture_ = std::make_unique<GradientAtlasTexture>();
 
     if (!bgfx::isValid(texture_->color_handle)) {
-      texture_->color_handle = bgfx::createTexture2D(atlas_.width(), atlas_.height(), false, 1,
-                                                     bgfx::TextureFormat::BGRA8);
-      texture_->hdr_handle = bgfx::createTexture2D(atlas_.width(), atlas_.height(), false, 1,
-                                                   bgfx::TextureFormat::R32F);
+      texture_->color_handle = bgfx::createTexture2D(atlas_.width(), atlas_.height() + 1, false, 1,
+                                                     bgfx::TextureFormat::BGRA8, BGFX_SAMPLER_UVW_CLAMP);
+      texture_->hdr_handle = bgfx::createTexture2D(atlas_.width(), atlas_.height() + 1, false, 1,
+                                                   bgfx::TextureFormat::R32F, BGFX_SAMPLER_UVW_CLAMP);
 
       for (auto& gradient : gradients_)
         updateGradient(gradient.second.get());

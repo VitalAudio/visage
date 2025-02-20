@@ -430,9 +430,9 @@ namespace visage {
       saveState();
       state_.x = 0;
       state_.y = 0;
+      state_.brush = nullptr;
       state_.blend_mode = BlendMode::Alpha;
       setClampBounds(0, 0, region->width(), region->height());
-      state_.brush = {};
       state_.current_region = region;
     }
 

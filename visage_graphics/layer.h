@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "gradient.h"
 #include "graphics_utils.h"
 #include "visage_utils/space.h"
 
@@ -32,7 +33,7 @@ namespace visage {
   public:
     static constexpr int kInvalidRectMemory = 2;
 
-    Layer();
+    Layer(GradientAtlas* gradient_atlas);
     ~Layer();
 
     void checkFrameBuffer();
@@ -40,6 +41,8 @@ namespace visage {
 
     bgfx::FrameBufferHandle& frameBuffer() const;
     int frameBufferFormat() const;
+
+    GradientAtlas* gradientAtlas() const { return gradient_atlas_; }
 
     void clearInvalidRectAreas(int submit_pass);
     int submit(int submit_pass);
@@ -115,6 +118,7 @@ namespace visage {
     bool intermediate_layer_ = false;
 
     void* window_handle_ = nullptr;
+    GradientAtlas* gradient_atlas_ = nullptr;
     std::unique_ptr<FrameBufferData> frame_buffer_data_;
     PackedAtlas<const Region*> atlas_;
     std::map<const Region*, std::vector<Bounds>> invalid_rects_;

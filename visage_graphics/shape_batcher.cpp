@@ -21,7 +21,6 @@
 
 #include "shape_batcher.h"
 
-#include "canvas.h"
 #include "embedded/shaders.h"
 #include "font.h"
 #include "graphics_caches.h"
@@ -311,6 +310,8 @@ namespace visage {
     setUniformDimensions(layer.width(), layer.height());
     setColorMult(layer.hdr());
     setOriginFlipUniform(layer.bottomLeftOrigin());
+    GradientAtlas* gradient_atlas = layer.gradientAtlas();
+    setTexture<Uniforms::kGradient>(0, gradient_atlas->colorTextureHandle());
     bgfx::submit(submit_pass, ProgramCache::programHandle(vertex_shader, fragment_shader));
   }
 
@@ -508,6 +509,12 @@ namespace visage {
             coordinate_index3 = 2;
           }
 
+          PackedBrush::setVertexGradientPositions(text_block.brush, vertices + vertex_index,
+                                                  length * kVerticesPerQuad, batch.x, batch.y,
+                                                  text_block.x, text_block.y,
+                                                  text_block.x + text_block.width,
+                                                  text_block.y + text_block.height);
+
           for (int i = 0; i < length; ++i) {
             if (!overlaps(text_block.quads[i]))
               continue;
@@ -522,7 +529,6 @@ namespace visage {
             float texture_width = text_block.quads[i].packed_glyph->width;
             float texture_height = text_block.quads[i].packed_glyph->height;
 
-            // TODO fix colors
             vertices[vertex_index].x = left;
             vertices[vertex_index].y = top;
             vertices[vertex_index + 1].x = right;
@@ -547,21 +553,10 @@ namespace visage {
               vertices[index].clamp_top = positioned_clamp.top;
               vertices[index].clamp_right = positioned_clamp.right;
               vertices[index].clamp_bottom = positioned_clamp.bottom;
-              vertices[index].direction_x = direction_x;
+              vertices[index].dimension_x = direction_x;
+              vertices[index].dimension_y = 0.0f;
+              vertices[index].direction_x = 0.0f;
               vertices[index].direction_y = direction_y;
-              // TODO
-              // vertices[index].gradient_color_from_x = text_block.brush->gradient()->x;
-              // vertices[index].gradient_color_from_y = text_block.brush->gradient()->y;
-              // vertices[index].gradient_color_to_x;
-              // vertices[index].gradient_color_to_y;
-              // vertices[index].gradient_position_from_x;
-              // vertices[index].gradient_position_from_y;
-              // vertices[index].gradient_position_to_x;
-              // vertices[index].gradient_position_to_y;
-              // vertices[index].color1 = text_block.color.color_from;
-              // vertices[index].color2 = text_block.color.color_to;
-              // vertices[index].hdr1 = text_block.color.hdr_from;
-              // vertices[index].hdr2 = text_block.color.hdr_to;
             }
 
             vertex_index += kVerticesPerQuad;
@@ -574,7 +569,9 @@ namespace visage {
 
     float atlas_scale_uniform[] = { 1.0f / font.atlasWidth(), 1.0f / font.atlasHeight(), 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale_uniform);
-    setTexture<Uniforms::kTexture>(0, font.textureHandle());
+    GradientAtlas* gradient_atlas = layer.gradientAtlas();
+    setTexture<Uniforms::kGradient>(0, gradient_atlas->colorTextureHandle());
+    setTexture<Uniforms::kTexture>(1, font.textureHandle());
     setUniformDimensions(layer.width(), layer.height());
     setColorMult(layer.hdr());
     bgfx::submit(submit_pass,

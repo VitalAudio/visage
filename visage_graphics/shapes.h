@@ -127,15 +127,6 @@ namespace visage {
     for (int i = 0; i < kVerticesPerQuad; ++i) {
       vertices[i].dimension_x = shape.width;
       vertices[i].dimension_y = shape.height;
-      // TODO
-      // vertices[i].color1 = shape.color.color_from;
-      // vertices[i].color2 = shape.color.color_to;
-      // vertices[i].hdr1 = shape.color.hdr_from;
-      // vertices[i].hdr2 = shape.color.hdr_to;
-      // vertices[i].gradient_from_x = gradient_from_x;
-      // vertices[i].gradient_from_y = gradient_from_y;
-      // vertices[i].gradient_to_x = gradient_to_x;
-      // vertices[i].gradient_to_y = gradient_to_y;
       vertices[i].clamp_left = clamp.left;
       vertices[i].clamp_top = clamp.top;
       vertices[i].clamp_right = clamp.right;

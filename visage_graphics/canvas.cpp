@@ -27,7 +27,7 @@
 #include <bgfx/bgfx.h>
 
 namespace visage {
-  Canvas::Canvas() {
+  Canvas::Canvas() : composite_layer_(&gradient_atlas_) {
     state_.current_region = &default_region_;
     layers_.push_back(&composite_layer_);
     composite_layer_.addRegion(&window_region_);
@@ -64,6 +64,7 @@ namespace visage {
       render_frame_++;
       bgfx::frame();
       FontCache::clearStaleFonts();
+      gradient_atlas_.clearStaleGradients();
     }
     return submission;
   }
@@ -75,7 +76,7 @@ namespace visage {
   void Canvas::ensureLayerExists(int layer) {
     int layers_to_add = layer + 1 - layers_.size();
     for (int i = 0; i < layers_to_add; ++i) {
-      intermediate_layers_.push_back(std::make_unique<Layer>());
+      intermediate_layers_.push_back(std::make_unique<Layer>(&gradient_atlas_));
       intermediate_layers_.back()->setIntermediateLayer(true);
       layers_.push_back(intermediate_layers_.back().get());
     }

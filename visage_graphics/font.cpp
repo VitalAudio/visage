@@ -202,7 +202,7 @@ namespace visage {
     void checkInit() {
       if (!bgfx::isValid(texture_handle_)) {
         texture_handle_ = bgfx::createTexture2D(atlas_.width(), atlas_.height(), false, 1,
-                                                bgfx::TextureFormat::BGRA8);
+                                                bgfx::TextureFormat::RGBA8);
 
         for (auto& glyph : packed_glyphs_)
           rasterizeGlyph(glyph.first, &glyph.second);
