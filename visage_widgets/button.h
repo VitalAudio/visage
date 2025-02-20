@@ -144,9 +144,9 @@ namespace visage {
       setIconSizes();
     }
 
-    int getMargin() const { return std::min(width(), height()) * margin_ratio_; }
-    int getIconX() const { return getMargin() + std::max(0, width() - height()) / 2; }
-    int getIconY() const { return getMargin() + std::max(0, height() - width()) / 2; }
+    int margin() const { return std::min(width(), height()) * margin_ratio_; }
+    int iconX() const { return margin() + std::max(0, width() - height()) / 2; }
+    int iconY() const { return margin() + std::max(0, height() - width()) / 2; }
 
     void setIconSizes() {
       int margin = std::min(width(), height()) * margin_ratio_;
