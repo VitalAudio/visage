@@ -20,7 +20,7 @@ endfunction()
 set(FILE_CONTENTS "// Generated file, do not edit\n")
 set(FILE_CONTENTS "${FILE_CONTENTS}#include \"${INCLUDE_FILE}\"\n")
 set(FILE_CONTENTS "${FILE_CONTENTS}namespace ${VAR_NAMESPACE} {\n")
-set(FILE_CONTENTS "${FILE_CONTENTS}  ::visage::EmbeddedFile getFileByName(const std::string& filename) {\n")
+set(FILE_CONTENTS "${FILE_CONTENTS}  ::visage::EmbeddedFile fileByName(const std::string& filename) {\n")
 
 foreach (FILE ${FILE_LIST})
   string(REGEX MATCH "([^/]+)$" VAR_NAME ${FILE})
