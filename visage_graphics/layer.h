@@ -119,6 +119,7 @@ namespace visage {
 
     void* window_handle_ = nullptr;
     GradientAtlas* gradient_atlas_ = nullptr;
+    std::unique_ptr<const PackedBrush> clear_brush_;
     std::unique_ptr<FrameBufferData> frame_buffer_data_;
     PackedAtlas<const Region*> atlas_;
     std::map<const Region*, std::vector<Bounds>> invalid_rects_;
