@@ -97,7 +97,7 @@ void ClapPlugin::guiDestroy() noexcept {
   if (app_ && app_->window() && _host.canUsePosixFdSupport())
     _host.posixFdSupportUnregister(app_->window()->posixFd());
 #endif
-  
+
   app_->close();
 }
 
