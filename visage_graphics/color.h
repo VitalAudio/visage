@@ -31,9 +31,9 @@ namespace visage {
   class Color {
   public:
     enum {
-      kRed,
-      kGreen,
       kBlue,
+      kGreen,
+      kRed,
       kAlpha,
       kNumChannels
     };
@@ -41,27 +41,11 @@ namespace visage {
     static constexpr float kFloatScale = 1.0f / 0xff;
     static constexpr float kHueRange = 360.0f;
 
-    static unsigned int floatToHex(float value) {
-      return std::round(std::max(0.0f, std::min(1.0f, value)) * 0xff);
-    }
-
-    static char hexCharacter(int value) {
-      if (value < 10)
-        return '0' + value;
-      return 'A' + value - 10;
-    }
-
-    static std::string floatToHexString(float value) {
-      unsigned int hex_value = floatToHex(value);
-      char first_digit = hexCharacter(hex_value & 0xf);
-      char second_digit = hexCharacter(hex_value >> 4);
-      return std::string(1, second_digit) + std::string(1, first_digit);
-    }
-
     static Color fromAHSV(float alpha, float hue, float saturation, float value) {
       static constexpr float kHueCutoff = kHueRange / 6.0f;
       Color result;
 
+      hue = std::fmod(hue, kHueRange);
       result.values_[kAlpha] = alpha;
       float range = value * saturation;
       float minimum = value - range;
@@ -115,7 +99,7 @@ namespace visage {
 
       std::string hex = color_string[0] == '#' ? color_string.substr(1) : color_string;
 
-      if (color_string.size() <= 8) {
+      if (hex.size() < 8) {
         unsigned int value = std::stoul(hex, nullptr, 16);
         return value | 0xff000000;
       }
@@ -137,23 +121,15 @@ namespace visage {
       hdr_ = hdr;
     }
 
-    void loadABGR(unsigned int abgr) {
+    void loadARGB(unsigned int abgr) {
       for (int i = 0; i < kNumChannels; ++i) {
         int shift = kBitsPerColor * i;
         values_[i] = ((abgr >> shift) & 0xff) * kFloatScale;
       }
     }
 
-    void loadARGB(unsigned int argb) {
-      loadABGR(argb);
-      std::swap(values_[kBlue], values_[kRed]);
-    }
-
-    void loadRGB(unsigned int rgb) {
-      for (int i = 0; i < kAlpha; ++i) {
-        int shift = kBitsPerColor * i;
-        values_[i] = ((rgb >> shift) & 0xff) * kFloatScale;
-      }
+    void loadABGR(unsigned int argb) {
+      loadARGB(argb);
       std::swap(values_[kBlue], values_[kRed]);
     }
 
@@ -167,13 +143,10 @@ namespace visage {
     }
 
     unsigned int toABGR() const {
-      unsigned int value = 0;
-      for (int i = kNumChannels - 1; i >= 0; --i) {
-        value = value << kBitsPerColor;
-        int color_value = floatToHex(values_[i]);
-        value += color_value;
-      }
-      return value;
+      unsigned int value = floatToHex(values_[kAlpha]) << (3 * kBitsPerColor);
+      value += floatToHex(values_[kBlue]) << (2 * kBitsPerColor);
+      value += floatToHex(values_[kGreen]) << kBitsPerColor;
+      return value + floatToHex(values_[kRed]);
     }
 
     unsigned int toARGB() const {
@@ -194,10 +167,6 @@ namespace visage {
     float green() const { return values_[kGreen]; }
     float blue() const { return values_[kBlue]; }
     float hdr() const { return hdr_; }
-
-    float minColor() const {
-      return std::min(values_[kRed], std::min(values_[kGreen], values_[kBlue]));
-    }
 
     float value() const {
       return std::max(values_[kRed], std::max(values_[kGreen], values_[kBlue]));
@@ -221,8 +190,12 @@ namespace visage {
       float color_range = kHueRange / 6.0f;
 
       if (values_[kRed] == max) {
-        if (values_[kGreen] == min)
-          return kHueRange - color_range * (values_[kBlue] - min) / range;
+        if (values_[kGreen] == min) {
+          float delta = color_range * (values_[kBlue] - min) / range;
+          if (delta == 0.0f)
+            return 0.0f;
+          return kHueRange - delta;
+        }
         return color_range * (values_[kGreen] - min) / range;
       }
       if (values_[kGreen] == max) {
@@ -246,15 +219,21 @@ namespace visage {
       return *this;
     }
     Color operator*(float mult) const {
-      return { values_[kAlpha] * mult, values_[kRed] * mult, values_[kGreen] * mult, values_[kBlue] * mult };
+      return { values_[kAlpha] * mult, values_[kRed] * mult, values_[kGreen] * mult,
+               values_[kBlue] * mult, hdr_ };
     }
     Color operator-(const Color& other) const {
       return { values_[kAlpha] - other.values_[kAlpha], values_[kRed] - other.values_[kRed],
-               values_[kGreen] - other.values_[kGreen], values_[kBlue] - other.values_[kBlue] };
+               values_[kGreen] - other.values_[kGreen], values_[kBlue] - other.values_[kBlue], hdr_ };
     }
     Color operator+(const Color& other) const {
       return { values_[kAlpha] + other.values_[kAlpha], values_[kRed] + other.values_[kRed],
-               values_[kGreen] + other.values_[kGreen], values_[kBlue] + other.values_[kBlue] };
+               values_[kGreen] + other.values_[kGreen], values_[kBlue] + other.values_[kBlue], hdr_ };
+    }
+    bool operator==(const Color& other) const {
+      return values_[kAlpha] == other.values_[kAlpha] && values_[kRed] == other.values_[kRed] &&
+             values_[kGreen] == other.values_[kGreen] && values_[kBlue] == other.values_[kBlue] &&
+             hdr_ == other.hdr_;
     }
 
     std::string encode() const;
@@ -285,6 +264,27 @@ namespace visage {
     }
 
   private:
+    static unsigned int floatToHex(float value) {
+      return std::round(std::max(0.0f, std::min(1.0f, value)) * 0xff);
+    }
+
+    static char hexCharacter(int value) {
+      if (value < 10)
+        return '0' + value;
+      return 'A' + value - 10;
+    }
+
+    static std::string floatToHexString(float value) {
+      unsigned int hex_value = floatToHex(value);
+      char first_digit = hexCharacter(hex_value & 0xf);
+      char second_digit = hexCharacter(hex_value >> 4);
+      return std::string(1, second_digit) + std::string(1, first_digit);
+    }
+
+    float minColor() const {
+      return std::min(values_[kRed], std::min(values_[kGreen], values_[kBlue]));
+    }
+
     float values_[kNumChannels] {};
     float hdr_ = 1.0f;
   };

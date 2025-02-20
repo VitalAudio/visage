@@ -55,7 +55,7 @@ namespace visage {
       bx::FileWriter writer;
       bx::Error error;
       if (bx::open(&writer, file_path, false, &error)) {
-        bimg::imageWritePng(&writer, width, height, pitch, data, bimg::TextureFormat::BGRA8, y_flip, &error);
+        bimg::imageWritePng(&writer, width, height, pitch, data, bimg::TextureFormat::RGBA8, y_flip, &error);
         bx::close(&writer);
       }
     }

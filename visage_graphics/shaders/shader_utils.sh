@@ -35,7 +35,7 @@ float sdRoundedDiamond(vec2 position, vec2 diamond, float rounding) {
   return min(max(offset.x, offset.y), 0.0) + length(max(offset, 0.0)) - rounding;
 }
 
-vec4 gradient(vec4 color_from, vec4 color_to, vec2 point_from, vec2 point_to, vec2 position) {
+vec2 gradient(vec2 color_from, vec2 color_to, vec2 point_from, vec2 point_to, vec2 position) {
   vec2 delta = point_to - point_from;
   float t = clamp(dot(position - point_from, delta) / dot(delta, delta), 0.0, 1.0);
   return mix(color_from, color_to, t);

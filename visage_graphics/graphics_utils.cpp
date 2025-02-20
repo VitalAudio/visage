@@ -346,13 +346,11 @@ namespace visage {
       initialized = true;
       layout.begin()
           .add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
-          .add(bgfx::Attrib::Color1, 4, bgfx::AttribType::Uint8, true)
-          .add(bgfx::Attrib::Color2, 2, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord2, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord3, 4, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::TexCoord4, 4, bgfx::AttribType::Float)
           .end();
     }
 
@@ -367,14 +365,13 @@ namespace visage {
       initialized = true;
       layout.begin()
           .add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
-          .add(bgfx::Attrib::Color1, 4, bgfx::AttribType::Uint8, true)
-          .add(bgfx::Attrib::Color2, 2, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord2, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord3, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord4, 4, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::TexCoord5, 4, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::TexCoord6, 4, bgfx::AttribType::Float)
           .end();
     }
 
@@ -389,12 +386,10 @@ namespace visage {
       initialized = true;
       layout.begin()
           .add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
-          .add(bgfx::Attrib::Color1, 4, bgfx::AttribType::Uint8, true)
-          .add(bgfx::Attrib::Color2, 2, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord2, 4, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::TexCoord3, 4, bgfx::AttribType::Float)
           .end();
     }
 
@@ -409,13 +404,11 @@ namespace visage {
       initialized = true;
       layout.begin()
           .add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
-          .add(bgfx::Attrib::Color1, 4, bgfx::AttribType::Uint8, true)
-          .add(bgfx::Attrib::Color2, 2, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord1, 2, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord2, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord3, 2, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::TexCoord2, 2, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::TexCoord3, 4, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::TexCoord4, 2, bgfx::AttribType::Float)
           .end();
     }
 

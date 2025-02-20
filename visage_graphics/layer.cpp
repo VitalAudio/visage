@@ -132,7 +132,7 @@ namespace visage {
     return next_batch;
   }
 
-  Layer::Layer() {
+  Layer::Layer(GradientAtlas* gradient_atlas) : gradient_atlas_(gradient_atlas) {
     frame_buffer_data_ = std::make_unique<FrameBufferData>();
   }
 

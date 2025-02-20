@@ -229,7 +229,7 @@ namespace visage {
     }
     else {
       bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image.data, image.data_size,
-                                                               bimg::TextureFormat::BGRA8);
+                                                               bimg::TextureFormat::RGBA8);
       if (image_container) {
         unsigned char* image_data = static_cast<unsigned char*>(image_container->m_data);
         if (image_container->m_width == packed_rect.w && image_container->m_height == packed_rect.h) {

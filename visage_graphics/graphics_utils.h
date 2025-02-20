@@ -278,6 +278,8 @@ namespace visage {
   struct TextureVertex {
     float x;
     float y;
+    float dimension_x;
+    float dimension_y;
     float gradient_color_from_x;
     float gradient_color_from_y;
     float gradient_color_to_x;
@@ -286,8 +288,6 @@ namespace visage {
     float gradient_position_from_y;
     float gradient_position_to_x;
     float gradient_position_to_y;
-    float dimension_x;
-    float dimension_y;
     float texture_x;
     float texture_y;
     float direction_x;

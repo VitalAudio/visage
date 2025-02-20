@@ -60,12 +60,13 @@ namespace visage {
     Gradient() = default;
 
     Gradient(int resolution, const std::function<Color(float)>& sample_function) {
-      VISAGE_ASSERT(resolution > 1);
+      VISAGE_ASSERT(resolution > 0);
       colors_.reserve(resolution);
       hdrs_.reserve(resolution);
 
+      float normalization = 1.0f / std::max(1.0f, resolution - 1.0f);
       for (int i = 0; i < resolution; ++i) {
-        Color color = sample_function(i / (resolution - 1.0f));
+        Color color = sample_function(i * normalization);
         colors_.emplace_back(color.toARGB());
         hdrs_.emplace_back(color.hdr());
       }
@@ -134,10 +135,16 @@ namespace visage {
     ~GradientAtlas();
 
     const PackedGradient* addGradient(const Gradient& gradient) {
-      if (num_references_[gradient] == 0) {
-        gradients_[gradient] = std::make_unique<PackedGradient>(gradient);
-        if (!atlas_.addRect(gradients_[gradient].get(), gradient.resolution(), 1))
+      if (num_references_.count(gradient) == 0) {
+        std::unique_ptr<PackedGradient> packed_gradient = std::make_unique<PackedGradient>(gradient);
+        if (!atlas_.addRect(packed_gradient.get(), gradient.resolution(), 1))
           resize();
+
+        const PackedRect& rect = atlas_.rectForId(packed_gradient.get());
+        packed_gradient->x = rect.x;
+        packed_gradient->y = rect.y;
+        gradients_[gradient] = std::move(packed_gradient);
+        updateGradient(gradients_[gradient].get());
       }
       num_references_[gradient]++;
 
@@ -146,12 +153,18 @@ namespace visage {
 
     void removeGradient(const Gradient& gradient) {
       VISAGE_ASSERT(num_references_[gradient] > 0);
-
       num_references_[gradient]--;
-      if (num_references_[gradient] == 0) {
-        atlas_.removeRect(gradients_[gradient].get());
-        num_references_.erase(gradient);
-        gradients_.erase(gradient);
+    }
+
+    void clearStaleGradients() {
+      for (auto it = gradients_.begin(); it != gradients_.end();) {
+        if (num_references_[it->first] == 0) {
+          atlas_.removeRect(it->second.get());
+          num_references_.erase(it->first);
+          it = gradients_.erase(it);
+        }
+        else
+          ++it;
       }
     }
 
@@ -191,7 +204,6 @@ namespace visage {
       Horizontal,
       Vertical,
       PointsLinear,
-      PointsRadial
     };
 
     GradientPosition() = default;
@@ -199,10 +211,6 @@ namespace visage {
 
     GradientPosition(FloatPoint from, FloatPoint to) :
         shape(InterpolationShape::PointsLinear), point_from(from), point_to(to) { }
-
-    GradientPosition(FloatPoint center, float start_radius, float end_radius) :
-        shape(InterpolationShape::PointsRadial), point_from(center),
-        point_to(start_radius, end_radius) { }
 
     InterpolationShape shape = InterpolationShape::Solid;
     FloatPoint point_from;
@@ -244,15 +252,6 @@ namespace visage {
       return linear(Gradient(from_color, to_color), from_position, to_position);
     }
 
-    static Brush radial(Gradient gradient, const FloatPoint& center, float from_radius, float to_radius) {
-      return Brush(std::move(gradient), GradientPosition(center, from_radius, to_radius));
-    }
-
-    static Brush radial(const Color& from_color, const Color& to_color, const FloatPoint& center,
-                        float from_radius, float to_radius) {
-      return radial(Gradient(from_color, to_color), center, from_radius, to_radius);
-    }
-
     static Brush interpolate(const Brush& from, const Brush& to, float t) {
       VISAGE_ASSERT(from.position_.shape == to.position_.shape);
       return Brush(from.gradient_.interpolateWith(to.gradient_, t),
@@ -288,9 +287,9 @@ namespace visage {
       float gradient_position_from_y = 0.0f;
       float gradient_position_to_x = 0.0f;
       float gradient_position_to_y = 0.0f;
-      float gradient_color_from_x = -1.0f;
-      float gradient_color_to_x = -1.0f;
-      float gradient_color_y = -1.0f;
+      float gradient_color_from_x = 0.0f;
+      float gradient_color_to_x = 0.0f;
+      float gradient_color_y = 0.0f;
 
       if (brush) {
         if (brush->position_.shape == GradientPosition::InterpolationShape::Horizontal) {
@@ -308,11 +307,12 @@ namespace visage {
           gradient_position_to_y = origin_y + brush->position_.point_to.y;
         }
 
-        float atlas_x_scale = 2.0f / brush->atlasWidth();
-        float atlas_y_scale = 2.0f / brush->atlasHeight();
-        gradient_color_from_x += brush->gradient_->x / atlas_x_scale;
-        gradient_color_to_x += gradient_color_from_x + brush->gradient_->gradient.resolution() / atlas_x_scale;
-        gradient_color_y += brush->gradient_->y / atlas_y_scale - 1.0f;
+        float atlas_x_scale = 1.0f / brush->atlasWidth();
+        float atlas_y_scale = 1.0f / brush->atlasHeight();
+        gradient_color_from_x = (brush->gradient_->x + 0.5f) * atlas_x_scale;
+        gradient_color_to_x = gradient_color_from_x +
+                              (brush->gradient_->gradient.resolution() - 1) * atlas_x_scale;
+        gradient_color_y = (brush->gradient_->y + 0.5f) * atlas_y_scale;
       }
 
       for (int i = 0; i < num_vertices; ++i) {
@@ -341,8 +341,8 @@ namespace visage {
       auto old_gradient = gradient_;
       auto old_atlas = atlas_;
       atlas_ = other.atlas_;
-      position_ = other.position_;
       gradient_ = atlas_->addGradient(other.gradient_->gradient);
+      position_ = other.position_;
 
       if (old_gradient)
         old_atlas->removeGradient(old_gradient);
