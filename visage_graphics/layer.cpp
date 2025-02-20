@@ -134,6 +134,7 @@ namespace visage {
 
   Layer::Layer(GradientAtlas* gradient_atlas) : gradient_atlas_(gradient_atlas) {
     frame_buffer_data_ = std::make_unique<FrameBufferData>();
+    clear_brush_ = std::make_unique<const PackedBrush>(gradient_atlas, Brush::solid(0));
   }
 
   Layer::~Layer() {
@@ -215,7 +216,7 @@ namespace visage {
         float y = rect.y();
         float width = rect.width();
         float height = rect.height();
-        clear_batch.addShape(Fill({ x, y, x + width, y + height }, nullptr, x, y, width, height));
+        clear_batch.addShape(Fill({ x, y, x + width, y + height }, clear_brush_.get(), x, y, width, height));
       }
     }
 

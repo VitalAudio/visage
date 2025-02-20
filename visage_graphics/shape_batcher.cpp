@@ -553,9 +553,7 @@ namespace visage {
               vertices[index].clamp_top = positioned_clamp.top;
               vertices[index].clamp_right = positioned_clamp.right;
               vertices[index].clamp_bottom = positioned_clamp.bottom;
-              vertices[index].dimension_x = direction_x;
-              vertices[index].dimension_y = 0.0f;
-              vertices[index].direction_x = 0.0f;
+              vertices[index].direction_x = direction_x;
               vertices[index].direction_y = direction_y;
             }
 
@@ -605,8 +603,7 @@ namespace visage {
     float atlas_scale[] = { width_scale, height_scale, 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale);
 
-    bgfx::TextureHandle texture = bgfx::getTexture(source_layer->frameBuffer());
-    setTexture<Uniforms::kTexture>(0, texture);
+    setTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
     setUniformDimensions(layer.width(), layer.height());
     setColorMult(layer.hdr());
     setOriginFlipUniform(layer.bottomLeftOrigin());
