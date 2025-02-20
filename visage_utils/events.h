@@ -328,7 +328,7 @@ namespace visage {
   class CallbackList {
   public:
     template<typename R>
-    static R getDefaultResult() {
+    static R defaultResult() {
       if constexpr (std::is_default_constructible_v<R>)
         return {};
       else
@@ -388,7 +388,7 @@ namespace visage {
     template<typename... Args>
     auto callback(Args&&... args) {
       if (callbacks_.empty())
-        return getDefaultResult<decltype(std::declval<std::function<T>>()(args...))>();
+        return defaultResult<decltype(std::declval<std::function<T>>()(args...))>();
 
       for (size_t i = 0; i < callbacks_.size() - 1; ++i)
         callbacks_[i](std::forward<Args>(args)...);
