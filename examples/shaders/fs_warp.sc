@@ -1,4 +1,4 @@
-$input v_texture_uv, v_color0 
+$input v_texture_uv, v_position, v_gradient_pos, v_gradient_color_pos
 
 #include <shader_include.sh>
 

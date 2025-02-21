@@ -53,9 +53,9 @@ namespace visage {
       texture_ = std::make_unique<GradientAtlasTexture>();
 
     if (!bgfx::isValid(texture_->color_handle)) {
-      texture_->color_handle = bgfx::createTexture2D(atlas_.width(), atlas_.height() + 1, false, 1,
+      texture_->color_handle = bgfx::createTexture2D(atlas_.width(), atlas_.height(), false, 1,
                                                      bgfx::TextureFormat::BGRA8, BGFX_SAMPLER_UVW_CLAMP);
-      texture_->hdr_handle = bgfx::createTexture2D(atlas_.width(), atlas_.height() + 1, false, 1,
+      texture_->hdr_handle = bgfx::createTexture2D(atlas_.width(), atlas_.height(), false, 1,
                                                    bgfx::TextureFormat::R32F, BGFX_SAMPLER_UVW_CLAMP);
 
       for (auto& gradient : gradients_)

@@ -584,7 +584,8 @@ namespace visage {
     float height_scale = 1.0f / heights_[0];
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
     setPostEffectUniform<Uniforms::kColorMult>(bloom_intensity_, bloom_intensity_, bloom_intensity_, 1.0f);
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[0]));
+    setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
+    setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(handles_->downsample_buffers1[0]));
     setUniformDimensions(destination.width(), destination.height());
     bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_tinted_texture,
                                                                   visage::shaders::fs_tinted_texture));
