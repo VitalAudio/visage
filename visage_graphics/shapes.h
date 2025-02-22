@@ -351,10 +351,10 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    QuadraticBezier(const ClampBounds& clamp, const QuadColor& color, float x, float y, float width,
-                    float height, float a_x, float a_y, float b_x, float b_y, float c_x, float c_y,
-                    float thickness, float pixel_width) :
-        Primitive(batchId(), clamp, color, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x),
+    QuadraticBezier(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
+                    float width, float height, float a_x, float a_y, float b_x, float b_y,
+                    float c_x, float c_y, float thickness, float pixel_width) :
+        Primitive(batchId(), clamp, brush, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x),
         b_y(b_y), c_x(c_x), c_y(c_y) {
       this->thickness = thickness;
       this->pixel_width = pixel_width;
