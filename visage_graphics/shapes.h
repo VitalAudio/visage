@@ -121,8 +121,8 @@ namespace visage {
     float top = shape.y + y_offset;
     float right = left + shape.width;
     float bottom = top + shape.height;
-    PackedBrush::setVertexGradientPositions(shape.brush, vertices, kVerticesPerQuad, x_offset,
-                                            y_offset, left, top, right, bottom);
+    PackedBrush::setVertexGradientPositions(shape.brush, vertices, kVerticesPerQuad, left, top,
+                                            right, bottom);
 
     for (int i = 0; i < kVerticesPerQuad; ++i) {
       vertices[i].dimension_x = shape.width;

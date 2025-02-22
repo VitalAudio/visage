@@ -332,25 +332,24 @@ namespace visage {
       float gradient_color_y = 0.0f;
     };
 
-    static GradientTexturePosition computeVertexGradientPositions(const PackedBrush* brush, float origin_x,
-                                                                  float origin_y, float left, float top,
-                                                                  float right, float bottom) {
+    static GradientTexturePosition computeVertexGradientPositions(const PackedBrush* brush, float left,
+                                                                  float top, float right, float bottom) {
       GradientTexturePosition result;
 
       if (brush) {
         if (brush->position_.shape == GradientPosition::InterpolationShape::Horizontal) {
-          result.gradient_position_from_x = origin_x + left;
-          result.gradient_position_to_x = origin_x + right;
+          result.gradient_position_from_x = left;
+          result.gradient_position_to_x = right;
         }
         else if (brush->position_.shape == GradientPosition::InterpolationShape::Vertical) {
-          result.gradient_position_from_y = origin_y + top;
-          result.gradient_position_to_y = origin_y + bottom;
+          result.gradient_position_from_y = top;
+          result.gradient_position_to_y = bottom;
         }
         else if (brush->position_.shape == GradientPosition::InterpolationShape::PointsLinear) {
-          result.gradient_position_from_x = origin_x + brush->position_.point_from.x;
-          result.gradient_position_from_y = origin_y + brush->position_.point_from.y;
-          result.gradient_position_to_x = origin_x + brush->position_.point_to.x;
-          result.gradient_position_to_y = origin_y + brush->position_.point_to.y;
+          result.gradient_position_from_x = brush->position_.point_from.x;
+          result.gradient_position_from_y = brush->position_.point_from.y;
+          result.gradient_position_to_x = brush->position_.point_to.x;
+          result.gradient_position_to_y = brush->position_.point_to.y;
         }
 
         float atlas_x_scale = 1.0f / brush->atlasWidth();
@@ -366,10 +365,8 @@ namespace visage {
 
     template<typename V>
     static void setVertexGradientPositions(const PackedBrush* brush, V* vertices, int num_vertices,
-                                           float origin_x, float origin_y, float left, float top,
-                                           float right, float bottom) {
-      GradientTexturePosition position = computeVertexGradientPositions(brush, origin_x, origin_y,
-                                                                        left, top, right, bottom);
+                                           float left, float top, float right, float bottom) {
+      GradientTexturePosition position = computeVertexGradientPositions(brush, left, top, right, bottom);
 
       for (int i = 0; i < num_vertices; ++i) {
         vertices[i].gradient_color_from_x = position.gradient_color_from_x;
