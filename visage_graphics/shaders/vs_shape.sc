@@ -3,7 +3,6 @@ $output v_coordinates, v_dimensions, v_shader_values, v_position, v_gradient_pos
 
 #include <shader_include.sh>
 
-uniform vec4 u_color_mult;
 uniform vec4 u_bounds;
 
 void main() {
@@ -12,7 +11,7 @@ void main() {
   vec2 clamped = clamp(a_position.xy + a_texcoord2.xy * 0.5, minimum, maximum);
   vec2 delta = clamped - (a_position.xy + a_texcoord2.xy * 0.5);
 
-  v_position = a_position.xy;
+  v_position = clamped;
   v_gradient_color_pos = a_texcoord0;
   v_gradient_pos = a_texcoord1;
   v_dimensions = a_texcoord2.zw + vec2(1.0, 1.0);

@@ -104,7 +104,8 @@ namespace visage {
     void clear() {
       shape_batcher_.clear();
       text_store_.clear();
-      brushes_.clear();
+      old_brushes_.clear();
+      old_brushes_ = std::move(brushes_);
     }
 
     void setupIntermediateRegion();
@@ -151,6 +152,7 @@ namespace visage {
     PostEffect* post_effect_ = nullptr;
     ShapeBatcher shape_batcher_;
     std::vector<std::unique_ptr<PackedBrush>> brushes_;
+    std::vector<std::unique_ptr<PackedBrush>> old_brushes_;
     std::vector<std::unique_ptr<Text>> text_store_;
     std::vector<Region*> sub_regions_;
     std::unique_ptr<Region> intermediate_region_;

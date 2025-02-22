@@ -261,9 +261,18 @@ namespace visage {
 
   void ImageGroup::setImageCoordinates(TextureVertex* vertices, const ImageFile& image) const {
     VISAGE_ASSERT(image_count_.count(image) && image_count_.at(image) > 0);
-    atlas_.setTexturePositionsForId(image, vertices);
+    TextureRect rect = atlas_.texturePositionsForId(image);
 
-    for (int i = 0; i < kChannels; ++i) {
+    vertices[0].texture_x = rect.left;
+    vertices[0].texture_y = rect.top;
+    vertices[1].texture_x = rect.right;
+    vertices[1].texture_y = rect.top;
+    vertices[2].texture_x = rect.left;
+    vertices[2].texture_y = rect.bottom;
+    vertices[3].texture_x = rect.right;
+    vertices[3].texture_y = rect.bottom;
+
+    for (int i = 0; i < kVerticesPerQuad; ++i) {
       vertices[i].direction_x = 1.0f;
       vertices[i].direction_y = 0.0f;
     }

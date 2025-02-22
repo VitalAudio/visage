@@ -31,7 +31,7 @@ namespace visage {
   }
 
   void BarList::draw(Canvas& canvas) {
-    Brush bar_color = canvas.color(BarColor);
+    canvas.setColor(BarColor);
 
     float width_scale = 1.0f / width();
     float height_scale = 1.0f / height();
@@ -41,9 +41,6 @@ namespace visage {
       float right = bar.right * width_scale;
       float top = bar.top * height_scale;
       float bottom = bar.bottom * height_scale;
-
-      // TODO
-      canvas.setColor(0xffff00ff);
 
       canvas.rectangle(bar.left, bar.top, bar.right - bar.left, bar.bottom - bar.top);
     }

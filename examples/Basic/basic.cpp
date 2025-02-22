@@ -20,8 +20,12 @@
  */
 
 #include <visage/app.h>
+#include <visage/widgets.h>
 
 int runExample() {
+  visage::ShaderCompiler compiler;
+  compiler.watchShaderFolder("C:/Users/matth/visage/visage_graphics/shaders");
+
   visage::ApplicationWindow app;
 
   app.onDraw() = [&app](visage::Canvas& canvas) {

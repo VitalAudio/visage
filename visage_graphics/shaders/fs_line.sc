@@ -1,20 +1,17 @@
-$input v_shader_values
+$input v_shader_values, v_position
 
 #include <shader_include.sh>
 
-uniform vec4 u_top_left_color;
-uniform vec4 u_top_right_color;
-uniform vec4 u_bottom_left_color;
-uniform vec4 u_bottom_right_color;
+uniform vec4 u_gradient_color_position;
+uniform vec4 u_gradient_position;
 uniform vec4 u_line_width;
 uniform vec4 u_time;
 
+SAMPLER2D(s_gradient, 0);
+
 void main() {
-  float x_t = v_shader_values.z;
-  float y_t = v_shader_values.w;
-  vec4 top_color = u_top_left_color + (u_top_right_color - u_top_left_color) * x_t;
-  vec4 bottom_color = u_bottom_left_color + (u_bottom_right_color - u_bottom_left_color) * x_t;
-  vec4 color = bottom_color + (top_color - bottom_color) * y_t;
+  vec2 gradient_pos = gradient(u_gradient_color_position.xy, u_gradient_color_position.zw, u_gradient_position.xy, u_gradient_position.zw, v_position);
+  vec4 color = texture2D(s_gradient, gradient_pos);
 
   float depth_out = v_shader_values.x;
   float dist_from_edge = min(depth_out, 1.0 - depth_out);

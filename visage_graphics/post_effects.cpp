@@ -352,10 +352,12 @@ namespace visage {
     float height_scale = 1.0f / heights_[0];
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
     setPostEffectUniform<Uniforms::kColorMult>(1.0f, 1.0f, 1.0f, 1.0f);
+    setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
+
     if (stages_ >= 2 && stages_ < 3)
-      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers2[0]));
+      setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(handles_->downsample_buffers2[0]));
     else
-      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[0]));
+      setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(handles_->downsample_buffers1[0]));
     setUniformDimensions(destination.width(), destination.height());
     bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_tinted_texture,
                                                                   visage::shaders::fs_tinted_texture));
@@ -371,7 +373,8 @@ namespace visage {
     source.region->layer()->setTexturePositionsForRegion(source.region, vertices);
 
     setBlendMode(BlendMode::Composite);
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source.region->layer()->frameBuffer()));
+    setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
+    setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(source.region->layer()->frameBuffer()));
     setPostEffectUniform<Uniforms::kColorMult>(1.0f, 1.0f, 1.0f, 1.0f);
     setUniformDimensions(destination.width(), destination.height());
     float width_scale = 1.0f / source.region->layer()->width();
@@ -547,7 +550,8 @@ namespace visage {
 
     float hdr_range = hdr() ? visage::kHdrColorRange : 1.0f;
     setBlendMode(BlendMode::Composite);
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source.region->layer()->frameBuffer()));
+    setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
+    setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(source.region->layer()->frameBuffer()));
     setPostEffectUniform<Uniforms::kColorMult>(hdr_range);
     setUniformDimensions(destination.width(), destination.height());
     float width_scale = 1.0f / source.region->layer()->width();

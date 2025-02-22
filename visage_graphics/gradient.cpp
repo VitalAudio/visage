@@ -29,15 +29,18 @@ namespace visage {
     bgfx::TextureHandle hdr_handle = { bgfx::kInvalidHandle };
   };
 
+  GradientAtlas::PackedGradientReference::~PackedGradientReference() {
+    if (auto atlas_pointer = atlas.lock())
+      (*atlas_pointer)->removeGradient(packed_gradient_rect);
+  }
+
   GradientAtlas::GradientAtlas() {
-    addGradient(Gradient(Color(0)));
-    addGradient(Gradient(Color(0xffffffff)));
-    addGradient(Gradient(Color(0xff000000)));
+    reference_ = std::make_shared<GradientAtlas*>(this);
   }
 
   GradientAtlas::~GradientAtlas() = default;
 
-  void GradientAtlas::updateGradient(const PackedGradient* gradient) {
+  void GradientAtlas::updateGradient(const PackedGradientRect* gradient) {
     if (texture_ == nullptr || !bgfx::isValid(texture_->color_handle))
       return;
 
