@@ -72,6 +72,13 @@ namespace visage {
     int h;
   };
 
+  struct TextureRect {
+    int left;
+    int top;
+    int right;
+    int bottom;
+  };
+
   class AtlasPacker {
   public:
     AtlasPacker();
@@ -143,23 +150,16 @@ namespace visage {
       return packed_rects_[index];
     }
 
-    template<typename V>
-    void setTexturePositionsForIndex(int rect_index, V* vertices, bool bottom_left_origin = false) const {
+    TextureRect texturePositionsForIndex(int rect_index, bool bottom_left_origin = false) const {
       const PackedRect& packed_rect = rectAtIndex(rect_index);
-
-      vertices[0].texture_x = packed_rect.x;
-      vertices[0].texture_y = packed_rect.y;
-      vertices[1].texture_x = packed_rect.x + packed_rect.w;
-      vertices[1].texture_y = packed_rect.y;
-      vertices[2].texture_x = packed_rect.x;
-      vertices[2].texture_y = packed_rect.y + packed_rect.h;
-      vertices[3].texture_x = packed_rect.x + packed_rect.w;
-      vertices[3].texture_y = packed_rect.y + packed_rect.h;
+      TextureRect result = { packed_rect.x, packed_rect.y, packed_rect.x + packed_rect.w,
+                             packed_rect.y + packed_rect.h };
 
       if (bottom_left_origin) {
-        for (int i = 0; i < kVerticesPerQuad; ++i)
-          vertices[i].texture_y = height_ - vertices[i].texture_y;
+        result.top = height_ - result.top;
+        result.bottom = height_ - result.bottom;
       }
+      return result;
     }
 
     const PackedRect& rectForId(T id) const {
@@ -167,10 +167,9 @@ namespace visage {
       return rectAtIndex(lookup_.at(id));
     }
 
-    template<typename V>
-    void setTexturePositionsForId(T id, V* vertices, bool bottom_left_origin = false) const {
+    TextureRect texturePositionsForId(T id, bool bottom_left_origin = false) const {
       VISAGE_ASSERT(lookup_.count(id) > 0);
-      setTexturePositionsForIndex(lookup_.at(id), vertices, bottom_left_origin);
+      return texturePositionsForIndex(lookup_.at(id), bottom_left_origin);
     }
 
     int width() const { return width_; }

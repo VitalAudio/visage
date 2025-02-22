@@ -371,7 +371,6 @@ namespace visage {
           .add(bgfx::Attrib::TexCoord3, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord4, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord5, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord6, 4, bgfx::AttribType::Float)
           .end();
     }
 

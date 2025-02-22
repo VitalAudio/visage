@@ -2,9 +2,9 @@ $input v_coordinates
 
 #include <shader_include.sh>
 
-SAMPLER2D(s_texture, 0);
-
 uniform vec4 u_pixel_size;
+
+SAMPLER2D(s_texture, 0);
 
 void main() {
   vec2 dimensions = u_pixel_size.zw;

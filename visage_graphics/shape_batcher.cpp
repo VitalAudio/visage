@@ -321,24 +321,32 @@ namespace visage {
         line->num_line_vertices)
       return;
 
-    // TODO: fix colors
-
-    float dimensions[4] = { line_wrapper.width, line_wrapper.height, 1.0f, 1.0f };
-    float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
-
     bgfx::TransientVertexBuffer vertex_buffer {};
     bgfx::allocTransientVertexBuffer(&vertex_buffer, line->num_line_vertices, LineVertex::layout());
     setLineVertices(line_wrapper, vertex_buffer);
 
     bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
+
+    float dimensions[4] = { line_wrapper.width, line_wrapper.height, 1.0f, 1.0f };
+    float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
+
+    auto pos = PackedBrush::computeVertexGradientPositions(line_wrapper.brush, 0, 0, 0, 0,
+                                                           line_wrapper.width, line_wrapper.height);
+    float gradient_color_pos[] = { pos.gradient_color_from_x, pos.gradient_color_y,
+                                   pos.gradient_color_to_x, pos.gradient_color_y };
+    float gradient_pos[] = { pos.gradient_position_from_x, pos.gradient_position_from_y,
+                             pos.gradient_position_to_x, pos.gradient_position_to_y };
+    float line_width[] = { line_wrapper.line_width * 2.0f, 0.0f, 0.0f, 0.0f };
     setUniform<Uniforms::kDimensions>(dimensions);
     setUniform<Uniforms::kTime>(time);
-
-    float line_width[] = { line_wrapper.line_width * 2.0f, 0.0f, 0.0f, 0.0f };
+    setUniform<Uniforms::kGradientColorPosition>(gradient_color_pos);
+    setUniform<Uniforms::kGradientPosition>(gradient_pos);
     setUniform<Uniforms::kLineWidth>(line_width);
+    setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
 
     bgfx::setVertexBuffer(0, &vertex_buffer);
     setUniformBounds(line_wrapper.x, line_wrapper.y, layer.width(), layer.height());
+    setColorMult(layer.hdr());
     setScissor(line_wrapper, layer.width(), layer.height());
     auto program = ProgramCache::programHandle(LineWrapper::vertexShader(), LineWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
@@ -375,11 +383,16 @@ namespace visage {
     float dimensions[4] = { line_fill_wrapper.width, line_fill_wrapper.height * dimension_y_scale,
                             1.0f, 1.0f };
     float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
+    auto pos = PackedBrush::computeVertexGradientPositions(line_fill_wrapper.brush, 0, 0, 0, 0,
+                                                           line_fill_wrapper.width,
+                                                           line_fill_wrapper.height);
+    float gradient_color_pos[] = { pos.gradient_color_from_x, pos.gradient_color_y,
+                                   pos.gradient_color_to_x, pos.gradient_color_y };
+    float gradient_pos[] = { pos.gradient_position_from_x, pos.gradient_position_from_y,
+                             pos.gradient_position_to_x, pos.gradient_position_to_y };
 
     float fill_location = static_cast<int>(line_fill_wrapper.fill_center);
     float center[] = { 0.0f, fill_location, 0.0f, 0.0f };
-
-    // TODO: fix colors
 
     bgfx::TransientVertexBuffer fill_vertex_buffer {};
     bgfx::allocTransientVertexBuffer(&fill_vertex_buffer, line->num_fill_vertices, LineVertex::layout());
@@ -388,11 +401,16 @@ namespace visage {
     bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
     setUniform<Uniforms::kDimensions>(dimensions);
     setUniform<Uniforms::kTime>(time);
+    setUniform<Uniforms::kGradientColorPosition>(gradient_color_pos);
+    setUniform<Uniforms::kGradientPosition>(gradient_pos);
     setUniform<Uniforms::kCenterPosition>(center);
+
+    setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
 
     bgfx::setVertexBuffer(0, &fill_vertex_buffer);
     setUniformBounds(line_fill_wrapper.x, line_fill_wrapper.y, layer.width(), layer.height());
     setScissor(line_fill_wrapper, layer.width(), layer.height());
+    setColorMult(layer.hdr());
     auto program = ProgramCache::programHandle(LineFillWrapper::vertexShader(),
                                                LineFillWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
@@ -407,7 +425,8 @@ namespace visage {
     float atlas_scale[] = { 1.0f / image_group->atlasWidth(), 1.0f / image_group->atlasHeight(),
                             0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale);
-    setTexture<Uniforms::kTexture>(0, image_group->textureHandle());
+    setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
+    setTexture<Uniforms::kTexture>(1, image_group->textureHandle());
     setUniformDimensions(layer.width(), layer.height());
     setColorMult(layer.hdr());
 
@@ -567,8 +586,7 @@ namespace visage {
 
     float atlas_scale_uniform[] = { 1.0f / font.atlasWidth(), 1.0f / font.atlasHeight(), 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale_uniform);
-    GradientAtlas* gradient_atlas = layer.gradientAtlas();
-    setTexture<Uniforms::kGradient>(0, gradient_atlas->colorTextureHandle());
+    setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
     setTexture<Uniforms::kTexture>(1, font.textureHandle());
     setUniformDimensions(layer.width(), layer.height());
     setColorMult(layer.hdr());
@@ -583,6 +601,7 @@ namespace visage {
     setBlendMode(BlendMode::Alpha);
     setTimeUniform(layer.time());
     setUniformDimensions(layer.width(), layer.height());
+    setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
     setColorMult(layer.hdr());
     setOriginFlipUniform(layer.bottomLeftOrigin());
     Shader* shader = batches[0].shapes->front().shader;

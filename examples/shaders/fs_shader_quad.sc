@@ -1,8 +1,10 @@
-$input v_coordinates, v_dimensions, v_color0, v_shader_values
+$input v_coordinates, v_dimensions, v_shader_values, v_position, v_gradient_pos, v_gradient_color_pos
 
 #include <shader_include.sh>
 
 uniform vec4 u_time;
+
+SAMPLER2D(s_gradient, 0);
 
 float fcos(float x) {
   return cos(x) * smoothstep(6.28, 0.0, fwidth(x));
@@ -44,6 +46,7 @@ void main() {
   float col = 1.5 * getColor(0.5 * length(p));
 
   col *= 1.4 - 0.14 / length(w);
-  gl_FragColor = max(0.0, col) * vec4(v_color0.rgb, 1.0);
+  vec2 gradient_pos = gradient(v_gradient_color_pos.xy, v_gradient_color_pos.zw, v_gradient_pos.xy, v_gradient_pos.zw, v_position);
+  gl_FragColor = max(0.0, col) * texture2D(s_gradient, gradient_pos);
 }
 

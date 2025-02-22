@@ -123,58 +123,81 @@ namespace visage {
 
   class GradientAtlas {
   public:
-    struct PackedGradient {
-      explicit PackedGradient(Gradient g) : gradient(std::move(g)) { }
+    struct PackedGradientRect {
+      explicit PackedGradientRect(Gradient g) : gradient(std::move(g)) { }
 
       Gradient gradient;
       int x = 0;
       int y = 0;
     };
 
+    struct PackedGradientReference {
+      PackedGradientReference(std::weak_ptr<GradientAtlas*> atlas,
+                              const PackedGradientRect* packed_gradient_rect) :
+          atlas(std::move(atlas)), packed_gradient_rect(packed_gradient_rect) { }
+      ~PackedGradientReference();
+
+      std::weak_ptr<GradientAtlas*> atlas;
+      const PackedGradientRect* packed_gradient_rect = nullptr;
+    };
+
+    class PackedGradient {
+    public:
+      int x() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_gradient_rect->x;
+      }
+
+      int y() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_gradient_rect->y;
+      }
+
+      const Gradient& gradient() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_gradient_rect->gradient;
+      }
+
+      PackedGradient(std::shared_ptr<PackedGradientReference> reference) : reference_(reference) { }
+
+    private:
+      std::shared_ptr<PackedGradientReference> reference_;
+    };
+
     GradientAtlas();
     ~GradientAtlas();
 
-    const PackedGradient* addGradient(const Gradient& gradient) {
-      if (num_references_.count(gradient) == 0) {
-        std::unique_ptr<PackedGradient> packed_gradient = std::make_unique<PackedGradient>(gradient);
-        if (!atlas_.addRect(packed_gradient.get(), gradient.resolution(), 1))
+    PackedGradient addGradient(const Gradient& gradient) {
+      if (gradients_.count(gradient) == 0) {
+        std::unique_ptr<PackedGradientRect> packed_gradient_rect = std::make_unique<PackedGradientRect>(gradient);
+        if (!atlas_.addRect(packed_gradient_rect.get(), gradient.resolution(), 1))
           resize();
 
-        const PackedRect& rect = atlas_.rectForId(packed_gradient.get());
-        packed_gradient->x = rect.x;
-        packed_gradient->y = rect.y;
-        gradients_[gradient] = std::move(packed_gradient);
-        updateGradient(gradients_[gradient].get());
+        const PackedRect& rect = atlas_.rectForId(packed_gradient_rect.get());
+        packed_gradient_rect->x = rect.x;
+        packed_gradient_rect->y = rect.y;
+        updateGradient(packed_gradient_rect.get());
+        gradients_[gradient] = std::move(packed_gradient_rect);
       }
-      num_references_[gradient]++;
+      stale_gradients_.erase(gradient);
 
-      return gradients_[gradient].get();
-    }
+      if (auto reference = references_[gradient].lock())
+        return PackedGradient(reference);
 
-    void removeGradient(const Gradient& gradient) {
-      VISAGE_ASSERT(num_references_[gradient] > 0);
-      num_references_[gradient]--;
+      auto reference = std::make_shared<PackedGradientReference>(reference_, gradients_[gradient].get());
+      references_[gradient] = reference;
+      return PackedGradient(reference);
     }
 
     void clearStaleGradients() {
-      for (auto it = gradients_.begin(); it != gradients_.end();) {
-        if (num_references_[it->first] == 0) {
-          atlas_.removeRect(it->second.get());
-          num_references_.erase(it->first);
-          it = gradients_.erase(it);
-        }
-        else
-          ++it;
+      for (auto stale : stale_gradients_) {
+        gradients_.erase(stale.first);
+        atlas_.removeRect(stale.second);
       }
+      stale_gradients_.clear();
     }
 
-    void removeGradient(const PackedGradient* packed_gradient) {
-      removeGradient(packed_gradient->gradient);
-    }
-
-    void updateGradient(const PackedGradient* gradient);
     void checkInit();
-    void resize();
     int width() { return atlas_.width(); }
     int height() { return atlas_.height(); }
 
@@ -182,29 +205,46 @@ namespace visage {
     const bgfx::TextureHandle& hdrTextureHandle();
 
   private:
-    std::map<Gradient, std::unique_ptr<PackedGradient>> gradients_;
-    std::map<Gradient, int> num_references_;
+    void updateGradient(const PackedGradientRect* gradient);
+    void resize();
 
-    PackedAtlas<const PackedGradient*> atlas_;
+    void removeGradient(const Gradient& gradient) {
+      VISAGE_ASSERT(gradients_.count(gradient));
+      stale_gradients_[gradient] = gradients_[gradient].get();
+    }
+
+    void removeGradient(const PackedGradientRect* packed_gradient_rect) {
+      removeGradient(packed_gradient_rect->gradient);
+    }
+
+    std::map<Gradient, std::weak_ptr<PackedGradientReference>> references_;
+    std::map<Gradient, std::unique_ptr<PackedGradientRect>> gradients_;
+    std::map<Gradient, const PackedGradientRect*> stale_gradients_;
+
+    PackedAtlas<const PackedGradientRect*> atlas_;
     std::unique_ptr<GradientAtlasTexture> texture_;
+    std::shared_ptr<GradientAtlas*> reference_;
+
+    VISAGE_LEAK_CHECKER(GradientAtlas)
   };
 
   struct GradientPosition {
-    static GradientPosition interpolate(const GradientPosition& from, const GradientPosition& to, float t) {
-      VISAGE_ASSERT(from.shape == to.shape);
-      GradientPosition result;
-      result.shape = from.shape;
-      result.point_from = from.point_from + (to.point_from - from.point_from) * t;
-      result.point_to = from.point_to + (to.point_to - from.point_to) * t;
-      return result;
-    }
-
     enum class InterpolationShape {
       Solid,
       Horizontal,
       Vertical,
       PointsLinear,
     };
+
+    static GradientPosition interpolate(const GradientPosition& from, const GradientPosition& to, float t) {
+      VISAGE_ASSERT(from.shape == to.shape || from.shape == InterpolationShape::Solid ||
+                    to.shape == InterpolationShape::Solid);
+      GradientPosition result;
+      result.shape = from.shape;
+      result.point_from = from.point_from + (to.point_from - from.point_from) * t;
+      result.point_to = from.point_to + (to.point_to - from.point_to) * t;
+      return result;
+    }
 
     GradientPosition() = default;
     explicit GradientPosition(InterpolationShape shape) : shape(shape) { }
@@ -219,6 +259,8 @@ namespace visage {
     GradientPosition interpolateWith(const GradientPosition& other, float t) const {
       return interpolate(*this, other, t);
     }
+
+    VISAGE_LEAK_CHECKER(GradientPosition)
   };
 
   class Brush {
@@ -253,7 +295,6 @@ namespace visage {
     }
 
     static Brush interpolate(const Brush& from, const Brush& to, float t) {
-      VISAGE_ASSERT(from.position_.shape == to.position_.shape);
       return Brush(from.gradient_.interpolateWith(to.gradient_, t),
                    from.position_.interpolateWith(to.position_, t));
     }
@@ -275,14 +316,13 @@ namespace visage {
 
     Gradient gradient_;
     GradientPosition position_;
+
+    VISAGE_LEAK_CHECKER(Brush)
   };
 
   class PackedBrush {
   public:
-    template<typename V>
-    static void setVertexGradientPositions(const PackedBrush* brush, V* vertices, int num_vertices,
-                                           float origin_x, float origin_y, float left, float top,
-                                           float right, float bottom) {
+    struct GradientTexturePosition {
       float gradient_position_from_x = 0.0f;
       float gradient_position_from_y = 0.0f;
       float gradient_position_to_x = 0.0f;
@@ -290,71 +330,63 @@ namespace visage {
       float gradient_color_from_x = 0.0f;
       float gradient_color_to_x = 0.0f;
       float gradient_color_y = 0.0f;
+    };
+
+    static GradientTexturePosition computeVertexGradientPositions(const PackedBrush* brush, float origin_x,
+                                                                  float origin_y, float left, float top,
+                                                                  float right, float bottom) {
+      GradientTexturePosition result;
 
       if (brush) {
         if (brush->position_.shape == GradientPosition::InterpolationShape::Horizontal) {
-          gradient_position_from_x = origin_x + left;
-          gradient_position_to_x = origin_x + right;
+          result.gradient_position_from_x = origin_x + left;
+          result.gradient_position_to_x = origin_x + right;
         }
         else if (brush->position_.shape == GradientPosition::InterpolationShape::Vertical) {
-          gradient_position_from_y = origin_y + top;
-          gradient_position_to_y = origin_y + bottom;
+          result.gradient_position_from_y = origin_y + top;
+          result.gradient_position_to_y = origin_y + bottom;
         }
         else if (brush->position_.shape == GradientPosition::InterpolationShape::PointsLinear) {
-          gradient_position_from_x = origin_x + brush->position_.point_from.x;
-          gradient_position_from_y = origin_y + brush->position_.point_from.y;
-          gradient_position_to_x = origin_x + brush->position_.point_to.x;
-          gradient_position_to_y = origin_y + brush->position_.point_to.y;
+          result.gradient_position_from_x = origin_x + brush->position_.point_from.x;
+          result.gradient_position_from_y = origin_y + brush->position_.point_from.y;
+          result.gradient_position_to_x = origin_x + brush->position_.point_to.x;
+          result.gradient_position_to_y = origin_y + brush->position_.point_to.y;
         }
 
         float atlas_x_scale = 1.0f / brush->atlasWidth();
         float atlas_y_scale = 1.0f / brush->atlasHeight();
-        gradient_color_from_x = (brush->gradient_->x + 0.5f) * atlas_x_scale;
-        gradient_color_to_x = gradient_color_from_x +
-                              (brush->gradient_->gradient.resolution() - 1) * atlas_x_scale;
-        gradient_color_y = (brush->gradient_->y + 0.5f) * atlas_y_scale;
+        result.gradient_color_from_x = (brush->gradient_.x() + 0.5f) * atlas_x_scale;
+        result.gradient_color_to_x = result.gradient_color_from_x +
+                                     (brush->gradient_.gradient().resolution() - 1) * atlas_x_scale;
+        result.gradient_color_y = (brush->gradient_.y() + 0.5f) * atlas_y_scale;
       }
 
+      return result;
+    }
+
+    template<typename V>
+    static void setVertexGradientPositions(const PackedBrush* brush, V* vertices, int num_vertices,
+                                           float origin_x, float origin_y, float left, float top,
+                                           float right, float bottom) {
+      GradientTexturePosition position = computeVertexGradientPositions(brush, origin_x, origin_y,
+                                                                        left, top, right, bottom);
+
       for (int i = 0; i < num_vertices; ++i) {
-        vertices[i].gradient_color_from_x = gradient_color_from_x;
-        vertices[i].gradient_color_from_y = gradient_color_y;
-        vertices[i].gradient_color_to_x = gradient_color_to_x;
-        vertices[i].gradient_color_to_y = gradient_color_y;
-        vertices[i].gradient_position_from_x = gradient_position_from_x;
-        vertices[i].gradient_position_from_y = gradient_position_from_y;
-        vertices[i].gradient_position_to_x = gradient_position_to_x;
-        vertices[i].gradient_position_to_y = gradient_position_to_y;
+        vertices[i].gradient_color_from_x = position.gradient_color_from_x;
+        vertices[i].gradient_color_from_y = position.gradient_color_y;
+        vertices[i].gradient_color_to_x = position.gradient_color_to_x;
+        vertices[i].gradient_color_to_y = position.gradient_color_y;
+        vertices[i].gradient_position_from_x = position.gradient_position_from_x;
+        vertices[i].gradient_position_from_y = position.gradient_position_from_y;
+        vertices[i].gradient_position_to_x = position.gradient_position_to_x;
+        vertices[i].gradient_position_to_y = position.gradient_position_to_y;
       }
     }
 
     explicit PackedBrush(GradientAtlas* atlas, const Brush& brush) :
         atlas_(atlas), position_(brush.position()), gradient_(atlas->addGradient(brush.gradient())) { }
 
-    PackedBrush::PackedBrush(const PackedBrush& other) :
-        atlas_(other.atlas_), position_(other.position_),
-        gradient_(atlas_->addGradient(other.gradient_->gradient)) { }
-
-    PackedBrush& PackedBrush::operator=(const PackedBrush& other) {
-      if (this == &other)
-        return *this;
-
-      auto old_gradient = gradient_;
-      auto old_atlas = atlas_;
-      atlas_ = other.atlas_;
-      gradient_ = atlas_->addGradient(other.gradient_->gradient);
-      position_ = other.position_;
-
-      if (old_gradient)
-        old_atlas->removeGradient(old_gradient);
-      return *this;
-    }
-
-    PackedBrush::~PackedBrush() {
-      if (gradient_)
-        atlas_->removeGradient(gradient_);
-    }
-
-    const GradientAtlas::PackedGradient* gradient() const { return gradient_; }
+    const GradientAtlas::PackedGradient* gradient() const { return &gradient_; }
     const GradientPosition& position() const { return position_; }
     int atlasWidth() const { return atlas_->width(); }
     int atlasHeight() const { return atlas_->height(); }
@@ -362,6 +394,8 @@ namespace visage {
   private:
     GradientAtlas* atlas_ = nullptr;
     GradientPosition position_;
-    const GradientAtlas::PackedGradient* gradient_ = nullptr;
+    GradientAtlas::PackedGradient gradient_;
+
+    VISAGE_LEAK_CHECKER(PackedBrush)
   };
 }
