@@ -214,14 +214,8 @@ namespace visage {
       float x3 = 2.0f * (c_x - x) / width - 1.0f;
       float y3 = 2.0f * (c_y - y) / height - 1.0f;
 
-      addShape(QuadraticBezier(state_.clamp, state_.color, state_.x + x, state_.y + y, width,
+      addShape(QuadraticBezier(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
                                height, x1, y1, x2, y2, x3, y3, thickness + 1.0f, pixel_width));
-    }
-
-    void rotary(float x, float y, float width, float value, float hover_amount, float arc_thickness,
-                const ColorGradient& back_color, const ColorGradient& thumb_color, bool bipolar = false) {
-      addShape(Rotary(state_.clamp, state_.color, back_color, thumb_color, state_.x + x,
-                      state_.y + y, width, value, bipolar, hover_amount, arc_thickness));
     }
 
     void rectangle(float x, float y, float width, float height) {
