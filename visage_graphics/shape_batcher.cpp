@@ -330,7 +330,7 @@ namespace visage {
     float dimensions[4] = { line_wrapper.width, line_wrapper.height, 1.0f, 1.0f };
     float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
 
-    auto pos = PackedBrush::computeVertexGradientPositions(line_wrapper.brush, 0, 0, 0, 0,
+    auto pos = PackedBrush::computeVertexGradientPositions(line_wrapper.brush, 0, 0,
                                                            line_wrapper.width, line_wrapper.height);
     float gradient_color_pos[] = { pos.gradient_color_from_x, pos.gradient_color_y,
                                    pos.gradient_color_to_x, pos.gradient_color_y };
@@ -383,7 +383,7 @@ namespace visage {
     float dimensions[4] = { line_fill_wrapper.width, line_fill_wrapper.height * dimension_y_scale,
                             1.0f, 1.0f };
     float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
-    auto pos = PackedBrush::computeVertexGradientPositions(line_fill_wrapper.brush, 0, 0, 0, 0,
+    auto pos = PackedBrush::computeVertexGradientPositions(line_fill_wrapper.brush, 0, 0,
                                                            line_fill_wrapper.width,
                                                            line_fill_wrapper.height);
     float gradient_color_pos[] = { pos.gradient_color_from_x, pos.gradient_color_y,
@@ -529,10 +529,8 @@ namespace visage {
           }
 
           PackedBrush::setVertexGradientPositions(text_block.brush, vertices + vertex_index,
-                                                  length * kVerticesPerQuad, batch.x, batch.y,
-                                                  text_block.x, text_block.y,
-                                                  text_block.x + text_block.width,
-                                                  text_block.y + text_block.height);
+                                                  length * kVerticesPerQuad, x, y,
+                                                  x + text_block.width, y + text_block.height);
 
           for (int i = 0; i < length; ++i) {
             if (!overlaps(text_block.quads[i]))
