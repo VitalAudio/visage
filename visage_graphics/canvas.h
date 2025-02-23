@@ -37,6 +37,8 @@ namespace visage {
 
   class Canvas {
   public:
+    static constexpr float kSqrt2 = 1.4142135623730950488016887242097f;
+
     struct State {
       int x = 0;
       int y = 0;
@@ -293,14 +295,6 @@ namespace visage {
       }
     }
 
-    void fullRoundedRectangleBorder(float x, float y, float width, float height, float rounding,
-                                    float thickness) {
-      RoundedRectangle border(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height,
-                              rounding);
-      border.thickness = thickness;
-      addShape(border);
-    }
-
     void roundedRectangleBorder(float x, float y, float width, float height, float rounding, float thickness) {
       saveState();
       float left = state_.clamp.left;
@@ -326,24 +320,67 @@ namespace visage {
       restoreState();
     }
 
+    void triangleBorder(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y, float thickness) {
+      outerRoundedTriangleBorder(a_x, a_y, b_x, b_y, c_x, c_y, 0.0f, thickness);
+    }
+
+    void triangle(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y) {
+      float d1_x = a_x - b_x;
+      float d1_y = a_y - b_y;
+      float d2_x = a_x - c_x;
+      float d2_y = a_y - c_y;
+      float thickness = sqrtf(std::max(d1_x * d1_x + d1_y * d1_y, d2_x * d2_x + d2_y * d2_y));
+      outerRoundedTriangleBorder(a_x, a_y, b_x, b_y, c_x, c_y, 0.0f, thickness);
+    }
+
+    void roundedTriangleBorder(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y,
+                               float rounding, float thickness) {
+      float d_ab = sqrtf((a_x - b_x) * (a_x - b_x) + (a_y - b_y) * (a_y - b_y));
+      float d_bc = sqrtf((b_x - c_x) * (b_x - c_x) + (b_y - c_y) * (b_y - c_y));
+      float d_ca = sqrtf((c_x - a_x) * (c_x - a_x) + (c_y - a_y) * (c_y - a_y));
+      float perimeter = d_ab + d_bc + d_ca;
+      float inscribed_circle_x = (d_bc * a_x + d_ca * b_x + d_ab * c_x) / perimeter;
+      float inscribed_circle_y = (d_bc * a_y + d_ca * b_y + d_ab * c_y) / perimeter;
+      float s = perimeter * 0.5f;
+      float inscribed_circle_radius = sqrtf(s * (s - d_ab) * (s - d_bc) * (s - d_ca)) / s;
+
+      rounding = std::min(rounding, inscribed_circle_radius);
+      float shrinking = rounding / inscribed_circle_radius;
+      outerRoundedTriangleBorder(a_x + (inscribed_circle_x - a_x) * shrinking,
+                                 a_y + (inscribed_circle_y - a_y) * shrinking,
+                                 b_x + (inscribed_circle_x - b_x) * shrinking,
+                                 b_y + (inscribed_circle_y - b_y) * shrinking,
+                                 c_x + (inscribed_circle_x - c_x) * shrinking,
+                                 c_y + (inscribed_circle_y - c_y) * shrinking, rounding, thickness);
+    }
+
+    void roundedTriangle(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y, float rounding) {
+      float d1_x = a_x - b_x;
+      float d1_y = a_y - b_y;
+      float d2_x = a_x - c_x;
+      float d2_y = a_y - c_y;
+      float thickness = sqrtf(std::max(d1_x * d1_x + d1_y * d1_y, d2_x * d2_x + d2_y * d2_y));
+      roundedTriangleBorder(a_x, a_y, b_x, b_y, c_x, c_y, rounding, thickness);
+    }
+
     void triangleLeft(float x, float y, float width) {
-      addShape(Triangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width * 2.0f,
-                        Direction::Left));
+      float h = width * 2.0f;
+      outerRoundedTriangleBorder(x + width, y, x + width, y + h, x, y + h * 0.5f, 0.0f, width);
     }
 
     void triangleRight(float x, float y, float width) {
-      addShape(Triangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width * 2.0f,
-                        Direction::Right));
+      float h = width * 2.0f;
+      outerRoundedTriangleBorder(x, y, x, y + h, x + width, y + h * 0.5f, 0.0f, width);
     }
 
     void triangleUp(float x, float y, float width) {
-      addShape(Triangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width * 2.0f, width,
-                        Direction::Up));
+      float w = width * 2.0f;
+      outerRoundedTriangleBorder(x, y + width, x + w, y + width, x + w * 0.5f, y, 0.0f, width);
     }
 
     void triangleDown(float x, float y, float width) {
-      addShape(Triangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width * 2.0f, width,
-                        Direction::Down));
+      float w = width * 2.0f;
+      outerRoundedTriangleBorder(x, y, x + w, y, x + w * 0.5f, y + width, 0.0f, width);
     }
 
     void text(Text* text, float x, float y, float width, float height, Direction dir = Direction::Up) {
@@ -487,6 +524,33 @@ namespace visage {
     template<typename T>
     void addShape(T shape) {
       state_.current_region->shape_batcher_.addShape(std::move(shape), state_.blend_mode);
+    }
+
+    void fullRoundedRectangleBorder(float x, float y, float width, float height, float rounding,
+                                    float thickness) {
+      RoundedRectangle border(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height,
+                              rounding);
+      border.thickness = thickness;
+      addShape(border);
+    }
+
+    void outerRoundedTriangleBorder(float a_x, float a_y, float b_x, float b_y, float c_x,
+                                    float c_y, float rounding, float thickness) {
+      float pad = rounding + 1.0f;
+      float x = std::min(std::min(a_x, b_x), c_x) - pad;
+      float width = std::max(std::max(a_x, b_x), c_x) - x + 2.0f * pad;
+      float y = std::min(std::min(a_y, b_y), c_y) - pad;
+      float height = std::max(std::max(a_y, b_y), c_y) - y + 2.0f * pad;
+
+      float x1 = 2.0f * (a_x - x) / width - 1.0f;
+      float y1 = 2.0f * (a_y - y) / height - 1.0f;
+      float x2 = 2.0f * (b_x - x) / width - 1.0f;
+      float y2 = 2.0f * (b_y - y) / height - 1.0f;
+      float x3 = 2.0f * (c_x - x) / width - 1.0f;
+      float y3 = 2.0f * (c_y - y) / height - 1.0f;
+
+      addShape(Triangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height, x1,
+                        y1, x2, y2, x3, y3, rounding, thickness + 1.0f));
     }
 
     bool tryDrawCollinearQuadratic(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y,

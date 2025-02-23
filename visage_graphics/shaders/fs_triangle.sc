@@ -1,4 +1,4 @@
-$input v_coordinates, v_dimensions, v_shader_values, v_position, v_gradient_pos, v_gradient_color_pos
+$input v_coordinates, v_dimensions, v_shader_values, v_shader_values1, v_position, v_gradient_pos, v_gradient_color_pos
 
 #include <shader_include.sh>
 
@@ -11,5 +11,5 @@ void main() {
   vec2 coordinates = mix(v_coordinates, v_coordinates.yx, v_shader_values.w) * vec2(v_shader_values.z, 1.0);
   vec2 gradient_pos = gradient(v_gradient_color_pos.xy, v_gradient_color_pos.zw, v_gradient_pos.xy, v_gradient_pos.zw, v_position);
   gl_FragColor = u_color_mult * texture2D(s_gradient, gradient_pos);
-  gl_FragColor.a = gl_FragColor.a * max(0.0, isosceles(coordinates, dimensions));
+  gl_FragColor.a = gl_FragColor.a * trianglePoints(v_coordinates, v_dimensions, v_shader_values.zw, v_shader_values1.xy, v_shader_values1.zw, v_shader_values.x, v_shader_values.y);
 }
