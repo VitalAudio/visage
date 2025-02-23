@@ -239,11 +239,14 @@ ExamplesFrame::ExamplesFrame() {
   setupTextEditors();
   sections_.push_back(std::make_unique<ExampleSection>("Text Editing", &text_editor_container_));
 
+  image_container_.setMasked(true);
   image_container_.onDraw() = [this](visage::Canvas& canvas) {
     canvas.setColor(0xffffffff);
     int offset = (image_container_.width() - image_container_.height()) / 2;
     canvas.image(resources::images::test_png.data, resources::images::test_png.size, offset, 0,
                  image_container_.height(), image_container_.height());
+    canvas.setBlendMode(visage::BlendMode::Mult);
+    canvas.squircle(offset, 0, image_container_.height());
   };
 
   sections_.push_back(std::make_unique<ExampleSection>("Images", &image_container_));
@@ -294,7 +297,7 @@ void ExamplesFrame::setupBars() {
   bar_list_ = std::make_unique<visage::BarList>(kNumBars);
   bar_list_->setHorizontalAntiAliasing(false);
 
-  bar_list_->onDraw() += [this](visage::Canvas& canvas) {
+  bar_list_->onDraw() = [this](visage::Canvas& canvas) {
     double render_time = canvas.time();
     float space = 1;
     float bar_width = (bar_list_->width() + space) / kNumBars;
@@ -304,6 +307,7 @@ void ExamplesFrame::setupBars() {
       float current_height = (sin1((render_time * 60.0 + i * 30) / 600.0f) + 1.0f) * 0.5f * bar_height;
       bar_list_->positionBar(i, x, current_height, bar_width - space, bar_height - current_height);
     }
+    bar_list_->draw(canvas);
   };
 }
 
