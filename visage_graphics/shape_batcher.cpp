@@ -261,7 +261,7 @@ namespace visage {
 
   inline void setColorMult(bool hdr) {
     float value = hdr ? kHdrColorMultiplier : 1.0f;
-    float color_mult[] = { value, value, value, value };
+    float color_mult[] = { value, value, value, 1.0f };
     setUniform<Uniforms::kColorMult>(color_mult);
   }
 

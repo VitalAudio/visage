@@ -26,7 +26,6 @@
 namespace visage {
   struct GradientAtlasTexture {
     bgfx::TextureHandle color_handle = { bgfx::kInvalidHandle };
-    bgfx::TextureHandle hdr_handle = { bgfx::kInvalidHandle };
   };
 
   GradientAtlas::PackedGradientReference::~PackedGradientReference() {
@@ -46,9 +45,7 @@ namespace visage {
 
     int resolution = gradient->gradient.resolution();
     bgfx::updateTexture2D(texture_->color_handle, 0, 0, gradient->x, gradient->y, resolution, 1,
-                          bgfx::copy(gradient->gradient.colors().data(), resolution * 4));
-    bgfx::updateTexture2D(texture_->hdr_handle, 0, 0, gradient->x, gradient->y, resolution, 1,
-                          bgfx::copy(gradient->gradient.hdrs().data(), resolution));
+                          bgfx::copy(gradient->gradient.colors().data(), resolution * sizeof(uint64_t)));
   }
 
   void GradientAtlas::checkInit() {
@@ -57,9 +54,7 @@ namespace visage {
 
     if (!bgfx::isValid(texture_->color_handle)) {
       texture_->color_handle = bgfx::createTexture2D(atlas_.width(), atlas_.height(), false, 1,
-                                                     bgfx::TextureFormat::BGRA8, BGFX_SAMPLER_UVW_CLAMP);
-      texture_->hdr_handle = bgfx::createTexture2D(atlas_.width(), atlas_.height(), false, 1,
-                                                   bgfx::TextureFormat::R32F, BGFX_SAMPLER_UVW_CLAMP);
+                                                     bgfx::TextureFormat::RGBA16, BGFX_SAMPLER_UVW_CLAMP);
 
       for (auto& gradient : gradients_)
         updateGradient(gradient.second.get());
@@ -69,8 +64,6 @@ namespace visage {
   void GradientAtlas::resize() {
     if (texture_ && bgfx::isValid(texture_->color_handle))
       bgfx::destroy(texture_->color_handle);
-    if (texture_ && bgfx::isValid(texture_->hdr_handle))
-      bgfx::destroy(texture_->hdr_handle);
 
     texture_.reset();
     atlas_.pack();
@@ -85,10 +78,5 @@ namespace visage {
   const bgfx::TextureHandle& GradientAtlas::colorTextureHandle() {
     checkInit();
     return texture_->color_handle;
-  }
-
-  const bgfx::TextureHandle& GradientAtlas::hdrTextureHandle() {
-    checkInit();
-    return texture_->hdr_handle;
   }
 }

@@ -40,6 +40,7 @@ namespace visage {
     static constexpr int kBitsPerColor = 8;
     static constexpr float kFloatScale = 1.0f / 0xff;
     static constexpr float kHueRange = 360.0f;
+    static constexpr float kGradientNormalization = 1.0f;
 
     static Color fromAHSV(float alpha, float hue, float saturation, float value) {
       static constexpr float kHueCutoff = kHueRange / 6.0f;
@@ -140,6 +141,22 @@ namespace visage {
     void multRgb(float amount) {
       for (int i = 0; i < kAlpha; ++i)
         values_[i] *= amount;
+    }
+
+    uint64_t toABGR16() const {
+      float mult = hdr_ / kGradientNormalization;
+      uint64_t value = floatToHex16(values_[kAlpha]) << (6 * kBitsPerColor);
+      value += floatToHex16(values_[kBlue] * mult) << (4 * kBitsPerColor);
+      value += floatToHex16(values_[kGreen] * mult) << (2 * kBitsPerColor);
+      return value + floatToHex16(values_[kRed] * mult);
+    }
+
+    uint64_t toARGB16() const {
+      float mult = hdr_ / kGradientNormalization;
+      uint64_t value = floatToHex16(values_[kAlpha]) << (6 * kBitsPerColor);
+      value += floatToHex16(values_[kRed] * mult) << (4 * kBitsPerColor);
+      value += floatToHex16(values_[kGreen] * mult) << (2 * kBitsPerColor);
+      return value + floatToHex16(values_[kBlue] * mult);
     }
 
     unsigned int toABGR() const {
@@ -266,6 +283,10 @@ namespace visage {
   private:
     static unsigned int floatToHex(float value) {
       return std::round(std::max(0.0f, std::min(1.0f, value)) * 0xff);
+    }
+
+    static uint64_t floatToHex16(float value) {
+      return std::round(std::max(0.0f, std::min(1.0f, value)) * 0xffff);
     }
 
     static char hexCharacter(int value) {

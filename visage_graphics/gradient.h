@@ -44,10 +44,6 @@ namespace visage {
           return -1;
         if (a.colors_[i] > b.colors_[i])
           return 1;
-        if (a.hdrs_[i] < b.hdrs_[i])
-          return -1;
-        if (a.hdrs_[i] > b.hdrs_[i])
-          return 1;
       }
       return 0;
     }
@@ -62,41 +58,35 @@ namespace visage {
     Gradient(int resolution, const std::function<Color(float)>& sample_function) {
       VISAGE_ASSERT(resolution > 0);
       colors_.reserve(resolution);
-      hdrs_.reserve(resolution);
 
       float normalization = 1.0f / std::max(1.0f, resolution - 1.0f);
       for (int i = 0; i < resolution; ++i) {
         Color color = sample_function(i * normalization);
-        colors_.emplace_back(color.toARGB());
-        hdrs_.emplace_back(color.hdr());
+        colors_.emplace_back(color.toABGR16());
       }
     }
 
     template<typename... Args, typename = std::enable_if_t<(std::is_same_v<Args, Color> && ...)>>
     explicit Gradient(const Args&... args) {
       colors_.reserve(sizeof...(args));
-      hdrs_.reserve(sizeof...(args));
-
-      (colors_.emplace_back(args.toARGB()), ...);
-      (hdrs_.emplace_back(args.hdr()), ...);
+      (colors_.emplace_back(args.toABGR16()), ...);
     }
 
     Color sample(float t) const {
       if (colors_.size() <= 1)
-        return Color(colors_[0], hdrs_[0]);
+        return Color(colors_[0]);
 
       float position = t * (resolution() - 1);
       int index = std::min(resolution() - 2, static_cast<int>(position));
-      Color from(colors_[index], hdrs_[index]);
-      return from.interpolateWith(Color(colors_[index + 1], hdrs_[index + 1]), position - index);
+      Color from(colors_[index]);
+      return from.interpolateWith(Color(colors_[index + 1]), position - index);
     }
 
     int resolution() const { return colors_.size(); }
 
     bool operator<(const Gradient& other) const { return compare(*this, other) < 0; }
 
-    const std::vector<unsigned int>& colors() const { return colors_; }
-    const std::vector<float>& hdrs() const { return hdrs_; }
+    const std::vector<uint64_t>& colors() const { return colors_; }
 
     Gradient interpolateWith(const Gradient& other, float t) const {
       return interpolate(*this, other, t);
@@ -105,20 +95,17 @@ namespace visage {
     Gradient withMultipliedAlpha(float mult) const {
       Gradient result;
       result.colors_.reserve(colors_.size());
-      result.hdrs_.reserve(hdrs_.size());
 
       for (int i = 0; i < colors_.size(); ++i) {
-        unsigned int color = colors_[i];
-        unsigned int alpha = std::round(mult * ((color & 0xff000000) >> 24));
-        result.colors_.emplace_back((color & 0x00ffffff) | (alpha << 24));
-        result.hdrs_.emplace_back(hdrs_[i]);
+        uint64_t color = colors_[i];
+        uint64_t alpha = std::round(mult * (color >> 48));
+        result.colors_.emplace_back((color & 0x0000ffffffffffffU) | (alpha << 48));
       }
       return result;
     }
 
   private:
-    std::vector<unsigned int> colors_;
-    std::vector<float> hdrs_;
+    std::vector<uint64_t> colors_;
   };
 
   class GradientAtlas {
@@ -202,7 +189,6 @@ namespace visage {
     int height() { return atlas_.height(); }
 
     const bgfx::TextureHandle& colorTextureHandle();
-    const bgfx::TextureHandle& hdrTextureHandle();
 
   private:
     void updateGradient(const PackedGradientRect* gradient);
