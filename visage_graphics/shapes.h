@@ -346,6 +346,40 @@ namespace visage {
     float b_y = 0.0f;
   };
 
+  struct Triangle : Primitive<ComplexShapeVertex> {
+    VISAGE_CREATE_BATCH_ID
+    static const EmbeddedFile& vertexShader();
+    static const EmbeddedFile& fragmentShader();
+
+    Triangle(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
+             float height, float a_x, float a_y, float b_x, float b_y, float c_x, float c_y,
+             float rounding, float thickness) :
+        Primitive(batchId(), clamp, brush, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x),
+        b_y(b_y), c_x(c_x), c_y(c_y) {
+      this->thickness = thickness;
+      this->pixel_width = rounding;
+    }
+
+    void setVertexData(Vertex* vertices) const {
+      setPrimitiveData(vertices);
+      for (int v = 0; v < kVerticesPerQuad; ++v) {
+        vertices[v].value_1 = a_x;
+        vertices[v].value_2 = a_y;
+        vertices[v].value_3 = b_x;
+        vertices[v].value_4 = b_y;
+        vertices[v].value_5 = c_x;
+        vertices[v].value_6 = c_y;
+      }
+    }
+
+    float a_x = 0.0f;
+    float a_y = 0.0f;
+    float b_x = 0.0f;
+    float b_y = 0.0f;
+    float c_x = 0.0f;
+    float c_y = 0.0f;
+  };
+
   struct QuadraticBezier : Primitive<ComplexShapeVertex> {
     VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
@@ -396,28 +430,6 @@ namespace visage {
     }
 
     float rounding = 0.0f;
-  };
-
-  struct Triangle : Primitive<> {
-    VISAGE_CREATE_BATCH_ID
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    Triangle(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-             float height, Direction direction) :
-        Primitive(batchId(), clamp, brush, x, y, width, height), direction(direction) { }
-
-    void setVertexData(Vertex* vertices) const {
-      setPrimitiveData(vertices);
-      float value_1 = (direction == Direction::Right || direction == Direction::Down) ? 1.0f : -1.0f;
-      float value_2 = (direction == Direction::Right || direction == Direction::Left) ? 0.0f : 1.0f;
-      for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = value_1;
-        vertices[v].value_2 = value_2;
-      }
-    }
-
-    Direction direction = Direction::Right;
   };
 
   struct ImageWrapper : Shape<TextureVertex> {
