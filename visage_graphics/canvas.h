@@ -38,6 +38,7 @@ namespace visage {
   class Canvas {
   public:
     static constexpr float kSqrt2 = 1.4142135623730950488016887242097f;
+    static constexpr float kDefaultSquirclePower = 4.0f;
 
     struct State {
       int x = 0;
@@ -123,7 +124,7 @@ namespace visage {
       addShape(circle);
     }
 
-    void squircle(float x, float y, float width, float power) {
+    void squircle(float x, float y, float width, float power = kDefaultSquirclePower) {
       addShape(Squircle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width, power));
     }
 
