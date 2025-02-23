@@ -536,7 +536,7 @@ namespace visage {
 
     void outerRoundedTriangleBorder(float a_x, float a_y, float b_x, float b_y, float c_x,
                                     float c_y, float rounding, float thickness) {
-      float pad = rounding + 1.0f;
+      float pad = rounding;
       float x = std::min(std::min(a_x, b_x), c_x) - pad;
       float width = std::max(std::max(a_x, b_x), c_x) - x + 2.0f * pad;
       float y = std::min(std::min(a_y, b_y), c_y) - pad;
