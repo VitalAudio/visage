@@ -552,7 +552,7 @@ namespace visage {
     setBlendMode(BlendMode::Composite);
     setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
     setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(source.region->layer()->frameBuffer()));
-    setPostEffectUniform<Uniforms::kColorMult>(hdr_range);
+    setPostEffectUniform<Uniforms::kColorMult>(hdr_range, hdr_range, hdr_range, 1.0f);
     setUniformDimensions(destination.width(), destination.height());
     float width_scale = 1.0f / source.region->layer()->width();
     float height_scale = 1.0f / source.region->layer()->height();
