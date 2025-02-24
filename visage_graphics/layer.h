@@ -33,7 +33,7 @@ namespace visage {
   public:
     static constexpr int kInvalidRectMemory = 2;
 
-    Layer(GradientAtlas* gradient_atlas);
+    explicit Layer(GradientAtlas* gradient_atlas);
     ~Layer();
 
     void checkFrameBuffer();

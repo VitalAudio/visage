@@ -26,6 +26,7 @@
 
 #include <functional>
 #include <map>
+#include <utility>
 #include <vector>
 
 namespace visage {
@@ -50,7 +51,7 @@ namespace visage {
 
     static Gradient interpolate(const Gradient& from, const Gradient& to, float t) {
       auto sample_function = [&](float s) { return from.sample(s).interpolateWith(to.sample(s), t); };
-      return Gradient(std::max(from.resolution(), to.resolution()), sample_function);
+      return { std::max(from.resolution(), to.resolution()), sample_function };
     }
 
     Gradient() = default;
@@ -79,7 +80,7 @@ namespace visage {
       float b = ((color >> 32) & 0xffff) * normalization;
       float g = ((color >> 16) & 0xffff) * normalization;
       float r = (color & 0xffff) * normalization;
-      return Color(a, r, g, b);
+      return { a, r, g, b };
     }
 
     Color sample(float t) const {
@@ -106,8 +107,7 @@ namespace visage {
       Gradient result;
       result.colors_.reserve(colors_.size());
 
-      for (int i = 0; i < colors_.size(); ++i) {
-        uint64_t color = colors_[i];
+      for (unsigned long long color : colors_) {
         uint64_t alpha = std::round(mult * (color >> 48));
         result.colors_.emplace_back((color & 0x0000ffffffffffffU) | (alpha << 48));
       }
@@ -155,7 +155,8 @@ namespace visage {
         return reference_->packed_gradient_rect->gradient;
       }
 
-      PackedGradient(std::shared_ptr<PackedGradientReference> reference) : reference_(reference) { }
+      explicit PackedGradient(std::shared_ptr<PackedGradientReference> reference) :
+          reference_(std::move(reference)) { }
 
     private:
       std::shared_ptr<PackedGradientReference> reference_;
@@ -187,7 +188,7 @@ namespace visage {
     }
 
     void clearStaleGradients() {
-      for (auto stale : stale_gradients_) {
+      for (const auto& stale : stale_gradients_) {
         gradients_.erase(stale.first);
         atlas_map_.removeRect(stale.second);
       }
@@ -195,8 +196,8 @@ namespace visage {
     }
 
     void checkInit();
-    int width() { return atlas_map_.width(); }
-    int height() { return atlas_map_.height(); }
+    int width() const { return atlas_map_.width(); }
+    int height() const { return atlas_map_.height(); }
 
     const bgfx::TextureHandle& colorTextureHandle();
 
@@ -261,12 +262,12 @@ namespace visage {
 
   class Brush {
   public:
-    static Brush solid(Color color) {
-      return Brush(Gradient(color), GradientPosition(GradientPosition::InterpolationShape::Solid));
+    static Brush solid(const Color& color) {
+      return { Gradient(color), GradientPosition(GradientPosition::InterpolationShape::Solid) };
     }
 
-    static Brush horizontal(Gradient gradient) {
-      return Brush(std::move(gradient), GradientPosition(GradientPosition::InterpolationShape::Horizontal));
+    static Brush horizontal(const Gradient& gradient) {
+      return { gradient, GradientPosition(GradientPosition::InterpolationShape::Horizontal) };
     }
 
     static Brush horizontal(const Color& left, const Color& right) {
@@ -274,7 +275,7 @@ namespace visage {
     }
 
     static Brush vertical(Gradient gradient) {
-      return Brush(std::move(gradient), GradientPosition(GradientPosition::InterpolationShape::Vertical));
+      return { std::move(gradient), GradientPosition(GradientPosition::InterpolationShape::Vertical) };
     }
 
     static Brush vertical(const Color& top, const Color& bottom) {
@@ -282,7 +283,7 @@ namespace visage {
     }
 
     static Brush linear(Gradient gradient, const FloatPoint& from_position, const FloatPoint& to_position) {
-      return Brush(std::move(gradient), GradientPosition(from_position, to_position));
+      return { std::move(gradient), GradientPosition(from_position, to_position) };
     }
 
     static Brush linear(const Color& from_color, const Color& to_color,
@@ -291,14 +292,16 @@ namespace visage {
     }
 
     static Brush interpolate(const Brush& from, const Brush& to, float t) {
-      return Brush(from.gradient_.interpolateWith(to.gradient_, t),
-                   from.position_.interpolateWith(to.position_, t));
+      return { from.gradient_.interpolateWith(to.gradient_, t),
+               from.position_.interpolateWith(to.position_, t) };
     }
 
-    Brush interpolateWith(const Brush& other, float t) { return interpolate(*this, other, t); }
+    Brush interpolateWith(const Brush& other, float t) const {
+      return interpolate(*this, other, t);
+    }
 
-    Brush withMultipliedAlpha(float mult) {
-      return Brush(gradient_.withMultipliedAlpha(mult), position_);
+    Brush withMultipliedAlpha(float mult) const {
+      return { gradient_.withMultipliedAlpha(mult), position_ };
     }
 
     const Gradient& gradient() const { return gradient_; }
@@ -307,8 +310,8 @@ namespace visage {
     Brush() = default;
 
   private:
-    Brush(Gradient gradient, GradientPosition position) :
-        gradient_(std::move(gradient)), position_(std::move(position)) { }
+    Brush(Gradient gradient, const GradientPosition& position) :
+        gradient_(std::move(gradient)), position_(position) { }
 
     Gradient gradient_;
     GradientPosition position_;

@@ -83,7 +83,7 @@ namespace visage {
     }
   }
 
-  void Canvas::invalidateRectInRegion(Bounds rect, Region* region, int layer) {
+  void Canvas::invalidateRectInRegion(Bounds rect, const Region* region, int layer) {
     ensureLayerExists(layer);
     layers_[layer]->invalidateRectInRegion(rect, region);
   }

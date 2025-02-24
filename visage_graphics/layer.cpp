@@ -22,9 +22,7 @@
 #include "layer.h"
 
 #include "canvas.h"
-#include "palette.h"
 #include "region.h"
-#include "theme.h"
 
 #include <bgfx/bgfx.h>
 
