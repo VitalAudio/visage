@@ -33,7 +33,6 @@ namespace visage {
     friend class Canvas;
 
     Region() = default;
-    ~Region() { clear(); }
 
     SubmitBatch* submitBatchAtPosition(int position) const {
       return shape_batcher_.batchAtIndex(position);
