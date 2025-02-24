@@ -89,7 +89,6 @@ namespace visage {
   }
 
   void setUniformDimensions(int width, int height);
-  void setColorMult(bool hdr);
   void setOriginFlipUniform(bool origin_flip);
   void setBlendMode(BlendMode draw_state);
 

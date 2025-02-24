@@ -72,14 +72,24 @@ namespace visage {
       (colors_.emplace_back(args.toABGR16()), ...);
     }
 
+    Color sampleIndex(int index) const {
+      uint64_t color = colors_[index];
+      float normalization = Color::kGradientNormalization / 0xffff;
+      float a = ((color >> 48) & 0xffff) * 1.0f / 0xffff;
+      float b = ((color >> 32) & 0xffff) * normalization;
+      float g = ((color >> 16) & 0xffff) * normalization;
+      float r = (color & 0xffff) * normalization;
+      return Color(a, r, g, b);
+    }
+
     Color sample(float t) const {
       if (colors_.size() <= 1)
-        return Color(colors_[0]);
+        return sampleIndex(0);
 
       float position = t * (resolution() - 1);
       int index = std::min(resolution() - 2, static_cast<int>(position));
-      Color from(colors_[index]);
-      return from.interpolateWith(Color(colors_[index + 1]), position - index);
+      Color from = sampleIndex(index);
+      return from.interpolateWith(sampleIndex(index + 1), position - index);
     }
 
     int resolution() const { return colors_.size(); }

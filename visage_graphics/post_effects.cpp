@@ -351,7 +351,8 @@ namespace visage {
     float width_scale = 1.0f / widths_[0];
     float height_scale = 1.0f / heights_[0];
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
-    setPostEffectUniform<Uniforms::kColorMult>(1.0f, 1.0f, 1.0f, 1.0f);
+    setPostEffectUniform<Uniforms::kColorMult>(Color::kGradientNormalization, Color::kGradientNormalization,
+                                               Color::kGradientNormalization, 1.0f);
     setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
 
     if (stages_ >= 2 && stages_ < 3)
@@ -375,7 +376,8 @@ namespace visage {
     setBlendMode(BlendMode::Composite);
     setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
     setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(source.region->layer()->frameBuffer()));
-    setPostEffectUniform<Uniforms::kColorMult>(1.0f, 1.0f, 1.0f, 1.0f);
+    setPostEffectUniform<Uniforms::kColorMult>(Color::kGradientNormalization, Color::kGradientNormalization,
+                                               Color::kGradientNormalization, 1.0f);
     setUniformDimensions(destination.width(), destination.height());
     float width_scale = 1.0f / source.region->layer()->width();
     float height_scale = 1.0f / source.region->layer()->height();
@@ -548,7 +550,7 @@ namespace visage {
     setQuadPositions(vertices, source, source.clamp.withOffset(x, y), x, y);
     source.region->layer()->setTexturePositionsForRegion(source.region, vertices);
 
-    float hdr_range = hdr() ? visage::kHdrColorRange : 1.0f;
+    float hdr_range = (hdr() ? visage::kHdrColorRange : 1.0f) * Color::kGradientNormalization;
     setBlendMode(BlendMode::Composite);
     setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
     setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(source.region->layer()->frameBuffer()));
@@ -587,7 +589,8 @@ namespace visage {
     float width_scale = 1.0f / widths_[0];
     float height_scale = 1.0f / heights_[0];
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
-    setPostEffectUniform<Uniforms::kColorMult>(bloom_intensity_, bloom_intensity_, bloom_intensity_, 1.0f);
+    float mult = bloom_intensity_ * Color::kGradientNormalization;
+    setPostEffectUniform<Uniforms::kColorMult>(mult, mult, mult, 1.0f);
     setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
     setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(handles_->downsample_buffers1[0]));
     setUniformDimensions(destination.width(), destination.height());

@@ -40,7 +40,7 @@ namespace visage {
     static constexpr int kBitsPerColor = 8;
     static constexpr float kFloatScale = 1.0f / 0xff;
     static constexpr float kHueRange = 360.0f;
-    static constexpr float kHdrNormalization = 64.0f;
+    static constexpr float kGradientNormalization = 64.0f;
 
     static Color fromAHSV(float alpha, float hue, float saturation, float value) {
       static constexpr float kHueCutoff = kHueRange / 6.0f;
@@ -79,6 +79,18 @@ namespace visage {
 
       result.values_[max_index] += range;
       result.values_[middle_index] += conversion;
+      return result;
+    }
+
+    static Color fromABGR16(uint16_t abgr) {
+      Color result;
+      result.loadABGR16(abgr);
+      return result;
+    }
+
+    static Color fromARGB16(uint16_t argb) {
+      Color result;
+      result.loadARGB16(argb);
       return result;
     }
 
@@ -122,6 +134,18 @@ namespace visage {
       hdr_ = hdr;
     }
 
+    void loadARGB16(uint64_t abgr) {
+      for (int i = 0; i < kNumChannels; ++i) {
+        int shift = kBitsPerColor * i * 2;
+        values_[i] = ((abgr >> shift) & 0xffff) * kFloatScale;
+      }
+    }
+
+    void loadABGR16(uint64_t abgr) {
+      loadARGB16(abgr);
+      std::swap(values_[kBlue], values_[kRed]);
+    }
+
     void loadARGB(unsigned int abgr) {
       for (int i = 0; i < kNumChannels; ++i) {
         int shift = kBitsPerColor * i;
@@ -129,8 +153,8 @@ namespace visage {
       }
     }
 
-    void loadABGR(unsigned int argb) {
-      loadARGB(argb);
+    void loadABGR(unsigned int abgr) {
+      loadARGB(abgr);
       std::swap(values_[kBlue], values_[kRed]);
     }
 
@@ -144,7 +168,7 @@ namespace visage {
     }
 
     uint64_t toABGR16() const {
-      float mult = hdr_ / kHdrNormalization;
+      float mult = hdr_ / kGradientNormalization;
       uint64_t value = floatToHex16(values_[kAlpha]) << (6 * kBitsPerColor);
       value += floatToHex16(values_[kBlue] * mult) << (4 * kBitsPerColor);
       value += floatToHex16(values_[kGreen] * mult) << (2 * kBitsPerColor);
@@ -152,7 +176,7 @@ namespace visage {
     }
 
     uint64_t toARGB16() const {
-      float mult = hdr_ / kHdrNormalization;
+      float mult = hdr_ / kGradientNormalization;
       uint64_t value = floatToHex16(values_[kAlpha]) << (6 * kBitsPerColor);
       value += floatToHex16(values_[kRed] * mult) << (4 * kBitsPerColor);
       value += floatToHex16(values_[kGreen] * mult) << (2 * kBitsPerColor);
