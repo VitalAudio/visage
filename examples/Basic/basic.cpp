@@ -20,12 +20,8 @@
  */
 
 #include <visage/app.h>
-#include <visage/widgets.h>
 
 int runExample() {
-  visage::ShaderCompiler compiler;
-  compiler.watchShaderFolder("C:/Users/matth/visage/visage_graphics/shaders");
-
   visage::ApplicationWindow app;
 
   app.onDraw() = [&app](visage::Canvas& canvas) {
@@ -35,7 +31,7 @@ int runExample() {
     float circle_radius = app.height() * 0.1f;
     float x = app.width() * 0.5f - circle_radius;
     float y = app.height() * 0.5f - circle_radius;
-    canvas.setColor(visage::Brush::horizontal(0xffff0000, 0xff00ff00));
+    canvas.setColor(0xff00ffff);
     canvas.circle(x, y, 2.0f * circle_radius);
   };
 
