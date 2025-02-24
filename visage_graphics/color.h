@@ -24,6 +24,7 @@
 #include "visage_utils/space.h"
 
 #include <cmath>
+#include <cstdint>
 #include <iosfwd>
 #include <string>
 
