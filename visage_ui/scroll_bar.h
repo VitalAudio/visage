@@ -106,7 +106,10 @@ namespace visage {
       container_.setVisible(false);
 
       addChild(&scroll_bar_);
-      scroll_bar_.addScrollCallback([this](int position) { scrollPositionChanged(position); });
+      scroll_bar_.addScrollCallback([this](int position) {
+        float_position_ = position;
+        scrollPositionChanged(position);
+      });
       scroll_bar_.setOnTop(true);
     }
 
