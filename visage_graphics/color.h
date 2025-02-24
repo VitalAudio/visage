@@ -40,7 +40,7 @@ namespace visage {
     static constexpr int kBitsPerColor = 8;
     static constexpr float kFloatScale = 1.0f / 0xff;
     static constexpr float kHueRange = 360.0f;
-    static constexpr float kGradientNormalization = 1.0f;
+    static constexpr float kHdrNormalization = 64.0f;
 
     static Color fromAHSV(float alpha, float hue, float saturation, float value) {
       static constexpr float kHueCutoff = kHueRange / 6.0f;
@@ -144,7 +144,7 @@ namespace visage {
     }
 
     uint64_t toABGR16() const {
-      float mult = hdr_ / kGradientNormalization;
+      float mult = hdr_ / kHdrNormalization;
       uint64_t value = floatToHex16(values_[kAlpha]) << (6 * kBitsPerColor);
       value += floatToHex16(values_[kBlue] * mult) << (4 * kBitsPerColor);
       value += floatToHex16(values_[kGreen] * mult) << (2 * kBitsPerColor);
@@ -152,7 +152,7 @@ namespace visage {
     }
 
     uint64_t toARGB16() const {
-      float mult = hdr_ / kGradientNormalization;
+      float mult = hdr_ / kHdrNormalization;
       uint64_t value = floatToHex16(values_[kAlpha]) << (6 * kBitsPerColor);
       value += floatToHex16(values_[kRed] * mult) << (4 * kBitsPerColor);
       value += floatToHex16(values_[kGreen] * mult) << (2 * kBitsPerColor);
