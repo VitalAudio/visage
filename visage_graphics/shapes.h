@@ -437,35 +437,21 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     ImageWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-                 float height, const ImageFile& image, ImageGroup* image_group) :
-        Shape(image_group, clamp, brush, x, y, width, height), image(image), image_group(image_group) {
-      Point dimensions = image_group->incrementImage(image);
+                 float height, const ImageFile& image, ImageAtlas* image_atlas) :
+        Shape(image_atlas, clamp, brush, x, y, width, height),
+        packed_image(image_atlas->addImage(image)), image_atlas(image_atlas) {
       if (width == 0.0f && !image.svg) {
-        this->width = dimensions.x;
-        this->height = dimensions.y;
+        this->width = packed_image.x();
+        this->height = packed_image.y();
       }
     }
 
-    ~ImageWrapper() {
-      if (image_group)
-        image_group->decrementImage(image);
-    }
-
-    ImageWrapper(const ImageWrapper&) = delete;
-    ImageWrapper& operator=(const ImageWrapper&) = delete;
-    ImageWrapper& operator=(ImageWrapper&& other) = delete;
-    ImageWrapper(ImageWrapper&& other) noexcept : Shape(std::move(other)) {
-      image = other.image;
-      image_group = other.image_group;
-      other.image_group = nullptr;
-    }
-
     void setVertexData(Vertex* vertices) const {
-      image_group->setImageCoordinates(vertices, image);
+      image_atlas->setImageCoordinates(vertices, packed_image);
     }
 
-    ImageFile image;
-    ImageGroup* image_group = nullptr;
+    ImageAtlas::PackedImage packed_image;
+    ImageAtlas* image_atlas = nullptr;
   };
 
   struct LineWrapper : Shape<> {

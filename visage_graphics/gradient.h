@@ -167,10 +167,10 @@ namespace visage {
     PackedGradient addGradient(const Gradient& gradient) {
       if (gradients_.count(gradient) == 0) {
         std::unique_ptr<PackedGradientRect> packed_gradient_rect = std::make_unique<PackedGradientRect>(gradient);
-        if (!atlas_.addRect(packed_gradient_rect.get(), gradient.resolution(), 1))
+        if (!atlas_map_.addRect(packed_gradient_rect.get(), gradient.resolution(), 1))
           resize();
 
-        const PackedRect& rect = atlas_.rectForId(packed_gradient_rect.get());
+        const PackedRect& rect = atlas_map_.rectForId(packed_gradient_rect.get());
         packed_gradient_rect->x = rect.x;
         packed_gradient_rect->y = rect.y;
         updateGradient(packed_gradient_rect.get());
@@ -189,14 +189,14 @@ namespace visage {
     void clearStaleGradients() {
       for (auto stale : stale_gradients_) {
         gradients_.erase(stale.first);
-        atlas_.removeRect(stale.second);
+        atlas_map_.removeRect(stale.second);
       }
       stale_gradients_.clear();
     }
 
     void checkInit();
-    int width() { return atlas_.width(); }
-    int height() { return atlas_.height(); }
+    int width() { return atlas_map_.width(); }
+    int height() { return atlas_map_.height(); }
 
     const bgfx::TextureHandle& colorTextureHandle();
 
@@ -217,7 +217,7 @@ namespace visage {
     std::map<Gradient, std::unique_ptr<PackedGradientRect>> gradients_;
     std::map<Gradient, const PackedGradientRect*> stale_gradients_;
 
-    PackedAtlas<const PackedGradientRect*> atlas_;
+    PackedAtlasMap<const PackedGradientRect*> atlas_map_;
     std::unique_ptr<GradientAtlasTexture> texture_;
     std::shared_ptr<GradientAtlas*> reference_;
 

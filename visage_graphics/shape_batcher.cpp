@@ -420,13 +420,12 @@ namespace visage {
     if (!setupQuads(batches))
       return;
 
-    const ImageGroup* image_group = batches[0].shapes->front().image_group;
+    const ImageAtlas* image_atlas = batches[0].shapes->front().image_atlas;
     setBlendMode(BlendMode::Alpha);
-    float atlas_scale[] = { 1.0f / image_group->atlasWidth(), 1.0f / image_group->atlasHeight(),
-                            0.0f, 0.0f };
+    float atlas_scale[] = { 1.0f / image_atlas->width(), 1.0f / image_atlas->height(), 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale);
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
-    setTexture<Uniforms::kTexture>(1, image_group->textureHandle());
+    setTexture<Uniforms::kTexture>(1, image_atlas->textureHandle());
     setUniformDimensions(layer.width(), layer.height());
     setColorMult(layer.hdr());
 

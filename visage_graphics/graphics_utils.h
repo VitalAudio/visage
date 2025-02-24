@@ -100,7 +100,7 @@ namespace visage {
   };
 
   template<typename T = int>
-  class PackedAtlas {
+  class PackedAtlasMap {
   public:
     bool addRect(T id, int width, int height) {
       VISAGE_ASSERT(lookup_.count(id) == 0);

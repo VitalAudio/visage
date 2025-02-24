@@ -401,7 +401,7 @@ namespace visage {
 
     void svg(const Svg& svg, float x, float y) {
       addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, svg.width,
-                            svg.height, svg, imageGroup()));
+                            svg.height, svg, imageAtlas()));
     }
 
     void svg(const char* svg_data, int svg_size, float x, float y, int width, int height,
@@ -415,7 +415,7 @@ namespace visage {
 
     void image(const Image& image, float x, float y) {
       addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, image.width,
-                            image.height, image, imageGroup()));
+                            image.height, image, imageAtlas()));
     }
 
     void image(const char* image_data, int image_size, float x, float y, int width, int height) {
@@ -511,12 +511,7 @@ namespace visage {
     float value(theme::ValueId value_id);
     std::vector<std::string> debugInfo() const;
 
-    ImageGroup* imageGroup() {
-      if (image_group_ == nullptr)
-        image_group_ = std::make_unique<ImageGroup>();
-      return image_group_.get();
-    }
-
+    ImageAtlas* imageAtlas() { return &image_atlas_; }
     GradientAtlas* gradientAtlas() { return &gradient_atlas_; }
 
     State* state() { return &state_; }
@@ -581,13 +576,13 @@ namespace visage {
     State state_;
 
     GradientAtlas gradient_atlas_;
+    ImageAtlas image_atlas_;
+
     Region window_region_;
     Region default_region_;
     Layer composite_layer_;
     std::vector<std::unique_ptr<Layer>> intermediate_layers_;
     std::vector<Layer*> layers_;
-
-    std::unique_ptr<ImageGroup> image_group_;
 
     float refresh_rate_ = 0.0f;
 

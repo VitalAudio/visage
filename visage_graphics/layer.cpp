@@ -307,21 +307,21 @@ namespace visage {
 
   void Layer::addPackedRegion(Region* region) {
     addRegion(region);
-    if (!atlas_.addRect(region, region->width(), region->height())) {
+    if (!atlas_map_.addRect(region, region->width(), region->height())) {
       invalidate();
-      atlas_.pack();
-      setDimensions(atlas_.width(), atlas_.height());
+      atlas_map_.pack();
+      setDimensions(atlas_map_.width(), atlas_map_.height());
     }
   }
 
   void Layer::removePackedRegion(Region* region) {
     removeRegion(region);
-    atlas_.removeRect(region);
+    atlas_map_.removeRect(region);
   }
 
   Bounds Layer::boundsForRegion(const Region* region) const {
     if (intermediate_layer_) {
-      const PackedRect& rect = atlas_.rectForId(region);
+      const PackedRect& rect = atlas_map_.rectForId(region);
       return { rect.x, rect.y, rect.w, rect.h };
     }
     return { region->x(), region->y(), region->width(), region->height() };
@@ -329,7 +329,7 @@ namespace visage {
 
   Point Layer::coordinatesForRegion(const Region* region) const {
     if (intermediate_layer_) {
-      const PackedRect& rect = atlas_.rectForId(region);
+      const PackedRect& rect = atlas_map_.rectForId(region);
       return { rect.x, rect.y };
     }
     return { region->x(), region->y() };

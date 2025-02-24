@@ -59,7 +59,7 @@ namespace visage {
 
     template<typename V>
     void setTexturePositionsForRegion(const Region* region, V* vertices) const {
-      TextureRect rect = atlas_.texturePositionsForId(region, bottom_left_origin_);
+      TextureRect rect = atlas_map_.texturePositionsForId(region, bottom_left_origin_);
 
       vertices[0].texture_x = rect.left;
       vertices[0].texture_y = rect.top;
@@ -115,7 +115,7 @@ namespace visage {
 
     void clear() {
       regions_.clear();
-      atlas_.clear();
+      atlas_map_.clear();
     }
 
   private:
@@ -130,7 +130,7 @@ namespace visage {
     GradientAtlas* gradient_atlas_ = nullptr;
     std::unique_ptr<const PackedBrush> clear_brush_;
     std::unique_ptr<FrameBufferData> frame_buffer_data_;
-    PackedAtlas<const Region*> atlas_;
+    PackedAtlasMap<const Region*> atlas_map_;
     std::map<const Region*, std::vector<Bounds>> invalid_rects_;
     std::vector<Bounds> invalid_rect_pieces_;
     std::vector<Region*> regions_;
