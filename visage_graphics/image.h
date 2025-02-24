@@ -25,6 +25,7 @@
 #include "visage_utils/space.h"
 
 #include <map>
+#include <utility>
 
 namespace visage {
   struct ImageFile {
@@ -77,7 +78,7 @@ namespace visage {
     static constexpr int kChannels = 4;
 
     struct PackedImageRect {
-      explicit PackedImageRect(ImageFile image) : image(std::move(image)) { }
+      explicit PackedImageRect(ImageFile image) : image(image) { }
 
       ImageFile image;
       int x = 0;
@@ -127,7 +128,8 @@ namespace visage {
         return reference_->packed_image_rect;
       }
 
-      PackedImage(std::shared_ptr<PackedImageReference> reference) : reference_(reference) { }
+      explicit PackedImage(std::shared_ptr<PackedImageReference> reference) :
+          reference_(std::move(reference)) { }
 
     private:
       std::shared_ptr<PackedImageReference> reference_;

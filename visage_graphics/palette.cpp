@@ -79,8 +79,8 @@ namespace visage {
 
     for (const auto& color : existing_colors) {
       while (colors_.size() <= color.second) {
-        colors_.push_back({});
-        computed_colors_.push_back({});
+        colors_.emplace_back();
+        computed_colors_.emplace_back();
       }
 
       colors_[color.second] = EditColor(color.first);
@@ -94,7 +94,7 @@ namespace visage {
     std::vector<std::pair<EditColor, int>> sorted;
     sorted.reserve(colors_.size());
     for (auto& color : colors_)
-      sorted.push_back({ color, sorted.size() });
+      sorted.emplace_back(color, sorted.size());
 
     auto color_sort = [](const std::pair<EditColor, int>& one, const std::pair<EditColor, int>& two) {
       static constexpr float kSaturationCutoff = 0.2f;
@@ -244,7 +244,7 @@ namespace visage {
     computed_colors_.reserve(num_colors);
 
     for (int i = 0; i < num_colors; ++i) {
-      colors_.push_back({});
+      colors_.emplace_back();
       colors_[i].decode(stream);
     }
 

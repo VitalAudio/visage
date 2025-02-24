@@ -65,7 +65,7 @@ namespace visage {
       return layers_[index];
     }
 
-    void invalidateRectInRegion(Bounds rect, Region* region, int layer);
+    void invalidateRectInRegion(Bounds rect, const Region* region, int layer);
     void addToPackedLayer(Region* region, int layer_index);
     void removeFromPackedLayer(Region* region, int layer_index);
     void changePackedLayer(Region* region, int from, int to);
