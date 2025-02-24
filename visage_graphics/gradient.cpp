@@ -25,7 +25,12 @@
 
 namespace visage {
   struct GradientAtlasTexture {
-    bgfx::TextureHandle color_handle = { bgfx::kInvalidHandle };
+    bgfx::TextureHandle handle = { bgfx::kInvalidHandle };
+
+    ~GradientAtlasTexture() {
+      if (bgfx::isValid(handle))
+        bgfx::destroy(handle);
+    }
   };
 
   GradientAtlas::PackedGradientReference::~PackedGradientReference() {
@@ -40,11 +45,11 @@ namespace visage {
   GradientAtlas::~GradientAtlas() = default;
 
   void GradientAtlas::updateGradient(const PackedGradientRect* gradient) {
-    if (texture_ == nullptr || !bgfx::isValid(texture_->color_handle))
+    if (texture_ == nullptr || !bgfx::isValid(texture_->handle))
       return;
 
     int resolution = gradient->gradient.resolution();
-    bgfx::updateTexture2D(texture_->color_handle, 0, 0, gradient->x, gradient->y, resolution, 1,
+    bgfx::updateTexture2D(texture_->handle, 0, 0, gradient->x, gradient->y, resolution, 1,
                           bgfx::copy(gradient->gradient.colors().data(), resolution * sizeof(uint64_t)));
   }
 
@@ -52,9 +57,9 @@ namespace visage {
     if (texture_ == nullptr)
       texture_ = std::make_unique<GradientAtlasTexture>();
 
-    if (!bgfx::isValid(texture_->color_handle)) {
-      texture_->color_handle = bgfx::createTexture2D(atlas_.width(), atlas_.height(), false, 1,
-                                                     bgfx::TextureFormat::RGBA16, BGFX_SAMPLER_UVW_CLAMP);
+    if (!bgfx::isValid(texture_->handle)) {
+      texture_->handle = bgfx::createTexture2D(atlas_map_.width(), atlas_map_.height(), false, 1,
+                                               bgfx::TextureFormat::RGBA16, BGFX_SAMPLER_UVW_CLAMP);
 
       for (auto& gradient : gradients_)
         updateGradient(gradient.second.get());
@@ -62,14 +67,11 @@ namespace visage {
   }
 
   void GradientAtlas::resize() {
-    if (texture_ && bgfx::isValid(texture_->color_handle))
-      bgfx::destroy(texture_->color_handle);
-
     texture_.reset();
-    atlas_.pack();
+    atlas_map_.pack();
 
     for (auto& gradient : gradients_) {
-      const PackedRect& rect = atlas_.rectForId(gradient.second.get());
+      const PackedRect& rect = atlas_map_.rectForId(gradient.second.get());
       gradient.second->x = rect.x;
       gradient.second->y = rect.y;
     }
@@ -77,6 +79,6 @@ namespace visage {
 
   const bgfx::TextureHandle& GradientAtlas::colorTextureHandle() {
     checkInit();
-    return texture_->color_handle;
+    return texture_->handle;
   }
 }

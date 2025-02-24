@@ -69,35 +69,106 @@ namespace visage {
         ImageFile(false, data, data_size, width, height) { }
   };
 
-  class ImageGroupTexture;
+  class ImageAtlasTexture;
 
-  class ImageGroup {
+  class ImageAtlas {
   public:
     static constexpr int kImageBuffer = 1;
     static constexpr int kChannels = 4;
 
-    ImageGroup();
-    virtual ~ImageGroup();
+    struct PackedImageRect {
+      explicit PackedImageRect(ImageFile image) : image(std::move(image)) { }
 
-    void clear() {
-      image_count_.clear();
-      atlas_.clear();
+      ImageFile image;
+      int x = 0;
+      int y = 0;
+      int w = 0;
+      int h = 0;
+    };
+
+    struct PackedImageReference {
+      PackedImageReference(std::weak_ptr<ImageAtlas*> atlas, const PackedImageRect* packed_image_rect) :
+          atlas(std::move(atlas)), packed_image_rect(packed_image_rect) { }
+      ~PackedImageReference();
+
+      std::weak_ptr<ImageAtlas*> atlas;
+      const PackedImageRect* packed_image_rect = nullptr;
+    };
+
+    class PackedImage {
+    public:
+      int x() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_image_rect->x;
+      }
+
+      int y() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_image_rect->y;
+      }
+
+      int w() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_image_rect->w;
+      }
+
+      int h() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_image_rect->h;
+      }
+
+      const ImageFile& image() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_image_rect->image;
+      }
+
+      const PackedImageRect* packedImageRect() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_image_rect;
+      }
+
+      PackedImage(std::shared_ptr<PackedImageReference> reference) : reference_(reference) { }
+
+    private:
+      std::shared_ptr<PackedImageReference> reference_;
+    };
+
+    ImageAtlas();
+    virtual ~ImageAtlas();
+
+    PackedImage addImage(const ImageFile& image);
+    void clearStaleImages() {
+      for (auto stale : stale_images_) {
+        images_.erase(stale.first);
+        atlas_map_.removeRect(stale.second);
+      }
+      stale_images_.clear();
     }
 
-    Point incrementImage(const ImageFile& image);
-    void decrementImage(const ImageFile& image);
-    int atlasWidth() const { return atlas_.width(); }
-    int atlasHeight() const { return atlas_.height(); }
+    int width() const { return atlas_map_.width(); }
+    int height() const { return atlas_map_.height(); }
     const bgfx::TextureHandle& textureHandle() const;
-    void setImageCoordinates(TextureVertex* vertices, const ImageFile& image) const;
+    void setImageCoordinates(TextureVertex* vertices, const PackedImage& image) const;
 
   private:
-    void setNewSize();
-    bool packImage(const ImageFile& image);
-    void drawImage(const ImageFile& image) const;
+    void resize();
+    void updateImage(const PackedImageRect* image) const;
 
-    PackedAtlas<ImageFile> atlas_;
-    std::map<ImageFile, int> image_count_;
-    std::unique_ptr<ImageGroupTexture> texture_;
+    void removeImage(const ImageFile& image) {
+      VISAGE_ASSERT(images_.count(image));
+      stale_images_[image] = images_[image].get();
+    }
+
+    void removeImage(const PackedImageRect* packed_image_rect) {
+      removeImage(packed_image_rect->image);
+    }
+
+    std::map<ImageFile, std::weak_ptr<PackedImageReference>> references_;
+    std::map<ImageFile, std::unique_ptr<PackedImageRect>> images_;
+    std::map<ImageFile, const PackedImageRect*> stale_images_;
+
+    PackedAtlasMap<const PackedImageRect*> atlas_map_;
+    std::unique_ptr<ImageAtlasTexture> texture_;
+    std::shared_ptr<ImageAtlas*> reference_;
   };
 }

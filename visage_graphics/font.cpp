@@ -123,12 +123,12 @@ namespace visage {
         texture_handle_ = BGFX_INVALID_HANDLE;
       }
 
-      atlas_.pack();
+      atlas_map_.pack();
       for (auto& glyph : packed_glyphs_) {
         if (glyph.second.width == 0)
           continue;
 
-        const PackedRect& rect = atlas_.rectForId(glyph.first);
+        const PackedRect& rect = atlas_map_.rectForId(glyph.first);
         glyph.second.atlas_left = rect.x;
         glyph.second.atlas_top = rect.y;
       }
@@ -156,7 +156,7 @@ namespace visage {
 
       bgfx::updateTexture2D(texture_handle_, 0, 0, packed_glyph->atlas_left,
                             packed_glyph->atlas_top, packed_glyph->width, packed_glyph->height,
-                            bgfx::copy(texture.get(), size * ImageGroup::kChannels));
+                            bgfx::copy(texture.get(), size * ImageAtlas::kChannels));
     }
 
     PackedGlyph* packCharacterGlyph(PackedGlyph* packed_glyph, const TypeFace* type_face, char32_t character) {
@@ -201,7 +201,7 @@ namespace visage {
 
     void checkInit() {
       if (!bgfx::isValid(texture_handle_)) {
-        texture_handle_ = bgfx::createTexture2D(atlas_.width(), atlas_.height(), false, 1,
+        texture_handle_ = bgfx::createTexture2D(atlas_map_.width(), atlas_map_.height(), false, 1,
                                                 bgfx::TextureFormat::BGRA8);
 
         for (auto& glyph : packed_glyphs_)
@@ -209,8 +209,8 @@ namespace visage {
       }
     }
 
-    int atlasWidth() const { return atlas_.width(); }
-    int atlasHeight() const { return atlas_.width(); }
+    int atlasWidth() const { return atlas_map_.width(); }
+    int atlasHeight() const { return atlas_map_.width(); }
     bgfx::TextureHandle& textureHandle() { return texture_handle_; }
     int lineHeight() const { return type_faces_[0]->lineHeight(); }
     int size() const { return size_; }
@@ -218,10 +218,10 @@ namespace visage {
 
   private:
     void packGlyph(PackedGlyph* packed_glyph, char32_t character) {
-      if (!atlas_.addRect(character, packed_glyph->width, packed_glyph->height))
+      if (!atlas_map_.addRect(character, packed_glyph->width, packed_glyph->height))
         resize();
 
-      const PackedRect& rect = atlas_.rectForId(character);
+      const PackedRect& rect = atlas_map_.rectForId(character);
       packed_glyph->atlas_left = rect.x;
       packed_glyph->atlas_top = rect.y;
 
@@ -229,7 +229,7 @@ namespace visage {
         rasterizeGlyph(character, packed_glyph);
     }
 
-    PackedAtlas<char32_t> atlas_;
+    PackedAtlasMap<char32_t> atlas_map_;
     std::vector<std::unique_ptr<TypeFace>> type_faces_;
     int size_ = 0;
     const unsigned char* data_ = nullptr;
