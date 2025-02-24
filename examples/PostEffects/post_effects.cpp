@@ -158,9 +158,6 @@ private:
 };
 
 int runExample() {
-  visage::ShaderCompiler compiler;
-  compiler.watchShaderFolder(SHADERS_FOLDER);
-
   ExampleEditor editor;
   editor.showMaximized();
   editor.runEventLoop();
