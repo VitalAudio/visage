@@ -149,10 +149,12 @@ namespace visage {
     color_picker_from_.onColorChange() = [this](Color color) {
       if (editing_ >= 0)
         palette_->setColorIndexFrom(editing_, color);
+      redraw();
     };
     color_picker_to_.onColorChange() = [this](Color color) {
       if (editing_ >= 0)
         palette_->setColorIndexTo(editing_, color);
+      redraw();
     };
     color_picker_to_.setVisible(editing_gradient_);
 
