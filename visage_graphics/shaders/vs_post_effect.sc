@@ -3,7 +3,6 @@ $output v_texture_uv
 
 #include <shader_include.sh>
 
-uniform vec4 u_color_mult;
 uniform vec4 u_bounds;
 uniform vec4 u_atlas_scale;
 uniform vec4 u_origin_flip;

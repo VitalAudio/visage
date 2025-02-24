@@ -3,7 +3,6 @@ $output v_coordinates, v_dimensions, v_shader_values, v_shader_values1, v_positi
 
 #include <shader_include.sh>
 
-uniform vec4 u_color_mult;
 uniform vec4 u_bounds;
 uniform vec4 u_origin_flip;
 

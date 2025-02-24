@@ -260,7 +260,7 @@ namespace visage {
   }
 
   inline void setColorMult(bool hdr) {
-    float value = (hdr ? kHdrColorMultiplier : 1.0f) * Color::kHdrNormalization;
+    float value = (hdr ? kHdrColorMultiplier : 1.0f) * Color::kGradientNormalization;
     float color_mult[] = { value, value, value, 1.0f };
     setUniform<Uniforms::kColorMult>(color_mult);
   }
@@ -622,7 +622,9 @@ namespace visage {
 
     setTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
     setUniformDimensions(layer.width(), layer.height());
-    setColorMult(layer.hdr());
+    float value = layer.hdr() ? kHdrColorMultiplier : 1.0f;
+    float color_mult[] = { value, value, value, 1.0f };
+    setUniform<Uniforms::kColorMult>(color_mult);
     setOriginFlipUniform(layer.bottomLeftOrigin());
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                           SampleRegion::fragmentShader()));
