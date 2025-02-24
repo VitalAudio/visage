@@ -74,8 +74,8 @@ void Overlay::draw(visage::Canvas& canvas) {
   if (!animation_.isTargeting() && overlay_amount == 0.0f)
     setVisible(false);
 
-  visage::Bounds body = getBodyBounds();
-  float rounding = getBodyRounding();
+  visage::Bounds body = bodyBounds();
+  float rounding = bodyRounding();
   canvas.setColor(OverlayBody);
   canvas.roundedRectangle(body.x(), body.y(), body.width(), body.height(), rounding);
 
@@ -88,14 +88,14 @@ void Overlay::draw(visage::Canvas& canvas) {
     redraw();
 }
 
-visage::Bounds Overlay::getBodyBounds() const {
+visage::Bounds Overlay::bodyBounds() const {
   int x_border = width() / 4;
   int y_border = height() / 4;
 
   return { x_border, y_border, width() - 2 * x_border, height() - 2 * y_border };
 }
 
-float Overlay::getBodyRounding() {
+float Overlay::bodyRounding() {
   return paletteValue(OverlayRounding);
 }
 

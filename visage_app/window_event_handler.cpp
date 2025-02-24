@@ -69,12 +69,12 @@ namespace visage {
     if (keyboard_focused_frame_)
       keyboard_focused_frame_->processFocusChanged(false, false);
     if (mouse_down_frame_) {
-      mouse_down_frame_->processMouseUp(getMouseEvent(last_mouse_position_.x, last_mouse_position_.y, 0, 0));
+      mouse_down_frame_->processMouseUp(mouseEvent(last_mouse_position_.x, last_mouse_position_.y, 0, 0));
       mouse_down_frame_ = nullptr;
     }
     if (mouse_hovered_frame_) {
-      mouse_hovered_frame_->processMouseExit(getMouseEvent(last_mouse_position_.x,
-                                                           last_mouse_position_.y, 0, 0));
+      mouse_hovered_frame_->processMouseExit(mouseEvent(last_mouse_position_.x,
+                                                        last_mouse_position_.y, 0, 0));
       mouse_hovered_frame_ = nullptr;
     }
   }
@@ -146,7 +146,7 @@ namespace visage {
     if (files.empty())
       return false;
 
-    Frame* new_drag_drop_frame = getDragDropFrame(convertPointToFramePosition(Point(x, y)), files);
+    Frame* new_drag_drop_frame = dragDropFrame(convertPointToFramePosition(Point(x, y)), files);
     if (mouse_down_frame_ == new_drag_drop_frame && new_drag_drop_frame)
       return true;
 
@@ -172,7 +172,7 @@ namespace visage {
     if (files.empty())
       return false;
 
-    Frame* drag_drop_frame = getDragDropFrame(convertPointToFramePosition(Point(x, y)), files);
+    Frame* drag_drop_frame = dragDropFrame(convertPointToFramePosition(Point(x, y)), files);
     if (mouse_down_frame_ == drag_drop_frame && drag_drop_frame)
       return false;
 
@@ -187,7 +187,7 @@ namespace visage {
     return drag_drop_frame != nullptr;
   }
 
-  MouseEvent WindowEventHandler::getMouseEvent(int x, int y, int button_state, int modifiers) {
+  MouseEvent WindowEventHandler::mouseEvent(int x, int y, int button_state, int modifiers) {
     MouseEvent mouse_event;
     Point original_window_position = { x, y };
     mouse_event.window_position = convertPointToFramePosition(original_window_position);
@@ -204,9 +204,9 @@ namespace visage {
     return mouse_event;
   }
 
-  MouseEvent WindowEventHandler::getButtonMouseEvent(MouseButton button_id, int x, int y,
-                                                     int button_state, int modifiers) {
-    MouseEvent mouse_event = getMouseEvent(x, y, button_state, modifiers);
+  MouseEvent WindowEventHandler::buttonMouseEvent(MouseButton button_id, int x, int y,
+                                                  int button_state, int modifiers) {
+    MouseEvent mouse_event = mouseEvent(x, y, button_state, modifiers);
     mouse_event.button_id = button_id;
     return mouse_event;
   }
@@ -224,7 +224,7 @@ namespace visage {
   }
 
   void WindowEventHandler::handleMouseMove(int x, int y, int button_state, int modifiers) {
-    MouseEvent mouse_event = getMouseEvent(x, y, button_state, modifiers);
+    MouseEvent mouse_event = mouseEvent(x, y, button_state, modifiers);
     if (window_->mouseRelativeMode() && mouse_event.relative_position == Point(0, 0))
       return;
 
@@ -259,7 +259,7 @@ namespace visage {
 
   void WindowEventHandler::handleMouseDown(MouseButton button_id, int x, int y, int button_state,
                                            int modifiers, int repeat) {
-    MouseEvent mouse_event = getButtonMouseEvent(button_id, x, y, button_state, modifiers);
+    MouseEvent mouse_event = buttonMouseEvent(button_id, x, y, button_state, modifiers);
     mouse_event.repeat_click_count = repeat;
 
     mouse_down_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
@@ -283,7 +283,7 @@ namespace visage {
 
   void WindowEventHandler::handleMouseUp(MouseButton button_id, int x, int y, int button_state,
                                          int modifiers, int repeat) {
-    MouseEvent mouse_event = getButtonMouseEvent(button_id, x, y, button_state, modifiers);
+    MouseEvent mouse_event = buttonMouseEvent(button_id, x, y, button_state, modifiers);
     mouse_event.repeat_click_count = repeat;
 
     mouse_hovered_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
@@ -311,8 +311,8 @@ namespace visage {
 
   void WindowEventHandler::handleMouseLeave(int x, int y, int button_state, int modifiers) {
     if (mouse_hovered_frame_) {
-      MouseEvent mouse_event = getMouseEvent(last_mouse_position_.x, last_mouse_position_.y,
-                                             button_state, modifiers);
+      MouseEvent mouse_event = mouseEvent(last_mouse_position_.x, last_mouse_position_.y,
+                                          button_state, modifiers);
       mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
       mouse_event.frame = mouse_hovered_frame_;
       mouse_hovered_frame_->processMouseExit(mouse_event);
@@ -323,7 +323,7 @@ namespace visage {
   void WindowEventHandler::handleMouseWheel(float delta_x, float delta_y, float precise_x,
                                             float precise_y, int x, int y, int button_state,
                                             int modifiers, bool momentum) {
-    MouseEvent mouse_event = getMouseEvent(x, y, button_state, modifiers);
+    MouseEvent mouse_event = mouseEvent(x, y, button_state, modifiers);
     mouse_event.wheel_delta_x = delta_x;
     mouse_event.wheel_delta_y = delta_y;
     mouse_event.precise_wheel_delta_x = precise_x;
@@ -369,7 +369,7 @@ namespace visage {
       mouse_down_frame_->cleanupDragDropSource();
   }
 
-  Frame* WindowEventHandler::getDragDropFrame(Point point, const std::vector<std::string>& files) const {
+  Frame* WindowEventHandler::dragDropFrame(Point point, const std::vector<std::string>& files) const {
     auto receives_files = [](Frame* frame, const std::vector<std::string>& files) {
       int num_files = files.size();
       if (!frame->receivesDragDropFiles() || (num_files > 1 && !frame->receivesMultipleDragDropFiles()))

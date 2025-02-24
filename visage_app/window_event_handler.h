@@ -37,11 +37,11 @@ namespace visage {
 
     void onFrameResize(const Frame* frame) const;
 
-    Frame* getContentFrame() const { return content_frame_; }
+    Frame* contentFrame() const { return content_frame_; }
     void setKeyboardFocus(Frame* frame);
     void giveUpFocus(Frame* frame);
 
-    Point getLastMousePosition() const { return last_mouse_position_; }
+    Point lastMousePosition() const { return last_mouse_position_; }
     Point convertPointToWindowPosition(const Point& point) const {
       return { static_cast<int>(std::round(point.x / window_->pixelScale())),
                static_cast<int>(std::round(point.y / window_->pixelScale())) };
@@ -51,8 +51,8 @@ namespace visage {
                static_cast<int>(std::round(point.y * window_->pixelScale())) };
     }
 
-    MouseEvent getMouseEvent(int x, int y, int button_state, int modifiers);
-    MouseEvent getButtonMouseEvent(MouseButton button_id, int x, int y, int button_state, int modifiers);
+    MouseEvent mouseEvent(int x, int y, int button_state, int modifiers);
+    MouseEvent buttonMouseEvent(MouseButton button_id, int x, int y, int button_state, int modifiers);
 
     HitTestResult handleHitTest(int x, int y) override;
     HitTestResult currentHitTest() const override { return current_hit_test_; }
@@ -88,7 +88,7 @@ namespace visage {
     void cleanupDragDropSource() override;
 
   private:
-    Frame* getDragDropFrame(Point point, const std::vector<std::string>& files) const;
+    Frame* dragDropFrame(Point point, const std::vector<std::string>& files) const;
 
     std::function<void()> resize_callback_ = [this] { onFrameResize(content_frame_); };
     Window* window_ = nullptr;
