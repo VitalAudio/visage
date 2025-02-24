@@ -39,8 +39,8 @@ public:
 
   void resized() override;
   void draw(visage::Canvas& canvas) override;
-  visage::Bounds getBodyBounds() const;
-  float getBodyRounding();
+  visage::Bounds bodyBounds() const;
+  float bodyRounding();
 
   void mouseDown(const visage::MouseEvent& e) override {
     animation_.target(false);
