@@ -65,6 +65,7 @@ namespace visage {
       bgfx::frame();
       FontCache::clearStaleFonts();
       gradient_atlas_.clearStaleGradients();
+      image_atlas_.clearStaleImages();
     }
     return submission;
   }
