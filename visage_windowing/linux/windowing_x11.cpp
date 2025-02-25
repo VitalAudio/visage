@@ -1444,11 +1444,6 @@ namespace visage {
         last_timer_microseconds = time::microseconds();
         long long us_time = last_timer_microseconds - start_microseconds_;
         drawCallback(us_time / 1000000.0);
-
-        while (XPending(X11Connection::globalInstance()->display())) {
-          XNextEvent(X11Connection::globalInstance()->display(), &event);
-          processMessageWindowEvent(event);
-        }
       }
       else if (FD_ISSET(fd, &read_fds)) {
         while (running && XPending(x11_->display())) {
