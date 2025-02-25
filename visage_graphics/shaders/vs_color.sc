@@ -11,7 +11,7 @@ void main() {
   vec2 clamped = clamp(a_position.xy + a_texcoord2.xy, min, max);
   vec2 delta = clamped - a_position.xy;
 
-  v_position = a_position.xy;
+  v_position = clamped;
   v_gradient_color_pos = a_texcoord0;
   v_gradient_pos = a_texcoord1;
   gl_Position = vec4(clamped * u_bounds.xy + u_bounds.zw, 0.5, 1.0);

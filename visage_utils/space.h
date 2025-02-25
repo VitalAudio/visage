@@ -52,6 +52,9 @@ namespace visage {
 
     bool operator==(const Point& other) const { return x == other.x && y == other.y; }
     bool operator!=(const Point& other) const { return !(*this == other); }
+
+    int squareMagnitude() const { return x * x + y * y; }
+    float length() const { return sqrtf(x * x + y * y); }
   };
 
   struct FloatPoint {
@@ -60,15 +63,18 @@ namespace visage {
 
     FloatPoint() = default;
     FloatPoint(float initial_x, float initial_y) : x(initial_x), y(initial_y) { }
-    explicit FloatPoint(const Point& point) : x(point.x), y(point.y) { }
+    FloatPoint(const Point& point) : x(point.x), y(point.y) { }
 
     FloatPoint operator+(const FloatPoint& other) const { return { x + other.x, y + other.y }; }
     FloatPoint operator-(const FloatPoint& other) const { return { x - other.x, y - other.y }; }
     FloatPoint operator*(float scalar) const { return { x * scalar, y * scalar }; }
+    FloatPoint operator+(const Point& other) const { return { x + other.x, y + other.y }; }
+    FloatPoint operator-(const Point& other) const { return { x - other.x, y - other.y }; }
     bool operator==(const FloatPoint& other) const { return x == other.x && y == other.y; }
     float operator*(const FloatPoint& other) const { return x * other.x + y * other.y; }
 
     float squareMagnitude() const { return x * x + y * y; }
+    float length() const { return sqrtf(squareMagnitude()); }
   };
 
   class Bounds {
@@ -86,6 +92,9 @@ namespace visage {
     int xCenter() const { return x_ + width_ / 2; }
     int yCenter() const { return y_ + height_ / 2; }
     Point topLeft() const { return { x_, y_ }; }
+    Point clampPoint(const Point& point) const {
+      return { std::max(x_, std::min(right(), point.x)), std::max(y_, std::min(bottom(), point.y)) };
+    }
 
     void setX(int x) { x_ = x; }
     void setY(int y) { y_ = y; }
