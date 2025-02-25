@@ -25,6 +25,7 @@
 #include "graphics_utils.h"
 
 #include <functional>
+#include <iosfwd>
 #include <map>
 #include <utility>
 #include <vector>
@@ -97,10 +98,20 @@ namespace visage {
     }
 
     int resolution() const { return colors_.size(); }
+    void setResolution(int resolution) {
+      if (!colors_.empty())
+        colors_.resize(resolution, colors_.back());
+      else
+        colors_.resize(resolution);
+    }
 
     bool operator<(const Gradient& other) const { return compare(*this, other) < 0; }
 
     const std::vector<uint64_t>& colors() const { return colors_; }
+    void setColor(int index, const Color& color) {
+      VISAGE_ASSERT(index < colors_.size());
+      colors_[index] = color.toABGR16();
+    }
 
     Gradient interpolateWith(const Gradient& other, float t) const {
       return interpolate(*this, other, t);
@@ -116,6 +127,11 @@ namespace visage {
       }
       return result;
     }
+
+    std::string encode() const;
+    void encode(std::ostringstream& stream) const;
+    void decode(const std::string& data);
+    void decode(std::istringstream& stream);
 
   private:
     std::vector<uint64_t> colors_;
@@ -260,6 +276,11 @@ namespace visage {
       return interpolate(*this, other, t);
     }
 
+    std::string encode() const;
+    void encode(std::ostringstream& stream) const;
+    void decode(const std::string& data);
+    void decode(std::istringstream& stream);
+
     VISAGE_LEAK_CHECKER(GradientPosition)
   };
 
@@ -299,6 +320,8 @@ namespace visage {
                from.position_.interpolateWith(to.position_, t) };
     }
 
+    Brush() = default;
+
     Brush interpolateWith(const Brush& other, float t) const {
       return interpolate(*this, other, t);
     }
@@ -308,9 +331,14 @@ namespace visage {
     }
 
     const Gradient& gradient() const { return gradient_; }
+    Gradient& gradient() { return gradient_; }
     const GradientPosition& position() const { return position_; }
+    GradientPosition& position() { return position_; }
 
-    Brush() = default;
+    std::string encode() const;
+    void encode(std::ostringstream& stream) const;
+    void decode(const std::string& data);
+    void decode(std::istringstream& stream);
 
   private:
     Brush(Gradient gradient, const GradientPosition& position) :

@@ -65,7 +65,7 @@ public:
       shapes_.redraw();
     };
 
-    post_effect_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_warp,
+    post_effect_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_custom,
                                                               resources::shaders::fs_warp);
 
     shader_editor_.setShader(resources::shaders::fs_warp, resources::shaders::fs_warp_sc);

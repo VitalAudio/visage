@@ -24,6 +24,31 @@
 #include <bgfx/bgfx.h>
 
 namespace visage {
+  std::string Gradient::encode() const {
+    std::ostringstream stream;
+    encode(stream);
+    return stream.str();
+  }
+
+  void Gradient::encode(std::ostringstream& stream) const {
+    stream << static_cast<int>(colors_.size()) << std::endl;
+    for (uint64_t color : colors_)
+      stream << color << std::endl;
+  }
+
+  void Gradient::decode(const std::string& data) {
+    std::istringstream stream(data);
+    decode(stream);
+  }
+
+  void Gradient::decode(std::istringstream& stream) {
+    int size = 0;
+    stream >> size;
+    colors_.resize(size);
+    for (int i = 0; i < size; ++i)
+      stream >> colors_[i];
+  }
+
   struct GradientAtlasTexture {
     bgfx::TextureHandle handle = { bgfx::kInvalidHandle };
 
@@ -80,5 +105,55 @@ namespace visage {
   const bgfx::TextureHandle& GradientAtlas::colorTextureHandle() {
     checkInit();
     return texture_->handle;
+  }
+
+  std::string GradientPosition::encode() const {
+    std::ostringstream stream;
+    encode(stream);
+    return stream.str();
+  }
+
+  void GradientPosition::encode(std::ostringstream& stream) const {
+    stream << static_cast<int>(shape) << std::endl;
+    stream << point_from.x << std::endl;
+    stream << point_from.y << std::endl;
+    stream << point_to.x << std::endl;
+    stream << point_to.y << std::endl;
+  }
+
+  void GradientPosition::decode(const std::string& data) {
+    std::istringstream stream(data);
+    decode(stream);
+  }
+
+  void GradientPosition::decode(std::istringstream& stream) {
+    int shape_int = 0;
+    stream >> shape_int;
+    shape = static_cast<InterpolationShape>(shape_int);
+    stream >> point_from.x;
+    stream >> point_from.y;
+    stream >> point_to.x;
+    stream >> point_to.y;
+  }
+
+  std::string Brush::encode() const {
+    std::ostringstream stream;
+    encode(stream);
+    return stream.str();
+  }
+
+  void Brush::encode(std::ostringstream& stream) const {
+    gradient_.encode(stream);
+    position_.encode(stream);
+  }
+
+  void Brush::decode(const std::string& data) {
+    std::istringstream stream(data);
+    decode(stream);
+  }
+
+  void Brush::decode(std::istringstream& stream) {
+    gradient_.decode(stream);
+    position_.decode(stream);
   }
 }

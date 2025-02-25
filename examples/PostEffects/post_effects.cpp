@@ -106,13 +106,13 @@ public:
       shapes_.redraw();
     };
 
-    gray_scale_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_gray_scale,
+    gray_scale_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_custom,
                                                              resources::shaders::fs_gray_scale);
 
-    sepia_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_sepia,
+    sepia_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_custom,
                                                         resources::shaders::fs_sepia);
 
-    glitch_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_glitch,
+    glitch_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_custom,
                                                          resources::shaders::fs_glitch);
 
     blur_ = std::make_unique<visage::BlurPostEffect>();
