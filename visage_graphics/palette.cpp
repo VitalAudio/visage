@@ -28,31 +28,6 @@
 #include <sstream>
 
 namespace visage {
-  std::string Palette::EditColor::encode() const {
-    std::ostringstream stream;
-    encode(stream);
-    return stream.str();
-  }
-
-  void Palette::EditColor::encode(std::ostringstream& stream) const {
-    color_from.encode(stream);
-    color_to.encode(stream);
-    stream << static_cast<int>(style) << std::endl;
-  }
-
-  void Palette::EditColor::decode(const std::string& data) {
-    std::istringstream stream(data);
-    decode(stream);
-  }
-
-  void Palette::EditColor::decode(std::istringstream& stream) {
-    color_from.decode(stream);
-    color_to.decode(stream);
-    int int_style = 0;
-    stream >> int_style;
-    style = static_cast<Style>(int_style);
-  }
-
   void Palette::initWithDefaults() {
     value_map_.clear();
     int num_value_ids = theme::ValueId::numValueIds();
@@ -75,35 +50,33 @@ namespace visage {
     }
 
     colors_.clear();
-    computed_colors_.clear();
 
     for (const auto& color : existing_colors) {
-      while (colors_.size() <= color.second) {
+      while (colors_.size() <= color.second)
         colors_.emplace_back();
-        computed_colors_.emplace_back();
-      }
 
-      colors_[color.second] = EditColor(color.first);
-      computed_colors_[color.second] = colors_[color.second].toBrush();
+      colors_[color.second] = Brush::solid(color.first);
     }
 
     sortColors();
   }
 
   void Palette::sortColors() {
-    std::vector<std::pair<EditColor, int>> sorted;
+    std::vector<std::pair<Brush, int>> sorted;
     sorted.reserve(colors_.size());
     for (auto& color : colors_)
       sorted.emplace_back(color, sorted.size());
 
-    auto color_sort = [](const std::pair<EditColor, int>& one, const std::pair<EditColor, int>& two) {
+    auto color_sort = [](const std::pair<Brush, int>& one, const std::pair<Brush, int>& two) {
       static constexpr float kSaturationCutoff = 0.2f;
-      float saturation1 = one.first.color_from.saturation();
-      float saturation2 = two.first.color_from.saturation();
+      Color color1 = one.first.gradient().sample(0.0f);
+      Color color2 = two.first.gradient().sample(0.0f);
+      float saturation1 = color1.saturation();
+      float saturation2 = color2.saturation();
       if (saturation1 >= kSaturationCutoff && saturation2 >= kSaturationCutoff)
-        return one.first.color_from.hue() < two.first.color_from.hue();
+        return color1.hue() < color2.hue();
       if (saturation1 < kSaturationCutoff && saturation2 < kSaturationCutoff)
-        return one.first.color_from.value() < two.first.color_from.value();
+        return color1.value() < color2.value();
       return saturation2 < kSaturationCutoff;
     };
     std::sort(sorted.begin(), sorted.end(), color_sort);
@@ -111,7 +84,6 @@ namespace visage {
     std::vector<int> color_movement(colors_.size());
     for (int i = 0; i < colors_.size(); ++i) {
       colors_[i] = sorted[i].first;
-      computed_colors_[i] = sorted[i].first.toBrush();
       color_movement[sorted[i].second] = i;
     }
 
@@ -139,7 +111,6 @@ namespace visage {
 
   void Palette::removeColor(int index) {
     colors_.erase(colors_.begin() + index);
-    computed_colors_.erase(computed_colors_.begin() + index);
 
     for (auto& override_map : color_map_) {
       for (auto& color : override_map.second) {
@@ -239,16 +210,11 @@ namespace visage {
     int num_colors = std::stoi(line);
 
     colors_.clear();
-    computed_colors_.clear();
     colors_.reserve(num_colors);
-    computed_colors_.reserve(num_colors);
 
     for (int i = 0; i < num_colors; ++i) {
       colors_.emplace_back();
       colors_[i].decode(stream);
     }
-
-    for (int i = 0; i < num_colors; ++i)
-      computed_colors_.push_back(colors_[i].toBrush());
   }
 }

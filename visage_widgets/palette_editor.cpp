@@ -41,7 +41,7 @@ namespace visage {
         canvas.rectangle(c, r, kSquareWidth, kSquareWidth);
     }
 
-    std::vector<Palette::EditColor> colors = palette_->colorList();
+    std::vector<Brush> colors = palette_->colorList();
     int palette_width = w * kPaletteWidthRatio;
     float color_height = colorHeight();
     int color_position = color_list_.yPosition();
@@ -51,7 +51,7 @@ namespace visage {
       int y = std::round(color_height * i) - color_position;
       int end_y = std::round(color_height * (i + 1) - kColorSpacing) - color_position;
 
-      canvas.setColor(colors[i].toBrush());
+      canvas.setColor(colors[i]);
       canvas.roundedRectangle(0, y, palette_width, end_y - y, 8);
       if (i == editing_) {
         canvas.setColor(0xffffffff);
@@ -127,7 +127,7 @@ namespace visage {
 
     int dragging = dragging_;
     if (dragging >= 0 && dragging < colors.size()) {
-      canvas.setBrush(colors[dragging].toBrush());
+      canvas.setBrush(colors[dragging]);
       canvas.circle(mouse_drag_x_ - 10, mouse_drag_y_ - 10, 20);
     }
   }
@@ -251,7 +251,7 @@ namespace visage {
     bool toggle = e.isMiddleButton() || e.isAltDown();
     if (toggle && mouse_down_index_ >= 0 && mouse_down_index_ < palette_->numColors()) {
       palette_->toggleColorIndexStyle(mouse_down_index_);
-      setEditingGradient(palette_->colorIndex(mouse_down_index_).isGradient());
+      setEditingGradient(palette_->colorIndex(mouse_down_index_).gradient().resolution() > 1);
       mouse_down_index_ = -1;
       return;
     }
@@ -262,10 +262,10 @@ namespace visage {
         setColorListHeight();
       }
 
-      const Palette::EditColor& color = palette_->colorIndex(mouse_down_index_);
-      color_picker_from_.setColor(color.color_from);
-      color_picker_to_.setColor(color.color_to);
-      setEditingGradient(color.isGradient());
+      const Brush& color = palette_->colorIndex(mouse_down_index_);
+      color_picker_from_.setColor(color.gradient().sample(0.0f));
+      color_picker_to_.setColor(color.gradient().sample(1.0f));
+      setEditingGradient(color.gradient().resolution() > 1);
       editing_ = mouse_down_index_;
     }
     else
@@ -323,7 +323,7 @@ namespace visage {
       return true;
     }
     else if (key.keyCode() == KeyCode::V && editing_ >= 0) {
-      Palette::EditColor color;
+      Brush color;
       color.decode(readClipboardText());
       palette_->setEditColor(editing_, color);
       return true;

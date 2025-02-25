@@ -105,8 +105,12 @@ public:
     };
 
     setPalette(&palette_);
-    palette_.setColor(visage::GraphLine::LineColor, 0xffdd8833);
+    visage::Brush rainbow = visage::Brush::horizontal(visage::Gradient(0xffff6666, 0xffffff66,
+                                                                       0xff66ff66, 0xff66ffff, 0xff6666ff,
+                                                                       0xffff66ff, 0xffff6666));
+    palette_.setColor(visage::GraphLine::LineColor, rainbow);
     palette_.setValue(visage::GraphLine::LineWidth, 3.0f);
+    palette_.setValue(visage::GraphLine::LineColorBoost, 0.8f);
   }
 
   void resized() override {

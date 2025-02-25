@@ -194,7 +194,7 @@ int runExample() {
   app.layout().setPadding(2_vmin);
 
   app.onDraw() = [&app](visage::Canvas& canvas) {
-    canvas.setColor(0xff332233);
+    canvas.setColor(0xff222222);
     canvas.fill(0, 0, app.width(), app.height());
   };
 

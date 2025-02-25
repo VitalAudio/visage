@@ -36,52 +36,16 @@ namespace visage {
     static constexpr int kNotSetId = -1;
     static constexpr char kEncodingSeparator = '@';
 
-    struct EditColor {
-      enum Style {
-        kSingle,
-        kHorizontal,
-        kVertical,
-        kNumStyles
-      };
-
-      EditColor() = default;
-      explicit EditColor(const Color& color) {
-        color_from = color;
-        color_to = color;
-      }
-
-      Color color_from;
-      Color color_to;
-      Style style = kSingle;
-
-      void toggleStyle() { style = static_cast<Style>((style + 1) % kNumStyles); }
-
-      bool isGradient() const { return style != kSingle; }
-
-      Brush toBrush() const {
-        if (style == kHorizontal)
-          return Brush::horizontal(color_from, color_to);
-        else if (style == kVertical)
-          return Brush::vertical(color_from, color_to);
-        return Brush::solid(color_from);
-      }
-
-      std::string encode() const;
-      void encode(std::ostringstream& stream) const;
-      void decode(const std::string& data);
-      void decode(std::istringstream& stream);
-    };
-
     Palette() = default;
 
     int numColors() const { return colors_.size(); }
 
-    EditColor colorIndex(int index) const {
+    Brush colorIndex(int index) const {
       VISAGE_ASSERT(index >= 0 && index < colors_.size());
       return colors_[index];
     }
 
-    std::vector<EditColor> colorList() const { return colors_; }
+    std::vector<Brush> colorList() const { return colors_; }
 
     void initWithDefaults();
     void sortColors();
@@ -89,28 +53,35 @@ namespace visage {
     std::map<std::string, std::vector<theme::ColorId>> colorIdList(theme::OverrideId override_id);
     std::map<std::string, std::vector<theme::ValueId>> valueIdList(theme::OverrideId override_id);
 
-    void setEditColor(int index, const EditColor& color) {
+    void setEditColor(int index, const Brush& color) {
       VISAGE_ASSERT(index >= 0 && index < colors_.size());
       colors_[index] = color;
-      computed_colors_[index] = colors_[index].toBrush();
     }
 
     void setColorIndexFrom(int index, const Color& color) {
       VISAGE_ASSERT(index >= 0 && index < colors_.size());
-      colors_[index].color_from = color;
-      computed_colors_[index] = colors_[index].toBrush();
+      colors_[index].gradient().setColor(0, color);
     }
 
     void setColorIndexTo(int index, const Color& color) {
       VISAGE_ASSERT(index >= 0 && index < colors_.size());
-      colors_[index].color_to = color;
-      computed_colors_[index] = colors_[index].toBrush();
+      colors_[index].gradient().setColor(1, color);
     }
 
     void toggleColorIndexStyle(int index) {
       VISAGE_ASSERT(index >= 0 && index < colors_.size());
-      colors_[index].toggleStyle();
-      computed_colors_[index] = colors_[index].toBrush();
+      if (colors_[index].position().shape == GradientPosition::InterpolationShape::Solid) {
+        colors_[index].gradient().setResolution(2);
+        colors_[index].position().shape = GradientPosition::InterpolationShape::Vertical;
+      }
+      else if (colors_[index].position().shape == GradientPosition::InterpolationShape::Vertical) {
+        colors_[index].gradient().setResolution(2);
+        colors_[index].position().shape = GradientPosition::InterpolationShape::Horizontal;
+      }
+      else {
+        colors_[index].gradient().setResolution(1);
+        colors_[index].position().shape = GradientPosition::InterpolationShape::Solid;
+      }
     }
 
     bool color(theme::OverrideId override_id, theme::ColorId color_id, Brush& color) {
@@ -123,7 +94,7 @@ namespace visage {
       if (color_map_[override_id][color_id] == kInvalidId)
         color = Brush::solid(kInvalidColor);
       else
-        color = computed_colors_[color_map_[override_id][color_id]];
+        color = colors_[color_map_[override_id][color_id]];
       return true;
     }
 
@@ -136,7 +107,13 @@ namespace visage {
       color_map_[override_id][color_id] = index;
     }
 
+    void setColor(theme::OverrideId override_id, theme::ColorId color_id, const Brush& color) {
+      int index = addBrush(color);
+      color_map_[override_id][color_id] = index;
+    }
+
     void setColor(theme::ColorId color_id, const Color& color) { setColor({}, color_id, color); }
+    void setColor(theme::ColorId color_id, const Brush& color) { setColor({}, color_id, color); }
 
     void setValue(theme::OverrideId override_id, theme::ValueId value_id, float value) {
       value_map_[override_id][value_id] = value;
@@ -164,8 +141,12 @@ namespace visage {
     }
 
     int addColor(const Color& color = 0xffff00ff) {
+      colors_.emplace_back(Brush::solid(color));
+      return colors_.size() - 1;
+    }
+
+    int addBrush(const Brush& color) {
       colors_.emplace_back(color);
-      computed_colors_.push_back(Brush::solid(color));
       return colors_.size() - 1;
     }
 
@@ -173,7 +154,6 @@ namespace visage {
       color_map_.clear();
       value_map_.clear();
       colors_.clear();
-      computed_colors_.clear();
     }
 
     void removeColor(int index);
@@ -182,8 +162,7 @@ namespace visage {
     void decode(const std::string& data);
 
   private:
-    std::vector<EditColor> colors_;
-    std::vector<Brush> computed_colors_;
+    std::vector<Brush> colors_;
     std::map<theme::OverrideId, std::map<theme::ColorId, int>> color_map_;
     std::map<theme::OverrideId, std::map<theme::ValueId, float>> value_map_;
   };
