@@ -49,28 +49,31 @@ namespace visage {
       return 0;
     }
 
-    static Gradient interpolate(const Gradient& from, const Gradient& to, float t) {
-      auto sample_function = [&](float s) { return from.sample(s).interpolateWith(to.sample(s), t); };
-      return { std::max(from.resolution(), to.resolution()), sample_function };
-    }
-
-    Gradient() = default;
-
-    Gradient(int resolution, const std::function<Color(float)>& sample_function) {
+    static Gradient fromSampleFunction(int resolution, const std::function<Color(float)>& sample_function) {
       VISAGE_ASSERT(resolution > 0);
-      colors_.reserve(resolution);
+      Gradient result;
+      result.colors_.reserve(resolution);
 
       float normalization = 1.0f / std::max(1.0f, resolution - 1.0f);
       for (int i = 0; i < resolution; ++i) {
         Color color = sample_function(i * normalization);
-        colors_.emplace_back(color.toABGR16());
+        result.colors_.emplace_back(color.toABGR16());
       }
+
+      return result;
     }
 
-    template<typename... Args, typename = std::enable_if_t<(std::is_same_v<Args, Color> && ...)>>
+    static Gradient interpolate(const Gradient& from, const Gradient& to, float t) {
+      auto sample_function = [&](float s) { return from.sample(s).interpolateWith(to.sample(s), t); };
+      return fromSampleFunction(std::max(from.resolution(), to.resolution()), sample_function);
+    }
+
+    Gradient() = default;
+
+    template<typename... Args>
     explicit Gradient(const Args&... args) {
       colors_.reserve(sizeof...(args));
-      (colors_.emplace_back(args.toABGR16()), ...);
+      (colors_.emplace_back(Color(args).toABGR16()), ...);
     }
 
     Color sampleIndex(int index) const {
@@ -331,8 +334,9 @@ namespace visage {
       float gradient_color_y = 0.0f;
     };
 
-    static GradientTexturePosition computeVertexGradientPositions(const PackedBrush* brush, float left,
-                                                                  float top, float right, float bottom) {
+    static GradientTexturePosition computeVertexGradientPositions(const PackedBrush* brush, float offset_x,
+                                                                  float offset_y, float left, float top,
+                                                                  float right, float bottom) {
       GradientTexturePosition result;
 
       if (brush) {
@@ -345,10 +349,10 @@ namespace visage {
           result.gradient_position_to_y = bottom;
         }
         else if (brush->position_.shape == GradientPosition::InterpolationShape::PointsLinear) {
-          result.gradient_position_from_x = brush->position_.point_from.x;
-          result.gradient_position_from_y = brush->position_.point_from.y;
-          result.gradient_position_to_x = brush->position_.point_to.x;
-          result.gradient_position_to_y = brush->position_.point_to.y;
+          result.gradient_position_from_x = offset_x + brush->position_.point_from.x;
+          result.gradient_position_from_y = offset_y + brush->position_.point_from.y;
+          result.gradient_position_to_x = offset_x + brush->position_.point_to.x;
+          result.gradient_position_to_y = offset_y + brush->position_.point_to.y;
         }
 
         float atlas_x_scale = 1.0f / brush->atlasWidth();
@@ -364,8 +368,10 @@ namespace visage {
 
     template<typename V>
     static void setVertexGradientPositions(const PackedBrush* brush, V* vertices, int num_vertices,
-                                           float left, float top, float right, float bottom) {
-      GradientTexturePosition position = computeVertexGradientPositions(brush, left, top, right, bottom);
+                                           float offset_x, float offset_y, float left, float top,
+                                           float right, float bottom) {
+      GradientTexturePosition position = computeVertexGradientPositions(brush, offset_x, offset_y,
+                                                                        left, top, right, bottom);
 
       for (int i = 0; i < num_vertices; ++i) {
         vertices[i].gradient_color_from_x = position.gradient_color_from_x;
@@ -379,7 +385,7 @@ namespace visage {
       }
     }
 
-    explicit PackedBrush(GradientAtlas* atlas, const Brush& brush) :
+    PackedBrush(GradientAtlas* atlas, const Brush& brush) :
         atlas_(atlas), position_(brush.position()), gradient_(atlas->addGradient(brush.gradient())) { }
 
     const GradientAtlas::PackedGradient* gradient() const { return &gradient_; }

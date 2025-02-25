@@ -12,7 +12,7 @@ void main() {
   vec2 clamped = clamp(a_position.xy, min, max);
   vec2 delta = clamped - a_position.xy;
 
-  v_position = a_position.xy;
+  v_position = clamped;
   v_gradient_color_pos = a_texcoord0;
   v_gradient_pos = a_texcoord1;
   vec2 rotated_delta = a_texcoord2.z * delta + a_texcoord2.w * delta.yx;
