@@ -306,8 +306,8 @@ namespace visage {
   void Layer::addPackedRegion(Region* region) {
     addRegion(region);
     if (!atlas_map_.addRect(region, region->width(), region->height())) {
-      invalidate();
       atlas_map_.pack();
+      invalidate();
       setDimensions(atlas_map_.width(), atlas_map_.height());
     }
   }
