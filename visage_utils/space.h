@@ -24,6 +24,7 @@
 #include "defines.h"
 
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace visage {
