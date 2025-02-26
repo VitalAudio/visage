@@ -77,6 +77,8 @@ namespace visage {
     static constexpr int kImageBuffer = 1;
     static constexpr int kChannels = 4;
 
+    static void blurImage(unsigned char* location, int width, int height, int blur_radius);
+
     struct PackedImageRect {
       explicit PackedImageRect(ImageFile image) : image(image) { }
 

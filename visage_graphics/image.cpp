@@ -66,28 +66,6 @@ namespace visage {
     }
   }
 
-  static void blurImage(unsigned char* location, int width, int height, int blur_radius) {
-    static constexpr int kBoxBlurIterations = 3;
-
-    int radius = std::min(blur_radius, width - 1);
-    radius = radius + ((radius + 1) % 2);
-
-    std::unique_ptr<unsigned char[]> cache = std::make_unique<unsigned char[]>(radius);
-
-    for (int r = 0; r < height; ++r) {
-      for (int channel = 0; channel < ImageAtlas::kChannels; ++channel) {
-        for (int i = 0; i < kBoxBlurIterations; ++i)
-          boxBlur(location + r * width * ImageAtlas::kChannels + channel, cache.get(), width,
-                  radius, ImageAtlas::kChannels);
-      }
-    }
-
-    for (int c = 0; c < width * ImageAtlas::kChannels; ++c) {
-      for (int i = 0; i < kBoxBlurIterations; ++i)
-        boxBlur(location + c, cache.get(), width, radius, width * ImageAtlas::kChannels);
-    }
-  }
-
   class SvgRasterizer {
   public:
     static SvgRasterizer& instance() {
@@ -157,6 +135,28 @@ namespace visage {
     int height_ = 0;
     bgfx::TextureHandle texture_handle_ = BGFX_INVALID_HANDLE;
   };
+
+  void ImageAtlas::blurImage(unsigned char* location, int width, int height, int blur_radius) {
+    static constexpr int kBoxBlurIterations = 3;
+
+    int radius = std::min(blur_radius, width - 1);
+    radius = radius + ((radius + 1) % 2);
+
+    std::unique_ptr<unsigned char[]> cache = std::make_unique<unsigned char[]>(radius);
+
+    for (int r = 0; r < height; ++r) {
+      for (int channel = 0; channel < ImageAtlas::kChannels; ++channel) {
+        for (int i = 0; i < kBoxBlurIterations; ++i)
+          boxBlur(location + r * width * ImageAtlas::kChannels + channel, cache.get(), width,
+                  radius, ImageAtlas::kChannels);
+      }
+    }
+
+    for (int c = 0; c < width * ImageAtlas::kChannels; ++c) {
+      for (int i = 0; i < kBoxBlurIterations; ++i)
+        boxBlur(location + c, cache.get(), height, radius, width * ImageAtlas::kChannels);
+    }
+  }
 
   ImageAtlas::PackedImageReference::~PackedImageReference() {
     if (auto atlas_pointer = atlas.lock())
