@@ -184,7 +184,7 @@ public:
     addChild(&target_);
   }
 
-  void resized() {
+  void resized() override {
     int padding = height() / 16;
     int h = (height() - padding) / 2;
     source_.setBounds(0, 0, width(), h);
