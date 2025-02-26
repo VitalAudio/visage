@@ -24,6 +24,7 @@ int main() {
 - [Showcase](https://visage.dev/examples/Showcase/)
 - [Blend Modes](https://visage.dev/examples/BlendModes/)
 - [Bloom](https://visage.dev/examples/Bloom/)
+- [Gradients](https://visage.dev/examples/Gradients/)
 - [Post Shader Effects](https://visage.dev/examples/PostEffects/)
 - [Live Shader Editing](https://visage.dev/examples/LiveShaderEditing/)
 - [Layout Flexing](https://visage.dev/examples/Layout/)
