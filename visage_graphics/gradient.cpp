@@ -73,9 +73,13 @@ namespace visage {
     if (texture_ == nullptr || !bgfx::isValid(texture_->handle))
       return;
 
-    int resolution = gradient->gradient.resolution();
-    bgfx::updateTexture2D(texture_->handle, 0, 0, gradient->x, gradient->y, resolution, 1,
-                          bgfx::copy(gradient->gradient.colorData().data(), resolution * sizeof(uint64_t)));
+    const auto& colors = gradient->gradient.colors();
+    std::unique_ptr<uint64_t[]> color_data = std::make_unique<uint64_t[]>(colors.size());
+    for (int i = 0; i < colors.size(); ++i)
+      color_data[i] = colors[i].toABGR16F();
+
+    bgfx::updateTexture2D(texture_->handle, 0, 0, gradient->x, gradient->y, colors.size(), 1,
+                          bgfx::copy(color_data.get(), colors.size() * sizeof(uint64_t)));
   }
 
   void GradientAtlas::checkInit() {
@@ -89,6 +93,10 @@ namespace visage {
       for (auto& gradient : gradients_)
         updateGradient(gradient.second.get());
     }
+  }
+
+  void GradientAtlas::destroy() {
+    texture_.reset();
   }
 
   void GradientAtlas::resize() {

@@ -42,10 +42,9 @@ namespace visage {
         return 1;
 
       for (int i = 0; i < a.resolution(); ++i) {
-        if (a.color_data_[i] < b.color_data_[i])
-          return -1;
-        if (a.color_data_[i] > b.color_data_[i])
-          return 1;
+        int comp = Color::compare(a.colors_[i], b.colors_[i]);
+        if (comp)
+          return comp;
       }
       return 0;
     }
@@ -59,7 +58,6 @@ namespace visage {
       for (int i = 0; i < resolution; ++i)
         result.colors_.emplace_back(sample_function(i * normalization));
 
-      result.loadColorData();
       return result;
     }
 
@@ -74,8 +72,6 @@ namespace visage {
     explicit Gradient(const Args&... args) {
       colors_.reserve(sizeof...(args));
       (colors_.emplace_back(Color(args)), ...);
-
-      loadColorData();
     }
 
     Color sample(float t) const {
@@ -91,24 +87,18 @@ namespace visage {
 
     int resolution() const { return colors_.size(); }
     void setResolution(int resolution) {
-      if (!colors_.empty()) {
+      if (!colors_.empty())
         colors_.resize(resolution, colors_.back());
-        color_data_.resize(resolution, color_data_.back());
-      }
-      else {
+      else
         colors_.resize(resolution);
-        color_data_.resize(resolution);
-      }
     }
 
     bool operator<(const Gradient& other) const { return compare(*this, other) < 0; }
 
     const std::vector<Color>& colors() const { return colors_; }
-    const std::vector<uint64_t>& colorData() const { return color_data_; }
     void setColor(int index, const Color& color) {
       VISAGE_ASSERT(index < colors_.size());
       colors_[index] = color;
-      color_data_[index] = color.toABGR16F();
     }
 
     Gradient interpolateWith(const Gradient& other, float t) const {
@@ -122,7 +112,6 @@ namespace visage {
       for (const Color& color : colors_)
         result.colors_.emplace_back(color.withAlpha(color.alpha() * mult));
 
-      result.loadColorData();
       return result;
     }
 
@@ -132,15 +121,7 @@ namespace visage {
     void decode(std::istringstream& stream);
 
   private:
-    void loadColorData() {
-      color_data_.clear();
-      color_data_.reserve(colors_.size());
-      for (const Color& color : colors_)
-        color_data_.emplace_back(color.toABGR16F());
-    }
-    
     std::vector<Color> colors_;
-    std::vector<uint64_t> color_data_;
   };
 
   class GradientAtlas {
@@ -221,6 +202,11 @@ namespace visage {
     }
 
     void checkInit();
+    void destroy();
+    void setHdr(bool hdr) {
+      hdr_ = hdr;
+      destroy();
+    }
     int width() const { return atlas_map_.width(); }
     int height() const { return atlas_map_.height(); }
 
@@ -243,6 +229,7 @@ namespace visage {
     std::map<Gradient, std::unique_ptr<PackedGradientRect>> gradients_;
     std::map<Gradient, const PackedGradientRect*> stale_gradients_;
 
+    bool hdr_ = false;
     PackedAtlasMap<const PackedGradientRect*> atlas_map_;
     std::unique_ptr<GradientAtlasTexture> texture_;
     std::shared_ptr<GradientAtlas*> reference_;
@@ -347,8 +334,8 @@ namespace visage {
     void decode(std::istringstream& stream);
 
   private:
-    Brush(Gradient gradient, const GradientPosition& position) :
-        gradient_(std::move(gradient)), position_(position) { }
+    Brush(Gradient gradient, GradientPosition position) :
+        gradient_(std::move(gradient)), position_(std::move(position)) { }
 
     Gradient gradient_;
     GradientPosition position_;

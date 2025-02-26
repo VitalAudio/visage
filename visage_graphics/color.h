@@ -43,6 +43,20 @@ namespace visage {
     static constexpr float kHueRange = 360.0f;
     static constexpr float kGradientNormalization = 64.0f;
 
+    static int compare(const Color& a, const Color& b) {
+      for (int i = 0; i < kNumChannels; ++i) {
+        if (a.values_[i] < b.values_[i])
+          return -1;
+        if (a.values_[i] > b.values_[i])
+          return 1;
+      }
+      if (a.hdr_ < b.hdr_)
+        return -1;
+      if (a.hdr_ > b.hdr_)
+        return 1;
+      return 0;
+    }
+
     static Color fromAHSV(float alpha, float hue, float saturation, float value) {
       static constexpr float kHueCutoff = kHueRange / 6.0f;
       Color result;
@@ -293,6 +307,9 @@ namespace visage {
              values_[kGreen] == other.values_[kGreen] && values_[kBlue] == other.values_[kBlue] &&
              hdr_ == other.hdr_;
     }
+
+    bool operator<(const Color& other) const { return compare(*this, other) < 0; }
+    bool operator>(const Color& other) const { return compare(*this, other) > 0; }
 
     std::string encode() const;
     void encode(std::ostringstream& stream) const;

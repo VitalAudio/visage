@@ -117,8 +117,8 @@ namespace visage {
     }
 
     void pack() {
-      static constexpr int kDefaultWidth = 256;
-      static constexpr int kMaxMultiples = 6;
+      static constexpr int kDefaultWidth = 64;
+      static constexpr int kMaxMultiples = 8;
 
       checkRemovedRects();
       bool packed = false;
