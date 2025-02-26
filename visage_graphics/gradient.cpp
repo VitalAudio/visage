@@ -32,8 +32,8 @@ namespace visage {
 
   void Gradient::encode(std::ostringstream& stream) const {
     stream << static_cast<int>(colors_.size()) << std::endl;
-    for (uint64_t color : colors_)
-      stream << color << std::endl;
+    for (const Color& color : colors_)
+      color.encode(stream);
   }
 
   void Gradient::decode(const std::string& data) {
@@ -46,7 +46,7 @@ namespace visage {
     stream >> size;
     colors_.resize(size);
     for (int i = 0; i < size; ++i)
-      stream >> colors_[i];
+      colors_[i].decode(stream);
   }
 
   struct GradientAtlasTexture {
@@ -75,7 +75,7 @@ namespace visage {
 
     int resolution = gradient->gradient.resolution();
     bgfx::updateTexture2D(texture_->handle, 0, 0, gradient->x, gradient->y, resolution, 1,
-                          bgfx::copy(gradient->gradient.colors().data(), resolution * sizeof(uint64_t)));
+                          bgfx::copy(gradient->gradient.colorData().data(), resolution * sizeof(uint64_t)));
   }
 
   void GradientAtlas::checkInit() {
@@ -84,7 +84,7 @@ namespace visage {
 
     if (!bgfx::isValid(texture_->handle)) {
       texture_->handle = bgfx::createTexture2D(atlas_map_.width(), atlas_map_.height(), false, 1,
-                                               bgfx::TextureFormat::RGBA16, BGFX_SAMPLER_UVW_CLAMP);
+                                               bgfx::TextureFormat::RGBA16F);
 
       for (auto& gradient : gradients_)
         updateGradient(gradient.second.get());

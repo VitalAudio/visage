@@ -184,6 +184,22 @@ namespace visage {
       return value + floatToHex16(values_[kBlue] * mult);
     }
 
+    uint64_t toABGR16F() const {
+      float mult = hdr_ / kGradientNormalization;
+      uint64_t value = floatToHalf(values_[kAlpha]) << (6 * kBitsPerColor);
+      value += floatToHalf(values_[kBlue] * mult) << (4 * kBitsPerColor);
+      value += floatToHalf(values_[kGreen] * mult) << (2 * kBitsPerColor);
+      return value + floatToHalf(values_[kRed] * mult);
+    }
+
+    uint64_t toARGB16F() const {
+      float mult = hdr_ / kGradientNormalization;
+      uint64_t value = floatToHalf(values_[kAlpha]) << (6 * kBitsPerColor);
+      value += floatToHalf(values_[kRed] * mult) << (4 * kBitsPerColor);
+      value += floatToHalf(values_[kGreen] * mult) << (2 * kBitsPerColor);
+      return value + floatToHalf(values_[kBlue] * mult);
+    }
+
     unsigned int toABGR() const {
       unsigned int value = floatToHex(values_[kAlpha]) << (3 * kBitsPerColor);
       value += floatToHex(values_[kBlue]) << (2 * kBitsPerColor);
@@ -312,6 +328,33 @@ namespace visage {
 
     static uint64_t floatToHex16(float value) {
       return std::round(std::max(0.0f, std::min(1.0f, value)) * 0xffff);
+    }
+
+    static uint64_t floatToHalf(float value) {
+      uint32_t f = *reinterpret_cast<uint32_t*>(&value);
+      uint32_t sign = (f >> 16) & 0x8000;  // Sign bit
+      uint32_t exponent = (f >> 23) & 0xFF;  // Extract exponent (8-bit)
+      uint32_t mantissa = f & 0x007FFFFF;  // Extract mantissa (23-bit)
+
+      if (exponent == 255) {  // Handle NaN or Infinity
+        if (mantissa)
+          return sign | 0x7FFF;  // NaN (all exponent bits 1 and mantissa nonzero)
+        return sign | 0x7C00;  // Infinity
+      }
+
+      if (exponent > 112) {  // Normalized case
+        exponent -= 112;  // Adjust bias from 127 (float) to 15 (half-float)
+        if (exponent > 30)  // Overflow (set to Infinity)
+          return sign | 0x7C00;
+        return sign | (exponent << 10) | (mantissa >> 13);
+      }
+
+      if (exponent > 103) {  // Subnormal case
+        mantissa |= 0x00800000;  // Add implicit leading 1 bit
+        return sign | ((mantissa >> (113 - exponent)) & 0x3FF);
+      }
+
+      return sign;  // Underflow to zero
     }
 
     static char hexCharacter(int value) {

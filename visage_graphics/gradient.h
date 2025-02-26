@@ -42,9 +42,9 @@ namespace visage {
         return 1;
 
       for (int i = 0; i < a.resolution(); ++i) {
-        if (a.colors_[i] < b.colors_[i])
+        if (a.color_data_[i] < b.color_data_[i])
           return -1;
-        if (a.colors_[i] > b.colors_[i])
+        if (a.color_data_[i] > b.color_data_[i])
           return 1;
       }
       return 0;
@@ -56,11 +56,10 @@ namespace visage {
       result.colors_.reserve(resolution);
 
       float normalization = 1.0f / std::max(1.0f, resolution - 1.0f);
-      for (int i = 0; i < resolution; ++i) {
-        Color color = sample_function(i * normalization);
-        result.colors_.emplace_back(color.toABGR16());
-      }
+      for (int i = 0; i < resolution; ++i)
+        result.colors_.emplace_back(sample_function(i * normalization));
 
+      result.loadColorData();
       return result;
     }
 
@@ -74,43 +73,42 @@ namespace visage {
     template<typename... Args>
     explicit Gradient(const Args&... args) {
       colors_.reserve(sizeof...(args));
-      (colors_.emplace_back(Color(args).toABGR16()), ...);
-    }
+      (colors_.emplace_back(Color(args)), ...);
 
-    Color sampleIndex(int index) const {
-      uint64_t color = colors_[index];
-      float normalization = Color::kGradientNormalization / 0xffff;
-      float a = ((color >> 48) & 0xffff) * 1.0f / 0xffff;
-      float b = ((color >> 32) & 0xffff) * normalization;
-      float g = ((color >> 16) & 0xffff) * normalization;
-      float r = (color & 0xffff) * normalization;
-      return { a, r, g, b };
+      loadColorData();
     }
 
     Color sample(float t) const {
+      if (colors_.empty())
+        return {};
       if (colors_.size() <= 1)
-        return sampleIndex(0);
+        return colors_[0];
 
       float position = t * (resolution() - 1);
       int index = std::min(resolution() - 2, static_cast<int>(position));
-      Color from = sampleIndex(index);
-      return from.interpolateWith(sampleIndex(index + 1), position - index);
+      return colors_[index].interpolateWith(colors_[index + 1], position - index);
     }
 
     int resolution() const { return colors_.size(); }
     void setResolution(int resolution) {
-      if (!colors_.empty())
+      if (!colors_.empty()) {
         colors_.resize(resolution, colors_.back());
-      else
+        color_data_.resize(resolution, color_data_.back());
+      }
+      else {
         colors_.resize(resolution);
+        color_data_.resize(resolution);
+      }
     }
 
     bool operator<(const Gradient& other) const { return compare(*this, other) < 0; }
 
-    const std::vector<uint64_t>& colors() const { return colors_; }
+    const std::vector<Color>& colors() const { return colors_; }
+    const std::vector<uint64_t>& colorData() const { return color_data_; }
     void setColor(int index, const Color& color) {
       VISAGE_ASSERT(index < colors_.size());
-      colors_[index] = color.toABGR16();
+      colors_[index] = color;
+      color_data_[index] = color.toABGR16F();
     }
 
     Gradient interpolateWith(const Gradient& other, float t) const {
@@ -121,10 +119,10 @@ namespace visage {
       Gradient result;
       result.colors_.reserve(colors_.size());
 
-      for (unsigned long long color : colors_) {
-        uint64_t alpha = std::round(mult * (color >> 48));
-        result.colors_.emplace_back((color & 0x0000ffffffffffffU) | (alpha << 48));
-      }
+      for (const Color& color : colors_)
+        result.colors_.emplace_back(color.withAlpha(color.alpha() * mult));
+
+      result.loadColorData();
       return result;
     }
 
@@ -134,7 +132,15 @@ namespace visage {
     void decode(std::istringstream& stream);
 
   private:
-    std::vector<uint64_t> colors_;
+    void loadColorData() {
+      color_data_.clear();
+      color_data_.reserve(colors_.size());
+      for (const Color& color : colors_)
+        color_data_.emplace_back(color.toABGR16F());
+    }
+    
+    std::vector<Color> colors_;
+    std::vector<uint64_t> color_data_;
   };
 
   class GradientAtlas {
