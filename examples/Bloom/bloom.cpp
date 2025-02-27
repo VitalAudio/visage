@@ -19,8 +19,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "embedded/example_fonts.h"
-
 #include <visage/app.h>
 #include <visage_widgets/graph_line.h>
 
@@ -113,13 +111,8 @@ public:
     palette_.setValue(visage::GraphLine::LineColorBoost, 0.8f);
   }
 
-  void resized() override {
-    font_ = visage::Font(18.0f * dpiScale(), resources::fonts::Lato_Regular_ttf);
-  }
-
 private:
   visage::Palette palette_;
-  visage::Font font_;
   visage::BloomPostEffect bloom_;
   AnimatedLine animated_line_;
 };
