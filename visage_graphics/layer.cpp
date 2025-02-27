@@ -28,6 +28,7 @@
 
 namespace visage {
   struct FrameBufferData {
+    bgfx::TextureHandle read_back_handle = BGFX_INVALID_HANDLE;
     bgfx::FrameBufferHandle handle = BGFX_INVALID_HANDLE;
     bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8;
   };
@@ -156,6 +157,11 @@ namespace visage {
                                                            frame_buffer_data_->format);
     }
     else {
+      if (headless_render_) {
+        uint64_t flags = BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK;
+        frame_buffer_data_->read_back_handle = bgfx::createTexture2D(width_, height_, false, 1,
+                                                                     bgfx::TextureFormat::RGBA8, flags);
+      }
       frame_buffer_data_->handle = bgfx::createFrameBuffer(width_, height_, frame_buffer_data_->format,
                                                            kFrameBufferFlags);
     }
@@ -287,6 +293,12 @@ namespace visage {
       current_blend_mode = next_batch->blendMode();
     }
 
+    if (screenshot_data_ && bgfx::isValid(frame_buffer_data_->read_back_handle)) {
+      bgfx::blit(submit_pass, frame_buffer_data_->read_back_handle, 0, 0,
+                 bgfx::getTexture(frame_buffer_data_->handle), 0, 0, width_, height_);
+      bgfx::readTexture(frame_buffer_data_->read_back_handle, screenshot_data_.get());
+    }
+
     submit_pass = submit_pass + 1;
     for (Region* region : regions_) {
       if (region->postEffect())
@@ -331,5 +343,12 @@ namespace visage {
       return { rect.x, rect.y };
     }
     return { region->x(), region->y() };
+  }
+
+  void Layer::takeScreenshot(const std::string& filename) {
+    if (headless_render_)
+      screenshot_data_ = std::make_unique<uint8_t[]>(width_ * height_ * 4);
+    else
+      bgfx::requestScreenShot(frameBuffer(), filename.c_str());
   }
 }

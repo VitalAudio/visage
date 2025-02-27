@@ -112,6 +112,8 @@ namespace visage {
       return packer_.addRect(packed_rects_.back());
     }
 
+    bool hasId(T id) const { return lookup_.count(id) > 0; }
+
     void removeRect(T id) {
       VISAGE_ASSERT(lookup_.count(id) > 0);
       lookup_.erase(id);

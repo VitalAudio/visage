@@ -58,6 +58,7 @@ namespace visage {
     void setCanvasDetails();
 
     void addToWindow(Window* handle);
+    void setWindowless(int width, int height);
     void removeFromWindow();
     void drawWindow();
 
@@ -83,6 +84,7 @@ namespace visage {
 
     void drawStaleChildren();
 
+    void setPixelScale(float scale) { pixel_scale_ = scale; }
     int logicalWidth() const { return std::round(width() / pixel_scale_); }
     int logicalHeight() const { return std::round(height() / pixel_scale_); }
 

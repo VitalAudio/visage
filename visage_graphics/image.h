@@ -142,7 +142,7 @@ namespace visage {
 
     PackedImage addImage(const ImageFile& image);
     void clearStaleImages() {
-      for (auto stale : stale_images_) {
+      for (const auto& stale : stale_images_) {
         images_.erase(stale.first);
         atlas_map_.removeRect(stale.second);
       }

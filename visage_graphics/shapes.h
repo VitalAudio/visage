@@ -441,8 +441,8 @@ namespace visage {
         Shape(image_atlas, clamp, brush, x, y, width, height),
         packed_image(image_atlas->addImage(image)), image_atlas(image_atlas) {
       if (width == 0.0f && !image.svg) {
-        this->width = packed_image.x();
-        this->height = packed_image.y();
+        this->width = packed_image.w();
+        this->height = packed_image.h();
       }
     }
 

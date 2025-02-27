@@ -58,6 +58,7 @@ namespace visage {
     int submit(int submit_pass = 0);
 
     void takeScreenshot(const std::string& filename);
+    void saveScreenshot();
 
     void ensureLayerExists(int layer);
     Layer* layer(int index) {
@@ -74,6 +75,8 @@ namespace visage {
       composite_layer_.pairToWindow(window_handle, width, height);
       setDimensions(width, height);
     }
+
+    void setWindowless(int width, int height) { composite_layer_.setHeadlessRender(width, height); }
 
     void removeFromWindow() { composite_layer_.removeFromWindow(); }
 
@@ -581,6 +584,7 @@ namespace visage {
     Region window_region_;
     Region default_region_;
     Layer composite_layer_;
+    std::string screenshot_filename_;
     std::vector<std::unique_ptr<Layer>> intermediate_layers_;
     std::vector<Layer*> layers_;
 

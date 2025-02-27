@@ -86,6 +86,7 @@ namespace visage {
 
       width_ = width;
       height_ = height;
+      screenshot_data_.reset();
       destroyFrameBuffer();
       invalidate();
     }
@@ -102,11 +103,20 @@ namespace visage {
     }
     bool hdr() const { return hdr_; }
 
+    void takeScreenshot(const std::string& filename);
+    std::unique_ptr<uint8_t[]> screenshotData() { return std::move(screenshot_data_); }
     void pairToWindow(void* window_handle, int width, int height) {
       window_handle_ = window_handle;
       setDimensions(width, height);
       destroyFrameBuffer();
     }
+
+    void setHeadlessRender(int width, int height) {
+      headless_render_ = true;
+      setDimensions(width, height);
+      destroyFrameBuffer();
+    }
+    bool isHeadlessRender() const { return headless_render_; }
 
     void removeFromWindow() {
       window_handle_ = nullptr;
@@ -127,6 +137,9 @@ namespace visage {
     bool intermediate_layer_ = false;
 
     void* window_handle_ = nullptr;
+    bool headless_render_ = false;
+    std::unique_ptr<uint8_t[]> screenshot_data_;
+
     GradientAtlas* gradient_atlas_ = nullptr;
     std::unique_ptr<const PackedBrush> clear_brush_;
     std::unique_ptr<FrameBufferData> frame_buffer_data_;
