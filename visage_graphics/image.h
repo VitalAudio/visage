@@ -156,6 +156,7 @@ namespace visage {
 
   private:
     void resize();
+    void loadImageRect(PackedImageRect* image) const;
     void updateImage(const PackedImageRect* image) const;
 
     void removeImage(const ImageFile& image) {

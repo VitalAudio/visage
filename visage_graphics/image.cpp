@@ -171,27 +171,23 @@ namespace visage {
   ImageAtlas::~ImageAtlas() = default;
 
   ImageAtlas::PackedImage ImageAtlas::addImage(const ImageFile& image) {
-    int width = image.width;
-    int height = image.height;
-    if (image.width == 0 && !image.svg) {
-      bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image.data, image.data_size);
-      if (image_container) {
-        width = image_container->m_width;
-        height = image_container->m_height;
-      }
-      bimg::imageFree(image_container);
-    }
-
     if (images_.count(image) == 0) {
+      int width = image.width;
+      int height = image.height;
+      if (image.width == 0 && !image.svg) {
+        bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image.data, image.data_size);
+        if (image_container) {
+          width = image_container->m_width;
+          height = image_container->m_height;
+        }
+        bimg::imageFree(image_container);
+      }
+
       std::unique_ptr<PackedImageRect> packed_image_rect = std::make_unique<PackedImageRect>(image);
       if (!atlas_map_.addRect(packed_image_rect.get(), width, height))
         resize();
 
-      const PackedRect& rect = atlas_map_.rectForId(packed_image_rect.get());
-      packed_image_rect->x = rect.x;
-      packed_image_rect->y = rect.y;
-      packed_image_rect->w = rect.w;
-      packed_image_rect->h = rect.h;
+      loadImageRect(packed_image_rect.get());
       updateImage(packed_image_rect.get());
       images_[image] = std::move(packed_image_rect);
     }
@@ -210,6 +206,16 @@ namespace visage {
 
     atlas_map_.pack();
     texture_ = std::make_unique<ImageAtlasTexture>(atlas_map_.width(), atlas_map_.height());
+    for (auto& image : images_)
+      loadImageRect(image.second.get());
+  }
+
+  void ImageAtlas::loadImageRect(PackedImageRect* packed_image_rect) const {
+    const PackedRect& rect = atlas_map_.rectForId(packed_image_rect);
+    packed_image_rect->x = rect.x;
+    packed_image_rect->y = rect.y;
+    packed_image_rect->w = rect.w;
+    packed_image_rect->h = rect.h;
   }
 
   void ImageAtlas::updateImage(const PackedImageRect* image) const {
@@ -262,16 +268,19 @@ namespace visage {
   }
 
   void ImageAtlas::setImageCoordinates(TextureVertex* vertices, const PackedImage& image) const {
-    TextureRect rect = atlas_map_.texturePositionsForId(image.packedImageRect());
+    float left = image.x();
+    float top = image.y();
+    float right = left + image.w();
+    float bottom = top + image.h();
 
-    vertices[0].texture_x = rect.left;
-    vertices[0].texture_y = rect.top;
-    vertices[1].texture_x = rect.right;
-    vertices[1].texture_y = rect.top;
-    vertices[2].texture_x = rect.left;
-    vertices[2].texture_y = rect.bottom;
-    vertices[3].texture_x = rect.right;
-    vertices[3].texture_y = rect.bottom;
+    vertices[0].texture_x = left;
+    vertices[0].texture_y = top;
+    vertices[1].texture_x = right;
+    vertices[1].texture_y = top;
+    vertices[2].texture_x = left;
+    vertices[2].texture_y = bottom;
+    vertices[3].texture_x = right;
+    vertices[3].texture_y = bottom;
 
     for (int i = 0; i < kVerticesPerQuad; ++i) {
       vertices[i].direction_x = 1.0f;
