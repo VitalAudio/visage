@@ -146,9 +146,7 @@ void Showcase::resized() {
   int main_width = w;
 
   debug_info_->setBounds(0, 0, main_width, h);
-
   examples_->setBounds(0, 0, main_width, h);
-
   overlay_.setBounds(examples_->bounds());
 }
 

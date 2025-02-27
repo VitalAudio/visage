@@ -815,6 +815,10 @@ namespace visage {
     return std::make_unique<WindowMac>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), decoration);
   }
 
+  void* headlessWindowHandle() {
+    return (__bridge void*)InitialMetalLayer::layer();
+  }
+
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle) {
     float scale = 1.0f;

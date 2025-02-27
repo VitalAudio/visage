@@ -1466,6 +1466,10 @@ namespace visage {
                                          decoration_style);
   }
 
+  void* headlessWindowHandle() {
+    return nullptr;
+  }
+
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle) {
     Bounds bounds = computeWindowBounds(0, 0, width, height);

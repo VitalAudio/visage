@@ -131,6 +131,10 @@ namespace visage {
                                               height.compute(scale, display_width, display_height));
   }
 
+  void* headlessWindowHandle() {
+    return nullptr;
+  }
+
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle) {
     VISAGE_ASSERT(false);

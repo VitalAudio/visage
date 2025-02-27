@@ -445,6 +445,10 @@ namespace visage {
     return std::make_unique<WindowX11>(window_x, window_y, bounds.width(), bounds.height(), decoration);
   }
 
+  void* headlessWindowHandle() {
+    return nullptr;
+  }
+
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle) {
     Bounds bounds = computeWindowBounds(width, height);

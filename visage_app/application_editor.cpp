@@ -138,7 +138,7 @@ namespace visage {
     canvas_->removeFromWindow();
     window_ = nullptr;
     pixel_scale_ = 1.0f;
-    Renderer::instance().checkInitialization(nullptr, nullptr);
+    Renderer::instance().checkInitialization(headlessWindowHandle(), nullptr);
     setBounds(0, 0, width, height);
     canvas_->setWindowless(width, height);
     drawWindow();
