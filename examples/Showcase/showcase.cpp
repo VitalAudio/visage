@@ -26,6 +26,7 @@
 
 #include <visage/app.h>
 #include <visage/graphics.h>
+#include <visage/utils.h>
 #include <visage/widgets.h>
 
 using namespace visage::dimension;
@@ -112,7 +113,7 @@ Showcase::Showcase() : palette_color_window_(&palette_), palette_value_window_(&
   examples_->onShowOverlay() = [this] { overlay_.setVisible(true); };
   examples_->onToggleDebug() = [this]() { toggleDebug(); };
 
-  examples_->onScrenshot() = [this](const std::string& file_path) {
+  examples_->onScreenshot() = [this](const std::string& file_path) {
     visage::ApplicationEditor* parent = findParent<visage::ApplicationEditor>();
     if (parent)
       parent->takeScreenshot(file_path);
@@ -209,6 +210,5 @@ int runExample() {
   else
     editor.show(100_vmin, 70_vmin);
   editor.runEventLoop();
-
   return 0;
 }

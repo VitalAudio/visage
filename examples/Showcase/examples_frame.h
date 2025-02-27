@@ -64,7 +64,7 @@ public:
   void setupShapes();
   void setupTextEditors();
 
-  auto& onScrenshot() { return on_screenshot_; }
+  auto& onScreenshot() { return on_screenshot_; }
   auto& onShowOverlay() { return on_show_overlay_; }
   auto& onToggleDebug() { return on_toggle_debug_; }
 
