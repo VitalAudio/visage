@@ -25,8 +25,6 @@
 #include "theme.h"
 
 #include <bgfx/bgfx.h>
-#include <bimg/bimg.h>
-#include <bx/file.h>
 
 namespace visage {
   Canvas::Canvas() : composite_layer_(&gradient_atlas_) {
@@ -69,32 +67,16 @@ namespace visage {
       FontCache::clearStaleFonts();
       gradient_atlas_.clearStaleGradients();
       image_atlas_.clearStaleImages();
-      if (!screenshot_filename_.empty())
-        saveScreenshot();
     }
     return submission;
   }
 
-  void Canvas::takeScreenshot(const std::string& filename) {
-    screenshot_filename_ = filename;
-    composite_layer_.takeScreenshot(filename);
+  void Canvas::requestScreenshot() {
+    composite_layer_.requestScreenshot();
   }
 
-  void Canvas::saveScreenshot() {
-    if (screenshot_filename_.empty())
-      return;
-    std::unique_ptr<uint8_t[]> data = composite_layer_.screenshotData();
-    if (data) {
-      bx::FileWriter writer;
-      bx::Error error;
-      if (bx::open(&writer, screenshot_filename_.c_str(), false, &error)) {
-        bimg::imageWritePng(&writer, composite_layer_.width(), composite_layer_.height(),
-                            composite_layer_.width() * 4, data.get(), bimg::TextureFormat::RGBA8,
-                            composite_layer_.bottomLeftOrigin(), &error);
-        bx::close(&writer);
-      }
-    }
-    screenshot_filename_ = "";
+  const Screenshot& Canvas::screenshot() const {
+    return composite_layer_.screenshot();
   }
 
   void Canvas::ensureLayerExists(int layer) {

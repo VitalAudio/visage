@@ -25,6 +25,7 @@
 #include "graphics_utils.h"
 #include "layer.h"
 #include "region.h"
+#include "screenshot.h"
 #include "shape_batcher.h"
 #include "text.h"
 #include "theme.h"
@@ -57,8 +58,8 @@ namespace visage {
     void clearDrawnShapes();
     int submit(int submit_pass = 0);
 
-    void takeScreenshot(const std::string& filename);
-    void saveScreenshot();
+    void requestScreenshot();
+    const Screenshot& screenshot() const;
 
     void ensureLayerExists(int layer);
     Layer* layer(int index) {
@@ -584,7 +585,6 @@ namespace visage {
     Region window_region_;
     Region default_region_;
     Layer composite_layer_;
-    std::string screenshot_filename_;
     std::vector<std::unique_ptr<Layer>> intermediate_layers_;
     std::vector<Layer*> layers_;
 

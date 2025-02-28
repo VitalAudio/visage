@@ -16,5 +16,4 @@ set_target_properties(VisageUi PROPERTIES FOLDER "visage")
 add_test_target(
   TARGET VisageUiTests
   TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
-  DEPENDENCIES visage
 )

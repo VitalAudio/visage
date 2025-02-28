@@ -25,8 +25,6 @@
 
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
-#include <bimg/bimg.h>
-#include <bx/file.h>
 
 namespace visage {
   class GraphicsCallbackHandler : public bgfx::CallbackI {
@@ -52,12 +50,7 @@ namespace visage {
 
     void screenShot(const char* file_path, uint32_t width, uint32_t height, uint32_t pitch,
                     const void* data, uint32_t size, bool y_flip) override {
-      bx::FileWriter writer;
-      bx::Error error;
-      if (bx::open(&writer, file_path, false, &error)) {
-        bimg::imageWritePng(&writer, width, height, pitch, data, bimg::TextureFormat::BGRA8, y_flip, &error);
-        bx::close(&writer);
-      }
+      Renderer::instance().setScreenshotData(static_cast<const uint8_t*>(data), width, height, pitch, true);
     }
 
     void captureBegin(uint32_t, uint32_t, uint32_t, bgfx::TextureFormat::Enum, bool) override { }
@@ -154,5 +147,9 @@ namespace visage {
     }
 
     supported_ = backend_supported && swap_chain_supported;
+  }
+
+  void Renderer::setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool blue_red) {
+    screenshot_ = Screenshot(data, width, height, pitch, blue_red);
   }
 }

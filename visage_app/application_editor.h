@@ -53,7 +53,7 @@ namespace visage {
     ApplicationEditor();
     ~ApplicationEditor() override;
 
-    void takeScreenshot(const std::string& filename);
+    const Screenshot& takeScreenshot();
 
     void setCanvasDetails();
 

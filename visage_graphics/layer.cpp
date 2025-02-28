@@ -23,6 +23,7 @@
 
 #include "canvas.h"
 #include "region.h"
+#include "renderer.h"
 
 #include <bgfx/bgfx.h>
 
@@ -293,10 +294,13 @@ namespace visage {
       current_blend_mode = next_batch->blendMode();
     }
 
-    if (screenshot_data_ && bgfx::isValid(frame_buffer_data_->read_back_handle)) {
+    if (screenshot_requested_ && bgfx::isValid(frame_buffer_data_->read_back_handle)) {
+      screenshot_requested_ = false;
       bgfx::blit(submit_pass, frame_buffer_data_->read_back_handle, 0, 0,
                  bgfx::getTexture(frame_buffer_data_->handle), 0, 0, width_, height_);
-      bgfx::readTexture(frame_buffer_data_->read_back_handle, screenshot_data_.get());
+
+      screenshot_.setDimensions(width_, height_);
+      bgfx::readTexture(frame_buffer_data_->read_back_handle, screenshot_.data());
     }
 
     submit_pass = submit_pass + 1;
@@ -345,10 +349,17 @@ namespace visage {
     return { region->x(), region->y() };
   }
 
-  void Layer::takeScreenshot(const std::string& filename) {
+  void Layer::requestScreenshot() {
     if (headless_render_)
-      screenshot_data_ = std::make_unique<uint8_t[]>(width_ * height_ * 4);
+      screenshot_requested_ = true;
     else
-      bgfx::requestScreenShot(frameBuffer(), filename.c_str());
+      bgfx::requestScreenShot(frameBuffer(), "screenshot.png");
+  }
+
+  const Screenshot& Layer::screenshot() const {
+    if (headless_render_)
+      return screenshot_;
+    else
+      return Renderer::instance().screenshot();
   }
 }

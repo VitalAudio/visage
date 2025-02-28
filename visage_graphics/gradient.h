@@ -362,12 +362,12 @@ namespace visage {
 
       if (brush) {
         if (brush->position_.shape == GradientPosition::InterpolationShape::Horizontal) {
-          result.gradient_position_from_x = left;
-          result.gradient_position_to_x = right;
+          result.gradient_position_from_x = left + 0.5f;
+          result.gradient_position_to_x = right - 0.5f;
         }
         else if (brush->position_.shape == GradientPosition::InterpolationShape::Vertical) {
-          result.gradient_position_from_y = top;
-          result.gradient_position_to_y = bottom;
+          result.gradient_position_from_y = top + 0.5f;
+          result.gradient_position_to_y = bottom - 0.5f;
         }
         else if (brush->position_.shape == GradientPosition::InterpolationShape::PointsLinear) {
           result.gradient_position_from_x = offset_x + brush->position_.point_from.x;

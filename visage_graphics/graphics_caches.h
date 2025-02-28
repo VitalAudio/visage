@@ -21,8 +21,8 @@
 
 #pragma once
 
-#include "embedded_file.h"
 #include "graphics_utils.h"
+#include "visage_file_embed/embedded_file.h"
 
 namespace visage {
   struct ShaderCacheMap;

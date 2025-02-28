@@ -116,7 +116,7 @@ Showcase::Showcase() : palette_color_window_(&palette_), palette_value_window_(&
   examples_->onScreenshot() = [this](const std::string& file_path) {
     visage::ApplicationEditor* parent = findParent<visage::ApplicationEditor>();
     if (parent)
-      parent->takeScreenshot(file_path);
+      parent->takeScreenshot().save(file_path);
   };
 
   addChild(examples_.get());

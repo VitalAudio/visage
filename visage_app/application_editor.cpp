@@ -95,9 +95,11 @@ namespace visage {
     top_level_.setEventHandler(nullptr);
   }
 
-  void ApplicationEditor::takeScreenshot(const std::string& filename) {
-    canvas_->takeScreenshot(filename);
+  const Screenshot& ApplicationEditor::takeScreenshot() {
+    canvas_->requestScreenshot();
+    redraw();
     drawWindow();
+    return canvas_->screenshot();
   }
 
   void ApplicationEditor::setCanvasDetails() {

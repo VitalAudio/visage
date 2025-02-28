@@ -19,40 +19,27 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
-
 #include "screenshot.h"
-#include "visage_utils/thread_utils.h"
+
+#include <bimg/bimg.h>
+#include <bx/file.h>
 
 namespace visage {
-  class GraphicsCallbackHandler;
+  void Screenshot::save(const char* path) const {
+    bx::FileWriter writer;
+    bx::Error error;
+    if (bx::open(&writer, path, false, &error)) {
+      bimg::imageWritePng(&writer, width_, height_, width_ * 4, data_.get(),
+                          bimg::TextureFormat::RGBA8, false, &error);
+      bx::close(&writer);
+    }
+  }
 
-  class Renderer : public Thread {
-  public:
-    static Renderer& instance();
+  void Screenshot::save(const std::string& path) const {
+    save(path.c_str());
+  }
 
-    Renderer();
-    ~Renderer() override;
-
-    void checkInitialization(void* model_window, void* display);
-    void setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool blue_red);
-    const Screenshot& screenshot() const { return screenshot_; }
-
-    const std::string& errorMessage() const { return error_message_; }
-    bool supported() const { return supported_; }
-    bool initialized() const { return initialized_; }
-
-  private:
-    void startRenderThread();
-    void render();
-    void run() override;
-
-    bool initialized_ = false;
-    bool supported_ = false;
-
-    Screenshot screenshot_;
-    std::string error_message_;
-    std::atomic<bool> render_thread_started_ = false;
-    std::unique_ptr<GraphicsCallbackHandler> callback_handler_;
-  };
+  void Screenshot::save(const File& file) const {
+    save(file.string());
+  }
 }

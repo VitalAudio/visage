@@ -143,6 +143,5 @@ set_target_properties(bimg_encode PROPERTIES FOLDER "visage/third_party/bgfx")
 add_test_target(
   TARGET VisageGraphicsTests
   TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
-  DEPENDENCIES VisageGraphics VisageUtils
 )
 set_target_properties(freetype PROPERTIES FOLDER "visage/third_party")
