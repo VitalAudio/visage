@@ -27,6 +27,10 @@
 #include <bgfx/bgfx.h>
 
 namespace visage {
+  bool Canvas::swapChainSupported() {
+    return bgfx::getCaps()->supported & BGFX_CAPS_SWAP_CHAIN;
+  }
+
   Canvas::Canvas() : composite_layer_(&gradient_atlas_) {
     state_.current_region = &default_region_;
     layers_.push_back(&composite_layer_);

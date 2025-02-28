@@ -41,6 +41,8 @@ namespace visage {
     static constexpr float kSqrt2 = 1.4142135623730950488016887242097f;
     static constexpr float kDefaultSquirclePower = 4.0f;
 
+    static bool swapChainSupported();
+
     struct State {
       int x = 0;
       int y = 0;
@@ -73,6 +75,7 @@ namespace visage {
     void changePackedLayer(Region* region, int from, int to);
 
     void pairToWindow(void* window_handle, int width, int height) {
+      VISAGE_ASSERT(swapChainSupported());
       composite_layer_.pairToWindow(window_handle, width, height);
       setDimensions(width, height);
     }

@@ -81,7 +81,7 @@ TEST_CASE("Screenshot vertical gradient", "[integration]") {
   }
 }
 
-TEST_CASE("Screenshot gradient", "[integration]") {
+TEST_CASE("Screenshot horizontal gradient", "[integration]") {
   Color source = 0xff345678;
   Color destination = 0xff88aacc;
   ApplicationEditor editor;

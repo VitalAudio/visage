@@ -158,7 +158,9 @@ namespace visage {
                                                            frame_buffer_data_->format);
     }
     else {
-      if (headless_render_) {
+      bool read_back = (bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_BLIT) &&
+                       (bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_READ_BACK);
+      if (headless_render_ && read_back) {
         uint64_t flags = BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK;
         frame_buffer_data_->read_back_handle = bgfx::createTexture2D(width_, height_, false, 1,
                                                                      bgfx::TextureFormat::RGBA8, flags);
@@ -301,6 +303,7 @@ namespace visage {
 
       screenshot_.setDimensions(width_, height_);
       bgfx::readTexture(frame_buffer_data_->read_back_handle, screenshot_.data());
+      bgfx::frame();
     }
 
     submit_pass = submit_pass + 1;

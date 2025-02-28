@@ -92,6 +92,5 @@ namespace visage {
     std::unique_ptr<uint8_t[]> data_;
     int width_ = 0;
     int height_ = 0;
-    int pitch_ = 0;
   };
 }

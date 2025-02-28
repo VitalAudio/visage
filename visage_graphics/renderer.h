@@ -40,6 +40,7 @@ namespace visage {
 
     const std::string& errorMessage() const { return error_message_; }
     bool supported() const { return supported_; }
+    bool swapChainSupported() const { return swap_chain_supported_; }
     bool initialized() const { return initialized_; }
 
   private:
@@ -49,6 +50,7 @@ namespace visage {
 
     bool initialized_ = false;
     bool supported_ = false;
+    bool swap_chain_supported_ = false;
 
     Screenshot screenshot_;
     std::string error_message_;

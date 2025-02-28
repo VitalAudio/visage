@@ -129,24 +129,17 @@ namespace visage {
     bgfx_init.type = bgfx::RendererType::OpenGLES;
 #endif
 
-    bool backend_supported = false;
-    for (int i = 0; i < num_supported && !backend_supported; ++i)
-      backend_supported = supported_renderers[i] == bgfx_init.type;
+    for (int i = 0; i < num_supported && !supported_; ++i)
+      supported_ = supported_renderers[i] == bgfx_init.type;
 
-    if (!backend_supported) {
+    if (!supported_) {
       std::string renderer_name = bgfx::getRendererName(bgfx_init.type);
       error_message_ = renderer_name + " is required and not supported on this computer.";
     }
 
     bgfx::init(bgfx_init);
 
-    bool swap_chain_supported = bgfx::getCaps()->supported & BGFX_CAPS_SWAP_CHAIN;
-    if (!swap_chain_supported) {
-      VISAGE_ASSERT(false);
-      error_message_ = "Swap chain rendering is required.";
-    }
-
-    supported_ = backend_supported && swap_chain_supported;
+    swap_chain_supported_ = bgfx::getCaps()->supported & BGFX_CAPS_SWAP_CHAIN;
   }
 
   void Renderer::setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool blue_red) {
