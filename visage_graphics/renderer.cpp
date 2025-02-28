@@ -139,7 +139,7 @@ namespace visage {
     }
 
     bgfx::init(bgfx_init);
-
+    VISAGE_ASSERT(bgfx::getRendererType() == bgfx_init.type);
     swap_chain_supported_ = bgfx::getCaps()->supported & BGFX_CAPS_SWAP_CHAIN;
   }
 
