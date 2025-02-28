@@ -133,6 +133,7 @@ namespace visage {
       supported_ = supported_renderers[i] == bgfx_init.type;
 
     if (!supported_) {
+      VISAGE_ASSERT(false);
       std::string renderer_name = bgfx::getRendererName(bgfx_init.type);
       error_message_ = renderer_name + " is required and not supported on this computer.";
     }
