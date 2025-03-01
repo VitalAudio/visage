@@ -115,7 +115,7 @@ namespace visage {
     return -1;
   }
 
-  Frame* Frame::frameAtPoint(Point point) {
+  Frame* Frame::frameAtPoint(FPoint point) {
     if (pass_mouse_events_to_children_) {
       for (auto it = children_.rbegin(); it != children_.rend(); ++it) {
         auto& child = *it;
@@ -147,12 +147,14 @@ namespace visage {
     return frame;
   }
 
-  void Frame::setBounds(Bounds bounds) {
-    if (bounds_ == bounds)
+  void Frame::setBounds(FBounds bounds) {
+    if (logical_bounds_ == bounds)
       return;
 
-    bounds_ = bounds;
-    region_.setBounds(bounds.x(), bounds.y(), bounds.width(), bounds.height());
+    logical_bounds_ = bounds;
+    physical_bounds_ = (logical_bounds_ * dpi_scale_).roundToBounds();
+    region_.setBounds(physical_bounds_.x(), physical_bounds_.y(), physical_bounds_.width(),
+                      physical_bounds_.height());
     computeLayout();
     if (layout_ == nullptr || !layout_->flex()) {
       for (Frame* child : children_)
@@ -219,8 +221,8 @@ namespace visage {
     child->setBounds(x, y, w, h);
   }
 
-  Point Frame::positionInWindow() const {
-    Point global_position = topLeft();
+  FPoint Frame::positionInWindow() const {
+    FPoint global_position = topLeft();
     Frame* frame = parent_;
     while (frame) {
       global_position = global_position + frame->topLeft();
@@ -230,9 +232,9 @@ namespace visage {
     return global_position;
   }
 
-  Bounds Frame::relativeBounds(const Frame* other) const {
-    Point position = positionInWindow();
-    Point other_position = other->positionInWindow();
+  FBounds Frame::relativeBounds(const Frame* other) const {
+    FPoint position = positionInWindow();
+    FPoint other_position = other->positionInWindow();
     int width = other->bounds().width();
     int height = other->bounds().height();
     return { other_position.x - position.x, other_position.y - position.y, width, height };

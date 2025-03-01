@@ -210,17 +210,20 @@ namespace visage {
       return nullptr;
     }
 
-    bool containsPoint(Point point) const { return bounds_.contains(point); }
-    Frame* frameAtPoint(Point point);
+    bool containsPoint(FPoint point) const { return logical_bounds_.contains(point); }
+    Frame* frameAtPoint(FPoint point);
     Frame* topParentFrame();
 
-    void setBounds(Bounds bounds);
-    void setBounds(int x, int y, int width, int height) { setBounds({ x, y, width, height }); }
+    void setBounds(FBounds bounds);
+    void setBounds(float x, float y, float width, float height) {
+      setBounds({ x, y, width, height });
+    }
     void computeLayout();
     void computeLayout(Frame* child);
-    const Bounds& bounds() const { return bounds_; }
+    const FBounds& bounds() const { return logical_bounds_; }
+    const Bounds& physicalBounds() const { return physical_bounds_; }
     void setTopLeft(int x, int y) { setBounds(x, y, width(), height()); }
-    Point topLeft() const { return { bounds_.x(), bounds_.y() }; }
+    FPoint topLeft() const { return logical_bounds_.topLeft(); }
     void setOnTop(bool on_top) { on_top_ = on_top; }
     bool isOnTop() const { return on_top_; }
 
@@ -232,16 +235,16 @@ namespace visage {
     void clearLayout() { layout_ = nullptr; }
     void setFlexLayout(bool flex) { layout().setFlex(flex); }
 
-    int x() const { return bounds_.x(); }
-    int y() const { return bounds_.y(); }
-    int width() const { return bounds_.width(); }
-    int height() const { return bounds_.height(); }
-    int right() const { return bounds_.right(); }
-    int bottom() const { return bounds_.bottom(); }
-    float aspectRatio() const { return bounds_.width() * 1.0f / bounds_.height(); }
-    Bounds localBounds() const { return { 0, 0, width(), height() }; }
-    Point positionInWindow() const;
-    Bounds relativeBounds(const Frame* other) const;
+    float x() const { return logical_bounds_.x(); }
+    float y() const { return logical_bounds_.y(); }
+    float width() const { return logical_bounds_.width(); }
+    float height() const { return logical_bounds_.height(); }
+    float right() const { return logical_bounds_.right(); }
+    float bottom() const { return logical_bounds_.bottom(); }
+    float aspectRatio() const { return logical_bounds_.width() / logical_bounds_.height(); }
+    FBounds localBounds() const { return { 0.0f, 0.0f, width(), height() }; }
+    FPoint positionInWindow() const;
+    FBounds relativeBounds(const Frame* other) const;
 
     bool acceptsKeystrokes() const { return accepts_keystrokes_; }
     void setAcceptsKeystrokes(bool accepts_keystrokes) { accepts_keystrokes_ = accepts_keystrokes; }
@@ -361,7 +364,8 @@ namespace visage {
     }
 
     std::string name_;
-    Bounds bounds_;
+    FBounds logical_bounds_;
+    Bounds physical_bounds_;
 
     CallbackList<void(Canvas&)> on_draw_ { [this](Canvas& e) -> void { draw(e); } };
     CallbackList<void()> on_resize_ { [this] { resized(); } };

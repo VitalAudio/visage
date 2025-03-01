@@ -258,12 +258,12 @@ namespace visage {
     GradientPosition() = default;
     explicit GradientPosition(InterpolationShape shape) : shape(shape) { }
 
-    GradientPosition(FloatPoint from, FloatPoint to) :
+    GradientPosition(FPoint from, FPoint to) :
         shape(InterpolationShape::PointsLinear), point_from(from), point_to(to) { }
 
     InterpolationShape shape = InterpolationShape::Solid;
-    FloatPoint point_from;
-    FloatPoint point_to;
+    FPoint point_from;
+    FPoint point_to;
 
     GradientPosition interpolateWith(const GradientPosition& other, float t) const {
       return interpolate(*this, other, t);
@@ -299,12 +299,12 @@ namespace visage {
       return vertical(Gradient(top, bottom));
     }
 
-    static Brush linear(Gradient gradient, const FloatPoint& from_position, const FloatPoint& to_position) {
+    static Brush linear(Gradient gradient, const FPoint& from_position, const FPoint& to_position) {
       return { std::move(gradient), GradientPosition(from_position, to_position) };
     }
 
-    static Brush linear(const Color& from_color, const Color& to_color,
-                        const FloatPoint& from_position, const FloatPoint& to_position) {
+    static Brush linear(const Color& from_color, const Color& to_color, const FPoint& from_position,
+                        const FPoint& to_position) {
       return linear(Gradient(from_color, to_color), from_position, to_position);
     }
 

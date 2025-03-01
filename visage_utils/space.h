@@ -37,10 +37,9 @@ namespace visage {
 
     Point operator+(const Point& other) const { return { x + other.x, y + other.y }; }
 
-    Point operator+=(const Point& other) {
+    void operator+=(const Point& other) {
       x += other.x;
       y += other.y;
-      return *this;
     }
 
     Point operator-(const Point& other) const { return { x - other.x, y - other.y }; }
@@ -51,6 +50,7 @@ namespace visage {
       return *this;
     }
 
+    Point operator-() const { return { -x, -y }; }
     bool operator==(const Point& other) const { return x == other.x && y == other.y; }
     bool operator!=(const Point& other) const { return !(*this == other); }
 
@@ -58,21 +58,43 @@ namespace visage {
     float length() const { return sqrtf(x * x + y * y); }
   };
 
-  struct FloatPoint {
+  struct FPoint {
     float x = 0;
     float y = 0;
 
-    FloatPoint() = default;
-    FloatPoint(float initial_x, float initial_y) : x(initial_x), y(initial_y) { }
-    FloatPoint(const Point& point) : x(point.x), y(point.y) { }
+    FPoint() = default;
+    FPoint(float initial_x, float initial_y) : x(initial_x), y(initial_y) { }
+    FPoint(const Point& point) : x(point.x), y(point.y) { }
 
-    FloatPoint operator+(const FloatPoint& other) const { return { x + other.x, y + other.y }; }
-    FloatPoint operator-(const FloatPoint& other) const { return { x - other.x, y - other.y }; }
-    FloatPoint operator*(float scalar) const { return { x * scalar, y * scalar }; }
-    FloatPoint operator+(const Point& other) const { return { x + other.x, y + other.y }; }
-    FloatPoint operator-(const Point& other) const { return { x - other.x, y - other.y }; }
-    bool operator==(const FloatPoint& other) const { return x == other.x && y == other.y; }
-    float operator*(const FloatPoint& other) const { return x * other.x + y * other.y; }
+    void operator=(const Point& point) {
+      x = point.x;
+      y = point.y;
+    }
+
+    Point roundToPoint() const {
+      return { static_cast<int>(std::round(x)), static_cast<int>(std::round(y)) };
+    }
+
+    FPoint operator+(const FPoint& other) const { return { x + other.x, y + other.y }; }
+    FPoint operator+(const Point& other) const { return { x + other.x, y + other.y }; }
+    void operator+=(const FPoint& other) {
+      x += other.x;
+      y += other.y;
+    }
+
+    FPoint operator-(const FPoint& other) const { return { x - other.x, y - other.y }; }
+    FPoint operator-(const Point& other) const { return { x - other.x, y - other.y }; }
+    void operator-=(const FPoint& other) {
+      x -= other.x;
+      y -= other.y;
+    }
+
+    FPoint operator*(float scalar) const { return { x * scalar, y * scalar }; }
+    float operator*(const FPoint& other) const { return x * other.x + y * other.y; }
+
+    FPoint operator-() const { return { -x, -y }; }
+
+    bool operator==(const FPoint& other) const { return x == other.x && y == other.y; }
 
     float squareMagnitude() const { return x * x + y * y; }
     float length() const { return sqrtf(squareMagnitude()); }
@@ -211,6 +233,83 @@ namespace visage {
     int y_ = 0;
     int width_ = 0;
     int height_ = 0;
+  };
+
+  class FBounds {
+  public:
+    FBounds() = default;
+    FBounds(float x, float y, float width, float height) :
+        x_(x), y_(y), width_(width), height_(height) { }
+    FBounds(const Bounds& bounds) :
+        x_(bounds.x()), y_(bounds.y()), width_(bounds.width()), height_(bounds.height()) { }
+
+    Bounds roundToBounds() const {
+      return { static_cast<int>(std::round(x_)), static_cast<int>(std::round(y_)),
+               static_cast<int>(std::round(width_)), static_cast<int>(std::round(height_)) };
+    }
+
+    float x() const { return x_; }
+    float y() const { return y_; }
+    float width() const { return width_; }
+    float height() const { return height_; }
+    bool hasArea() const { return width_ > 0 && height_ > 0; }
+    float right() const { return x_ + width_; }
+    float bottom() const { return y_ + height_; }
+    float xCenter() const { return x_ + width_ / 2; }
+    float yCenter() const { return y_ + height_ / 2; }
+    FPoint topLeft() const { return { x_, y_ }; }
+    FPoint clampPoint(const FPoint& point) const {
+      return { std::max(x_, std::min(right(), point.x)), std::max(y_, std::min(bottom(), point.y)) };
+    }
+
+    void setX(float x) { x_ = x; }
+    void setY(float y) { y_ = y; }
+    void setWidth(float width) { width_ = width; }
+    void setHeight(float height) { height_ = height; }
+    void flipDimensions() {
+      std::swap(x_, y_);
+      std::swap(width_, height_);
+    }
+
+    FBounds operator*(float scalar) const {
+      return { x_ * scalar, y_ * scalar, width_ * scalar, height_ * scalar };
+    }
+
+    bool operator==(const FBounds& other) const {
+      return x_ == other.x_ && y_ == other.y_ && width_ == other.width_ && height_ == other.height_;
+    }
+
+    bool operator!=(const FBounds& other) const { return !(*this == other); }
+    bool contains(float x, float y) const {
+      return x >= x_ && x < right() && y >= y_ && y < bottom();
+    }
+    bool contains(const FPoint& point) const { return contains(point.x, point.y); }
+
+    bool contains(const FBounds& other) const {
+      return x_ <= other.x_ && y_ <= other.y_ && right() >= other.right() && bottom() >= other.bottom();
+    }
+
+    bool overlaps(const FBounds& other) const {
+      return x_ < other.right() && right() > other.x_ && y_ < other.bottom() && bottom() > other.y_;
+    }
+
+    FBounds intersection(const FBounds& other) const {
+      float x = std::max(x_, other.x_);
+      float y = std::max(y_, other.y_);
+      float r = std::min(right(), other.right());
+      float b = std::min(bottom(), other.bottom());
+      return { x, y, r - x, b - y };
+    }
+
+    FBounds operator+(const FPoint& point) const {
+      return { x_ + point.x, y_ + point.y, width_, height_ };
+    }
+
+  private:
+    float x_ = 0.0f;
+    float y_ = 0.0f;
+    float width_ = 0.0f;
+    float height_ = 0.0f;
   };
 
   static Point adjustBoundsForAspectRatio(Point current, Point min_bounds, Point max_bounds,

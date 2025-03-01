@@ -138,9 +138,9 @@ public:
 
   void mouseMove(const visage::MouseEvent& e) {
     int radius = dpiScale() * kDragRadius;
-    visage::FloatPoint point = e.position;
-    visage::FloatPoint delta_from = point - from_point_;
-    visage::FloatPoint delta_to = point - to_point_;
+    visage::FPoint point = e.position;
+    visage::FPoint delta_from = point - from_point_;
+    visage::FPoint delta_to = point - to_point_;
 
     if (delta_from.squareMagnitude() < radius * radius &&
         delta_from.squareMagnitude() < delta_to.squareMagnitude())
@@ -181,8 +181,8 @@ public:
 private:
   ActivePoint active_point_ = kNone;
   bool mouse_down_ = false;
-  visage::FloatPoint from_point_ = { 20.0f, 20.0f };
-  visage::FloatPoint to_point_ = { 60.0f, 100.0f };
+  visage::FPoint from_point_ = { 20.0f, 20.0f };
+  visage::FPoint to_point_ = { 60.0f, 100.0f };
 };
 
 int runExample() {

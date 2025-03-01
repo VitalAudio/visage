@@ -22,14 +22,14 @@
 #include "layout.h"
 
 namespace visage {
-  std::vector<Bounds> Layout::flexChildGroup(const std::vector<const Layout*>& children,
-                                             Bounds bounds, float dpi_scale) {
-    int width = bounds.width();
-    int height = bounds.height();
+  std::vector<FBounds> Layout::flexChildGroup(const std::vector<const Layout*>& children,
+                                              FBounds bounds, float dpi_scale) {
+    float width = bounds.width();
+    float height = bounds.height();
     int dim = flex_rows_ ? 1 : 0;
     int cross_dim = 1 - dim;
 
-    int flex_area = flex_rows_ ? height : width;
+    float flex_area = flex_rows_ ? height : width;
     int flex_gap = flex_gap_.computeWithDefault(dpi_scale, width, height);
     flex_area -= flex_gap * (children.size() - 1);
     float total_flex_grow = 0.0f;
@@ -178,8 +178,8 @@ namespace visage {
     return cross_positions;
   }
 
-  std::vector<Bounds> Layout::flexChildWrap(const std::vector<const Layout*>& children,
-                                            Bounds bounds, float dpi_scale) {
+  std::vector<FBounds> Layout::flexChildWrap(const std::vector<const Layout*>& children,
+                                             FBounds bounds, float dpi_scale) {
     int width = bounds.width();
     int height = bounds.height();
     int dim = flex_rows_ ? 1 : 0;
@@ -222,10 +222,10 @@ namespace visage {
     int cross_area = flex_rows_ ? width : height;
     std::vector<int> cross_positions = alignCrossPositions(cross_sizes, cross_area, flex_gap);
 
-    std::vector<Bounds> results;
+    std::vector<FBounds> results;
     results.reserve(children.size());
     for (int i = 0; i < breaks.size(); ++i) {
-      Bounds group_bounds;
+      FBounds group_bounds;
       if (flex_rows_)
         group_bounds = { bounds.x() + cross_positions[i], bounds.y(), cross_sizes[i], bounds.height() };
       else
@@ -234,12 +234,12 @@ namespace visage {
       auto group = std::vector<const Layout*>(children.begin() + group_index,
                                               children.begin() + breaks[i]);
       group_index = breaks[i];
-      std::vector<Bounds> bounds = flexChildGroup(group, group_bounds, dpi_scale);
+      std::vector<FBounds> bounds = flexChildGroup(group, group_bounds, dpi_scale);
       results.insert(results.end(), bounds.begin(), bounds.end());
     }
 
     if (flex_wrap_ < 0) {
-      for (Bounds& result : results)
+      for (FBounds& result : results)
         result.setX(bounds.x() + bounds.right() - result.right());
     }
 
