@@ -89,14 +89,17 @@ namespace visage::theme {
     }
 
     static unsigned int defaultColor(ColorId color_id) {
+      VISAGE_ASSERT(Map::instance()->info_map_.count(color_id));
       return Map::instance()->info_map_[color_id].default_color;
     }
 
     static const std::string& groupName(ColorId color_id) {
+      VISAGE_ASSERT(Map::instance()->info_map_.count(color_id));
       return Map::instance()->info_map_[color_id].group;
     }
 
     static const std::string& name(ColorId color_id) {
+      VISAGE_ASSERT(Map::instance()->info_map_.count(color_id));
       return Map::instance()->info_map_[color_id].name;
     }
 
