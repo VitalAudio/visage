@@ -35,12 +35,12 @@ namespace visage {
   };
 
   struct RegionPosition {
-    RegionPosition(Region* region, std::vector<Bounds> invalid_rects, int position, int x = 0, int y = 0) :
+    RegionPosition(Region* region, std::vector<IBounds> invalid_rects, int position, int x = 0, int y = 0) :
         region(region), invalid_rects(std::move(invalid_rects)), position(position), x(x), y(y) { }
     RegionPosition() = default;
 
     Region* region = nullptr;
-    std::vector<Bounds> invalid_rects;
+    std::vector<IBounds> invalid_rects;
     int position = 0;
     int x = 0;
     int y = 0;
@@ -49,7 +49,7 @@ namespace visage {
     bool isDone() const { return position >= region->numSubmitBatches(); }
   };
 
-  inline void moveToVector(std::vector<Bounds>& rects, std::vector<Bounds>& pieces) {
+  inline void moveToVector(std::vector<IBounds>& rects, std::vector<IBounds>& pieces) {
     rects.insert(rects.end(), pieces.begin(), pieces.end());
     pieces.clear();
   }
@@ -70,11 +70,11 @@ namespace visage {
         return other->isVisible() && sub_region->overlaps(other);
       });
 
-      Bounds bounds(done_position.x + sub_region->x(), done_position.y + sub_region->y(),
-                    sub_region->width(), sub_region->height());
+      IBounds bounds(done_position.x + sub_region->x(), done_position.y + sub_region->y(),
+                     sub_region->width(), sub_region->height());
 
-      std::vector<Bounds> invalid_rects;
-      for (const Bounds& invalid_rect : done_position.invalid_rects) {
+      std::vector<IBounds> invalid_rects;
+      for (const IBounds& invalid_rect : done_position.invalid_rects) {
         if (bounds.overlaps(invalid_rect))
           invalid_rects.push_back(invalid_rect.intersection(bounds));
       }
@@ -187,15 +187,15 @@ namespace visage {
     return frame_buffer_data_->format;
   }
 
-  void Layer::invalidateRectInRegion(Bounds rect, const Region* region) {
-    Bounds region_bounds = boundsForRegion(region);
-    rect = rect + Point(region_bounds.x(), region_bounds.y());
+  void Layer::invalidateRectInRegion(IBounds rect, const Region* region) {
+    IBounds region_bounds = boundsForRegion(region);
+    rect = rect + IPoint(region_bounds.x(), region_bounds.y());
     rect = rect.intersection(region_bounds);
 
-    std::vector<Bounds>& invalid_rects = invalid_rects_[region];
+    std::vector<IBounds>& invalid_rects = invalid_rects_[region];
 
     for (auto it = invalid_rects.begin(); it != invalid_rects.end();) {
-      Bounds& invalid_rect = *it;
+      IBounds& invalid_rect = *it;
       if (invalid_rect.contains(rect)) {
         moveToVector(invalid_rects, invalid_rect_pieces_);
         return;
@@ -205,7 +205,7 @@ namespace visage {
         it = invalid_rects.erase(it);
         continue;
       }
-      Bounds::breakIntoNonOverlapping(rect, invalid_rect, invalid_rect_pieces_);
+      IBounds::breakIntoNonOverlapping(rect, invalid_rect, invalid_rect_pieces_);
       ++it;
     }
 
@@ -215,9 +215,9 @@ namespace visage {
 
   void Layer::clearInvalidRectAreas(int submit_pass) {
     ShapeBatch<Fill> clear_batch(BlendMode::Opaque);
-    std::vector<Bounds> invalid_rects;
+    std::vector<IBounds> invalid_rects;
     for (auto& region_invalid_rects : invalid_rects_) {
-      for (const Bounds& rect : region_invalid_rects.second) {
+      for (const IBounds& rect : region_invalid_rects.second) {
         invalid_rects.push_back(rect);
         float x = rect.x();
         float y = rect.y();
@@ -248,7 +248,7 @@ namespace visage {
     std::vector<RegionPosition> region_positions;
     std::vector<RegionPosition> overlapping_regions;
     for (Region* region : regions_) {
-      Point point = coordinatesForRegion(region);
+      IPoint point = coordinatesForRegion(region);
       if (region->isEmpty()) {
         addSubRegions(region_positions, overlapping_regions,
                       { region, invalid_rects_[region], 0, point.x, point.y });
@@ -336,7 +336,7 @@ namespace visage {
     atlas_map_.removeRect(region);
   }
 
-  Bounds Layer::boundsForRegion(const Region* region) const {
+  IBounds Layer::boundsForRegion(const Region* region) const {
     if (intermediate_layer_) {
       const PackedRect& rect = atlas_map_.rectForId(region);
       return { rect.x, rect.y, rect.w, rect.h };
@@ -344,7 +344,7 @@ namespace visage {
     return { region->x(), region->y(), region->width(), region->height() };
   }
 
-  Point Layer::coordinatesForRegion(const Region* region) const {
+  IPoint Layer::coordinatesForRegion(const Region* region) const {
     if (intermediate_layer_) {
       const PackedRect& rect = atlas_map_.rectForId(region);
       return { rect.x, rect.y };

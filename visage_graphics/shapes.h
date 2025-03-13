@@ -51,13 +51,6 @@ namespace visage {
     Down,
   };
 
-  enum class Corner {
-    TopLeft,
-    TopRight,
-    BottomLeft,
-    BottomRight,
-  };
-
   struct ClampBounds {
     float left = 1.0f;
     float top = 1.0f;

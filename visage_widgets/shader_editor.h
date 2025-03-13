@@ -88,7 +88,7 @@ namespace visage {
     }
 
     void compileWebGlShader(const std::string& shader_name, const std::string& code,
-                            std::function<void(std::string)> callback);
+                            const std::function<void(std::string)>& callback);
 
     void compile(const std::string& shader_name, std::string code, std::function<void(std::string)> callback) {
 #if VISAGE_EMSCRIPTEN

@@ -55,11 +55,11 @@ namespace visage {
 
   template<typename T>
   struct DrawBatch {
-    DrawBatch(const std::vector<T>* shapes, std::vector<Bounds>* invalid_rects, int x, int y) :
+    DrawBatch(const std::vector<T>* shapes, std::vector<IBounds>* invalid_rects, int x, int y) :
         shapes(shapes), invalid_rects(invalid_rects), x(x), y(y) { }
 
     const std::vector<T>* shapes;
-    std::vector<Bounds>* invalid_rects;
+    std::vector<IBounds>* invalid_rects;
     int x = 0;
     int y = 0;
   };
@@ -67,8 +67,8 @@ namespace visage {
   template<typename T>
   using BatchVector = std::vector<DrawBatch<T>>;
 
-  inline int numShapePieces(const BaseShape& shape, int x, int y, const std::vector<Bounds>& invalid_rects) {
-    auto check_overlap = [x, y, &shape](Bounds invalid_rect) {
+  inline int numShapePieces(const BaseShape& shape, int x, int y, const std::vector<IBounds>& invalid_rects) {
+    auto check_overlap = [x, y, &shape](IBounds invalid_rect) {
       ClampBounds clamp = shape.clamp.clamp(invalid_rect.x() - x, invalid_rect.y() - y,
                                             invalid_rect.width(), invalid_rect.height());
       return !shape.totallyClamped(clamp);
@@ -124,7 +124,7 @@ namespace visage {
 
     for (const auto& batch : batches) {
       for (const T& shape : *batch.shapes) {
-        for (const Bounds& invalid_rect : *batch.invalid_rects) {
+        for (const IBounds& invalid_rect : *batch.invalid_rects) {
           ClampBounds clamp = shape.clamp.clamp(invalid_rect.x() - batch.x, invalid_rect.y() - batch.y,
                                                 invalid_rect.width(), invalid_rect.height());
           if (shape.totallyClamped(clamp))
@@ -224,7 +224,7 @@ namespace visage {
 
   struct PositionedBatch {
     SubmitBatch* batch = nullptr;
-    std::vector<Bounds>* invalid_rects {};
+    std::vector<IBounds>* invalid_rects {};
     int x = 0;
     int y = 0;
   };
