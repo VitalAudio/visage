@@ -119,11 +119,11 @@ namespace visage {
     return y;
   }
 
-  inline float inverseMagnitudeOfPoint(FloatPoint point) {
+  inline float inverseMagnitudeOfPoint(Point point) {
     return inverseSqrt(point.x * point.x + point.y * point.y);
   }
 
-  inline FloatPoint normalize(FloatPoint point) {
+  inline Point normalize(Point point) {
     return point * inverseMagnitudeOfPoint(point);
   }
 
@@ -136,36 +136,35 @@ namespace visage {
       line_data[i + 1].fill = 1.0f;
     }
 
-    FloatPoint prev_normalized_delta;
+    Point prev_normalized_delta;
     for (int i = 0; i < line->num_points - 1; ++i) {
       if (line->x[i] != line->x[i + 1] || line->y[i] != line->y[i + 1]) {
-        prev_normalized_delta = normalize(FloatPoint(line->x[i + 1] - line->x[i],
-                                                     line->y[i + 1] - line->y[i]));
+        prev_normalized_delta = normalize(Point(line->x[i + 1] - line->x[i], line->y[i + 1] - line->y[i]));
         break;
       }
     }
 
-    FloatPoint prev_delta_normal(-prev_normalized_delta.y, prev_normalized_delta.x);
+    Point prev_delta_normal(-prev_normalized_delta.y, prev_normalized_delta.x);
     float radius = line_wrapper.line_width * 0.5f + 0.5f;
     float prev_magnitude = radius;
 
     for (int i = 0; i < line->num_points; ++i) {
-      FloatPoint point(line->x[i], line->y[i]);
+      Point point(line->x[i], line->y[i]);
       int next_index = i + 1;
       int clamped_next_index = std::min(next_index, line->num_points - 1);
 
-      FloatPoint next_point(line->x[clamped_next_index], line->y[clamped_next_index]);
-      FloatPoint delta = next_point - point;
+      Point next_point(line->x[clamped_next_index], line->y[clamped_next_index]);
+      Point delta = next_point - point;
       if (point == next_point)
         delta = prev_normalized_delta;
 
       float inverse_magnitude = inverseMagnitudeOfPoint(delta);
       float magnitude = 1.0f / std::max(0.00001f, inverse_magnitude);
-      FloatPoint normalized_delta(delta.x * inverse_magnitude, delta.y * inverse_magnitude);
-      FloatPoint delta_normal(-normalized_delta.y, normalized_delta.x);
+      Point normalized_delta(delta.x * inverse_magnitude, delta.y * inverse_magnitude);
+      Point delta_normal(-normalized_delta.y, normalized_delta.x);
 
-      FloatPoint angle_bisect_delta = normalized_delta - prev_normalized_delta;
-      FloatPoint bisect_line;
+      Point angle_bisect_delta = normalized_delta - prev_normalized_delta;
+      Point bisect_line;
       bool straight = angle_bisect_delta.x < 0.001f && angle_bisect_delta.x > -0.001f &&
                       angle_bisect_delta.y < 0.001f && angle_bisect_delta.y > -0.001f;
       if (straight)
@@ -181,12 +180,12 @@ namespace visage {
 
       float bisect_normal_dot_product = bisect_line * delta_normal;
       float inner_mult = 1.0f / std::max(0.1f, std::fabs(bisect_normal_dot_product));
-      FloatPoint inner_point = point + bisect_line * std::min(inner_mult * radius, max_inner_radius);
-      FloatPoint outer_point = point - bisect_line * radius;
+      Point inner_point = point + bisect_line * std::min(inner_mult * radius, max_inner_radius);
+      Point outer_point = point - bisect_line * radius;
 
       if (bisect_normal_dot_product < 0.0f) {
-        FloatPoint outer_point_start = outer_point;
-        FloatPoint outer_point_end = outer_point;
+        Point outer_point_start = outer_point;
+        Point outer_point_end = outer_point;
         if (!straight) {
           outer_point_start = point + prev_delta_normal * radius;
           outer_point_end = point + delta_normal * radius;
@@ -201,8 +200,8 @@ namespace visage {
         y2 = y4 = y6 = inner_point.y;
       }
       else {
-        FloatPoint outer_point_start = outer_point;
-        FloatPoint outer_point_end = outer_point;
+        Point outer_point_start = outer_point;
+        Point outer_point_end = outer_point;
         if (!straight) {
           outer_point_start = point - prev_delta_normal * radius;
           outer_point_end = point - delta_normal * radius;
@@ -434,8 +433,8 @@ namespace visage {
     bgfx::submit(submit_pass, program);
   }
 
-  inline int numTextPieces(const TextBlock& text, int x, int y, const std::vector<Bounds>& invalid_rects) {
-    auto count_pieces = [x, y, &text](int sum, Bounds invalid_rect) {
+  inline int numTextPieces(const TextBlock& text, int x, int y, const std::vector<IBounds>& invalid_rects) {
+    auto count_pieces = [x, y, &text](int sum, IBounds invalid_rect) {
       ClampBounds clamp = text.clamp.clamp(invalid_rect.x() - x, invalid_rect.y() - y,
                                            invalid_rect.width(), invalid_rect.height());
       if (text.totallyClamped(clamp))
@@ -480,7 +479,7 @@ namespace visage {
 
         int x = text_block.x + batch.x;
         int y = text_block.y + batch.y;
-        for (const Bounds& invalid_rect : *batch.invalid_rects) {
+        for (const IBounds& invalid_rect : *batch.invalid_rects) {
           ClampBounds clamp = text_block.clamp.clamp(invalid_rect.x() - batch.x,
                                                      invalid_rect.y() - batch.y,
                                                      invalid_rect.width(), invalid_rect.height());

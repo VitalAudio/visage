@@ -69,7 +69,7 @@ namespace visage {
       return layers_[index];
     }
 
-    void invalidateRectInRegion(Bounds rect, const Region* region, int layer);
+    void invalidateRectInRegion(IBounds rect, const Region* region, int layer);
     void addToPackedLayer(Region* region, int layer_index);
     void removeFromPackedLayer(Region* region, int layer_index);
     void changePackedLayer(Region* region, int from, int to);
@@ -87,7 +87,19 @@ namespace visage {
     void setDimensions(int width, int height);
     void setWidthScale(float width_scale) { width_scale_ = width_scale; }
     void setHeightScale(float height_scale) { height_scale_ = height_scale; }
-    void setDpiScale(float scale) { dpi_scale_ = scale; }
+    void setDpiScale(float scale) {
+      dpi_scale_ = scale;
+      setCurrentDrawScale();
+    }
+    void setDrawScale(float draw_scale) {
+      draw_scale_ = draw_scale;
+      setCurrentDrawScale();
+    }
+    void setCurrentDrawScale() {
+      current_draw_scale_ = draw_scale_;
+      if (draw_dpi_scaled_)
+        current_draw_scale_ *= dpi_scale_;
+    }
 
     float widthScale() const { return width_scale_; }
     float heightScale() const { return height_scale_; }
@@ -575,6 +587,9 @@ namespace visage {
     float width_scale_ = 1.0f;
     float height_scale_ = 1.0f;
     float dpi_scale_ = 1.0f;
+    bool draw_dpi_scaled_ = true;
+    float draw_scale_ = 1.0f;
+    float current_draw_scale_ = 1.0f;
     double render_time_ = 0.0;
     double delta_time_ = 0.0;
     int render_frame_ = 0;

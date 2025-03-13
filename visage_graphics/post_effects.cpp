@@ -161,7 +161,7 @@ namespace visage {
     }
     float width_scale = 1.0f / region->layer()->width();
     float height_scale = 1.0f / region->layer()->height();
-    Point position = region->layer()->coordinatesForRegion(region);
+    IPoint position = region->layer()->coordinatesForRegion(region);
     float left = position.x * width_scale;
     float top = position.y * height_scale;
     float right = left + region->width() * width_scale;

@@ -55,8 +55,8 @@ namespace visage {
     }
     void addPackedRegion(Region* region);
     void removePackedRegion(Region* region);
-    Bounds boundsForRegion(const Region* region) const;
-    Point coordinatesForRegion(const Region* region) const;
+    IBounds boundsForRegion(const Region* region) const;
+    IPoint coordinatesForRegion(const Region* region) const;
 
     template<typename V>
     void setTexturePositionsForRegion(const Region* region, V* vertices) const {
@@ -78,7 +78,7 @@ namespace visage {
         invalid_rects_[region].push_back(boundsForRegion(region));
     }
 
-    void invalidateRectInRegion(Bounds rect, const Region* region);
+    void invalidateRectInRegion(IBounds rect, const Region* region);
     bool anyInvalidRects() { return !invalid_rects_.empty(); }
 
     void setDimensions(int width, int height) {
@@ -145,8 +145,8 @@ namespace visage {
     std::unique_ptr<const PackedBrush> clear_brush_;
     std::unique_ptr<FrameBufferData> frame_buffer_data_;
     PackedAtlasMap<const Region*> atlas_map_;
-    std::map<const Region*, std::vector<Bounds>> invalid_rects_;
-    std::vector<Bounds> invalid_rect_pieces_;
+    std::map<const Region*, std::vector<IBounds>> invalid_rects_;
+    std::vector<IBounds> invalid_rect_pieces_;
     std::vector<Region*> regions_;
   };
 }

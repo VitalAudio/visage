@@ -91,7 +91,7 @@ namespace visage {
     int width() const { return width_; }
     int height() const { return height_; }
 
-    void invalidateRect(Bounds rect);
+    void invalidateRect(IBounds rect);
 
     void invalidate() {
       if (width_ > 0 && height_ > 0)

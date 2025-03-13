@@ -24,7 +24,7 @@
 #include "canvas.h"
 
 namespace visage {
-  void Region::invalidateRect(Bounds rect) {
+  void Region::invalidateRect(IBounds rect) {
     if (canvas_ == nullptr)
       return;
 
@@ -39,7 +39,7 @@ namespace visage {
           rect = { 0, 0, region->width_, region->height_ };
       }
 
-      rect = rect + Point(region->x_, region->y_);
+      rect = rect + IPoint(region->x_, region->y_);
       region = region->parent_;
     }
 

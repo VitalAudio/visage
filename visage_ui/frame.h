@@ -215,11 +215,17 @@ namespace visage {
     Frame* topParentFrame();
 
     void setBounds(Bounds bounds);
-    void setBounds(int x, int y, int width, int height) { setBounds({ x, y, width, height }); }
+    void setBounds(float x, float y, float width, float height) {
+      setBounds({ x, y, width, height });
+    }
+    void setPhysicalBounds(IBounds physical_bounds);
+    void setPhysicalBounds(int x, int y, int width, int height) {
+      setPhysicalBounds({ x, y, width, height });
+    }
     void computeLayout();
     void computeLayout(Frame* child);
     const Bounds& bounds() const { return bounds_; }
-    void setTopLeft(int x, int y) { setBounds(x, y, width(), height()); }
+    void setTopLeft(float x, float y) { setBounds(x, y, width(), height()); }
     Point topLeft() const { return { bounds_.x(), bounds_.y() }; }
     void setOnTop(bool on_top) { on_top_ = on_top; }
     bool isOnTop() const { return on_top_; }
@@ -232,14 +238,21 @@ namespace visage {
     void clearLayout() { layout_ = nullptr; }
     void setFlexLayout(bool flex) { layout().setFlex(flex); }
 
-    int x() const { return bounds_.x(); }
-    int y() const { return bounds_.y(); }
-    int width() const { return bounds_.width(); }
-    int height() const { return bounds_.height(); }
-    int right() const { return bounds_.right(); }
-    int bottom() const { return bounds_.bottom(); }
+    float x() const { return bounds_.x(); }
+    float y() const { return bounds_.y(); }
+    float width() const { return bounds_.width(); }
+    float height() const { return bounds_.height(); }
+    float right() const { return bounds_.right(); }
+    float bottom() const { return bounds_.bottom(); }
+    int physicalX() const { return physical_bounds_.x(); }
+    int physicalY() const { return physical_bounds_.y(); }
+    int physicalWidth() const { return physical_bounds_.width(); }
+    int physicalHeight() const { return physical_bounds_.height(); }
+    int physicalRight() const { return physical_bounds_.right(); }
+    int physicalBottom() const { return physical_bounds_.bottom(); }
     float aspectRatio() const { return bounds_.width() * 1.0f / bounds_.height(); }
-    Bounds localBounds() const { return { 0, 0, width(), height() }; }
+    Bounds localBounds() const { return { 0.0f, 0.0f, width(), height() }; }
+    IBounds localPhysicalBounds() const { return { 0, 0, physicalWidth(), physicalHeight() }; }
     Point positionInWindow() const;
     Bounds relativeBounds(const Frame* other) const;
 
@@ -362,6 +375,7 @@ namespace visage {
 
     std::string name_;
     Bounds bounds_;
+    IBounds physical_bounds_;
 
     CallbackList<void(Canvas&)> on_draw_ { [this](Canvas& e) -> void { draw(e); } };
     CallbackList<void()> on_resize_ { [this] { resized(); } };

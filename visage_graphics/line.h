@@ -42,9 +42,9 @@ namespace visage {
     int num_line_vertices = 0;
     int num_fill_vertices = 0;
 
-    std::vector<float> x;
-    std::vector<float> y;
-    std::vector<float> values;
+    std::vector<float> x {};
+    std::vector<float> y {};
+    std::vector<float> values {};
 
     float line_value_scale = 1.0f;
     float fill_value_scale = 1.0f;

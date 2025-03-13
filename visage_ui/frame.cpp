@@ -21,7 +21,6 @@
 
 #include "frame.h"
 
-#include "popup_menu.h"
 #include "visage_graphics/theme.h"
 
 namespace visage {
@@ -152,7 +151,9 @@ namespace visage {
       return;
 
     bounds_ = bounds;
-    region_.setBounds(bounds.x(), bounds.y(), bounds.width(), bounds.height());
+    physical_bounds_ = (bounds_ * dpi_scale_).round();
+    region_.setBounds(physical_bounds_.x(), physical_bounds_.y(), physical_bounds_.width(),
+                      physical_bounds_.height());
     computeLayout();
     if (layout_ == nullptr || !layout_->flex()) {
       for (Frame* child : children_)
@@ -163,18 +164,22 @@ namespace visage {
     redraw();
   }
 
+  void Frame::setPhysicalBounds(visage::IBounds physical_bounds) {
+    setBounds(Bounds(physical_bounds) * (1.0f / dpi_scale_));
+  }
+
   void Frame::computeLayout() {
     if (layout_.get() && layout().flex()) {
       std::vector<const Layout*> children_layouts;
       for (Frame* child : children_) {
-        if (child->layout_.get())
+        if (child->layout_)
           children_layouts.push_back(child->layout_.get());
       }
 
       std::vector<Bounds> children_bounds = layout().flexPositions(children_layouts, localBounds(),
                                                                    dpi_scale_);
       for (int i = 0; i < children_.size(); ++i) {
-        if (children_[i]->layout_.get())
+        if (children_[i]->layout_)
           children_[i]->setBounds(children_bounds[i]);
       }
     }
@@ -233,8 +238,8 @@ namespace visage {
   Bounds Frame::relativeBounds(const Frame* other) const {
     Point position = positionInWindow();
     Point other_position = other->positionInWindow();
-    int width = other->bounds().width();
-    int height = other->bounds().height();
+    float width = other->bounds().width();
+    float height = other->bounds().height();
     return { other_position.x - position.x, other_position.y - position.y, width, height };
   }
 

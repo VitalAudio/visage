@@ -28,60 +28,64 @@
 #include <vector>
 
 namespace visage {
-  struct Point {
+  struct IPoint {
     int x = 0;
     int y = 0;
 
-    Point() = default;
-    Point(int initial_x, int initial_y) : x(initial_x), y(initial_y) { }
+    IPoint() = default;
+    IPoint(int initial_x, int initial_y) : x(initial_x), y(initial_y) { }
 
-    Point operator+(const Point& other) const { return { x + other.x, y + other.y }; }
+    IPoint operator+(const IPoint& other) const { return { x + other.x, y + other.y }; }
 
-    Point operator+=(const Point& other) {
+    IPoint operator+=(const IPoint& other) {
       x += other.x;
       y += other.y;
       return *this;
     }
 
-    Point operator-(const Point& other) const { return { x - other.x, y - other.y }; }
+    IPoint operator-(const IPoint& other) const { return { x - other.x, y - other.y }; }
 
-    Point operator-=(const Point& other) {
+    IPoint operator-=(const IPoint& other) {
       x -= other.x;
       y -= other.y;
       return *this;
     }
 
-    bool operator==(const Point& other) const { return x == other.x && y == other.y; }
-    bool operator!=(const Point& other) const { return !(*this == other); }
+    bool operator==(const IPoint& other) const { return x == other.x && y == other.y; }
+    bool operator!=(const IPoint& other) const { return !(*this == other); }
 
     int squareMagnitude() const { return x * x + y * y; }
     float length() const { return sqrtf(x * x + y * y); }
   };
 
-  struct FloatPoint {
+  struct Point {
     float x = 0;
     float y = 0;
 
-    FloatPoint() = default;
-    FloatPoint(float initial_x, float initial_y) : x(initial_x), y(initial_y) { }
-    FloatPoint(const Point& point) : x(point.x), y(point.y) { }
+    Point() = default;
+    Point(float initial_x, float initial_y) : x(initial_x), y(initial_y) { }
+    Point(const IPoint& point) : x(point.x), y(point.y) { }
 
-    FloatPoint operator+(const FloatPoint& other) const { return { x + other.x, y + other.y }; }
-    FloatPoint operator-(const FloatPoint& other) const { return { x - other.x, y - other.y }; }
-    FloatPoint operator*(float scalar) const { return { x * scalar, y * scalar }; }
-    FloatPoint operator+(const Point& other) const { return { x + other.x, y + other.y }; }
-    FloatPoint operator-(const Point& other) const { return { x - other.x, y - other.y }; }
-    bool operator==(const FloatPoint& other) const { return x == other.x && y == other.y; }
-    float operator*(const FloatPoint& other) const { return x * other.x + y * other.y; }
+    IPoint round() const {
+      return { static_cast<int>(std::round(x)), static_cast<int>(std::round(y)) };
+    }
+
+    Point operator+(const Point& other) const { return { x + other.x, y + other.y }; }
+    Point operator-(const Point& other) const { return { x - other.x, y - other.y }; }
+    Point operator*(float scalar) const { return { x * scalar, y * scalar }; }
+    Point operator+(const IPoint& other) const { return { x + other.x, y + other.y }; }
+    Point operator-(const IPoint& other) const { return { x - other.x, y - other.y }; }
+    bool operator==(const Point& other) const { return x == other.x && y == other.y; }
+    float operator*(const Point& other) const { return x * other.x + y * other.y; }
 
     float squareMagnitude() const { return x * x + y * y; }
     float length() const { return sqrtf(squareMagnitude()); }
   };
 
-  class Bounds {
+  class IBounds {
   public:
-    Bounds() = default;
-    Bounds(int x, int y, int width, int height) : x_(x), y_(y), width_(width), height_(height) { }
+    IBounds() = default;
+    IBounds(int x, int y, int width, int height) : x_(x), y_(y), width_(width), height_(height) { }
 
     int x() const { return x_; }
     int y() const { return y_; }
@@ -92,8 +96,8 @@ namespace visage {
     int bottom() const { return y_ + height_; }
     int xCenter() const { return x_ + width_ / 2; }
     int yCenter() const { return y_ + height_ / 2; }
-    Point topLeft() const { return { x_, y_ }; }
-    Point clampPoint(const Point& point) const {
+    IPoint topLeft() const { return { x_, y_ }; }
+    IPoint clampPoint(const IPoint& point) const {
       return { std::max(x_, std::min(right(), point.x)), std::max(y_, std::min(bottom(), point.y)) };
     }
 
@@ -106,23 +110,23 @@ namespace visage {
       std::swap(width_, height_);
     }
 
-    bool operator==(const Bounds& other) const {
+    bool operator==(const IBounds& other) const {
       return x_ == other.x_ && y_ == other.y_ && width_ == other.width_ && height_ == other.height_;
     }
 
-    bool operator!=(const Bounds& other) const { return !(*this == other); }
+    bool operator!=(const IBounds& other) const { return !(*this == other); }
     bool contains(int x, int y) const { return x >= x_ && x < right() && y >= y_ && y < bottom(); }
-    bool contains(const Point& point) const { return contains(point.x, point.y); }
+    bool contains(const IPoint& point) const { return contains(point.x, point.y); }
 
-    bool contains(const Bounds& other) const {
+    bool contains(const IBounds& other) const {
       return x_ <= other.x_ && y_ <= other.y_ && right() >= other.right() && bottom() >= other.bottom();
     }
 
-    bool overlaps(const Bounds& other) const {
+    bool overlaps(const IBounds& other) const {
       return x_ < other.right() && right() > other.x_ && y_ < other.bottom() && bottom() > other.y_;
     }
 
-    Bounds intersection(const Bounds& other) const {
+    IBounds intersection(const IBounds& other) const {
       int x = std::max(x_, other.x_);
       int y = std::max(y_, other.y_);
       int r = std::min(right(), other.right());
@@ -132,7 +136,7 @@ namespace visage {
 
     // Returns true if subtracting the other rectangle result in only one rectangle
     // Stores that rectangle in _result_
-    bool subtract(const Bounds& other, Bounds& result) const {
+    bool subtract(const IBounds& other, IBounds& result) const {
       bool left_edge_inside = x_ < other.x_ && other.x_ < right();
       bool right_edge_inside = x_ < other.right() && other.right() < right();
       bool top_edge_inside = y_ < other.y_ && other.y_ < bottom();
@@ -159,19 +163,19 @@ namespace visage {
       return true;
     }
 
-    Bounds operator+(const Point& point) const {
+    IBounds operator+(const IPoint& point) const {
       return { x_ + point.x, y_ + point.y, width_, height_ };
     }
 
     // Create nonoverlapping rectangles that cover the same area as _rect1_ and _rect2_.
     // Input bounds are modified and additional rectangles needed are put into _pieces_.
-    static void breakIntoNonOverlapping(Bounds& rect1, Bounds& rect2, std::vector<Bounds>& pieces) {
-      Bounds original_new = rect1;
-      Bounds original_old = rect2;
+    static void breakIntoNonOverlapping(IBounds& rect1, IBounds& rect2, std::vector<IBounds>& pieces) {
+      IBounds original_new = rect1;
+      IBounds original_old = rect2;
       if (!rect1.overlaps(rect2))
         return;
 
-      Bounds subtraction;
+      IBounds subtraction;
       if (rect1.subtract(rect2, subtraction)) {
         rect1 = subtraction;
         return;
@@ -180,8 +184,8 @@ namespace visage {
         rect2 = subtraction;
         return;
       }
-      Bounds breaks[4];
-      Bounds remaining = rect2;
+      IBounds breaks[4];
+      IBounds remaining = rect2;
       int index = 0;
       if (remaining.x() < rect1.x()) {
         breaks[index++] = { remaining.x(), remaining.y(), rect1.x() - remaining.x(), remaining.height() };
@@ -213,9 +217,87 @@ namespace visage {
     int height_ = 0;
   };
 
-  static Point adjustBoundsForAspectRatio(Point current, Point min_bounds, Point max_bounds,
-                                          float aspect_ratio, bool horizontal_resize,
-                                          bool vertical_resize) {
+  class Bounds {
+  public:
+    Bounds() = default;
+    Bounds(float x, float y, float width, float height) :
+        x_(x), y_(y), width_(width), height_(height) { }
+
+    Bounds(const IBounds& other) :
+        x_(other.x()), y_(other.y()), width_(other.width()), height_(other.height()) { }
+
+    IBounds round() const {
+      return { static_cast<int>(std::round(x_)), static_cast<int>(std::round(y_)),
+               static_cast<int>(std::round(width_)), static_cast<int>(std::round(height_)) };
+    }
+
+    float x() const { return x_; }
+    float y() const { return y_; }
+    float width() const { return width_; }
+    float height() const { return height_; }
+    bool hasArea() const { return width_ > 0.0f && height_ > 0.0f; }
+    float right() const { return x_ + width_; }
+    float bottom() const { return y_ + height_; }
+    float xCenter() const { return x_ + width_ * 0.5f; }
+    float yCenter() const { return y_ + height_ * 0.5f; }
+    Point topLeft() const { return { x_, y_ }; }
+    Point clampPoint(const Point& point) const {
+      return { std::max(x_, std::min(right(), point.x)), std::max(y_, std::min(bottom(), point.y)) };
+    }
+
+    void setX(float x) { x_ = x; }
+    void setY(float y) { y_ = y; }
+    void setWidth(float width) { width_ = width; }
+    void setHeight(float height) { height_ = height; }
+    void flipDimensions() {
+      std::swap(x_, y_);
+      std::swap(width_, height_);
+    }
+
+    bool operator==(const Bounds& other) const {
+      return x_ == other.x_ && y_ == other.y_ && width_ == other.width_ && height_ == other.height_;
+    }
+
+    bool operator!=(const Bounds& other) const { return !(*this == other); }
+    bool contains(float x, float y) const {
+      return x >= x_ && x < right() && y >= y_ && y < bottom();
+    }
+    bool contains(const Point& point) const { return contains(point.x, point.y); }
+
+    bool contains(const Bounds& other) const {
+      return x_ <= other.x_ && y_ <= other.y_ && right() >= other.right() && bottom() >= other.bottom();
+    }
+
+    bool overlaps(const Bounds& other) const {
+      return x_ < other.right() && right() > other.x_ && y_ < other.bottom() && bottom() > other.y_;
+    }
+
+    Bounds intersection(const Bounds& other) const {
+      float x = std::max(x_, other.x_);
+      float y = std::max(y_, other.y_);
+      float r = std::min(right(), other.right());
+      float b = std::min(bottom(), other.bottom());
+      return { x, y, r - x, b - y };
+    }
+
+    Bounds operator*(float scalar) const {
+      return { x_ * scalar, y_ * scalar, width_ * scalar, height_ * scalar };
+    }
+
+    Bounds operator+(const Point& point) const {
+      return { x_ + point.x, y_ + point.y, width_, height_ };
+    }
+
+  private:
+    float x_ = 0.0f;
+    float y_ = 0.0f;
+    float width_ = 0.0f;
+    float height_ = 0.0f;
+  };
+
+  static IPoint adjustBoundsForAspectRatio(IPoint current, IPoint min_bounds, IPoint max_bounds,
+                                           float aspect_ratio, bool horizontal_resize,
+                                           bool vertical_resize) {
     int width = std::max(min_bounds.x, std::min(max_bounds.x, current.x));
     int height = std::max(min_bounds.y, std::min(max_bounds.y, current.y));
 
@@ -227,7 +309,7 @@ namespace visage {
     if (vertical_resize && !horizontal_resize)
       return { width_from_height, height };
 
-    Point result = { width, height };
+    IPoint result = { width, height };
     if (width_from_height > width)
       result.x = width_from_height;
     if (height_from_width > height)
