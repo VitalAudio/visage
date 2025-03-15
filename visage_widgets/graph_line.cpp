@@ -32,10 +32,10 @@ namespace visage {
   THEME_IMPLEMENT_COLOR(GraphLine, HoverColor, 0xffffffff);
   THEME_IMPLEMENT_COLOR(GraphLine, DragColor, 0x55ffffff);
 
-  THEME_IMPLEMENT_VALUE(GraphLine, LineWidth, 2.0f, ScaledDpi, false);
-  THEME_IMPLEMENT_VALUE(GraphLine, LineColorBoost, 1.5f, Constant, false);
-  THEME_IMPLEMENT_VALUE(GraphLine, LineFillBoost, 1.0f, Constant, false);
-  THEME_VALUE(PositionBulbWidth, 4.0f, ScaledDpi, true);
+  THEME_IMPLEMENT_VALUE(GraphLine, LineWidth, 2.0f, false);
+  THEME_IMPLEMENT_VALUE(GraphLine, LineColorBoost, 1.5f, false);
+  THEME_IMPLEMENT_VALUE(GraphLine, LineFillBoost, 1.0f, false);
+  THEME_VALUE(PositionBulbWidth, 4.0f, true);
 
   GraphLine::GraphLine(int num_points, bool loop) :
       line_(num_points), fill_center_(kCenter), loop_(loop) {

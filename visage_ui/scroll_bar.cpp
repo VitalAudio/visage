@@ -27,7 +27,7 @@ namespace visage {
   THEME_COLOR(ScrollBarDefault, 0x22ffffff);
   THEME_COLOR(ScrollBarDown, 0x55ffffff);
 
-  THEME_VALUE(ScrollBarWidth, 20.0f, ScaledDpi, true);
+  THEME_VALUE(ScrollBarWidth, 20.0f, true);
 
   void ScrollBar::draw(Canvas& canvas) {
     if (!active_ || range_ <= 0)

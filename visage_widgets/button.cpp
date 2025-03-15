@@ -53,9 +53,9 @@ namespace visage {
   THEME_COLOR(UiActionButtonText, 0xffdddddd);
   THEME_COLOR(UiActionButtonTextHover, 0xffffffff);
 
-  THEME_VALUE(TextButtonRounding, 9.0f, ScaledHeight, false);
-  THEME_VALUE(UiButtonRounding, 9.0f, ScaledHeight, false);
-  THEME_VALUE(UiButtonHoverRoundingMult, 0.7f, Constant, false);
+  THEME_VALUE(TextButtonRounding, 9.0f, false);
+  THEME_VALUE(UiButtonRounding, 9.0f, false);
+  THEME_VALUE(UiButtonHoverRoundingMult, 0.7f, false);
 
   void Button::draw(Canvas& canvas) {
     draw(canvas, active_ ? hover_amount_.update() : 0.0f);

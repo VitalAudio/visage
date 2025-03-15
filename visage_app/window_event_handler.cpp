@@ -40,7 +40,7 @@ namespace visage {
   }
 
   void WindowEventHandler::onFrameResize(const Frame* frame) const {
-    window_->setInternalWindowSize(frame->width(), frame->height());
+    window_->setInternalWindowSize(frame->physicalWidth(), frame->physicalHeight());
   }
 
   void WindowEventHandler::setKeyboardFocus(Frame* frame) {
@@ -86,7 +86,7 @@ namespace visage {
 
   void WindowEventHandler::handleResized(int width, int height) {
     VISAGE_ASSERT(width >= 0 && height >= 0);
-    content_frame_->setBounds(0, 0, width, height);
+    content_frame_->setPhysicalBounds(0, 0, width, height);
     content_frame_->redraw();
   }
 
@@ -146,7 +146,7 @@ namespace visage {
     if (files.empty())
       return false;
 
-    Frame* new_drag_drop_frame = dragDropFrame(convertPointToFramePosition(Point(x, y)), files);
+    Frame* new_drag_drop_frame = dragDropFrame(convertToLogical(IPoint(x, y)), files);
     if (mouse_down_frame_ == new_drag_drop_frame && new_drag_drop_frame)
       return true;
 
@@ -172,7 +172,7 @@ namespace visage {
     if (files.empty())
       return false;
 
-    Frame* drag_drop_frame = dragDropFrame(convertPointToFramePosition(Point(x, y)), files);
+    Frame* drag_drop_frame = dragDropFrame(convertToLogical(IPoint(x, y)), files);
     if (mouse_down_frame_ == drag_drop_frame && drag_drop_frame)
       return false;
 
@@ -189,12 +189,11 @@ namespace visage {
 
   MouseEvent WindowEventHandler::mouseEvent(int x, int y, int button_state, int modifiers) {
     MouseEvent mouse_event;
-    Point original_window_position = { x, y };
-    mouse_event.window_position = convertPointToFramePosition(original_window_position);
-    mouse_event.relative_position = original_window_position - window_->lastWindowMousePosition();
-    float pixel_scale = window_->pixelScale();
-    mouse_event.relative_position.x = std::round(mouse_event.relative_position.x * pixel_scale);
-    mouse_event.relative_position.y = std::round(mouse_event.relative_position.y * pixel_scale);
+    IPoint original_window_position = { x, y };
+    mouse_event.window_position = convertToLogical(original_window_position);
+    mouse_event.relative_position = mouse_event.window_position - window_->lastWindowMousePosition();
+    mouse_event.relative_position.x = std::round(mouse_event.relative_position.x);
+    mouse_event.relative_position.y = std::round(mouse_event.relative_position.y);
     if (!window_->mouseRelativeMode())
       last_mouse_position_ = mouse_event.window_position;
 
@@ -212,7 +211,7 @@ namespace visage {
   }
 
   HitTestResult WindowEventHandler::handleHitTest(int x, int y) {
-    Point window_position = convertPointToFramePosition({ x, y });
+    Point window_position = convertToLogical({ x, y });
     Frame* hovered_frame = content_frame_->frameAtPoint(window_position);
     if (hovered_frame == nullptr)
       current_hit_test_ = HitTestResult::Client;
@@ -306,7 +305,7 @@ namespace visage {
   }
 
   void WindowEventHandler::handleMouseEnter(int x, int y) {
-    last_mouse_position_ = convertPointToFramePosition({ x, y });
+    last_mouse_position_ = convertToLogical({ x, y });
   }
 
   void WindowEventHandler::handleMouseLeave(int x, int y, int button_state, int modifiers) {
@@ -356,12 +355,6 @@ namespace visage {
     if (mouse_down_frame_ == nullptr)
       return {};
     return mouse_down_frame_->startDragDropSource();
-  }
-
-  visage::Bounds WindowEventHandler::dragDropSourceBounds() {
-    if (mouse_down_frame_ == nullptr)
-      return content_frame_->localBounds();
-    return mouse_down_frame_->relativeBounds(content_frame_);
   }
 
   void WindowEventHandler::cleanupDragDropSource() {

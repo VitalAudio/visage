@@ -35,10 +35,10 @@ THEME_COLOR(BackgroundColor, 0xff33393f);
 THEME_COLOR(OverlayBody, 0xff212529);
 THEME_COLOR(OverlayBorder, 0x66ffffff);
 
-THEME_VALUE(BloomSize, 25.0f, ScaledHeight, false);
-THEME_VALUE(BloomIntensity, 3.0f, Constant, false);
-THEME_VALUE(BlurSize, 50.0f, ScaledHeight, false);
-THEME_VALUE(OverlayRounding, 25.0f, ScaledHeight, false);
+THEME_VALUE(BloomSize, 25.0f, false);
+THEME_VALUE(BloomIntensity, 3.0f, false);
+THEME_VALUE(BlurSize, 50.0f, false);
+THEME_VALUE(OverlayRounding, 25.0f, false);
 
 class DebugInfo : public visage::Frame {
 public:
@@ -90,8 +90,8 @@ void Overlay::draw(visage::Canvas& canvas) {
 }
 
 visage::Bounds Overlay::bodyBounds() const {
-  int x_border = width() / 4;
-  int y_border = height() / 4;
+  float x_border = width() / 4.0f;
+  float y_border = height() / 4.0f;
 
   return { x_border, y_border, width() - 2 * x_border, height() - 2 * y_border };
 }

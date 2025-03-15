@@ -64,15 +64,31 @@ namespace visage {
 
     Point() = default;
     Point(float initial_x, float initial_y) : x(initial_x), y(initial_y) { }
-    Point(const IPoint& point) : x(point.x), y(point.y) { }
+    explicit Point(const IPoint& point) : x(point.x), y(point.y) { }
 
     IPoint round() const {
       return { static_cast<int>(std::round(x)), static_cast<int>(std::round(y)) };
     }
 
     Point operator+(const Point& other) const { return { x + other.x, y + other.y }; }
+    Point operator+=(const Point& other) {
+      x += other.x;
+      y += other.y;
+      return *this;
+    }
     Point operator-(const Point& other) const { return { x - other.x, y - other.y }; }
+    Point operator-=(const Point& other) {
+      x -= other.x;
+      y -= other.y;
+      return *this;
+    }
     Point operator*(float scalar) const { return { x * scalar, y * scalar }; }
+    Point operator*=(float scalar) {
+      x *= scalar;
+      y *= scalar;
+      return *this;
+    }
+
     Point operator+(const IPoint& other) const { return { x + other.x, y + other.y }; }
     Point operator-(const IPoint& other) const { return { x - other.x, y - other.y }; }
     bool operator==(const Point& other) const { return x == other.x && y == other.y; }
@@ -223,7 +239,7 @@ namespace visage {
     Bounds(float x, float y, float width, float height) :
         x_(x), y_(y), width_(width), height_(height) { }
 
-    Bounds(const IBounds& other) :
+    explicit Bounds(const IBounds& other) :
         x_(other.x()), y_(other.y()), width_(other.width()), height_(other.height()) { }
 
     IBounds round() const {
@@ -295,21 +311,21 @@ namespace visage {
     float height_ = 0.0f;
   };
 
-  static IPoint adjustBoundsForAspectRatio(IPoint current, IPoint min_bounds, IPoint max_bounds,
-                                           float aspect_ratio, bool horizontal_resize,
-                                           bool vertical_resize) {
-    int width = std::max(min_bounds.x, std::min(max_bounds.x, current.x));
-    int height = std::max(min_bounds.y, std::min(max_bounds.y, current.y));
+  static Point adjustBoundsForAspectRatio(Point current, Point min_bounds, Point max_bounds,
+                                          float aspect_ratio, bool horizontal_resize,
+                                          bool vertical_resize) {
+    float width = std::max(min_bounds.x, std::min(max_bounds.x, current.x));
+    float height = std::max(min_bounds.y, std::min(max_bounds.y, current.y));
 
-    int width_from_height = std::max(min_bounds.x, std::min<int>(max_bounds.x, height * aspect_ratio));
-    int height_from_width = std::max(min_bounds.y, std::min<int>(max_bounds.y, width / aspect_ratio));
+    float width_from_height = std::max(min_bounds.x, std::min(max_bounds.x, height * aspect_ratio));
+    float height_from_width = std::max(min_bounds.y, std::min(max_bounds.y, width / aspect_ratio));
 
     if (horizontal_resize && !vertical_resize)
       return { width, height_from_width };
     if (vertical_resize && !horizontal_resize)
       return { width_from_height, height };
 
-    IPoint result = { width, height };
+    Point result = { width, height };
     if (width_from_height > width)
       result.x = width_from_height;
     if (height_from_width > height)

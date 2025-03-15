@@ -453,11 +453,13 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     LineWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-                float height, Line* line, float line_width) :
-        Shape(batchId(), clamp, brush, x, y, width, height), line(line), line_width(line_width) { }
+                float height, Line* line, float line_width, float scale) :
+        Shape(batchId(), clamp, brush, x, y, width, height), line(line), line_width(line_width),
+        scale(scale) { }
 
     Line* line = nullptr;
     float line_width = 0.0f;
+    float scale = 1.0f;
   };
 
   struct LineFillWrapper : Shape<> {
@@ -466,11 +468,13 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     LineFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
-                    float width, float height, Line* line, float fill_center) :
-        Shape(batchId(), clamp, brush, x, y, width, height), line(line), fill_center(fill_center) { }
+                    float width, float height, Line* line, float fill_center, float scale) :
+        Shape(batchId(), clamp, brush, x, y, width, height), line(line), fill_center(fill_center),
+        scale(scale) { }
 
     Line* line = nullptr;
     float fill_center = 0.0f;
+    float scale = 1.0f;
   };
 
   template<typename T>

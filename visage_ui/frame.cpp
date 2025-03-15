@@ -69,7 +69,7 @@ namespace visage {
 
     region_.addRegion(child->region());
 
-    child->setDimensionScaling(dpi_scale_, width_scale_, height_scale_);
+    child->setDpiScale(dpi_scale_);
     if (initialized_)
       child->init();
 
@@ -169,18 +169,18 @@ namespace visage {
   }
 
   void Frame::computeLayout() {
-    if (layout_.get() && layout().flex()) {
+    if (physicalWidth() && physicalHeight() && layout_.get() && layout().flex()) {
       std::vector<const Layout*> children_layouts;
       for (Frame* child : children_) {
         if (child->layout_)
           children_layouts.push_back(child->layout_.get());
       }
 
-      std::vector<Bounds> children_bounds = layout().flexPositions(children_layouts, localBounds(),
-                                                                   dpi_scale_);
+      std::vector<IBounds> children_bounds = layout().flexPositions(children_layouts,
+                                                                    localPhysicalBounds(), dpi_scale_);
       for (int i = 0; i < children_.size(); ++i) {
         if (children_[i]->layout_)
-          children_[i]->setBounds(children_bounds[i]);
+          children_[i]->setPhysicalBounds(children_bounds[i]);
       }
     }
   }
@@ -189,8 +189,8 @@ namespace visage {
     if (child->layout_ == nullptr || (layout_ && layout_->flex()))
       return;
 
-    int width = this->width();
-    int height = this->height();
+    int width = this->physicalWidth();
+    int height = this->physicalHeight();
     float dpi = dpi_scale_;
 
     int pad_left = 0;
@@ -207,8 +207,8 @@ namespace visage {
 
     int x = child->x();
     int y = child->y();
-    int dist_right = width - child->right();
-    int dist_bottom = height - child->bottom();
+    int dist_right = width - child->physicalRight();
+    int dist_bottom = height - child->physicalBottom();
 
     x = pad_left + child->layout_->marginLeft().computeWithDefault(dpi, width, height, x - pad_left);
     y = pad_top + child->layout_->marginTop().computeWithDefault(dpi, width, height, y - pad_top);
@@ -221,7 +221,7 @@ namespace visage {
     int bottom = height - dist_bottom;
     int w = child->layout_->width().computeWithDefault(dpi, width, height, right - x);
     int h = child->layout_->height().computeWithDefault(dpi, width, height, bottom - y);
-    child->setBounds(x, y, w, h);
+    child->setPhysicalBounds(x, y, w, h);
   }
 
   Point Frame::positionInWindow() const {
@@ -355,29 +355,20 @@ namespace visage {
   }
 
   float Frame::paletteValue(theme::ValueId value_id) const {
-    float scale = 1.0f;
-    theme::ValueId::ValueIdInfo info = theme::ValueId::info(value_id);
-    if (info.scale_type == theme::ValueId::ScaleType::ScaledWidth)
-      scale = widthScale();
-    else if (info.scale_type == theme::ValueId::ScaleType::ScaledHeight)
-      scale = heightScale();
-    else if (info.scale_type == theme::ValueId::ScaleType::ScaledDpi)
-      scale = dpiScale();
-
     if (palette_) {
       const Frame* frame = this;
       float result = 0.0f;
       while (frame) {
         theme::OverrideId override_id = frame->palette_override_;
         if (!override_id.isDefault() && palette_->value(override_id, value_id, result))
-          return scale * result;
+          return result;
         frame = frame->parent_;
       }
       if (palette_->value({}, value_id, result))
-        return scale * result;
+        return result;
     }
 
-    return scale * theme::ValueId::defaultValue(value_id);
+    return theme::ValueId::defaultValue(value_id);
   }
 
   Brush Frame::paletteColor(theme::ColorId color_id) const {

@@ -144,9 +144,9 @@ namespace visage {
       setIconSizes();
     }
 
-    int margin() const { return std::min(width(), height()) * margin_ratio_; }
-    int iconX() const { return margin() + std::max(0, width() - height()) / 2; }
-    int iconY() const { return margin() + std::max(0, height() - width()) / 2; }
+    float margin() const { return std::min(width(), height()) * margin_ratio_; }
+    float iconX() const { return margin() + std::max(0.0f, width() - height()) / 2.0f; }
+    float iconY() const { return margin() + std::max(0.0f, height() - width()) / 2.0f; }
 
     void setIconSizes() {
       int margin = std::min(width(), height()) * margin_ratio_;
@@ -262,9 +262,9 @@ namespace visage {
       setIconSizes();
     }
 
-    int margin() const { return std::min(width(), height()) * margin_proportion_; }
-    int iconX() const { return margin() + std::max(0, width() - height()) / 2; }
-    int iconY() const { return margin() + std::max(0, height() - width()) / 2; }
+    float margin() const { return std::min(width(), height()) * margin_proportion_; }
+    float iconX() const { return margin() + std::max(0.0f, width() - height()) / 2.0f; }
+    float iconY() const { return margin() + std::max(0.0f, height() - width()) / 2.0f; }
 
     void setIconSizes() {
       int margin = std::min(width(), height()) * margin_proportion_;

@@ -75,8 +75,8 @@ namespace visage {
   }
 
   void Window::setWindowSize(int width, int height) {
-    handleResized(std::round(width * pixel_scale_), std::round(height * pixel_scale_));
-    windowContentsResized(width, height);
+    handleResized(std::round(width * dpi_scale_), std::round(height * dpi_scale_));
+    windowContentsResized(client_width_, client_height_);
   }
 
   void Window::setInternalWindowSize(int width, int height) {
@@ -87,7 +87,7 @@ namespace visage {
     client_height_ = height;
     if (fixed_aspect_ratio_)
       aspect_ratio_ = width * 1.0f / height;
-    windowContentsResized(std::round(width / pixel_scale_), std::round(height / pixel_scale_));
+    windowContentsResized(client_width_, client_height_);
     on_contents_resized_.callback();
   }
 
@@ -204,13 +204,6 @@ namespace visage {
       return {};
 
     return event_handler_->startDragDropSource();
-  }
-
-  visage::Bounds Window::dragDropSourceBounds() {
-    if (event_handler_ == nullptr)
-      return { 0, 0, client_width_, client_height_ };
-
-    return event_handler_->dragDropSourceBounds();
   }
 
   void Window::cleanupDragDropSource() {

@@ -34,9 +34,9 @@ namespace visage {
   THEME_IMPLEMENT_COLOR(TextEditor, TextEditorCaret, 0xffffffff);
   THEME_IMPLEMENT_COLOR(TextEditor, TextEditorSelection, 0x22ffffff);
 
-  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorRounding, 5.0f, ScaledDpi, true);
-  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginX, 9.0f, ScaledDpi, true);
-  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginY, 9.0f, ScaledDpi, true);
+  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorRounding, 5.0f, true);
+  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginX, 9.0f, true);
+  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginY, 9.0f, true);
 
   char32_t acuteAccentDeadKey(char32_t original) {
     static const std::map<char32_t, char32_t> lookup_map = {
@@ -115,10 +115,12 @@ namespace visage {
   }
 
   void TextEditor::selectionRectangle(Canvas& canvas, int x, int y, int w, int h) const {
-    int left = std::max(0, std::min(width(), x));
-    int top = std::max(0, std::min(height(), y));
-    int right = std::max(0, std::min(width(), x + w));
-    int bottom = std::max(0, std::min(height(), y + h));
+    int width = physicalWidth();
+    int height = physicalHeight();
+    int left = std::max(0, std::min(width, x));
+    int top = std::max(0, std::min(height, y));
+    int right = std::max(0, std::min(width, x + w));
+    int bottom = std::max(0, std::min(height, y + h));
     canvas.rectangle(left, top, right - left, bottom - top);
   }
 

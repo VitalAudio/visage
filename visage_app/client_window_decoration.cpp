@@ -24,11 +24,11 @@
 namespace visage {
 
   static Bounds iconBounds(Bounds bounds) {
-    int height = bounds.height();
-    int width = bounds.width();
-    int icon_y = (height + 2) / 3;
-    int icon_width = height - 2 * icon_y;
-    return { (width - icon_width) / 2, icon_y, icon_width, icon_width };
+    float height = bounds.height();
+    float width = bounds.width();
+    float icon_y = (height + 2.0f) / 3.0f;
+    float icon_width = height - 2.0f * icon_y;
+    return { (width - icon_width) / 2.0f, icon_y, icon_width, icon_width };
   }
 
   ClientWindowDecoration::ClientWindowDecoration() :
@@ -44,8 +44,8 @@ namespace visage {
     close_button_.onDraw() += [this](Canvas& canvas) {
       canvas.setColor(kIconColor);
       Bounds bounds = iconBounds(close_button_.localBounds());
-      canvas.segment(bounds.x(), bounds.y(), bounds.right(), bounds.bottom(), dpiScale(), true);
-      canvas.segment(bounds.x(), bounds.bottom(), bounds.right(), bounds.y(), dpiScale(), true);
+      canvas.segment(bounds.x(), bounds.y(), bounds.right(), bounds.bottom(), 1.0f, true);
+      canvas.segment(bounds.x(), bounds.bottom(), bounds.right(), bounds.y(), 1.0f, true);
     };
 
     maximize_button_.onDraw() += [this](Canvas& canvas) {
@@ -58,7 +58,7 @@ namespace visage {
     minimize_button_.onDraw() += [this](Canvas& canvas) {
       canvas.setColor(kIconColor);
       Bounds bounds = iconBounds(close_button_.localBounds());
-      canvas.rectangle(bounds.x(), bounds.yCenter() - 1, bounds.width(), 1);
+      canvas.rectangle(bounds.x(), bounds.yCenter() - 1.0f, bounds.width(), 1.0f);
     };
   }
 }

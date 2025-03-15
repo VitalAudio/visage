@@ -40,30 +40,13 @@ namespace visage {
 
     void draw(Canvas& canvas) override;
 
-    void setHorizontalAntiAliasing(bool anti_alias) { horizontal_aa_ = anti_alias; }
-    void setVerticalAntiAliasing(bool anti_alias) { vertical_aa_ = anti_alias; }
-
     void setY(int index, float y) {
-      if (!vertical_aa_)
-        y = std::round(y);
       bars_[index].top = y;
-
       redraw();
     }
 
     void positionBar(int index, float x, float y, float width, float height) {
-      float right = x + width;
-      float bottom = y + height;
-      if (!horizontal_aa_) {
-        right = std::round(right);
-        x = std::round(x);
-      }
-      if (!vertical_aa_) {
-        bottom = std::round(bottom);
-        y = std::round(y);
-      }
-      bars_[index] = { x, y, right, bottom };
-
+      bars_[index] = { x, y, x + width, y + height };
       redraw();
     }
 
@@ -72,8 +55,6 @@ namespace visage {
   private:
     std::unique_ptr<Bar[]> bars_;
     int num_bars_ = 0;
-    bool horizontal_aa_ = true;
-    bool vertical_aa_ = true;
 
     VISAGE_LEAK_CHECKER(BarList)
   };

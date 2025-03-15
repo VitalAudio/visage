@@ -210,7 +210,7 @@ namespace visage {
     if (e.position.x > w || e.position.x < palette_width)
       return {};
 
-    int y_position = std::min(height(), std::max(0, e.position.y));
+    float y_position = std::min(height(), std::max(0.0f, e.position.y));
     int index = (y_position + yPosition()) / kColorIdHeight;
 
     for (const auto& group : color_ids) {
@@ -231,7 +231,7 @@ namespace visage {
     if (e.position.x > width() || e.position.x < palette_width)
       return;
 
-    int y_position = std::min(height(), std::max(0, e.position.y));
+    int y_position = std::min(height(), std::max(0.0f, e.position.y));
     int index = (y_position + yPosition()) / kColorIdHeight;
 
     for (const auto& group : color_ids) {
@@ -416,7 +416,7 @@ namespace visage {
 
   void PaletteValueEditor::toggleGroup(const MouseEvent& e) {
     std::map<std::string, std::vector<theme::ValueId>> value_ids = palette_->valueIdList(current_override_id_);
-    int y_position = std::min(height(), std::max(0, e.position.y));
+    int y_position = std::min(height(), std::max(0.0f, e.position.y));
     int index = (y_position + yPosition()) / kValueIdHeight;
 
     for (const auto& group : value_ids) {

@@ -295,17 +295,20 @@ void ExamplesFrame::resized() {
 
 void ExamplesFrame::setupBars() {
   bar_list_ = std::make_unique<visage::BarList>(kNumBars);
-  bar_list_->setHorizontalAntiAliasing(false);
 
   bar_list_->onDraw() = [this](visage::Canvas& canvas) {
+    canvas.setPhysicalPixelScale();
+
     double render_time = canvas.time();
     float space = 1;
-    float bar_width = (bar_list_->width() + space) / kNumBars;
-    int bar_height = bar_list_->height();
+    float bar_width = (bar_list_->physicalWidth() + space) / kNumBars;
+    int bar_height = bar_list_->physicalHeight();
     for (int i = 0; i < kNumBars; ++i) {
       float x = bar_width * i;
+      float x_pos = std::round(x);
+      float right = std::round(x + bar_width - space);
       float current_height = (sin1((render_time * 60.0 + i * 30) / 600.0f) + 1.0f) * 0.5f * bar_height;
-      bar_list_->positionBar(i, x, current_height, bar_width - space, bar_height - current_height);
+      bar_list_->positionBar(i, x_pos, current_height, right - x_pos, bar_height - current_height);
     }
     bar_list_->draw(canvas);
   };
@@ -388,7 +391,7 @@ void ExamplesFrame::setupShapes() {
     double phase = render_time * 0.1;
     float radians = kHalfPi * sin1(phase) + kHalfPi;
 
-    int min_shape_padding = dpiScale() * 20.0f;
+    int min_shape_padding = 20.0f;
     int shape_width = std::min(shapes_->width() / 5, shapes_->height() / 2) - min_shape_padding;
     int shape_padding_x = shapes_->width() / 5 - shape_width;
     int shape_padding_y = shapes_->height() / 2 - shape_width;
@@ -412,16 +415,16 @@ void ExamplesFrame::setupShapes() {
                             shape_width, roundness);
     canvas.roundedRectangleBorder(shape_x + 2 * (shape_width + shape_padding_x), shape_y2,
                                   shape_width, shape_width, roundness, thickness);
-    canvas.arc(shape_x + 3 * (shape_width + shape_padding_x), shape_y, shape_width, thickness,
+    canvas.arc(shape_x + 3.0f * (shape_width + shape_padding_x), shape_y, shape_width, thickness,
                center_radians, radians, false);
-    canvas.arc(shape_x + 3 * (shape_width + shape_padding_x), shape_y2, shape_width, thickness,
+    canvas.arc(shape_x + 3.0f * (shape_width + shape_padding_x), shape_y2, shape_width, thickness,
                center_radians, radians, true);
 
     float max_separation = shape_padding_x / 2.0f;
     float separation = shape_cycle * max_separation;
     int triangle_x = shape_x + 4 * (shape_width + shape_padding_x) + max_separation;
     int triangle_y = shape_y + max_separation;
-    int triangle_width = (shape_width - 2.0f * max_separation) / 2.0f;
+    float triangle_width = (shape_width - 2.0f * max_separation) / 2.0f;
     canvas.triangleDown(triangle_x, triangle_y - separation, triangle_width);
     canvas.triangleRight(triangle_x - separation, triangle_y, triangle_width);
     canvas.triangleUp(triangle_x, triangle_y + triangle_width + separation, triangle_width);

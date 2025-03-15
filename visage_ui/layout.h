@@ -47,16 +47,16 @@ namespace visage {
       SpaceEvenly
     };
 
-    std::vector<Bounds> flexPositions(const std::vector<const Layout*>& children,
-                                      const Bounds& bounds, float dpi_scale) {
+    std::vector<IBounds> flexPositions(const std::vector<const Layout*>& children,
+                                       const IBounds& bounds, float dpi_scale) {
       int pad_left = padding_before_[0].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
       int pad_right = padding_after_[0].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
       int pad_top = padding_before_[1].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
       int pad_bottom = padding_after_[1].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
 
-      Bounds flex_bounds = { bounds.x() + pad_left, bounds.y() + pad_top,
-                             bounds.width() - pad_left - pad_right,
-                             bounds.height() - pad_top - pad_bottom };
+      IBounds flex_bounds = { bounds.x() + pad_left, bounds.y() + pad_top,
+                              bounds.width() - pad_left - pad_right,
+                              bounds.height() - pad_top - pad_bottom };
 
       if (flex_wrap_)
         return flexChildWrap(children, flex_bounds, dpi_scale);
@@ -121,13 +121,13 @@ namespace visage {
     void setFlexGap(Dimension gap) { flex_gap_ = std::move(gap); }
 
   private:
-    std::vector<Bounds> flexChildGroup(const std::vector<const Layout*>& children, Bounds bounds,
-                                       float dpi_scale);
+    std::vector<IBounds> flexChildGroup(const std::vector<const Layout*>& children, IBounds bounds,
+                                        float dpi_scale);
 
     std::vector<int> alignCrossPositions(std::vector<int>& cross_sizes, int cross_area, int gap);
 
-    std::vector<Bounds> flexChildWrap(const std::vector<const Layout*>& children, Bounds bounds,
-                                      float dpi_scale);
+    std::vector<IBounds> flexChildWrap(const std::vector<const Layout*>& children, IBounds bounds,
+                                       float dpi_scale);
 
     bool flex_ = false;
     Dimension margin_before_[2];

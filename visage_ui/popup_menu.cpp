@@ -31,11 +31,11 @@ namespace visage {
   THEME_COLOR(PopupMenuSelection, 0xffaa88ff);
   THEME_COLOR(PopupMenuSelectionText, 0xffffffff);
 
-  THEME_VALUE(PopupOptionHeight, 22.0f, ScaledDpi, true);
-  THEME_VALUE(PopupMinWidth, 175.0f, ScaledDpi, true);
-  THEME_VALUE(PopupTextPadding, 9.0f, ScaledDpi, true);
-  THEME_VALUE(PopupFontSize, 14.0f, ScaledDpi, true);
-  THEME_VALUE(PopupSelectionPadding, 4.0f, ScaledDpi, true);
+  THEME_VALUE(PopupOptionHeight, 22.0f, true);
+  THEME_VALUE(PopupMinWidth, 175.0f, true);
+  THEME_VALUE(PopupTextPadding, 9.0f, true);
+  THEME_VALUE(PopupFontSize, 14.0f, true);
+  THEME_VALUE(PopupSelectionPadding, 4.0f, true);
 
   void PopupMenu::show(Frame* source, Point position) {
     std::unique_ptr<PopupMenuFrame> frame = std::make_unique<PopupMenuFrame>(*this);
@@ -43,18 +43,18 @@ namespace visage {
     frame_ptr->show(std::move(frame), source, position);
   }
 
-  int PopupList::renderHeight() {
-    int popup_height = paletteValue(PopupOptionHeight);
-    int selection_padding = paletteValue(PopupSelectionPadding);
-    return options_.size() * popup_height + 2 * selection_padding;
+  float PopupList::renderHeight() {
+    float popup_height = paletteValue(PopupOptionHeight);
+    float selection_padding = paletteValue(PopupSelectionPadding);
+    return options_.size() * popup_height + 2.0f * selection_padding;
   }
 
-  int PopupList::renderWidth() {
-    int width = paletteValue(PopupMinWidth);
-    int x_padding = paletteValue(PopupSelectionPadding) + paletteValue(PopupTextPadding);
+  float PopupList::renderWidth() {
+    float width = paletteValue(PopupMinWidth);
+    float x_padding = paletteValue(PopupSelectionPadding) + paletteValue(PopupTextPadding);
     for (const PopupMenu& option : options_) {
-      int string_width = font_.stringWidth(option.name().c_str(), option.name().size()) + 2 * x_padding;
-      width = std::max<int>(width, string_width);
+      float string_width = font_.stringWidth(option.name().c_str(), option.name().size()) + 2 * x_padding;
+      width = std::max(width, string_width);
     }
 
     return width;
@@ -134,7 +134,7 @@ namespace visage {
           else
             canvas.setColor(text);
 
-          Font font(paletteValue(PopupFontSize), font_.fontData(), font_.dataSize());
+          Font font(paletteValue(PopupFontSize) * dpiScale(), font_.fontData(), font_.dataSize());
           canvas.text(options_[i].name(), font, Font::kLeft, x_padding, y, width(), option_height);
 
           if (options_[i].hasOptions()) {
@@ -252,7 +252,7 @@ namespace visage {
     for (int i = 1; i < kMaxSubMenus; ++i)
       lists_[i].setVisible(false);
 
-    font_ = Font(paletteValue(PopupFontSize), font_.fontData(), font_.dataSize());
+    font_ = Font(paletteValue(PopupFontSize) * dpiScale(), font_.fontData(), font_.dataSize());
     setListFonts(font_);
 
     lists_[0].setOptions(menu_.options());
@@ -414,10 +414,9 @@ namespace visage {
 
   void ValueDisplay::showDisplay(const String& text, Bounds bounds, Font::Justification justification) {
     setVisible(true);
-
     text_ = text;
 
-    Font font(paletteValue(PopupFontSize), font_.fontData(), font_.dataSize());
+    Font font(paletteValue(PopupFontSize) * dpiScale(), font_.fontData(), font_.dataSize());
     int x_padding = paletteValue(PopupSelectionPadding) + paletteValue(PopupTextPadding);
     int width = font.stringWidth(text.c_str(), text.length()) + 2 * x_padding;
     int height = paletteValue(PopupOptionHeight);
@@ -437,13 +436,12 @@ namespace visage {
   }
 
   void ValueDisplay::draw(Canvas& canvas) {
-    Font font(canvas.value(PopupFontSize), font_.fontData(), font_.dataSize());
-    float pixel_scale = canvas.dpiScale();
+    Font font(canvas.value(PopupFontSize) * dpiScale(), font_.fontData(), font_.dataSize());
     canvas.setColor(PopupMenuBackground);
-    canvas.roundedRectangle(0, 0, width(), height(), 8 * pixel_scale);
+    canvas.roundedRectangle(0, 0, width(), height(), 8.0f);
 
     canvas.setColor(PopupMenuBorder);
-    canvas.roundedRectangleBorder(0, 0, width(), height(), 8 * pixel_scale, 1);
+    canvas.roundedRectangleBorder(0, 0, width(), height(), 8.0f, 1.0f);
 
     canvas.setColor(PopupMenuText);
     canvas.setColor(canvas.color(PopupMenuText));

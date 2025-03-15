@@ -33,17 +33,8 @@ namespace visage {
   TopLevelFrame::~TopLevelFrame() = default;
 
   void TopLevelFrame::resized() {
-    float dpi_scale = editor_->window() ? editor_->window()->dpiScale() : 1.0f;
-
-    float width_scale = 1.0f;
-    if (editor_->referenceWidth())
-      width_scale = width() * 1.0f / editor_->referenceWidth();
-    float height_scale = 1.0f;
-    if (editor_->referenceHeight())
-      height_scale = height() * 1.0f / editor_->referenceHeight();
-
-    setDimensionScaling(dpi_scale, width_scale, height_scale);
-    editor_->setBounds(localBounds());
+    setDpiScale(editor_->window() ? editor_->window()->dpiScale() : 1.0f);
+    editor_->setPhysicalBounds(localPhysicalBounds());
     editor_->setCanvasDetails();
 
     if (client_decoration_) {
@@ -62,7 +53,6 @@ namespace visage {
   }
 
   ApplicationEditor::ApplicationEditor() : top_level_(this) {
-    pixel_scale_ = windowPixelScale();
     canvas_ = std::make_unique<Canvas>();
     canvas_->addRegion(top_level_.region());
     top_level_.addChild(this);
@@ -88,7 +78,7 @@ namespace visage {
     event_handler_.read_clipboard_text = visage::readClipboardText;
     event_handler_.set_clipboard_text = visage::setClipboardText;
     top_level_.setEventHandler(&event_handler_);
-    onResize() += [this] { top_level_.setBounds(localBounds()); };
+    onResize() += [this] { top_level_.setPhysicalBounds(localPhysicalBounds()); };
   }
 
   ApplicationEditor::~ApplicationEditor() {
@@ -103,11 +93,7 @@ namespace visage {
   }
 
   void ApplicationEditor::setCanvasDetails() {
-    canvas_->setDimensions(width(), height());
-    if (referenceWidth())
-      canvas_->setWidthScale(width() * 1.0f / referenceWidth());
-    if (referenceHeight())
-      canvas_->setHeightScale(height() * 1.0f / referenceHeight());
+    canvas_->setDimensions(physicalWidth(), physicalHeight());
 
     if (window_)
       canvas_->setDpiScale(window_->dpiScale());
@@ -115,11 +101,11 @@ namespace visage {
 
   void ApplicationEditor::addToWindow(Window* window) {
     window_ = window;
-    pixel_scale_ = window_->pixelScale();
 
     Renderer::instance().checkInitialization(window_->initWindow(), window->globalDisplay());
     canvas_->pairToWindow(window_->nativeHandle(), window->clientWidth(), window->clientHeight());
-    top_level_.setBounds(0, 0, window->clientWidth(), window->clientHeight());
+    top_level_.setDpiScale(window_->dpiScale());
+    top_level_.setPhysicalBounds(0, 0, window->clientWidth(), window->clientHeight());
 
     window_event_handler_ = std::make_unique<WindowEventHandler>(window, &top_level_);
 
@@ -139,7 +125,6 @@ namespace visage {
   void ApplicationEditor::setWindowless(int width, int height) {
     canvas_->removeFromWindow();
     window_ = nullptr;
-    pixel_scale_ = 1.0f;
     Renderer::instance().checkInitialization(headlessWindowHandle(), nullptr);
     setBounds(0, 0, width, height);
     canvas_->setWindowless(width, height);
@@ -147,7 +132,6 @@ namespace visage {
   }
 
   void ApplicationEditor::removeFromWindow() {
-    pixel_scale_ = windowPixelScale();
     window_event_handler_ = nullptr;
     window_ = nullptr;
     canvas_->removeFromWindow();

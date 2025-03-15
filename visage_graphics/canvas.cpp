@@ -135,30 +135,21 @@ namespace visage {
   }
 
   float Canvas::value(theme::ValueId value_id) {
-    float scale = 1.0f;
-    theme::ValueId::ValueIdInfo info = theme::ValueId::info(value_id);
-    if (info.scale_type == theme::ValueId::ScaleType::ScaledWidth)
-      scale = width_scale_;
-    else if (info.scale_type == theme::ValueId::ScaleType::ScaledHeight)
-      scale = height_scale_;
-    else if (info.scale_type == theme::ValueId::ScaleType::ScaledDpi)
-      scale = dpi_scale_;
-
     if (palette_) {
       float result = 0.0f;
       theme::OverrideId last_check;
       for (auto it = state_memory_.rbegin(); it != state_memory_.rend(); ++it) {
         theme::OverrideId override_id = it->palette_override;
         if (override_id.id != last_check.id && palette_->value(override_id, value_id, result))
-          return scale * result;
+          return result;
 
         last_check = override_id;
       }
       if (palette_->value({}, value_id, result))
-        return scale * result;
+        return result;
     }
 
-    return scale * theme::ValueId::defaultValue(value_id);
+    return theme::ValueId::defaultValue(value_id);
   }
 
   std::vector<std::string> Canvas::debugInfo() const {
@@ -197,8 +188,6 @@ namespace visage {
     result.push_back(std::string("Grapihcs API: ") + bgfx::getRendererName(caps->rendererType));
     float hz = 1.0f / std::max(0.001f, refresh_rate_);
     result.push_back("Refresh Rate : " + std::to_string(hz) + " Hz");
-
-    result.push_back("UI Scaling: " + std::to_string(width_scale_) + " : " + std::to_string(height_scale_));
 
     const bgfx::Stats* stats = bgfx::getStats();
     result.push_back("Render wait: " + std::to_string(stats->waitRender));

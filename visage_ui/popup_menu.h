@@ -85,8 +85,8 @@ namespace visage {
     void setOptions(std::vector<PopupMenu> options) { options_ = std::move(options); }
     void setFont(const Font& font) { font_ = font; }
 
-    int renderHeight();
-    int renderWidth();
+    float renderHeight();
+    float renderWidth();
 
     int yForIndex(int index);
     int hoverY() { return yForIndex(hover_index_); }

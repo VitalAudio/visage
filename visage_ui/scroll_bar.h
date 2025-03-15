@@ -122,17 +122,17 @@ namespace visage {
     }
 
     bool scrollUp() {
-      setYPosition(std::max(0, y_position_ - height() / 8));
+      setYPosition(std::max(0.0f, y_position_ - height() / 8.0f));
       return true;
     }
 
     bool scrollDown() {
-      setYPosition(y_position_ + height() / 8);
+      setYPosition(y_position_ + height() / 8.0f);
       return true;
     }
 
     void setScrollBarRounding(float rounding) { scroll_bar_.setRounding(rounding); }
-    int scrollableHeight() const { return container_.height(); }
+    float scrollableHeight() const { return container_.height(); }
     void setScrollableHeight(int total_height, int view_height = 0) {
       if (view_height == 0)
         view_height = height();

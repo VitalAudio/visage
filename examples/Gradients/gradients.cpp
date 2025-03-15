@@ -58,7 +58,7 @@ std::unique_ptr<visage::Frame> createFrame(visage::ApplicationWindow& app, visag
   frame->layout().setFlexGrow(1.0f);
   frame->onDraw() = [f = frame.get(), brush, text](visage::Canvas& canvas) {
     canvas.setColor(brush);
-    canvas.roundedRectangle(0, 0, f->width(), f->height(), 10.0f * canvas.dpiScale());
+    canvas.roundedRectangle(0, 0, f->width(), f->height(), 18.0f);
 
     canvas.setColor(0xff000000);
     visage::Font font(20.0f * canvas.dpiScale(), resources::fonts::Lato_Regular_ttf);
@@ -108,24 +108,22 @@ public:
     visage::Brush points = visage::Brush::linear(visage::Gradient(0xffffff00, 0xff00ffff),
                                                  from_point_, to_point_);
     canvas.setColor(points);
-    canvas.roundedRectangle(0, 0, width(), height(), 10.0f * dpiScale());
+    canvas.roundedRectangle(0, 0, width(), height(), 18.0f);
 
     canvas.setColor(0xff000000);
     visage::Font font(20.0f * canvas.dpiScale(), resources::fonts::Lato_Regular_ttf);
     canvas.text("Linear Points", font, visage::Font::kCenter, 0, 0, width(), height());
 
-    float drag_radius = canvas.dpiScale() * kDragRadius;
     canvas.setColor(mouse_down_ ? 0xaaffffff : 0x66ffffff);
     if (active_point_ == kFrom)
-      canvas.circle(from_point_.x - drag_radius, from_point_.y - drag_radius, 2.0f * drag_radius);
+      canvas.circle(from_point_.x - kDragRadius, from_point_.y - kDragRadius, 2.0f * kDragRadius);
 
     else if (active_point_ == kTo)
-      canvas.circle(to_point_.x - drag_radius, to_point_.y - drag_radius, 2.0f * drag_radius);
+      canvas.circle(to_point_.x - kDragRadius, to_point_.y - kDragRadius, 2.0f * kDragRadius);
 
-    float dot_radius = canvas.dpiScale() * kDotRadius;
     canvas.setColor(0xff000000);
-    canvas.circle(from_point_.x - dot_radius, from_point_.y - dot_radius, 2.0f * dot_radius);
-    canvas.circle(to_point_.x - dot_radius, to_point_.y - dot_radius, 2.0f * dot_radius);
+    canvas.circle(from_point_.x - kDotRadius, from_point_.y - kDotRadius, 2.0f * kDotRadius);
+    canvas.circle(to_point_.x - kDotRadius, to_point_.y - kDotRadius, 2.0f * kDotRadius);
   }
 
   void setActivePoint(ActivePoint active_point) {
@@ -137,15 +135,14 @@ public:
   }
 
   void mouseMove(const visage::MouseEvent& e) {
-    int radius = dpiScale() * kDragRadius;
-    visage::FloatPoint point = e.position;
-    visage::FloatPoint delta_from = point - from_point_;
-    visage::FloatPoint delta_to = point - to_point_;
+    visage::Point point = e.position;
+    visage::Point delta_from = point - from_point_;
+    visage::Point delta_to = point - to_point_;
 
-    if (delta_from.squareMagnitude() < radius * radius &&
+    if (delta_from.squareMagnitude() < kDragRadius * kDragRadius &&
         delta_from.squareMagnitude() < delta_to.squareMagnitude())
       setActivePoint(kFrom);
-    else if (delta_to.squareMagnitude() < radius * radius)
+    else if (delta_to.squareMagnitude() < kDragRadius * kDragRadius)
       setActivePoint(kTo);
     else
       setActivePoint(kNone);
@@ -181,8 +178,8 @@ public:
 private:
   ActivePoint active_point_ = kNone;
   bool mouse_down_ = false;
-  visage::FloatPoint from_point_ = { 20.0f, 20.0f };
-  visage::FloatPoint to_point_ = { 60.0f, 100.0f };
+  visage::Point from_point_ = { 20.0f, 20.0f };
+  visage::Point to_point_ = { 60.0f, 100.0f };
 };
 
 int runExample() {
