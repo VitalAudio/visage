@@ -342,7 +342,7 @@ namespace visage {
     int num_colors = palette_->numColors();
     float color_height = (height() - width() + kColorSpacing) * 1.0f / (num_colors + 1);
     color_height = std::min<float>(color_height, width() * kPaletteWidthRatio + kColorSpacing);
-    return std::max(color_height, kMinColorHeight * dpiScale());
+    return std::max(color_height, kMinColorHeight);
   }
 
   void PaletteColorEditor::setEditingGradient(bool gradient) {

@@ -240,15 +240,15 @@ namespace visage {
 
   void ShaderEditor::resized() {
     int info_height = height() * kInfoHeightRatio;
-    int padding = dpiScale() * kPaddingHeight;
 
-    int editor_width = width() - 2 * padding;
-    error_.setBounds(padding, height() - info_height - padding, editor_width, info_height);
-    editor_.setBounds(padding, padding, editor_width, error_.y() - 2 * padding);
+    int editor_width = width() - 2 * kPaddingHeight;
+    error_.setBounds(kPaddingHeight, height() - info_height - kPaddingHeight, editor_width, info_height);
+    editor_.setBounds(kPaddingHeight, kPaddingHeight, editor_width, error_.y() - 2 * kPaddingHeight);
 
-    int font_size = dpiScale() * 16.0f;
-    status_.setBounds(error_.right() - font_size - padding, error_.y() + padding, font_size, font_size);
-    editor_.setFont(Font(font_size, fonts::DroidSansMono_ttf));
+    int font_size = 16.0f;
+    status_.setBounds(error_.right() - font_size - kPaddingHeight, error_.y() + kPaddingHeight,
+                      font_size, font_size);
+    editor_.setFont(Font(dpiScale() * font_size, fonts::DroidSansMono_ttf));
     error_.setFont(editor_.font());
   }
 }

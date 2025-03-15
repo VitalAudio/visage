@@ -71,14 +71,11 @@ namespace visage {
 
     ClientWindowDecoration();
 
-    int buttonWidth() const { return kButtonWidth * dpiScale(); }
-    int buttonHeight() const { return kButtonHeight * dpiScale(); }
-
-    int requiredWidth() const { return 3 * buttonWidth(); }
-    int requiredHeight() const { return buttonHeight(); }
+    int requiredWidth() const { return 3 * kButtonWidth; }
+    int requiredHeight() const { return kButtonHeight; }
 
     void resized() override {
-      int button_width = buttonWidth();
+      int button_width = kButtonWidth;
       close_button_.setBounds(width() - button_width, 0, button_width, height());
       maximize_button_.setBounds(close_button_.x() - button_width, 0, button_width, height());
       minimize_button_.setBounds(maximize_button_.x() - button_width, 0, button_width, height());
