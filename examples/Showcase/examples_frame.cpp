@@ -105,7 +105,7 @@ class DragDropSource : public visage::Frame {
 
     canvas.setColor(TextColor);
 
-    const visage::Font font(height() / 4, resources::fonts::Lato_Regular_ttf);
+    const visage::Font font(physicalHeight() / 4, resources::fonts::Lato_Regular_ttf);
     if (dragging_)
       canvas.text("Dragging source file", font, visage::Font::kCenter, 0, 0, width(), height());
     else
@@ -201,7 +201,7 @@ void TitleBar::draw(visage::Canvas& canvas) {
   canvas.rectangle(0, 0, width(), height());
 
   canvas.setColor(TextColor);
-  const visage::Font font(height() / 2, resources::fonts::Lato_Regular_ttf);
+  const visage::Font font(physicalHeight() / 2, resources::fonts::Lato_Regular_ttf);
   canvas.text(title_, font, visage::Font::kCenter, 0, 0, width(), height());
 }
 
@@ -420,7 +420,7 @@ void ExamplesFrame::setupShapes() {
     canvas.arc(shape_x + 3.0f * (shape_width + shape_padding_x), shape_y2, shape_width, thickness,
                center_radians, radians, true);
 
-    float max_separation = shape_padding_x / 2.0f;
+    float max_separation = shape_width / 4.0f;
     float separation = shape_cycle * max_separation;
     int triangle_x = shape_x + 4 * (shape_width + shape_padding_x) + max_separation;
     int triangle_y = shape_y + max_separation;

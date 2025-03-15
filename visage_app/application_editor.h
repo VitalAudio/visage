@@ -80,7 +80,7 @@ namespace visage {
 
     void addClientDecoration() { top_level_.addClientDecoration(); }
     HitTestResult hitTest(const Point& position) const override {
-      if (position.y < kDefaultClientTitleBarHeight * dpiScale() && top_level_.hasClientDecoration())
+      if (position.y < kDefaultClientTitleBarHeight && top_level_.hasClientDecoration())
         return HitTestResult::TitleBar;
 
       return HitTestResult::Client;

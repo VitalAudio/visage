@@ -101,15 +101,14 @@ namespace visage {
 
   void PopupList::draw(Canvas& canvas) {
     static constexpr float kTriangleWidthRatio = 0.25f;
-    int dpi_scale = canvas.dpiScale();
 
     Brush background = canvas.color(PopupMenuBackground).withMultipliedAlpha(opacity_);
     Brush border = canvas.color(PopupMenuBorder).withMultipliedAlpha(opacity_);
     canvas.setColor(background);
-    canvas.roundedRectangle(0, 0, width(), height(), 8 * dpi_scale);
+    canvas.roundedRectangle(0, 0, width(), height(), 8.0f);
 
     canvas.setColor(border);
-    canvas.roundedRectangleBorder(0, 0, width(), height(), 8 * dpi_scale, 1);
+    canvas.roundedRectangleBorder(0, 0, width(), height(), 8.0f, 1);
 
     canvas.setColor(PopupMenuText);
     int selection_padding = paletteValue(PopupSelectionPadding);
@@ -128,7 +127,7 @@ namespace visage {
             Brush selected = canvas.color(PopupMenuSelection).withMultipliedAlpha(opacity_);
             canvas.setColor(selected);
             canvas.roundedRectangle(selection_padding, y, width() - 2 * selection_padding,
-                                    option_height, 4 * dpi_scale);
+                                    option_height, 4.0f);
             canvas.setColor(selected_text);
           }
           else
