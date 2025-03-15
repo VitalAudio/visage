@@ -42,14 +42,8 @@ namespace visage {
     void giveUpFocus(Frame* frame);
 
     Point lastMousePosition() const { return last_mouse_position_; }
-    Point convertPointToWindowPosition(const Point& point) const {
-      return { static_cast<int>(std::round(point.x / window_->pixelScale())),
-               static_cast<int>(std::round(point.y / window_->pixelScale())) };
-    }
-    Point convertPointToFramePosition(const Point& point) const {
-      return { static_cast<int>(std::round(point.x * window_->pixelScale())),
-               static_cast<int>(std::round(point.y * window_->pixelScale())) };
-    }
+    IPoint convertToPhysical(const Point& point) const { return window_->convertToPhysical(point); }
+    Point convertToLogical(const IPoint& point) const { return window_->convertToLogical(point); }
 
     MouseEvent mouseEvent(int x, int y, int button_state, int modifiers);
     MouseEvent buttonMouseEvent(MouseButton button_id, int x, int y, int button_state, int modifiers);
@@ -84,7 +78,6 @@ namespace visage {
 
     bool isDragDropSource() override;
     std::string startDragDropSource() override;
-    visage::Bounds dragDropSourceBounds() override;
     void cleanupDragDropSource() override;
 
   private:

@@ -276,18 +276,14 @@ namespace visage {
       return size.computeWithDefault(dpi_scale_, width(), height());
     }
 
-    void setDimensionScaling(float dpi_scale, float width_scale, float height_scale) {
+    void setDpiScale(float dpi_scale) {
       dpi_scale_ = dpi_scale;
-      width_scale_ = width_scale;
-      height_scale_ = height_scale;
 
       for (Frame* child : children_)
-        child->setDimensionScaling(dpi_scale, width_scale, height_scale);
+        child->setDpiScale(dpi_scale);
     }
 
     float dpiScale() const { return dpi_scale_; }
-    float widthScale() const { return width_scale_; }
-    float heightScale() const { return height_scale_; }
 
     bool requestRedraw() {
       if (event_handler_ && event_handler_->request_redraw) {
@@ -408,8 +404,6 @@ namespace visage {
     FrameEventHandler* event_handler_ = nullptr;
 
     float dpi_scale_ = 1.0f;
-    float width_scale_ = 1.0f;
-    float height_scale_ = 1.0f;
     Palette* palette_ = nullptr;
     theme::OverrideId palette_override_;
     bool initialized_ = false;

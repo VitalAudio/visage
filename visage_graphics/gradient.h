@@ -274,6 +274,13 @@ namespace visage {
     void decode(const std::string& data);
     void decode(std::istringstream& stream);
 
+    GradientPosition operator*(float mult) const {
+      GradientPosition result = *this;
+      result.point_from *= mult;
+      result.point_to *= mult;
+      return result;
+    }
+
     VISAGE_LEAK_CHECKER(GradientPosition)
   };
 
@@ -405,6 +412,9 @@ namespace visage {
         vertices[i].gradient_position_to_y = position.gradient_position_to_y;
       }
     }
+
+    PackedBrush(GradientAtlas* atlas, const Gradient& gradient, const GradientPosition& position) :
+        atlas_(atlas), position_(position), gradient_(atlas->addGradient(gradient)) { }
 
     PackedBrush(GradientAtlas* atlas, const Brush& brush) :
         atlas_(atlas), position_(brush.position()), gradient_(atlas->addGradient(brush.gradient())) { }

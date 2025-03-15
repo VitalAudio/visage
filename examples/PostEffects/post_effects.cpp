@@ -76,7 +76,7 @@ public:
   }
 
   void resized() override {
-    visage::Font font(height() * 0.05f, resources::fonts::Lato_Regular_ttf);
+    visage::Font font(height() * 0.05f * dpiScale(), resources::fonts::Lato_Regular_ttf);
 
     for (auto& button : options_)
       button.setFont(font);
@@ -95,12 +95,12 @@ class ExampleEditor : public visage::ApplicationWindow {
 public:
   ExampleEditor() {
     shapes_.onDraw() = [this](visage::Canvas& canvas) {
-      int width = shapes_.width();
-      int height = shapes_.height();
-      int min = std::min(width, height);
+      float width = shapes_.width();
+      float height = shapes_.height();
+      float min = std::min(width, height);
 
       canvas.setColor(0xff222233);
-      canvas.fill(0, 0, width, height);
+      canvas.fill(0.0f, 0.0f, width, height);
       canvas.setColor(0xffaa88ff);
       drawRing(canvas, width, height, min * 0.3f, min * 0.2f, 8, canvas.time() * 0.1f);
       shapes_.redraw();
@@ -142,10 +142,11 @@ public:
   }
 
   void resized() override {
-    int center = width() / 2;
-    int shapes_width = std::min(center, height());
-    shapes_.setBounds((center - shapes_width) / 2, (height() - shapes_width) / 2, shapes_width, shapes_width);
-    selector_.setBounds(center, 0, width() - center, height());
+    float center = width() / 2.0f;
+    float shapes_width = std::min(center, height());
+    shapes_.setBounds((center - shapes_width) / 2.0f, (height() - shapes_width) / 2.0f,
+                      shapes_width, shapes_width);
+    selector_.setBounds(center, 0.0f, width() - center, height());
   }
 
 private:

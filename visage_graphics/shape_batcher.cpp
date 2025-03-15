@@ -147,13 +147,14 @@ namespace visage {
     Point prev_delta_normal(-prev_normalized_delta.y, prev_normalized_delta.x);
     float radius = line_wrapper.line_width * 0.5f + 0.5f;
     float prev_magnitude = radius;
+    float scale = line_wrapper.scale;
 
     for (int i = 0; i < line->num_points; ++i) {
-      Point point(line->x[i], line->y[i]);
+      Point point(line->x[i] * scale, line->y[i] * scale);
       int next_index = i + 1;
       int clamped_next_index = std::min(next_index, line->num_points - 1);
 
-      Point next_point(line->x[clamped_next_index], line->y[clamped_next_index]);
+      Point next_point(line->x[clamped_next_index] * scale, line->y[clamped_next_index] * scale);
       Point delta = next_point - point;
       if (point == next_point)
         delta = prev_normalized_delta;
@@ -356,12 +357,13 @@ namespace visage {
     LineVertex* fill_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
     Line* line = line_fill_wrapper.line;
 
+    float scale = line_fill_wrapper.scale;
     int fill_location = line_fill_wrapper.fill_center;
     for (int i = 0; i < line->num_points; ++i) {
       int index_top = i * Line::kFillVerticesPerPoint;
       int index_bottom = index_top + 1;
-      float x = line->x[i];
-      float y = line->y[i];
+      float x = line->x[i] * scale;
+      float y = line->y[i] * scale;
       float value = line->values[i] * line->fill_value_scale;
       fill_data[index_top].x = x;
       fill_data[index_top].y = y;

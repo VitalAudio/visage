@@ -81,7 +81,6 @@ namespace visage {
 
       virtual bool isDragDropSource() = 0;
       virtual std::string startDragDropSource() = 0;
-      virtual visage::Bounds dragDropSourceBounds() = 0;
       virtual void cleanupDragDropSource() = 0;
     };
 
@@ -110,8 +109,8 @@ namespace visage {
     virtual void hide() = 0;
     virtual bool isShowing() const = 0;
     virtual void setWindowTitle(const std::string& title) = 0;
-    virtual Point maxWindowDimensions() const = 0;
-    virtual Point minWindowDimensions() const = 0;
+    virtual IPoint maxWindowDimensions() const = 0;
+    virtual IPoint minWindowDimensions() const = 0;
 
     void notifyShow() { on_show_.callback(); }
     void notifyHide() { on_hide_.callback(); }
@@ -132,22 +131,21 @@ namespace visage {
     float aspectRatio() const { return aspect_ratio_; }
     bool isVisible() const { return visible_; }
 
-    Point lastWindowMousePosition() const { return last_window_mouse_position_; }
-    Point convertPointToWindowPosition(const Point& point) const {
-      return { static_cast<int>(std::round(point.x / pixel_scale_)),
-               static_cast<int>(std::round(point.y / pixel_scale_)) };
-    }
-    Point convertPointToFramePosition(const Point& point) const {
-      return { static_cast<int>(std::round(point.x * pixel_scale_)),
-               static_cast<int>(std::round(point.y * pixel_scale_)) };
-    }
+    IPoint lastWindowMousePosition() const { return last_window_mouse_position_; }
 
     void setWindowSize(int width, int height);
     void setInternalWindowSize(int width, int height);
     void setDpiScale(float scale) { dpi_scale_ = scale; }
     float dpiScale() const { return dpi_scale_; }
-    void setPixelScale(float scale) { pixel_scale_ = scale; }
-    float pixelScale() const { return pixel_scale_; }
+
+    IPoint convertToPhysical(const Point& logical_point) const {
+      return { static_cast<int>(std::round(logical_point.x * dpi_scale_)),
+               static_cast<int>(std::round(logical_point.y * dpi_scale_)) };
+    }
+    Point convertToLogical(const IPoint& point) const {
+      return { point.x / dpi_scale_, point.y / dpi_scale_ };
+    }
+
     void setMouseRelativeMode(bool relative) { mouse_relative_mode_ = relative; }
     virtual bool mouseRelativeMode() const { return mouse_relative_mode_; }
 
@@ -185,7 +183,6 @@ namespace visage {
 
     bool isDragDropSource() const;
     std::string startDragDropSource();
-    Bounds dragDropSourceBounds();
     void cleanupDragDropSource();
     void setVisible(bool visible) { visible_ = visible; }
 
@@ -198,7 +195,7 @@ namespace visage {
     };
 
     EventHandler* event_handler_ = nullptr;
-    Point last_window_mouse_position_ = { 0, 0 };
+    IPoint last_window_mouse_position_ = { 0, 0 };
     RepeatClick mouse_repeat_clicks_;
 
     std::function<void(double)> draw_callback_ = nullptr;
@@ -206,7 +203,6 @@ namespace visage {
     CallbackList<void()> on_hide_;
     CallbackList<void()> on_contents_resized_;
     float dpi_scale_ = 1.0f;
-    float pixel_scale_ = 1.0f;
     float min_window_scale_ = kDefaultMinWindowScale;
     bool visible_ = true;
     bool fixed_aspect_ratio_ = false;
@@ -223,7 +219,6 @@ namespace visage {
   Point cursorPosition();
   void setCursorPosition(Point window_position);
   void setCursorScreenPosition(Point screen_position);
-  float windowPixelScale();
   bool isMobileDevice();
   void showMessageBox(std::string title, std::string message);
   std::string readClipboardText();
@@ -232,8 +227,8 @@ namespace visage {
   int doubleClickSpeed();
   void setDoubleClickSpeed(int ms);
 
-  Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
-                             const Dimension& height);
+  IBounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
+                              const Dimension& height);
 
   std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y,
                                        const Dimension& width, const Dimension& height,
@@ -247,7 +242,7 @@ namespace visage {
     return createWindow({}, {}, width, height, decoration_style);
   }
 
-  inline Bounds computeWindowBounds(const Dimension& width, const Dimension& height) {
+  inline IBounds computeWindowBounds(const Dimension& width, const Dimension& height) {
     return computeWindowBounds({}, {}, width, height);
   }
 }

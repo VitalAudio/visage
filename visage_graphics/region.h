@@ -120,6 +120,11 @@ namespace visage {
       brushes_.push_back(std::make_unique<PackedBrush>(atlas, brush));
       return brushes_.back().get();
     }
+    const PackedBrush* addBrush(GradientAtlas* atlas, const Gradient& gradient,
+                                const GradientPosition& position) {
+      brushes_.push_back(std::make_unique<PackedBrush>(atlas, gradient, position));
+      return brushes_.back().get();
+    }
 
   private:
     void setLayerIndex(int layer_index);

@@ -27,111 +27,125 @@
 namespace visage {
 
   struct Dimension {
-    std::function<float(float dpi_scale, float parent_width, float parent_height)> compute = nullptr;
+    float amount = 0.0f;
+    std::function<float(float, float, float, float)> compute_function = nullptr;
+
+    int compute(float dpi_scale, float parent_width, float parent_height) const {
+      return std::round(compute_function(amount, dpi_scale, parent_width, parent_height));
+    }
 
     int computeWithDefault(float dpi_scale, float parent_width, float parent_height,
                            float default_value = 0.0f) const {
-      if (compute)
-        return std::round(compute(dpi_scale, parent_width, parent_height));
+      if (compute_function)
+        return std::round(compute_function(amount, dpi_scale, parent_width, parent_height));
       return default_value;
     }
 
     Dimension() = default;
     Dimension(float amount) { *this = devicePixels(amount); }
-    Dimension(std::function<float(float, float, float)> compute) : compute(std::move(compute)) { }
+    Dimension(float amount, std::function<float(float, float, float, float)> compute) :
+        amount(amount), compute_function(std::move(compute)) { }
 
     static Dimension devicePixels(float pixels) {
-      return Dimension([pixels](float, float, float) { return pixels; });
+      return Dimension(pixels, [](float amount, float, float, float) { return amount; });
     }
 
     static Dimension logicalPixels(float pixels) {
-      return Dimension([pixels](float dpi_scale, float, float) { return dpi_scale * pixels; });
+      return Dimension(pixels, [](float amount, float scale, float, float) { return scale * amount; });
     }
 
     static Dimension widthPercent(float percent) {
       float ratio = percent * 0.01f;
-      return Dimension([ratio](float, float parent_width, float) { return ratio * parent_width; });
+      return Dimension(ratio, [](float amount, float, float parent_width, float) {
+        return amount * parent_width;
+      });
     }
 
     static Dimension heightPercent(float percent) {
       float ratio = percent * 0.01f;
-      return Dimension([ratio](float, float, float parent_height) { return ratio * parent_height; });
+      return Dimension(ratio, [](float amount, float, float, float parent_height) {
+        return amount * parent_height;
+      });
     }
 
     static Dimension viewMinPercent(float percent) {
       float ratio = percent * 0.01f;
-      return Dimension([ratio](float, float parent_width, float parent_height) {
-        return ratio * std::min(parent_width, parent_height);
+      return Dimension(ratio, [](float amount, float, float parent_width, float parent_height) {
+        return amount * std::min(parent_width, parent_height);
       });
     }
 
     static Dimension viewMaxPercent(float percent) {
       float ratio = percent * 0.01f;
-      return Dimension([ratio](float, float parent_width, float parent_height) {
-        return ratio * std::max(parent_width, parent_height);
+      return Dimension(ratio, [](float amount, float, float parent_width, float parent_height) {
+        return amount * std::max(parent_width, parent_height);
       });
     }
 
     static Dimension min(const Dimension& a, const Dimension& b) {
-      auto compute1 = a.compute;
-      auto compute2 = b.compute;
-      return Dimension([compute1, compute2](float dpi_scale, float parent_width, float parent_height) {
-        return std::min(compute1(dpi_scale, parent_width, parent_height),
-                        compute2(dpi_scale, parent_width, parent_height));
+      auto amount1 = a.amount;
+      auto amount2 = b.amount;
+      auto compute1 = a.compute_function;
+      auto compute2 = b.compute_function;
+      return Dimension(0.0f, [amount1, amount2, compute1,
+                              compute2](float, float dpi_scale, float parent_width, float parent_height) {
+        return std::min(compute1(amount1, dpi_scale, parent_width, parent_height),
+                        compute2(amount2, dpi_scale, parent_width, parent_height));
       });
     }
 
     static Dimension max(const Dimension& a, const Dimension& b) {
-      auto compute1 = a.compute;
-      auto compute2 = b.compute;
-      return Dimension([compute1, compute2](float dpi_scale, float parent_width, float parent_height) {
-        return std::max(compute1(dpi_scale, parent_width, parent_height),
-                        compute2(dpi_scale, parent_width, parent_height));
+      auto amount1 = a.amount;
+      auto amount2 = b.amount;
+      auto compute1 = a.compute_function;
+      auto compute2 = b.compute_function;
+      return Dimension(0.0f, [amount1, amount2, compute1,
+                              compute2](float, float dpi_scale, float parent_width, float parent_height) {
+        return std::max(compute1(amount1, dpi_scale, parent_width, parent_height),
+                        compute2(amount2, dpi_scale, parent_width, parent_height));
       });
     }
 
     Dimension operator+(const Dimension& other) const {
-      auto compute1 = compute;
-      auto compute2 = other.compute;
-      return Dimension([compute1, compute2](float dpi_scale, float parent_width, float parent_height) {
-        return compute1(dpi_scale, parent_width, parent_height) +
-               compute2(dpi_scale, parent_width, parent_height);
+      auto amount1 = amount;
+      auto amount2 = other.amount;
+      auto compute1 = compute_function;
+      auto compute2 = other.compute_function;
+      return Dimension(0.0f, [amount1, amount2, compute1,
+                              compute2](float, float dpi_scale, float parent_width, float parent_height) {
+        return compute1(amount1, dpi_scale, parent_width, parent_height) +
+               compute2(amount2, dpi_scale, parent_width, parent_height);
       });
     }
 
     Dimension& operator+=(const Dimension& other) {
-      auto compute1 = compute;
-      auto compute2 = other.compute;
-      compute = [compute1, compute2](float dpi_scale, float parent_width, float parent_height) {
-        return compute1(dpi_scale, parent_width, parent_height) +
-               compute2(dpi_scale, parent_width, parent_height);
-      };
+      *this = *this + other;
       return *this;
     }
 
     Dimension operator-(const Dimension& other) const {
-      auto compute1 = compute;
-      auto compute2 = other.compute;
-      return Dimension([compute1, compute2](float dpi_scale, float parent_width, float parent_height) {
-        return compute1(dpi_scale, parent_width, parent_height) -
-               compute2(dpi_scale, parent_width, parent_height);
+      auto amount1 = amount;
+      auto amount2 = other.amount;
+      auto compute1 = compute_function;
+      auto compute2 = other.compute_function;
+      return Dimension(0.0f, [amount1, amount2, compute1,
+                              compute2](float, float dpi_scale, float parent_width, float parent_height) {
+        return compute1(amount1, dpi_scale, parent_width, parent_height) -
+               compute2(amount2, dpi_scale, parent_width, parent_height);
       });
     }
 
     Dimension& operator-=(const Dimension& other) {
-      auto compute1 = compute;
-      auto compute2 = other.compute;
-      compute = [compute1, compute2](float dpi_scale, float parent_width, float parent_height) {
-        return compute1(dpi_scale, parent_width, parent_height) -
-               compute2(dpi_scale, parent_width, parent_height);
-      };
+      *this = *this - other;
       return *this;
     }
 
     Dimension operator*(float scalar) const {
-      auto compute1 = compute;
-      return Dimension([compute1, scalar](float dpi_scale, float parent_width, float parent_height) {
-        return scalar * compute1(dpi_scale, parent_width, parent_height);
+      auto amount1 = amount;
+      auto compute1 = compute_function;
+      return Dimension(amount1, [compute1, scalar](float amount, float dpi_scale,
+                                                   float parent_width, float parent_height) {
+        return scalar * compute1(amount, dpi_scale, parent_width, parent_height);
       });
     }
 
@@ -139,12 +153,7 @@ namespace visage {
       return dimension * scalar;
     }
 
-    Dimension operator/(float scalar) const {
-      auto compute1 = compute;
-      return Dimension([compute1, scalar](float dpi_scale, float parent_width, float parent_height) {
-        return compute1(dpi_scale, parent_width, parent_height) / scalar;
-      });
-    }
+    Dimension operator/(float scalar) const { return *this * (1.0f / scalar); }
 
     Dimension min(const Dimension& other) const { return min(*this, other); }
 

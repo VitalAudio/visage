@@ -62,14 +62,6 @@ namespace visage {
     void removeFromWindow();
     void drawWindow();
 
-    void setReferenceDimensions(int width, int height) {
-      reference_width_ = width;
-      reference_height_ = height;
-    }
-
-    int referenceWidth() const { return reference_width_; }
-    int referenceHeight() const { return reference_height_; }
-
     bool isFixedAspectRatio() const { return fixed_aspect_ratio_ > 0.0f; }
     void setFixedAspectRatio(float aspect_ratio) { fixed_aspect_ratio_ = aspect_ratio; }
     float aspectRatio() const {
@@ -84,14 +76,7 @@ namespace visage {
 
     void drawStaleChildren();
 
-    void setPixelScale(float scale) { pixel_scale_ = scale; }
-    int logicalWidth() const { return std::round(width() / pixel_scale_); }
-    int logicalHeight() const { return std::round(height() / pixel_scale_); }
-
-    void setLogicalDimensions(int logical_width, int logical_height) {
-      setBounds(x(), y(), std::round(logical_width * pixel_scale_),
-                std::round(logical_height * pixel_scale_));
-    }
+    void setDimensions(int width, int height) { setBounds(x(), y(), width, height); }
 
     void addClientDecoration() { top_level_.addClientDecoration(); }
     HitTestResult hitTest(const Point& position) const override {
@@ -108,7 +93,6 @@ namespace visage {
     std::unique_ptr<Canvas> canvas_;
     std::unique_ptr<WindowEventHandler> window_event_handler_;
     float fixed_aspect_ratio_ = 0.0f;
-    float pixel_scale_ = 1.0f;
 
     int reference_width_ = 0;
     int reference_height_ = 0;

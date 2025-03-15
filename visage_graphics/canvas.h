@@ -29,6 +29,7 @@
 #include "shape_batcher.h"
 #include "text.h"
 #include "theme.h"
+#include "visage_utils/dimension.h"
 #include "visage_utils/space.h"
 #include "visage_utils/time_utils.h"
 
@@ -44,8 +45,9 @@ namespace visage {
     static bool swapChainSupported();
 
     struct State {
-      int x = 0;
-      int y = 0;
+      float x = 0;
+      float y = 0;
+      float scale = 1.0f;
       theme::OverrideId palette_override;
       const PackedBrush* brush = nullptr;
       ClampBounds clamp;
@@ -85,24 +87,11 @@ namespace visage {
     void removeFromWindow() { composite_layer_.removeFromWindow(); }
 
     void setDimensions(int width, int height);
-    void setWidthScale(float width_scale) { width_scale_ = width_scale; }
-    void setHeightScale(float height_scale) { height_scale_ = height_scale; }
-    void setDpiScale(float scale) {
-      dpi_scale_ = scale;
-      setCurrentDrawScale();
-    }
-    void setDrawScale(float draw_scale) {
-      draw_scale_ = draw_scale;
-      setCurrentDrawScale();
-    }
-    void setCurrentDrawScale() {
-      current_draw_scale_ = draw_scale_;
-      if (draw_dpi_scaled_)
-        current_draw_scale_ *= dpi_scale_;
-    }
+    void setDpiScale(float scale) { dpi_scale_ = scale; }
+    void setDrawScale(float draw_scale) { draw_scale_ = draw_scale; }
+    void setPhysicalPixelScale() { state_.scale = draw_scale_; }
+    void setLogicalPixelScale() { state_.scale = dpi_scale_ * draw_scale_; }
 
-    float widthScale() const { return width_scale_; }
-    float heightScale() const { return height_scale_; }
     float dpiScale() const { return dpi_scale_; }
     void updateTime(double time);
     double time() const { return render_time_; }
@@ -111,7 +100,8 @@ namespace visage {
 
     void setBlendMode(BlendMode blend_mode) { state_.blend_mode = blend_mode; }
     void setBrush(const Brush& brush) {
-      state_.brush = state_.current_region->addBrush(&gradient_atlas_, brush);
+      state_.brush = state_.current_region->addBrush(&gradient_atlas_, brush.gradient(),
+                                                     brush.position() * state_.scale);
     }
     void setColor(const Brush& brush) { setBrush(brush); }
     void setColor(unsigned int color) { setBrush(Brush::solid(color)); }
@@ -122,341 +112,333 @@ namespace visage {
       setBrush(blendedColor(color_from, color_to, t));
     }
 
-    void fill(float x, float y, float width, float height) {
-      addShape(Fill(state_.clamp.clamp(x, y, width, height), state_.brush, state_.x + x,
-                    state_.y + y, width, height));
+    template<typename T1, typename T2, typename T3, typename T4>
+    void fill(const T1& x, const T2& y, const T3& width, const T4& height) {
+      float fill_x = pixels(x);
+      float fill_y = pixels(y);
+      float fill_w = pixels(width);
+      float fill_h = pixels(height);
+      addShape(Fill(state_.clamp.clamp(fill_x, fill_y, fill_w, fill_h), state_.brush,
+                    state_.x + fill_x, state_.y + fill_y, fill_w, fill_h));
     }
 
-    void circle(float x, float y, float width) {
-      addShape(Circle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width));
+    template<typename T1, typename T2, typename T3>
+    void circle(const T1& x, const T2& y, const T3& width) {
+      addShape(Circle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
+                      pixels(width)));
     }
 
-    void fadeCircle(float x, float y, float width, float fade) {
-      Circle circle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width);
-      circle.pixel_width = fade;
+    template<typename T1, typename T2, typename T3, typename T4>
+    void fadeCircle(const T1& x, const T2& y, const T3& width, const T4& pixel_width) {
+      Circle circle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y), pixels(width));
+      circle.pixel_width = pixels(pixel_width);
       addShape(circle);
     }
 
-    void ring(float x, float y, float width, float thickness) {
-      Circle circle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width);
-      circle.thickness = thickness;
+    template<typename T1, typename T2, typename T3, typename T4>
+    void ring(const T1& x, const T2& y, const T3& width, const T4& thickness) {
+      Circle circle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y), pixels(width));
+      circle.thickness = pixels(thickness);
       addShape(circle);
     }
 
-    void squircle(float x, float y, float width, float power = kDefaultSquirclePower) {
-      addShape(Squircle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width, power));
+    template<typename T1, typename T2, typename T3, typename T4 = float>
+    void squircle(const T1& x, const T2& y, const T3& width, const T4& power = kDefaultSquirclePower) {
+      float w = pixels(width);
+      addShape(Squircle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y), w,
+                        w, pixels(power)));
     }
 
-    void squircleBorder(float x, float y, float width, float power, float thickness) {
-      Squircle squircle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width, power);
-      squircle.thickness = thickness;
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void squircleBorder(const T1& x, const T2& y, const T3& width, const T4& power, const T5& thickness) {
+      float w = pixels(width);
+      Squircle squircle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y), w,
+                        w, pixels(power));
+      squircle.thickness = pixels(thickness);
       addShape(squircle);
     }
 
-    void superEllipse(float x, float y, float width, float height, float power) {
-      addShape(Squircle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height, power));
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void superEllipse(const T1& x, const T2& y, const T3& width, const T4& height, const T5& power) {
+      addShape(Squircle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
+                        pixels(width), pixels(height), pixels(power)));
     }
 
-    void roundedArc(float x, float y, float width, float thickness, float center_radians,
-                    float radians, float pixel_width = 1.0f) {
-      addShape(RoundedArc(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width,
-                          thickness + 1.0f, center_radians, radians));
+    template<typename T1, typename T2, typename T3, typename T4>
+    void roundedArc(const T1& x, const T2& y, const T3& width, const T4& thickness,
+                    float center_radians, float radians) {
+      float w = pixels(width);
+      addShape(RoundedArc(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y), w,
+                          w, pixels(thickness) + 1.0f, center_radians, radians));
     }
 
-    void flatArc(float x, float y, float width, float thickness, float center_radians,
-                 float radians, float pixel_width = 1.0f) {
-      addShape(FlatArc(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width,
-                       thickness + 1.0f, center_radians, radians));
+    template<typename T1, typename T2, typename T3, typename T4>
+    void flatArc(const T1& x, const T2& y, const T3& width, const T4& thickness,
+                 float center_radians, float radians) {
+      float w = pixels(width);
+      addShape(FlatArc(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y), w, w,
+                       pixels(thickness) + 1.0f, center_radians, radians));
     }
 
-    void arc(float x, float y, float width, float thickness, float center_radians, float radians,
-             bool rounded = false, float pixel_width = 1.0f) {
+    template<typename T1, typename T2, typename T3, typename T4>
+    void arc(const T1& x, const T2& y, const T3& width, const T4& thickness, float center_radians,
+             float radians, bool rounded = false) {
       if (rounded)
-        roundedArc(x, y, width, thickness, center_radians, radians, pixel_width);
+        roundedArc(x, y, width, thickness, center_radians, radians);
       else
-        flatArc(x, y, width, thickness, center_radians, radians, pixel_width);
+        flatArc(x, y, width, thickness, center_radians, radians);
     }
 
-    void roundedArcShadow(float x, float y, float width, float thickness, float center_radians,
-                          float radians, float shadow_width, bool rounded = false) {
-      float full_width = width + 2.0f * shadow_width;
-      RoundedArc arc(state_.clamp, state_.brush, state_.x + x - shadow_width,
-                     state_.y + y - shadow_width, full_width, full_width,
-                     thickness + 1.0f + 2.0f * shadow_width, center_radians, radians);
-      arc.pixel_width = shadow_width;
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void roundedArcShadow(const T1& x, const T2& y, const T3& width, const T4& thickness,
+                          float center_radians, float radians, const T5& shadow_width) {
+      float shadow = pixels(shadow_width);
+      float full_width = pixels(width) + 2.0f * shadow;
+      RoundedArc arc(state_.clamp, state_.brush, state_.x + pixels(x) - shadow,
+                     state_.y + pixels(y) - shadow, full_width, full_width,
+                     pixels(thickness) + 1.0f + 2.0f * shadow, center_radians, radians);
+      arc.pixel_width = shadow;
       addShape(arc);
     }
 
-    void flatArcShadow(float x, float y, float width, float thickness, float center_radians,
-                       float radians, float shadow_width, bool rounded = false) {
-      float full_width = width + 2.0f * shadow_width;
-      FlatArc arc(state_.clamp, state_.brush, state_.x + x - shadow_width,
-                  state_.y + y - shadow_width, full_width, full_width,
-                  thickness + 1.0f + 2.0f * shadow_width, center_radians, radians);
-      arc.pixel_width = shadow_width;
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void flatArcShadow(const T1& x, const T2& y, const T3& width, const T4& thickness,
+                       float center_radians, float radians, const T5& shadow_width) {
+      float shadow = pixels(shadow_width);
+      float full_width = pixels(width) + 2.0f * shadow;
+      FlatArc arc(state_.clamp, state_.brush, state_.x + pixels(x) - shadow,
+                  state_.y + pixels(y) - shadow, full_width, full_width,
+                  pixels(thickness) + 1.0f + 2.0f * shadow, center_radians, radians);
+      arc.pixel_width = shadow;
       addShape(arc);
     }
 
-    void segment(float a_x, float a_y, float b_x, float b_y, float thickness, bool rounded = false,
-                 float pixel_width = 1.0f) {
-      float x = std::min(a_x, b_x) - thickness;
-      float width = std::max(a_x, b_x) + thickness - x;
-      float y = std::min(a_y, b_y) - thickness;
-      float height = std::max(a_y, b_y) + thickness - y;
-
-      float x1 = 2.0f * (a_x - x) / width - 1.0f;
-      float y1 = 2.0f * (a_y - y) / height - 1.0f;
-      float x2 = 2.0f * (b_x - x) / width - 1.0f;
-      float y2 = 2.0f * (b_y - y) / height - 1.0f;
-
-      if (rounded) {
-        addShape(RoundedSegment(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
-                                height, x1, y1, x2, y2, thickness + 1.0f, pixel_width));
-      }
-      else {
-        addShape(FlatSegment(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height,
-                             x1, y1, x2, y2, thickness + 1.0f, pixel_width));
-      }
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void segment(const T1& a_x, const T2& a_y, const T3& b_x, const T4& b_y, const T5& thickness,
+                 bool rounded) {
+      addSegment(pixels(a_x), pixels(a_y), pixels(b_x), pixels(b_y), pixels(thickness), rounded);
     }
 
-    void quadratic(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y,
-                   float thickness, float pixel_width = 1.0f) {
-      if (tryDrawCollinearQuadratic(a_x, a_y, b_x, b_y, c_x, c_y, thickness, pixel_width))
-        return;
-
-      float x = std::min(std::min(a_x, b_x), c_x) - thickness;
-      float width = std::max(std::max(a_x, b_x), c_x) + thickness - x;
-      float y = std::min(std::min(a_y, b_y), c_y) - thickness;
-      float height = std::max(std::max(a_y, b_y), c_y) + thickness - y;
-
-      float x1 = 2.0f * (a_x - x) / width - 1.0f;
-      float y1 = 2.0f * (a_y - y) / height - 1.0f;
-      float x2 = 2.0f * (b_x - x) / width - 1.0f;
-      float y2 = 2.0f * (b_y - y) / height - 1.0f;
-      float x3 = 2.0f * (c_x - x) / width - 1.0f;
-      float y3 = 2.0f * (c_y - y) / height - 1.0f;
-
-      addShape(QuadraticBezier(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
-                               height, x1, y1, x2, y2, x3, y3, thickness + 1.0f, pixel_width));
+    template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
+    void quadratic(const T1& a_x, const T2& a_y, const T3& b_x, const T4& b_y, const T5& c_x,
+                   const T6& c_y, const T7& thickness) {
+      addQuadratic(pixels(a_x), pixels(a_y), pixels(b_x), pixels(b_y), pixels(c_x), pixels(c_y),
+                   pixels(thickness));
     }
 
-    void rectangle(float x, float y, float width, float height) {
-      addShape(Rectangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height));
+    template<typename T1, typename T2, typename T3, typename T4>
+    void rectangle(const T1& x, const T2& y, const T3& width, const T4& height) {
+      addShape(Rectangle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
+                         pixels(width), pixels(height)));
     }
 
-    void rectangleBorder(float x, float y, float width, float height, float thickness) {
-      Rectangle border(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height);
-      border.thickness = thickness + 1.0f;
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void rectangleBorder(const T1& x, const T2& y, const T3& width, const T4& height, const T5& thickness) {
+      Rectangle border(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
+                       pixels(width), pixels(height));
+      border.thickness = pixels(thickness) + 1.0f;
       addShape(border);
     }
 
-    void roundedRectangle(float x, float y, float width, float height, float rounding) {
-      addShape(RoundedRectangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
-                                height, std::max(1.0f, rounding)));
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void roundedRectangle(const T1& x, const T2& y, const T3& width, const T4& height, const T5& rounding) {
+      addShape(RoundedRectangle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
+                                pixels(width), pixels(height), std::max(1.0f, pixels(rounding))));
     }
 
-    void diamond(float x, float y, float width, float rounding) {
-      addShape(Diamond(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, width,
-                       std::max(1.0f, rounding)));
+    template<typename T1, typename T2, typename T3, typename T4>
+    void diamond(const T1& x, const T2& y, const T3& width, const T4& rounding) {
+      float w = pixels(width);
+      addShape(Diamond(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y), w, w,
+                       std::max(1.0f, pixels(rounding))));
     }
 
-    void leftRoundedRectangle(float x, float y, float width, float height, float rounding) {
-      ClampBounds clamp = state_.clamp;
-      clamp.right = std::min(clamp.right, state_.x + x + width);
-      addShape(RoundedRectangle(clamp, state_.brush, state_.x + x, state_.y + y,
-                                width + rounding + 1.0f, height, std::max(1.0f, rounding)));
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void leftRoundedRectangle(const T1& x, const T2& y, const T3& width, const T4& height,
+                              const T5& rounding) {
+      addLeftRoundedRectangle(pixels(x), pixels(y), pixels(width), pixels(height), pixels(rounding));
     }
 
-    void rightRoundedRectangle(float x, float y, float width, float height, float rounding) {
-      ClampBounds clamp = state_.clamp;
-      clamp.left = std::max(clamp.left, state_.x + x);
-      float growth = rounding + 1.0f;
-      addShape(RoundedRectangle(clamp, state_.brush, state_.x + x - growth, state_.y + y,
-                                width + growth, height, std::max(1.0f, rounding)));
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void rightRoundedRectangle(const T1& x, const T2& y, const T3& width, const T4& height,
+                               const T5& rounding) {
+      addRightRoundedRectangle(pixels(x), pixels(y), pixels(width), pixels(height), pixels(rounding));
     }
 
-    void topRoundedRectangle(float x, float y, float width, float height, float rounding) {
-      ClampBounds clamp = state_.clamp;
-      clamp.bottom = std::min(clamp.bottom, state_.y + y + height);
-      addShape(RoundedRectangle(clamp, state_.brush, state_.x + x, state_.y + y, width,
-                                height + rounding + 1.0f, std::max(1.0f, rounding)));
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void topRoundedRectangle(const T1& x, const T2& y, const T3& width, const T4& height, const T5& rounding) {
+      addTopRoundedRectangle(pixels(x), pixels(y), pixels(width), pixels(height), pixels(rounding));
     }
 
-    void bottomRoundedRectangle(float x, float y, float width, float height, float rounding) {
-      ClampBounds clamp = state_.clamp;
-      clamp.top = std::max(clamp.top, state_.y + y);
-      float growth = rounding + 1.0f;
-      addShape(RoundedRectangle(clamp, state_.brush, state_.x + x, state_.y + y - growth, width,
-                                height + growth, std::max(1.0f, rounding)));
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void bottomRoundedRectangle(const T1& x, const T2& y, const T3& width, const T4& height,
+                                const T5& rounding) {
+      addBottomRoundedRectangle(pixels(x), pixels(y), pixels(width), pixels(height), pixels(rounding));
     }
 
-    void rectangleShadow(float x, float y, float width, float height, float blur_radius) {
-      if (blur_radius > 0.0f) {
-        Rectangle rectangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height);
-        rectangle.pixel_width = blur_radius;
-        addShape(rectangle);
-      }
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void rectangleShadow(const T1& x, const T2& y, const T3& width, const T4& height, const T5& blur_radius) {
+      addRectangleShadow(pixels(x), pixels(y), pixels(width), pixels(height), pixels(blur_radius));
     }
 
-    void roundedRectangleShadow(float x, float y, float width, float height, float rounding,
-                                float blur_radius) {
-      if (blur_radius <= 0.0f)
-        return;
-
-      float offset = -blur_radius * 0.5f;
-      if (rounding <= 1.0f)
-        rectangleShadow(state_.x + x + offset, state_.y + y + offset, width + blur_radius,
-                        height + blur_radius, blur_radius);
-      else {
-        RoundedRectangle shadow(state_.clamp, state_.brush, state_.x + x + offset, state_.y + y + offset,
-                                width + blur_radius, height + blur_radius, rounding);
-        shadow.pixel_width = blur_radius;
-        addShape(shadow);
-      }
+    template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
+    void roundedRectangleShadow(const T1& x, const T2& y, const T3& width, const T4& height,
+                                const T5& rounding, const T6& blur_radius) {
+      addRoundedRectangleShadow(pixels(x), pixels(y), pixels(width), pixels(height),
+                                pixels(rounding), pixels(blur_radius));
     }
 
-    void roundedRectangleBorder(float x, float y, float width, float height, float rounding, float thickness) {
-      saveState();
-      float left = state_.clamp.left;
-      float right = state_.clamp.right;
-      float top = state_.clamp.top;
-      float bottom = state_.clamp.bottom;
-
-      float part = std::max(rounding, thickness);
-      state_.clamp.right = std::min(right, state_.x + x + part + 1.0f);
-      fullRoundedRectangleBorder(x, y, width, height, rounding, thickness);
-      state_.clamp.right = right;
-      state_.clamp.left = std::max(left, state_.x + x + width - part - 1.0f);
-      fullRoundedRectangleBorder(x, y, width, height, rounding, thickness);
-
-      state_.clamp.left = std::max(left, state_.x + x + part + 1.0f);
-      state_.clamp.right = std::min(right, state_.x + x + width - part - 1.0f);
-      state_.clamp.bottom = std::min(bottom, state_.y + y + part + 1.0f);
-      fullRoundedRectangleBorder(x, y, width, height, rounding, thickness);
-      state_.clamp.bottom = bottom;
-      state_.clamp.top = std::max(top, state_.y + y + height - part - 1.0f);
-      fullRoundedRectangleBorder(x, y, width, height, rounding, thickness);
-
-      restoreState();
+    template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
+    void roundedRectangleBorder(const T1& x, const T2& y, const T3& width, const T4& height,
+                                const T5& rounding, const T6& thickness) {
+      addRoundedRectangleBorder(pixels(x), pixels(y), pixels(width), pixels(height),
+                                pixels(rounding), pixels(thickness));
     }
 
-    void triangleBorder(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y, float thickness) {
-      outerRoundedTriangleBorder(a_x, a_y, b_x, b_y, c_x, c_y, 0.0f, thickness);
+    template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
+    void triangle(const T1& a_x, const T2& a_y, const T3& b_x, const T4& b_y, const T5& c_x, const T6& c_y) {
+      outerRoundedTriangleBorder(pixels(a_x), pixels(a_y), pixels(b_x), pixels(b_y), pixels(c_x),
+                                 pixels(c_y), 0.0f);
     }
 
-    void triangle(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y) {
-      float d1_x = a_x - b_x;
-      float d1_y = a_y - b_y;
-      float d2_x = a_x - c_x;
-      float d2_y = a_y - c_y;
-      float thickness = sqrtf(std::max(d1_x * d1_x + d1_y * d1_y, d2_x * d2_x + d2_y * d2_y));
-      outerRoundedTriangleBorder(a_x, a_y, b_x, b_y, c_x, c_y, 0.0f, thickness);
+    template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
+    void triangleBorder(const T1& a_x, const T2& a_y, const T3& b_x, const T4& b_y, const T5& c_x,
+                        const T6& c_y, const T7& thickness) {
+      outerRoundedTriangleBorder(pixels(a_x), pixels(a_y), pixels(b_x), pixels(b_y), pixels(c_x),
+                                 pixels(c_y), 0.0f, pixels(thickness));
     }
 
-    void roundedTriangleBorder(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y,
-                               float rounding, float thickness) {
-      float d_ab = sqrtf((a_x - b_x) * (a_x - b_x) + (a_y - b_y) * (a_y - b_y));
-      float d_bc = sqrtf((b_x - c_x) * (b_x - c_x) + (b_y - c_y) * (b_y - c_y));
-      float d_ca = sqrtf((c_x - a_x) * (c_x - a_x) + (c_y - a_y) * (c_y - a_y));
-      float perimeter = d_ab + d_bc + d_ca;
-      float inscribed_circle_x = (d_bc * a_x + d_ca * b_x + d_ab * c_x) / perimeter;
-      float inscribed_circle_y = (d_bc * a_y + d_ca * b_y + d_ab * c_y) / perimeter;
-      float s = perimeter * 0.5f;
-      float inscribed_circle_radius = sqrtf(s * (s - d_ab) * (s - d_bc) * (s - d_ca)) / s;
-
-      rounding = std::min(rounding, inscribed_circle_radius);
-      float shrinking = rounding / inscribed_circle_radius;
-      outerRoundedTriangleBorder(a_x + (inscribed_circle_x - a_x) * shrinking,
-                                 a_y + (inscribed_circle_y - a_y) * shrinking,
-                                 b_x + (inscribed_circle_x - b_x) * shrinking,
-                                 b_y + (inscribed_circle_y - b_y) * shrinking,
-                                 c_x + (inscribed_circle_x - c_x) * shrinking,
-                                 c_y + (inscribed_circle_y - c_y) * shrinking, rounding, thickness);
+    template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8>
+    void roundedTriangleBorder(const T1& a_x, const T2& a_y, const T3& b_x, const T4& b_y,
+                               const T5& c_x, const T6& c_y, const T7& rounding, const T8& thickness) {
+      addRoundedTriangleBorder(pixels(a_x), pixels(a_y), pixels(b_x), pixels(b_y), pixels(c_x),
+                               pixels(c_y), pixels(rounding), pixels(thickness));
     }
 
-    void roundedTriangle(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y, float rounding) {
-      float d1_x = a_x - b_x;
-      float d1_y = a_y - b_y;
-      float d2_x = a_x - c_x;
-      float d2_y = a_y - c_y;
-      float thickness = sqrtf(std::max(d1_x * d1_x + d1_y * d1_y, d2_x * d2_x + d2_y * d2_y));
-      roundedTriangleBorder(a_x, a_y, b_x, b_y, c_x, c_y, rounding, thickness);
+    template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
+    void roundedTriangle(const T1& a_x, const T2& a_y, const T3& b_x, const T4& b_y, const T5& c_x,
+                         const T6& c_y, const T7& rounding) {
+      addRoundedTriangleBorder(pixels(a_x), pixels(a_y), pixels(b_x), pixels(b_y), pixels(c_x),
+                               pixels(c_y), pixels(rounding), -1.0f);
     }
 
-    void triangleLeft(float x, float y, float width) {
+    template<typename T1, typename T2, typename T3>
+    void triangleLeft(const T1& triangle_x, const T2& triangle_y, const T3& triangle_width) {
+      float x = pixels(triangle_x);
+      float y = pixels(triangle_y);
+      float width = pixels(triangle_width);
       float h = width * 2.0f;
       outerRoundedTriangleBorder(x + width, y, x + width, y + h, x, y + h * 0.5f, 0.0f, width);
     }
 
-    void triangleRight(float x, float y, float width) {
+    template<typename T1, typename T2, typename T3>
+    void triangleRight(const T1& triangle_x, const T2& triangle_y, const T3& triangle_width) {
+      float x = pixels(triangle_x);
+      float y = pixels(triangle_y);
+      float width = pixels(triangle_width);
       float h = width * 2.0f;
       outerRoundedTriangleBorder(x, y, x, y + h, x + width, y + h * 0.5f, 0.0f, width);
     }
 
-    void triangleUp(float x, float y, float width) {
+    template<typename T1, typename T2, typename T3>
+    void triangleUp(const T1& triangle_x, const T2& triangle_y, const T3& triangle_width) {
+      float x = pixels(triangle_x);
+      float y = pixels(triangle_y);
+      float width = pixels(triangle_width);
       float w = width * 2.0f;
       outerRoundedTriangleBorder(x, y + width, x + w, y + width, x + w * 0.5f, y, 0.0f, width);
     }
 
-    void triangleDown(float x, float y, float width) {
+    template<typename T1, typename T2, typename T3>
+    void triangleDown(const T1& triangle_x, const T2& triangle_y, const T3& triangle_width) {
+      float x = pixels(triangle_x);
+      float y = pixels(triangle_y);
+      float width = pixels(triangle_width);
       float w = width * 2.0f;
       outerRoundedTriangleBorder(x, y, x + w, y, x + w * 0.5f, y + width, 0.0f, width);
     }
 
-    void text(Text* text, float x, float y, float width, float height, Direction dir = Direction::Up) {
+    template<typename T1, typename T2, typename T3, typename T4>
+    void text(Text* text, const T1& x, const T2& y, const T3& width, const T4& height,
+              Direction dir = Direction::Up) {
       VISAGE_ASSERT(text->font().packedFont());
-      TextBlock text_block(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height,
-                           text, dir);
+      TextBlock text_block(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
+                           pixels(width), pixels(height), text, dir);
       addShape(std::move(text_block));
     }
 
-    void text(const String& string, const Font& font, Font::Justification justification, float x,
-              float y, float width, float height, Direction dir = Direction::Up) {
+    template<typename T1, typename T2, typename T3, typename T4>
+    void text(const String& string, const Font& font, Font::Justification justification, const T1& x,
+              const T2& y, const T3& width, const T4& height, Direction dir = Direction::Up) {
       if (!string.isEmpty()) {
         Text* stored_text = state_.current_region->addText(string, font, justification);
         text(stored_text, x, y, width, height, dir);
       }
     }
 
-    void svg(const Svg& svg, float x, float y) {
-      addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, svg.width,
-                            svg.height, svg, imageAtlas()));
+    template<typename T1, typename T2>
+    void svg(const Svg& svg, const T1& x, const T2& y) {
+      addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
+                            svg.width, svg.height, svg, imageAtlas()));
     }
 
-    void svg(const char* svg_data, int svg_size, float x, float y, int width, int height,
-             int blur_radius = 0) {
-      svg({ svg_data, svg_size, width, height, blur_radius }, x, y);
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void svg(const char* svg_data, int svg_size, const T1& x, const T2& y, const T3& width,
+             const T4& height, const T5& blur_radius) {
+      svg({ svg_data, svg_size, pixels(width), pixels(height), pixels(blur_radius) }, x, y);
     }
 
-    void svg(const EmbeddedFile& file, float x, float y, int width, int height, int blur_radius = 0) {
+    template<typename T1, typename T2, typename T3, typename T4>
+    void svg(const char* svg_data, int svg_size, const T1& x, const T2& y, const T3& width,
+             const T4& height) {
+      svg({ svg_data, svg_size, pixels(width), pixels(height), 0 }, x, y);
+    }
+
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void svg(const EmbeddedFile& file, const T1& x, const T2& y, const T3& width, const T4& height,
+             const T5& blur_radius) {
       svg(file.data, file.size, x, y, width, height, blur_radius);
     }
 
-    void image(const Image& image, float x, float y) {
-      addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, image.width,
-                            image.height, image, imageAtlas()));
+    template<typename T1, typename T2, typename T3, typename T4>
+    void svg(const EmbeddedFile& file, const T1& x, const T2& y, const T3& width, const T4& height) {
+      svg(file.data, file.size, x, y, width, height);
     }
 
-    void image(const char* image_data, int image_size, float x, float y, int width, int height) {
-      image({ image_data, image_size, width, height }, x, y);
+    template<typename T1, typename T2>
+    void image(const Image& image, const T1& x, const T2& y) {
+      addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
+                            image.width, image.height, image, imageAtlas()));
     }
 
-    void image(const EmbeddedFile& image_file, float x, float y, int width, int height) {
+    template<typename T1, typename T2, typename T3, typename T4>
+    void image(const char* image_data, int image_size, const T1& x, const T2& y, const T3& width,
+               const T4& height) {
+      image({ image_data, image_size, pixels(width), pixels(height) }, x, y);
+    }
+
+    template<typename T1, typename T2, typename T3, typename T4>
+    void image(const EmbeddedFile& image_file, const T1& x, const T2& y, const T3& width, const T4& height) {
       image(image_file.data, image_file.size, x, y, width, height);
     }
 
-    void shader(Shader* shader, float x, float y, float width, float height) {
-      addShape(ShaderWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height, shader));
+    template<typename T1, typename T2, typename T3, typename T4>
+    void shader(Shader* shader, const T1& x, const T2& y, const T3& width, const T4& height) {
+      addShape(ShaderWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
+                             pixels(width), pixels(height), shader));
     }
 
-    void line(Line* line, float x, float y, float width, float height, float line_width) {
-      addShape(LineWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height,
-                           line, line_width));
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void line(Line* line, const T1& x, const T2& y, const T3& width, const T4& height, const T5& line_width) {
+      addShape(LineWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
+                           pixels(width), pixels(height), line, pixels(line_width), state_.scale));
     }
 
-    void lineFill(Line* line, float x, float y, float width, float height, float fill_position) {
-      addShape(LineFillWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
-                               height, line, fill_position));
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void lineFill(Line* line, const T1& x, const T2& y, const T3& width, const T4& height,
+                  const T5& fill_position) {
+      addShape(LineFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
+                               pixels(width), pixels(height), line, pixels(fill_position), state_.scale));
     }
 
     void saveState() { state_memory_.push_back(state_); }
@@ -481,6 +463,7 @@ namespace visage {
       saveState();
       state_.x = 0;
       state_.y = 0;
+      setLogicalPixelScale();
       state_.brush = nullptr;
       state_.blend_mode = BlendMode::Alpha;
       setClampBounds(0, 0, region->width(), region->height());
@@ -519,9 +502,6 @@ namespace visage {
     const ClampBounds& currentClampBounds() const { return state_.clamp; }
     bool totallyClamped() const { return state_.clamp.totallyClamped(); }
 
-    int x() const { return state_.x; }
-    int y() const { return state_.y; }
-
     Brush color(theme::ColorId color_id);
     Brush blendedColor(theme::ColorId color_from, theme::ColorId color_to, float t) {
       return color(color_from).interpolateWith(color(color_to), t);
@@ -537,8 +517,162 @@ namespace visage {
 
   private:
     template<typename T>
+    constexpr float pixels(T&& value) {
+      if constexpr (std::is_same_v<std::decay_t<T>, Dimension>)
+        return value.compute(state_.scale, state_.current_region->width(),
+                             state_.current_region->height());
+      else
+        return state_.scale * value;
+    }
+
+    template<typename T>
     void addShape(T shape) {
       state_.current_region->shape_batcher_.addShape(std::move(shape), state_.blend_mode);
+    }
+
+    void addSegment(float a_x, float a_y, float b_x, float b_y, float thickness,
+                    bool rounded = false, float pixel_width = 1.0f) {
+      float x = std::min(a_x, b_x) - thickness;
+      float width = std::max(a_x, b_x) + thickness - x;
+      float y = std::min(a_y, b_y) - thickness;
+      float height = std::max(a_y, b_y) + thickness - y;
+
+      float x1 = 2.0f * (a_x - x) / width - 1.0f;
+      float y1 = 2.0f * (a_y - y) / height - 1.0f;
+      float x2 = 2.0f * (b_x - x) / width - 1.0f;
+      float y2 = 2.0f * (b_y - y) / height - 1.0f;
+
+      if (rounded) {
+        addShape(RoundedSegment(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
+                                height, x1, y1, x2, y2, thickness + 1.0f, pixel_width));
+      }
+      else {
+        addShape(FlatSegment(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height,
+                             x1, y1, x2, y2, thickness + 1.0f, pixel_width));
+      }
+    }
+
+    void addQuadratic(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y,
+                      float thickness, float pixel_width = 1.0f) {
+      if (tryDrawCollinearQuadratic(a_x, a_y, b_x, b_y, c_x, c_y, thickness, pixel_width))
+        return;
+
+      float x = std::min(std::min(a_x, b_x), c_x) - thickness;
+      float width = std::max(std::max(a_x, b_x), c_x) + thickness - x;
+      float y = std::min(std::min(a_y, b_y), c_y) - thickness;
+      float height = std::max(std::max(a_y, b_y), c_y) + thickness - y;
+
+      float x1 = 2.0f * (a_x - x) / width - 1.0f;
+      float y1 = 2.0f * (a_y - y) / height - 1.0f;
+      float x2 = 2.0f * (b_x - x) / width - 1.0f;
+      float y2 = 2.0f * (b_y - y) / height - 1.0f;
+      float x3 = 2.0f * (c_x - x) / width - 1.0f;
+      float y3 = 2.0f * (c_y - y) / height - 1.0f;
+
+      addShape(QuadraticBezier(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
+                               height, x1, y1, x2, y2, x3, y3, thickness + 1.0f, pixel_width));
+    }
+
+    void addLeftRoundedRectangle(float x, float y, float width, float height, float rounding) {
+      ClampBounds clamp = state_.clamp;
+      clamp.right = std::min(clamp.right, state_.x + x + width);
+      addShape(RoundedRectangle(clamp, state_.brush, state_.x + x, state_.y + y,
+                                width + rounding + 1.0f, height, std::max(1.0f, rounding)));
+    }
+
+    void addRightRoundedRectangle(float x, float y, float width, float height, float rounding) {
+      ClampBounds clamp = state_.clamp;
+      clamp.left = std::max(clamp.left, state_.x + x);
+      float growth = rounding + 1.0f;
+      addShape(RoundedRectangle(clamp, state_.brush, state_.x + x - growth, state_.y + y,
+                                width + growth, height, std::max(1.0f, rounding)));
+    }
+
+    void addTopRoundedRectangle(float x, float y, float width, float height, float rounding) {
+      ClampBounds clamp = state_.clamp;
+      clamp.bottom = std::min(clamp.bottom, state_.y + y + height);
+      addShape(RoundedRectangle(clamp, state_.brush, state_.x + x, state_.y + y, width,
+                                height + rounding + 1.0f, std::max(1.0f, rounding)));
+    }
+
+    void addBottomRoundedRectangle(float x, float y, float width, float height, float rounding) {
+      ClampBounds clamp = state_.clamp;
+      clamp.top = std::max(clamp.top, state_.y + y);
+      float growth = rounding + 1.0f;
+      addShape(RoundedRectangle(clamp, state_.brush, state_.x + x, state_.y + y - growth, width,
+                                height + growth, std::max(1.0f, rounding)));
+    }
+
+    void addRectangleShadow(float x, float y, float width, float height, float blur_radius) {
+      if (blur_radius > 0.0f) {
+        Rectangle rectangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height);
+        rectangle.pixel_width = blur_radius;
+        addShape(rectangle);
+      }
+    }
+
+    void addRoundedRectangleShadow(float x, float y, float width, float height, float rounding,
+                                   float blur_radius) {
+      if (blur_radius <= 0.0f)
+        return;
+
+      float offset = -blur_radius * 0.5f;
+      if (rounding <= 1.0f)
+        rectangleShadow(state_.x + x + offset, state_.y + y + offset, width + blur_radius,
+                        height + blur_radius, blur_radius);
+      else {
+        RoundedRectangle shadow(state_.clamp, state_.brush, state_.x + x + offset, state_.y + y + offset,
+                                width + blur_radius, height + blur_radius, rounding);
+        shadow.pixel_width = blur_radius;
+        addShape(shadow);
+      }
+    }
+
+    void addRoundedRectangleBorder(float x, float y, float width, float height, float rounding,
+                                   float thickness) {
+      saveState();
+      float left = state_.clamp.left;
+      float right = state_.clamp.right;
+      float top = state_.clamp.top;
+      float bottom = state_.clamp.bottom;
+
+      float part = std::max(rounding, thickness);
+      state_.clamp.right = std::min(right, state_.x + x + part + 1.0f);
+      fullRoundedRectangleBorder(x, y, width, height, rounding, thickness);
+      state_.clamp.right = right;
+      state_.clamp.left = std::max(left, state_.x + x + width - part - 1.0f);
+      fullRoundedRectangleBorder(x, y, width, height, rounding, thickness);
+
+      state_.clamp.left = std::max(left, state_.x + x + part + 1.0f);
+      state_.clamp.right = std::min(right, state_.x + x + width - part - 1.0f);
+      state_.clamp.bottom = std::min(bottom, state_.y + y + part + 1.0f);
+      fullRoundedRectangleBorder(x, y, width, height, rounding, thickness);
+      state_.clamp.bottom = bottom;
+      state_.clamp.top = std::max(top, state_.y + y + height - part - 1.0f);
+      fullRoundedRectangleBorder(x, y, width, height, rounding, thickness);
+
+      restoreState();
+    }
+
+    void addRoundedTriangleBorder(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y,
+                                  float rounding, float thickness) {
+      float d_ab = sqrtf((a_x - b_x) * (a_x - b_x) + (a_y - b_y) * (a_y - b_y));
+      float d_bc = sqrtf((b_x - c_x) * (b_x - c_x) + (b_y - c_y) * (b_y - c_y));
+      float d_ca = sqrtf((c_x - a_x) * (c_x - a_x) + (c_y - a_y) * (c_y - a_y));
+      float perimeter = d_ab + d_bc + d_ca;
+      float inscribed_circle_x = (d_bc * a_x + d_ca * b_x + d_ab * c_x) / perimeter;
+      float inscribed_circle_y = (d_bc * a_y + d_ca * b_y + d_ab * c_y) / perimeter;
+      float s = perimeter * 0.5f;
+      float inscribed_circle_radius = sqrtf(s * (s - d_ab) * (s - d_bc) * (s - d_ca)) / s;
+
+      rounding = std::min(rounding, inscribed_circle_radius);
+      float shrinking = rounding / inscribed_circle_radius;
+      outerRoundedTriangleBorder(a_x + (inscribed_circle_x - a_x) * shrinking,
+                                 a_y + (inscribed_circle_y - a_y) * shrinking,
+                                 b_x + (inscribed_circle_x - b_x) * shrinking,
+                                 b_y + (inscribed_circle_y - b_y) * shrinking,
+                                 c_x + (inscribed_circle_x - c_x) * shrinking,
+                                 c_y + (inscribed_circle_y - c_y) * shrinking, rounding, thickness);
     }
 
     void fullRoundedRectangleBorder(float x, float y, float width, float height, float rounding,
@@ -550,7 +684,9 @@ namespace visage {
     }
 
     void outerRoundedTriangleBorder(float a_x, float a_y, float b_x, float b_y, float c_x,
-                                    float c_y, float rounding, float thickness) {
+                                    float c_y, float rounding, float thickness = -1.0f) {
+      if (thickness < 0.0f)
+        thickness = std::abs(a_x - b_x) + std::abs(a_y - b_y) + std::abs(a_x - c_x) + std::abs(a_y - c_y);
       float pad = rounding;
       float x = std::min(std::min(a_x, b_x), c_x) - pad;
       float width = std::max(std::max(a_x, b_x), c_x) - x + 2.0f * pad;
@@ -579,17 +715,13 @@ namespace visage {
         return false;
       }
 
-      segment(a_x, a_y, c_x, c_y, thickness, true, pixel_width);
+      addSegment(a_x, a_y, c_x, c_y, thickness, true, pixel_width);
       return true;
     }
 
     Palette* palette_ = nullptr;
-    float width_scale_ = 1.0f;
-    float height_scale_ = 1.0f;
     float dpi_scale_ = 1.0f;
-    bool draw_dpi_scaled_ = true;
     float draw_scale_ = 1.0f;
-    float current_draw_scale_ = 1.0f;
     double render_time_ = 0.0;
     double delta_time_ = 0.0;
     int render_frame_ = 0;

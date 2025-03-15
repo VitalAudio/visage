@@ -59,6 +59,60 @@ namespace visage {
     return reinterpret_cast<T>(GetProcAddress(module, proc_name));
   }
 
+  class NativeWindowLookup {
+  public:
+    static NativeWindowLookup& instance() {
+      static NativeWindowLookup instance;
+      return instance;
+    }
+
+    void addWindow(WindowWin32* window) {
+      native_window_lookup_[window->nativeHandle()] = window;
+      if (window->parentHandle())
+        parent_window_lookup_[window->parentHandle()] = window;
+    }
+
+    void removeWindow(WindowWin32* window) {
+      if (parent_window_lookup_.count(window->parentHandle()))
+        parent_window_lookup_.erase(window->parentHandle());
+      if (native_window_lookup_.count(window->nativeHandle()))
+        native_window_lookup_.erase(window->nativeHandle());
+    }
+
+    bool anyWindowOpen() const {
+      for (auto& window : native_window_lookup_) {
+        if (window.second->isShowing())
+          return true;
+      }
+      return false;
+    }
+
+    WindowWin32* findByNativeHandle(HWND hwnd) {
+      auto it = native_window_lookup_.find(hwnd);
+      return it != native_window_lookup_.end() ? it->second : nullptr;
+    }
+
+    WindowWin32* findByNativeParentHandle(HWND hwnd) {
+      auto it = parent_window_lookup_.find(hwnd);
+      return it != parent_window_lookup_.end() ? it->second : nullptr;
+    }
+
+    WindowWin32* findWindow(HWND hwnd) {
+      WindowWin32* window = findByNativeHandle(hwnd);
+      if (window)
+        return window;
+
+      return findByNativeParentHandle(hwnd);
+    }
+
+  private:
+    NativeWindowLookup() = default;
+    ~NativeWindowLookup() = default;
+
+    std::map<void*, WindowWin32*> parent_window_lookup_;
+    std::map<void*, WindowWin32*> native_window_lookup_;
+  };
+
   std::string readClipboardText() {
     if (!OpenClipboard(nullptr))
       return "";
@@ -131,76 +185,50 @@ namespace visage {
     ShowCursor(visible);
   }
 
-  static float pixelScale() {
+  static WindowWin32* activeWindow() {
     HWND hwnd = GetActiveWindow();
-    if (hwnd == nullptr)
-      return 1.0f;
-
-    HMODULE user32 = LoadLibraryA("user32.dll");
-    if (user32 == nullptr)
-      return 1.0f;
-
-    auto windowDpiAwarenessContext =
-        procedure<GetWindowDpiAwarenessContext_t>(user32, "GetWindowDpiAwarenessContext");
-    auto setThreadDpiAwarenessContext =
-        procedure<SetThreadDpiAwarenessContext_t>(user32, "SetWindowDpiAwarenessContext");
-    auto dpiForWindow = procedure<GetDpiForWindow_t>(user32, "GetDpiForWindow");
-
-    if (windowDpiAwarenessContext == nullptr || setThreadDpiAwarenessContext == nullptr ||
-        dpiForWindow == nullptr) {
-      return 1.0f;
-    }
-
-    DPI_AWARENESS_CONTEXT dpi_context = windowDpiAwarenessContext(hwnd);
-    if (!setThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2))
-      setThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
-
-    int scaled_dpi = dpiForWindow(hwnd);
-    setThreadDpiAwarenessContext(dpi_context);
-    return scaled_dpi * 1.0f / dpiForWindow(hwnd);
-  }
-
-  static Point convertToSystemPosition(Point frame_position) {
-    float scaling = pixelScale();
-    return { static_cast<int>(frame_position.x * scaling), static_cast<int>(frame_position.y * scaling) };
-  }
-
-  static Point convertToFramePosition(Point frame_position) {
-    float scaling = pixelScale();
-    return { static_cast<int>(frame_position.x / scaling), static_cast<int>(frame_position.y / scaling) };
+    return hwnd ? NativeWindowLookup::instance().findByNativeHandle(hwnd) : nullptr;
   }
 
   static Point cursorScreenPosition() {
     POINT cursor_position;
     GetCursorPos(&cursor_position);
-    return convertToFramePosition(Point(cursor_position.x, cursor_position.y));
+    WindowWin32* window = activeWindow();
+    if (window == nullptr)
+      return { cursor_position.x * 1.0f, cursor_position.y * 1.0f };
+
+    return window->convertToLogical(IPoint(cursor_position.x, cursor_position.y));
   }
 
   Point cursorPosition() {
     POINT cursor_position;
     GetCursorPos(&cursor_position);
 
-    HWND hwnd = GetActiveWindow();
-    if (hwnd == nullptr)
-      return { static_cast<int>(cursor_position.x), static_cast<int>(cursor_position.y) };
+    WindowWin32* window = activeWindow();
+    if (window == nullptr)
+      return { cursor_position.x * 1.0f, cursor_position.y * 1.0f };
 
-    ScreenToClient(hwnd, &cursor_position);
-    return convertToFramePosition(Point(cursor_position.x, cursor_position.y));
+    ScreenToClient(window->windowHandle(), &cursor_position);
+    return window->convertToLogical(IPoint(cursor_position.x, cursor_position.y));
   }
 
   void setCursorPosition(Point window_position) {
-    HWND hwnd = GetActiveWindow();
-    if (hwnd == nullptr)
+    WindowWin32* window = activeWindow();
+    if (window == nullptr)
       return;
 
     POINT client_position = { 0, 0 };
-    ClientToScreen(hwnd, &client_position);
-    Point position = convertToSystemPosition(window_position);
+    ClientToScreen(window->windowHandle(), &client_position);
+    IPoint position = window->convertToPhysical(window_position);
     SetCursorPos(client_position.x + position.x, client_position.y + position.y);
   }
 
   void setCursorScreenPosition(Point screen_position) {
-    Point position = convertToSystemPosition(screen_position);
+    WindowWin32* window = activeWindow();
+    if (window == nullptr)
+      return;
+
+    IPoint position = window->convertToPhysical(screen_position);
     SetCursorPos(position.x, position.y);
   }
 
@@ -280,60 +308,6 @@ namespace visage {
     long long start_us_ = 0;
   };
 
-  class NativeWindowLookup {
-  public:
-    static NativeWindowLookup& instance() {
-      static NativeWindowLookup instance;
-      return instance;
-    }
-
-    void addWindow(WindowWin32* window) {
-      native_window_lookup_[window->nativeHandle()] = window;
-      if (window->parentHandle())
-        parent_window_lookup_[window->parentHandle()] = window;
-    }
-
-    void removeWindow(WindowWin32* window) {
-      if (parent_window_lookup_.count(window->parentHandle()))
-        parent_window_lookup_.erase(window->parentHandle());
-      if (native_window_lookup_.count(window->nativeHandle()))
-        native_window_lookup_.erase(window->nativeHandle());
-    }
-
-    bool anyWindowOpen() const {
-      for (auto& window : native_window_lookup_) {
-        if (window.second->isShowing())
-          return true;
-      }
-      return false;
-    }
-
-    WindowWin32* findByNativeHandle(HWND hwnd) {
-      auto it = native_window_lookup_.find(hwnd);
-      return it != native_window_lookup_.end() ? it->second : nullptr;
-    }
-
-    WindowWin32* findByNativeParentHandle(HWND hwnd) {
-      auto it = parent_window_lookup_.find(hwnd);
-      return it != parent_window_lookup_.end() ? it->second : nullptr;
-    }
-
-    WindowWin32* findWindow(HWND hwnd) {
-      WindowWin32* window = findByNativeHandle(hwnd);
-      if (window)
-        return window;
-
-      return findByNativeParentHandle(hwnd);
-    }
-
-  private:
-    NativeWindowLookup() = default;
-    ~NativeWindowLookup() = default;
-
-    std::map<void*, WindowWin32*> parent_window_lookup_;
-    std::map<void*, WindowWin32*> native_window_lookup_;
-  };
-
   class DpiAwareness {
   public:
     DpiAwareness() {
@@ -380,6 +354,13 @@ namespace visage {
         return 1.0f;
 
       return dpiForSystem_() / Window::kDefaultDpi;
+    }
+
+    float dpiScale(HWND hwnd) const {
+      if (dpi_awareness_ == nullptr)
+        return 1.0f;
+
+      return dpiForWindow_(hwnd) / Window::kDefaultDpi;
     }
 
     float conversionFactor(HWND hwnd) const {
@@ -665,8 +646,8 @@ namespace visage {
       return dpi_awareness.conversionFactor();
     }
 
-    Point dragPosition(POINTL point) const {
-      float conversion = conversionFactor() / window_->pixelScale();
+    IPoint dragPosition(POINTL point) const {
+      float conversion = 1.0f / window_->dpiScale();
       POINT position = { static_cast<int>(std::round(point.x / conversion)),
                          static_cast<int>(std::round(point.y / conversion)) };
       ScreenToClient(static_cast<HWND>(window_->nativeHandle()), &position);
@@ -676,7 +657,7 @@ namespace visage {
 
     HRESULT __stdcall DragEnter(IDataObject* data_object, DWORD key_state, POINTL point,
                                 DWORD* effect) override {
-      Point position = dragPosition(point);
+      IPoint position = dragPosition(point);
       files_ = dropFileList(data_object);
       if (window_->handleFileDrag(position.x, position.y, files_))
         *effect = DROPEFFECT_COPY;
@@ -686,7 +667,7 @@ namespace visage {
     }
 
     HRESULT __stdcall DragOver(DWORD key_state, POINTL point, DWORD* effect) override {
-      Point position = dragPosition(point);
+      IPoint position = dragPosition(point);
       if (window_->handleFileDrag(position.x, position.y, files_))
         *effect = DROPEFFECT_COPY;
       else
@@ -700,7 +681,7 @@ namespace visage {
     }
 
     HRESULT __stdcall Drop(IDataObject* data_object, DWORD key_state, POINTL point, DWORD* effect) override {
-      Point position = dragPosition(point);
+      IPoint position = dragPosition(point);
       files_ = dropFileList(data_object);
       if (window_->handleFileDrop(position.x, position.y, files_))
         *effect = DROPEFFECT_COPY;
@@ -740,11 +721,6 @@ namespace visage {
     ULONG ref_count_ = 1;
     WindowWin32* window_ = nullptr;
   };
-
-  float windowPixelScale() {
-    DpiAwareness dpi_awareness;
-    return dpi_awareness.conversionFactor();
-  }
 
   bool isMobileDevice() {
     return false;
@@ -1105,7 +1081,7 @@ namespace visage {
 
       handleMouseMove(x, y, mouseButtonState(w_param), keyboardModifiers());
       if (mouseRelativeMode()) {
-        Point last_position = lastWindowMousePosition();
+        IPoint last_position = lastWindowMousePosition();
         POINT client_position = { last_position.x, last_position.y };
         ClientToScreen(hwnd, &client_position);
         SetCursorPos(client_position.x, client_position.y);
@@ -1331,8 +1307,8 @@ namespace visage {
     return MonitorFromPoint(cursor_position, MONITOR_DEFAULTTONEAREST);
   }
 
-  static Bounds boundsInMonitor(HMONITOR monitor, float dpi_scale, const Dimension& x,
-                                const Dimension& y, const Dimension& width, const Dimension& height) {
+  static IBounds boundsInMonitor(HMONITOR monitor, float dpi_scale, const Dimension& x,
+                                 const Dimension& y, const Dimension& width, const Dimension& height) {
     MONITORINFO monitor_info {};
     monitor_info.cbSize = sizeof(MONITORINFO);
     GetMonitorInfo(monitor, &monitor_info);
@@ -1349,7 +1325,7 @@ namespace visage {
     return { bounds_x, bounds_y, bounds_width, bounds_height };
   }
 
-  static Bounds windowBorderSize(HWND hwnd) {
+  static IBounds windowBorderSize(HWND hwnd) {
     WINDOWINFO info {};
     info.cbSize = sizeof(info);
     if (!GetWindowInfo(hwnd, &info))
@@ -1446,8 +1422,8 @@ namespace visage {
     drag_drop_target_ = new DragDropTarget(this);
   }
 
-  Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
-                             const Dimension& height) {
+  IBounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
+                              const Dimension& height) {
     DpiAwareness dpi_awareness;
     POINT cursor_position;
     GetCursorPos(&cursor_position);
@@ -1461,7 +1437,7 @@ namespace visage {
 
   std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
                                        const Dimension& height, Window::Decoration decoration_style) {
-    Bounds bounds = computeWindowBounds(x, y, width, height);
+    IBounds bounds = computeWindowBounds(x, y, width, height);
     return std::make_unique<WindowWin32>(bounds.x(), bounds.y(), bounds.width(), bounds.height(),
                                          decoration_style);
   }
@@ -1472,7 +1448,7 @@ namespace visage {
 
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle) {
-    Bounds bounds = computeWindowBounds(0, 0, width, height);
+    IBounds bounds = computeWindowBounds(0, 0, width, height);
     return std::make_unique<WindowWin32>(bounds.width(), bounds.height(), parent_handle);
   }
 
@@ -1503,7 +1479,7 @@ namespace visage {
       return;
     }
 
-    Bounds borders = windowBorderSize(window_handle_);
+    IBounds borders = windowBorderSize(window_handle_);
     int window_height = height + borders.height();
     if (decoration_ == Window::Decoration::Client)
       window_height = height + borders.bottom() + 2;
@@ -1539,7 +1515,6 @@ namespace visage {
     parent_window_proc_ = reinterpret_cast<WNDPROC>(parent_proc);
 
     DpiAwareness dpi_awareness;
-    setPixelScale(dpi_awareness.conversionFactor());
     setDpiScale(dpi_awareness.dpiScale());
     event_hooks_ = std::make_unique<EventHooks>();
     finishWindowSetup();
@@ -1580,12 +1555,12 @@ namespace visage {
     GetWindowRect(window_handle_, &rect);
     int x = rect.left;
     int y = rect.top;
-    LONG rect_width = static_cast<LONG>(std::round(width * pixelScale()));
-    LONG rect_height = static_cast<LONG>(std::round(height * pixelScale()));
+    LONG rect_width = static_cast<LONG>(width);
+    LONG rect_height = static_cast<LONG>(height);
     rect.right = rect.left + rect_width;
     rect.bottom = rect.top + rect_height;
 
-    Bounds borders = windowBorderSize(window_handle_);
+    IBounds borders = windowBorderSize(window_handle_);
     SetWindowPos(window_handle_, nullptr, x, y, rect.right - rect.left + borders.width(),
                  rect.bottom - rect.top + borders.height(), SWP_NOZORDER | SWP_NOMOVE);
   }
@@ -1624,8 +1599,8 @@ namespace visage {
     SetWindowText(window_handle_, w_title.c_str());
   }
 
-  Point WindowWin32::maxWindowDimensions() const {
-    Bounds borders = windowBorderSize(window_handle_);
+  IPoint WindowWin32::maxWindowDimensions() const {
+    IBounds borders = windowBorderSize(window_handle_);
     if (borders.width() == 0 && borders.height() == 0 && parent_handle_)
       borders = windowBorderSize(parent_handle_);
 
@@ -1643,7 +1618,7 @@ namespace visage {
              std::min<int>(display_height, height_from_width) };
   }
 
-  Point WindowWin32::minWindowDimensions() const {
+  IPoint WindowWin32::minWindowDimensions() const {
     float scale = minimumWindowScale();
     MONITORINFO monitor_info {};
     monitor_info.cbSize = sizeof(MONITORINFO);
@@ -1708,7 +1683,7 @@ namespace visage {
   }
 
   void WindowWin32::handleResizing(HWND hwnd, LPARAM l_param, WPARAM w_param) {
-    Bounds borders = windowBorderSize(hwnd);
+    IBounds borders = windowBorderSize(hwnd);
     RECT* rect = reinterpret_cast<RECT*>(l_param);
     int width = rect->right - rect->left - borders.width();
     int height = rect->bottom - rect->top - borders.height();
@@ -1726,10 +1701,10 @@ namespace visage {
     bool vertical_resize = w_param == WMSZ_TOP || w_param == WMSZ_BOTTOM ||
                            w_param == WMSZ_TOPLEFT || w_param == WMSZ_TOPRIGHT;
 
-    Point max_dimensions = maxWindowDimensions();
-    Point min_dimensions = minWindowDimensions();
-    Point adjusted_dimensions = adjustBoundsForAspectRatio({ width, height }, min_dimensions,
-                                                           max_dimensions, aspect_ratio,
+    Point max_dimensions = Point(maxWindowDimensions());
+    Point min_dimensions = Point(minWindowDimensions());
+    Point adjusted_dimensions = adjustBoundsForAspectRatio({ width * 1.0f, height * 1.0f },
+                                                           min_dimensions, max_dimensions, aspect_ratio,
                                                            horizontal_resize, vertical_resize);
 
     switch (w_param) {
@@ -1773,7 +1748,7 @@ namespace visage {
     float aspect_ratio = aspectRatio();
     VISAGE_ASSERT(aspect_ratio > 0.0f);
 
-    Bounds borders = windowBorderSize(hwnd);
+    IBounds borders = windowBorderSize(hwnd);
 
     RECT rect;
     GetWindowRect(hwnd, &rect);
@@ -1783,9 +1758,9 @@ namespace visage {
   }
 
   void WindowWin32::handleDpiChange(HWND hwnd, LPARAM l_param, WPARAM w_param) {
-    Point max_dimensions = maxWindowDimensions();
-    Point min_dimensions = minWindowDimensions();
-    Bounds borders = windowBorderSize(hwnd);
+    Point max_dimensions = Point(maxWindowDimensions());
+    Point min_dimensions = Point(minWindowDimensions());
+    IBounds borders = windowBorderSize(hwnd);
     RECT* suggested = reinterpret_cast<RECT*>(l_param);
     Point point(suggested->right - suggested->left - borders.width(),
                 suggested->bottom - suggested->top - borders.height());
@@ -1797,6 +1772,8 @@ namespace visage {
     SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, width + borders.width(),
                  height + borders.height(), SWP_NOZORDER | SWP_NOACTIVATE);
 
+    DpiAwareness dpi_awareness;
+    setDpiScale(dpi_awareness.dpiScale(hwnd));
     handleResized(width, height);
   }
 

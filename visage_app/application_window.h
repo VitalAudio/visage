@@ -42,7 +42,7 @@ namespace visage {
     }
 
     void setWindowDimensions(int width, int height) {
-      setLogicalDimensions(width, height);
+      setDimensions(width, height);
       if (window_)
         window_->setWindowSize(width, height);
     }
@@ -76,7 +76,7 @@ namespace visage {
     void registerCallbacks();
     void showWindow(bool maximized);
 
-    Point initial_position_;
+    IPoint initial_position_;
     Window::Decoration decoration_ = Window::Decoration::Native;
     CallbackList<void()> on_show_;
     CallbackList<void()> on_hide_;

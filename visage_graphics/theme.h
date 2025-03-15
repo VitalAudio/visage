@@ -35,17 +35,16 @@
   const ::visage::theme::ColorId container::color = ::visage::theme::ColorId::nextId(#color, __FILE__, \
                                                                                      default_color)
 
-#define THEME_VALUE(value, default_value, scale_type, round_to_pixel)                                                      \
-  const ::visage::theme::ValueId value = ::visage::theme::ValueId::nextId(#value, __FILE__, default_value,                 \
-                                                                          ::visage::theme::ValueId::ScaleType::scale_type, \
-                                                                          round_to_pixel)
+#define THEME_VALUE(value, default_value, round_to_pixel)                                   \
+  const ::visage::theme::ValueId value = ::visage::theme::ValueId::nextId(#value, __FILE__, \
+                                                                          default_value, round_to_pixel)
 
 #define THEME_DEFINE_VALUE(value) static const ::visage::theme::ValueId value
 
-#define THEME_IMPLEMENT_VALUE(container, value, default_value, scale_type, round_to_pixel) \
-  const ::visage::theme::ValueId container::value =                                        \
-      ::visage::theme::ValueId::nextId(#value, __FILE__, default_value,                    \
-                                       ::visage::theme::ValueId::ScaleType::scale_type, round_to_pixel)
+#define THEME_IMPLEMENT_VALUE(container, value, default_value, round_to_pixel)                         \
+  const ::visage::theme::ValueId container::value = ::visage::theme::ValueId::nextId(#value, __FILE__, \
+                                                                                     default_value,    \
+                                                                                     round_to_pixel)
 
 #define THEME_PALETTE_OVERRIDE(override_name) \
   const ::visage::theme::OverrideId override_name = ::visage::theme::OverrideId::nextId(#override_name)
@@ -129,18 +128,10 @@ namespace visage::theme {
   public:
     static constexpr unsigned int kInvalidId = 0xFFFFFFFF;
 
-    enum class ScaleType {
-      Constant,
-      ScaledDpi,
-      ScaledWidth,
-      ScaledHeight,
-    };
-
     struct ValueIdInfo {
       std::string name;
       std::string group;
       float default_value = 0.0f;
-      ScaleType scale_type = ScaleType::Constant;
       bool round_to_pixel = false;
     };
 
@@ -154,10 +145,10 @@ namespace visage::theme {
     bool operator<(const ValueId& other) const { return id < other.id; }
 
     static ValueId nextId(std::string name, const std::string& file_path, float default_value,
-                          ScaleType scale_type, bool round_to_pixel) noexcept {
+                          bool round_to_pixel) noexcept {
       Map* id = Map::instance();
       id->info_map_[ValueId(id->next_id_)] = { std::move(name), nameFromPath(file_path),
-                                               default_value, scale_type, round_to_pixel };
+                                               default_value, round_to_pixel };
       return ValueId(id->next_id_++);
     }
 

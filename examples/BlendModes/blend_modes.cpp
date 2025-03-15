@@ -58,7 +58,7 @@ public:
       canvas.setBlendMode(visage::BlendMode::Add);
       canvas.setColor(0xffffffff);
       canvas.text("Additive", font_, visage::Font::kCenter, 0, 0, additive_frame_.width(),
-                  font_.size() * 3);
+                  0.2f * additive_frame_.height());
       drawRgbCircles(canvas, additive_frame_.width(), additive_frame_.height());
     };
 
@@ -69,7 +69,7 @@ public:
       canvas.setBlendMode(visage::BlendMode::Sub);
       canvas.setColor(0xffffffff);
       canvas.text("Subtractive", font_, visage::Font::kCenter, 0, 0, subtractive_frame_.width(),
-                  font_.size() * 3);
+                  0.2f * subtractive_frame_.height());
       drawRgbCircles(canvas, subtractive_frame_.width(), subtractive_frame_.height());
     };
 
@@ -98,13 +98,13 @@ public:
 
       canvas.setBlendMode(visage::BlendMode::Alpha);
       canvas.setColor(0xffffffff);
-      canvas.text("Masked", font_, visage::Font::kCenter, 0, 0, w, font_.size() * 3);
+      canvas.text("Masked", font_, visage::Font::kCenter, 0, 0, w, 0.2f * masked_frame_.height());
     };
 
     transparent_frame_.onDraw() = [this](visage::Canvas& canvas) {
       canvas.setColor(0xffffffff);
       canvas.text("Grouped Transparency", font_, visage::Font::kCenter, 0, 0,
-                  transparent_frame_.width(), font_.size() * 3);
+                  transparent_frame_.width(), 0.2f * transparent_frame_.height());
       drawRgbCircles(canvas, transparent_frame_.width(), transparent_frame_.height());
     };
   }

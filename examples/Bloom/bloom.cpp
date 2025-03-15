@@ -60,7 +60,7 @@ public:
     auto compute_boost = [](float dist) { return std::max(0.0f, 1.0f - 8.0f * std::abs(dist)); };
 
     for (int i = 0; i < kNumPoints; ++i) {
-      float t = i / (kNumPoints - 1.0f);
+      float t = 1.1f * i / (kNumPoints - 1.0f) - 0.05f;
       float delta = std::min(t, 1.0f - t);
       position += 0.02f * delta * delta + 0.003f;
       graph_line_.setXAt(i, t * render_width);
@@ -69,7 +69,7 @@ public:
     }
 
     float center_y = (render_height - line_height) * 0.25f;
-    float dot_radius = dpiScale() * 4.0f;
+    float dot_radius = 4.0f;
     visage::Color color = 0xffaa88ff;
     for (int i = 0; i < kNumDots; ++i) {
       float t = (i + 1) / (kNumDots + 1.0f);

@@ -25,7 +25,7 @@
 class ExampleEditor : public visage::ApplicationWindow {
 public:
   void draw(visage::Canvas& canvas) override {
-    static constexpr float kRadius = 50.0f;
+    static constexpr float kRadius = 30.0f;
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, width(), height());
     if (down_)
@@ -63,8 +63,8 @@ public:
 
 private:
   bool down_ = false;
-  int x_ = -100;
-  int y_ = -100;
+  float x_ = -100.0f;
+  float y_ = -100.0f;
 };
 
 int runExample() {
