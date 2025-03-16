@@ -49,10 +49,10 @@ namespace visage {
 
     std::vector<IBounds> flexPositions(const std::vector<const Layout*>& children,
                                        const IBounds& bounds, float dpi_scale) {
-      int pad_left = padding_before_[0].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
-      int pad_right = padding_after_[0].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
-      int pad_top = padding_before_[1].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
-      int pad_bottom = padding_after_[1].computeWithDefault(dpi_scale, bounds.width(), bounds.height());
+      int pad_left = padding_before_[0].computeInt(dpi_scale, bounds.width(), bounds.height());
+      int pad_right = padding_after_[0].computeInt(dpi_scale, bounds.width(), bounds.height());
+      int pad_top = padding_before_[1].computeInt(dpi_scale, bounds.width(), bounds.height());
+      int pad_bottom = padding_after_[1].computeInt(dpi_scale, bounds.width(), bounds.height());
 
       IBounds flex_bounds = { bounds.x() + pad_left, bounds.y() + pad_top,
                               bounds.width() - pad_left - pad_right,

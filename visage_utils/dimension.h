@@ -30,12 +30,13 @@ namespace visage {
     float amount = 0.0f;
     std::function<float(float, float, float, float)> compute_function = nullptr;
 
-    int compute(float dpi_scale, float parent_width, float parent_height) const {
-      return std::round(compute_function(amount, dpi_scale, parent_width, parent_height));
+    float compute(float dpi_scale, float parent_width, float parent_height, float default_value = 0.0f) const {
+      if (compute_function)
+        return compute_function(amount, dpi_scale, parent_width, parent_height);
+      return default_value;
     }
 
-    int computeWithDefault(float dpi_scale, float parent_width, float parent_height,
-                           float default_value = 0.0f) const {
+    int computeInt(float dpi_scale, float parent_width, float parent_height, int default_value = 0) const {
       if (compute_function)
         return std::round(compute_function(amount, dpi_scale, parent_width, parent_height));
       return default_value;

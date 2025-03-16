@@ -71,9 +71,7 @@ public:
     canvas.fill(0, 0, width(), height());
   }
 
-  void resized() override {
-    button_.setFont(visage::Font(dpiScale() * 24.0f, resources::fonts::Lato_Regular_ttf));
-  }
+  void resized() override { button_.setFont(visage::Font(24, resources::fonts::Lato_Regular_ttf)); }
 
 private:
   visage::UiButton button_;

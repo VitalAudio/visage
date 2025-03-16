@@ -361,9 +361,9 @@ namespace visage {
     template<typename T1, typename T2, typename T3, typename T4>
     void text(Text* text, const T1& x, const T2& y, const T3& width, const T4& height,
               Direction dir = Direction::Up) {
-      VISAGE_ASSERT(text->font().packedFont());
       TextBlock text_block(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
-                           pixels(width), pixels(height), text, dir);
+                           pixels(width), pixels(height), text,
+                           text->font().withDpiScale(state_.scale), dir);
       addShape(std::move(text_block));
     }
 

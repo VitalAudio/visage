@@ -133,11 +133,12 @@ namespace visage {
           else
             canvas.setColor(text);
 
-          Font font(paletteValue(PopupFontSize) * dpiScale(), font_.fontData(), font_.dataSize());
+          int popup_font_size = paletteValue(PopupFontSize);
+          Font font(popup_font_size, font_.fontData(), font_.dataSize());
           canvas.text(options_[i].name(), font, Font::kLeft, x_padding, y, width(), option_height);
 
           if (options_[i].hasOptions()) {
-            int triangle_width = font.size() * kTriangleWidthRatio;
+            int triangle_width = popup_font_size * kTriangleWidthRatio;
             int triangle_x = width() - x_padding - triangle_width;
             int triangle_y = y + option_height / 2 - triangle_width;
             canvas.triangleRight(triangle_x, triangle_y, triangle_width);
@@ -251,7 +252,7 @@ namespace visage {
     for (int i = 1; i < kMaxSubMenus; ++i)
       lists_[i].setVisible(false);
 
-    font_ = Font(paletteValue(PopupFontSize) * dpiScale(), font_.fontData(), font_.dataSize());
+    font_ = Font(paletteValue(PopupFontSize), font_.fontData(), font_.dataSize());
     setListFonts(font_);
 
     lists_[0].setOptions(menu_.options());
@@ -415,7 +416,7 @@ namespace visage {
     setVisible(true);
     text_ = text;
 
-    Font font(paletteValue(PopupFontSize) * dpiScale(), font_.fontData(), font_.dataSize());
+    Font font(paletteValue(PopupFontSize), font_.fontData(), font_.dataSize());
     int x_padding = paletteValue(PopupSelectionPadding) + paletteValue(PopupTextPadding);
     int width = font.stringWidth(text.c_str(), text.length()) + 2 * x_padding;
     int height = paletteValue(PopupOptionHeight);
@@ -435,7 +436,7 @@ namespace visage {
   }
 
   void ValueDisplay::draw(Canvas& canvas) {
-    Font font(canvas.value(PopupFontSize) * dpiScale(), font_.fontData(), font_.dataSize());
+    Font font(canvas.value(PopupFontSize), font_.fontData(), font_.dataSize());
     canvas.setColor(PopupMenuBackground);
     canvas.roundedRectangle(0, 0, width(), height(), 8.0f);
 

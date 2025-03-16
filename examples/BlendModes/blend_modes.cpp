@@ -139,7 +139,7 @@ public:
     masked_frame_.setBounds(0, center_y, center_x, height() - center_y);
     transparent_frame_.setBounds(center_x, center_y, width() - center_x, height() - center_y);
 
-    font_ = visage::Font(16.0f * dpiScale(), resources::fonts::Lato_Regular_ttf);
+    font_ = visage::Font(16, resources::fonts::Lato_Regular_ttf);
   }
 
 private:

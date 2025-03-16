@@ -61,7 +61,7 @@ std::unique_ptr<visage::Frame> createFrame(visage::ApplicationWindow& app, visag
     canvas.roundedRectangle(0, 0, f->width(), f->height(), 18.0f);
 
     canvas.setColor(0xff000000);
-    visage::Font font(20.0f * canvas.dpiScale(), resources::fonts::Lato_Regular_ttf);
+    visage::Font font(20, resources::fonts::Lato_Regular_ttf);
     canvas.text(text, font, visage::Font::kCenter, 0, 0, f->width(), f->height());
   };
   return frame;
@@ -111,7 +111,7 @@ public:
     canvas.roundedRectangle(0, 0, width(), height(), 18.0f);
 
     canvas.setColor(0xff000000);
-    visage::Font font(20.0f * canvas.dpiScale(), resources::fonts::Lato_Regular_ttf);
+    visage::Font font(20, resources::fonts::Lato_Regular_ttf);
     canvas.text("Linear Points", font, visage::Font::kCenter, 0, 0, width(), height());
 
     canvas.setColor(mouse_down_ ? 0xaaffffff : 0x66ffffff);

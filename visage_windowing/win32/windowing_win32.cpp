@@ -339,16 +339,6 @@ namespace visage {
         setThreadDpiAwarenessContext_(previous_dpi_awareness_);
     }
 
-    float conversionFactor() const {
-      if (dpi_awareness_ == nullptr)
-        return 1.0f;
-
-      setThreadDpiAwarenessContext_(previous_dpi_awareness_);
-      unsigned int previous_dpi = dpiForSystem_();
-      setThreadDpiAwarenessContext_(dpi_awareness_);
-      return dpiForSystem_() * 1.0f / previous_dpi;
-    }
-
     float dpiScale() const {
       if (dpi_awareness_ == nullptr)
         return 1.0f;
@@ -361,16 +351,6 @@ namespace visage {
         return 1.0f;
 
       return dpiForWindow_(hwnd) / Window::kDefaultDpi;
-    }
-
-    float conversionFactor(HWND hwnd) const {
-      if (dpi_awareness_ == nullptr)
-        return 1.0f;
-
-      setThreadDpiAwarenessContext_(previous_dpi_awareness_);
-      unsigned int previous_dpi = dpiForWindow_(hwnd);
-      setThreadDpiAwarenessContext_(dpi_awareness_);
-      return dpiForWindow_(hwnd) * 1.0f / previous_dpi;
     }
 
   private:
@@ -641,24 +621,18 @@ namespace visage {
       return count;
     }
 
-    static float conversionFactor() {
-      DpiAwareness dpi_awareness;
-      return dpi_awareness.conversionFactor();
-    }
-
     IPoint dragPosition(POINTL point) const {
       float conversion = 1.0f / window_->dpiScale();
-      POINT position = { static_cast<int>(std::round(point.x / conversion)),
-                         static_cast<int>(std::round(point.y / conversion)) };
+      POINT position = { point.x, point.y };
       ScreenToClient(static_cast<HWND>(window_->nativeHandle()), &position);
-      return { static_cast<int>(std::round(position.x * conversion)),
-               static_cast<int>(std::round(position.y * conversion)) };
+      return { position.x, position.y };
     }
 
     HRESULT __stdcall DragEnter(IDataObject* data_object, DWORD key_state, POINTL point,
                                 DWORD* effect) override {
       IPoint position = dragPosition(point);
       files_ = dropFileList(data_object);
+      VISAGE_LOG(position.x);
       if (window_->handleFileDrag(position.x, position.y, files_))
         *effect = DROPEFFECT_COPY;
       else
@@ -1315,13 +1289,13 @@ namespace visage {
 
     int monitor_width = monitor_info.rcWork.right - monitor_info.rcWork.left;
     int monitor_height = monitor_info.rcWork.bottom - monitor_info.rcWork.top;
-    int bounds_width = width.computeWithDefault(dpi_scale, monitor_width, monitor_height);
-    int bounds_height = height.computeWithDefault(dpi_scale, monitor_width, monitor_height);
+    int bounds_width = width.computeInt(dpi_scale, monitor_width, monitor_height);
+    int bounds_height = height.computeInt(dpi_scale, monitor_width, monitor_height);
 
     int default_x = monitor_info.rcWork.left + (monitor_width - bounds_width) / 2;
     int default_y = monitor_info.rcWork.top + (monitor_height - bounds_height) / 2;
-    int bounds_x = x.computeWithDefault(dpi_scale, monitor_width, monitor_height, default_x);
-    int bounds_y = y.computeWithDefault(dpi_scale, monitor_width, monitor_height, default_y);
+    int bounds_x = x.computeInt(dpi_scale, monitor_width, monitor_height, default_x);
+    int bounds_y = y.computeInt(dpi_scale, monitor_width, monitor_height, default_y);
     return { bounds_x, bounds_y, bounds_width, bounds_height };
   }
 
@@ -1428,8 +1402,8 @@ namespace visage {
     POINT cursor_position;
     GetCursorPos(&cursor_position);
     float dpi_scale = dpi_awareness.dpiScale();
-    int x_position = x.computeWithDefault(dpi_scale, 0, 0, cursor_position.x);
-    int y_position = y.computeWithDefault(dpi_scale, 0, 0, cursor_position.y);
+    int x_position = x.computeInt(dpi_scale, 0, 0, cursor_position.x);
+    int y_position = y.computeInt(dpi_scale, 0, 0, cursor_position.y);
 
     HMONITOR monitor = MonitorFromPoint({ x_position, y_position }, MONITOR_DEFAULTTONEAREST);
     return boundsInMonitor(monitor, dpi_scale, x, y, width, height);
