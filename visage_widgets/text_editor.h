@@ -85,9 +85,9 @@ namespace visage {
     void drawSelection(Canvas& canvas) const;
     void draw(Canvas& canvas) override;
 
-    std::pair<int, int> indexToPosition(int index) const;
+    std::pair<float, float> indexToPosition(int index) const;
     std::pair<int, int> lineRange(int line) const;
-    int positionToIndex(const std::pair<int, int>& position) const;
+    int positionToIndex(const std::pair<float, float>& position) const;
 
     void cancel();
     void deselect();
@@ -107,6 +107,12 @@ namespace visage {
       setBackgroundRounding(paletteValue(TextEditorRounding));
       setLineBreaks();
       makeCaretVisible();
+    }
+
+    void dpiChanged() override {
+      Font f = font().withDpiScale(dpiScale());
+      text_.setFont(f);
+      default_text_.setFont(f);
     }
 
     void mouseEnter(const MouseEvent& e) override;
@@ -153,7 +159,7 @@ namespace visage {
       background_rounding_ = rounding;
       setScrollBarRounding(rounding);
     }
-    void setMargin(int x, int y) {
+    void setMargin(float x, float y) {
       set_x_margin_ = x;
       set_y_margin_ = y;
     }
@@ -180,7 +186,7 @@ namespace visage {
     void setLineBreaks() {
       if (text_.multiLine() && text_.font().packedFont())
         line_breaks_ = text_.font().lineBreaks(text_.text().c_str(), text_.text().length(),
-                                               width() - 2 * xMargin());
+                                               physicalWidth() - 2 * xMargin());
     }
 
     void setText(const String& text) {
@@ -209,8 +215,9 @@ namespace visage {
       default_text_.setJustification(justification);
     }
     void setFont(const Font& font) {
-      text_.setFont(font);
-      default_text_.setFont(font);
+      Font f = font.withDpiScale(dpiScale());
+      text_.setFont(f);
+      default_text_.setFont(f);
       setLineBreaks();
       makeCaretVisible();
     }
@@ -225,7 +232,6 @@ namespace visage {
     void setBackgroundColorId(theme::ColorId color_id) { background_color_id_ = color_id; }
 
   private:
-    bool processKeyPress(const KeyEvent& key);
     void addUndoPosition() { undo_history_.emplace_back(text_.text(), caret_position_); }
 
     CallbackList<void()> on_text_change_;
@@ -233,6 +239,7 @@ namespace visage {
     CallbackList<void()> on_escape_key_;
 
     DeadKey dead_key_entry_ = DeadKey::None;
+    Font font_;
     Text text_;
     Text default_text_;
     std::string filtered_characters_;
@@ -249,8 +256,8 @@ namespace visage {
 
     theme::ColorId background_color_id_ = TextEditorBackground;
     float background_rounding_ = 1.0f;
-    int set_x_margin_ = 0;
-    int set_y_margin_ = 0;
+    float set_x_margin_ = 0.0f;
+    float set_y_margin_ = 0.0f;
     int x_position_ = 0;
 
     ActionState action_state_ = kNone;

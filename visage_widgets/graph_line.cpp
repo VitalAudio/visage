@@ -67,8 +67,7 @@ namespace visage {
   void GraphLine::drawLine(Canvas& canvas, theme::ColorId color_id) {
     line_.line_value_scale = canvas.value(LineColorBoost);
     canvas.setColor(color_id);
-    float line_width = line_width_.computeWithDefault(canvas.dpiScale(), width(), height(),
-                                                      paletteValue(LineWidth));
+    float line_width = line_width_.compute(canvas.dpiScale(), width(), height(), paletteValue(LineWidth));
     canvas.line(&line_, 0.0f, 0.0f, width(), height(), line_width);
   }
 

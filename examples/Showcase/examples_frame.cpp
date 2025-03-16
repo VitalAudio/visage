@@ -105,7 +105,7 @@ class DragDropSource : public visage::Frame {
 
     canvas.setColor(TextColor);
 
-    const visage::Font font(physicalHeight() / 4, resources::fonts::Lato_Regular_ttf);
+    const visage::Font font(height() / 4, resources::fonts::Lato_Regular_ttf);
     if (dragging_)
       canvas.text("Dragging source file", font, visage::Font::kCenter, 0, 0, width(), height());
     else
@@ -201,7 +201,7 @@ void TitleBar::draw(visage::Canvas& canvas) {
   canvas.rectangle(0, 0, width(), height());
 
   canvas.setColor(TextColor);
-  const visage::Font font(physicalHeight() / 2, resources::fonts::Lato_Regular_ttf);
+  const visage::Font font(height() / 2, resources::fonts::Lato_Regular_ttf);
   canvas.text(title_, font, visage::Font::kCenter, 0, 0, width(), height());
 }
 
@@ -282,7 +282,7 @@ ExamplesFrame::~ExamplesFrame() = default;
 void ExamplesFrame::resized() {
   ScrollableFrame::resized();
 
-  visage::Font font(computeSize(20_px), resources::fonts::Lato_Regular_ttf);
+  visage::Font font(20, resources::fonts::Lato_Regular_ttf);
   left_text_editor_->setFont(font);
   number_editor_->setFont(font);
   right_text_editor_->setFont(font);
@@ -290,7 +290,7 @@ void ExamplesFrame::resized() {
   text_button_->setFont(font);
   ui_button_->setFont(font);
   action_button_->setFont(font);
-  setScrollableHeight(sections_.back()->bottom() + computeSize(8_px));
+  setScrollableHeight(sections_.back()->bottom() + 8.0f * dpiScale());
 }
 
 void ExamplesFrame::setupBars() {

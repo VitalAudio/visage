@@ -246,21 +246,35 @@ namespace visage {
     return false;
   }
 
-  Font::Font(int size, const char* data, int data_size) :
-      size_(size), font_data_(data), data_size_(data_size) {
-    packed_font_ = FontCache::loadPackedFont(size, data, data_size);
+  Font::Font(float size, const char* data, int data_size) :
+      size_(size), font_data_(data), data_size_(data_size), physical_size_(std::round(size)) {
+    packed_font_ = FontCache::loadPackedFont(physical_size_, data, data_size);
   }
 
-  Font::Font(int size, const EmbeddedFile& file) :
-      size_(size), font_data_(file.data), data_size_(file.size) {
-    packed_font_ = FontCache::loadPackedFont(size, file);
+  Font::Font(float size, const EmbeddedFile& file) :
+      size_(size), font_data_(file.data), data_size_(file.size), physical_size_(std::round(size)) {
+    packed_font_ = FontCache::loadPackedFont(physical_size_, file);
+  }
+
+  Font::Font(float size, const char* data, int data_size, float dpi_scale) :
+      size_(size), font_data_(data), data_size_(data_size), dpi_scale_(dpi_scale) {
+    physical_size_ = std::round(size * dpi_scale);
+    packed_font_ = FontCache::loadPackedFont(physical_size_, data, data_size);
+  }
+
+  Font::Font(float size, const EmbeddedFile& file, float dpi_scale) :
+      size_(size), font_data_(file.data), data_size_(file.size), dpi_scale_(dpi_scale) {
+    physical_size_ = std::round(size * dpi_scale);
+    packed_font_ = FontCache::loadPackedFont(physical_size_, file);
   }
 
   Font::Font(const Font& other) {
     size_ = other.size_;
+    physical_size_ = other.physical_size_;
+    dpi_scale_ = other.dpi_scale_;
     font_data_ = other.font_data_;
     data_size_ = other.data_size_;
-    packed_font_ = FontCache::loadPackedFont(size_, font_data_, data_size_);
+    packed_font_ = FontCache::loadPackedFont(physical_size_, font_data_, data_size_);
   }
 
   Font& Font::operator=(const Font& other) {
@@ -269,10 +283,13 @@ namespace visage {
 
     if (packed_font_)
       FontCache::returnPackedFont(packed_font_);
+
     size_ = other.size_;
+    physical_size_ = other.physical_size_;
+    dpi_scale_ = other.dpi_scale_;
     font_data_ = other.font_data_;
     data_size_ = other.data_size_;
-    packed_font_ = FontCache::loadPackedFont(size_, font_data_, data_size_);
+    packed_font_ = FontCache::loadPackedFont(physical_size_, font_data_, data_size_);
     return *this;
   }
 
@@ -281,8 +298,8 @@ namespace visage {
       FontCache::returnPackedFont(packed_font_);
   }
 
-  int Font::widthOverflowIndex(const char32_t* string, int string_length, float width, bool round,
-                               int character_override) const {
+  int Font::physicalWidthOverflowIndex(const char32_t* string, int string_length, float width,
+                                       bool round, int character_override) const {
     float string_width = 0;
     for (int i = 0; i < string_length; ++i) {
       char32_t character = string[i];
@@ -306,7 +323,7 @@ namespace visage {
     return string_length;
   }
 
-  float Font::stringWidth(const char32_t* string, int length, int character_override) const {
+  float Font::physicalStringWidth(const char32_t* string, int length, int character_override) const {
     if (length <= 0)
       return 0.0f;
 
@@ -330,9 +347,9 @@ namespace visage {
     if (length <= 0)
       return;
 
-    float string_width = stringWidth(text, length, character_override);
+    float string_width = physicalStringWidth(text, length, character_override);
     float pen_x = x + (width - string_width) * 0.5f;
-    float pen_y = y + static_cast<int>((height + capitalHeight()) * 0.5f);
+    float pen_y = y + static_cast<int>((height + physicalCapitalHeight()) * 0.5f);
 
     if (justification & kLeft)
       pen_x = x;
@@ -340,7 +357,7 @@ namespace visage {
       pen_x = x + width - string_width;
 
     if (justification & kTop)
-      pen_y = y + static_cast<int>((capitalHeight() + lineHeight()) * 0.5f);
+      pen_y = y + static_cast<int>((physicalCapitalHeight() + physicalLineHeight()) * 0.5f);
     else if (justification & kBottom)
       pen_y = y + static_cast<int>(height);
 
@@ -361,11 +378,12 @@ namespace visage {
     }
   }
 
-  std::vector<int> Font::lineBreaks(const char32_t* string, int length, float width) const {
+  std::vector<int> Font::physicalLineBreaks(const char32_t* string, int length, float width) const {
     std::vector<int> line_breaks;
     int break_index = 0;
     while (break_index < length) {
-      int overflow_index = widthOverflowIndex(string + break_index, length - break_index, width) + break_index;
+      int overflow_index = physicalWidthOverflowIndex(string + break_index, length - break_index, width) +
+                           break_index;
       if (overflow_index == length && !hasNewLine(string + break_index, overflow_index - break_index))
         break;
 
@@ -394,8 +412,8 @@ namespace visage {
   void Font::setMultiLineVertexPositions(FontAtlasQuad* quads, const char32_t* text, int length,
                                          float x, float y, float width, float height,
                                          Justification justification) const {
-    int line_height = lineHeight();
-    std::vector<int> line_breaks = lineBreaks(text, length, width);
+    int line_height = physicalLineHeight();
+    std::vector<int> line_breaks = physicalLineBreaks(text, length, width);
     line_breaks.push_back(length);
 
     Justification line_justification = kTop;
@@ -421,17 +439,17 @@ namespace visage {
     }
   }
 
-  int Font::lineHeight() const {
+  int Font::physicalLineHeight() const {
     return packed_font_->lineHeight();
   }
 
-  float Font::capitalHeight() const {
+  float Font::physicalCapitalHeight() const {
     return packed_font_->packedGlyph('T')->y_offset;
   }
 
-  float Font::lowerDipHeight() const {
+  float Font::physicalLowerDipHeight() const {
     const PackedGlyph* glyph = packed_font_->packedGlyph('y');
-    return glyph->y_offset + glyph->height;
+    return (glyph->y_offset + glyph->height);
   }
 
   int Font::atlasWidth() const {

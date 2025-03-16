@@ -245,10 +245,10 @@ namespace visage {
     error_.setBounds(kPaddingHeight, height() - info_height - kPaddingHeight, editor_width, info_height);
     editor_.setBounds(kPaddingHeight, kPaddingHeight, editor_width, error_.y() - 2 * kPaddingHeight);
 
-    int font_size = 16.0f;
+    int font_size = 16;
     status_.setBounds(error_.right() - font_size - kPaddingHeight, error_.y() + kPaddingHeight,
                       font_size, font_size);
-    editor_.setFont(Font(dpiScale() * font_size, fonts::DroidSansMono_ttf));
+    editor_.setFont(Font(font_size, fonts::DroidSansMono_ttf));
     error_.setFont(editor_.font());
   }
 }

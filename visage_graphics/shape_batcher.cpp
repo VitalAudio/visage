@@ -456,7 +456,7 @@ namespace visage {
     if (batches.empty() || batches[0].shapes->empty())
       return;
 
-    const Font& font = batches[0].shapes->front().text->font();
+    const Font& font = batches[0].shapes->front().font;
     int total_length = 0;
     for (const auto& batch : batches) {
       auto count_pieces = [&batch](int sum, const TextBlock& text_block) {

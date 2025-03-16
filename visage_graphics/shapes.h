@@ -529,9 +529,9 @@ namespace visage {
 
   struct TextBlock : Shape<TextureVertex> {
     TextBlock(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-              float height, Text* text, Direction direction) :
-        Shape(text->font().packedFont(), clamp, brush, x, y, width, height), text(text),
-        direction(direction) {
+              float height, Text* text, Font font, Direction direction) :
+        Shape(font.packedFont(), clamp, brush, x, y, width, height), text(text),
+        font(std::move(font)), direction(direction) {
       quads = VectorPool<FontAtlasQuad>::instance().vector(text->text().length());
       this->clamp = clamp.clamp(x, y, width, height);
 
@@ -542,12 +542,11 @@ namespace visage {
       if (direction == Direction::Left || direction == Direction::Right)
         std::swap(w, h);
       if (text->multiLine()) {
-        text->font().setMultiLineVertexPositions(quads.data(), c_str, length, 0, 0, w, h,
-                                                 text->justification());
+        font.setMultiLineVertexPositions(quads.data(), c_str, length, 0, 0, w, h, text->justification());
       }
       else {
-        text->font().setVertexPositions(quads.data(), c_str, length, 0, 0, w, h,
-                                        text->justification(), text->characterOverride());
+        font.setVertexPositions(quads.data(), c_str, length, 0, 0, w, h, text->justification(),
+                                text->characterOverride());
       }
 
       if (direction == Direction::Down) {
@@ -596,6 +595,7 @@ namespace visage {
 
     std::vector<FontAtlasQuad> quads;
     Text* text = nullptr;
+    Font font;
     Direction direction = Direction::Up;
   };
 

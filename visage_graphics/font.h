@@ -80,21 +80,36 @@ namespace visage {
     static bool hasNewLine(const char32_t* string, int length);
 
     Font() = default;
-    Font(int size, const char* font_data, int data_size);
-    Font(int size, const EmbeddedFile& file);
+    Font(float size, const char* font_data, int data_size);
+    Font(float size, const EmbeddedFile& file);
+    Font(float size, const char* font_data, int data_size, float dpi_scale);
+    Font(float size, const EmbeddedFile& file, float dpi_scale);
     Font(const Font& other);
     Font& operator=(const Font& other);
     ~Font();
 
+    float dpiScale() const { return dpi_scale_ ? dpi_scale_ : 1.0f; }
+    Font withDpiScale(float dpi_scale) const {
+      return Font(size_, fontData(), dataSize(), dpi_scale);
+    }
+
     int widthOverflowIndex(const char32_t* string, int string_length, float width,
-                           bool round = false, int character_override = 0) const;
-    float stringWidth(const char32_t* string, int length, int character_override = 0) const;
+                           bool round = false, int character_override = 0) const {
+      return physicalWidthOverflowIndex(string, string_length, width * dpiScale(), round, character_override);
+    }
+    std::vector<int> lineBreaks(const char32_t* string, int length, float width) const {
+      return physicalLineBreaks(string, length, width * dpiScale());
+    }
+
+    float stringWidth(const char32_t* string, int length, int character_override = 0) const {
+      return physicalStringWidth(string, length, character_override) / dpiScale();
+    }
     float stringWidth(const std::u32string& string, int character_override = 0) const {
       return stringWidth(string.c_str(), string.size(), character_override);
     }
-    int lineHeight() const;
-    float capitalHeight() const;
-    float lowerDipHeight() const;
+    int lineHeight() const { return physicalLineHeight() / dpiScale(); }
+    float capitalHeight() const { return physicalCapitalHeight() / dpiScale(); }
+    float lowerDipHeight() const { return physicalLowerDipHeight() / dpiScale(); }
 
     int atlasWidth() const;
     int atlasHeight() const;
@@ -107,8 +122,6 @@ namespace visage {
                             float width, float height, Justification justification = Justification::kCenter,
                             int character_override = 0) const;
 
-    std::vector<int> lineBreaks(const char32_t* string, int length, float width) const;
-
     void setMultiLineVertexPositions(FontAtlasQuad* quads, const char32_t* string, int length,
                                      float x, float y, float width, float height,
                                      Justification justification = Justification::kCenter) const;
@@ -116,7 +129,17 @@ namespace visage {
     const PackedFont* packedFont() const { return packed_font_; }
 
   private:
-    int size_ = 0;
+    int physicalWidthOverflowIndex(const char32_t* string, int string_length, float width,
+                                   bool round = false, int character_override = 0) const;
+    float physicalStringWidth(const char32_t* string, int length, int character_override = 0) const;
+    int physicalLineHeight() const;
+    float physicalCapitalHeight() const;
+    float physicalLowerDipHeight() const;
+    std::vector<int> physicalLineBreaks(const char32_t* string, int length, float width) const;
+
+    float size_ = 0.0f;
+    int physical_size_ = 0;
+    float dpi_scale_ = 0.0f;
     const char* font_data_ = nullptr;
     int data_size_ = 0;
     PackedFont* packed_font_ = nullptr;

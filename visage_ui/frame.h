@@ -62,6 +62,7 @@ namespace visage {
 
     auto& onDraw() { return on_draw_; }
     auto& onResize() { return on_resize_; }
+    auto& onDpiChange() { return on_dpi_change_; }
     auto& onVisibilityChange() { return on_visibility_change_; }
     auto& onHierarchyChange() { return on_hierarchy_change_; }
     auto& onFocusChange() { return on_focus_change_; }
@@ -81,6 +82,7 @@ namespace visage {
     virtual void destroy() { destroyChildren(); }
 
     virtual void resized() { }
+    virtual void dpiChanged() { }
     virtual void visibilityChanged() { }
     virtual void hierarchyChanged() { }
     virtual void focusChanged(bool is_focused, bool was_clicked) { }
@@ -272,12 +274,12 @@ namespace visage {
 
     void drawToRegion(Canvas& canvas);
 
-    float computeSize(const Dimension& size) const {
-      return size.computeWithDefault(dpi_scale_, width(), height());
-    }
-
     void setDpiScale(float dpi_scale) {
+      bool changed = dpi_scale_ != dpi_scale;
       dpi_scale_ = dpi_scale;
+
+      if (changed)
+        on_dpi_change_.callback();
 
       for (Frame* child : children_)
         child->setDpiScale(dpi_scale);
@@ -375,6 +377,7 @@ namespace visage {
 
     CallbackList<void(Canvas&)> on_draw_ { [this](Canvas& e) -> void { draw(e); } };
     CallbackList<void()> on_resize_ { [this] { resized(); } };
+    CallbackList<void()> on_dpi_change_ { [this] { dpiChanged(); } };
     CallbackList<void()> on_visibility_change_ { [this] { visibilityChanged(); } };
     CallbackList<void()> on_hierarchy_change_ { [this] { hierarchyChanged(); } };
     CallbackList<void(bool, bool)> on_focus_change_ { [this](bool is_focused, bool was_clicked) {

@@ -76,7 +76,7 @@ public:
   }
 
   void resized() override {
-    visage::Font font(height() * 0.05f * dpiScale(), resources::fonts::Lato_Regular_ttf);
+    visage::Font font(height() * 0.05f, resources::fonts::Lato_Regular_ttf);
 
     for (auto& button : options_)
       button.setFont(font);

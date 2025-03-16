@@ -115,12 +115,12 @@ namespace visage {
   }
 
   void TextEditor::selectionRectangle(Canvas& canvas, int x, int y, int w, int h) const {
-    int width = physicalWidth();
-    int height = physicalHeight();
-    int left = std::max(0, std::min(width, x));
-    int top = std::max(0, std::min(height, y));
-    int right = std::max(0, std::min(width, x + w));
-    int bottom = std::max(0, std::min(height, y + h));
+    int full_width = width();
+    int full_height = height();
+    int left = std::max(0, std::min(full_width, x));
+    int top = std::max(0, std::min(full_height, y));
+    int right = std::max(0, std::min(full_width, x + w));
+    int bottom = std::max(0, std::min(full_height, y + h));
     canvas.rectangle(left, top, right - left, bottom - top);
   }
 
@@ -207,19 +207,20 @@ namespace visage {
     }
   }
 
-  std::pair<int, int> TextEditor::indexToPosition(int index) const {
+  std::pair<float, float> TextEditor::indexToPosition(int index) const {
     int line = 0;
-    int line_height = font().lineHeight();
+    float line_height = font().lineHeight();
 
     while (line < line_breaks_.size() && index >= line_breaks_[line])
       line++;
 
     std::pair<int, int> range = lineRange(line);
 
-    int pre_width = font().stringWidth(text_.text().c_str() + range.first, index - range.first,
-                                       text_.characterOverride());
-    int full_width = font().stringWidth(text_.text().c_str() + range.first,
-                                        range.second - range.first, text_.characterOverride());
+    float pre_width = font().stringWidth(text_.text().c_str() + range.first, index - range.first,
+                                         text_.characterOverride());
+    float full_width = font().stringWidth(text_.text().c_str() + range.first,
+                                          range.second - range.first, text_.characterOverride());
+
     int line_x = (width() - full_width + 1) / 2;
     int x_margin = xMargin();
     if (justification() & Font::kLeft)
@@ -247,19 +248,20 @@ namespace visage {
     return { start_index, end_index };
   }
 
-  int TextEditor::positionToIndex(const std::pair<int, int>& position) const {
+  int TextEditor::positionToIndex(const std::pair<float, float>& position) const {
     int line_height = font().lineHeight();
     int line = std::min<int>(line_breaks_.size(), (position.second - yMargin()) / line_height);
     std::pair<int, int> range = lineRange(line);
 
     float full_width = font().stringWidth(text_.text().c_str() + range.first,
                                           range.second - range.first, text_.characterOverride());
-    float line_x = (width() - full_width) * 0.5f;
-    int x_margin = xMargin();
+
+    float line_x = (physicalWidth() - full_width) * 0.5f;
+    float x_margin = xMargin();
     if (justification() & Font::kLeft)
       line_x = x_margin;
     else if (justification() & Font::kRight)
-      line_x = width() - x_margin - full_width;
+      line_x = physicalWidth() - x_margin - full_width;
 
     int index = font().widthOverflowIndex(text_.text().c_str() + range.first, range.second - range.first,
                                           position.first - line_x, true, text_.characterOverride());
@@ -319,7 +321,7 @@ namespace visage {
   }
 
   void TextEditor::makeCaretVisible() {
-    if (font().packedFont() == nullptr)
+    if (font().packedFont() == nullptr || width() == 0.0f || height() == 0.0f)
       return;
 
     if (text_.multiLine()) {

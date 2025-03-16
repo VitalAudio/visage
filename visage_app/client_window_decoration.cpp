@@ -51,8 +51,7 @@ namespace visage {
     maximize_button_.onDraw() += [this](Canvas& canvas) {
       canvas.setColor(kIconColor);
       Bounds bounds = iconBounds(close_button_.localBounds());
-      canvas.roundedRectangleBorder(bounds.x(), bounds.y(), bounds.width(), bounds.height(),
-                                    2.0f * dpiScale(), dpiScale());
+      canvas.roundedRectangleBorder(bounds.x(), bounds.y(), bounds.width(), bounds.height(), 2.0f, 1.0f);
     };
 
     minimize_button_.onDraw() += [this](Canvas& canvas) {
