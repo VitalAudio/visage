@@ -186,7 +186,7 @@ namespace visage {
     void setLineBreaks() {
       if (text_.multiLine() && text_.font().packedFont())
         line_breaks_ = text_.font().lineBreaks(text_.text().c_str(), text_.text().length(),
-                                               physicalWidth() - 2 * xMargin());
+                                               width() - 2 * xMargin());
     }
 
     void setText(const String& text) {

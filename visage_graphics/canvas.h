@@ -449,8 +449,8 @@ namespace visage {
     }
 
     void setPosition(int x, int y) {
-      state_.x += x;
-      state_.y += y;
+      state_.x += x * state_.scale;
+      state_.y += y * state_.scale;
     }
 
     void addRegion(Region* region) {
@@ -477,26 +477,20 @@ namespace visage {
       state_.palette_override = override_id;
     }
 
-    void setClampBounds(int x, int y, int width, int height) {
+    void setClampBounds(float x, float y, float width, float height) {
       VISAGE_ASSERT(width >= 0);
       VISAGE_ASSERT(height >= 0);
-      state_.clamp.left = state_.x + x;
-      state_.clamp.top = state_.y + y;
-      state_.clamp.right = state_.clamp.left + width;
-      state_.clamp.bottom = state_.clamp.top + height;
+      state_.clamp.left = state_.x + x * state_.scale;
+      state_.clamp.top = state_.y + y * state_.scale;
+      state_.clamp.right = state_.clamp.left + width * state_.scale;
+      state_.clamp.bottom = state_.clamp.top + height * state_.scale;
     }
 
     void setClampBounds(const ClampBounds& bounds) { state_.clamp = bounds; }
 
     void trimClampBounds(int x, int y, int width, int height) {
-      state_.clamp = state_.clamp.clamp(state_.x + x, state_.y + y, width, height);
-    }
-
-    void moveClampBounds(int x_offset, int y_offset) {
-      state_.clamp.left += x_offset;
-      state_.clamp.top += y_offset;
-      state_.clamp.right += x_offset;
-      state_.clamp.bottom += y_offset;
+      state_.clamp = state_.clamp.clamp(state_.x + x * state_.scale, state_.y + y * state_.scale,
+                                        width * state_.scale, height * state_.scale);
     }
 
     const ClampBounds& currentClampBounds() const { return state_.clamp; }

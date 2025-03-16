@@ -256,12 +256,12 @@ namespace visage {
     float full_width = font().stringWidth(text_.text().c_str() + range.first,
                                           range.second - range.first, text_.characterOverride());
 
-    float line_x = (physicalWidth() - full_width) * 0.5f;
+    float line_x = (width() - full_width) * 0.5f;
     float x_margin = xMargin();
     if (justification() & Font::kLeft)
       line_x = x_margin;
     else if (justification() & Font::kRight)
-      line_x = physicalWidth() - x_margin - full_width;
+      line_x = width() - x_margin - full_width;
 
     int index = font().widthOverflowIndex(text_.text().c_str() + range.first, range.second - range.first,
                                           position.first - line_x, true, text_.characterOverride());
