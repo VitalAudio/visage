@@ -75,10 +75,9 @@ namespace visage {
     int requiredHeight() const { return kButtonHeight; }
 
     void resized() override {
-      int button_width = kButtonWidth;
-      close_button_.setBounds(width() - button_width, 0, button_width, height());
-      maximize_button_.setBounds(close_button_.x() - button_width, 0, button_width, height());
-      minimize_button_.setBounds(maximize_button_.x() - button_width, 0, button_width, height());
+      close_button_.setBounds(width() - kButtonWidth, 0, kButtonWidth, height());
+      maximize_button_.setBounds(close_button_.x() - kButtonWidth, 0, kButtonWidth, height());
+      minimize_button_.setBounds(maximize_button_.x() - kButtonWidth, 0, kButtonWidth, height());
     }
 
   private:

@@ -142,11 +142,10 @@ namespace visage {
       addShape(circle);
     }
 
-    template<typename T1, typename T2, typename T3, typename T4 = float>
-    void squircle(const T1& x, const T2& y, const T3& width, const T4& power = kDefaultSquirclePower) {
+    template<typename T1, typename T2, typename T3>
+    void squircle(const T1& x, const T2& y, const T3& width, float power = kDefaultSquirclePower) {
       float w = pixels(width);
-      addShape(Squircle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y), w,
-                        w, pixels(power)));
+      addShape(Squircle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y), w, w, power));
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
@@ -378,20 +377,27 @@ namespace visage {
 
     template<typename T1, typename T2>
     void svg(const Svg& svg, const T1& x, const T2& y) {
-      addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
-                            svg.width, svg.height, svg, imageAtlas()));
+      int radius = std::round(pixels(svg.blur_radius));
+      int w = std::round(pixels(svg.width));
+      int h = std::round(pixels(svg.height));
+      addSvg({ svg.data, svg.data_size, w, h, radius }, pixels(x), pixels(y));
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
     void svg(const char* svg_data, int svg_size, const T1& x, const T2& y, const T3& width,
              const T4& height, const T5& blur_radius) {
-      svg({ svg_data, svg_size, pixels(width), pixels(height), pixels(blur_radius) }, x, y);
+      int w = std::round(pixels(svg.width));
+      int h = std::round(pixels(svg.height));
+      int radius = std::round(pixels(blur_radius));
+      addSvg({ svg_data, svg_size, w, h, radius }, pixels(x), pixels(y));
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
     void svg(const char* svg_data, int svg_size, const T1& x, const T2& y, const T3& width,
              const T4& height) {
-      svg({ svg_data, svg_size, pixels(width), pixels(height), 0 }, x, y);
+      int w = std::round(pixels(width));
+      int h = std::round(pixels(height));
+      addSvg({ svg_data, svg_size, w, h, 0 }, pixels(x), pixels(y));
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
@@ -407,14 +413,18 @@ namespace visage {
 
     template<typename T1, typename T2>
     void image(const Image& image, const T1& x, const T2& y) {
-      addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
-                            image.width, image.height, image, imageAtlas()));
+      int radius = std::round(pixels(image.blur_radius));
+      int w = std::round(pixels(image.width));
+      int h = std::round(pixels(image.height));
+      addImage({ image.data, image.data_size, w, h, radius }, pixels(x), pixels(y));
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
     void image(const char* image_data, int image_size, const T1& x, const T2& y, const T3& width,
                const T4& height) {
-      image({ image_data, image_size, pixels(width), pixels(height) }, x, y);
+      int w = std::round(pixels(width));
+      int h = std::round(pixels(height));
+      addImage({ image_data, image_size, w, h }, pixels(x), pixels(y));
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
@@ -711,6 +721,16 @@ namespace visage {
 
       addSegment(a_x, a_y, c_x, c_y, thickness, true, pixel_width);
       return true;
+    }
+
+    void addSvg(const Svg& svg, float x, float y) {
+      addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, svg.width,
+                            svg.height, svg, imageAtlas()));
+    }
+
+    void addImage(const Image& image, float x, float y) {
+      addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, image.width,
+                            image.height, image, imageAtlas()));
     }
 
     Palette* palette_ = nullptr;

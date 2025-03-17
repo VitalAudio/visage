@@ -107,7 +107,7 @@ namespace visage {
     float stringWidth(const std::u32string& string, int character_override = 0) const {
       return stringWidth(string.c_str(), string.size(), character_override);
     }
-    int lineHeight() const { return nativeLineHeight() / dpiScale(); }
+    float lineHeight() const { return nativeLineHeight() / dpiScale(); }
     float capitalHeight() const { return nativeCapitalHeight() / dpiScale(); }
     float lowerDipHeight() const { return nativeLowerDipHeight() / dpiScale(); }
 

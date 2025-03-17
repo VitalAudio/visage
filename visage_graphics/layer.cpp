@@ -94,6 +94,8 @@ namespace visage {
 
   static void checkOverlappingRegions(std::vector<RegionPosition>& positions,
                                       std::vector<RegionPosition>& overlapping) {
+    std::vector<RegionPosition> new_overlapping;
+
     for (auto it = overlapping.begin(); it != overlapping.end();) {
       bool overlaps = std::any_of(positions.begin(), positions.end(), [it](const RegionPosition& other) {
         return it->x < other.x + other.region->width() && it->x + it->region->width() > other.x &&
@@ -102,7 +104,7 @@ namespace visage {
 
       if (!overlaps) {
         if (it->isDone())
-          addSubRegions(positions, overlapping, *it);
+          addSubRegions(positions, new_overlapping, *it);
         else
           positions.push_back(*it);
         it = overlapping.erase(it);
@@ -110,6 +112,8 @@ namespace visage {
       else
         ++it;
     }
+
+    overlapping.insert(overlapping.end(), new_overlapping.begin(), new_overlapping.end());
   }
 
   static const SubmitBatch* nextBatch(const std::vector<RegionPosition>& positions,

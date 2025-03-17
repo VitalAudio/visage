@@ -1728,6 +1728,8 @@ namespace visage {
     GetWindowRect(hwnd, &rect);
     int width = rect.right - rect.left - borders.width();
     int height = rect.bottom - rect.top - borders.height();
+    DpiAwareness dpi_awareness;
+    setDpiScale(dpi_awareness.dpiScale(hwnd));
     handleResized(width, height);
   }
 
