@@ -138,7 +138,7 @@ namespace visage {
     void setDpiScale(float scale) { dpi_scale_ = scale; }
     float dpiScale() const { return dpi_scale_; }
 
-    IPoint convertToPhysical(const Point& logical_point) const {
+    IPoint convertToNative(const Point& logical_point) const {
       return { static_cast<int>(std::round(logical_point.x * dpi_scale_)),
                static_cast<int>(std::round(logical_point.y * dpi_scale_)) };
     }

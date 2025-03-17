@@ -40,7 +40,7 @@ namespace visage {
   }
 
   void WindowEventHandler::onFrameResize(const Frame* frame) const {
-    window_->setInternalWindowSize(frame->physicalWidth(), frame->physicalHeight());
+    window_->setInternalWindowSize(frame->nativeWidth(), frame->nativeHeight());
   }
 
   void WindowEventHandler::setKeyboardFocus(Frame* frame) {
@@ -86,7 +86,7 @@ namespace visage {
 
   void WindowEventHandler::handleResized(int width, int height) {
     VISAGE_ASSERT(width >= 0 && height >= 0);
-    content_frame_->setPhysicalBounds(0, 0, width, height);
+    content_frame_->setNativeBounds(0, 0, width, height);
     content_frame_->redraw();
   }
 

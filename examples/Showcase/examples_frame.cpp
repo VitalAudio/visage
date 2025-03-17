@@ -297,12 +297,12 @@ void ExamplesFrame::setupBars() {
   bar_list_ = std::make_unique<visage::BarList>(kNumBars);
 
   bar_list_->onDraw() = [this](visage::Canvas& canvas) {
-    canvas.setPhysicalPixelScale();
+    canvas.setNativePixelScale();
 
     double render_time = canvas.time();
     float space = 1;
-    float bar_width = (bar_list_->physicalWidth() + space) / kNumBars;
-    int bar_height = bar_list_->physicalHeight();
+    float bar_width = (bar_list_->nativeWidth() + space) / kNumBars;
+    int bar_height = bar_list_->nativeHeight();
     for (int i = 0; i < kNumBars; ++i) {
       float x = bar_width * i;
       float x_pos = std::round(x);
