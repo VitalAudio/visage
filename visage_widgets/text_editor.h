@@ -81,7 +81,7 @@ namespace visage {
     auto& onEscapeKey() { return on_escape_key_; }
 
     void drawBackground(Canvas& canvas) const;
-    void selectionRectangle(Canvas& canvas, int x, int y, int w, int h) const;
+    void selectionRectangle(Canvas& canvas, float x, float y, float w, float h) const;
     void drawSelection(Canvas& canvas) const;
     void draw(Canvas& canvas) override;
 
@@ -164,12 +164,12 @@ namespace visage {
       set_y_margin_ = y;
     }
 
-    int xMargin() const {
+    float xMargin() const {
       if (text_.justification() & (Font::kLeft | Font::kRight))
         return set_x_margin_ ? set_x_margin_ : paletteValue(TextEditorMarginX);
       return 0;
     }
-    int yMargin() const {
+    float yMargin() const {
       if (text_.justification() & Font::kTop)
         return set_y_margin_ ? set_y_margin_ : paletteValue(TextEditorMarginY);
       return 0;
@@ -247,8 +247,8 @@ namespace visage {
     std::vector<int> line_breaks_;
     int caret_position_ = 0;
     int selection_position_ = 0;
-    std::pair<int, int> selection_start_point_;
-    std::pair<int, int> selection_end_point_;
+    std::pair<float, float> selection_start_point_;
+    std::pair<float, float> selection_end_point_;
     int max_characters_ = 0;
 
     bool select_on_focus_ = false;
@@ -259,7 +259,7 @@ namespace visage {
     float background_rounding_ = 1.0f;
     float set_x_margin_ = 0.0f;
     float set_y_margin_ = 0.0f;
-    int x_position_ = 0;
+    float x_position_ = 0;
 
     ActionState action_state_ = kNone;
     std::vector<std::pair<String, int>> undo_history_;

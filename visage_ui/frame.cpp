@@ -147,11 +147,12 @@ namespace visage {
   }
 
   void Frame::setBounds(Bounds bounds) {
-    if (bounds_ == bounds)
+    IBounds new_native_bounds = (bounds * dpi_scale_).round();
+    if (bounds_ == bounds && native_bounds_ == new_native_bounds)
       return;
 
     bounds_ = bounds;
-    native_bounds_ = (bounds_ * dpi_scale_).round();
+    native_bounds_ = new_native_bounds;
     region_.setBounds(native_bounds_.x(), native_bounds_.y(), native_bounds_.width(),
                       native_bounds_.height());
     computeLayout();
