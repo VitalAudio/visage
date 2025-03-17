@@ -151,9 +151,9 @@ namespace visage {
       return;
 
     bounds_ = bounds;
-    physical_bounds_ = (bounds_ * dpi_scale_).round();
-    region_.setBounds(physical_bounds_.x(), physical_bounds_.y(), physical_bounds_.width(),
-                      physical_bounds_.height());
+    native_bounds_ = (bounds_ * dpi_scale_).round();
+    region_.setBounds(native_bounds_.x(), native_bounds_.y(), native_bounds_.width(),
+                      native_bounds_.height());
     computeLayout();
     if (layout_ == nullptr || !layout_->flex()) {
       for (Frame* child : children_)
@@ -164,12 +164,12 @@ namespace visage {
     redraw();
   }
 
-  void Frame::setPhysicalBounds(visage::IBounds physical_bounds) {
-    setBounds(Bounds(physical_bounds) * (1.0f / dpi_scale_));
+  void Frame::setNativeBounds(visage::IBounds native_bounds) {
+    setBounds(Bounds(native_bounds) * (1.0f / dpi_scale_));
   }
 
   void Frame::computeLayout() {
-    if (physicalWidth() && physicalHeight() && layout_.get() && layout().flex()) {
+    if (nativeWidth() && nativeHeight() && layout_.get() && layout().flex()) {
       std::vector<const Layout*> children_layouts;
       for (Frame* child : children_) {
         if (child->layout_)
@@ -177,10 +177,10 @@ namespace visage {
       }
 
       std::vector<IBounds> children_bounds = layout().flexPositions(children_layouts,
-                                                                    localPhysicalBounds(), dpi_scale_);
+                                                                    nativeLocalBounds(), dpi_scale_);
       for (int i = 0; i < children_.size(); ++i) {
         if (children_[i]->layout_)
-          children_[i]->setPhysicalBounds(children_bounds[i]);
+          children_[i]->setNativeBounds(children_bounds[i]);
       }
     }
   }
@@ -189,8 +189,8 @@ namespace visage {
     if (child->layout_ == nullptr || (layout_ && layout_->flex()))
       return;
 
-    int width = this->physicalWidth();
-    int height = this->physicalHeight();
+    int width = this->nativeWidth();
+    int height = this->nativeHeight();
     float dpi = dpi_scale_;
 
     int pad_left = 0;
@@ -207,8 +207,8 @@ namespace visage {
 
     int x = child->x();
     int y = child->y();
-    int dist_right = width - child->physicalRight();
-    int dist_bottom = height - child->physicalBottom();
+    int dist_right = width - child->nativeRight();
+    int dist_bottom = height - child->nativeBottom();
 
     x = pad_left + child->layout_->marginLeft().computeInt(dpi, width, height, x - pad_left);
     y = pad_top + child->layout_->marginTop().computeInt(dpi, width, height, y - pad_top);
@@ -221,7 +221,7 @@ namespace visage {
     int bottom = height - dist_bottom;
     int w = child->layout_->width().computeInt(dpi, width, height, right - x);
     int h = child->layout_->height().computeInt(dpi, width, height, bottom - y);
-    child->setPhysicalBounds(x, y, w, h);
+    child->setNativeBounds(x, y, w, h);
   }
 
   Point Frame::positionInWindow() const {

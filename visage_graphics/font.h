@@ -95,21 +95,21 @@ namespace visage {
 
     int widthOverflowIndex(const char32_t* string, int string_length, float width,
                            bool round = false, int character_override = 0) const {
-      return physicalWidthOverflowIndex(string, string_length, width * dpiScale(), round, character_override);
+      return nativeWidthOverflowIndex(string, string_length, width * dpiScale(), round, character_override);
     }
     std::vector<int> lineBreaks(const char32_t* string, int length, float width) const {
-      return physicalLineBreaks(string, length, width * dpiScale());
+      return nativeLineBreaks(string, length, width * dpiScale());
     }
 
     float stringWidth(const char32_t* string, int length, int character_override = 0) const {
-      return physicalStringWidth(string, length, character_override) / dpiScale();
+      return nativeStringWidth(string, length, character_override) / dpiScale();
     }
     float stringWidth(const std::u32string& string, int character_override = 0) const {
       return stringWidth(string.c_str(), string.size(), character_override);
     }
-    int lineHeight() const { return physicalLineHeight() / dpiScale(); }
-    float capitalHeight() const { return physicalCapitalHeight() / dpiScale(); }
-    float lowerDipHeight() const { return physicalLowerDipHeight() / dpiScale(); }
+    int lineHeight() const { return nativeLineHeight() / dpiScale(); }
+    float capitalHeight() const { return nativeCapitalHeight() / dpiScale(); }
+    float lowerDipHeight() const { return nativeLowerDipHeight() / dpiScale(); }
 
     int atlasWidth() const;
     int atlasHeight() const;
@@ -129,16 +129,16 @@ namespace visage {
     const PackedFont* packedFont() const { return packed_font_; }
 
   private:
-    int physicalWidthOverflowIndex(const char32_t* string, int string_length, float width,
-                                   bool round = false, int character_override = 0) const;
-    float physicalStringWidth(const char32_t* string, int length, int character_override = 0) const;
-    int physicalLineHeight() const;
-    float physicalCapitalHeight() const;
-    float physicalLowerDipHeight() const;
-    std::vector<int> physicalLineBreaks(const char32_t* string, int length, float width) const;
+    int nativeWidthOverflowIndex(const char32_t* string, int string_length, float width,
+                                 bool round = false, int character_override = 0) const;
+    float nativeStringWidth(const char32_t* string, int length, int character_override = 0) const;
+    int nativeLineHeight() const;
+    float nativeCapitalHeight() const;
+    float nativeLowerDipHeight() const;
+    std::vector<int> nativeLineBreaks(const char32_t* string, int length, float width) const;
 
     float size_ = 0.0f;
-    int physical_size_ = 0;
+    int native_size_ = 0;
     float dpi_scale_ = 0.0f;
     const char* font_data_ = nullptr;
     int data_size_ = 0;

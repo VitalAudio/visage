@@ -220,9 +220,9 @@ namespace visage {
     void setBounds(float x, float y, float width, float height) {
       setBounds({ x, y, width, height });
     }
-    void setPhysicalBounds(IBounds physical_bounds);
-    void setPhysicalBounds(int x, int y, int width, int height) {
-      setPhysicalBounds({ x, y, width, height });
+    void setNativeBounds(IBounds native_bounds);
+    void setNativeBounds(int x, int y, int width, int height) {
+      setNativeBounds({ x, y, width, height });
     }
     void computeLayout();
     void computeLayout(Frame* child);
@@ -246,15 +246,15 @@ namespace visage {
     float height() const { return bounds_.height(); }
     float right() const { return bounds_.right(); }
     float bottom() const { return bounds_.bottom(); }
-    int physicalX() const { return physical_bounds_.x(); }
-    int physicalY() const { return physical_bounds_.y(); }
-    int physicalWidth() const { return physical_bounds_.width(); }
-    int physicalHeight() const { return physical_bounds_.height(); }
-    int physicalRight() const { return physical_bounds_.right(); }
-    int physicalBottom() const { return physical_bounds_.bottom(); }
+    int nativeX() const { return native_bounds_.x(); }
+    int nativeY() const { return native_bounds_.y(); }
+    int nativeWidth() const { return native_bounds_.width(); }
+    int nativeHeight() const { return native_bounds_.height(); }
+    int nativeRight() const { return native_bounds_.right(); }
+    int nativeBottom() const { return native_bounds_.bottom(); }
     float aspectRatio() const { return bounds_.width() * 1.0f / bounds_.height(); }
     Bounds localBounds() const { return { 0.0f, 0.0f, width(), height() }; }
-    IBounds localPhysicalBounds() const { return { 0, 0, physicalWidth(), physicalHeight() }; }
+    IBounds nativeLocalBounds() const { return { 0, 0, nativeWidth(), nativeHeight() }; }
     Point positionInWindow() const;
     Bounds relativeBounds(const Frame* other) const;
 
@@ -373,7 +373,7 @@ namespace visage {
 
     std::string name_;
     Bounds bounds_;
-    IBounds physical_bounds_;
+    IBounds native_bounds_;
 
     CallbackList<void(Canvas&)> on_draw_ { [this](Canvas& e) -> void { draw(e); } };
     CallbackList<void()> on_resize_ { [this] { resized(); } };

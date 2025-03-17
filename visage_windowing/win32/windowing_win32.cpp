@@ -219,7 +219,7 @@ namespace visage {
 
     POINT client_position = { 0, 0 };
     ClientToScreen(window->windowHandle(), &client_position);
-    IPoint position = window->convertToPhysical(window_position);
+    IPoint position = window->convertToNative(window_position);
     SetCursorPos(client_position.x + position.x, client_position.y + position.y);
   }
 
@@ -228,7 +228,7 @@ namespace visage {
     if (window == nullptr)
       return;
 
-    IPoint position = window->convertToPhysical(screen_position);
+    IPoint position = window->convertToNative(screen_position);
     SetCursorPos(position.x, position.y);
   }
 

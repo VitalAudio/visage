@@ -34,7 +34,7 @@ namespace visage {
 
   void TopLevelFrame::resized() {
     setDpiScale(editor_->window() ? editor_->window()->dpiScale() : 1.0f);
-    editor_->setPhysicalBounds(localPhysicalBounds());
+    editor_->setNativeBounds(nativeLocalBounds());
     editor_->setCanvasDetails();
 
     if (client_decoration_) {
@@ -78,7 +78,7 @@ namespace visage {
     event_handler_.read_clipboard_text = visage::readClipboardText;
     event_handler_.set_clipboard_text = visage::setClipboardText;
     top_level_.setEventHandler(&event_handler_);
-    onResize() += [this] { top_level_.setPhysicalBounds(localPhysicalBounds()); };
+    onResize() += [this] { top_level_.setNativeBounds(nativeLocalBounds()); };
   }
 
   ApplicationEditor::~ApplicationEditor() {
@@ -93,7 +93,7 @@ namespace visage {
   }
 
   void ApplicationEditor::setCanvasDetails() {
-    canvas_->setDimensions(physicalWidth(), physicalHeight());
+    canvas_->setDimensions(nativeWidth(), nativeHeight());
 
     if (window_)
       canvas_->setDpiScale(window_->dpiScale());
@@ -105,7 +105,7 @@ namespace visage {
     Renderer::instance().checkInitialization(window_->initWindow(), window->globalDisplay());
     canvas_->pairToWindow(window_->nativeHandle(), window->clientWidth(), window->clientHeight());
     top_level_.setDpiScale(window_->dpiScale());
-    top_level_.setPhysicalBounds(0, 0, window->clientWidth(), window->clientHeight());
+    top_level_.setNativeBounds(0, 0, window->clientWidth(), window->clientHeight());
 
     window_event_handler_ = std::make_unique<WindowEventHandler>(window, &top_level_);
 
