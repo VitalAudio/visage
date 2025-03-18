@@ -43,11 +43,11 @@ namespace visage {
     }
 
     Dimension() = default;
-    Dimension(float amount) { *this = devicePixels(amount); }
+    Dimension(float amount) { *this = logicalPixels(amount); }
     Dimension(float amount, std::function<float(float, float, float, float)> compute) :
         amount(amount), compute_function(std::move(compute)) { }
 
-    static Dimension devicePixels(float pixels) {
+    static Dimension nativePixels(float pixels) {
       return Dimension(pixels, [](float amount, float, float, float) { return amount; });
     }
 
@@ -162,12 +162,12 @@ namespace visage {
   };
 
   namespace dimension {
-    inline Dimension operator""_dpx(long double pixels) {
-      return Dimension::devicePixels(pixels);
+    inline Dimension operator""_npx(long double pixels) {
+      return Dimension::nativePixels(pixels);
     }
 
-    inline Dimension operator""_dpx(unsigned long long pixels) {
-      return Dimension::devicePixels(pixels);
+    inline Dimension operator""_npx(unsigned long long pixels) {
+      return Dimension::nativePixels(pixels);
     }
 
     inline Dimension operator""_px(long double pixels) {

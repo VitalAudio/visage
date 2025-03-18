@@ -76,7 +76,10 @@ namespace visage {
 
     void drawStaleChildren();
 
-    void setDimensions(int width, int height) { setBounds(x(), y(), width, height); }
+    void setDimensions(float width, float height) { setBounds(x(), y(), width, height); }
+    void setNativeDimensions(int width, int height) {
+      setNativeBounds(nativeX(), nativeY(), width, height);
+    }
 
     void addClientDecoration() { top_level_.addClientDecoration(); }
     HitTestResult hitTest(const Point& position) const override {

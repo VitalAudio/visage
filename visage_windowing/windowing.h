@@ -134,6 +134,7 @@ namespace visage {
     IPoint lastWindowMousePosition() const { return last_window_mouse_position_; }
 
     void setWindowSize(int width, int height);
+    void setNativeWindowSize(int width, int height);
     void setInternalWindowSize(int width, int height);
     void setDpiScale(float scale) { dpi_scale_ = scale; }
     float dpiScale() const { return dpi_scale_; }

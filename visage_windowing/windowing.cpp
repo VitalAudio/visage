@@ -75,7 +75,12 @@ namespace visage {
   }
 
   void Window::setWindowSize(int width, int height) {
-    handleResized(std::round(width * dpi_scale_), std::round(height * dpi_scale_));
+    setNativeWindowSize(std::round(width * dpi_scale_), std::round(height * dpi_scale_));
+    windowContentsResized(client_width_, client_height_);
+  }
+
+  void Window::setNativeWindowSize(int width, int height) {
+    handleResized(width, height);
     windowContentsResized(client_width_, client_height_);
   }
 

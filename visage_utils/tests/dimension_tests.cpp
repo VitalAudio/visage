@@ -29,13 +29,13 @@ using namespace visage::dimension;
 
 TEST_CASE("Dimension defaults", "[utils]") {
   Dimension dimension;
-  REQUIRE(dimension.computeWithDefault(1.0f, 100.0f, 100.0f, 99.0f) == 99.0f);
+  REQUIRE(dimension.compute(1.0f, 100.0f, 100.0f, 99.0f) == 99.0f);
 }
 
-TEST_CASE("Dimension device pixels", "[utils]") {
-  Dimension dim1 = 99_dpx;
+TEST_CASE("Dimension native pixels", "[utils]") {
+  Dimension dim1 = 99_npx;
   REQUIRE(dim1.compute(2, 100, 100) == 99.0f);
-  Dimension dim2 = 0_dpx;
+  Dimension dim2 = 0_npx;
   REQUIRE(dim2.compute(2, 100, 100) == 0.0f);
 }
 
@@ -73,8 +73,8 @@ TEST_CASE("Dimension width/height percentages", "[utils]") {
 }
 
 TEST_CASE("Dimension combination", "[utils]") {
-  Dimension device_pixels = 99_dpx;
-  Dimension zero = 0_dpx;
+  Dimension device_pixels = 99_npx;
+  Dimension zero = 0_npx;
   Dimension logical_pixels = 99_px;
   Dimension half_view_width = 50_vw;
   Dimension half_view_height = 50_vh;

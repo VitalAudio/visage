@@ -27,9 +27,9 @@
 using namespace visage;
 
 TEST_CASE("Bounds intersection", "[utils]") {
-  Bounds bounds1(-1, -2, 10, 10);
-  Bounds bounds2(7, 5, 15, 15);
-  Bounds intersection = bounds1.intersection(bounds2);
+  IBounds bounds1(-1, -2, 10, 10);
+  IBounds bounds2(7, 5, 15, 15);
+  IBounds intersection = bounds1.intersection(bounds2);
   REQUIRE(intersection.x() == 7);
   REQUIRE(intersection.y() == 5);
   REQUIRE(intersection.width() == 2);
@@ -37,10 +37,10 @@ TEST_CASE("Bounds intersection", "[utils]") {
 }
 
 TEST_CASE("Bounds subtract failed corner intersect", "[utils]") {
-  Bounds bounds1(1, 10, 10, 10);
-  Bounds bounds2(5, 15, 15, 15);
-  Bounds bounds3(0, 15, 5, 15);
-  Bounds result;
+  IBounds bounds1(1, 10, 10, 10);
+  IBounds bounds2(5, 15, 15, 15);
+  IBounds bounds3(0, 15, 5, 15);
+  IBounds result;
 
   REQUIRE(!bounds1.subtract(bounds2, result));
   REQUIRE(!bounds2.subtract(bounds1, result));
@@ -49,14 +49,14 @@ TEST_CASE("Bounds subtract failed corner intersect", "[utils]") {
 }
 
 TEST_CASE("Bounds subtract containment", "[utils]") {
-  Bounds bounds1(1, 10, 10, 10);
-  Bounds bounds2(5, 15, 6, 5);
-  Bounds bounds3(5, 15, 3, 2);
-  Bounds bounds4(1, 10, 10, 7);
-  Bounds bounds5(1, 13, 10, 7);
-  Bounds bounds6(1, 10, 9, 10);
-  Bounds bounds7(2, 10, 9, 10);
-  Bounds result;
+  IBounds bounds1(1, 10, 10, 10);
+  IBounds bounds2(5, 15, 6, 5);
+  IBounds bounds3(5, 15, 3, 2);
+  IBounds bounds4(1, 10, 10, 7);
+  IBounds bounds5(1, 13, 10, 7);
+  IBounds bounds6(1, 10, 9, 10);
+  IBounds bounds7(2, 10, 9, 10);
+  IBounds result;
 
   REQUIRE(bounds1.subtract(bounds1, result));
   REQUIRE(result.width() == 0);
@@ -99,19 +99,19 @@ TEST_CASE("Bounds subtract containment", "[utils]") {
 }
 
 TEST_CASE("Bounds subtract failed criss cross", "[utils]") {
-  Bounds bounds1(1, 2, 5, 10);
-  Bounds bounds2(0, 3, 10, 5);
-  Bounds result;
+  IBounds bounds1(1, 2, 5, 10);
+  IBounds bounds2(0, 3, 10, 5);
+  IBounds result;
 
   REQUIRE(!bounds1.subtract(bounds2, result));
   REQUIRE(!bounds2.subtract(bounds1, result));
 }
 
 TEST_CASE("Bounds subtract side overlap", "[utils]") {
-  Bounds bounds1(1, 2, 5, 10);
-  Bounds bounds2(0, 3, 5, 5);
-  Bounds bounds3(0, 2, 15, 5);
-  Bounds result;
+  IBounds bounds1(1, 2, 5, 10);
+  IBounds bounds2(0, 3, 5, 5);
+  IBounds bounds3(0, 2, 15, 5);
+  IBounds result;
 
   REQUIRE(!bounds1.subtract(bounds2, result));
   REQUIRE(bounds2.subtract(bounds1, result));
@@ -129,10 +129,10 @@ TEST_CASE("Bounds subtract side overlap", "[utils]") {
 }
 
 TEST_CASE("Breaking rectangles", "[utils]") {
-  Bounds bounds1(0, 0, 2312, 1161);
-  Bounds bounds2(0, 1154, 1126, 156);
-  std::vector<Bounds> pieces;
-  Bounds::breakIntoNonOverlapping(bounds1, bounds2, pieces);
+  IBounds bounds1(0, 0, 2312, 1161);
+  IBounds bounds2(0, 1154, 1126, 156);
+  std::vector<IBounds> pieces;
+  IBounds::breakIntoNonOverlapping(bounds1, bounds2, pieces);
   REQUIRE(!bounds1.overlaps(bounds2));
   REQUIRE(pieces.size() == 0);
 }

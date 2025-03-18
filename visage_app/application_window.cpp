@@ -48,13 +48,13 @@ namespace visage {
   }
 
   void ApplicationWindow::show() {
-    show(Dimension::devicePixels(initial_position_.x), Dimension::devicePixels(initial_position_.y),
-         Dimension::devicePixels(width()), Dimension::devicePixels(height()));
+    show(Dimension::nativePixels(initial_position_.x), Dimension::nativePixels(initial_position_.y),
+         Dimension::nativePixels(nativeWidth()), Dimension::nativePixels(nativeHeight()));
   }
 
   void ApplicationWindow::show(void* parent_window) {
     VISAGE_ASSERT(width() && height());
-    show(Dimension::devicePixels(width()), Dimension::devicePixels(height()), parent_window);
+    show(Dimension::nativePixels(nativeWidth()), Dimension::nativePixels(nativeHeight()), parent_window);
   }
 
   void ApplicationWindow::show(const Dimension& width, const Dimension& height, void* parent_window) {
