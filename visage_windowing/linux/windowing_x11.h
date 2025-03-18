@@ -188,7 +188,7 @@ namespace visage {
   struct MonitorInfo {
     static constexpr int kDefaultRefreshRate = 60;
 
-    Bounds bounds;
+    IBounds bounds;
     double refresh_rate = kDefaultRefreshRate;
     float dpi = Window::kDefaultDpi;
   };
@@ -234,8 +234,8 @@ namespace visage {
     bool isShowing() const override;
 
     void setWindowTitle(const std::string& title) override;
-    Point maxWindowDimensions() const override;
-    Point minWindowDimensions() const override;
+    IPoint maxWindowDimensions() const override;
+    IPoint minWindowDimensions() const override;
     MonitorInfo monitorInfo() { return monitor_info_; }
     X11Connection* x11Connection() { return x11_; }
     bool timerThreadRunning() { return timer_thread_running_.load(); }
@@ -251,8 +251,8 @@ namespace visage {
 
     ::Window parentHandle() const { return parent_handle_; }
 
-    void createWindow(Bounds bounds);
-    Point retrieveWindowDimensions();
+    void createWindow(IBounds bounds);
+    IPoint retrieveWindowDimensions();
     void passEventToParent(XEvent& event);
     int mouseButtonState() const;
     int modifierState() const;
@@ -277,10 +277,10 @@ namespace visage {
     int drag_drop_target_y_ = 0;
     int hover_window_operation_ = 0;
     int window_operation_ = 0;
-    Point dragging_window_position_;
+    IPoint dragging_window_position_;
 
     long long start_draw_microseconds_ = 0;
-    Point mouse_down_position_;
+    IPoint mouse_down_position_;
     Decoration decoration_ = Decoration::Native;
     MonitorInfo monitor_info_;
     ::Window window_handle_ = 0;

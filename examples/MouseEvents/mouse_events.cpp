@@ -50,6 +50,11 @@ public:
   void mouseDrag(const visage::MouseEvent& e) override { setPosition(e.position); }
   void mouseExit(const visage::MouseEvent& e) override { setPosition({ -100, -100 }); }
   void mouseDown(const visage::MouseEvent& e) override {
+    if (e.isMiddleButton()) {
+      setMouseRelativeMode(true);
+      setCursorVisible(false);
+    }
+
     if (!e.shouldTriggerPopup()) {
       setDown(true);
       return;
@@ -59,7 +64,13 @@ public:
     menu.addOption(2, "Option 2");
     menu.show(this, { x_, y_ });
   }
-  void mouseUp(const visage::MouseEvent& e) override { setDown(false); }
+  void mouseUp(const visage::MouseEvent& e) override {
+    if (e.isMiddleButton()) {
+      setCursorVisible(true);
+      setMouseRelativeMode(false);
+    }
+    setDown(false);
+  }
 
 private:
   bool down_ = false;
