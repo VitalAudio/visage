@@ -201,7 +201,11 @@ namespace visage {
       setCursorStyle(MouseCursor::Invisible);
   }
 
-  Point cursorPosition(::Window window_handle) {
+  Point cursorPosition() {
+    WindowX11* window = WindowX11::lastActiveWindow();
+    if (window == nullptr)
+      return { 0, 0 };
+
     X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
     ::Window root_return, child_return;
@@ -209,17 +213,22 @@ namespace visage {
     int win_x = 0, win_y = 0;
     unsigned int mask_return = 0;
 
-    XQueryPointer(x11->display(), window_handle, &root_return, &child_return, &root_x, &root_y,
-                  &win_x, &win_y, &mask_return);
-    return { win_x, win_y };
+    XQueryPointer(x11->display(), (::Window)window->nativeHandle(), &root_return, &child_return,
+                  &root_x, &root_y, &win_x, &win_y, &mask_return);
+    return window->convertToLogical(IPoint(win_x, win_y));
   }
 
-  Point cursorPosition() {
+  static void setNativeCursorPosition(IPoint native_position) {
     WindowX11* window = WindowX11::lastActiveWindow();
     if (window == nullptr)
-      return { 0, 0 };
+      return;
 
-    return cursorPosition((::Window)window->nativeHandle());
+    VISAGE_LOG(native_position.x);
+    X11Connection* x11 = window->x11Connection();
+    X11Connection::DisplayLock lock(x11);
+    XWarpPointer(x11->display(), None, (::Window)window->nativeHandle(), 0, 0, 0, 0,
+                 native_position.x, native_position.y);
+    XFlush(x11->display());
   }
 
   void setCursorPosition(Point window_position) {
@@ -227,23 +236,27 @@ namespace visage {
     if (window == nullptr)
       return;
 
-    X11Connection* x11 = window->x11Connection();
-    X11Connection::DisplayLock lock(x11);
-    XWarpPointer(x11->display(), None, (::Window)window->nativeHandle(), 0, 0, 0, 0,
-                 window_position.x, window_position.y);
-    XFlush(x11->display());
+    setNativeCursorPosition(window->convertToNative(window_position));
   }
 
   void setCursorScreenPosition(Point window_position) {
+    WindowX11* window = WindowX11::lastActiveWindow();
+    if (window == nullptr)
+      return;
+
     X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
 
-    XWarpPointer(x11->display(), None, x11->rootWindow(), 0, 0, 0, 0, window_position.x,
-                 window_position.y);
+    IPoint position = window->convertToNative(window_position);
+    XWarpPointer(x11->display(), None, x11->rootWindow(), 0, 0, 0, 0, position.x, position.y);
     XFlush(x11->display());
   }
 
-  Point cursorScreenPosition() {
+  static IPoint nativeCursorScreenPosition() {
+    WindowX11* window = WindowX11::lastActiveWindow();
+    if (window == nullptr)
+      return { 0, 0 };
+
     X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
 
@@ -257,8 +270,12 @@ namespace visage {
     return { root_x, root_y };
   }
 
-  float windowPixelScale() {
-    return 1.0f;
+  Point cursorScreenPosition() {
+    WindowX11* window = WindowX11::lastActiveWindow();
+    if (window == nullptr)
+      return { 0, 0 };
+
+    return window->convertToLogical(nativeCursorScreenPosition());
   }
 
   bool isMobileDevice() {
@@ -274,15 +291,15 @@ namespace visage {
     return MonitorInfo::kDefaultRefreshRate;
   }
 
-  static MonitorInfo monitorInfoForPosition(Point point) {
+  static MonitorInfo monitorInfoForPosition(IPoint point) {
     static constexpr float kInchToMm = 25.4;
 
     X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
     Display* display = x11->display();
 
-    Bounds default_bounds(0, 0, DisplayWidth(display, DefaultScreen(display)),
-                          DisplayWidth(display, DefaultScreen(display)));
+    IBounds default_bounds(0, 0, DisplayWidth(display, DefaultScreen(display)),
+                           DisplayWidth(display, DefaultScreen(display)));
     MonitorInfo result;
     result.bounds = default_bounds;
 
@@ -299,7 +316,7 @@ namespace visage {
       if (output_info->crtc && output_info->connection == RR_Connected) {
         XRRCrtcInfo* info = XRRGetCrtcInfo(display, screen_resources, output_info->crtc);
 
-        Bounds bounds(info->x, info->y, info->width, info->height);
+        IBounds bounds(info->x, info->y, info->width, info->height);
         if (result.bounds.width() == 0 || bounds.contains(point)) {
           result.bounds = bounds;
           if (output_info->mm_height && bounds.height())
@@ -316,7 +333,7 @@ namespace visage {
   }
 
   static MonitorInfo activeMonitorInfo() {
-    return monitorInfoForPosition(cursorScreenPosition());
+    return monitorInfoForPosition(nativeCursorScreenPosition());
   }
 
   static void drawMessageBox(int width, int height, Display* display, ::Window window, GC gc,
@@ -350,7 +367,8 @@ namespace visage {
     constexpr float kAspectRatio = 1.5f;
     constexpr float kDisplayScale = 0.2f;
 
-    Bounds bounds = computeWindowBounds(Dimension::viewMinPercent(30.0f), Dimension::viewMinPercent(20.0f));
+    IBounds bounds = computeWindowBounds(Dimension::viewMinPercent(30.0f),
+                                         Dimension::viewMinPercent(20.0f));
     X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
     Display* display = x11->display();
@@ -414,34 +432,30 @@ namespace visage {
     XDestroyWindow(display, message_window);
   }
 
-  Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
-                             const Dimension& height) {
+  IBounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
+                              const Dimension& height) {
     MonitorInfo monitor_info = activeMonitorInfo();
     int monitor_width = monitor_info.bounds.width();
     int monitor_height = monitor_info.bounds.height();
     float dpi_scale = monitor_info.dpi / Window::kDefaultDpi;
-    int result_w = width.computeWithDefault(dpi_scale, monitor_width, monitor_height, 100);
-    int result_h = height.computeWithDefault(dpi_scale, monitor_width, monitor_height, 100);
+    int result_w = width.computeInt(dpi_scale, monitor_width, monitor_height, 100);
+    int result_h = height.computeInt(dpi_scale, monitor_width, monitor_height, 100);
 
-    int result_x = x.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi,
-                                        monitor_info.bounds.width(), monitor_info.bounds.height(),
-                                        (monitor_width - result_w) / 2);
-    int result_y = y.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi,
-                                        monitor_info.bounds.width(), monitor_info.bounds.height(),
-                                        (monitor_height - result_h) / 2);
+    int result_x = x.computeInt(monitor_info.dpi / Window::kDefaultDpi, monitor_info.bounds.width(),
+                                monitor_info.bounds.height(), (monitor_width - result_w) / 2);
+    int result_y = y.computeInt(monitor_info.dpi / Window::kDefaultDpi, monitor_info.bounds.width(),
+                                monitor_info.bounds.height(), (monitor_height - result_h) / 2);
     return { monitor_info.bounds.x() + result_x, monitor_info.bounds.y() + result_y, result_w, result_h };
   }
 
   std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
                                        const Dimension& height, Window::Decoration decoration) {
-    Bounds bounds = computeWindowBounds(width, height);
+    IBounds bounds = computeWindowBounds(width, height);
     MonitorInfo monitor_info = activeMonitorInfo();
-    int window_x = x.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi,
-                                        monitor_info.bounds.width(), monitor_info.bounds.height(),
-                                        bounds.x());
-    int window_y = y.computeWithDefault(monitor_info.dpi / Window::kDefaultDpi,
-                                        monitor_info.bounds.width(), monitor_info.bounds.height(),
-                                        bounds.y());
+    int window_x = x.computeInt(monitor_info.dpi / Window::kDefaultDpi, monitor_info.bounds.width(),
+                                monitor_info.bounds.height(), bounds.x());
+    int window_y = y.computeInt(monitor_info.dpi / Window::kDefaultDpi, monitor_info.bounds.width(),
+                                monitor_info.bounds.height(), bounds.y());
     return std::make_unique<WindowX11>(window_x, window_y, bounds.width(), bounds.height(), decoration);
   }
 
@@ -451,7 +465,7 @@ namespace visage {
 
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle) {
-    Bounds bounds = computeWindowBounds(width, height);
+    IBounds bounds = computeWindowBounds(width, height);
     return std::make_unique<WindowX11>(bounds.width(), bounds.height(), parent_handle);
   }
 
@@ -488,7 +502,7 @@ namespace visage {
     return MonitorInfo::kDefaultRefreshRate;
   }
 
-  void WindowX11::createWindow(Bounds bounds) {
+  void WindowX11::createWindow(IBounds bounds) {
     VISAGE_ASSERT(bounds.width() && bounds.height());
 
     ::Display* display = x11_->display();
@@ -516,7 +530,7 @@ namespace visage {
     monitor_info_ = activeMonitorInfo();
     X11Connection::DisplayLock lock(x11_);
     ::Display* display = x11_->display();
-    Bounds bounds(x, y, width, height);
+    IBounds bounds(x, y, width, height);
     createWindow(bounds);
 
     if (decoration == Decoration::Popup) {
@@ -671,7 +685,7 @@ namespace visage {
     XFree(size_hints);
   }
 
-  visage::Point WindowX11::retrieveWindowDimensions() {
+  visage::IPoint WindowX11::retrieveWindowDimensions() {
     X11Connection::DisplayLock lock(x11_);
     XWindowAttributes attributes;
     XGetWindowAttributes(x11_->display(), window_handle_, &attributes);
@@ -1258,13 +1272,13 @@ namespace visage {
                                event.xmotion.y_root, event.xmotion.time);
         break;
       }
-      if (mouseRelativeMode() && mouse_down_position_ == Point(event.xmotion.x, event.xmotion.y))
+      if (mouseRelativeMode() && mouse_down_position_ == IPoint(event.xmotion.x, event.xmotion.y))
         break;
 
       if (window_operation_ == 0) {
         handleMouseMove(event.xmotion.x, event.xmotion.y, mouseButtonState(), modifierState());
         if (mouseRelativeMode())
-          setCursorPosition(mouse_down_position_);
+          setNativeCursorPosition(mouse_down_position_);
       }
       break;
     }
@@ -1408,7 +1422,7 @@ namespace visage {
       break;
     }
     case ConfigureNotify: {
-      visage::Point dimensions = retrieveWindowDimensions();
+      visage::IPoint dimensions = retrieveWindowDimensions();
       handleResized(dimensions.x, dimensions.y);
       long long us_time = time::microseconds() - start_microseconds_;
       drawCallback(us_time / 1000000.0);
@@ -1517,7 +1531,7 @@ namespace visage {
         XNextEvent(x11_->display(), &e);
 
         if (e.type == ConfigureNotify && e.xconfigure.window == window_handle_) {
-          visage::Point dimensions = retrieveWindowDimensions();
+          visage::IPoint dimensions = retrieveWindowDimensions();
           handleResized(dimensions.x, dimensions.y);
           return;
         }
@@ -1546,7 +1560,7 @@ namespace visage {
     XStoreName(x11_->display(), window_handle_, title.c_str());
   }
 
-  Point WindowX11::maxWindowDimensions() const {
+  IPoint WindowX11::maxWindowDimensions() const {
     MonitorInfo monitor_info = activeMonitorInfo();
 
     int display_width = monitor_info.bounds.width();
@@ -1556,7 +1570,7 @@ namespace visage {
              std::min<int>(display_height, display_width / aspect_ratio) };
   }
 
-  Point WindowX11::minWindowDimensions() const {
+  IPoint WindowX11::minWindowDimensions() const {
     MonitorInfo monitor_info = activeMonitorInfo();
     float minimum_scale = minimumWindowScale();
 
