@@ -458,7 +458,7 @@ namespace visage {
       state_memory_.pop_back();
     }
 
-    void setPosition(int x, int y) {
+    void setPosition(float x, float y) {
       state_.x += x * state_.scale;
       state_.y += y * state_.scale;
     }

@@ -203,6 +203,11 @@ namespace visage {
       if (!bgfx::isValid(texture_handle_)) {
         texture_handle_ = bgfx::createTexture2D(atlas_map_.width(), atlas_map_.height(), false, 1,
                                                 bgfx::TextureFormat::BGRA8);
+        int width = atlas_map_.width();
+        int height = atlas_map_.height();
+        std::unique_ptr<unsigned int[]> clear = std::make_unique<unsigned int[]>(width * height);
+        bgfx::updateTexture2D(texture_handle_, 0, 0, 0, 0, width, height,
+                              bgfx::copy(clear.get(), width * height * ImageAtlas::kChannels));
 
         for (auto& glyph : packed_glyphs_)
           rasterizeGlyph(glyph.first, &glyph.second);
@@ -360,9 +365,6 @@ namespace visage {
       pen_y = y + static_cast<int>((nativeCapitalHeight() + nativeLineHeight()) * 0.5f);
     else if (justification & kBottom)
       pen_y = y + static_cast<int>(height);
-
-    pen_x = std::round(pen_x);
-    pen_y = std::round(pen_y);
 
     for (int i = 0; i < length; ++i) {
       char32_t character = character_override ? character_override : text[i];

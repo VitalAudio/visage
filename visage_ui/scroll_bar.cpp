@@ -89,7 +89,7 @@ namespace visage {
   void ScrollableFrame::resized() {
     int scroll_bar_width = paletteValue(ScrollBarWidth);
     int x = scroll_bar_left_ ? 0 : width() - scroll_bar_width;
-    float_position_ = y_position_;
+    smooth_position_ = y_position_;
     scroll_bar_.setBounds(x, 0, scroll_bar_width, height());
     float h = std::max<float>(height(), std::max(scroll_bar_.viewRange(), scroll_bar_.viewHeight()));
     container_.setBounds(0, -y_position_, width(), h);
