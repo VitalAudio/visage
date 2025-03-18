@@ -99,7 +99,7 @@ namespace visage {
 
   void setCursorScreenPosition(Point screen_position) { }
 
-  float windowPixelScale() {
+  static float windowPixelScale() {
     return EM_ASM_DOUBLE({ return window.devicePixelRatio; });
   }
 

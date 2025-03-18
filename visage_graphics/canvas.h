@@ -386,8 +386,8 @@ namespace visage {
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
     void svg(const char* svg_data, int svg_size, const T1& x, const T2& y, const T3& width,
              const T4& height, const T5& blur_radius) {
-      int w = std::round(pixels(svg.width));
-      int h = std::round(pixels(svg.height));
+      int w = std::round(pixels(width));
+      int h = std::round(pixels(height));
       int radius = std::round(pixels(blur_radius));
       addSvg({ svg_data, svg_size, w, h, radius }, pixels(x), pixels(y));
     }
