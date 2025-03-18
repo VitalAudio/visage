@@ -123,7 +123,7 @@ namespace visage {
     CGEventRef event = CGEventCreate(nullptr);
     CGPoint cursor = CGEventGetLocation(event);
     CFRelease(event);
-    return { (int)cursor.x, (int)cursor.y };
+    return { static_cast<float>(cursor.x), static_cast<float>(cursor.y) };
   }
 
   void setCursorVisible(bool visible) {
@@ -153,25 +153,19 @@ namespace visage {
 
   void setCursorPosition(Point window_position) {
     CGRect window_bounds = activeWindowBounds();
-    int x = window_bounds.origin.x + window_position.x;
-    int y = window_bounds.origin.y + window_position.y;
+    float x = window_bounds.origin.x + window_position.x;
+    float y = window_bounds.origin.y + window_position.y;
     setCursorScreenPosition({ x, y });
   }
 
-  Point windowBorderSize(NSWindow* window_handle) {
+  static Point windowBorderSize(NSWindow* window_handle) {
     if (window_handle == nullptr)
       return { 0, 0 };
     NSRect frame = [window_handle frame];
     NSRect content_rect = [window_handle contentRectForFrameRect:frame];
-    return { (int)std::round(frame.size.width - content_rect.size.width),
-             (int)std::round(frame.size.height - content_rect.size.height) };
-  }
-
-  float windowPixelScale() {
-    if (NSScreen.mainScreen == nullptr)
-      return 1.0f;
-
-    return [NSScreen.mainScreen backingScaleFactor];
+    float x = frame.size.width - content_rect.size.width;
+    float y = frame.size.height - content_rect.size.height;
+    return { x, y };
   }
 
   bool isMobileDevice() {
@@ -411,13 +405,13 @@ namespace visage {
   NSPoint location = [event locationInWindow];
   NSPoint view_location = [self convertPoint:location fromView:nil];
   CGFloat view_height = self.frame.size.height;
-  return visage::Point(view_location.x, view_height - view_location.y);
+  return visage::Point(view_location.x, view_height - view_location.y) * self.visage_window->dpiScale();
 }
 
 - (visage::Point)dragPosition:(id<NSDraggingInfo>)sender {
   NSPoint drag_point = [self convertPoint:[sender draggingLocation] fromView:nil];
   CGFloat view_height = self.frame.size.height;
-  return visage::Point(drag_point.x, view_height - drag_point.y);
+  return visage::Point(drag_point.x, view_height - drag_point.y) * self.visage_window->dpiScale();
 }
 
 - (NSPoint)mouseScreenPosition {
@@ -692,11 +686,11 @@ namespace visage {
   if (current_frame.height != frame_size.height)
     self.resizing_vertical = true;
 
-  visage::Point max_dimensions = self.visage_window->maxWindowDimensions();
-  visage::Point min_dimensions = self.visage_window->minWindowDimensions();
+  visage::Point max_dimensions = visage::Point(self.visage_window->maxWindowDimensions());
+  visage::Point min_dimensions = visage::Point(self.visage_window->minWindowDimensions());
   visage::Point borders = visage::windowBorderSize(self.window_handle);
-  visage::Point dimensions = visage::Point(std::round(frame_size.width - borders.x),
-                                           std::round(frame_size.height - borders.y));
+  visage::Point dimensions(static_cast<float>(frame_size.width - borders.x),
+                           static_cast<float>(frame_size.height - borders.y));
   float aspect_ratio = self.visage_window->aspectRatio();
   dimensions = adjustBoundsForAspectRatio(dimensions, min_dimensions, max_dimensions, aspect_ratio,
                                           self.resizing_horizontal, self.resizing_vertical);
@@ -762,15 +756,15 @@ namespace visage {
     });
   }
 
-  static Bounds computeWindowBoundsWithScale(const Dimension& x, const Dimension& y,
-                                             const Dimension& w, const Dimension& h, float& scale) {
+  static IBounds computeWindowBoundsWithScale(const Dimension& x, const Dimension& y,
+                                              const Dimension& w, const Dimension& h, float& scale) {
     NSScreen* screen = [NSScreen mainScreen];
     CGRect screen_frame = [screen frame];
     scale = screen.backingScaleFactor;
     int screen_width = screen_frame.size.width * scale;
     int screen_height = screen_frame.size.height * scale;
-    int x_pos = x.computeWithDefault(scale, screen_width, screen_height);
-    int y_pos = y.computeWithDefault(scale, screen_width, screen_height);
+    int x_pos = x.computeInt(scale, screen_width, screen_height, 0);
+    int y_pos = y.computeInt(scale, screen_width, screen_height, 0);
 
     for (NSScreen* s in [NSScreen screens]) {
       if (NSPointInRect(CGPointMake(x_pos, y_pos), [s frame])) {
@@ -783,23 +777,23 @@ namespace visage {
     scale = screen.backingScaleFactor;
     screen_width = screen_frame.size.width * scale;
     screen_height = screen_frame.size.height * scale;
-    int width = w.computeWithDefault(scale, screen_width, screen_height);
-    int height = h.computeWithDefault(scale, screen_width, screen_height);
+    int width = w.computeInt(scale, screen_width, screen_height, 0);
+    int height = h.computeInt(scale, screen_width, screen_height, 0);
 
     int default_x = (screen_width - width) / 2;
     int default_y = (screen_height - height) / 2;
-    x_pos = x.computeWithDefault(scale, screen_width, screen_height, default_x) / scale;
-    y_pos = y.computeWithDefault(scale, screen_width, screen_height, default_y) / scale;
+    x_pos = x.computeInt(scale, screen_width, screen_height, default_x) / scale;
+    y_pos = y.computeInt(scale, screen_width, screen_height, default_y) / scale;
     width /= scale;
     height /= scale;
 
     return { x_pos, static_cast<int>(screen_height / scale) - y_pos - height, width, height };
   }
 
-  Bounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& w,
-                             const Dimension& h) {
+  IBounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& w,
+                              const Dimension& h) {
     float scale = 1.0f;
-    Bounds bounds = computeWindowBoundsWithScale(x, y, w, h, scale);
+    IBounds bounds = computeWindowBoundsWithScale(x, y, w, h, scale);
     return {
       static_cast<int>(std::round(scale * bounds.x())),
       static_cast<int>(std::round(scale * bounds.y())),
@@ -811,7 +805,7 @@ namespace visage {
   std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
                                        const Dimension& height, Window::Decoration decoration) {
     float scale = 1.0f;
-    Bounds bounds = computeWindowBoundsWithScale(x, y, width, height, scale);
+    IBounds bounds = computeWindowBoundsWithScale(x, y, width, height, scale);
     return std::make_unique<WindowMac>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), decoration);
   }
 
@@ -822,7 +816,7 @@ namespace visage {
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle) {
     float scale = 1.0f;
-    Bounds bounds = computeWindowBoundsWithScale({}, {}, width, height, scale);
+    IBounds bounds = computeWindowBoundsWithScale({}, {}, width, height, scale);
     return std::make_unique<WindowMac>(bounds.width(), bounds.height(), parent_handle);
   }
 
@@ -844,7 +838,7 @@ namespace visage {
 
   WindowMac::WindowMac(int width, int height, void* parent_handle) : Window(width, height) {
     parent_view_ = (__bridge NSView*)parent_handle;
-    CGRect view_frame = CGRectMake(0.0f, 0.0f, width / pixelScale(), height / pixelScale());
+    CGRect view_frame = CGRectMake(0.0f, 0.0f, width / dpiScale(), height / dpiScale());
 
     view_ = [[VisageAppView alloc] initWithFrame:view_frame inWindow:this];
     view_delegate_ = [[VisageAppViewDelegate alloc] initWithWindow:this];
@@ -886,10 +880,9 @@ namespace visage {
       window.titlebarAppearsTransparent = YES;
 
     window_handle_ = window;
-    setPixelScale([window_handle_ backingScaleFactor]);
     setDpiScale([window_handle_ backingScaleFactor]);
-    int client_width = std::round(last_content_rect_.size.width * pixelScale());
-    int client_height = std::round(last_content_rect_.size.height * pixelScale());
+    int client_width = std::round(last_content_rect_.size.width * dpiScale());
+    int client_height = std::round(last_content_rect_.size.height * dpiScale());
     handleResized(client_width, client_height);
 
     [window_handle_ setContentView:view_];
@@ -898,11 +891,11 @@ namespace visage {
 
   void WindowMac::closeWindow() {
     last_content_rect_ = window_handle_.contentLayoutRect;
-    visage::NativeWindowLookup::instance().removeWindow(this);
+    NativeWindowLookup::instance().removeWindow(this);
     hide();
     window_handle_ = nullptr;
 
-    if (running_event_loop_ && !visage::NativeWindowLookup::instance().anyWindowOpen())
+    if (running_event_loop_ && !NativeWindowLookup::instance().anyWindowOpen())
       [NSApp stop:nil];
   }
 
@@ -917,10 +910,8 @@ namespace visage {
   }
 
   void WindowMac::resetBackingScale() {
-    if (window_handle_) {
-      setPixelScale([window_handle_ backingScaleFactor]);
+    if (window_handle_)
       setDpiScale([window_handle_ backingScaleFactor]);
-    }
   }
 
   void WindowMac::windowContentsResized(int width, int height) {
@@ -977,7 +968,7 @@ namespace visage {
     [window_handle_ setTitle:[NSString stringWithUTF8String:title.c_str()]];
   }
 
-  Point WindowMac::maxWindowDimensions() const {
+  IPoint WindowMac::maxWindowDimensions() const {
     Point borders = windowBorderSize(window_handle_);
 
     NSScreen* screen = [window_handle_ screen];
@@ -991,7 +982,7 @@ namespace visage {
              std::min<int>(display_height, display_width / aspect_ratio) };
   }
 
-  Point WindowMac::minWindowDimensions() const {
+  IPoint WindowMac::minWindowDimensions() const {
     float minimum_scale = minimumWindowScale();
     NSScreen* screen = [window_handle_ screen];
     NSRect visible_frame = [screen visibleFrame];
