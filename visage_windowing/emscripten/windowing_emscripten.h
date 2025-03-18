@@ -43,14 +43,8 @@ namespace visage {
     void hide() override { }
     bool isShowing() const override { return true; }
     void setWindowTitle(const std::string& title) override;
-    Point maxWindowDimensions() const override;
-    Point minWindowDimensions() const override;
-    void setMousePosition(int x, int y) {
-      mouse_x_ = x;
-      mouse_y_ = y;
-    }
-    int mouseX() const { return mouse_x_; }
-    int mouseY() const { return mouse_x_; }
+    IPoint maxWindowDimensions() const override;
+    IPoint minWindowDimensions() const override;
     int initialWidth() const { return initial_width_; }
     int initialHeight() const { return initial_height_; }
     bool mouseRelativeMode() const override { return false; }
