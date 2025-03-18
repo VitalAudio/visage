@@ -228,6 +228,7 @@ namespace visage {
   int doubleClickSpeed();
   void setDoubleClickSpeed(int ms);
 
+  float defaultDpiScale();
   IBounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
                               const Dimension& height);
 

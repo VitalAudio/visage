@@ -89,7 +89,7 @@ namespace visage {
 
   void setCursorVisible(bool visible) { }
 
-  static float windowPixelRatio() {
+  float defaultDpiScale() {
     return EM_ASM_DOUBLE({ return window.devicePixelRatio; });
   }
 
@@ -134,7 +134,7 @@ namespace visage {
 
   std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
                                        const Dimension& height, Window::Decoration decoration) {
-    float scale = windowPixelRatio();
+    float scale = defaultDpiScale();
     int display_width = scale * EM_ASM_INT({ return window.innerWidth; });
     int display_height = scale * EM_ASM_INT({ return window.innerHeight; });
 
@@ -181,7 +181,7 @@ namespace visage {
   WindowEmscripten::WindowEmscripten(int width, int height) :
       Window(width, height), initial_width_(width), initial_height_(height) {
     WindowEmscripten::running_instance_ = this;
-    setDpiScale(windowPixelRatio());
+    setDpiScale(defaultDpiScale());
     start_microseconds_ = time::microseconds();
   }
 
@@ -615,7 +615,7 @@ namespace visage {
 
     emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, resizeCallback);
 
-    setDpiScale(windowPixelRatio());
+    setDpiScale(defaultDpiScale());
     emscripten_set_element_css_size("canvas", clientWidth() / dpiScale(), clientHeight() / dpiScale());
     emscripten_set_canvas_element_size("canvas", clientWidth(), clientHeight());
     emscripten_set_main_loop(runLoop, 0, 1);

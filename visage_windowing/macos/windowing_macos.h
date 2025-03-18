@@ -65,8 +65,8 @@ namespace visage {
 namespace visage {
   class WindowMac : public Window {
   public:
-    WindowMac(int x, int y, int width, int height, Decoration decoration);
-    WindowMac(int width, int height, void* parent_handle);
+    WindowMac(int x, int y, int width, int height, float scale, Decoration decoration);
+    WindowMac(int width, int height, float scale, void* parent_handle);
 
     ~WindowMac() override;
 
