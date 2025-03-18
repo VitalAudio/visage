@@ -89,19 +89,30 @@ namespace visage {
 
   void setCursorVisible(bool visible) { }
 
+  static float windowPixelRatio() {
+    return EM_ASM_DOUBLE({ return window.devicePixelRatio; });
+  }
+
   Point cursorPosition() {
     EmscriptenMouseEvent event;
     emscripten_get_mouse_status(&event);
-    return { event.targetX, event.targetY };
+    float x = event.targetX - EM_ASM_DOUBLE({
+                var canvas = document.getElementById('canvas');
+                var rect = canvas.getBoundingClientRect();
+                return rect.left;
+              });
+
+    float y = event.targetY - EM_ASM_DOUBLE({
+                var canvas = document.getElementById('canvas');
+                var rect = canvas.getBoundingClientRect();
+                return rect.top;
+              });
+    return { x, y };
   }
 
   void setCursorPosition(Point window_position) { }
 
   void setCursorScreenPosition(Point screen_position) { }
-
-  static float windowPixelScale() {
-    return EM_ASM_DOUBLE({ return window.devicePixelRatio; });
-  }
 
   bool isMobileDevice() {
     return EM_ASM_INT({
@@ -116,14 +127,14 @@ namespace visage {
     maximized_ = true;
     int width = EM_ASM_INT({ return window.innerWidth; });
     int height = EM_ASM_INT({ return window.innerHeight; });
-    initial_width_ = width * pixelScale();
-    initial_height_ = height * pixelScale();
+    initial_width_ = width * dpiScale();
+    initial_height_ = height * dpiScale();
     handleWindowResize(width, height);
   }
 
   std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
                                        const Dimension& height, Window::Decoration decoration) {
-    float scale = windowPixelScale();
+    float scale = windowPixelRatio();
     int display_width = scale * EM_ASM_INT({ return window.innerWidth; });
     int display_height = scale * EM_ASM_INT({ return window.innerHeight; });
 
@@ -167,22 +178,10 @@ namespace visage {
 
   WindowEmscripten* WindowEmscripten::running_instance_ = nullptr;
 
-  Bounds scaledWindowBounds(float aspect_ratio, float display_scale, int x, int y) {
-    float scale = windowPixelScale();
-    int display_width = EM_ASM_INT({ return window.innerWidth; }) * scale;
-    int display_height = EM_ASM_INT({ return window.innerHeight; }) * scale;
-
-    int height = std::min(display_height * display_scale, display_width * display_scale / aspect_ratio);
-    int width = height * aspect_ratio + 0.5f;
-    return { 0, 0, width, height };
-  }
-
   WindowEmscripten::WindowEmscripten(int width, int height) :
       Window(width, height), initial_width_(width), initial_height_(height) {
     WindowEmscripten::running_instance_ = this;
-    float scale = windowPixelScale();
-    setDpiScale(scale);
-    setPixelScale(scale);
+    setDpiScale(windowPixelRatio());
     start_microseconds_ = time::microseconds();
   }
 
@@ -239,17 +238,19 @@ namespace visage {
     if (event == nullptr || window == nullptr)
       return false;
 
-    int x = event->targetX - EM_ASM_INT({
-              var canvas = document.getElementById('canvas');
-              var rect = canvas.getBoundingClientRect();
-              return rect.left;
-            });
+    float x = event->targetX - EM_ASM_DOUBLE({
+                var canvas = document.getElementById('canvas');
+                var rect = canvas.getBoundingClientRect();
+                return rect.left;
+              });
+    x *= window->dpiScale();
 
-    int y = event->targetY - EM_ASM_INT({
-              var canvas = document.getElementById('canvas');
-              var rect = canvas.getBoundingClientRect();
-              return rect.top;
-            });
+    float y = event->targetY - EM_ASM_DOUBLE({
+                var canvas = document.getElementById('canvas');
+                var rect = canvas.getBoundingClientRect();
+                return rect.top;
+              });
+    y *= window->dpiScale();
 
     MouseButton button = mouseButton(event);
     int button_state = mouseButtonState(event);
@@ -262,7 +263,6 @@ namespace visage {
       window->handleMouseUp(button, x, y, button_state, modifier_state);
       return true;
     case EMSCRIPTEN_EVENT_MOUSEMOVE:
-      window->setMousePosition(x, y);
       window->handleMouseMove(x, y, button_state, modifier_state);
       return true;
     default: return true;
@@ -591,8 +591,8 @@ namespace visage {
     int new_width = event->windowInnerWidth;
     int new_height = event->windowInnerHeight;
     if (!window->maximized()) {
-      new_width = std::min<int>(window->initialWidth() / window->pixelScale(), new_width);
-      new_height = std::min<int>(window->initialHeight() / window->pixelScale(), new_height);
+      new_width = std::min<int>(window->initialWidth() / window->dpiScale(), new_width);
+      new_height = std::min<int>(window->initialHeight() / window->dpiScale(), new_height);
     }
     window->handleWindowResize(new_width, new_height);
     return true;
@@ -613,24 +613,22 @@ namespace visage {
 
     emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, resizeCallback);
 
-    float scale = windowPixelScale();
-    setDpiScale(scale);
-    setPixelScale(scale);
-    emscripten_set_element_css_size("canvas", clientWidth() / pixelScale(), clientHeight() / pixelScale());
+    setDpiScale(windowPixelRatio());
+    emscripten_set_element_css_size("canvas", clientWidth() / dpiScale(), clientHeight() / dpiScale());
     emscripten_set_canvas_element_size("canvas", clientWidth(), clientHeight());
     emscripten_set_main_loop(runLoop, 0, 1);
   }
 
   void WindowEmscripten::windowContentsResized(int width, int height) {
     emscripten_set_element_css_size("canvas", width, height);
-    emscripten_set_canvas_element_size("canvas", width * pixelScale(), height * pixelScale());
+    emscripten_set_canvas_element_size("canvas", width * dpiScale(), height * dpiScale());
   }
 
   void WindowEmscripten::setWindowTitle(const std::string& title) {
     emscripten_run_script(("document.title = '" + title + "';").c_str());
   }
 
-  Point WindowEmscripten::maxWindowDimensions() const {
+  IPoint WindowEmscripten::maxWindowDimensions() const {
     int display_width = EM_ASM_INT({ return screen.width; });
     int display_height = EM_ASM_INT({ return screen.height; });
 
@@ -639,7 +637,7 @@ namespace visage {
              std::min<int>(display_height, display_width / aspect_ratio) };
   }
 
-  Point WindowEmscripten::minWindowDimensions() const {
+  IPoint WindowEmscripten::minWindowDimensions() const {
     return { 0, 0 };
   }
 
@@ -651,7 +649,7 @@ namespace visage {
       int width = std::min<int>(window_width, window_height * aspect_ratio);
       int height = std::min<int>(window_height, window_width / aspect_ratio);
     }
-    handleResized(width * pixelScale(), height * pixelScale());
+    handleResized(width * dpiScale(), height * dpiScale());
     emscripten_set_element_css_size("canvas", width, height);
     emscripten_set_canvas_element_size("canvas", clientWidth(), clientHeight());
   }
