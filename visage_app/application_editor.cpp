@@ -33,7 +33,9 @@ namespace visage {
   TopLevelFrame::~TopLevelFrame() = default;
 
   void TopLevelFrame::resized() {
-    setDpiScale(editor_->window() ? editor_->window()->dpiScale() : 1.0f);
+    if (editor_->window())
+      setDpiScale(editor_->window()->dpiScale());
+    
     editor_->setNativeBounds(nativeLocalBounds());
     editor_->setCanvasDetails();
 

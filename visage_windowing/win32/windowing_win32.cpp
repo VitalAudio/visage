@@ -1396,6 +1396,11 @@ namespace visage {
     drag_drop_target_ = new DragDropTarget(this);
   }
 
+  float defaultDpiScale() {
+    DpiAwareness dpi_awareness;
+    return dpi_awareness.dpiScale();
+  }
+
   IBounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
                               const Dimension& height) {
     DpiAwareness dpi_awareness;

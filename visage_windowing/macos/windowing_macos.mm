@@ -756,8 +756,15 @@ namespace visage {
     });
   }
 
+  float defaultDpiScale() {
+    NSScreen* screen = [NSScreen mainScreen];
+    CGRect screen_frame = [screen frame];
+    return screen.backingScaleFactor;
+  }
+
   static IBounds computeWindowBoundsWithScale(const Dimension& x, const Dimension& y,
                                               const Dimension& w, const Dimension& h, float& scale) {
+    scale = defaultDpiScale();
     NSScreen* screen = [NSScreen mainScreen];
     CGRect screen_frame = [screen frame];
     scale = screen.backingScaleFactor;
@@ -782,31 +789,24 @@ namespace visage {
 
     int default_x = (screen_width - width) / 2;
     int default_y = (screen_height - height) / 2;
-    x_pos = x.computeInt(scale, screen_width, screen_height, default_x) / scale;
-    y_pos = y.computeInt(scale, screen_width, screen_height, default_y) / scale;
-    width /= scale;
-    height /= scale;
+    x_pos = x.computeInt(scale, screen_width, screen_height, default_x);
+    y_pos = y.computeInt(scale, screen_width, screen_height, default_y);
 
-    return { x_pos, static_cast<int>(screen_height / scale) - y_pos - height, width, height };
+    return { x_pos, screen_height - y_pos - height, width, height };
   }
 
   IBounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& w,
                               const Dimension& h) {
     float scale = 1.0f;
-    IBounds bounds = computeWindowBoundsWithScale(x, y, w, h, scale);
-    return {
-      static_cast<int>(std::round(scale * bounds.x())),
-      static_cast<int>(std::round(scale * bounds.y())),
-      static_cast<int>(std::round(scale * bounds.width())),
-      static_cast<int>(std::round(scale * bounds.height())),
-    };
+    return computeWindowBoundsWithScale(x, y, w, h, scale);
   }
 
   std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
                                        const Dimension& height, Window::Decoration decoration) {
     float scale = 1.0f;
     IBounds bounds = computeWindowBoundsWithScale(x, y, width, height, scale);
-    return std::make_unique<WindowMac>(bounds.x(), bounds.y(), bounds.width(), bounds.height(), decoration);
+    return std::make_unique<WindowMac>(bounds.x(), bounds.y(), bounds.width(), bounds.height(),
+                                       scale, decoration);
   }
 
   void* headlessWindowHandle() {
@@ -817,12 +817,13 @@ namespace visage {
                                              void* parent_handle) {
     float scale = 1.0f;
     IBounds bounds = computeWindowBoundsWithScale({}, {}, width, height, scale);
-    return std::make_unique<WindowMac>(bounds.width(), bounds.height(), parent_handle);
+    return std::make_unique<WindowMac>(bounds.width(), bounds.height(), scale, parent_handle);
   }
 
-  WindowMac::WindowMac(int x, int y, int width, int height, Decoration decoration) :
+  WindowMac::WindowMac(int x, int y, int width, int height, float scale, Decoration decoration) :
       Window(width, height), decoration_(decoration) {
-    last_content_rect_ = NSMakeRect(x, y, width, height);
+    setDpiScale(scale);
+    last_content_rect_ = NSMakeRect(x / scale, y / scale, width / scale, height / scale);
     NSRect rect = last_content_rect_;
 
     rect.origin.x = 0;
@@ -836,9 +837,10 @@ namespace visage {
     NativeWindowLookup::instance().addWindow(this);
   }
 
-  WindowMac::WindowMac(int width, int height, void* parent_handle) : Window(width, height) {
+  WindowMac::WindowMac(int width, int height, float scale, void* parent_handle) :
+      Window(width, height) {
     parent_view_ = (__bridge NSView*)parent_handle;
-    CGRect view_frame = CGRectMake(0.0f, 0.0f, width / dpiScale(), height / dpiScale());
+    CGRect view_frame = CGRectMake(0.0f, 0.0f, width / scale, height / scale);
 
     view_ = [[VisageAppView alloc] initWithFrame:view_frame inWindow:this];
     view_delegate_ = [[VisageAppViewDelegate alloc] initWithWindow:this];
@@ -919,11 +921,13 @@ namespace visage {
     int x = frame.origin.x;
     int y = frame.origin.y;
 
+    float w = width / dpiScale();
+    float h = height / dpiScale();
     Point borders = windowBorderSize(window_handle_);
-    frame.size.width = width + borders.x;
-    frame.size.height = height + borders.y;
+    frame.size.width = w + borders.x;
+    frame.size.height = h + borders.y;
 
-    [view_ setFrameSize:CGSizeMake(width, height)];
+    [view_ setFrameSize:CGSizeMake(w, h)];
     if (parent_view_ == nullptr) {
       [window_handle_ setFrame:NSMakeRect(x, y, frame.size.width, frame.size.height)
                        display:YES

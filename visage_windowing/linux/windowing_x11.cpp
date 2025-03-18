@@ -432,6 +432,11 @@ namespace visage {
     XDestroyWindow(display, message_window);
   }
 
+  float defaultDpiScale() {
+    MonitorInfo monitor_info = activeMonitorInfo();
+    return monitor_info.dpi / Window::kDefaultDpi;
+  }
+
   IBounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
                               const Dimension& height) {
     MonitorInfo monitor_info = activeMonitorInfo();

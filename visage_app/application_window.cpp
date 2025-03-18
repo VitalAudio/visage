@@ -36,13 +36,15 @@ namespace visage {
 
   void ApplicationWindow::setWindowDimensions(const Dimension& width, const Dimension& height) {
     IBounds bounds = computeWindowBounds(width, height);
+    setDpiScale(defaultDpiScale());
     setNativeBounds({ 0, 0, bounds.width(), bounds.height() });
     initial_position_ = bounds.topLeft();
   }
 
   void ApplicationWindow::setWindowDimensions(const Dimension& x, const Dimension& y,
                                               const Dimension& width, const Dimension& height) {
-    IBounds bounds = computeWindowBounds(width, height);
+    IBounds bounds = computeWindowBounds(x, y, width, height);
+    setDpiScale(defaultDpiScale());
     setNativeBounds({ 0, 0, bounds.width(), bounds.height() });
     initial_position_ = bounds.topLeft();
   }
