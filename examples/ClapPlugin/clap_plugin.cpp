@@ -85,7 +85,9 @@ bool ClapPlugin::guiCreate(const char* api, bool is_floating) noexcept {
     canvas.circle(x, y, 2.0f * circle_radius);
   };
 
-  app_->onWindowContentsResized() = [this] { _host.guiRequestResize(app_->width(), app_->height()); };
+  app_->onWindowContentsResized() = [this] {
+    _host.guiRequestResize(app_->nativeWidth(), app_->nativeHeight());
+  };
 
   return true;
 }
@@ -142,7 +144,7 @@ bool ClapPlugin::guiSetSize(uint32_t width, uint32_t height) noexcept {
   if (app_ == nullptr)
     return false;
 
-  app_->setWindowDimensions(width, height);
+  app_->setNativeWindowDimensions(width, height);
   return true;
 }
 
@@ -150,7 +152,7 @@ bool ClapPlugin::guiGetSize(uint32_t* width, uint32_t* height) noexcept {
   if (app_ == nullptr)
     return false;
 
-  *width = app_->width();
-  *height = app_->height();
+  *width = app_->nativeWidth();
+  *height = app_->nativeHeight();
   return true;
 }

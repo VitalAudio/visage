@@ -41,10 +41,16 @@ namespace visage {
         addClientDecoration();
     }
 
-    void setWindowDimensions(int width, int height) {
+    void setWindowDimensions(float width, float height) {
       setDimensions(width, height);
       if (window_)
         window_->setWindowSize(width, height);
+    }
+
+    void setNativeWindowDimensions(int width, int height) {
+      setNativeDimensions(width, height);
+      if (window_)
+        window_->setNativeWindowSize(width, height);
     }
 
     void setWindowDimensions(const Dimension& width, const Dimension& height);
