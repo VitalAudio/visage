@@ -96,7 +96,7 @@ namespace visage {
   private:
     std::unique_ptr<PackedAtlasData> data_;
     bool packed_ = false;
-    int padding_ = 0;
+    int padding_ = 1;
     int rect_index_ = 0;
   };
 
@@ -147,6 +147,7 @@ namespace visage {
     }
 
     void setPadding(int padding) { packer_.setPadding(padding); }
+    int padding() const { return packer_.padding(); }
 
     const PackedRect& rectAtIndex(int index) const {
       VISAGE_ASSERT(index >= 0 && index < packed_rects_.size());

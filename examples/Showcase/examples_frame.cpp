@@ -469,7 +469,6 @@ void ExamplesFrame::setupTextEditors() {
 
   number_editor_ = std::make_unique<visage::TextEditor>();
   number_editor_->setDefaultText("Center Text");
-  number_editor_->setNumberEntry();
   number_editor_->layout().setHeight(40_px);
   number_editor_->layout().setFlexGrow(1.0f);
 

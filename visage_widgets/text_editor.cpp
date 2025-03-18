@@ -174,7 +174,7 @@ namespace visage {
   void TextEditor::draw(Canvas& canvas) {
     drawBackground(canvas);
     float x_margin = xMargin();
-    Bounds text_bounds(x_margin, 0, width() - 2 * x_margin, std::max(height(), scrollableHeight()));
+    Bounds text_bounds(x_margin, 0.0f, width() - 2.0f * x_margin, std::max(height(), scrollableHeight()));
 
     if (hasKeyboardFocus())
       drawSelection(canvas);
@@ -199,7 +199,7 @@ namespace visage {
                     text_bounds.height());
       }
       else {
-        canvas.setPosition(-x_position_, 0);
+        canvas.setPosition(-x_position_, 0.0f);
         float expansion = std::abs(x_position_);
         canvas.text(&text_, -expansion, -yPosition(), text_bounds.width() + 2 * expansion,
                     text_bounds.height());
@@ -221,7 +221,7 @@ namespace visage {
     float full_width = font().stringWidth(text_.text().c_str() + range.first,
                                           range.second - range.first, text_.characterOverride());
 
-    float line_x = (width() - full_width + 1.0f) / 2.0f;
+    float line_x = (width() - full_width) / 2.0f;
     float x_margin = xMargin();
     if (justification() & Font::kLeft)
       line_x = x_margin;
@@ -328,7 +328,7 @@ namespace visage {
       float min_view = yMargin() + yPosition();
       float max_view = yPosition() + height() - font().lineHeight();
 
-      std::pair<int, int> caret_location = indexToPosition(caret_position_);
+      std::pair<float, float> caret_location = indexToPosition(caret_position_);
       if (caret_location.second < min_view)
         setYPosition(caret_location.second);
       else if (caret_location.second > max_view)
@@ -336,7 +336,7 @@ namespace visage {
     }
     else {
       float line_width = font().stringWidth(text_.text().c_str(), textLength(), text_.characterOverride());
-      float x_margin = xMargin();
+      float x_margin = xMarginSize();
       float min_view = x_position_ + x_margin;
       float max_view = x_position_ + width() - x_margin;
 
@@ -346,25 +346,25 @@ namespace visage {
         x_position_ = 0.0f;
       }
       else {
-        float max = (line_width - width()) / 2.0f + x_margin + 1.0f;
+        float max = (line_width - width()) / 2.0f + x_margin;
         float min = (width() - line_width) / 2.0f - x_margin;
         if (justification() & Font::kLeft) {
-          max = line_width - width() + 2 * x_margin + 1;
+          max = line_width - width() + 2.0f * x_margin;
           min = 0;
         }
         else if (justification() & Font::kRight) {
           min = -line_width - 2 * x_margin;
-          max = width() + 1;
+          max = width();
         }
         x_position_ = std::min(x_position_, max);
         x_position_ = std::max(x_position_, min);
       }
 
-      std::pair<int, int> caret_location = indexToPosition(caret_position_);
+      std::pair<float, float> caret_location = indexToPosition(caret_position_);
       if (caret_location.first < min_view)
         x_position_ = caret_location.first - x_margin;
       else if (caret_location.first > max_view)
-        x_position_ = caret_location.first - width() + x_margin + 1.0f;
+        x_position_ = caret_location.first - width() + x_margin;
     }
 
     setViewBounds();
@@ -654,7 +654,7 @@ namespace visage {
     else if (modifier)
       caret_position_ = endOfWord();
     else
-      caret_position_ = std::min<int>(textLength(), caret_position_ + 1);
+      caret_position_ = std::min(textLength(), caret_position_ + 1);
 
     if (!shift)
       selection_position_ = caret_position_;
@@ -664,7 +664,7 @@ namespace visage {
   }
 
   void TextEditor::moveCaretVertically(bool shift, float y_offset) {
-    std::pair<int, int> position = indexToPosition(caret_position_);
+    std::pair<float, float> position = indexToPosition(caret_position_);
     position.second += y_offset + font().lineHeight() * 0.5f;
     caret_position_ = positionToIndex(position);
 
@@ -695,7 +695,7 @@ namespace visage {
   }
 
   bool TextEditor::moveCaretToStartOfLine(bool shift) {
-    std::pair<int, int> position = indexToPosition(caret_position_);
+    std::pair<float, float> position = indexToPosition(caret_position_);
     position.first = 0;
     caret_position_ = positionToIndex(position);
 
@@ -717,7 +717,7 @@ namespace visage {
   }
 
   bool TextEditor::moveCaretToEndOfLine(bool shift) {
-    std::pair<int, int> position = indexToPosition(caret_position_);
+    std::pair<float, float> position = indexToPosition(caret_position_);
     position.first = width();
     caret_position_ = positionToIndex(position);
 

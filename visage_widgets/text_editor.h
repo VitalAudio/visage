@@ -166,7 +166,7 @@ namespace visage {
 
     float xMargin() const {
       if (text_.justification() & (Font::kLeft | Font::kRight))
-        return set_x_margin_ ? set_x_margin_ : paletteValue(TextEditorMarginX);
+        return xMarginSize();
       return 0;
     }
     float yMargin() const {
@@ -233,6 +233,9 @@ namespace visage {
     void setBackgroundColorId(theme::ColorId color_id) { background_color_id_ = color_id; }
 
   private:
+    float xMarginSize() const {
+      return set_x_margin_ ? set_x_margin_ : paletteValue(TextEditorMarginX);
+    }
     void addUndoPosition() { undo_history_.emplace_back(text_.text(), caret_position_); }
 
     CallbackList<void()> on_text_change_;
@@ -259,7 +262,7 @@ namespace visage {
     float background_rounding_ = 1.0f;
     float set_x_margin_ = 0.0f;
     float set_y_margin_ = 0.0f;
-    float x_position_ = 0;
+    float x_position_ = 0.0f;
 
     ActionState action_state_ = kNone;
     std::vector<std::pair<String, int>> undo_history_;

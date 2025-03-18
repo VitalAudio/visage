@@ -47,7 +47,7 @@ namespace visage {
     void mouseUp(const MouseEvent& e) override;
     void mouseDrag(const MouseEvent& e) override;
 
-    void addScrollCallback(std::function<void(int)> callback) {
+    void addScrollCallback(std::function<void(float)> callback) {
       callbacks_.push_back(std::move(callback));
     }
 
@@ -77,7 +77,7 @@ namespace visage {
     void setLeftSide(bool left) { left_ = left; }
 
   private:
-    std::vector<std::function<void(int)>> callbacks_;
+    std::vector<std::function<void(float)>> callbacks_;
 
     Animation<float> color_;
     Animation<float> width_;
@@ -97,18 +97,17 @@ namespace visage {
   class ScrollableFrame : public Frame {
   public:
     static constexpr float kDefaultSmoothTime = 0.1f;
+    static constexpr float kDefaultWheelSensitivity = 100.0f;
 
     explicit ScrollableFrame(const std::string& name = "") : Frame(name) {
-      sensitivity_ = Dimension::logicalPixels(100.0f);
-
       addChild(&container_);
       container_.setIgnoresMouseEvents(true, true);
       container_.setVisible(false);
 
       addChild(&scroll_bar_);
-      scroll_bar_.addScrollCallback([this](int position) {
-        float_position_ = position;
+      scroll_bar_.addScrollCallback([this](float position) {
         scrollPositionChanged(position);
+        smooth_position_ = y_position_;
       });
       scroll_bar_.setOnTop(true);
     }
@@ -127,42 +126,41 @@ namespace visage {
     }
 
     bool scrollDown() {
-      setYPosition(y_position_ + height() / 8.0f);
+      setYPosition(y_position_ + height() / 8);
       return true;
     }
 
     void setScrollBarRounding(float rounding) { scroll_bar_.setRounding(rounding); }
     float scrollableHeight() const { return container_.height(); }
-    void setScrollableHeight(int total_height, int view_height = 0) {
+    void setScrollableHeight(float total_height, float view_height = 0) {
       if (view_height == 0)
         view_height = height();
       container_.setBounds(0, -y_position_, width(), total_height);
-      setYPosition(std::max(0, std::min(y_position_, total_height - view_height)));
+      setYPosition(std::max(0.0f, std::min(y_position_, total_height - view_height)));
       scroll_bar_.setViewPosition(total_height, view_height, y_position_);
     }
 
-    void setScrollBarBounds(int x, int y, int width, int height) {
+    void setScrollBarBounds(float x, float y, float width, float height) {
       scroll_bar_.setBounds(x, y, width, height);
     }
 
     void setYPosition(float position) {
       scrollPositionChanged(position);
-      float_position_ = position;
+      smooth_position_ = y_position_;
     }
 
-    int yPosition() const { return y_position_; }
+    float yPosition() const { return y_position_; }
 
     bool mouseWheel(const MouseEvent& e) override {
-      float sensitivity = sensitivity_.compute(dpiScale(), width(), height());
-      float delta = -e.precise_wheel_delta_y * sensitivity;
+      float delta = -e.precise_wheel_delta_y * sensitivity_;
       if (e.wheel_momentum) {
-        float new_position = std::max(0.0f, std::min(maxScroll(), float_position_ + delta));
-        if (new_position == float_position_)
+        float new_position = std::max(0.0f, std::min(maxScroll(), smooth_position_ + delta));
+        if (new_position == smooth_position_)
           return false;
 
-        float_position_ = new_position;
-        scrollPositionChanged(float_position_);
-        scroll_bar_.setViewPosition(scroll_bar_.viewRange(), scroll_bar_.viewHeight(), float_position_);
+        smooth_position_ = new_position;
+        scrollPositionChanged(smooth_position_);
+        scroll_bar_.setViewPosition(scroll_bar_.viewRange(), scroll_bar_.viewHeight(), smooth_position_);
         return true;
       }
       else
@@ -179,14 +177,14 @@ namespace visage {
     auto& onScroll() { return on_scroll_; }
     ScrollBar& scrollBar() { return scroll_bar_; }
 
-    void setSensitivity(Dimension sensitivity) { sensitivity_ = std::move(sensitivity); }
+    void setSensitivity(float sensitivity) { sensitivity_ = sensitivity; }
     void setSmoothTime(float seconds) { smooth_time_ = seconds; }
 
   private:
     float maxScroll() const { return scroll_bar_.viewRange() - scroll_bar_.viewHeight(); }
 
-    void scrollPositionChanged(int position) {
-      y_position_ = position;
+    void scrollPositionChanged(float position) {
+      y_position_ = std::round(dpiScale() * position) / dpiScale();
       container_.setTopLeft(container_.x(), -y_position_);
       scroll_bar_.setPosition(position);
       redraw();
@@ -204,13 +202,13 @@ namespace visage {
 
       float t = (time::milliseconds() - smooth_start_time_) / (smooth_time_ * 1000.0f);
       if (t <= 1.0f && t >= 0.0f)
-        smooth_start_position_ += (float_position_ - smooth_start_position_) * t;
+        smooth_start_position_ += (smooth_position_ - smooth_start_position_) * t;
       else
-        smooth_start_position_ = float_position_;
+        smooth_start_position_ = smooth_position_;
 
-      float_position_ += offset;
-      float_position_ = std::min(max, float_position_);
-      float_position_ = std::max(0.0f, float_position_);
+      smooth_position_ += offset;
+      smooth_position_ = std::min(max, smooth_position_);
+      smooth_position_ = std::max(0.0f, smooth_position_);
 
       smooth_start_time_ = time::milliseconds();
       runOnEventThread([this]() { smoothScrollUpdate(); });
@@ -219,9 +217,9 @@ namespace visage {
 
     void smoothScrollUpdate() {
       float t = (time::milliseconds() - smooth_start_time_) / (smooth_time_ * 1000.0f);
-      int position = smooth_start_position_ + (float_position_ - smooth_start_position_) * t;
+      int position = smooth_start_position_ + (smooth_position_ - smooth_start_position_) * t;
       if (t >= 1.0f)
-        position = float_position_;
+        position = smooth_position_;
       else if (t >= 0.0f)
         runOnEventThread([this]() { smoothScrollUpdate(); });
 
@@ -230,12 +228,12 @@ namespace visage {
     }
 
     CallbackList<void(ScrollableFrame*)> on_scroll_;
-    float float_position_ = 0.0f;
-    int y_position_ = 0;
+    float smooth_position_ = 0.0f;
+    float y_position_ = 0;
     bool scroll_bar_left_ = false;
     Frame container_;
     ScrollBar scroll_bar_;
-    Dimension sensitivity_;
+    float sensitivity_ = kDefaultWheelSensitivity;
     float smooth_time_ = kDefaultSmoothTime;
 
     float smooth_start_position_ = 0;
