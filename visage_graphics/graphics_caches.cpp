@@ -21,8 +21,6 @@
 
 #include "graphics_caches.h"
 
-#include "embedded/shaders.h"
-
 #include <bgfx/bgfx.h>
 #include <map>
 

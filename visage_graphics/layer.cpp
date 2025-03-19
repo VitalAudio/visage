@@ -335,7 +335,7 @@ namespace visage {
     }
   }
 
-  void Layer::removePackedRegion(Region* region) {
+  void Layer::removePackedRegion(const Region* region) {
     removeRegion(region);
     atlas_map_.removeRect(region);
   }

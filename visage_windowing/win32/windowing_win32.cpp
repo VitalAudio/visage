@@ -190,16 +190,6 @@ namespace visage {
     return hwnd ? NativeWindowLookup::instance().findByNativeHandle(hwnd) : nullptr;
   }
 
-  static Point cursorScreenPosition() {
-    POINT cursor_position;
-    GetCursorPos(&cursor_position);
-    WindowWin32* window = activeWindow();
-    if (window == nullptr)
-      return { cursor_position.x * 1.0f, cursor_position.y * 1.0f };
-
-    return window->convertToLogical(IPoint(cursor_position.x, cursor_position.y));
-  }
-
   Point cursorPosition() {
     POINT cursor_position;
     GetCursorPos(&cursor_position);
@@ -622,10 +612,9 @@ namespace visage {
     }
 
     IPoint dragPosition(POINTL point) const {
-      float conversion = 1.0f / window_->dpiScale();
       POINT position = { point.x, point.y };
       ScreenToClient(static_cast<HWND>(window_->nativeHandle()), &position);
-      return { position.x, position.y };
+      return { static_cast<int>(position.x), static_cast<int>(position.y) };
     }
 
     HRESULT __stdcall DragEnter(IDataObject* data_object, DWORD key_state, POINTL point,
@@ -1275,12 +1264,6 @@ namespace visage {
     return windowProcedure(hwnd, msg, w_param, l_param);
   }
 
-  static HMONITOR monitorFromMousePosition() {
-    POINT cursor_position;
-    GetCursorPos(&cursor_position);
-    return MonitorFromPoint(cursor_position, MONITOR_DEFAULTTONEAREST);
-  }
-
   static IBounds boundsInMonitor(HMONITOR monitor, float dpi_scale, const Dimension& x,
                                  const Dimension& y, const Dimension& width, const Dimension& height) {
     MONITORINFO monitor_info {};
@@ -1312,7 +1295,7 @@ namespace visage {
     return { x, y, width, height };
   }
 
-  static inline void clearMessage(MSG* message) {
+  static void clearMessage(MSG* message) {
     *message = {};
     message->message = WM_USER;
   }
@@ -1335,10 +1318,8 @@ namespace visage {
   int EventHooks::instance_count_ = 0;
 
   EventHooks::EventHooks() {
-    if (instance_count_++ == 0 && event_hook_ == nullptr) {
-      event_hook_ = SetWindowsHookEx(WH_GETMESSAGE, eventHook, (HINSTANCE)loadModuleHandle(),
-                                     GetCurrentThreadId());
-    }
+    if (instance_count_++ == 0 && event_hook_ == nullptr)
+      event_hook_ = SetWindowsHookEx(WH_GETMESSAGE, eventHook, loadModuleHandle(), GetCurrentThreadId());
   }
 
   EventHooks::~EventHooks() {

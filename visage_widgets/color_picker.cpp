@@ -98,9 +98,9 @@ namespace visage {
     hdr_text_.setMargin(5, 0);
     hdr_text_.setMaxCharacters(kDecimalSigFigs + 1);
 
-    hex_text_.onEnterKey() += std::bind(&ColorPicker::requestKeyboardFocus, this);
-    alpha_text_.onEnterKey() += std::bind(&ColorPicker::requestKeyboardFocus, this);
-    hdr_text_.onEnterKey() += std::bind(&ColorPicker::requestKeyboardFocus, this);
+    hex_text_.onEnterKey() += [this] { requestKeyboardFocus(); };
+    alpha_text_.onEnterKey() += [this] { requestKeyboardFocus(); };
+    hdr_text_.onEnterKey() += [this] { requestKeyboardFocus(); };
 
     hex_text_.onTextChange() += [this] {
       color_ = Color::fromHexString(hex_text_.text().toUtf8());

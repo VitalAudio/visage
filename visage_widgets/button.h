@@ -129,7 +129,7 @@ namespace visage {
       setIcon({ svg, svg_size, 0, 0 }, shadow);
     }
 
-    void setIcon(Svg icon, bool shadow = false) {
+    void setIcon(const Svg& icon, bool shadow = false) {
       icon_ = icon;
       if (shadow) {
         shadow_proportion_ = kDefaultShadowProportion;

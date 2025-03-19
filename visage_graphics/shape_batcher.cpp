@@ -25,7 +25,6 @@
 #include "font.h"
 #include "graphics_caches.h"
 #include "line.h"
-#include "renderer.h"
 #include "shader.h"
 #include "uniforms.h"
 #include "visage_utils/space.h"

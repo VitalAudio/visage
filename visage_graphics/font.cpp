@@ -252,24 +252,24 @@ namespace visage {
   }
 
   Font::Font(float size, const char* data, int data_size) :
-      size_(size), font_data_(data), data_size_(data_size), native_size_(std::round(size)) {
+      size_(size), native_size_(std::round(size)), font_data_(data), data_size_(data_size) {
     packed_font_ = FontCache::loadPackedFont(native_size_, data, data_size);
   }
 
   Font::Font(float size, const EmbeddedFile& file) :
-      size_(size), font_data_(file.data), data_size_(file.size), native_size_(std::round(size)) {
+      size_(size), native_size_(std::round(size)), font_data_(file.data), data_size_(file.size) {
     packed_font_ = FontCache::loadPackedFont(native_size_, file);
   }
 
   Font::Font(float size, const char* data, int data_size, float dpi_scale) :
-      size_(size), font_data_(data), data_size_(data_size), dpi_scale_(dpi_scale) {
-    native_size_ = std::round(size * dpi_scale);
+      size_(size), native_size_(std::round(size * dpi_scale)), font_data_(data),
+      data_size_(data_size), dpi_scale_(dpi_scale) {
     packed_font_ = FontCache::loadPackedFont(native_size_, data, data_size);
   }
 
   Font::Font(float size, const EmbeddedFile& file, float dpi_scale) :
-      size_(size), font_data_(file.data), data_size_(file.size), dpi_scale_(dpi_scale) {
-    native_size_ = std::round(size * dpi_scale);
+      size_(size), native_size_(std::round(size * dpi_scale)), font_data_(file.data),
+      data_size_(file.size), dpi_scale_(dpi_scale) {
     packed_font_ = FontCache::loadPackedFont(native_size_, file);
   }
 

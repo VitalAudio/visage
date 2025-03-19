@@ -139,9 +139,9 @@ namespace visage {
 
     float size_ = 0.0f;
     int native_size_ = 0;
-    float dpi_scale_ = 0.0f;
     const char* font_data_ = nullptr;
     int data_size_ = 0;
+    float dpi_scale_ = 0.0f;
     PackedFont* packed_font_ = nullptr;
   };
 

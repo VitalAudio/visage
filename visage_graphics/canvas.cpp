@@ -105,7 +105,7 @@ namespace visage {
     layers_[layer_index]->addPackedRegion(region);
   }
 
-  void Canvas::removeFromPackedLayer(Region* region, int layer_index) {
+  void Canvas::removeFromPackedLayer(const Region* region, int layer_index) {
     if (layer_index == 0)
       return;
 

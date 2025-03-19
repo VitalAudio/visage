@@ -54,7 +54,7 @@ namespace visage {
       regions_.erase(std::find(regions_.begin(), regions_.end(), region));
     }
     void addPackedRegion(Region* region);
-    void removePackedRegion(Region* region);
+    void removePackedRegion(const Region* region);
     IBounds boundsForRegion(const Region* region) const;
     IPoint coordinatesForRegion(const Region* region) const;
 
@@ -79,7 +79,7 @@ namespace visage {
     }
 
     void invalidateRectInRegion(IBounds rect, const Region* region);
-    bool anyInvalidRects() { return !invalid_rects_.empty(); }
+    bool anyInvalidRects() const { return !invalid_rects_.empty(); }
 
     void setDimensions(int width, int height) {
       if (width == width_ && height == height_)

@@ -43,13 +43,13 @@ namespace visage {
     frame_ptr->show(std::move(frame), source, position);
   }
 
-  float PopupList::renderHeight() {
+  float PopupList::renderHeight() const {
     float popup_height = paletteValue(PopupOptionHeight);
     float selection_padding = paletteValue(PopupSelectionPadding);
     return options_.size() * popup_height + 2.0f * selection_padding;
   }
 
-  float PopupList::renderWidth() {
+  float PopupList::renderWidth() const {
     float width = paletteValue(PopupMinWidth);
     float x_padding = paletteValue(PopupSelectionPadding) + paletteValue(PopupTextPadding);
     for (const PopupMenu& option : options_) {
@@ -60,7 +60,7 @@ namespace visage {
     return width;
   }
 
-  int PopupList::yForIndex(int index) {
+  int PopupList::yForIndex(int index) const {
     return (paletteValue(PopupSelectionPadding) + index * paletteValue(PopupOptionHeight));
   }
 
@@ -216,8 +216,8 @@ namespace visage {
     redraw();
   }
 
-  PopupMenuFrame::PopupMenuFrame(const PopupMenu& menu) :
-      menu_(menu), font_(10, fonts::Lato_Regular_ttf) {
+  PopupMenuFrame::PopupMenuFrame(PopupMenu menu) :
+      menu_(std::move(menu)), font_(10, fonts::Lato_Regular_ttf) {
     opacity_animation_.setTargetValue(1.0f);
     setAcceptsKeystrokes(true);
     setIgnoresMouseEvents(true, true);

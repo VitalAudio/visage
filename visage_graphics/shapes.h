@@ -529,9 +529,9 @@ namespace visage {
 
   struct TextBlock : Shape<TextureVertex> {
     TextBlock(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-              float height, Text* text, Font font, Direction direction) :
-        Shape(font.packedFont(), clamp, brush, x, y, width, height), text(text),
-        font(std::move(font)), direction(direction) {
+              float height, Text* text, const Font& font, Direction direction) :
+        Shape(font.packedFont(), clamp, brush, x, y, width, height), text(text), font(font),
+        direction(direction) {
       quads = VectorPool<FontAtlasQuad>::instance().vector(text->text().length());
       this->clamp = clamp.clamp(x, y, width, height);
 

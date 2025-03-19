@@ -73,7 +73,7 @@ namespace visage {
 
     void invalidateRectInRegion(IBounds rect, const Region* region, int layer);
     void addToPackedLayer(Region* region, int layer_index);
-    void removeFromPackedLayer(Region* region, int layer_index);
+    void removeFromPackedLayer(const Region* region, int layer_index);
     void changePackedLayer(Region* region, int from, int to);
 
     void pairToWindow(void* window_handle, int width, int height) {

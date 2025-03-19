@@ -85,10 +85,10 @@ namespace visage {
     void setOptions(std::vector<PopupMenu> options) { options_ = std::move(options); }
     void setFont(const Font& font) { font_ = font; }
 
-    float renderHeight();
-    float renderWidth();
+    float renderHeight() const;
+    float renderWidth() const;
 
-    int yForIndex(int index);
+    int yForIndex(int index) const;
     int hoverY() { return yForIndex(hover_index_); }
     int hoverIndex() const { return hover_index_; }
     int numOptions() const { return options_.size(); }
@@ -143,7 +143,7 @@ namespace visage {
     static constexpr int kWaitForSelection = 20;
     static constexpr int kPauseMs = 400;
 
-    PopupMenuFrame(const PopupMenu& menu);
+    PopupMenuFrame(PopupMenu menu);
     ~PopupMenuFrame() override;
 
     void draw(Canvas& canvas) override;

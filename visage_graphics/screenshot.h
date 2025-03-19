@@ -30,7 +30,7 @@ namespace visage {
     Screenshot(const uint8_t* data, int width, int height, bool blue_red = false) :
         width_(width), height_(height) {
       data_ = std::make_unique<uint8_t[]>(width * height * 4);
-      std::copy(data, data + width * height * 4, data_.get());
+      std::copy_n(data, width * height * 4, data_.get());
       if (blue_red)
         flipBlueRed();
     }
@@ -41,10 +41,10 @@ namespace visage {
 
       data_ = std::make_unique<uint8_t[]>(width * height * 4);
       if (pitch == width * 4)
-        std::copy(data, data + width * height * 4, data_.get());
+        std::copy_n(data, width * height * 4, data_.get());
       else {
         for (int y = 0; y < height; ++y)
-          std::copy(data + y * pitch, data + y * pitch + width * 4, data_.get() + y * width * 4);
+          std::copy_n(data + y * pitch, width * 4, data_.get() + y * width * 4);
       }
 
       if (blue_red)
@@ -53,7 +53,7 @@ namespace visage {
 
     Screenshot(const Screenshot& other) : width_(other.width_), height_(other.height_) {
       data_ = std::make_unique<uint8_t[]>(width_ * height_ * 4);
-      std::copy(other.data_.get(), other.data_.get() + width_ * height_ * 4, data_.get());
+      std::copy_n(other.data_.get(), width_ * height_ * 4, data_.get());
     }
 
     Screenshot& operator=(const Screenshot& other) {
@@ -61,7 +61,7 @@ namespace visage {
         width_ = other.width_;
         height_ = other.height_;
         data_ = std::make_unique<uint8_t[]>(width_ * height_ * 4);
-        std::copy(other.data_.get(), other.data_.get() + width_ * height_ * 4, data_.get());
+        std::copy_n(other.data_.get(), width_ * height_ * 4, data_.get());
       }
       return *this;
     }
