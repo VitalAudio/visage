@@ -87,7 +87,7 @@ public:
   }
 
 private:
-  visage::UiButton options_[kNumOptions];
+  visage::UiButton options_[kNumOptions] {};
   std::function<void(PostEffect)> on_effect_change_;
 };
 
