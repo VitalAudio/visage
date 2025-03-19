@@ -58,7 +58,7 @@ TEST_CASE("Layout padding", "[ui]") {
   layout.setPaddingBottom(30);
   results = layout.flexPositions({ &child }, { 0, 0, 1000, 500 }, 2.0f);
   REQUIRE(results.size() == 1);
-  REQUIRE(results[0] == IBounds(10, 20, 985, 450));
+  REQUIRE(results[0] == IBounds(20, 40, 970, 400));
 }
 
 TEST_CASE("Layout margin", "[ui]") {
@@ -85,10 +85,10 @@ TEST_CASE("Layout margin", "[ui]") {
   REQUIRE(results.size() == 1);
   REQUIRE(results[0] == IBounds(50, 50, 900, 400));
 
-  child.setMarginLeft(10);
-  child.setMarginRight(5);
-  child.setMarginTop(20);
-  child.setMarginBottom(30);
+  child.setMarginLeft(5);
+  child.setMarginRight(5_npx);
+  child.setMarginTop(10);
+  child.setMarginBottom(30_npx);
   results = layout.flexPositions({ &child }, { 0, 0, 1000, 500 }, 2.0f);
   REQUIRE(results.size() == 1);
   REQUIRE(results[0] == IBounds(10, 20, 985, 450));
@@ -120,14 +120,14 @@ TEST_CASE("Layout padding and margin", "[ui]") {
   REQUIRE(results.size() == 1);
   REQUIRE(results[0] == IBounds(90, 90, 820, 320));
 
-  layout.setPaddingLeft(5);
-  layout.setPaddingRight(3);
-  layout.setPaddingTop(10);
-  layout.setPaddingBottom(15);
-  child.setMarginLeft(5);
-  child.setMarginRight(3);
-  child.setMarginTop(10);
-  child.setMarginBottom(15);
+  layout.setPaddingLeft(5_npx);
+  layout.setPaddingRight(3_npx);
+  layout.setPaddingTop(5);
+  layout.setPaddingBottom(15_npx);
+  child.setMarginLeft(5_npx);
+  child.setMarginRight(3_npx);
+  child.setMarginTop(5);
+  child.setMarginBottom(15_npx);
   results = layout.flexPositions({ &child }, { 0, 0, 1000, 500 }, 2.0f);
   REQUIRE(results.size() == 1);
   REQUIRE(results[0] == IBounds(10, 20, 984, 450));
@@ -135,19 +135,19 @@ TEST_CASE("Layout padding and margin", "[ui]") {
 
 TEST_CASE("Layout flex grow", "[ui]") {
   Layout layout;
-  layout.setPadding(100);
+  layout.setPadding(100_npx);
   layout.setFlex(true);
-  layout.setFlexGap(100);
+  layout.setFlexGap(100_npx);
 
   Layout child0, child1, child2, child3;
   std::vector<const Layout*> layouts = { &child0, &child1, &child2, &child3 };
 
-  child0.setWidth(300);
-  child0.setHeight(100);
+  child0.setWidth(300_npx);
+  child0.setHeight(100_npx);
   child0.setFlexShrink(2.0f);
   child1.setWidth(10_vw);
-  child2.setHeight(300);
-  child3.setHeight(100);
+  child2.setHeight(300_npx);
+  child3.setHeight(100_npx);
 
   auto results = layout.flexPositions(layouts, { 0, 0, 1000, 1600 }, 2.0f);
   REQUIRE(results.size() == 4);
@@ -201,20 +201,20 @@ TEST_CASE("Layout flex grow", "[ui]") {
 
 TEST_CASE("Layout flex shrink", "[ui]") {
   Layout layout;
-  layout.setPadding(100);
+  layout.setPadding(100_npx);
   layout.setFlex(true);
-  layout.setFlexGap(100);
+  layout.setFlexGap(100_npx);
 
   Layout child0, child1, child2, child3;
   std::vector<const Layout*> layouts = { &child0, &child1, &child2, &child3 };
 
-  child0.setWidth(300);
-  child0.setHeight(100);
+  child0.setWidth(300_npx);
+  child0.setHeight(100_npx);
   child0.setFlexGrow(2.0f);
   child1.setWidth(10_vw);
   child1.setFlexGrow(2.0f);
-  child2.setHeight(300);
-  child3.setHeight(100);
+  child2.setHeight(300_npx);
+  child3.setHeight(100_npx);
 
   auto results = layout.flexPositions(layouts, { 0, 0, 1000, 400 }, 2.0f);
   REQUIRE(results.size() == 4);
@@ -257,16 +257,16 @@ TEST_CASE("Layout flex shrink", "[ui]") {
 
   layout.setFlexReverseDirection(false);
 
-  child0.setWidth(100);
-  child0.setHeight(300);
+  child0.setWidth(100_npx);
+  child0.setHeight(300_npx);
 
   child1.setWidth({});
   child1.setHeight(10_vh);
 
-  child2.setWidth(300);
+  child2.setWidth(300_npx);
   child2.setHeight({});
 
-  child3.setWidth(100);
+  child3.setWidth(100_npx);
   child3.setHeight({});
   layout.setFlexRows(false);
   results = layout.flexPositions(layouts, { 0, 0, 800, 1000 }, 2.0f);
@@ -288,15 +288,15 @@ TEST_CASE("Layout flex shrink", "[ui]") {
 TEST_CASE("Layout flex wrap constant size", "[ui]") {
   static constexpr int kNumChildren = 10;
   Layout layout;
-  layout.setPadding(10);
+  layout.setPadding(10_npx);
   layout.setFlex(true);
   layout.setFlexWrap(true);
-  layout.setFlexGap(10);
+  layout.setFlexGap(10_npx);
 
   Layout children[kNumChildren];
   for (int i = 0; i < kNumChildren; ++i) {
-    children[i].setWidth(20 * (i + 1));
-    children[i].setHeight(10 * (i + 1));
+    children[i].setWidth(20_npx * (i + 1));
+    children[i].setHeight(10_npx * (i + 1));
   }
 
   std::vector<const Layout*> layouts;
@@ -370,15 +370,15 @@ TEST_CASE("Layout flex wrap constant size", "[ui]") {
 TEST_CASE("Layout flex wrap grow", "[ui]") {
   static constexpr int kNumChildren = 10;
   Layout layout;
-  layout.setPadding(10);
+  layout.setPadding(10_npx);
   layout.setFlex(true);
   layout.setFlexWrap(true);
-  layout.setFlexGap(10);
+  layout.setFlexGap(10_npx);
 
   Layout children[kNumChildren];
   for (int i = 0; i < kNumChildren; ++i) {
-    children[i].setWidth(20 * (i + 1));
-    children[i].setHeight(10 * (i + 1));
+    children[i].setWidth(20_npx * (i + 1));
+    children[i].setHeight(10_npx * (i + 1));
   }
 
   std::vector<const Layout*> layouts;
@@ -431,15 +431,15 @@ TEST_CASE("Layout flex wrap grow", "[ui]") {
 TEST_CASE("Layout flex alignment", "[ui]") {
   static constexpr int kNumChildren = 10;
   Layout layout;
-  layout.setPadding(10);
+  layout.setPadding(10_npx);
   layout.setFlex(true);
   layout.setFlexWrap(true);
-  layout.setFlexGap(10);
+  layout.setFlexGap(10_npx);
 
   Layout children[kNumChildren];
   for (int i = 0; i < kNumChildren; ++i) {
-    children[i].setWidth(20 * (i + 1));
-    children[i].setHeight(10 * (i + 1));
+    children[i].setWidth(20_npx * (i + 1));
+    children[i].setHeight(10_npx * (i + 1));
   }
 
   std::vector<const Layout*> layouts;
