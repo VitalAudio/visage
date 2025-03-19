@@ -1473,6 +1473,9 @@ namespace visage {
   WindowWin32::WindowWin32(int width, int height, void* parent_handle) : Window(width, height) {
     static constexpr int kWindowFlags = WS_CHILD;
 
+    DpiAwareness dpi_awareness;
+    setDpiScale(dpi_awareness.dpiScale());
+
     registerWindowClass();
     window_class_.lpfnWndProc = windowProcedure;
     RegisterClassEx(&window_class_);
@@ -1493,8 +1496,6 @@ namespace visage {
                                         reinterpret_cast<LONG_PTR>(pluginParentWindowProc));
     parent_window_proc_ = reinterpret_cast<WNDPROC>(parent_proc);
 
-    DpiAwareness dpi_awareness;
-    setDpiScale(dpi_awareness.dpiScale());
     event_hooks_ = std::make_unique<EventHooks>();
     finishWindowSetup();
   }

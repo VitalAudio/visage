@@ -622,8 +622,8 @@ namespace visage {
   }
 
   void WindowEmscripten::windowContentsResized(int width, int height) {
-    emscripten_set_element_css_size("canvas", width, height);
-    emscripten_set_canvas_element_size("canvas", width * dpiScale(), height * dpiScale());
+    emscripten_set_element_css_size("canvas", width / dpiScale(), height / dpiScale());
+    emscripten_set_canvas_element_size("canvas", width, height);
   }
 
   void WindowEmscripten::setWindowTitle(const std::string& title) {
