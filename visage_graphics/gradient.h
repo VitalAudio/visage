@@ -341,8 +341,8 @@ namespace visage {
     void decode(std::istringstream& stream);
 
   private:
-    Brush(Gradient gradient, GradientPosition position) :
-        gradient_(std::move(gradient)), position_(std::move(position)) { }
+    Brush(Gradient gradient, const GradientPosition& position) :
+        gradient_(std::move(gradient)), position_(position) { }
 
     Gradient gradient_;
     GradientPosition position_;

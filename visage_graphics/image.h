@@ -22,7 +22,6 @@
 #pragma once
 
 #include "graphics_utils.h"
-#include "visage_utils/space.h"
 
 #include <map>
 #include <utility>
@@ -80,7 +79,7 @@ namespace visage {
     static void blurImage(unsigned char* location, int width, int height, int blur_radius);
 
     struct PackedImageRect {
-      explicit PackedImageRect(ImageFile image) : image(image) { }
+      explicit PackedImageRect(const ImageFile& image) : image(image) { }
 
       ImageFile image;
       int x = 0;

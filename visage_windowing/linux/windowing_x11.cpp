@@ -270,14 +270,6 @@ namespace visage {
     return { root_x, root_y };
   }
 
-  Point cursorScreenPosition() {
-    WindowX11* window = WindowX11::lastActiveWindow();
-    if (window == nullptr)
-      return { 0, 0 };
-
-    return window->convertToLogical(nativeCursorScreenPosition());
-  }
-
   bool isMobileDevice() {
     return false;
   }

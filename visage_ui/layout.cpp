@@ -23,7 +23,7 @@
 
 namespace visage {
   std::vector<IBounds> Layout::flexChildGroup(const std::vector<const Layout*>& children,
-                                              IBounds bounds, float dpi_scale) {
+                                              IBounds bounds, float dpi_scale) const {
     int width = bounds.width();
     int height = bounds.height();
     int dim = flex_rows_ ? 1 : 0;
@@ -101,14 +101,14 @@ namespace visage {
                                                                       default_cross_size);
       int cross_offset = cross_alignment_mult * (cross_area - cross_before - cross_size - cross_after);
       position += margins_before[i];
-      results.push_back({ position, cross_before + cross_offset, dimensions[i], cross_size });
+      results.emplace_back(position, cross_before + cross_offset, dimensions[i], cross_size);
       position += dimensions[i] + margins_after[i] + flex_gap;
     }
 
     if (flex_reverse_direction_) {
-      int flex_area = flex_rows_ ? height : width;
+      int full_flex_area = flex_rows_ ? height : width;
       for (IBounds& result : results)
-        result.setX(flex_area - result.right());
+        result.setX(full_flex_area - result.right());
     }
 
     if (flex_rows_) {
@@ -122,7 +122,7 @@ namespace visage {
     return results;
   }
 
-  std::vector<int> Layout::alignCrossPositions(std::vector<int>& sizes, int cross_area, int gap) {
+  std::vector<int> Layout::alignCrossPositions(std::vector<int>& sizes, int cross_area, int gap) const {
     int cross_total = gap * (sizes.size() - 1);
     for (int size : sizes)
       cross_total += size;
@@ -179,7 +179,7 @@ namespace visage {
   }
 
   std::vector<IBounds> Layout::flexChildWrap(const std::vector<const Layout*>& children,
-                                             IBounds bounds, float dpi_scale) {
+                                             IBounds bounds, float dpi_scale) const {
     int width = bounds.width();
     int height = bounds.height();
     int dim = flex_rows_ ? 1 : 0;
@@ -234,8 +234,8 @@ namespace visage {
       auto group = std::vector<const Layout*>(children.begin() + group_index,
                                               children.begin() + breaks[i]);
       group_index = breaks[i];
-      std::vector<IBounds> bounds = flexChildGroup(group, group_bounds, dpi_scale);
-      results.insert(results.end(), bounds.begin(), bounds.end());
+      std::vector<IBounds> children_bounds = flexChildGroup(group, group_bounds, dpi_scale);
+      results.insert(results.end(), children_bounds.begin(), children_bounds.end());
     }
 
     if (flex_wrap_ < 0) {

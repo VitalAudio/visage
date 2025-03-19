@@ -122,12 +122,12 @@ namespace visage {
 
   private:
     std::vector<IBounds> flexChildGroup(const std::vector<const Layout*>& children, IBounds bounds,
-                                        float dpi_scale);
+                                        float dpi_scale) const;
 
-    std::vector<int> alignCrossPositions(std::vector<int>& cross_sizes, int cross_area, int gap);
+    std::vector<int> alignCrossPositions(std::vector<int>& cross_sizes, int cross_area, int gap) const;
 
     std::vector<IBounds> flexChildWrap(const std::vector<const Layout*>& children, IBounds bounds,
-                                       float dpi_scale);
+                                       float dpi_scale) const;
 
     bool flex_ = false;
     Dimension margin_before_[2];
