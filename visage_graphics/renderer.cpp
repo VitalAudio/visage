@@ -100,7 +100,6 @@ namespace visage {
     bgfx_init.resolution.numBackBuffers = 1;
     bgfx_init.resolution.width = 0;
     bgfx_init.resolution.height = 0;
-    bgfx_init.resolution.reset = BGFX_RESET_FLIP_AFTER_RENDER;
     bgfx_init.callback = callback_handler_.get();
 
     bgfx_init.platformData.ndt = display;
@@ -112,6 +111,7 @@ namespace visage {
 
 #if VISAGE_WINDOWS
     bgfx_init.type = bgfx::RendererType::Direct3D11;
+    bgfx_init.resolution.reset = BGFX_RESET_FLIP_AFTER_RENDER;
 #if USE_DIRECTX12
     for (int i = 0; i < num_supported; ++i) {
       if (supported_renderers[i] == bgfx::RendererType::Direct3D12)
@@ -122,9 +122,10 @@ namespace visage {
     bgfx_init.type = bgfx::RendererType::Metal;
     bgfx_init.resolution.width = 1;
     bgfx_init.resolution.height = 1;
-    bgfx_init.resolution.reset |= BGFX_RESET_VSYNC;
+    bgfx_init.resolution.reset = BGFX_RESET_FLIP_AFTER_RENDER | BGFX_RESET_VSYNC;
 #elif VISAGE_LINUX
     bgfx_init.type = bgfx::RendererType::Vulkan;
+    bgfx_init.resolution.reset = BGFX_RESET_VSYNC;
 #elif VISAGE_EMSCRIPTEN
     bgfx_init.type = bgfx::RendererType::OpenGLES;
 #endif
