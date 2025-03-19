@@ -1078,7 +1078,7 @@ namespace visage {
         X11Connection::DisplayLock lock(x11_);
         XWindowAttributes attributes;
         XGetWindowAttributes(x11_->display(), parent_handle_, &attributes);
-        setWindowSize(attributes.width, attributes.height);
+        setNativeWindowSize(attributes.width, attributes.height);
       }
       else if (event.xany.window == window_handle_ && event.type == ClientMessage &&
                event.xclient.message_type == x11_->timerEvent()) {
