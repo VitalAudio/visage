@@ -53,5 +53,37 @@ protected:
   bool guiGetSize(uint32_t* width, uint32_t* height) noexcept override;
 
 private:
+  int pluginWidth() const {
+    if (app_ == nullptr)
+      return 0;
+
+#if __APPLE__
+    return app_->width();
+#else
+    return app_->nativeWidth();
+#endif
+  }
+
+  int pluginHeight() const {
+    if (app_ == nullptr)
+      return 0;
+
+#if __APPLE__
+    return app_->height();
+#else
+    return app_->nativeHeight();
+#endif
+  }
+
+  void setPluginDimensions(int width, int height) {
+    if (app_ == nullptr)
+      return;
+#if __APPLE__
+    app_->setWindowDimensions(width, height);
+#else
+    app_->setNativeWindowDimensions(width, height);
+#endif
+  }
+
   std::unique_ptr<visage::ApplicationWindow> app_;
 };
