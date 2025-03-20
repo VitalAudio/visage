@@ -89,7 +89,7 @@ private:
   std::unique_ptr<visage::UiButton> action_button_;
   std::unique_ptr<visage::TextEditor> text_editor_;
   std::unique_ptr<visage::TextEditor> left_text_editor_;
-  std::unique_ptr<visage::TextEditor> number_editor_;
+  std::unique_ptr<visage::TextEditor> center_editor_;
   std::unique_ptr<visage::TextEditor> right_text_editor_;
   std::unique_ptr<visage::Frame> shapes_;
   std::unique_ptr<AnimatedLines> animated_lines_;

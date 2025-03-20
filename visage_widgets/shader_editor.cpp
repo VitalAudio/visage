@@ -199,7 +199,7 @@ namespace visage {
     addChild(&status_);
     editor_.setMultiLine(true);
     editor_.setMargin(15, 10);
-    editor_.setFont(Font(10, fonts::DroidSansMono_ttf));
+    editor_.setFont(Font(16, fonts::DroidSansMono_ttf));
     editor_.setJustification(Font::kTopLeft);
     editor_.setDefaultText("No shader set");
 
@@ -217,7 +217,7 @@ namespace visage {
 
     error_.setMultiLine(true);
     error_.setMargin(15, 10);
-    error_.setFont(Font(10, fonts::DroidSansMono_ttf));
+    error_.setFont(Font(16, fonts::DroidSansMono_ttf));
     error_.setJustification(Font::kTopLeft);
     error_.setActive(false);
 
@@ -245,10 +245,8 @@ namespace visage {
     error_.setBounds(kPaddingHeight, height() - info_height - kPaddingHeight, editor_width, info_height);
     editor_.setBounds(kPaddingHeight, kPaddingHeight, editor_width, error_.y() - 2 * kPaddingHeight);
 
-    int font_size = 16;
+    int font_size = editor_.font().size();
     status_.setBounds(error_.right() - font_size - kPaddingHeight, error_.y() + kPaddingHeight,
                       font_size, font_size);
-    editor_.setFont(Font(font_size, fonts::DroidSansMono_ttf));
-    error_.setFont(editor_.font());
   }
 }

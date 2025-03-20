@@ -88,7 +88,12 @@ namespace visage {
     Font& operator=(const Font& other);
     ~Font();
 
-    float dpiScale() const { return dpi_scale_ ? dpi_scale_ : 1.0f; }
+    float dpiScale() const {
+      // DPI scale must be set to get accurate measurements
+      VISAGE_ASSERT(dpi_scale_);
+
+      return dpi_scale_ ? dpi_scale_ : 1.0f;
+    }
     Font withDpiScale(float dpi_scale) const {
       return Font(size_, fontData(), dataSize(), dpi_scale);
     }
