@@ -82,6 +82,10 @@ namespace visage {
       y -= other.y;
       return *this;
     }
+
+    friend Point operator*(float scalar, const Point& point) {
+      return { point.x * scalar, point.y * scalar };
+    }
     Point operator*(float scalar) const { return { x * scalar, y * scalar }; }
     Point operator*=(float scalar) {
       x *= scalar;
@@ -294,6 +298,10 @@ namespace visage {
       float r = std::min(right(), other.right());
       float b = std::min(bottom(), other.bottom());
       return { x, y, r - x, b - y };
+    }
+
+    friend Bounds operator*(float scalar, const Bounds& bounds) {
+      return { bounds.x_ * scalar, bounds.y_ * scalar, bounds.width_ * scalar, bounds.height_ * scalar };
     }
 
     Bounds operator*(float scalar) const {

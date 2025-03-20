@@ -623,7 +623,6 @@ namespace visage {
                                         DWORD* effect) override {
       IPoint position = dragPosition(point);
       files_ = dropFileList(data_object);
-      VISAGE_LOG(position.x);
       if (window_->handleFileDrag(position.x, position.y, files_))
         *effect = DROPEFFECT_COPY;
       else

@@ -223,7 +223,6 @@ namespace visage {
     if (window == nullptr)
       return;
 
-    VISAGE_LOG(native_position.x);
     X11Connection* x11 = window->x11Connection();
     X11Connection::DisplayLock lock(x11);
     XWarpPointer(x11->display(), None, (::Window)window->nativeHandle(), 0, 0, 0, 0,

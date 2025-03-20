@@ -416,7 +416,7 @@ namespace visage {
     setVisible(true);
     text_ = text;
 
-    Font font(paletteValue(PopupFontSize), font_.fontData(), font_.dataSize());
+    Font font(paletteValue(PopupFontSize), font_.fontData(), font_.dataSize(), dpiScale());
     int x_padding = paletteValue(PopupSelectionPadding) + paletteValue(PopupTextPadding);
     int width = font.stringWidth(text.c_str(), text.length()) + 2 * x_padding;
     int height = paletteValue(PopupOptionHeight);

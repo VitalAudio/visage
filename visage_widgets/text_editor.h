@@ -243,7 +243,6 @@ namespace visage {
     CallbackList<void()> on_escape_key_;
 
     DeadKey dead_key_entry_ = DeadKey::None;
-    Font font_;
     Text text_;
     Text default_text_;
     std::string filtered_characters_;

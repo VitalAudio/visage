@@ -59,7 +59,6 @@ public:
 
 private:
   Frame frames_[kNumFrames];
-  visage::Font font_;
 };
 
 int runExample() {
