@@ -26,7 +26,7 @@
 namespace visage {
   class BarList : public Frame {
   public:
-    THEME_DEFINE_COLOR(BarColor);
+    VISAGE_THEME_DEFINE_COLOR(BarColor);
 
     struct Bar {
       float left = 0.0f;

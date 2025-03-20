@@ -180,11 +180,11 @@ namespace visage {
 
   class ToggleButton : public Button {
   public:
-    THEME_DEFINE_COLOR(ToggleButtonDisabled);
-    THEME_DEFINE_COLOR(ToggleButtonOff);
-    THEME_DEFINE_COLOR(ToggleButtonOffHover);
-    THEME_DEFINE_COLOR(ToggleButtonOn);
-    THEME_DEFINE_COLOR(ToggleButtonOnHover);
+    VISAGE_THEME_DEFINE_COLOR(ToggleButtonDisabled);
+    VISAGE_THEME_DEFINE_COLOR(ToggleButtonOff);
+    VISAGE_THEME_DEFINE_COLOR(ToggleButtonOffHover);
+    VISAGE_THEME_DEFINE_COLOR(ToggleButtonOn);
+    VISAGE_THEME_DEFINE_COLOR(ToggleButtonOnHover);
 
     ToggleButton() = default;
     explicit ToggleButton(const std::string& name) : Button(name) { }

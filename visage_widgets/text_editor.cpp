@@ -27,16 +27,16 @@
 #include "visage_utils/string_utils.h"
 
 namespace visage {
-  THEME_IMPLEMENT_COLOR(TextEditor, TextEditorBackground, 0xff2c3033);
-  THEME_IMPLEMENT_COLOR(TextEditor, TextEditorBorder, 0);
-  THEME_IMPLEMENT_COLOR(TextEditor, TextEditorText, 0xffeeeeee);
-  THEME_IMPLEMENT_COLOR(TextEditor, TextEditorDefaultText, 0xff848789);
-  THEME_IMPLEMENT_COLOR(TextEditor, TextEditorCaret, 0xffffffff);
-  THEME_IMPLEMENT_COLOR(TextEditor, TextEditorSelection, 0x22ffffff);
+  VISAGE_THEME_IMPLEMENT_COLOR(TextEditor, TextEditorBackground, 0xff2c3033);
+  VISAGE_THEME_IMPLEMENT_COLOR(TextEditor, TextEditorBorder, 0);
+  VISAGE_THEME_IMPLEMENT_COLOR(TextEditor, TextEditorText, 0xffeeeeee);
+  VISAGE_THEME_IMPLEMENT_COLOR(TextEditor, TextEditorDefaultText, 0xff848789);
+  VISAGE_THEME_IMPLEMENT_COLOR(TextEditor, TextEditorCaret, 0xffffffff);
+  VISAGE_THEME_IMPLEMENT_COLOR(TextEditor, TextEditorSelection, 0x22ffffff);
 
-  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorRounding, 5.0f, true);
-  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginX, 9.0f, true);
-  THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginY, 9.0f, true);
+  VISAGE_THEME_IMPLEMENT_VALUE(TextEditor, TextEditorRounding, 5.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginX, 9.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(TextEditor, TextEditorMarginY, 9.0f);
 
   char32_t acuteAccentDeadKey(char32_t original) {
     static const std::map<char32_t, char32_t> lookup_map = {

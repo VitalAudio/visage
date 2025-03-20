@@ -26,7 +26,7 @@
 #include <utility>
 
 namespace visage {
-  THEME_COLOR(ShaderQuadColor, 0xffffffff);
+  VISAGE_THEME_COLOR(ShaderQuadColor, 0xffffffff);
 
   ShaderQuad::ShaderQuad(const EmbeddedFile& vertex_shader, const EmbeddedFile& fragment_shader,
                          BlendMode state) : shader_(vertex_shader, fragment_shader, state) { }

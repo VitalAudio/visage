@@ -26,27 +26,25 @@
 #include <map>
 #include <string>
 
-#define THEME_COLOR(color, default_color) \
+#define VISAGE_THEME_COLOR(color, default_color) \
   const ::visage::theme::ColorId color = ::visage::theme::ColorId::nextId(#color, __FILE__, default_color)
 
-#define THEME_DEFINE_COLOR(color) static const ::visage::theme::ColorId color
+#define VISAGE_THEME_DEFINE_COLOR(color) static const ::visage::theme::ColorId color
 
-#define THEME_IMPLEMENT_COLOR(container, color, default_color)                                         \
+#define VISAGE_THEME_IMPLEMENT_COLOR(container, color, default_color)                                  \
   const ::visage::theme::ColorId container::color = ::visage::theme::ColorId::nextId(#color, __FILE__, \
                                                                                      default_color)
 
-#define THEME_VALUE(value, default_value, round_to_pixel)                                   \
-  const ::visage::theme::ValueId value = ::visage::theme::ValueId::nextId(#value, __FILE__, \
-                                                                          default_value, round_to_pixel)
+#define VISAGE_THEME_VALUE(value, default_value) \
+  const ::visage::theme::ValueId value = ::visage::theme::ValueId::nextId(#value, __FILE__, default_value)
 
-#define THEME_DEFINE_VALUE(value) static const ::visage::theme::ValueId value
+#define VISAGE_THEME_DEFINE_VALUE(value) static const ::visage::theme::ValueId value
 
-#define THEME_IMPLEMENT_VALUE(container, value, default_value, round_to_pixel)                         \
+#define VISAGE_THEME_IMPLEMENT_VALUE(container, value, default_value)                                  \
   const ::visage::theme::ValueId container::value = ::visage::theme::ValueId::nextId(#value, __FILE__, \
-                                                                                     default_value,    \
-                                                                                     round_to_pixel)
+                                                                                     default_value)
 
-#define THEME_PALETTE_OVERRIDE(override_name) \
+#define VISAGE_THEME_PALETTE_OVERRIDE(override_name) \
   const ::visage::theme::OverrideId override_name = ::visage::theme::OverrideId::nextId(#override_name)
 
 namespace visage::theme {
@@ -132,7 +130,6 @@ namespace visage::theme {
       std::string name;
       std::string group;
       float default_value = 0.0f;
-      bool round_to_pixel = false;
     };
 
     explicit ValueId(unsigned int id) : id(id) { }
@@ -144,11 +141,9 @@ namespace visage::theme {
     bool operator!=(const ValueId& other) const { return id != other.id; }
     bool operator<(const ValueId& other) const { return id < other.id; }
 
-    static ValueId nextId(std::string name, const std::string& file_path, float default_value,
-                          bool round_to_pixel) noexcept {
+    static ValueId nextId(std::string name, const std::string& file_path, float default_value) noexcept {
       Map* id = Map::instance();
-      id->info_map_[ValueId(id->next_id_)] = { std::move(name), nameFromPath(file_path),
-                                               default_value, round_to_pixel };
+      id->info_map_[ValueId(id->next_id_)] = { std::move(name), nameFromPath(file_path), default_value };
       return ValueId(id->next_id_++);
     }
 

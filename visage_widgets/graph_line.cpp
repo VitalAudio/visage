@@ -22,20 +22,20 @@
 #include "graph_line.h"
 
 namespace visage {
-  THEME_IMPLEMENT_COLOR(GraphLine, LineColor, 0xffaa88ff);
-  THEME_IMPLEMENT_COLOR(GraphLine, LineFillColor, 0x669f88ff);
-  THEME_IMPLEMENT_COLOR(GraphLine, LineFillColor2, 0x669f88ff);
-  THEME_IMPLEMENT_COLOR(GraphLine, LineDisabledColor, 0xff4c4f52);
-  THEME_IMPLEMENT_COLOR(GraphLine, LineDisabledFillColor, 0x22666666);
-  THEME_IMPLEMENT_COLOR(GraphLine, CenterPoint, 0xff1d2125);
-  THEME_IMPLEMENT_COLOR(GraphLine, GridColor, 0x22ffffff);
-  THEME_IMPLEMENT_COLOR(GraphLine, HoverColor, 0xffffffff);
-  THEME_IMPLEMENT_COLOR(GraphLine, DragColor, 0x55ffffff);
+  VISAGE_THEME_IMPLEMENT_COLOR(GraphLine, LineColor, 0xffaa88ff);
+  VISAGE_THEME_IMPLEMENT_COLOR(GraphLine, LineFillColor, 0x669f88ff);
+  VISAGE_THEME_IMPLEMENT_COLOR(GraphLine, LineFillColor2, 0x669f88ff);
+  VISAGE_THEME_IMPLEMENT_COLOR(GraphLine, LineDisabledColor, 0xff4c4f52);
+  VISAGE_THEME_IMPLEMENT_COLOR(GraphLine, LineDisabledFillColor, 0x22666666);
+  VISAGE_THEME_IMPLEMENT_COLOR(GraphLine, CenterPoint, 0xff1d2125);
+  VISAGE_THEME_IMPLEMENT_COLOR(GraphLine, GridColor, 0x22ffffff);
+  VISAGE_THEME_IMPLEMENT_COLOR(GraphLine, HoverColor, 0xffffffff);
+  VISAGE_THEME_IMPLEMENT_COLOR(GraphLine, DragColor, 0x55ffffff);
 
-  THEME_IMPLEMENT_VALUE(GraphLine, LineWidth, 2.0f, false);
-  THEME_IMPLEMENT_VALUE(GraphLine, LineColorBoost, 1.5f, false);
-  THEME_IMPLEMENT_VALUE(GraphLine, LineFillBoost, 1.0f, false);
-  THEME_VALUE(PositionBulbWidth, 4.0f, true);
+  VISAGE_THEME_IMPLEMENT_VALUE(GraphLine, LineWidth, 2.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(GraphLine, LineColorBoost, 1.5f);
+  VISAGE_THEME_IMPLEMENT_VALUE(GraphLine, LineFillBoost, 1.0f);
+  VISAGE_THEME_VALUE(PositionBulbWidth, 4.0f);
 
   GraphLine::GraphLine(int num_points, bool loop) :
       line_(num_points), fill_center_(kCenter), loop_(loop) {

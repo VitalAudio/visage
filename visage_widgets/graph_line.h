@@ -31,20 +31,20 @@ namespace visage {
     static constexpr int kLineVerticesPerPoint = 6;
     static constexpr int kFillVerticesPerPoint = 2;
 
-    THEME_DEFINE_COLOR(LineColor);
-    THEME_DEFINE_COLOR(LineFillColor);
-    THEME_DEFINE_COLOR(LineFillColor2);
-    THEME_DEFINE_COLOR(LineDisabledColor);
-    THEME_DEFINE_COLOR(LineDisabledFillColor);
-    THEME_DEFINE_COLOR(CenterPoint);
-    THEME_DEFINE_COLOR(GridColor);
-    THEME_DEFINE_COLOR(HoverColor);
-    THEME_DEFINE_COLOR(DragColor);
+    VISAGE_THEME_DEFINE_COLOR(LineColor);
+    VISAGE_THEME_DEFINE_COLOR(LineFillColor);
+    VISAGE_THEME_DEFINE_COLOR(LineFillColor2);
+    VISAGE_THEME_DEFINE_COLOR(LineDisabledColor);
+    VISAGE_THEME_DEFINE_COLOR(LineDisabledFillColor);
+    VISAGE_THEME_DEFINE_COLOR(CenterPoint);
+    VISAGE_THEME_DEFINE_COLOR(GridColor);
+    VISAGE_THEME_DEFINE_COLOR(HoverColor);
+    VISAGE_THEME_DEFINE_COLOR(DragColor);
 
-    THEME_DEFINE_VALUE(LineWidth);
-    THEME_DEFINE_VALUE(LineSizeBoost);
-    THEME_DEFINE_VALUE(LineColorBoost);
-    THEME_DEFINE_VALUE(LineFillBoost);
+    VISAGE_THEME_DEFINE_VALUE(LineWidth);
+    VISAGE_THEME_DEFINE_VALUE(LineSizeBoost);
+    VISAGE_THEME_DEFINE_VALUE(LineColorBoost);
+    VISAGE_THEME_DEFINE_VALUE(LineFillBoost);
 
     enum FillCenter {
       kCenter,
