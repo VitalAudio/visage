@@ -250,7 +250,9 @@ namespace visage {
     int nativeHeight() const { return native_bounds_.height(); }
     int nativeRight() const { return native_bounds_.right(); }
     int nativeBottom() const { return native_bounds_.bottom(); }
-    float aspectRatio() const { return bounds_.width() * 1.0f / bounds_.height(); }
+    virtual float aspectRatio() const {
+      return bounds_.width() * 1.0f / std::max(0.01f, bounds_.height());
+    }
     Bounds localBounds() const { return { 0.0f, 0.0f, width(), height() }; }
     IBounds nativeLocalBounds() const { return { 0, 0, nativeWidth(), nativeHeight() }; }
     Point positionInWindow() const;
