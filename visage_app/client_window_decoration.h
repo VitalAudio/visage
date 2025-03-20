@@ -53,7 +53,7 @@ namespace visage {
         redraw();
     }
 
-    void setColor(Color color) { color_ = color; }
+    void setColor(const Color& color) { color_ = color; }
 
     HitTestResult hitTest(const Point& position) const override { return hit_test_result_; }
 
@@ -69,10 +69,10 @@ namespace visage {
     static constexpr int kButtonHeight = 28;
     static constexpr int kCloseButtonColor = 0xffc42b1c;
 
-    ClientWindowDecoration();
+    static int requiredWidth() { return 3 * kButtonWidth; }
+    static int requiredHeight() { return kButtonHeight; }
 
-    int requiredWidth() const { return 3 * kButtonWidth; }
-    int requiredHeight() const { return kButtonHeight; }
+    ClientWindowDecoration();
 
     void resized() override {
       close_button_.setBounds(width() - kButtonWidth, 0, kButtonWidth, height());

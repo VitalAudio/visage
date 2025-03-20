@@ -64,7 +64,7 @@ namespace visage {
 
     bool isFixedAspectRatio() const { return fixed_aspect_ratio_ > 0.0f; }
     void setFixedAspectRatio(float aspect_ratio) { fixed_aspect_ratio_ = aspect_ratio; }
-    float aspectRatio() const {
+    float aspectRatio() const override {
       if (fixed_aspect_ratio_)
         return fixed_aspect_ratio_;
       if (height() && width())

@@ -357,7 +357,7 @@ namespace visage {
     DragDropSource() = default;
     virtual ~DragDropSource() = default;
 
-    HRESULT __stdcall QueryInterface(REFIID riid, void** ppv_object) override {
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv_object) override {
       if (riid == IID_IUnknown || riid == IID_IDropSource) {
         *ppv_object = static_cast<IDropSource*>(this);
         AddRef();
@@ -367,16 +367,16 @@ namespace visage {
       return E_NOINTERFACE;
     }
 
-    ULONG __stdcall AddRef() override { return InterlockedIncrement(&ref_count_); }
+    ULONG STDMETHODCALLTYPE AddRef() override { return InterlockedIncrement(&ref_count_); }
 
-    ULONG __stdcall Release() override {
+    ULONG STDMETHODCALLTYPE Release() override {
       LONG count = InterlockedDecrement(&ref_count_);
       if (count == 0)
         delete this;
       return count;
     }
 
-    HRESULT __stdcall QueryContinueDrag(BOOL escape_pressed, DWORD key_state) override {
+    HRESULT STDMETHODCALLTYPE QueryContinueDrag(BOOL escape_pressed, DWORD key_state) override {
       if (escape_pressed)
         return DRAGDROP_S_CANCEL;
 
@@ -385,7 +385,9 @@ namespace visage {
       return S_OK;
     }
 
-    HRESULT __stdcall GiveFeedback(DWORD effect) override { return DRAGDROP_S_USEDEFAULTCURSORS; }
+    HRESULT STDMETHODCALLTYPE GiveFeedback(DWORD effect) override {
+      return DRAGDROP_S_USEDEFAULTCURSORS;
+    }
 
   private:
     LONG ref_count_ = 1;
@@ -396,7 +398,7 @@ namespace visage {
     DragDropEnumFormatEtc() = default;
     virtual ~DragDropEnumFormatEtc() = default;
 
-    HRESULT __stdcall QueryInterface(REFIID riid, void** ppv_object) override {
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv_object) override {
       if (riid == IID_IUnknown || riid == IID_IDataObject) {
         *ppv_object = static_cast<IEnumFORMATETC*>(this);
         AddRef();
@@ -406,16 +408,16 @@ namespace visage {
       return E_NOINTERFACE;
     }
 
-    ULONG __stdcall AddRef() override { return InterlockedIncrement(&ref_count_); }
+    ULONG STDMETHODCALLTYPE AddRef() override { return InterlockedIncrement(&ref_count_); }
 
-    ULONG __stdcall Release() override {
+    ULONG STDMETHODCALLTYPE Release() override {
       LONG count = InterlockedDecrement(&ref_count_);
       if (count == 0)
         delete this;
       return count;
     }
 
-    HRESULT Clone(IEnumFORMATETC** result) override {
+    HRESULT STDMETHODCALLTYPE Clone(IEnumFORMATETC** result) override {
       if (result == nullptr)
         return E_POINTER;
 
@@ -425,7 +427,7 @@ namespace visage {
       return S_OK;
     }
 
-    HRESULT Next(ULONG celt, LPFORMATETC lpFormatEtc, ULONG* pceltFetched) override {
+    HRESULT STDMETHODCALLTYPE Next(ULONG celt, LPFORMATETC lpFormatEtc, ULONG* pceltFetched) override {
       if (pceltFetched != nullptr)
         *pceltFetched = 0;
       else if (celt != 1)
@@ -448,7 +450,7 @@ namespace visage {
       return S_FALSE;
     }
 
-    HRESULT Skip(ULONG celt) override {
+    HRESULT STDMETHODCALLTYPE Skip(ULONG celt) override {
       if (index_ + static_cast<int>(celt) >= 1)
         return S_FALSE;
 
@@ -456,7 +458,7 @@ namespace visage {
       return S_OK;
     }
 
-    HRESULT Reset() override {
+    HRESULT STDMETHODCALLTYPE Reset() override {
       index_ = 0;
       return S_OK;
     }
@@ -501,7 +503,7 @@ namespace visage {
 
     virtual ~DragDropSourceObject() = default;
 
-    HRESULT __stdcall QueryInterface(REFIID riid, void** ppv_object) override {
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv_object) override {
       if (riid == IID_IUnknown || riid == IID_IDataObject) {
         *ppv_object = static_cast<IDataObject*>(this);
         AddRef();
@@ -511,9 +513,9 @@ namespace visage {
       return E_NOINTERFACE;
     }
 
-    ULONG __stdcall AddRef() override { return InterlockedIncrement(&ref_count_); }
+    ULONG STDMETHODCALLTYPE AddRef() override { return InterlockedIncrement(&ref_count_); }
 
-    ULONG __stdcall Release() override {
+    ULONG STDMETHODCALLTYPE Release() override {
       LONG count = InterlockedDecrement(&ref_count_);
       if (count == 0)
         delete this;
@@ -525,7 +527,7 @@ namespace visage {
              (format_etc->tymed & TYMED_HGLOBAL);
     }
 
-    HRESULT __stdcall GetData(FORMATETC* format_etc, STGMEDIUM* medium) override {
+    HRESULT STDMETHODCALLTYPE GetData(FORMATETC* format_etc, STGMEDIUM* medium) override {
       if (!acceptsFormat(format_etc))
         return DV_E_FORMATETC;
 
@@ -548,18 +550,18 @@ namespace visage {
       return S_OK;
     }
 
-    HRESULT __stdcall QueryGetData(FORMATETC* format_etc) override {
+    HRESULT STDMETHODCALLTYPE QueryGetData(FORMATETC* format_etc) override {
       if (acceptsFormat(format_etc))
         return S_OK;
       return DV_E_FORMATETC;
     }
 
-    HRESULT __stdcall GetCanonicalFormatEtc(FORMATETC*, FORMATETC* format_etc_out) override {
+    HRESULT STDMETHODCALLTYPE GetCanonicalFormatEtc(FORMATETC*, FORMATETC* format_etc_out) override {
       format_etc_out->ptd = nullptr;
       return E_NOTIMPL;
     }
 
-    HRESULT __stdcall EnumFormatEtc(DWORD direction, IEnumFORMATETC** result) override {
+    HRESULT STDMETHODCALLTYPE EnumFormatEtc(DWORD direction, IEnumFORMATETC** result) override {
       if (result == nullptr)
         return E_POINTER;
 
@@ -572,15 +574,15 @@ namespace visage {
       return E_NOTIMPL;
     }
 
-    HRESULT __stdcall GetDataHere(FORMATETC*, STGMEDIUM*) override { return E_NOTIMPL; }
-    HRESULT __stdcall SetData(FORMATETC*, STGMEDIUM*, BOOL) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE GetDataHere(FORMATETC*, STGMEDIUM*) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE SetData(FORMATETC*, STGMEDIUM*, BOOL) override { return E_NOTIMPL; }
 
-    HRESULT __stdcall DAdvise(FORMATETC*, DWORD, IAdviseSink*, DWORD*) override {
+    HRESULT STDMETHODCALLTYPE DAdvise(FORMATETC*, DWORD, IAdviseSink*, DWORD*) override {
       return E_NOTIMPL;
     }
 
-    HRESULT __stdcall DUnadvise(DWORD) override { return E_NOTIMPL; }
-    HRESULT __stdcall EnumDAdvise(IEnumSTATDATA**) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE DUnadvise(DWORD) override { return E_NOTIMPL; }
+    HRESULT STDMETHODCALLTYPE EnumDAdvise(IEnumSTATDATA**) override { return E_NOTIMPL; }
 
   private:
     HDROP drop_;
@@ -592,7 +594,7 @@ namespace visage {
     explicit DragDropTarget(WindowWin32* window) : window_(window) { }
     virtual ~DragDropTarget() = default;
 
-    HRESULT __stdcall QueryInterface(REFIID riid, void** ppv_object) override {
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv_object) override {
       if (riid == IID_IUnknown || riid == IID_IDropTarget) {
         *ppv_object = this;
         AddRef();
@@ -602,9 +604,9 @@ namespace visage {
       return E_NOINTERFACE;
     }
 
-    ULONG __stdcall AddRef() override { return InterlockedIncrement(&ref_count_); }
+    ULONG STDMETHODCALLTYPE AddRef() override { return InterlockedIncrement(&ref_count_); }
 
-    ULONG __stdcall Release() override {
+    ULONG STDMETHODCALLTYPE Release() override {
       LONG count = InterlockedDecrement(&ref_count_);
       if (count == 0)
         delete this;
@@ -617,8 +619,8 @@ namespace visage {
       return { static_cast<int>(position.x), static_cast<int>(position.y) };
     }
 
-    HRESULT __stdcall DragEnter(IDataObject* data_object, DWORD key_state, POINTL point,
-                                DWORD* effect) override {
+    HRESULT STDMETHODCALLTYPE DragEnter(IDataObject* data_object, DWORD key_state, POINTL point,
+                                        DWORD* effect) override {
       IPoint position = dragPosition(point);
       files_ = dropFileList(data_object);
       VISAGE_LOG(position.x);
@@ -629,7 +631,7 @@ namespace visage {
       return S_OK;
     }
 
-    HRESULT __stdcall DragOver(DWORD key_state, POINTL point, DWORD* effect) override {
+    HRESULT STDMETHODCALLTYPE DragOver(DWORD key_state, POINTL point, DWORD* effect) override {
       IPoint position = dragPosition(point);
       if (window_->handleFileDrag(position.x, position.y, files_))
         *effect = DROPEFFECT_COPY;
@@ -638,12 +640,13 @@ namespace visage {
       return S_OK;
     }
 
-    HRESULT __stdcall DragLeave() override {
+    HRESULT STDMETHODCALLTYPE DragLeave() override {
       window_->handleFileDragLeave();
       return S_OK;
     }
 
-    HRESULT __stdcall Drop(IDataObject* data_object, DWORD key_state, POINTL point, DWORD* effect) override {
+    HRESULT STDMETHODCALLTYPE Drop(IDataObject* data_object, DWORD key_state, POINTL point,
+                                   DWORD* effect) override {
       IPoint position = dragPosition(point);
       files_ = dropFileList(data_object);
       if (window_->handleFileDrop(position.x, position.y, files_))
