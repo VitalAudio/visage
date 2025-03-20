@@ -1518,7 +1518,6 @@ namespace visage {
 
     XSendEvent(x11_->display(), x11_->rootWindow(), False,
                SubstructureRedirectMask | SubstructureNotifyMask, &event);
-    XFlush(x11_->display());
 
     for (int retries = 0; retries < 10; ++retries) {
       Thread::sleep(10);
