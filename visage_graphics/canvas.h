@@ -88,9 +88,8 @@ namespace visage {
 
     void setDimensions(int width, int height);
     void setDpiScale(float scale) { dpi_scale_ = scale; }
-    void setDrawScale(float draw_scale) { draw_scale_ = draw_scale; }
-    void setNativePixelScale() { state_.scale = draw_scale_; }
-    void setLogicalPixelScale() { state_.scale = dpi_scale_ * draw_scale_; }
+    void setNativePixelScale() { state_.scale = 1.0f; }
+    void setLogicalPixelScale() { state_.scale = dpi_scale_; }
 
     float dpiScale() const { return dpi_scale_; }
     void updateTime(double time);
@@ -735,7 +734,6 @@ namespace visage {
 
     Palette* palette_ = nullptr;
     float dpi_scale_ = 1.0f;
-    float draw_scale_ = 1.0f;
     double render_time_ = 0.0;
     double delta_time_ = 0.0;
     int render_frame_ = 0;
