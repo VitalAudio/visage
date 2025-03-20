@@ -31,14 +31,14 @@
 
 using namespace visage::dimension;
 
-THEME_COLOR(BackgroundColor, 0xff33393f);
-THEME_COLOR(OverlayBody, 0xff212529);
-THEME_COLOR(OverlayBorder, 0x66ffffff);
+VISAGE_THEME_COLOR(BackgroundColor, 0xff33393f);
+VISAGE_THEME_COLOR(OverlayBody, 0xff212529);
+VISAGE_THEME_COLOR(OverlayBorder, 0x66ffffff);
 
-THEME_VALUE(BloomSize, 25.0f, false);
-THEME_VALUE(BloomIntensity, 3.0f, false);
-THEME_VALUE(BlurSize, 50.0f, false);
-THEME_VALUE(OverlayRounding, 25.0f, false);
+VISAGE_THEME_VALUE(BloomSize, 25.0f);
+VISAGE_THEME_VALUE(BloomIntensity, 3.0f);
+VISAGE_THEME_VALUE(BlurSize, 50.0f);
+VISAGE_THEME_VALUE(OverlayRounding, 25.0f);
 
 class DebugInfo : public visage::Frame {
 public:

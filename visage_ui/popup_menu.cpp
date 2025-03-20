@@ -25,17 +25,17 @@
 #include "visage_graphics/theme.h"
 
 namespace visage {
-  THEME_COLOR(PopupMenuBackground, 0xff262a2e);
-  THEME_COLOR(PopupMenuBorder, 0xff606265);
-  THEME_COLOR(PopupMenuText, 0xffeeeeee);
-  THEME_COLOR(PopupMenuSelection, 0xffaa88ff);
-  THEME_COLOR(PopupMenuSelectionText, 0xffffffff);
+  VISAGE_THEME_COLOR(PopupMenuBackground, 0xff262a2e);
+  VISAGE_THEME_COLOR(PopupMenuBorder, 0xff606265);
+  VISAGE_THEME_COLOR(PopupMenuText, 0xffeeeeee);
+  VISAGE_THEME_COLOR(PopupMenuSelection, 0xffaa88ff);
+  VISAGE_THEME_COLOR(PopupMenuSelectionText, 0xffffffff);
 
-  THEME_VALUE(PopupOptionHeight, 22.0f, true);
-  THEME_VALUE(PopupMinWidth, 175.0f, true);
-  THEME_VALUE(PopupTextPadding, 9.0f, true);
-  THEME_VALUE(PopupFontSize, 14.0f, true);
-  THEME_VALUE(PopupSelectionPadding, 4.0f, true);
+  VISAGE_THEME_VALUE(PopupOptionHeight, 22.0f);
+  VISAGE_THEME_VALUE(PopupMinWidth, 175.0f);
+  VISAGE_THEME_VALUE(PopupTextPadding, 9.0f);
+  VISAGE_THEME_VALUE(PopupFontSize, 14.0f);
+  VISAGE_THEME_VALUE(PopupSelectionPadding, 4.0f);
 
   void PopupMenu::show(Frame* source, Point position) {
     std::unique_ptr<PopupMenuFrame> frame = std::make_unique<PopupMenuFrame>(*this);

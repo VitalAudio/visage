@@ -24,10 +24,10 @@
 #include "visage_graphics/theme.h"
 
 namespace visage {
-  THEME_COLOR(ScrollBarDefault, 0x22ffffff);
-  THEME_COLOR(ScrollBarDown, 0x55ffffff);
+  VISAGE_THEME_COLOR(ScrollBarDefault, 0x22ffffff);
+  VISAGE_THEME_COLOR(ScrollBarDown, 0x55ffffff);
 
-  THEME_VALUE(ScrollBarWidth, 20.0f, true);
+  VISAGE_THEME_VALUE(ScrollBarWidth, 20.0f);
 
   void ScrollBar::draw(Canvas& canvas) {
     if (!active_ || range_ <= 0)

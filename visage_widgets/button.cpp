@@ -25,37 +25,37 @@
 #include "visage_graphics/theme.h"
 
 namespace visage {
-  THEME_COLOR(ButtonShadow, 0x88000000);
+  VISAGE_THEME_COLOR(ButtonShadow, 0x88000000);
 
-  THEME_COLOR(TextButtonBackgroundOff, 0xff2c3033);
-  THEME_COLOR(TextButtonBackgroundOffHover, 0xff3e4245);
-  THEME_COLOR(TextButtonBackgroundOn, 0xff2c3033);
-  THEME_COLOR(TextButtonBackgroundOnHover, 0xff3e4245);
+  VISAGE_THEME_COLOR(TextButtonBackgroundOff, 0xff2c3033);
+  VISAGE_THEME_COLOR(TextButtonBackgroundOffHover, 0xff3e4245);
+  VISAGE_THEME_COLOR(TextButtonBackgroundOn, 0xff2c3033);
+  VISAGE_THEME_COLOR(TextButtonBackgroundOnHover, 0xff3e4245);
 
-  THEME_COLOR(TextButtonTextOff, 0xff848789);
-  THEME_COLOR(TextButtonTextOffHover, 0xffaaacad);
-  THEME_COLOR(TextButtonTextOn, 0xffaa88ff);
-  THEME_COLOR(TextButtonTextOnHover, 0xffbb99ff);
+  VISAGE_THEME_COLOR(TextButtonTextOff, 0xff848789);
+  VISAGE_THEME_COLOR(TextButtonTextOffHover, 0xffaaacad);
+  VISAGE_THEME_COLOR(TextButtonTextOn, 0xffaa88ff);
+  VISAGE_THEME_COLOR(TextButtonTextOnHover, 0xffbb99ff);
 
-  THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonDisabled, 0xff4c4f52);
-  THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOff, 0xff848789);
-  THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOffHover, 0xffaaacad);
-  THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOn, 0xffaa88ff);
-  THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOnHover, 0xffbb99ff);
+  VISAGE_THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonDisabled, 0xff4c4f52);
+  VISAGE_THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOff, 0xff848789);
+  VISAGE_THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOffHover, 0xffaaacad);
+  VISAGE_THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOn, 0xffaa88ff);
+  VISAGE_THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOnHover, 0xffbb99ff);
 
-  THEME_COLOR(UiButtonBackground, 0xff4c4f52);
-  THEME_COLOR(UiButtonBackgroundHover, 0xff606265);
-  THEME_COLOR(UiButtonText, 0xffdddddd);
-  THEME_COLOR(UiButtonTextHover, 0xffffffff);
+  VISAGE_THEME_COLOR(UiButtonBackground, 0xff4c4f52);
+  VISAGE_THEME_COLOR(UiButtonBackgroundHover, 0xff606265);
+  VISAGE_THEME_COLOR(UiButtonText, 0xffdddddd);
+  VISAGE_THEME_COLOR(UiButtonTextHover, 0xffffffff);
 
-  THEME_COLOR(UiActionButtonBackground, 0xff9977ee);
-  THEME_COLOR(UiActionButtonBackgroundHover, 0xffaa88ff);
-  THEME_COLOR(UiActionButtonText, 0xffdddddd);
-  THEME_COLOR(UiActionButtonTextHover, 0xffffffff);
+  VISAGE_THEME_COLOR(UiActionButtonBackground, 0xff9977ee);
+  VISAGE_THEME_COLOR(UiActionButtonBackgroundHover, 0xffaa88ff);
+  VISAGE_THEME_COLOR(UiActionButtonText, 0xffdddddd);
+  VISAGE_THEME_COLOR(UiActionButtonTextHover, 0xffffffff);
 
-  THEME_VALUE(TextButtonRounding, 9.0f, false);
-  THEME_VALUE(UiButtonRounding, 9.0f, false);
-  THEME_VALUE(UiButtonHoverRoundingMult, 0.7f, false);
+  VISAGE_THEME_VALUE(TextButtonRounding, 9.0f);
+  VISAGE_THEME_VALUE(UiButtonRounding, 9.0f);
+  VISAGE_THEME_VALUE(UiButtonHoverRoundingMult, 0.7f);
 
   void Button::draw(Canvas& canvas) {
     draw(canvas, active_ ? hover_amount_.update() : 0.0f);

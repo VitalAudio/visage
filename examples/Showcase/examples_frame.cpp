@@ -45,12 +45,12 @@ inline float sin1(float phase) {
 
 static constexpr float kHalfPi = 3.14159265358979323846f * 0.5f;
 
-THEME_COLOR(TextColor, 0xffffffff);
-THEME_COLOR(ShapeColor, 0xffaaff88);
-THEME_COLOR(LabelColor, 0x44212529);
-THEME_COLOR(DarkBackgroundColor, 0xff212529);
-THEME_COLOR(OverlayShadowColor, 0xbb000000);
-THEME_COLOR(ShadowColor, 0x88000000);
+VISAGE_THEME_COLOR(TextColor, 0xffffffff);
+VISAGE_THEME_COLOR(ShapeColor, 0xffaaff88);
+VISAGE_THEME_COLOR(LabelColor, 0x44212529);
+VISAGE_THEME_COLOR(DarkBackgroundColor, 0xff212529);
+VISAGE_THEME_COLOR(OverlayShadowColor, 0xbb000000);
+VISAGE_THEME_COLOR(ShadowColor, 0x88000000);
 
 class AnimatedLines : public visage::Frame {
 public:

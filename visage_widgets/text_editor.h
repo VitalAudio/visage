@@ -62,16 +62,16 @@ namespace visage {
       Circumflex
     };
 
-    THEME_DEFINE_COLOR(TextEditorBackground);
-    THEME_DEFINE_COLOR(TextEditorBorder);
-    THEME_DEFINE_COLOR(TextEditorText);
-    THEME_DEFINE_COLOR(TextEditorDefaultText);
-    THEME_DEFINE_COLOR(TextEditorCaret);
-    THEME_DEFINE_COLOR(TextEditorSelection);
+    VISAGE_THEME_DEFINE_COLOR(TextEditorBackground);
+    VISAGE_THEME_DEFINE_COLOR(TextEditorBorder);
+    VISAGE_THEME_DEFINE_COLOR(TextEditorText);
+    VISAGE_THEME_DEFINE_COLOR(TextEditorDefaultText);
+    VISAGE_THEME_DEFINE_COLOR(TextEditorCaret);
+    VISAGE_THEME_DEFINE_COLOR(TextEditorSelection);
 
-    THEME_DEFINE_VALUE(TextEditorRounding);
-    THEME_DEFINE_VALUE(TextEditorMarginX);
-    THEME_DEFINE_VALUE(TextEditorMarginY);
+    VISAGE_THEME_DEFINE_VALUE(TextEditorRounding);
+    VISAGE_THEME_DEFINE_VALUE(TextEditorMarginX);
+    VISAGE_THEME_DEFINE_VALUE(TextEditorMarginY);
 
     explicit TextEditor(const std::string& name = "");
     ~TextEditor() override = default;
