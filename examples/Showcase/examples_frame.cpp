@@ -281,15 +281,6 @@ ExamplesFrame::~ExamplesFrame() = default;
 
 void ExamplesFrame::resized() {
   ScrollableFrame::resized();
-
-  visage::Font font(20, resources::fonts::Lato_Regular_ttf);
-  left_text_editor_->setFont(font);
-  number_editor_->setFont(font);
-  right_text_editor_->setFont(font);
-  text_editor_->setFont(font);
-  text_button_->setFont(font);
-  ui_button_->setFont(font);
-  action_button_->setFont(font);
   setScrollableHeight(sections_.back()->bottom() + 8.0f);
 }
 
@@ -315,11 +306,16 @@ void ExamplesFrame::setupBars() {
 }
 
 void ExamplesFrame::setupButtons() {
+  visage::Font font(20, resources::fonts::Lato_Regular_ttf);
+
   icon_button_ = std::make_unique<visage::ToggleIconButton>(resources::icons::check_circle_svg.data,
                                                             resources::icons::check_circle_svg.size, true);
 
   text_button_ = std::make_unique<visage::ToggleTextButton>("Toggle");
+  text_button_->setFont(font);
+
   ui_button_ = std::make_unique<visage::UiButton>("Trigger Overlay");
+  ui_button_->setFont(font);
   ui_button_->onToggle() = [this](visage::Button* button, bool toggled) {
     on_show_overlay_.callback();
   };
@@ -327,6 +323,7 @@ void ExamplesFrame::setupButtons() {
   ui_button_->setToggleOnMouseDown(true);
 
   action_button_ = std::make_unique<visage::UiButton>("Popup Menu");
+  action_button_->setFont(font);
   action_button_->setActionButton();
   action_button_->onToggle() = [this](visage::Button* button, bool toggled) {
     visage::PopupMenu menu;
@@ -461,22 +458,27 @@ void ExamplesFrame::setupShapes() {
 }
 
 void ExamplesFrame::setupTextEditors() {
+  visage::Font font(20, resources::fonts::Lato_Regular_ttf);
+
   left_text_editor_ = std::make_unique<visage::TextEditor>();
   left_text_editor_->setJustification(visage::Font::kLeft);
   left_text_editor_->setDefaultText("Left Text");
   left_text_editor_->layout().setHeight(40_px);
   left_text_editor_->layout().setFlexGrow(1.0f);
+  left_text_editor_->setFont(font);
 
-  number_editor_ = std::make_unique<visage::TextEditor>();
-  number_editor_->setDefaultText("Center Text");
-  number_editor_->layout().setHeight(40_px);
-  number_editor_->layout().setFlexGrow(1.0f);
+  center_editor_ = std::make_unique<visage::TextEditor>();
+  center_editor_->setDefaultText("Center Text");
+  center_editor_->layout().setHeight(40_px);
+  center_editor_->layout().setFlexGrow(1.0f);
+  center_editor_->setFont(font);
 
   right_text_editor_ = std::make_unique<visage::TextEditor>();
   right_text_editor_->setJustification(visage::Font::kRight);
   right_text_editor_->setDefaultText("Right Text");
   right_text_editor_->layout().setHeight(40_px);
   right_text_editor_->layout().setFlexGrow(1.0f);
+  right_text_editor_->setFont(font);
 
   text_editor_ = std::make_unique<visage::TextEditor>();
   text_editor_->setDefaultText("Multiline Text");
@@ -484,6 +486,7 @@ void ExamplesFrame::setupTextEditors() {
   text_editor_->layout().setFlexGrow(1.0f);
   text_editor_->setMultiLine(true);
   text_editor_->setJustification(visage::Font::kTopLeft);
+  text_editor_->setFont(font);
 
   text_editor_container_.layout().setFlex(true);
   text_editor_container_.layout().setFlexWrap(true);
@@ -491,7 +494,7 @@ void ExamplesFrame::setupTextEditors() {
   text_editor_container_.layout().setFlexWrapAlignment(visage::Layout::WrapAlignment::Stretch);
   text_editor_container_.addChild(left_text_editor_.get());
   text_editor_->layout().setHeight(100_px);
-  text_editor_container_.addChild(number_editor_.get());
+  text_editor_container_.addChild(center_editor_.get());
   text_editor_container_.addChild(right_text_editor_.get());
   text_editor_container_.addChild(text_editor_.get());
 }

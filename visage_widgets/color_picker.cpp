@@ -73,6 +73,8 @@ namespace visage {
   }
 
   ColorPicker::ColorPicker() {
+    Font font(kEditHeight / 2, fonts::DroidSansMono_ttf);
+
     hue_.onEdit() = [this](float hue) {
       updateColor();
       notifyNewColor();
@@ -85,6 +87,10 @@ namespace visage {
       notifyNewColor();
       redraw();
     };
+
+    hex_text_.setFont(font);
+    alpha_text_.setFont(font);
+    hdr_text_.setFont(font);
 
     hex_text_.setNumberEntry();
     hex_text_.setMargin(5, 0);
@@ -142,15 +148,12 @@ namespace visage {
     value_saturation_.setBounds(0, 0, width() - kHueWidth - kPadding, widget_height);
 
     hex_text_.setNumberEntry();
-    hex_text_.setFont(Font(kEditHeight / 2, fonts::DroidSansMono_ttf));
     hex_text_.setBackgroundRounding(8);
 
     alpha_text_.setNumberEntry();
-    alpha_text_.setFont(Font(kEditHeight / 2, fonts::DroidSansMono_ttf));
     alpha_text_.setBackgroundRounding(8);
 
     hdr_text_.setNumberEntry();
-    hdr_text_.setFont(Font(kEditHeight / 2, fonts::DroidSansMono_ttf));
     hdr_text_.setBackgroundRounding(8);
 
     int edit_width = (width() - kEditHeight - 4 * kPadding) / 3;

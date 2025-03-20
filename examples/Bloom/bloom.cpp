@@ -25,6 +25,7 @@
 class AnimatedLine : public visage::Frame {
 public:
   static constexpr int kNumPoints = 1200;
+  static constexpr float kDotRadius = 4.0f;
 
   static inline float quickSin1(float phase) {
     phase = 0.5f - phase;
@@ -69,7 +70,6 @@ public:
     }
 
     float center_y = (render_height - line_height) * 0.25f;
-    float dot_radius = 4.0f;
     visage::Color color = 0xffaa88ff;
     for (int i = 0; i < kNumDots; ++i) {
       float t = (i + 1) / (kNumDots + 1.0f);
@@ -77,8 +77,8 @@ public:
 
       color.setHdr(1.0f + compute_boost(boost_phase - t));
       canvas.setColor(color);
-      canvas.circle(center_x - dot_radius, center_y - dot_radius, dot_radius * 2.0f);
-      canvas.circle(center_x - dot_radius, render_height - center_y - dot_radius, dot_radius * 2.0f);
+      canvas.circle(center_x - kDotRadius, center_y - kDotRadius, kDotRadius * 2.0f);
+      canvas.circle(center_x - kDotRadius, render_height - center_y - kDotRadius, kDotRadius * 2.0f);
     }
 
     redraw();

@@ -52,6 +52,7 @@ public:
     button_.setText("Open Window");
     button_.layout().setHeight(100_vh);
     button_.layout().setWidth(100_vw);
+    button_.setFont(visage::Font(24, resources::fonts::Lato_Regular_ttf));
 
     sub_window_.onShow() += [this] { button_.setText("Close Window"); };
     sub_window_.onHide() += [this] { button_.setText("Open Window"); };
@@ -70,8 +71,6 @@ public:
     canvas.setColor(0xff222026);
     canvas.fill(0, 0, width(), height());
   }
-
-  void resized() override { button_.setFont(visage::Font(24, resources::fonts::Lato_Regular_ttf)); }
 
 private:
   visage::UiButton button_;
