@@ -115,12 +115,10 @@ namespace visage {
   }
 
   void TextEditor::selectionRectangle(Canvas& canvas, float x, float y, float w, float h) const {
-    float full_width = width();
-    float full_height = height();
-    float left = std::max(0.0f, std::min(full_width, x));
-    float top = std::max(0.0f, std::min(full_height, y));
-    float right = std::max(0.0f, std::min(full_width, x + w));
-    float bottom = std::max(0.0f, std::min(full_height, y + h));
+    float left = std::max(0.0f, std::min(width(), x));
+    float top = std::max(0.0f, std::min(height(), y));
+    float right = std::max(0.0f, std::min(width(), x + w));
+    float bottom = std::max(0.0f, std::min(height(), y + h));
     canvas.rectangle(left, top, right - left, bottom - top);
   }
 
