@@ -290,7 +290,7 @@ void ExamplesFrame::resized() {
   text_button_->setFont(font);
   ui_button_->setFont(font);
   action_button_->setFont(font);
-  setScrollableHeight(sections_.back()->bottom() + 8.0f * dpiScale());
+  setScrollableHeight(sections_.back()->bottom() + 8.0f);
 }
 
 void ExamplesFrame::setupBars() {
