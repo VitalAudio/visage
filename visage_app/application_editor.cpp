@@ -35,7 +35,7 @@ namespace visage {
   void TopLevelFrame::resized() {
     if (editor_->window())
       setDpiScale(editor_->window()->dpiScale());
-    
+
     editor_->setNativeBounds(nativeLocalBounds());
     editor_->setCanvasDetails();
 
@@ -117,11 +117,9 @@ namespace visage {
       drawWindow();
     });
 
-#if !VISAGE_LINUX
     drawWindow();
     drawWindow();
     redraw();
-#endif
   }
 
   void ApplicationEditor::setWindowless(int width, int height) {
