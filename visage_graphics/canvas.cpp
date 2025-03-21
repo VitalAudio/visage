@@ -43,6 +43,8 @@ namespace visage {
   }
 
   void Canvas::clearDrawnShapes() {
+    default_region_.clear();
+    default_region_.invalidate();
     composite_layer_.clear();
     composite_layer_.addRegion(&window_region_);
   }

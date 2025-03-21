@@ -39,7 +39,6 @@ namespace visage {
 
   class Canvas {
   public:
-    static constexpr float kSqrt2 = 1.4142135623730950488016887242097f;
     static constexpr float kDefaultSquirclePower = 4.0f;
 
     static bool swapChainSupported();
