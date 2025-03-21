@@ -67,9 +67,11 @@ namespace visage {
     if (submission > submit_pass) {
       composite_layer_.invalidate();
       submission = composite_layer_.submit(submission);
-      render_frame_++;
       bgfx::frame();
+      if (render_frame_ == 0)
+        bgfx::frame();
 
+      render_frame_++;
       FontCache::clearStaleFonts();
       gradient_atlas_.clearStaleGradients();
       image_atlas_.clearStaleImages();

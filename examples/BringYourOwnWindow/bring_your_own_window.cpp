@@ -24,21 +24,18 @@
 
 int runExample() {
   std::unique_ptr<visage::Window> window = visage::createWindow(800, 800);
-  visage::Canvas canvas;
-
   visage::Renderer::instance().checkInitialization(window->initWindow(), window->globalDisplay());
-  canvas.pairToWindow(window->nativeHandle(), window->clientWidth(), window->clientHeight());
 
-  window->setDrawCallback([&](double time) {
-    canvas.clearDrawnShapes();
-    canvas.setColor(0xff223333);
-    canvas.fill(0, 0, window->clientWidth(), window->clientHeight());
-    canvas.setColor(0xffaa99ff);
-    canvas.ring(50, 50, window->clientWidth() - 100.0f, window->clientWidth() * 0.1f);
-    canvas.submit();
-  });
+  visage::Canvas canvas;
+  canvas.pairToWindow(window->nativeHandle(), window->clientWidth(), window->clientHeight());
+  canvas.setColor(0xff223333);
+  canvas.fill(0, 0, window->clientWidth(), window->clientHeight());
+  canvas.setColor(0xffaa99ff);
+  canvas.ring(50, 50, window->clientWidth() - 100.0f, window->clientWidth() * 0.1f);
 
   window->show();
+  canvas.submit();
+
   window->runEventLoop();
 
   return 0;

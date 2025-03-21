@@ -83,7 +83,7 @@ namespace visage {
     PopupList() = default;
 
     void setOptions(std::vector<PopupMenu> options) { options_ = std::move(options); }
-    void setFont(const Font& font) { font_ = font; }
+    void setFont(const Font& font) { font_ = font.withDpiScale(dpiScale()); }
 
     float renderHeight() const;
     float renderWidth() const;
