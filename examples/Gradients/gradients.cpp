@@ -160,7 +160,7 @@ public:
     if (active_point_ == kNone)
       return;
 
-    mouse_down_ = true;
+    mouse_down_ = false;
     redraw();
   }
 
