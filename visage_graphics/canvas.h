@@ -736,6 +736,7 @@ namespace visage {
     double render_time_ = 0.0;
     double delta_time_ = 0.0;
     int render_frame_ = 0;
+    int last_skipped_frame_ = 0;
 
     std::vector<State> state_memory_;
     State state_;

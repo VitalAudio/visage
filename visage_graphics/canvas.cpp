@@ -76,6 +76,10 @@ namespace visage {
       gradient_atlas_.clearStaleGradients();
       image_atlas_.clearStaleImages();
     }
+    else if (last_skipped_frame_ != render_frame_) {
+      last_skipped_frame_ = render_frame_;
+      bgfx::frame();
+    }
     return submission;
   }
 
