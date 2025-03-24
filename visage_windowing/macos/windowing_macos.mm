@@ -400,6 +400,8 @@ namespace visage {
 }
 - (void)moveToEndOfDocument:(id)sender {
 }
+- (void)cancelOperation:(id)sender {
+}
 
 - (visage::Point)eventPosition:(NSEvent*)event {
   NSPoint location = [event locationInWindow];
