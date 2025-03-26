@@ -49,6 +49,11 @@ namespace visage {
 
     void setCharacterOverride(int character) { character_override_ = character; }
     int characterOverride() const { return character_override_; }
+    
+    // This can be used to make small text appear smoother and less jagged. This value should
+    // be close to `0.0`. `0.08` is a good starting place.
+    void setHorizontalSmear(float horizontal_smear) { horizontal_smear_ = horizontal_smear; }
+    float horizontalSmear() const { return horizontal_smear_; }
 
   private:
     String text_;
@@ -56,5 +61,6 @@ namespace visage {
     Font::Justification justification_ = Font::kCenter;
     bool multi_line_ = false;
     int character_override_ = 0;
+    float horizontal_smear_ = 0.0;
   };
 }

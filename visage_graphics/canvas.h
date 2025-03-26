@@ -364,11 +364,15 @@ namespace visage {
       addShape(std::move(text_block));
     }
 
+    // This `horizontal_smear` parameter can be used to make small text appear smoother and
+    // less jagged. This value should be close to `0.0`. `0.08` is a good starting place.
     template<typename T1, typename T2, typename T3, typename T4>
     void text(const String& string, const Font& font, Font::Justification justification, const T1& x,
-              const T2& y, const T3& width, const T4& height, Direction dir = Direction::Up) {
+              const T2& y, const T3& width, const T4& height, Direction dir = Direction::Up,
+              float horizontal_smear = 0.0) {
       if (!string.isEmpty()) {
         Text* stored_text = state_.current_region->addText(string, font, justification);
+        stored_text->setHorizontalSmear(horizontal_smear);
         text(stored_text, x, y, width, height, dir);
       }
     }

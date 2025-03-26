@@ -125,11 +125,12 @@ namespace visage {
 
     void setVertexPositions(FontAtlasQuad* quads, const char32_t* string, int length, float x, float y,
                             float width, float height, Justification justification = Justification::kCenter,
-                            int character_override = 0) const;
+                            int character_override = 0, float horizontal_smear = 0.0) const;
 
     void setMultiLineVertexPositions(FontAtlasQuad* quads, const char32_t* string, int length,
                                      float x, float y, float width, float height,
-                                     Justification justification = Justification::kCenter) const;
+                                     Justification justification = Justification::kCenter,
+                                     float horizontal_smear = 0.0) const;
 
     const PackedFont* packedFont() const { return packed_font_; }
 

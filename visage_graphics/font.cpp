@@ -348,7 +348,7 @@ namespace visage {
 
   void Font::setVertexPositions(FontAtlasQuad* quads, const char32_t* text, int length, float x,
                                 float y, float width, float height, Justification justification,
-                                int character_override) const {
+                                int character_override, float horizontal_smear) const {
     if (length <= 0)
       return;
 
@@ -365,6 +365,12 @@ namespace visage {
       pen_y = y + static_cast<int>((nativeCapitalHeight() + nativeLineHeight()) * 0.5f);
     else if (justification & kBottom)
       pen_y = y + static_cast<int>(height);
+
+    // Round the starting position so that the text remains sharp.
+    // The horizontal_smear parameter can be used to help make small text
+    // appear smoother and less jagged.
+    pen_x = round(pen_x) + horizontal_smear;
+    pen_y = round(pen_y);
 
     for (int i = 0; i < length; ++i) {
       char32_t character = character_override ? character_override : text[i];
@@ -413,7 +419,7 @@ namespace visage {
 
   void Font::setMultiLineVertexPositions(FontAtlasQuad* quads, const char32_t* text, int length,
                                          float x, float y, float width, float height,
-                                         Justification justification) const {
+                                         Justification justification, float horizontal_smear) const {
     int line_height = nativeLineHeight();
     std::vector<int> line_breaks = nativeLineBreaks(text, length, width);
     line_breaks.push_back(length);
@@ -435,7 +441,7 @@ namespace visage {
     for (int line_break : line_breaks) {
       int line_length = line_break - last_break;
       setVertexPositions(quads + last_break, text + last_break, line_length, x, line_y, width,
-                         height, line_justification);
+                         height, line_justification, horizontal_smear);
       last_break = line_break;
       line_y += line_height;
     }

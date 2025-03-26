@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.17)
 project(visage VERSION 0.1.0)
 
+# Enable support for some IDEs like VSCode with Clang
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 if (NOT DEFINED CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
 endif ()
