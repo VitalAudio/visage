@@ -51,7 +51,7 @@ namespace visage {
     int characterOverride() const { return character_override_; }
     
     // This can be used to make small text appear smoother and less jagged. This value should
-    // be close to `0.0`. `0.08` is a good starting place.
+    // be close to `0.0`. `0.03` is a good starting place.
     void setHorizontalSmear(float horizontal_smear) { horizontal_smear_ = horizontal_smear; }
     float horizontalSmear() const { return horizontal_smear_; }
 
