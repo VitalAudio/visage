@@ -319,6 +319,7 @@ namespace visage {
   if (!view.currentDrawable || !view.currentRenderPassDescriptor)
     return;
 
+  view.layer.contentsScale = self.visage_window->dpiScale();
   [self drawWindow];
 }
 @end
