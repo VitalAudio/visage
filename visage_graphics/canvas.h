@@ -147,10 +147,9 @@ namespace visage {
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
-    void squircleBorder(const T1& x, const T2& y, const T3& width, const T4& power, const T5& thickness) {
+    void squircleBorder(const T1& x, const T2& y, const T3& width, float power, const T5& thickness) {
       float w = pixels(width);
-      Squircle squircle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y), w,
-                        w, pixels(power));
+      Squircle squircle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y), w, w, power);
       squircle.thickness = pixels(thickness);
       addShape(squircle);
     }
