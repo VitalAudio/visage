@@ -130,6 +130,48 @@ namespace visage {
       std::swap(width_, height_);
     }
 
+    IBounds trimTop(int amount) {
+      amount = std::min(amount, height_);
+      const IBounds trimmed(x_, y_, width_, amount);
+      y_ += amount;
+      height_ -= amount;
+      return trimmed;
+    }
+
+    IBounds trimBottom(int amount) {
+      amount = std::min(amount, height_);
+      const IBounds trimmed(x_, y_ + height_ - amount, width_, amount);
+      height_ -= amount;
+      return trimmed;
+    }
+
+    IBounds trimLeft(int amount) {
+      amount = std::min(amount, width_);
+      const IBounds trimmed(x_, y_, amount, height_);
+      x_ += amount;
+      width_ -= amount;
+      return trimmed;
+    }
+
+    IBounds trimRight(int amount) {
+      amount = std::min(amount, width_);
+      const IBounds trimmed(x_ + width_ - amount, y_, amount, height_);
+      width_ -= amount;
+      return trimmed;
+    }
+
+    IBounds reduced(int amount) const {
+      const auto newWidth = std::max(0, width_ - 2 * amount);
+      const auto newHeight = std::max(0, height_ - 2 * amount);
+      return { x_ + amount, y_ + amount, newWidth, newHeight };
+    }
+
+    IBounds reduced(int left, int right, int top, int bottom) const {
+      const auto newWidth = std::max(0, width_ - left - right);
+      const auto newHeight = std::max(0, height_ - top - bottom);
+      return { x_ + left, y_ + top, newWidth, newHeight };
+    }
+
     bool operator==(const IBounds& other) const {
       return x_ == other.x_ && y_ == other.y_ && width_ == other.width_ && height_ == other.height_;
     }
@@ -272,6 +314,48 @@ namespace visage {
     void flipDimensions() {
       std::swap(x_, y_);
       std::swap(width_, height_);
+    }
+
+    Bounds trimTop(float amount) {
+      amount = std::min(amount, height_);
+      const Bounds trimmed(x_, y_, width_, amount);
+      y_ += amount;
+      height_ -= amount;
+      return trimmed;
+    }
+
+    Bounds trimBottom(float amount) {
+      amount = std::min(amount, height_);
+      const Bounds trimmed(x_, y_ + height_ - amount, width_, amount);
+      height_ -= amount;
+      return trimmed;
+    }
+
+    Bounds trimLeft(float amount) {
+      amount = std::min(amount, width_);
+      const Bounds trimmed(x_, y_, amount, height_);
+      x_ += amount;
+      width_ -= amount;
+      return trimmed;
+    }
+
+    Bounds trimRight(float amount) {
+      amount = std::min(amount, width_);
+      const Bounds trimmed(x_ + width_ - amount, y_, amount, height_);
+      width_ -= amount;
+      return trimmed;
+    }
+
+    Bounds reduced(float amount) const {
+      const auto newWidth = std::max(0.0f, width_ - 2.0f * amount);
+      const auto newHeight = std::max(0.0f, height_ - 2.0f * amount);
+      return { x_ + amount, y_ + amount, newWidth, newHeight };
+    }
+
+    Bounds reduced(float left, float right, float top, float bottom) const {
+      const auto newWidth = std::max(0.0f, width_ - left - right);
+      const auto newHeight = std::max(0.0f, height_ - top - bottom);
+      return { x_ + left, y_ + top, newWidth, newHeight };
     }
 
     bool operator==(const Bounds& other) const {
