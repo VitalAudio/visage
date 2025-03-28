@@ -136,3 +136,245 @@ TEST_CASE("Breaking rectangles", "[utils]") {
   REQUIRE(!bounds1.overlaps(bounds2));
   REQUIRE(pieces.size() == 0);
 }
+
+TEST_CASE("Bounds copy", "[utils]") {
+  IBounds original(10, 20, 100, 200);
+  REQUIRE(original.copy().copy() == original);
+}
+
+TEST_CASE("IBounds trimTop", "[utils]") {
+  IBounds original(10, 20, 100, 200);
+
+  SECTION("Trim partial height") {
+    IBounds removed = original.trimTop(50);
+
+    REQUIRE(removed.x() == 10);
+    REQUIRE(removed.y() == 20);
+    REQUIRE(removed.width() == 100);
+    REQUIRE(removed.height() == 50);
+
+    REQUIRE(original.x() == 10);
+    REQUIRE(original.y() == 70);
+    REQUIRE(original.width() == 100);
+    REQUIRE(original.height() == 150);
+  }
+
+  SECTION("Trim full height") {
+    IBounds removed = original.trimTop(200);
+
+    REQUIRE(removed.x() == 10);
+    REQUIRE(removed.y() == 20);
+    REQUIRE(removed.width() == 100);
+    REQUIRE(removed.height() == 200);
+
+    REQUIRE(original.x() == 10);
+    REQUIRE(original.y() == 220);
+    REQUIRE(original.width() == 100);
+    REQUIRE(original.height() == 0);
+  }
+
+  SECTION("Trim exceeding height") {
+    IBounds removed = original.trimTop(250);
+
+    REQUIRE(removed.x() == 10);
+    REQUIRE(removed.y() == 20);
+    REQUIRE(removed.width() == 100);
+    REQUIRE(removed.height() == 200);
+
+    REQUIRE(original.x() == 10);
+    REQUIRE(original.y() == 220);
+    REQUIRE(original.width() == 100);
+    REQUIRE(original.height() == 0);
+  }
+}
+
+TEST_CASE("IBounds trimBottom", "[utils]") {
+  IBounds original(10, 20, 100, 200);
+
+  SECTION("Trim partial height") {
+    IBounds removed = original.trimBottom(50);
+
+    REQUIRE(removed.x() == 10);
+    REQUIRE(removed.y() == 170);
+    REQUIRE(removed.width() == 100);
+    REQUIRE(removed.height() == 50);
+
+    REQUIRE(original.x() == 10);
+    REQUIRE(original.y() == 20);
+    REQUIRE(original.width() == 100);
+    REQUIRE(original.height() == 150);
+  }
+
+  SECTION("Trim full height") {
+    IBounds removed = original.trimBottom(200);
+
+    REQUIRE(removed.x() == 10);
+    REQUIRE(removed.y() == 20);
+    REQUIRE(removed.width() == 100);
+    REQUIRE(removed.height() == 200);
+
+    REQUIRE(original.x() == 10);
+    REQUIRE(original.y() == 20);
+    REQUIRE(original.width() == 100);
+    REQUIRE(original.height() == 0);
+  }
+
+  SECTION("Trim exceeding height") {
+    IBounds removed = original.trimBottom(250);
+
+    REQUIRE(removed.x() == 10);
+    REQUIRE(removed.y() == 20);
+    REQUIRE(removed.width() == 100);
+    REQUIRE(removed.height() == 200);
+
+    REQUIRE(original.x() == 10);
+    REQUIRE(original.y() == 20);
+    REQUIRE(original.width() == 100);
+    REQUIRE(original.height() == 0);
+  }
+}
+
+TEST_CASE("IBounds trimLeft", "[utils]") {
+  IBounds original(10, 20, 100, 200);
+
+  SECTION("Trim partial width") {
+    IBounds removed = original.trimLeft(30);
+
+    REQUIRE(removed.x() == 10);
+    REQUIRE(removed.y() == 20);
+    REQUIRE(removed.width() == 30);
+    REQUIRE(removed.height() == 200);
+
+    REQUIRE(original.x() == 40);
+    REQUIRE(original.y() == 20);
+    REQUIRE(original.width() == 70);
+    REQUIRE(original.height() == 200);
+  }
+
+  SECTION("Trim full width") {
+    IBounds removed = original.trimLeft(100);
+
+    REQUIRE(removed.x() == 10);
+    REQUIRE(removed.y() == 20);
+    REQUIRE(removed.width() == 100);
+    REQUIRE(removed.height() == 200);
+
+    REQUIRE(original.x() == 110);
+    REQUIRE(original.y() == 20);
+    REQUIRE(original.width() == 0);
+    REQUIRE(original.height() == 200);
+  }
+
+  SECTION("Trim exceeding width") {
+    IBounds removed = original.trimLeft(150);
+
+    REQUIRE(removed.x() == 10);
+    REQUIRE(removed.y() == 20);
+    REQUIRE(removed.width() == 100);
+    REQUIRE(removed.height() == 200);
+
+    REQUIRE(original.x() == 110);
+    REQUIRE(original.y() == 20);
+    REQUIRE(original.width() == 0);
+    REQUIRE(original.height() == 200);
+  }
+}
+
+TEST_CASE("IBounds trimRight", "[utils]") {
+  IBounds original(10, 20, 100, 200);
+
+  SECTION("Trim partial width") {
+    IBounds removed = original.trimRight(30);
+
+    REQUIRE(removed.x() == 80);
+    REQUIRE(removed.y() == 20);
+    REQUIRE(removed.width() == 30);
+    REQUIRE(removed.height() == 200);
+
+    REQUIRE(original.x() == 10);
+    REQUIRE(original.y() == 20);
+    REQUIRE(original.width() == 70);
+    REQUIRE(original.height() == 200);
+  }
+
+  SECTION("Trim full width") {
+    IBounds removed = original.trimRight(100);
+
+    REQUIRE(removed.x() == 10);
+    REQUIRE(removed.y() == 20);
+    REQUIRE(removed.width() == 100);
+    REQUIRE(removed.height() == 200);
+
+    REQUIRE(original.x() == 10);
+    REQUIRE(original.y() == 20);
+    REQUIRE(original.width() == 0);
+    REQUIRE(original.height() == 200);
+  }
+
+  SECTION("Trim exceeding width") {
+    IBounds removed = original.trimRight(150);
+
+    REQUIRE(removed.x() == 10);
+    REQUIRE(removed.y() == 20);
+    REQUIRE(removed.width() == 100);
+    REQUIRE(removed.height() == 200);
+
+    REQUIRE(original.x() == 10);
+    REQUIRE(original.y() == 20);
+    REQUIRE(original.width() == 0);
+    REQUIRE(original.height() == 200);
+  }
+}
+
+TEST_CASE("IBounds reduced uniform", "[utils]") {
+  IBounds original(10, 20, 100, 200);
+
+  SECTION("Reduce by small amount") {
+    IBounds reduced = original.reduced(10);
+
+    REQUIRE(reduced.x() == 20);
+    REQUIRE(reduced.y() == 30);
+    REQUIRE(reduced.width() == 80);
+    REQUIRE(reduced.height() == 180);
+  }
+
+  SECTION("Reduce beyond IBounds") {
+    IBounds reduced = original.reduced(100);
+
+    REQUIRE(reduced.x() == 110);
+    REQUIRE(reduced.y() == 120);
+    REQUIRE(reduced.width() == 0);
+    REQUIRE(reduced.height() == 0);
+  }
+}
+
+TEST_CASE("IBounds reduced asymmetric", "[utils]") {
+  IBounds original(10, 20, 100, 200);
+
+  SECTION("Reduce with different values") {
+    IBounds reduced = original.reduced(10, 20, 30, 40);
+
+    REQUIRE(reduced.x() == 20);
+    REQUIRE(reduced.y() == 50);
+    REQUIRE(reduced.width() == 70);
+    REQUIRE(reduced.height() == 130);
+  }
+
+  SECTION("Reduce to zero") {
+    IBounds reduced = original.reduced(50, 50, 100, 100);
+
+    REQUIRE(reduced.x() == 60);
+    REQUIRE(reduced.y() == 120);
+    REQUIRE(reduced.width() == 0);
+    REQUIRE(reduced.height() == 0);
+  }
+
+  SECTION("Reduce beyond IBounds") {
+    IBounds reduced = original.reduced(60, 60, 110, 110);
+
+    REQUIRE(reduced.x() == 70);
+    REQUIRE(reduced.y() == 130);
+    REQUIRE(reduced.width() == 0);
+    REQUIRE(reduced.height() == 0);
+  }
+}
