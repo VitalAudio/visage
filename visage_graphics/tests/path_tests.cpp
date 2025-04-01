@@ -19,34 +19,9 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
+#include "visage_graphics/path.h"
 
-namespace visage {
-  struct Line {
-    static constexpr int kLineVerticesPerPoint = 6;
-    static constexpr int kFillVerticesPerPoint = 2;
+#include <catch2/catch_approx.hpp>
+#include <catch2/catch_test_macros.hpp>
 
-    explicit Line(int points = 0) { setNumPoints(points); }
-
-    void setNumPoints(int points) {
-      num_points = points;
-
-      num_line_vertices = kLineVerticesPerPoint * num_points;
-      num_fill_vertices = kFillVerticesPerPoint * num_points;
-      x.resize(num_points, 0.0f);
-      y.resize(num_points, 0.0f);
-      values.resize(num_points, 0.0f);
-    }
-
-    int num_points = 0;
-    int num_line_vertices = 0;
-    int num_fill_vertices = 0;
-
-    std::vector<float> x {};
-    std::vector<float> y {};
-    std::vector<float> values {};
-
-    float line_value_scale = 1.0f;
-    float fill_value_scale = 1.0f;
-  };
-}
+TEST_CASE("Path triangulate", "[graphics]") { }
