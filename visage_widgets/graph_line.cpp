@@ -37,10 +37,9 @@ namespace visage {
   VISAGE_THEME_IMPLEMENT_VALUE(GraphLine, LineFillBoost, 1.0f);
   VISAGE_THEME_VALUE(PositionBulbWidth, 4.0f);
 
-  GraphLine::GraphLine(int num_points, bool loop) :
-      line_(num_points), fill_center_(kCenter), loop_(loop) {
-    for (int i = 0; i < line_.num_points; ++i)
-      setXAt(i, i / (line_.num_points - 1.0f));
+  GraphLine::GraphLine(int num_points, bool loop) : fill_center_(kCenter), loop_(loop) {
+    // for (int i = 0; i < line_.num_points; ++i)
+    //   setXAt(i, i / (line_.num_points - 1.0f));
   }
 
   GraphLine::~GraphLine() = default;
@@ -65,7 +64,7 @@ namespace visage {
   }
 
   void GraphLine::drawLine(Canvas& canvas, theme::ColorId color_id) {
-    line_.line_value_scale = canvas.value(LineColorBoost);
+    // line_.line_value_scale = canvas.value(LineColorBoost);
     canvas.setColor(color_id);
     float line_width = line_width_.compute(canvas.dpiScale(), width(), height(), paletteValue(LineWidth));
     canvas.line(&line_, 0.0f, 0.0f, width(), height(), line_width);
@@ -73,7 +72,7 @@ namespace visage {
 
   void GraphLine::drawFill(Canvas& canvas, theme::ColorId color_id) {
     Brush color = canvas.color(color_id);
-    line_.fill_value_scale = canvas.value(LineFillBoost);
+    // line_.fill_value_scale = canvas.value(LineFillBoost);
     canvas.setColor(color.withMultipliedAlpha(fill_alpha_mult_));
     canvas.lineFill(&line_, 0.0f, 0.0f, width(), height(), fillLocation());
   }
