@@ -168,12 +168,26 @@ namespace visage {
 
     void parseSvgPath(const std::string& path);
     std::vector<int> triangulate() const;
-    Path scale(float mult) const {
+
+    Path scaled(float mult) const {
       Path scaled_path;
       for (Point point : current_path_)
         scaled_path.lineTo(point * mult);
       return scaled_path;
     }
+
+    void scale(float mult) {
+      for (Point& point : current_path_)
+        point *= mult;
+    }
+
+    Path reversed() const {
+      Path reversed_path = *this;
+      reversed_path.reverse();
+      return reversed_path;
+    }
+
+    void reverse() { std::reverse(current_path_.begin(), current_path_.end()); }
 
   private:
     void addPoint(Point point) {
