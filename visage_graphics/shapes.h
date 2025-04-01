@@ -23,6 +23,7 @@
 
 #include "gradient.h"
 #include "image.h"
+#include "path.h"
 #include "text.h"
 
 #include <algorithm>
@@ -40,7 +41,6 @@ namespace visage {
   class Region;
   class Layer;
   class Shader;
-  struct Line;
 
   static constexpr float kFullThickness = FLT_MAX;
 
@@ -449,32 +449,40 @@ namespace visage {
 
   struct LineWrapper : Shape<> {
     VISAGE_CREATE_BATCH_ID
+    static constexpr int kLineVerticesPerPoint = 6;
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     LineWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-                float height, Line* line, float line_width, float scale) :
-        Shape(batchId(), clamp, brush, x, y, width, height), line(line), line_width(line_width),
+                float height, Path* path, float line_width, float scale) :
+        Shape(batchId(), clamp, brush, x, y, width, height), path(path), line_width(line_width),
         scale(scale) { }
 
-    Line* line = nullptr;
+    Path* path = nullptr;
     float line_width = 0.0f;
     float scale = 1.0f;
+    float line_value_mult = 1.0f;
+
+    int numVertices() const { return path->numPoints() * kLineVerticesPerPoint; }
   };
 
   struct LineFillWrapper : Shape<> {
     VISAGE_CREATE_BATCH_ID
+    static constexpr int kFillVerticesPerPoint = 2;
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     LineFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
-                    float width, float height, Line* line, float fill_center, float scale) :
-        Shape(batchId(), clamp, brush, x, y, width, height), line(line), fill_center(fill_center),
+                    float width, float height, Path* path, float fill_center, float scale) :
+        Shape(batchId(), clamp, brush, x, y, width, height), path(path), fill_center(fill_center),
         scale(scale) { }
 
-    Line* line = nullptr;
+    Path* path = nullptr;
     float fill_center = 0.0f;
     float scale = 1.0f;
+    float fill_value_mult = 1.0f;
+
+    int numVertices() const { return path->numPoints() * kFillVerticesPerPoint; }
   };
 
   template<typename T>

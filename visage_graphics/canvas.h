@@ -436,13 +436,13 @@ namespace visage {
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
-    void line(Line* line, const T1& x, const T2& y, const T3& width, const T4& height, const T5& line_width) {
+    void line(Path* line, const T1& x, const T2& y, const T3& width, const T4& height, const T5& line_width) {
       addShape(LineWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
                            pixels(width), pixels(height), line, pixels(line_width), state_.scale));
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
-    void lineFill(Line* line, const T1& x, const T2& y, const T3& width, const T4& height,
+    void lineFill(Path* line, const T1& x, const T2& y, const T3& width, const T4& height,
                   const T5& fill_position) {
       addShape(LineFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
                                pixels(width), pixels(height), line, pixels(fill_position), state_.scale));
