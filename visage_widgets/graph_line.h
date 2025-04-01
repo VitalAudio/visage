@@ -21,7 +21,7 @@
 
 #pragma once
 
-#include "visage_graphics/line.h"
+#include "visage_graphics/path.h"
 #include "visage_graphics/theme.h"
 #include "visage_ui/frame.h"
 
@@ -58,26 +58,32 @@ namespace visage {
 
     void draw(Canvas& canvas) override;
 
-    float boostAt(int index) const { return line_.values[index]; }
-    void setBoostAt(int index, float val) {
-      VISAGE_ASSERT(index < line_.num_points && index >= 0);
-      line_.values[index] = val;
-      redraw();
-    }
-
-    float yAt(int index) const { return line_.y[index]; }
-    void setYAt(int index, float val) {
-      VISAGE_ASSERT(index < line_.num_points && index >= 0);
-      line_.y[index] = val;
-      redraw();
-    }
-
-    float xAt(int index) const { return line_.x[index]; }
-    void setXAt(int index, float val) {
-      VISAGE_ASSERT(index < line_.num_points && index >= 0);
-      line_.x[index] = val;
-      redraw();
-    }
+    // float boostAt(int index) const { return line_.values[index]; }
+    // void setBoostAt(int index, float val) {
+    //   VISAGE_ASSERT(index < line_.num_points && index >= 0);
+    //   line_.values[index] = val;
+    //   redraw();
+    // }
+    //
+    // float yAt(int index) const { return line_.points[index].y; }
+    // void setYAt(int index, float val) {
+    //   VISAGE_ASSERT(index < line_.num_points && index >= 0);
+    //   line_.points[index].y = val;
+    //   redraw();
+    // }
+    //
+    // float xAt(int index) const { return line_.points[index].x; }
+    // void setXAt(int index, float val) {
+    //   VISAGE_ASSERT(index < line_.num_points && index >= 0);
+    //   line_.points[index].x = val;
+    //   redraw();
+    // }
+    //
+    // void setAt(int index, Point point) {
+    //   VISAGE_ASSERT(index < line_.num_points && index >= 0);
+    //   line_.points[index] = point;
+    //   redraw();
+    // }
 
     bool fill() const { return fill_; }
 
@@ -90,7 +96,7 @@ namespace visage {
     }
     int fillLocation() const;
 
-    int numPoints() const { return line_.num_points; }
+    int numPoints() const { return line_.numPoints(); }
 
     bool active() const { return active_; }
     void setActive(bool active) { active_ = active; }
@@ -100,7 +106,7 @@ namespace visage {
     void drawLine(Canvas& canvas, theme::ColorId color_id);
     void drawFill(Canvas& canvas, theme::ColorId color_id);
 
-    Line line_;
+    Path line_;
     Dimension line_width_;
 
     bool fill_ = false;

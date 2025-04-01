@@ -96,10 +96,12 @@ namespace visage {
     Point operator+(const IPoint& other) const { return { x + other.x, y + other.y }; }
     Point operator-(const IPoint& other) const { return { x - other.x, y - other.y }; }
     bool operator==(const Point& other) const { return x == other.x && y == other.y; }
+    bool operator!=(const Point& other) const { return x != other.x || y != other.y; }
     float operator*(const Point& other) const { return x * other.x + y * other.y; }
 
     float squareMagnitude() const { return x * x + y * y; }
     float length() const { return sqrtf(squareMagnitude()); }
+    float cross(const Point& other) const { return x * other.y - y * other.x; }
   };
 
   class IBounds {
