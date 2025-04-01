@@ -26,159 +26,6 @@
 #include <set>
 
 namespace visage {
-  struct PolygonArea {
-    PolygonArea(int from_index, Point from, int to_index, Point to, float* position) :
-        from_index(from_index), from(from), to_index(to_index), to(to), position(position) { }
-
-    bool operator<(const PolygonArea& other) const {
-      float sample1 = sample();
-      float sample2 = other.sample();
-      if (sample1 != sample2)
-        return sample1 < sample2;
-
-      float slope = (to.y - from.y) / (to.x - from.x);
-      float other_slope = (other.to.y - other.from.y) / (other.to.x - other.from.x);
-      return slope < other_slope;
-    }
-
-    float sample() const {
-      if (*position == to.x)
-        return to.y;
-
-      VISAGE_ASSERT(to.x != from.x);
-      return from.y + (to.y - from.y) * (*position - from.x) / (to.x - from.x);
-    }
-
-    int from_index;
-    Point from;
-    int to_index;
-    Point to;
-    float* position = nullptr;
-  };
-
-  struct EdgeGraph {
-    static float compareIndices(const Path* path, int a_index, int b_index) {
-      float comp = path->point(a_index).x - path->point(b_index).x;
-      int index_offset = a_index - b_index;
-      int a = a_index;
-      int b = b_index;
-
-      int offset = (path->numPoints() + b_index - a_index) % path->numPoints();
-      bool move_a = offset > path->numPoints() / 2;
-      while (comp == 0.0f && b != a_index && a != b_index) {
-        if (move_a)
-          a = (a + 1) % path->numPoints();
-        else
-          b = (b + 1) % path->numPoints();
-
-        comp = path->point(a).x - path->point(b).x;
-      }
-      return comp;
-    }
-
-    EdgeGraph(const Path* path) : path(path) {
-      int num_points = path->numPoints();
-      prev_edge.reserve(num_points);
-      next_edge.reserve(num_points);
-      for (int i = 0; i < num_points; ++i) {
-        prev_edge.push_back((i + num_points - 1) % num_points);
-        next_edge.push_back((i + 1) % num_points);
-      }
-
-      sorted_indices.reserve(num_points);
-      for (int i = 0; i < num_points; ++i)
-        sorted_indices.push_back(i);
-
-      std::sort(sorted_indices.begin(), sorted_indices.end(),
-                [path](const int a, const int b) { return compareIndices(path, a, b) < 0.0f; });
-    }
-
-    bool tryCutEar(int index, bool forward, std::vector<int>& triangles) {
-      auto& direction = forward ? next_edge : prev_edge;
-      auto& reverse = forward ? prev_edge : next_edge;
-
-      int intermediate_index = direction[index];
-      int target_index = direction[intermediate_index];
-      if (intermediate_index == index || target_index == index)
-        return false;
-
-      Point start = point(index);
-      Point intermediate = point(intermediate_index);
-      Point target = point(target_index);
-
-      if (intermediate.x >= start.x || target.x > start.x)
-        return false;
-
-      float cross = (intermediate - start).cross(target - intermediate);
-      // TODO check convexity matches winding.
-      if ((cross < 0.0f) == forward && cross != 0)
-        return false;
-
-      if (cross) {
-        triangles.push_back(originalIndex(index));
-        triangles.push_back(originalIndex(intermediate_index));
-        triangles.push_back(originalIndex(target_index));
-      }
-      direction[index] = target_index;
-      reverse[target_index] = index;
-
-      direction[intermediate_index] = intermediate_index;
-      reverse[intermediate_index] = intermediate_index;
-      return true;
-    }
-
-    void cutEars(int index, std::vector<int>& triangles) {
-      while (tryCutEar(index, true, triangles))
-        ;
-      while (tryCutEar(index, false, triangles))
-        ;
-    }
-
-    int next(int index, bool forward = true) const {
-      return forward ? next_edge[index] : prev_edge[index];
-    }
-
-    int prev(int index, bool forward = true) const {
-      return forward ? prev_edge[index] : next_edge[index];
-    }
-
-    int originalIndex(int index) const {
-      if (index >= path->numPoints())
-        return additional_point_refs[index - sorted_indices.size()];
-      return index;
-    }
-
-    Point point(int index) const { return path->point(originalIndex(index)); }
-
-    int sortedIndex(int sorted_index) const { return sorted_indices[sorted_index]; }
-
-    int addDiagonal(int index, int target) {
-      int new_index = prev_edge.size();
-      int new_diagonal_index = new_index + 1;
-      additional_point_refs.push_back(originalIndex(index));
-      additional_point_refs.push_back(originalIndex(target));
-
-      next_edge[prev_edge[target]] = new_diagonal_index;
-      prev_edge[next_edge[index]] = new_index;
-
-      prev_edge.push_back(new_diagonal_index);
-      next_edge.push_back(next_edge[index]);
-      prev_edge.push_back(prev_edge[target]);
-      next_edge.push_back(new_index);
-
-      next_edge[index] = target;
-      prev_edge[target] = index;
-
-      return new_index;
-    }
-
-    const Path* path = nullptr;
-    std::vector<int> prev_edge;
-    std::vector<int> next_edge;
-    std::vector<int> additional_point_refs;
-    std::vector<int> sorted_indices;
-  };
-
   void Path::arcTo(float rx, float ry, float x_axis_rotation, bool large_arc, bool sweep_flag,
                    Point point, bool relative) {
     static constexpr float kPi = 3.14159265358979323846f;
@@ -333,10 +180,170 @@ namespace visage {
       }
     }
   }
+  struct PolygonArea {
+    PolygonArea(int from_index, Point from, int to_index, Point to, float* position) :
+        from_index(from_index), from(from), to_index(to_index), to(to), position(position) { }
+
+    bool operator<(const PolygonArea& other) const {
+      float sample1 = sample();
+      float sample2 = other.sample();
+      if (sample1 != sample2)
+        return sample1 < sample2;
+
+      float slope = (to.y - from.y) / (to.x - from.x);
+      float other_slope = (other.to.y - other.from.y) / (other.to.x - other.from.x);
+      return slope < other_slope;
+    }
+
+    float sample() const {
+      if (*position == to.x)
+        return to.y;
+
+      VISAGE_ASSERT(to.x != from.x);
+      return from.y + (to.y - from.y) * (*position - from.x) / (to.x - from.x);
+    }
+
+    int from_index;
+    Point from;
+    int to_index;
+    Point to;
+    float* position = nullptr;
+  };
+
+  struct EdgeGraph {
+    static float compareIndices(const Path* path, int a_index, int b_index) {
+      float comp = path->point(a_index).x - path->point(b_index).x;
+      int index_offset = a_index - b_index;
+      int a = a_index;
+      int b = b_index;
+
+      int offset = (path->numPoints() + b_index - a_index) % path->numPoints();
+      bool move_a = offset > path->numPoints() / 2;
+      while (comp == 0.0f && b != a_index && a != b_index) {
+        if (move_a)
+          a = (a + 1) % path->numPoints();
+        else
+          b = (b + 1) % path->numPoints();
+
+        comp = path->point(a).x - path->point(b).x;
+      }
+      return comp;
+    }
+
+    EdgeGraph(const Path* path) : path(path) {
+      int num_points = path->numPoints();
+      prev_edge.reserve(num_points);
+      next_edge.reserve(num_points);
+      for (int i = 0; i < num_points; ++i) {
+        prev_edge.push_back((i + num_points - 1) % num_points);
+        next_edge.push_back((i + 1) % num_points);
+      }
+
+      sorted_indices.reserve(num_points);
+      for (int i = 0; i < num_points; ++i)
+        sorted_indices.push_back(i);
+
+      std::sort(sorted_indices.begin(), sorted_indices.end(),
+                [path](const int a, const int b) { return compareIndices(path, a, b) < 0.0f; });
+    }
+
+    bool tryCutEar(int index, bool forward, std::vector<int>& triangles) {
+      auto& direction = forward ? next_edge : prev_edge;
+      auto& reverse = forward ? prev_edge : next_edge;
+
+      int intermediate_index = direction[index];
+      int target_index = direction[intermediate_index];
+      if (intermediate_index == index || target_index == index)
+        return false;
+
+      Point start = point(index);
+      Point intermediate = point(intermediate_index);
+      Point target = point(target_index);
+
+      if (intermediate.x >= start.x || target.x > start.x)
+        return false;
+
+      float cross = (intermediate - start).cross(target - intermediate);
+      if ((cross < 0.0f) != forward && cross)
+        return false;
+
+      if (cross) {
+        triangles.push_back(originalIndex(index));
+        triangles.push_back(originalIndex(intermediate_index));
+        triangles.push_back(originalIndex(target_index));
+      }
+      direction[index] = target_index;
+      reverse[target_index] = index;
+
+      direction[intermediate_index] = intermediate_index;
+      reverse[intermediate_index] = intermediate_index;
+      return true;
+    }
+
+    void reverseCycle(int start_index) {
+      std::swap(prev_edge[start_index], next_edge[start_index]);
+      for (int i = next_edge[start_index]; i != start_index; i = next_edge[i])
+        std::swap(prev_edge[i], next_edge[i]);
+    }
+
+    void cutEars(int index, std::vector<int>& triangles) {
+      while (tryCutEar(index, true, triangles))
+        ;
+      while (tryCutEar(index, false, triangles))
+        ;
+    }
+
+    int next(int index, bool forward = true) const {
+      return forward ? next_edge[index] : prev_edge[index];
+    }
+
+    int prev(int index, bool forward = true) const {
+      return forward ? prev_edge[index] : next_edge[index];
+    }
+
+    int originalIndex(int index) const {
+      if (index >= path->numPoints())
+        return additional_point_refs[index - sorted_indices.size()];
+      return index;
+    }
+
+    Point point(int index) const { return path->point(originalIndex(index)); }
+
+    int sortedIndex(int sorted_index) const { return sorted_indices[sorted_index]; }
+
+    int addDiagonal(int index, int target) {
+      int new_index = prev_edge.size();
+      int new_diagonal_index = new_index + 1;
+      additional_point_refs.push_back(originalIndex(index));
+      additional_point_refs.push_back(originalIndex(target));
+
+      next_edge[prev_edge[target]] = new_diagonal_index;
+      prev_edge[next_edge[index]] = new_index;
+
+      prev_edge.push_back(new_diagonal_index);
+      next_edge.push_back(next_edge[index]);
+      prev_edge.push_back(prev_edge[target]);
+      next_edge.push_back(new_index);
+
+      next_edge[index] = target;
+      prev_edge[target] = index;
+
+      return new_index;
+    }
+
+    const Path* path = nullptr;
+    std::vector<int> prev_edge;
+    std::vector<int> next_edge;
+    std::vector<int> additional_point_refs;
+    std::vector<int> sorted_indices;
+  };
 
   std::vector<int> Path::triangulate() const {
-    std::vector<int> triangles;
     int num_points = numPoints();
+    if (num_points < 3)
+      return {};
+
+    std::vector<int> triangles;
     triangles.reserve((num_points - 2) * 3);
 
     auto area_compare = [](const PolygonArea& area, float sample) { return area.sample() < sample; };
@@ -357,15 +364,16 @@ namespace visage {
       bool end_area = prev.x < point.x && next.x < point.x;
 
       auto area = std::lower_bound(current_areas.begin(), current_areas.end(), point.y, area_compare);
-      if (begin_area) {
-        bool convex = std::distance(current_areas.begin(), area) % 2 == 0;
-        int low_start_index = index;
-        int diagonal_break_index = index;
-        if (!convex) {
-          VISAGE_ASSERT(area != current_areas.end());
-          if (area == current_areas.end())
-            return {};
 
+      if (begin_area) {
+        bool start_hole = std::distance(current_areas.begin(), area) % 2 == 1;
+        bool convex = (prev - point).cross(next - point) > 0.0f;
+        if (start_hole == convex)
+          graph.reverseCycle(index);
+
+        int diagonal_break_index = index;
+
+        if (start_hole) {
           int diagonal_index = area->from_index;
           diagonal_break_index = graph.addDiagonal(index, diagonal_index);
           graph.cutEars(diagonal_break_index, triangles);
