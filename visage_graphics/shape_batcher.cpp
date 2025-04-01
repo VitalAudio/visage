@@ -24,7 +24,7 @@
 #include "embedded/shaders.h"
 #include "font.h"
 #include "graphics_caches.h"
-#include "line.h"
+#include "path.h"
 #include "shader.h"
 #include "uniforms.h"
 #include "visage_utils/space.h"
@@ -118,27 +118,32 @@ namespace visage {
     return y;
   }
 
-  inline float inverseMagnitudeOfPoint(Point point) {
-    return inverseSqrt(point.x * point.x + point.y * point.y);
+  inline float inverseMagnitude(Point point) {
+    return inverseSqrt(point.squareMagnitude());
   }
 
   inline Point normalize(Point point) {
-    return point * inverseMagnitudeOfPoint(point);
+    return point * inverseMagnitude(point);
   }
 
   static void setLineVertices(const LineWrapper& line_wrapper, bgfx::TransientVertexBuffer vertex_buffer) {
     LineVertex* line_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
-    Line* line = line_wrapper.line;
+    Path* path = line_wrapper.path;
+    int num_vertices = line_wrapper.numVertices();
 
-    for (int i = 0; i < line->num_line_vertices; i += 2) {
+    for (int i = 0; i < num_vertices; i += 2) {
       line_data[i].fill = 0.0f;
       line_data[i + 1].fill = 1.0f;
     }
 
+    int num_points = path->numPoints();
+    const auto& points = path->points();
+    const auto& values = path->values();
+
     Point prev_normalized_delta;
-    for (int i = 0; i < line->num_points - 1; ++i) {
-      if (line->x[i] != line->x[i + 1] || line->y[i] != line->y[i + 1]) {
-        prev_normalized_delta = normalize(Point(line->x[i + 1] - line->x[i], line->y[i + 1] - line->y[i]));
+    for (int i = 0; i < num_points - 1; ++i) {
+      if (points[i] != points[i + 1]) {
+        prev_normalized_delta = normalize(points[i + 1] - points[i]);
         break;
       }
     }
@@ -148,17 +153,17 @@ namespace visage {
     float prev_magnitude = radius;
     float scale = line_wrapper.scale;
 
-    for (int i = 0; i < line->num_points; ++i) {
-      Point point(line->x[i] * scale, line->y[i] * scale);
+    for (int i = 0; i < num_points; ++i) {
+      Point point = points[i] * scale;
       int next_index = i + 1;
-      int clamped_next_index = std::min(next_index, line->num_points - 1);
+      int clamped_next_index = std::min(next_index, num_points - 1);
 
-      Point next_point(line->x[clamped_next_index] * scale, line->y[clamped_next_index] * scale);
+      Point next_point = points[clamped_next_index] * scale;
       Point delta = next_point - point;
       if (point == next_point)
         delta = prev_normalized_delta;
 
-      float inverse_magnitude = inverseMagnitudeOfPoint(delta);
+      float inverse_magnitude = inverseMagnitude(delta);
       float magnitude = 1.0f / std::max(0.00001f, inverse_magnitude);
       Point normalized_delta(delta.x * inverse_magnitude, delta.y * inverse_magnitude);
       Point delta_normal(-normalized_delta.y, normalized_delta.x);
@@ -216,9 +221,9 @@ namespace visage {
         y1 = y3 = y5 = inner_point.y;
       }
 
-      int index = i * Line::kLineVerticesPerPoint;
+      int index = i * LineWrapper::kLineVerticesPerPoint;
 
-      float value = line->values[i] * line->line_value_scale;
+      float value = values[i] * line_wrapper.line_value_mult;
       line_data[index].x = x1;
       line_data[index].y = y1;
       line_data[index].value = value;
@@ -315,13 +320,13 @@ namespace visage {
   }
 
   void submitLine(const LineWrapper& line_wrapper, const Layer& layer, int submit_pass) {
-    Line* line = line_wrapper.line;
-    if (bgfx::getAvailTransientVertexBuffer(line->num_line_vertices, LineVertex::layout()) !=
-        line->num_line_vertices)
+    int num_vertices = line_wrapper.numVertices();
+    if (bgfx::getAvailTransientVertexBuffer(num_vertices, LineVertex::layout()) != num_vertices)
       return;
 
+    Path* path = line_wrapper.path;
     bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::allocTransientVertexBuffer(&vertex_buffer, line->num_line_vertices, LineVertex::layout());
+    bgfx::allocTransientVertexBuffer(&vertex_buffer, num_vertices, LineVertex::layout());
     setLineVertices(line_wrapper, vertex_buffer);
 
     bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
@@ -354,31 +359,33 @@ namespace visage {
   static void setFillVertices(const LineFillWrapper& line_fill_wrapper,
                               const bgfx::TransientVertexBuffer& vertex_buffer) {
     LineVertex* fill_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
-    Line* line = line_fill_wrapper.line;
+    Path* path = line_fill_wrapper.path;
+    int num_points = path->numPoints();
+    const auto& points = path->points();
+    const auto& values = path->values();
 
     float scale = line_fill_wrapper.scale;
     int fill_location = line_fill_wrapper.fill_center;
-    for (int i = 0; i < line->num_points; ++i) {
-      int index_top = i * Line::kFillVerticesPerPoint;
+    for (int i = 0; i < num_points; ++i) {
+      int index_top = i * LineFillWrapper::kFillVerticesPerPoint;
       int index_bottom = index_top + 1;
-      float x = line->x[i] * scale;
-      float y = line->y[i] * scale;
-      float value = line->values[i] * line->fill_value_scale;
-      fill_data[index_top].x = x;
-      fill_data[index_top].y = y;
+      Point point = points[i] * scale;
+      float value = values[i] * line_fill_wrapper.fill_value_mult;
+      fill_data[index_top].x = point.x;
+      fill_data[index_top].y = point.y;
       fill_data[index_top].value = value;
-      fill_data[index_bottom].x = x;
+      fill_data[index_bottom].x = point.x;
       fill_data[index_bottom].y = fill_location;
       fill_data[index_bottom].value = value;
     }
   }
 
   void submitLineFill(const LineFillWrapper& line_fill_wrapper, const Layer& layer, int submit_pass) {
-    Line* line = line_fill_wrapper.line;
-    if (bgfx::getAvailTransientVertexBuffer(line->num_fill_vertices, LineVertex::layout()) !=
-        line->num_fill_vertices)
+    int num_vertices = line_fill_wrapper.numVertices();
+    if (bgfx::getAvailTransientVertexBuffer(num_vertices, LineVertex::layout()) != num_vertices)
       return;
 
+    Path* path = line_fill_wrapper.path;
     float dimension_y_scale = line_fill_wrapper.fill_center / line_fill_wrapper.height;
     float dimensions[4] = { line_fill_wrapper.width, line_fill_wrapper.height * dimension_y_scale,
                             1.0f, 1.0f };
@@ -395,7 +402,7 @@ namespace visage {
     float center[] = { 0.0f, fill_location, 0.0f, 0.0f };
 
     bgfx::TransientVertexBuffer fill_vertex_buffer {};
-    bgfx::allocTransientVertexBuffer(&fill_vertex_buffer, line->num_fill_vertices, LineVertex::layout());
+    bgfx::allocTransientVertexBuffer(&fill_vertex_buffer, num_vertices, LineVertex::layout());
     setFillVertices(line_fill_wrapper, fill_vertex_buffer);
 
     bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
