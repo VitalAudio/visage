@@ -180,35 +180,6 @@ namespace visage {
       }
     }
   }
-  struct PolygonArea {
-    PolygonArea(int from_index, Point from, int to_index, Point to, float* position) :
-        from_index(from_index), from(from), to_index(to_index), to(to), position(position) { }
-
-    bool operator<(const PolygonArea& other) const {
-      float sample1 = sample();
-      float sample2 = other.sample();
-      if (sample1 != sample2)
-        return sample1 < sample2;
-
-      float slope = (to.y - from.y) / (to.x - from.x);
-      float other_slope = (other.to.y - other.from.y) / (other.to.x - other.from.x);
-      return slope < other_slope;
-    }
-
-    float sample() const {
-      if (*position == to.x)
-        return to.y;
-
-      VISAGE_ASSERT(to.x != from.x);
-      return from.y + (to.y - from.y) * (*position - from.x) / (to.x - from.x);
-    }
-
-    int from_index;
-    Point from;
-    int to_index;
-    Point to;
-    float* position = nullptr;
-  };
 
   struct EdgeGraph {
     static float compareIndices(const Path* path, int a_index, int b_index) {
@@ -338,6 +309,36 @@ namespace visage {
     std::vector<int> sorted_indices;
   };
 
+  struct ScanLineArea {
+    ScanLineArea(int from_index, Point from, int to_index, Point to, float* position) :
+        from_index(from_index), from(from), to_index(to_index), to(to), position(position) { }
+
+    bool operator<(const ScanLineArea& other) const {
+      float sample1 = sample();
+      float sample2 = other.sample();
+      if (sample1 != sample2)
+        return sample1 < sample2;
+
+      float slope = (to.y - from.y) / (to.x - from.x);
+      float other_slope = (other.to.y - other.from.y) / (other.to.x - other.from.x);
+      return slope < other_slope;
+    }
+
+    float sample() const {
+      if (*position == to.x)
+        return to.y;
+
+      VISAGE_ASSERT(to.x != from.x);
+      return from.y + (to.y - from.y) * (*position - from.x) / (to.x - from.x);
+    }
+
+    int from_index;
+    Point from;
+    int to_index;
+    Point to;
+    float* position = nullptr;
+  };
+
   std::vector<int> Path::triangulate() const {
     int num_points = numPoints();
     if (num_points < 3)
@@ -346,11 +347,11 @@ namespace visage {
     std::vector<int> triangles;
     triangles.reserve((num_points - 2) * 3);
 
-    auto area_compare = [](const PolygonArea& area, float sample) { return area.sample() < sample; };
+    auto area_compare = [](const ScanLineArea& area, float sample) { return area.sample() < sample; };
     EdgeGraph graph(this);
 
     float position = 0.0f;
-    std::set<PolygonArea> current_areas;
+    std::set<ScanLineArea> current_areas;
     for (int i = 0; i < num_points; ++i) {
       int index = graph.sortedIndex(i);
 
@@ -364,6 +365,10 @@ namespace visage {
       bool end_area = prev.x < point.x && next.x < point.x;
 
       auto area = std::lower_bound(current_areas.begin(), current_areas.end(), point.y, area_compare);
+      if (!begin_area && (area == current_areas.end() || area->to_index != index)) {
+        VISAGE_ASSERT(false);
+        return {};
+      }
 
       if (begin_area) {
         bool start_hole = std::distance(current_areas.begin(), area) % 2 == 1;
@@ -382,29 +387,14 @@ namespace visage {
         current_areas.emplace(diagonal_break_index, point, next_index, next, &position);
       }
       else if (end_area) {
-        VISAGE_ASSERT(area != current_areas.end());
-        if (area == current_areas.end())
-          return {};
-
-        VISAGE_ASSERT(area->to_index == index);
         VISAGE_ASSERT(std::next(area)->to_index == index);
-        if (area->to_index != index || std::next(area)->to_index != index)
+        if (std::next(area)->to_index != index)
           return {};
 
-        for (auto it = area; it != current_areas.end() && it->to_index == index;)
-          it = current_areas.erase(it);
+        area = current_areas.erase(area);
+        current_areas.erase(area);
       }
       else {
-        VISAGE_ASSERT(area != current_areas.end());
-        if (area == current_areas.end())
-          return {};
-
-        VISAGE_ASSERT(area->to_index == index);
-        if (area->to_index != index)
-          return {};
-
-        VISAGE_ASSERT(index != next_index);
-        VISAGE_ASSERT(index != prev_index);
         current_areas.erase(area);
         if (EdgeGraph::compareIndices(this, graph.originalIndex(prev_index),
                                       graph.originalIndex(next_index)) < 0.0f) {
