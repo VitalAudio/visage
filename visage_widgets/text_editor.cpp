@@ -103,8 +103,8 @@ namespace visage {
     undone_history_.reserve(kMaxUndoHistory);
 
     setAcceptsKeystrokes(true);
-    text_.setFont(Font(10, fonts::Lato_Regular_ttf));
-    default_text_.setFont(Font(10, fonts::Lato_Regular_ttf));
+    text_.setFont(Font(10, fonts::Lato_Regular_ttf, 1.0f));
+    default_text_.setFont(Font(10, fonts::Lato_Regular_ttf, 1.0f));
   }
 
   void TextEditor::drawBackground(Canvas& canvas) const {
