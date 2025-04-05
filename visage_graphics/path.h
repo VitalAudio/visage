@@ -23,9 +23,32 @@
 
 #include "visage_utils/space.h"
 
+#include <optional>
+#include <string>
+
 namespace visage {
   class Path {
   public:
+    static std::optional<Point> findIntersection(Point start1, Point end1, Point start2, Point end2) {
+      if (start1 == start2 || end1 == end2)
+        return std::nullopt;
+
+      Point delta1 = end1 - start1;
+      Point delta2 = end2 - start2;
+      float det = delta1.cross(delta2);
+      if (det == 0.0f)
+        return std::nullopt;
+
+      Point start_delta = start2 - start1;
+      float t1 = start_delta.cross(delta2) / det;
+      float t2 = start_delta.cross(delta1) / det;
+
+      if (t1 <= 0.0f || t2 <= 0.0f || t1 >= 1.0f || t2 >= 1.0f)
+        return std::nullopt;
+
+      return start1 + delta1 * t1;
+    }
+
     struct Triangulation {
       std::vector<Point> points;
       std::vector<int> triangles;
