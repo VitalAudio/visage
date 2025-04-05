@@ -348,7 +348,8 @@ namespace visage {
     }
 
     static uint64_t floatToHalf(float value) {
-      uint32_t f = *reinterpret_cast<uint32_t*>(&value);
+      uint32_t f;
+      std::memcpy(&f, &value, sizeof(f));
       uint32_t sign = (f >> 16) & 0x8000;  // Sign bit
       uint32_t exponent = (f >> 23) & 0xFF;  // Extract exponent (8-bit)
       uint32_t mantissa = f & 0x007FFFFF;  // Extract mantissa (23-bit)
