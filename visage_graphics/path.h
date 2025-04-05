@@ -23,8 +23,6 @@
 
 #include "visage_utils/space.h"
 
-#include <set>
-
 namespace visage {
   class Path {
   public:

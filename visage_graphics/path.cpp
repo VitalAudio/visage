@@ -39,8 +39,8 @@ namespace visage {
       point += p0;
 
     float phi = x_axis_rotation * kPi / 180.0f;
-    float cos_phi = cos(phi);
-    float sin_phi = sin(phi);
+    float cos_phi = cosf(phi);
+    float sin_phi = sinf(phi);
 
     float dx2 = (p0.x - point.x) / 2.0f;
     float dy2 = (p0.y - point.y) / 2.0f;
@@ -53,7 +53,7 @@ namespace visage {
     float y1p_sq = y1p * y1p;
     float radii_scale = x1p_sq / rx_sq + y1p_sq / ry_sq;
     if (radii_scale > 1.0f) {
-      float scale = sqrt(radii_scale);
+      float scale = sqrtf(radii_scale);
       rx *= scale;
       ry *= scale;
       rx_sq = rx * rx;
@@ -64,7 +64,7 @@ namespace visage {
     float sq = ((rx_sq * ry_sq) - (rx_sq * y1p_sq) - (ry_sq * x1p_sq)) /
                ((rx_sq * y1p_sq) + (ry_sq * x1p_sq));
     sq = std::max(0.0f, sq);
-    float coef = sign * sqrt(sq);
+    float coef = sign * sqrtf(sq);
     float cxp = coef * ((rx * y1p) / ry);
     float cyp = coef * -((ry * x1p) / rx);
 
@@ -73,7 +73,7 @@ namespace visage {
 
     auto vectorAngle = [](float ux, float uy, float vx, float vy) -> float {
       float dot = ux * vx + uy * vy;
-      float len = sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy));
+      float len = sqrtf((ux * ux + uy * uy) * (vx * vx + vy * vy));
       float ang = acos(std::min(std::max(dot / len, -1.0f), 1.0f));
       if (ux * vy - uy * vx < 0.0f)
         ang = -ang;
@@ -91,8 +91,8 @@ namespace visage {
 
     for (int i = 1; i <= kMaxCurveResolution; ++i) {
       float t = theta1 + delta_theta * (float(i) / kMaxCurveResolution);
-      float cos_t = cos(t);
-      float sin_t = sin(t);
+      float cos_t = cosf(t);
+      float sin_t = sinf(t);
       float x = cos_phi * rx * cos_t - sin_phi * ry * sin_t + cx;
       float y = sin_phi * rx * cos_t + cos_phi * ry * sin_t + cy;
       addPoint(x, y);
@@ -456,7 +456,6 @@ namespace visage {
 
     float compareIndices(int a_index, int b_index) {
       float comp = points_[a_index].x - points_[b_index].x;
-      int index_offset = a_index - b_index;
       int a_prev = a_index;
       int a_next = a_index;
       int b_prev = b_index;
@@ -526,7 +525,7 @@ namespace visage {
         std::swap(prev_edge_[i], next_edge_[i]);
     }
 
-    std::optional<Point> findIntersection(Point start1, Point end1, Point start2, Point end2) {
+    static std::optional<Point> findIntersection(Point start1, Point end1, Point start2, Point end2) {
       if (start1 == start2 || end1 == end2)
         return std::nullopt;
 
