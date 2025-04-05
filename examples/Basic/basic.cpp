@@ -80,31 +80,59 @@ int runExample() {
 
   std::vector<visage::Color> colors;
   visage::Path path;
+  // path.moveTo(100, 400);
+  // path.lineTo(400, 400);
+  // path.lineTo(401, 100);
+  // path.lineTo(101, 100);
+  // path.lineTo(301, 300);
+  // path.lineTo(300, 200);
+
+  // path.moveTo(100, 300);
+  // path.lineTo(400, 500);
+  // path.lineTo(701, 100);
+  // path.lineTo(900, 400);
+  // path.lineTo(901, 100);
+  // path.lineTo(700, 400);
+  // path.lineTo(401, 100);
+
+  // Star
 
   app.onDraw() = [&](visage::Canvas& canvas) {
     canvas.setColor(0xff000066);
     canvas.fill(0, 0, app.width(), app.height());
 
-    path.parseSvgPath("M9 3.881v-3.881l6 6-6 6v-3.966c-6.98-0.164-6.681 4.747-4.904 "
-                      "7.966-4.386-4.741-3.455-12.337 4.904-12.119z");
-    path.scale(40.0f);
-    canvas.setColor(0xffffffff);
-    canvas.line(&path, 0, 0, app.width(), app.height(), 2.0f);
+    float center_x = app.width() / 2.0f;
+    float center_y = app.height() / 2.0f;
+    float radius = 300.0f;
 
-    std::vector<int> triangles = path.triangulate();
+    path.clear();
+    path.moveTo(center_x, center_y - radius);
+    std::complex<float> delta(cos(-2.0f * kPi * 2.0f / kStarPoints), sin(-2.0f * kPi * 2.0f / kStarPoints));
+    std::complex<float> position(0.0f, -1.0f);
 
-    int num = num_draw % (triangles.size() / 3 + 1);
-    for (int i = 0; i < triangles.size() / 3; ++i) {
+    for (int i = 1; i < kStarPoints; ++i) {
+      position = position * delta;
+      path.lineTo(center_x + radius * position.real(), center_y + radius * position.imag());
+    }
+    visage::Path::Triangulation tri = path.triangulate();
+
+    // path.reverse();
+
+    // path.parseSvgPath("M9 3.881v-3.881l6 6-6 6v-3.966c-6.98-0.164-6.681 4.747-4.904 "
+    //                   "7.966-4.386-4.741-3.455-12.337 4.904-12.119z");
+    // path.scale(40.0f);
+
+    for (int i = 0; i < tri.triangles.size() / 3; ++i) {
+      int num = num_draw % (tri.triangles.size() / 3 + 1);
       if (i >= colors.size())
         colors.push_back(visage::Color(1.0f, randomFloat(), randomFloat(), randomFloat()));
 
       canvas.setColor(colors[i]);
       int index = i * 3;
-      canvas.triangle(path.point(triangles[index]).x, path.point(triangles[index]).y,
-                      path.point(triangles[index + 1]).x, path.point(triangles[index + 1]).y,
-                      path.point(triangles[index + 2]).x, path.point(triangles[index + 2]).y);
+      canvas.triangle(tri.points[tri.triangles[index]].x, tri.points[tri.triangles[index]].y,
+                      tri.points[tri.triangles[index + 1]].x, tri.points[tri.triangles[index + 1]].y,
+                      tri.points[tri.triangles[index + 2]].x, tri.points[tri.triangles[index + 2]].y);
     }
-
     app.redraw();
   };
 
