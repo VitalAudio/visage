@@ -249,7 +249,7 @@ namespace visage {
 
     std::wstring toWide() const { return convertToWide(string_); }
     std::string toUtf8() const { return convertToUtf8(string_); }
-    std::u32string toUtf32() const { return string_; }
+    const std::u32string& toUtf32() const { return string_; }
 
     void removeTrailingZeros() {
       size_t pos = find('.');

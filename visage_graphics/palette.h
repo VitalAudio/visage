@@ -45,7 +45,7 @@ namespace visage {
       return colors_[index];
     }
 
-    std::vector<Brush> colorList() const { return colors_; }
+    const std::vector<Brush>& colorList() const { return colors_; }
 
     void initWithDefaults();
     void sortColors();
@@ -85,8 +85,7 @@ namespace visage {
     }
 
     bool color(theme::OverrideId override_id, theme::ColorId color_id, Brush& color) {
-      if (color_map_[override_id].count(color_id) == 0)
-        color_map_[override_id][color_id] = kNotSetId;
+      color_map_[override_id].try_emplace(color_id, kNotSetId);
 
       if (color_map_[override_id][color_id] == kNotSetId)
         return false;
@@ -133,9 +132,7 @@ namespace visage {
     }
 
     bool value(theme::OverrideId override_id, theme::ValueId value_id, float& result) {
-      if (value_map_[override_id].count(value_id) == 0)
-        value_map_[override_id][value_id] = kNotSetValue;
-
+      value_map_[override_id].try_emplace(value_id, kNotSetValue);
       result = value_map_[override_id][value_id];
       return result != kNotSetValue;
     }

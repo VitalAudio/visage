@@ -497,9 +497,8 @@ namespace visage {
       return drop;
     }
 
-    explicit DragDropSourceObject(const File& file) {
-      drop_ = DragDropSourceObject::createHDrop(file);
-    }
+    explicit DragDropSourceObject(const File& file) :
+        drop_(DragDropSourceObject::createHDrop(file)) { }
 
     virtual ~DragDropSourceObject() = default;
 

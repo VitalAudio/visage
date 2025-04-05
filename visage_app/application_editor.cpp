@@ -54,8 +54,7 @@ namespace visage {
 #endif
   }
 
-  ApplicationEditor::ApplicationEditor() : top_level_(this) {
-    canvas_ = std::make_unique<Canvas>();
+  ApplicationEditor::ApplicationEditor() : top_level_(this), canvas_(std::make_unique<Canvas>()) {
     canvas_->addRegion(top_level_.region());
     top_level_.addChild(this);
 

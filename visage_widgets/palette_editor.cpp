@@ -146,12 +146,12 @@ namespace visage {
   void PaletteColorEditor::setColorPickerBounds() {
     int w = width();
     int h = height();
-    color_picker_from_.onColorChange() = [this](Color color) {
+    color_picker_from_.onColorChange() = [this](const Color& color) {
       if (editing_ >= 0)
         palette_->setColorIndexFrom(editing_, color);
       redraw();
     };
-    color_picker_to_.onColorChange() = [this](Color color) {
+    color_picker_to_.onColorChange() = [this](const Color& color) {
       if (editing_ >= 0)
         palette_->setColorIndexTo(editing_, color);
       redraw();

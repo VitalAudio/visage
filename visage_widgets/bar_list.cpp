@@ -26,9 +26,7 @@
 namespace visage {
   VISAGE_THEME_IMPLEMENT_COLOR(BarList, BarColor, 0xffaa88ff);
 
-  BarList::BarList(int num_bars) : num_bars_(num_bars) {
-    bars_ = std::make_unique<Bar[]>(num_bars);
-  }
+  BarList::BarList(int num_bars) : num_bars_(num_bars), bars_(std::make_unique<Bar[]>(num_bars)) { }
 
   void BarList::draw(Canvas& canvas) {
     canvas.setColor(BarColor);

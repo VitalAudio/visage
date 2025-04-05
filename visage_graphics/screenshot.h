@@ -28,18 +28,16 @@ namespace visage {
   public:
     Screenshot() = default;
     Screenshot(const uint8_t* data, int width, int height, bool blue_red = false) :
-        width_(width), height_(height) {
-      data_ = std::make_unique<uint8_t[]>(width * height * 4);
+        width_(width), height_(height), data_(std::make_unique<uint8_t[]>(width * height * 4)) {
       std::copy_n(data, width * height * 4, data_.get());
       if (blue_red)
         flipBlueRed();
     }
 
     Screenshot(const uint8_t* data, int width, int height, int pitch, bool blue_red = false) :
-        width_(width), height_(height) {
+        width_(width), height_(height), data_(std::make_unique<uint8_t[]>(width * height * 4)) {
       VISAGE_ASSERT(pitch >= width * 4);
 
-      data_ = std::make_unique<uint8_t[]>(width * height * 4);
       if (pitch == width * 4)
         std::copy_n(data, width * height * 4, data_.get());
       else {
@@ -89,8 +87,8 @@ namespace visage {
       }
     }
 
-    std::unique_ptr<uint8_t[]> data_;
     int width_ = 0;
     int height_ = 0;
+    std::unique_ptr<uint8_t[]> data_;
   };
 }

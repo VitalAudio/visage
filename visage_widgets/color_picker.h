@@ -124,7 +124,7 @@ namespace visage {
     void notifyNewColor() { on_color_change_.callback(color_); }
 
   private:
-    CallbackList<void(Color)> on_color_change_;
+    CallbackList<void(const Color&)> on_color_change_;
     Color color_ = Color(0);
     HueEditor hue_;
     ValueSaturationEditor value_saturation_;
