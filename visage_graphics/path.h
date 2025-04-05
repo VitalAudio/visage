@@ -28,6 +28,11 @@
 namespace visage {
   class Path {
   public:
+    struct Triangulation {
+      std::vector<Point> points;
+      std::vector<int> triangles;
+    };
+
     static constexpr int kMaxCurveResolution = 32;
 
     Point lastPoint() { return current_path_.empty() ? Point() : current_path_.back(); }
@@ -167,7 +172,7 @@ namespace visage {
     }
 
     void parseSvgPath(const std::string& path);
-    std::vector<int> triangulate() const;
+    Triangulation triangulate() const;
 
     Path scaled(float mult) const {
       Path scaled_path;

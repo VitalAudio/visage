@@ -23,6 +23,7 @@
 
 #include "path.h"
 
+#include <optional>
 #include <set>
 
 namespace visage {
@@ -181,134 +182,6 @@ namespace visage {
     }
   }
 
-  struct EdgeGraph {
-    static float compareIndices(const Path* path, int a_index, int b_index) {
-      float comp = path->point(a_index).x - path->point(b_index).x;
-      int index_offset = a_index - b_index;
-      int a = a_index;
-      int b = b_index;
-
-      int offset = (path->numPoints() + b_index - a_index) % path->numPoints();
-      bool move_a = offset > path->numPoints() / 2;
-      while (comp == 0.0f && b != a_index && a != b_index) {
-        if (move_a)
-          a = (a + 1) % path->numPoints();
-        else
-          b = (b + 1) % path->numPoints();
-
-        comp = path->point(a).x - path->point(b).x;
-      }
-      return comp;
-    }
-
-    EdgeGraph(const Path* path) : path(path) {
-      int num_points = path->numPoints();
-      prev_edge.reserve(num_points);
-      next_edge.reserve(num_points);
-      for (int i = 0; i < num_points; ++i) {
-        prev_edge.push_back((i + num_points - 1) % num_points);
-        next_edge.push_back((i + 1) % num_points);
-      }
-
-      sorted_indices.reserve(num_points);
-      for (int i = 0; i < num_points; ++i)
-        sorted_indices.push_back(i);
-
-      std::sort(sorted_indices.begin(), sorted_indices.end(),
-                [path](const int a, const int b) { return compareIndices(path, a, b) < 0.0f; });
-    }
-
-    bool tryCutEar(int index, bool forward, std::vector<int>& triangles) {
-      auto& direction = forward ? next_edge : prev_edge;
-      auto& reverse = forward ? prev_edge : next_edge;
-
-      int intermediate_index = direction[index];
-      int target_index = direction[intermediate_index];
-      if (intermediate_index == index || target_index == index)
-        return false;
-
-      Point start = point(index);
-      Point intermediate = point(intermediate_index);
-      Point target = point(target_index);
-
-      if (intermediate.x >= start.x || target.x > start.x)
-        return false;
-
-      float cross = (intermediate - start).cross(target - intermediate);
-      if ((cross < 0.0f) != forward && cross)
-        return false;
-
-      if (cross) {
-        triangles.push_back(originalIndex(index));
-        triangles.push_back(originalIndex(intermediate_index));
-        triangles.push_back(originalIndex(target_index));
-      }
-      direction[index] = target_index;
-      reverse[target_index] = index;
-
-      direction[intermediate_index] = intermediate_index;
-      reverse[intermediate_index] = intermediate_index;
-      return true;
-    }
-
-    void reverseCycle(int start_index) {
-      std::swap(prev_edge[start_index], next_edge[start_index]);
-      for (int i = next_edge[start_index]; i != start_index; i = next_edge[i])
-        std::swap(prev_edge[i], next_edge[i]);
-    }
-
-    void cutEars(int index, std::vector<int>& triangles) {
-      while (tryCutEar(index, true, triangles))
-        ;
-      while (tryCutEar(index, false, triangles))
-        ;
-    }
-
-    int next(int index, bool forward = true) const {
-      return forward ? next_edge[index] : prev_edge[index];
-    }
-
-    int prev(int index, bool forward = true) const {
-      return forward ? prev_edge[index] : next_edge[index];
-    }
-
-    int originalIndex(int index) const {
-      if (index >= path->numPoints())
-        return additional_point_refs[index - sorted_indices.size()];
-      return index;
-    }
-
-    Point point(int index) const { return path->point(originalIndex(index)); }
-
-    int sortedIndex(int sorted_index) const { return sorted_indices[sorted_index]; }
-
-    int addDiagonal(int index, int target) {
-      int new_index = prev_edge.size();
-      int new_diagonal_index = new_index + 1;
-      additional_point_refs.push_back(originalIndex(index));
-      additional_point_refs.push_back(originalIndex(target));
-
-      next_edge[prev_edge[target]] = new_diagonal_index;
-      prev_edge[next_edge[index]] = new_index;
-
-      prev_edge.push_back(new_diagonal_index);
-      next_edge.push_back(next_edge[index]);
-      prev_edge.push_back(prev_edge[target]);
-      next_edge.push_back(new_index);
-
-      next_edge[index] = target;
-      prev_edge[target] = index;
-
-      return new_index;
-    }
-
-    const Path* path = nullptr;
-    std::vector<int> prev_edge;
-    std::vector<int> next_edge;
-    std::vector<int> additional_point_refs;
-    std::vector<int> sorted_indices;
-  };
-
   struct ScanLineArea {
     ScanLineArea(int from_index, Point from, int to_index, Point to, float* position) :
         from_index(from_index), from(from), to_index(to_index), to(to), position(position) { }
@@ -321,14 +194,16 @@ namespace visage {
 
       float slope = (to.y - from.y) / (to.x - from.x);
       float other_slope = (other.to.y - other.from.y) / (other.to.x - other.from.x);
-      return slope < other_slope;
+      if (slope != other_slope)
+        return slope < other_slope;
+
+      return to.x + from.x < other.to.x + other.from.x;
     }
 
     float sample() const {
-      if (*position == to.x)
+      if (*position == to.x || to.x == from.x)
         return to.y;
 
-      VISAGE_ASSERT(to.x != from.x);
       return from.y + (to.y - from.y) * (*position - from.x) / (to.x - from.x);
     }
 
@@ -339,75 +214,393 @@ namespace visage {
     float* position = nullptr;
   };
 
-  std::vector<int> Path::triangulate() const {
-    int num_points = numPoints();
-    if (num_points < 3)
-      return {};
+  class TriangulationGraph {
+  public:
+    Path::Triangulation triangulate(const Path* path) {
+      num_points_ = path->numPoints();
+      points_ = path->points();
 
-    std::vector<int> triangles;
-    triangles.reserve((num_points - 2) * 3);
-
-    auto area_compare = [](const ScanLineArea& area, float sample) { return area.sample() < sample; };
-    EdgeGraph graph(this);
-
-    float position = 0.0f;
-    std::set<ScanLineArea> current_areas;
-    for (int i = 0; i < num_points; ++i) {
-      int index = graph.sortedIndex(i);
-
-      Point point = graph.point(index);
-      position = point.x;
-      int prev_index = graph.prev(index);
-      int next_index = graph.next(index);
-      Point prev = graph.point(prev_index);
-      Point next = graph.point(next_index);
-      bool begin_area = prev.x > point.x && next.x > point.x;
-      bool end_area = prev.x < point.x && next.x < point.x;
-
-      auto area = std::lower_bound(current_areas.begin(), current_areas.end(), point.y, area_compare);
-      if (!begin_area && (area == current_areas.end() || area->to_index != index)) {
-        VISAGE_ASSERT(false);
-        return {};
+      prev_edge_.reserve(num_points_);
+      next_edge_.reserve(num_points_);
+      for (int i = 0; i < num_points_; ++i) {
+        prev_edge_.push_back((i + num_points_ - 1) % num_points_);
+        next_edge_.push_back((i + 1) % num_points_);
       }
 
-      if (begin_area) {
-        bool start_hole = std::distance(current_areas.begin(), area) % 2 == 1;
-        bool convex = (prev - point).cross(next - point) > 0.0f;
-        if (start_hole == convex)
-          graph.reverseCycle(index);
-
-        int diagonal_break_index = index;
-
-        if (start_hole) {
-          int diagonal_index = area->from_index;
-          diagonal_break_index = graph.addDiagonal(index, diagonal_index);
-          graph.cutEars(diagonal_break_index, triangles);
-        }
-        current_areas.emplace(index, point, prev_index, prev, &position);
-        current_areas.emplace(diagonal_break_index, point, next_index, next, &position);
-      }
-      else if (end_area) {
-        VISAGE_ASSERT(std::next(area)->to_index == index);
-        if (std::next(area)->to_index != index)
-          return {};
-
-        area = current_areas.erase(area);
-        current_areas.erase(area);
-      }
-      else {
-        current_areas.erase(area);
-        if (EdgeGraph::compareIndices(this, graph.originalIndex(prev_index),
-                                      graph.originalIndex(next_index)) < 0.0f) {
-          current_areas.emplace(index, point, next_index, next, &position);
-        }
-        else
-          current_areas.emplace(index, point, prev_index, prev, &position);
-      }
-
-      graph.cutEars(index, triangles);
-      VISAGE_ASSERT(current_areas.size() % 2 == 0);
+      removeIntersections();
+      breakIntoMonotonicPolygons();
+      Path::Triangulation result;
+      result.triangles = breakIntoTriangles();
+      result.points = std::move(points_);
+      return result;
     }
 
-    return triangles;
+  private:
+    int addAdditionalPoint(Point point) {
+      points_.push_back(point);
+      int new_index = points_.size() - 1;
+      prev_edge_.push_back(new_index);
+      next_edge_.push_back(new_index);
+      return new_index;
+    }
+
+    bool connected(int a_index, int b_index) const {
+      return prev_edge_[a_index] == b_index || next_edge_[a_index] == b_index;
+    }
+
+    void connect(int from, int to) {
+      next_edge_[from] = to;
+      prev_edge_[to] = from;
+    }
+
+    std::vector<int> sortedIndices() {
+      std::vector<int> sorted_indices;
+      sorted_indices.resize(prev_edge_.size());
+      std::iota(sorted_indices.begin(), sorted_indices.end(), 0);
+
+      std::sort(sorted_indices.begin(), sorted_indices.end(),
+                [this](const int a, const int b) { return compareIndices(a, b) < 0.0f; });
+      return sorted_indices;
+    }
+
+    void removeIntersections() {
+      auto area_compare = [](const ScanLineArea& area, float sample) {
+        return area.sample() < sample;
+      };
+
+      std::set<ScanLineArea> current_areas;
+
+      float position = 0.0f;
+      auto add_area = [&](int index, Point point, int end_index, Point end) {
+        auto adjacent = std::lower_bound(current_areas.begin(), current_areas.end(), point.y, area_compare);
+
+        std::set<ScanLineArea> intersected_areas;
+        int start_index = index;
+
+        auto try_intersect = [&](auto& it) {
+          std::optional<std::pair<int, int>> new_indices = breakIntersection(start_index, end_index,
+                                                                             it->from_index, it->to_index);
+          if (!new_indices.has_value())
+            return false;
+
+          start_index = connected(new_indices->first, end_index) ? new_indices->first : new_indices->second;
+          position = points_[start_index].x;
+          int intersected_index = connected(new_indices->first, it->to_index) ? new_indices->first :
+                                                                                new_indices->second;
+          intersected_areas.insert(ScanLineArea(intersected_index, points_[intersected_index],
+                                                it->to_index, it->to, &position));
+          it = current_areas.erase(it);
+          return true;
+        };
+
+        auto it = adjacent;
+        while (it != current_areas.end() && it->from == point)
+          ++it;
+
+        while (it != current_areas.end() && try_intersect(it))
+          ;
+
+        if (intersected_areas.empty() && adjacent != current_areas.begin()) {
+          it = adjacent;
+          while (it != current_areas.begin()) {
+            it = std::prev(it);
+            if (!try_intersect(it))
+              break;
+          }
+        }
+
+        current_areas.insert(intersected_areas.begin(), intersected_areas.end());
+        current_areas.emplace(start_index, points_[start_index], end_index, end, &position);
+      };
+
+      auto sorted_indices = sortedIndices();
+
+      for (int index : sorted_indices) {
+        Point point = points_[index];
+        position = point.x;
+        int prev_index = prev_edge_[index];
+        int next_index = next_edge_[index];
+        Point prev = points_[prev_index];
+        Point next = points_[next_index];
+        if (prev.x == point.x && next.x == point.x)
+          continue;
+
+        bool begin_area = prev.x >= point.x && next.x >= point.x && prev.x != next.x;
+        bool end_area = prev.x <= point.x && next.x <= point.x && prev.x != next.x;
+
+        auto area = std::lower_bound(current_areas.begin(), current_areas.end(), point.y, area_compare);
+
+        if (begin_area) {
+          bool prev_higher = (prev - point).cross(next - point) > 0.0f;
+          if (prev_higher == prev.y < point.y) {
+            add_area(index, point, prev_index, prev);
+            add_area(index, point, next_index, next);
+          }
+          else {
+            add_area(index, point, next_index, next);
+            add_area(index, point, prev_index, prev);
+          }
+        }
+        else if (end_area) {
+          area = current_areas.erase(area);
+          if (area == current_areas.end() || area->to_index != index) {
+            VISAGE_ASSERT(false);
+            return;
+          }
+
+          current_areas.erase(area);
+        }
+        else {
+          current_areas.erase(area);
+          if (compareIndices(prev_index, next_index) < 0.0f)
+            add_area(index, point, next_index, next);
+          else
+            add_area(index, point, prev_index, prev);
+        }
+
+        VISAGE_ASSERT(checkValidPolygons());
+        VISAGE_ASSERT(current_areas.size() % 2 == 0);
+      }
+    }
+
+    void breakIntoMonotonicPolygons() {
+      auto area_compare = [](const ScanLineArea& area, float sample) {
+        return area.sample() < sample;
+      };
+
+      std::set<ScanLineArea> current_areas;
+
+      float position = 0.0f;
+      auto add_area = [&](int index, Point point, int end_index, Point end) {
+        current_areas.emplace(index, point, end_index, end, &position);
+      };
+
+      auto sorted_indices = sortedIndices();
+
+      for (int index : sorted_indices) {
+        Point point = points_[index];
+        position = point.x;
+        int prev_index = prev_edge_[index];
+        int next_index = next_edge_[index];
+        Point prev = points_[prev_index];
+        Point next = points_[next_index];
+        if (prev.x == point.x && next.x == point.x)
+          continue;
+
+        bool begin_area = prev.x >= point.x && next.x >= point.x && prev.x != next.x;
+        bool end_area = prev.x <= point.x && next.x <= point.x && prev.x != next.x;
+
+        auto area = std::lower_bound(current_areas.begin(), current_areas.end(), point.y, area_compare);
+
+        if (begin_area) {
+          bool start_hole = std::distance(current_areas.begin(), area) % 2 == 1;
+          bool convex = (prev - point).cross(next - point) > 0.0f;
+          if (start_hole == convex)
+            reverseCycle(index);
+
+          int diagonal_break_index = index;
+
+          if (start_hole) {
+            int diagonal_index = area->from_index;
+            diagonal_break_index = addDiagonal(index, diagonal_index);
+          }
+          add_area(index, point, prev_index, prev);
+          add_area(diagonal_break_index, point, next_index, next);
+        }
+        else if (end_area) {
+          area = current_areas.erase(area);
+          if (area == current_areas.end() || area->to_index != index) {
+            VISAGE_ASSERT(false);
+            return;
+          }
+
+          current_areas.erase(area);
+        }
+        else {
+          while (area->to_index != index && area != current_areas.end())
+            ++area;
+          if (area == current_areas.end()) {
+            VISAGE_ASSERT(false);
+            return;
+          }
+          current_areas.erase(area);
+
+          if (compareIndices(prev_index, next_index) < 0.0f)
+            add_area(index, point, next_index, next);
+          else
+            add_area(index, point, prev_index, prev);
+        }
+
+        VISAGE_ASSERT(checkValidPolygons());
+        VISAGE_ASSERT(current_areas.size() % 2 == 0);
+      }
+    }
+
+    std::vector<int> breakIntoTriangles() {
+      std::vector<int> triangles;
+      auto sorted_indices = sortedIndices();
+
+      for (int index : sorted_indices)
+        cutEars(index, triangles);
+
+      return triangles;
+    }
+
+    bool checkValidPolygons() const {
+      for (int i = 0; i < points_.size(); ++i) {
+        if (prev_edge_[next_edge_[i]] != i || next_edge_[prev_edge_[i]] != i)
+          return false;
+      }
+      return true;
+    }
+
+    float compareIndices(int a_index, int b_index) {
+      float comp = points_[a_index].x - points_[b_index].x;
+      int index_offset = a_index - b_index;
+      int a_prev = a_index;
+      int a_next = a_index;
+      int b_prev = b_index;
+      int b_next = b_index;
+
+      float y_comp = points_[a_index].y - points_[b_index].y;
+      if (comp == 0.0f && y_comp)
+        return y_comp;
+
+      while (comp == 0.0f) {
+        a_next = next_edge_[a_next];
+        if (a_next == a_prev || a_next == prev_edge_[a_prev])
+          return 0.0f;
+        a_prev = prev_edge_[a_prev];
+
+        b_next = next_edge_[b_next];
+        b_prev = prev_edge_[b_prev];
+
+        comp = points_[a_next].x + points_[a_prev].x - points_[b_next].x - points_[b_prev].x;
+      }
+      return comp;
+    }
+
+    bool tryCutEar(int index, bool forward, std::vector<int>& triangles) {
+      auto& direction = forward ? next_edge_ : prev_edge_;
+      auto& reverse = forward ? prev_edge_ : next_edge_;
+
+      int intermediate_index = direction[index];
+      int target_index = direction[intermediate_index];
+      if (intermediate_index == index || target_index == index)
+        return false;
+
+      Point start = points_[index];
+      Point intermediate = points_[intermediate_index];
+      Point target = points_[target_index];
+
+      if (intermediate.x >= start.x || target.x > start.x)
+        return false;
+
+      float cross = (intermediate - start).cross(target - intermediate);
+      if ((cross < 0.0f) != forward && cross)
+        return false;
+
+      if (cross) {
+        triangles.push_back(index);
+        triangles.push_back(intermediate_index);
+        triangles.push_back(target_index);
+      }
+      direction[index] = target_index;
+      reverse[target_index] = index;
+
+      direction[intermediate_index] = intermediate_index;
+      reverse[intermediate_index] = intermediate_index;
+      return true;
+    }
+
+    void cutEars(int index, std::vector<int>& triangles) {
+      while (tryCutEar(index, true, triangles))
+        ;
+      while (tryCutEar(index, false, triangles))
+        ;
+    }
+
+    void reverseCycle(int start_index) {
+      std::swap(prev_edge_[start_index], next_edge_[start_index]);
+      for (int i = next_edge_[start_index]; i != start_index; i = next_edge_[i])
+        std::swap(prev_edge_[i], next_edge_[i]);
+    }
+
+    std::optional<Point> findIntersection(Point start1, Point end1, Point start2, Point end2) {
+      if (start1 == start2 || end1 == end2)
+        return std::nullopt;
+
+      Point delta1 = end1 - start1;
+      Point delta2 = end2 - start2;
+      float det = delta1.cross(delta2);
+      if (det == 0.0f)
+        return std::nullopt;
+
+      Point start_delta = start2 - start1;
+      float t1 = start_delta.cross(delta2) / det;
+      float t2 = start_delta.cross(delta1) / det;
+
+      if (t1 <= 0.0f || t2 <= 0.0f || t1 >= 1.0f || t2 >= 1.0f)
+        return std::nullopt;
+
+      return start1 + delta1 * t1;
+    }
+
+    std::optional<std::pair<int, int>> breakIntersection(int start_index1, int end_index1,
+                                                         int start_index2, int end_index2) {
+      Point start1 = points_[start_index1];
+      Point end1 = points_[end_index1];
+      Point start2 = points_[start_index2];
+      Point end2 = points_[end_index2];
+
+      std::optional<Point> intersection = findIntersection(start1, end1, start2, end2);
+      if (!intersection.has_value())
+        return std::nullopt;
+
+      int new_index1 = addAdditionalPoint(intersection.value());
+      int new_index2 = addAdditionalPoint(intersection.value());
+
+      if (next_edge_[start_index1] != end_index1)
+        std::swap(start_index1, end_index1);
+      if (next_edge_[start_index2] != end_index2)
+        std::swap(start_index2, end_index2);
+
+      connect(start_index1, new_index1);
+      connect(new_index1, end_index2);
+      connect(start_index2, new_index2);
+      connect(new_index2, end_index1);
+
+      VISAGE_ASSERT(checkValidPolygons());
+      return std::pair(new_index1, new_index2);
+    }
+
+    int addDiagonal(int index, int target) {
+      int new_index = prev_edge_.size();
+      int new_diagonal_index = new_index + 1;
+      points_.push_back(points_[index]);
+      points_.push_back(points_[target]);
+
+      next_edge_[prev_edge_[target]] = new_diagonal_index;
+      prev_edge_[next_edge_[index]] = new_index;
+
+      prev_edge_.push_back(new_diagonal_index);
+      next_edge_.push_back(next_edge_[index]);
+      prev_edge_.push_back(prev_edge_[target]);
+      next_edge_.push_back(new_index);
+
+      connect(index, target);
+
+      return new_index;
+    }
+
+    int num_points_ = 0;
+    std::vector<Point> points_;
+    std::vector<int> prev_edge_;
+    std::vector<int> next_edge_;
+  };
+
+  Path::Triangulation Path::triangulate() const {
+    TriangulationGraph graph;
+    return graph.triangulate(this);
   }
 }
