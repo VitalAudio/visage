@@ -23,7 +23,6 @@
 
 #include "path.h"
 
-#include <optional>
 #include <set>
 
 namespace visage {
@@ -325,8 +324,11 @@ namespace visage {
         if (prev.x == point.x && next.x == point.x)
           continue;
 
-        bool begin_area = prev.x >= point.x && next.x >= point.x && prev.x != next.x;
-        bool end_area = prev.x <= point.x && next.x <= point.x && prev.x != next.x;
+        if (prev == next)
+          continue;
+
+        bool begin_area = point < prev && point < next;
+        bool end_area = prev < point && next < point;
 
         auto area = std::lower_bound(current_areas.begin(), current_areas.end(), point.y, area_compare);
 
@@ -387,8 +389,11 @@ namespace visage {
         if (prev.x == point.x && next.x == point.x)
           continue;
 
-        bool begin_area = prev.x >= point.x && next.x >= point.x && prev.x != next.x;
-        bool end_area = prev.x <= point.x && next.x <= point.x && prev.x != next.x;
+        if (prev == next)
+          continue;
+
+        bool begin_area = point < prev && point < next;
+        bool end_area = prev < point && next < point;
 
         auto area = std::lower_bound(current_areas.begin(), current_areas.end(), point.y, area_compare);
 
@@ -525,26 +530,6 @@ namespace visage {
         std::swap(prev_edge_[i], next_edge_[i]);
     }
 
-    static std::optional<Point> findIntersection(Point start1, Point end1, Point start2, Point end2) {
-      if (start1 == start2 || end1 == end2)
-        return std::nullopt;
-
-      Point delta1 = end1 - start1;
-      Point delta2 = end2 - start2;
-      float det = delta1.cross(delta2);
-      if (det == 0.0f)
-        return std::nullopt;
-
-      Point start_delta = start2 - start1;
-      float t1 = start_delta.cross(delta2) / det;
-      float t2 = start_delta.cross(delta1) / det;
-
-      if (t1 <= 0.0f || t2 <= 0.0f || t1 >= 1.0f || t2 >= 1.0f)
-        return std::nullopt;
-
-      return start1 + delta1 * t1;
-    }
-
     std::optional<std::pair<int, int>> breakIntersection(int start_index1, int end_index1,
                                                          int start_index2, int end_index2) {
       Point start1 = points_[start_index1];
@@ -552,7 +537,7 @@ namespace visage {
       Point start2 = points_[start_index2];
       Point end2 = points_[end_index2];
 
-      std::optional<Point> intersection = findIntersection(start1, end1, start2, end2);
+      std::optional<Point> intersection = Path::findIntersection(start1, end1, start2, end2);
       if (!intersection.has_value())
         return std::nullopt;
 
