@@ -23,5 +23,139 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <complex>
+#include <random>
+#include <set>
 
-TEST_CASE("Path triangulate", "[graphics]") { }
+using namespace visage;
+
+inline float randomFloat(float min, float max) {
+  static std::random_device random_device;
+  static std::mt19937 generator(random_device());
+  std::uniform_real_distribution distribution(min, max);
+  return distribution(generator);
+}
+
+struct Triangle {
+  Triangle(Point a, Point b, Point c) : points { a, b, c } { }
+
+  bool operator<(const Triangle& other) const { return points < other.points; }
+  bool operator==(const Triangle& other) const {
+    static constexpr float kEpsilon = 1e-5f;
+    return (points.size() == other.points.size()) &&
+           std::equal(points.begin(), points.end(), other.points.begin(),
+                      [](const Point& p1, const Point& p2) {
+                        if ((p1 - p2).squareMagnitude() < kEpsilon)
+                          return true;
+                        return false;
+                      });
+  }
+
+  std::set<Point> points;
+};
+
+std::set<Triangle> createTriangles(const Path::Triangulation& triangulation) {
+  std::set<Triangle> triangles;
+  for (size_t i = 0; i < triangulation.triangles.size(); i += 3) {
+    Point a = triangulation.points[triangulation.triangles[i]];
+    Point b = triangulation.points[triangulation.triangles[i + 1]];
+    Point c = triangulation.points[triangulation.triangles[i + 2]];
+    triangles.insert(Triangle(a, b, c));
+  }
+  return triangles;
+}
+
+bool matchTriangles(const Path& path, const std::set<Triangle>& expected) {
+  std::set<Triangle> triangles = createTriangles(path.triangulate());
+  return triangles == expected;
+}
+
+TEST_CASE("Path triangulate nothing", "[graphics]") {
+  Path path0;
+  Path::Triangulation triangulation = path0.triangulate();
+  REQUIRE(triangulation.triangles.size() == 0);
+
+  Path path1;
+  path1.moveTo(0, 0);
+  triangulation = path1.triangulate();
+  REQUIRE(triangulation.triangles.size() == 0);
+
+  Path path2;
+  path2.moveTo(0, 0);
+  path2.lineTo(1, 0);
+  triangulation = path2.triangulate();
+  REQUIRE(triangulation.triangles.size() == 0);
+
+  Path path3;
+  path3.moveTo(0, 0);
+  path3.lineTo(0, 1);
+  triangulation = path3.triangulate();
+  REQUIRE(triangulation.triangles.size() == 0);
+}
+
+TEST_CASE("Path triangulate single", "[graphics]") {
+  Path path0;
+  path0.moveTo(0, 0);
+  path0.lineTo(0, 1);
+  path0.lineTo(1, 1);
+  Path::Triangulation triangulation = path0.triangulate();
+  REQUIRE(triangulation.triangles.size() == 3);
+}
+
+TEST_CASE("Path triangulate intersection", "[graphics]") {
+  Path path0;
+  path0.moveTo(0, 0);
+  path0.lineTo(0, 1);
+  path0.lineTo(1, 0);
+  path0.lineTo(1, 1);
+  std::set<Triangle> expected = { Triangle(Point(0, 0), Point(0, 1), Point(0.5f, 0.5f)),
+                                  Triangle(Point(1, 0), Point(1, 1), Point(0.5f, 0.5f)) };
+  REQUIRE(matchTriangles(path0, expected));
+
+  Path path1;
+  path1.moveTo(0, 0);
+  path1.lineTo(1, 0);
+  path1.lineTo(0, 1);
+  path1.lineTo(1, 1);
+  expected = { Triangle(Point(0, 0), Point(1, 0), Point(0.5f, 0.5f)),
+               Triangle(Point(0, 1), Point(1, 1), Point(0.5f, 0.5f)) };
+  REQUIRE(matchTriangles(path1, expected));
+}
+
+TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
+  static constexpr float kPi = 3.14159265358979323846f;
+  static constexpr int kStarPoints = 5;
+
+  Path star;
+
+  float radius = 100.0f;
+  float phase = randomFloat(0.0f, 1.0f);
+  std::complex<float> position(cos(-2.0f * kPi * phase / kStarPoints),
+                               sin(-2.0f * kPi * phase / kStarPoints));
+
+  star.moveTo(position.real() * radius, position.imag() * radius);
+  std::complex<float> delta(cos(-2.0f * kPi * 2.0f / kStarPoints), sin(-2.0f * kPi * 2.0f / kStarPoints));
+
+  for (int i = 1; i < kStarPoints; ++i) {
+    position = position * delta;
+    star.lineTo(radius * position.real(), radius * position.imag());
+  }
+
+  std::vector<Point> intersections;
+  for (int i = 0; i < kStarPoints; ++i) {
+    Point start = star.points()[i];
+    Point end = star.points()[(i + 1) % kStarPoints];
+    Point start1 = star.points()[(i + 2) % kStarPoints];
+    Point end1 = star.points()[(i + 3) % kStarPoints];
+
+    auto intersection = Path::findIntersection(start, end, start1, end1);
+    REQUIRE(intersection.has_value());
+    intersections.push_back(intersection.value());
+  }
+
+  std::set<Triangle> expected;
+  for (int i = 0; i < kStarPoints; ++i)
+    expected.insert(Triangle(star.points()[i], intersections[i], intersections[(i + 2) % kStarPoints]));
+
+  REQUIRE(matchTriangles(star, expected));
+}
