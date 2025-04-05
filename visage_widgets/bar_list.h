@@ -53,8 +53,8 @@ namespace visage {
     int numBars() const { return num_bars_; }
 
   private:
-    std::unique_ptr<Bar[]> bars_;
     int num_bars_ = 0;
+    std::unique_ptr<Bar[]> bars_;
 
     VISAGE_LEAK_CHECKER(BarList)
   };

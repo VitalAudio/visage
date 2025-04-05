@@ -137,9 +137,9 @@ TEST_CASE("Breaking rectangles", "[utils]") {
   REQUIRE(pieces.size() == 0);
 }
 
-TEST_CASE("Bounds copy", "[utils]") {
+TEST_CASE("Bounds copy constructor", "[utils]") {
   IBounds original(10, 20, 100, 200);
-  REQUIRE(original.copy().copy() == original);
+  REQUIRE(IBounds(original) == original);
 }
 
 TEST_CASE("IBounds trimTop", "[utils]") {
