@@ -106,12 +106,13 @@ int runExample() {
     float radius = 300.0f;
 
     path.clear();
-    path.moveTo(5.77652073, 11.6435375);
-    path.lineTo(66.2032089, 52.9795418);
-    path.lineTo(38.3846359, 51.1438065);
-    path.lineTo(94.0983429, 19.7032890);
-    path.lineTo(2.88614821, 75.6742630);
-    path.scale(6.0f);
+    path.moveTo(62.2793274, 48.9161758);
+    path.lineTo(45.0926628, 84.2278595);
+    path.lineTo(72.8265762, 82.5315933);
+    path.lineTo(53.3742180, 20.3975220);
+    path.lineTo(26.6854343, 65.3102036);
+    path.lineTo(92.9621124, 54.6855507);
+    // path.scale(6.0f);
     canvas.setColor(0xffffffff);
     canvas.line(&path, 0, 0, app.width(), app.height(), 3.0f);
 
@@ -131,18 +132,18 @@ int runExample() {
     // path.scale(40.0f);
 
     visage::Path::Triangulation tri = path.triangulate();
-    // for (int i = 0; i < tri.triangles.size() / 3; ++i) {
-    //   int num = num_draw % (tri.triangles.size() / 3 + 1);
-    //   if (i >= colors.size())
-    //     colors.push_back(visage::Color(1.0f, randomFloat(), randomFloat(), randomFloat()));
-    //
-    //   canvas.setColor(colors[i]);
-    //   int index = i * 3;
-    //   canvas.triangle(tri.points[tri.triangles[index]].x, tri.points[tri.triangles[index]].y,
-    //                   tri.points[tri.triangles[index + 1]].x, tri.points[tri.triangles[index + 1]].y,
-    //                   tri.points[tri.triangles[index + 2]].x, tri.points[tri.triangles[index + 2]].y);
-    // }
-    // app.redraw();
+    for (int i = 0; i < tri.triangles.size() / 3; ++i) {
+      int num = num_draw % (tri.triangles.size() / 3 + 1);
+      if (i >= colors.size())
+        colors.push_back(visage::Color(1.0f, randomFloat(), randomFloat(), randomFloat()));
+
+      canvas.setColor(colors[i]);
+      int index = i * 3;
+      canvas.triangle(tri.points[tri.triangles[index]].x, tri.points[tri.triangles[index]].y,
+                      tri.points[tri.triangles[index + 1]].x, tri.points[tri.triangles[index + 1]].y,
+                      tri.points[tri.triangles[index + 2]].x, tri.points[tri.triangles[index + 2]].y);
+    }
+    app.redraw();
   };
 
   app.onMouseDown() = [&](const visage::MouseEvent& e) {
