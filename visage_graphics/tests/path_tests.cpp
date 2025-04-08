@@ -122,6 +122,23 @@ TEST_CASE("Path triangulate intersection", "[graphics]") {
   REQUIRE(matchTriangles(path1, expected));
 }
 
+TEST_CASE("Colinear test", "[graphics]") {
+  Path path;
+  path.moveTo(0, 0);
+  path.lineTo(1, 0);
+  path.lineTo(2, 0);
+  path.lineTo(3, 0);
+  path.lineTo(3, 1);
+  path.lineTo(3, 2);
+  path.lineTo(3, 3);
+  path.lineTo(2, 3);
+  path.lineTo(1, 3);
+  path.lineTo(0, 3);
+  path.lineTo(0, 2);
+  path.lineTo(0, 1);
+  path.triangulate();
+}
+
 TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
   static constexpr float kPi = 3.14159265358979323846f;
   static constexpr int kStarPoints = 5;
@@ -158,4 +175,20 @@ TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
     expected.insert(Triangle(star.points()[i], intersections[i], intersections[(i + 2) % kStarPoints]));
 
   REQUIRE(matchTriangles(star, expected));
+}
+
+TEST_CASE("Random path triangulation", "[graphics]") {
+  static constexpr float kWidth = 100.0f;
+  static constexpr float kHeight = 100.0f;
+  static constexpr int kNumPoints = 5;
+  static constexpr int kNumPaths = 100;
+
+  for (int p = 0; p < kNumPaths; ++p) {
+    Path path;
+    path.moveTo(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+    for (int i = 1; i < kNumPoints; ++i)
+      path.lineTo(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+
+    path.triangulate();
+  }
 }
