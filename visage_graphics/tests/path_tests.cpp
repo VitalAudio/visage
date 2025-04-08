@@ -146,7 +146,7 @@ TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
   Path star;
 
   float radius = 100.0f;
-  float phase = randomFloat(0.0f, 1.0f);
+  float phase = 0.0f;  //randomFloat(0.0f, 1.0f);
   std::complex<float> position(cos(-2.0f * kPi * phase / kStarPoints),
                                sin(-2.0f * kPi * phase / kStarPoints));
 

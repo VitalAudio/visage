@@ -266,91 +266,61 @@ namespace visage {
       return sorted_indices;
     }
 
+    bool checkIntersection(std::set<ScanLineArea>& areas, std::set<ScanLineArea>::iterator it) {
+      if (it == areas.end())
+        return false;
+
+      auto next = std::next(it);
+      if (next == areas.end())
+        return false;
+
+      std::optional<std::pair<int, int>> broken = breakIntersection(it->from_index, it->to_index,
+                                                                    next->from_index, next->to_index);
+      if (!broken.has_value())
+        return false;
+
+      int new_index = connected(broken->first, it->to_index) ? broken->first : broken->second;
+      int intersected_index = connected(broken->first, next->to_index) ? broken->first : broken->second;
+      ScanLineArea area1(new_index, points_[new_index], it->to_index, it->to);
+      ScanLineArea area2(intersected_index, points_[intersected_index], next->to_index, next->to);
+      areas.erase(it);
+      areas.erase(next);
+      addAreas(areas, std::move(area1), std::move(area2));
+      return true;
+    };
+
+    void addArea(std::set<ScanLineArea>& areas, ScanLineArea area) {
+      auto it = areas.insert(area).first;
+
+      checkIntersection(areas, it);
+      if (areas.count(area))
+        checkIntersection(areas, std::prev(it));
+    }
+
+    void addArea(std::set<ScanLineArea>& areas, int index, Point point, int end_index1, Point end1) {
+      addArea(areas, ScanLineArea(index, points_[index], end_index1, end1));
+    }
+
+    void addAreas(std::set<ScanLineArea>& areas, ScanLineArea area1, ScanLineArea area2) {
+      if (area2 < area1)
+        std::swap(area1, area2);
+
+      auto first = areas.insert(area1).first;
+      auto last = areas.insert(area2).first;
+
+      checkIntersection(areas, last);
+      if (areas.count(area1))
+        checkIntersection(areas, std::prev(first));
+    }
+
+    void addAreas(std::set<ScanLineArea>& areas, int index, Point point, int end_index1, Point end1,
+                  int end_index2, Point end2) {
+      addAreas(areas, ScanLineArea(index, points_[index], end_index1, end1),
+               ScanLineArea(index, points_[index], end_index2, end2));
+    }
+
     void removeIntersections() {
       std::set<ScanLineArea> current_areas;
-
-      auto try_intersect = [&](auto& it, std::set<ScanLineArea>& intersected_areas,
-                               int& start_index, int end_index) {
-        std::optional<std::pair<int, int>> new_indices = breakIntersection(start_index, end_index,
-                                                                           it->from_index, it->to_index);
-        if (!new_indices.has_value())
-          return false;
-
-        start_index = connected(new_indices->first, end_index) ? new_indices->first : new_indices->second;
-        int intersected_index = connected(new_indices->first, it->to_index) ? new_indices->first :
-                                                                              new_indices->second;
-        intersected_areas.insert(ScanLineArea(intersected_index, points_[intersected_index],
-                                              it->to_index, it->to));
-        it = current_areas.erase(it);
-        return true;
-      };
-
-      auto try_intersect_forward = [&](auto& adjacent, std::set<ScanLineArea>& intersected_areas,
-                                       int& start_index, int end_index) {
-        auto it = adjacent;
-        while (it != current_areas.end() && it->from == points_[start_index])
-          ++it;
-
-        while (it != current_areas.end() && try_intersect(it, intersected_areas, start_index, end_index))
-          ;
-      };
-
-      auto try_intersect_backward = [&](auto& adjacent, std::set<ScanLineArea>& intersected_areas,
-                                        int& start_index, int end_index) {
-        auto it = adjacent;
-        while (it != current_areas.begin()) {
-          it = std::prev(it);
-          if (!try_intersect(it, intersected_areas, start_index, end_index))
-            break;
-        }
-      };
-
-      auto add_area = [&](int index, Point point, int end_index, Point end) {
-        auto adjacent = std::lower_bound(current_areas.begin(), current_areas.end(), point,
-                                         ScanLineArea::compare);
-
-        std::set<ScanLineArea> intersected_areas;
-        int start_index = index;
-
-        try_intersect_forward(adjacent, intersected_areas, start_index, end_index);
-
-        if (intersected_areas.empty())
-          try_intersect_backward(adjacent, intersected_areas, start_index, end_index);
-
-        current_areas.insert(intersected_areas.begin(), intersected_areas.end());
-        current_areas.emplace(start_index, points_[start_index], end_index, end);
-      };
-
-      auto add_areas = [&](int index, Point point, int end_index1, Point end1, int end_index2, Point end2) {
-        auto adjacent = std::lower_bound(current_areas.begin(), current_areas.end(), point,
-                                         ScanLineArea::compare);
-        if ((point - end1).cross(end2 - point) > 0.0f) {
-          std::swap(end_index1, end_index2);
-          std::swap(end1, end2);
-        }
-
-        std::set<ScanLineArea> intersected_areas;
-        int start_index1 = index;
-        int start_index2 = index;
-
-        try_intersect_backward(adjacent, intersected_areas, start_index1, end_index1);
-        try_intersect_forward(adjacent, intersected_areas, start_index2, end_index2);
-
-        if (!intersected_areas.empty()) {
-          current_areas.insert(intersected_areas.begin(), intersected_areas.end());
-          intersected_areas.clear();
-          adjacent = std::lower_bound(current_areas.begin(), current_areas.end(), point,
-                                      ScanLineArea::compare);
-
-          try_intersect_backward(adjacent, intersected_areas, start_index2, end_index2);
-          try_intersect_forward(adjacent, intersected_areas, start_index1, end_index1);
-        }
-
-        current_areas.insert(intersected_areas.begin(), intersected_areas.end());
-        current_areas.emplace(start_index1, points_[start_index1], end_index1, end1);
-        current_areas.emplace(start_index2, points_[start_index2], end_index2, end2);
-      };
-
       auto sorted_indices = sortedIndices();
 
       for (int index : sorted_indices) {
@@ -370,7 +340,7 @@ namespace visage {
                                      ScanLineArea::compare);
 
         if (begin_area)
-          add_areas(index, point, prev_index, prev, next_index, next);
+          addAreas(current_areas, index, point, prev_index, prev, next_index, next);
         else if (end_area) {
           for (int i = 0; i < 2; ++i) {
             if (area == current_areas.end() || area->to_index != index) {
@@ -384,9 +354,9 @@ namespace visage {
         else {
           current_areas.erase(area);
           if (compareIndices(prev_index, next_index) < 0.0f)
-            add_area(index, point, next_index, next);
+            addArea(current_areas, index, point, next_index, next);
           else
-            add_area(index, point, prev_index, prev);
+            addArea(current_areas, index, point, prev_index, prev);
         }
 
         VISAGE_ASSERT(checkValidPolygons());
