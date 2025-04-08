@@ -106,15 +106,23 @@ int runExample() {
     float radius = 300.0f;
 
     path.clear();
-    path.moveTo(center_x, center_y - radius);
-    std::complex<float> delta(cos(-2.0f * kPi * 2.0f / kStarPoints), sin(-2.0f * kPi * 2.0f / kStarPoints));
-    std::complex<float> position(0.0f, -1.0f);
+    path.moveTo(95.6908340, 84.7759018);
+    path.lineTo(18.5086765, 86.3851242);
+    path.lineTo(89.6078720, 76.3953705);
+    path.lineTo(43.8916054, 60.7139359);
+    path.lineTo(22.0712891, 25.0330086);
+    path.scale(10.0f);
+    canvas.setColor(0xffffffff);
+    canvas.line(&path, 0, 0, app.width(), app.height(), 3.0f);
 
-    for (int i = 1; i < kStarPoints; ++i) {
-      position = position * delta;
-      path.lineTo(center_x + radius * position.real(), center_y + radius * position.imag());
-    }
-    visage::Path::Triangulation tri = path.triangulate();
+    // path.moveTo(center_x, center_y - radius);
+    // std::complex<float> delta(cos(-2.0f * kPi * 2.0f / kStarPoints), sin(-2.0f * kPi * 2.0f / kStarPoints));
+    // std::complex<float> position(0.0f, -1.0f);
+    //
+    // for (int i = 1; i < kStarPoints; ++i) {
+    //   position = position * delta;
+    //   path.lineTo(center_x + radius * position.real(), center_y + radius * position.imag());
+    // }
 
     // path.reverse();
 
@@ -122,6 +130,7 @@ int runExample() {
     //                   "7.966-4.386-4.741-3.455-12.337 4.904-12.119z");
     // path.scale(40.0f);
 
+    visage::Path::Triangulation tri = path.triangulate();
     for (int i = 0; i < tri.triangles.size() / 3; ++i) {
       int num = num_draw % (tri.triangles.size() / 3 + 1);
       if (i >= colors.size())
