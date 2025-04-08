@@ -357,22 +357,18 @@ namespace visage {
                                  next->from_index, next->to_index };
     }
 
-    bool checkAddIntersection(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas,
+    void checkAddIntersection(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas,
                               std::set<ScanLineArea>::iterator it) {
       auto intersection = adjacentIntersection(areas, it);
-      if (!intersection.has_value())
-        return false;
-
-      events.insert(intersection.value());
+      if (intersection.has_value())
+        events.insert(intersection.value());
     };
 
-    bool checkRemoveIntersection(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas,
+    void checkRemoveIntersection(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas,
                                  std::set<ScanLineArea>::iterator it) {
       auto intersection = adjacentIntersection(areas, it);
-      if (!intersection.has_value())
-        return false;
-
-      events.erase(intersection.value());
+      if (intersection.has_value())
+        events.erase(intersection.value());
     };
 
     void addArea(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas, ScanLineArea area) {
