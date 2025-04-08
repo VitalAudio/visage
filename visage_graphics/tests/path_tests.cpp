@@ -146,7 +146,7 @@ TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
   Path star;
 
   float radius = 100.0f;
-  float phase = 0.0f;  //randomFloat(0.0f, 1.0f);
+  float phase = randomFloat(0.0f, 1.0f);
   std::complex<float> position(cos(-2.0f * kPi * phase / kStarPoints),
                                sin(-2.0f * kPi * phase / kStarPoints));
 
@@ -180,8 +180,8 @@ TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
 TEST_CASE("Random path triangulation", "[graphics]") {
   static constexpr float kWidth = 100.0f;
   static constexpr float kHeight = 100.0f;
-  static constexpr int kNumPoints = 5;
-  static constexpr int kNumPaths = 100;
+  static constexpr int kNumPoints = 6;
+  static constexpr int kNumPaths = 1000;
 
   for (int p = 0; p < kNumPaths; ++p) {
     Path path;
