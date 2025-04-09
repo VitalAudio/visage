@@ -463,7 +463,9 @@ namespace visage {
     float scale = 1.0f;
     float line_value_mult = 1.0f;
 
-    int numVertices() const { return path->numPoints() * kLineVerticesPerPoint; }
+    int numVertices() const {
+      return path->numPoints() * kLineVerticesPerPoint + path->subPaths().size() * 2;
+    }
   };
 
   struct LineFillWrapper : Shape<> {
@@ -482,7 +484,9 @@ namespace visage {
     float scale = 1.0f;
     float fill_value_mult = 1.0f;
 
-    int numVertices() const { return path->numPoints() * kFillVerticesPerPoint; }
+    int numVertices() const {
+      return path->numPoints() * kFillVerticesPerPoint + path->subPaths().size() * 2;
+    }
   };
 
   template<typename T>
