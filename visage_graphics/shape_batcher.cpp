@@ -137,119 +137,138 @@ namespace visage {
     }
 
     int num_points = path->numPoints();
-    const auto& points = path->points();
-    const auto& values = path->values();
-
-    Point prev_normalized_delta;
-    for (int i = 0; i < num_points - 1; ++i) {
-      if (points[i] != points[i + 1]) {
-        prev_normalized_delta = normalize(points[i + 1] - points[i]);
-        break;
-      }
-    }
-
-    Point prev_delta_normal(-prev_normalized_delta.y, prev_normalized_delta.x);
+    const auto& sub_paths = path->subPaths();
+    // TODO: const auto& values = path->values();
     float radius = line_wrapper.line_width * 0.5f + 0.5f;
     float prev_magnitude = radius;
     float scale = line_wrapper.scale;
+    int path_offset = 1;
 
-    for (int i = 0; i < num_points; ++i) {
-      Point point = points[i] * scale;
-      int next_index = i + 1;
-      int clamped_next_index = std::min(next_index, num_points - 1);
-
-      Point next_point = points[clamped_next_index] * scale;
-      Point delta = next_point - point;
-      if (point == next_point)
-        delta = prev_normalized_delta;
-
-      float inverse_magnitude = inverseMagnitude(delta);
-      float magnitude = 1.0f / std::max(0.00001f, inverse_magnitude);
-      Point normalized_delta(delta.x * inverse_magnitude, delta.y * inverse_magnitude);
-      Point delta_normal(-normalized_delta.y, normalized_delta.x);
-
-      Point angle_bisect_delta = normalized_delta - prev_normalized_delta;
-      Point bisect_line;
-      bool straight = angle_bisect_delta.x < 0.001f && angle_bisect_delta.x > -0.001f &&
-                      angle_bisect_delta.y < 0.001f && angle_bisect_delta.y > -0.001f;
-      if (straight)
-        bisect_line = delta_normal;
-      else
-        bisect_line = normalize(angle_bisect_delta);
-
-      float x1, x2, x3, x4, x5, x6;
-      float y1, y2, y3, y4, y5, y6;
-
-      float max_inner_radius = std::max(radius, 0.5f * (magnitude + prev_magnitude));
-      prev_magnitude = magnitude;
-
-      float bisect_normal_dot_product = bisect_line * delta_normal;
-      float inner_mult = 1.0f / std::max(0.1f, std::fabs(bisect_normal_dot_product));
-      Point inner_point = point + bisect_line * std::min(inner_mult * radius, max_inner_radius);
-      Point outer_point = point - bisect_line * radius;
-
-      if (bisect_normal_dot_product < 0.0f) {
-        Point outer_point_start = outer_point;
-        Point outer_point_end = outer_point;
-        if (!straight) {
-          outer_point_start = point + prev_delta_normal * radius;
-          outer_point_end = point + delta_normal * radius;
+    for (const auto& path : sub_paths) {
+      Point prev_normalized_delta;
+      int sub_path_points = path.size();
+      for (int i = 0; i < sub_path_points - 1; ++i) {
+        if (path[i] != path[i + 1]) {
+          prev_normalized_delta = normalize(path[i + 1] - path[i]);
+          break;
         }
-        x1 = outer_point_start.x;
-        y1 = outer_point_start.y;
-        x3 = outer_point.x;
-        y3 = outer_point.y;
-        x5 = outer_point_end.x;
-        y5 = outer_point_end.y;
-        x2 = x4 = x6 = inner_point.x;
-        y2 = y4 = y6 = inner_point.y;
-      }
-      else {
-        Point outer_point_start = outer_point;
-        Point outer_point_end = outer_point;
-        if (!straight) {
-          outer_point_start = point - prev_delta_normal * radius;
-          outer_point_end = point - delta_normal * radius;
-        }
-        x2 = outer_point_start.x;
-        y2 = outer_point_start.y;
-        x4 = outer_point.x;
-        y4 = outer_point.y;
-        x6 = outer_point_end.x;
-        y6 = outer_point_end.y;
-        x1 = x3 = x5 = inner_point.x;
-        y1 = y3 = y5 = inner_point.y;
       }
 
-      int index = i * LineWrapper::kLineVerticesPerPoint;
+      Point prev_delta_normal(-prev_normalized_delta.y, prev_normalized_delta.x);
 
-      float value = values[i] * line_wrapper.line_value_mult;
-      line_data[index].x = x1;
-      line_data[index].y = y1;
-      line_data[index].value = value;
+      for (int i = 0; i < sub_path_points; ++i) {
+        Point point = path[i] * scale;
+        int next_index = i + 1;
+        int clamped_next_index = std::min(next_index, sub_path_points - 1);
 
-      line_data[index + 1].x = x2;
-      line_data[index + 1].y = y2;
-      line_data[index + 1].value = value;
+        Point next_point = path[clamped_next_index] * scale;
+        Point delta = next_point - point;
+        if (point == next_point)
+          delta = prev_normalized_delta;
 
-      line_data[index + 2].x = x3;
-      line_data[index + 2].y = y3;
-      line_data[index + 2].value = value;
+        float inverse_magnitude = inverseMagnitude(delta);
+        float magnitude = 1.0f / std::max(0.00001f, inverse_magnitude);
+        Point normalized_delta(delta.x * inverse_magnitude, delta.y * inverse_magnitude);
+        Point delta_normal(-normalized_delta.y, normalized_delta.x);
 
-      line_data[index + 3].x = x4;
-      line_data[index + 3].y = y4;
-      line_data[index + 3].value = value;
+        Point angle_bisect_delta = normalized_delta - prev_normalized_delta;
+        Point bisect_line;
+        bool straight = angle_bisect_delta.x < 0.001f && angle_bisect_delta.x > -0.001f &&
+                        angle_bisect_delta.y < 0.001f && angle_bisect_delta.y > -0.001f;
+        if (straight)
+          bisect_line = delta_normal;
+        else
+          bisect_line = normalize(angle_bisect_delta);
 
-      line_data[index + 4].x = x5;
-      line_data[index + 4].y = y5;
-      line_data[index + 4].value = value;
+        float x1, x2, x3, x4, x5, x6;
+        float y1, y2, y3, y4, y5, y6;
 
-      line_data[index + 5].x = x6;
-      line_data[index + 5].y = y6;
-      line_data[index + 5].value = value;
+        float max_inner_radius = std::max(radius, 0.5f * (magnitude + prev_magnitude));
+        prev_magnitude = magnitude;
 
-      prev_delta_normal = delta_normal;
-      prev_normalized_delta = normalized_delta;
+        float bisect_normal_dot_product = bisect_line * delta_normal;
+        float inner_mult = 1.0f / std::max(0.1f, std::fabs(bisect_normal_dot_product));
+        Point inner_point = point + bisect_line * std::min(inner_mult * radius, max_inner_radius);
+        Point outer_point = point - bisect_line * radius;
+
+        if (bisect_normal_dot_product < 0.0f) {
+          Point outer_point_start = outer_point;
+          Point outer_point_end = outer_point;
+          if (!straight) {
+            outer_point_start = point + prev_delta_normal * radius;
+            outer_point_end = point + delta_normal * radius;
+          }
+          x1 = outer_point_start.x;
+          y1 = outer_point_start.y;
+          x3 = outer_point.x;
+          y3 = outer_point.y;
+          x5 = outer_point_end.x;
+          y5 = outer_point_end.y;
+          x2 = x4 = x6 = inner_point.x;
+          y2 = y4 = y6 = inner_point.y;
+        }
+        else {
+          Point outer_point_start = outer_point;
+          Point outer_point_end = outer_point;
+          if (!straight) {
+            outer_point_start = point - prev_delta_normal * radius;
+            outer_point_end = point - delta_normal * radius;
+          }
+          x2 = outer_point_start.x;
+          y2 = outer_point_start.y;
+          x4 = outer_point.x;
+          y4 = outer_point.y;
+          x6 = outer_point_end.x;
+          y6 = outer_point_end.y;
+          x1 = x3 = x5 = inner_point.x;
+          y1 = y3 = y5 = inner_point.y;
+        }
+
+        int index = path_offset + i * LineWrapper::kLineVerticesPerPoint;
+
+        // float value = values[i] * line_wrapper.line_value_mult;
+        line_data[index].x = x1;
+        line_data[index].y = y1;
+        line_data[index].value = 1.0f;  // value;
+
+        line_data[index + 1].x = x2;
+        line_data[index + 1].y = y2;
+        line_data[index + 1].value = 1.0f;  // value;
+
+        line_data[index + 2].x = x3;
+        line_data[index + 2].y = y3;
+        line_data[index + 2].value = 1.0f;  // value;
+
+        line_data[index + 3].x = x4;
+        line_data[index + 3].y = y4;
+        line_data[index + 3].value = 1.0f;  // value;
+
+        line_data[index + 4].x = x5;
+        line_data[index + 4].y = y5;
+        line_data[index + 4].value = 1.0f;  // value;
+
+        line_data[index + 5].x = x6;
+        line_data[index + 5].y = y6;
+        line_data[index + 5].value = 1.0f;  // value;
+
+        prev_delta_normal = delta_normal;
+        prev_normalized_delta = normalized_delta;
+      }
+
+      float first_x = sub_path_points ? line_data[path_offset].x : 0.0f;
+      float first_y = sub_path_points ? line_data[path_offset].y : 0.0f;
+      line_data[path_offset - 1].x = first_x;
+      line_data[path_offset - 1].y = first_y;
+      line_data[path_offset - 1].value = 1.0f;  // value;
+
+      path_offset += sub_path_points * LineWrapper::kLineVerticesPerPoint;
+      float last_x = sub_path_points ? line_data[path_offset - 1].x : 0.0f;
+      float last_y = sub_path_points ? line_data[path_offset - 1].y : 0.0f;
+      line_data[path_offset].x = last_x;
+      line_data[path_offset].y = last_y;
+      line_data[path_offset].value = 1.0f;  // value;
+
+      path_offset += 2;
     }
   }
 
@@ -360,23 +379,42 @@ namespace visage {
                               const bgfx::TransientVertexBuffer& vertex_buffer) {
     LineVertex* fill_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
     Path* path = line_fill_wrapper.path;
-    int num_points = path->numPoints();
-    const auto& points = path->points();
-    const auto& values = path->values();
+    const auto& sub_paths = path->subPaths();
+    // TODO const auto& values = path->values();
 
     float scale = line_fill_wrapper.scale;
     int fill_location = line_fill_wrapper.fill_center;
-    for (int i = 0; i < num_points; ++i) {
-      int index_top = i * LineFillWrapper::kFillVerticesPerPoint;
-      int index_bottom = index_top + 1;
-      Point point = points[i] * scale;
-      float value = values[i] * line_fill_wrapper.fill_value_mult;
-      fill_data[index_top].x = point.x;
-      fill_data[index_top].y = point.y;
-      fill_data[index_top].value = value;
-      fill_data[index_bottom].x = point.x;
-      fill_data[index_bottom].y = fill_location;
-      fill_data[index_bottom].value = value;
+    int path_offset = 0;
+
+    for (const auto& sub_path : sub_paths) {
+      int sub_path_points = sub_path.size();
+      for (int i = 0; i < sub_path_points; ++i) {
+        int index_top = path_offset + i * LineFillWrapper::kFillVerticesPerPoint;
+        int index_bottom = index_top + 1;
+        Point point = sub_path[i] * scale;
+
+        // float value = values[i] * line_fill_wrapper.fill_value_mult;
+        fill_data[index_top].x = point.x;
+        fill_data[index_top].y = point.y;
+        fill_data[index_top].value = 1.0f;  // value;
+        fill_data[index_bottom].x = point.x;
+        fill_data[index_bottom].y = fill_location;
+        fill_data[index_bottom].value = 1.0f;  // value;
+      }
+      float first_x = sub_path_points ? fill_data[path_offset].x : 0.0f;
+      float first_y = sub_path_points ? fill_data[path_offset].y : 0.0f;
+      fill_data[path_offset - 1].x = first_x;
+      fill_data[path_offset - 1].y = first_y;
+      fill_data[path_offset - 1].value = 1.0f;  // value;
+
+      path_offset += sub_path_points * LineFillWrapper::kFillVerticesPerPoint;
+      float last_x = sub_path_points ? fill_data[path_offset - 1].x : 0.0f;
+      float last_y = sub_path_points ? fill_data[path_offset - 1].y : 0.0f;
+      fill_data[path_offset].x = last_x;
+      fill_data[path_offset].y = last_y;
+      fill_data[path_offset].value = 1.0f;  // value;
+
+      path_offset += 2;
     }
   }
 

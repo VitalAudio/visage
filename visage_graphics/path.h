@@ -56,7 +56,12 @@ namespace visage {
 
     static constexpr int kMaxCurveResolution = 32;
 
-    Point lastPoint() { return current_path_.empty() ? Point() : current_path_.back(); }
+    Point lastPoint() const {
+      if (paths_.empty() || paths_.back().empty())
+        return Point(0.0f, 0.0f);
+
+      return paths_.back().back();
+    }
 
     void moveTo(Point point, bool relative = false) {
       if (relative)
@@ -97,8 +102,7 @@ namespace visage {
     }
 
     void closePath() {
-      if (!current_path_.empty())
-        addPoint(current_path_.front());
+      paths_.emplace_back();
       smooth_control_point_ = {};
     }
 
@@ -173,22 +177,17 @@ namespace visage {
     void arcTo(float rx, float ry, float x_axis_rotation, bool large_arc, bool sweep_flag,
                Point point, bool relative = false);
 
-    int numPoints() const { return current_path_.size(); }
-    const std::vector<Point>& points() const { return current_path_; }
-    const std::vector<float>& values() const { return values_; }
-
-    Point point(int index) const {
-      VISAGE_ASSERT(index >= 0 && index < current_path_.size());
-      return current_path_[index];
+    int numPoints() const {
+      int count = 0;
+      for (const auto& path : paths_)
+        count += path.size();
+      return count;
     }
 
-    float value(int index) const {
-      VISAGE_ASSERT(index >= 0 && index < values_.size());
-      return values_[index];
-    }
+    const std::vector<std::vector<Point>>& subPaths() const { return paths_; }
 
     void clear() {
-      current_path_.clear();
+      paths_.clear();
       values_.clear();
     }
 
@@ -196,15 +195,15 @@ namespace visage {
     Triangulation triangulate() const;
 
     Path scaled(float mult) const {
-      Path scaled_path;
-      for (Point point : current_path_)
-        scaled_path.lineTo(point * mult);
-      return scaled_path;
+      Path result = *this;
+      result.scale(mult);
+      return result;
     }
 
     void scale(float mult) {
-      for (Point& point : current_path_)
-        point *= mult;
+      for (auto& path : paths_)
+        for (Point& point : path)
+          point *= mult;
     }
 
     Path reversed() const {
@@ -213,20 +212,29 @@ namespace visage {
       return reversed_path;
     }
 
-    void reverse() { std::reverse(current_path_.begin(), current_path_.end()); }
+    void reverse() {
+      for (auto& path : paths_)
+        std::reverse(path.begin(), path.end());
+    }
 
   private:
+    std::vector<Point>& currentPath() {
+      if (paths_.empty())
+        paths_.emplace_back();
+      return paths_.back();
+    }
+
     void addPoint(Point point) {
-      current_path_.push_back(point);
+      currentPath().push_back(point);
       values_.push_back(0.0f);
     }
 
     void addPoint(float x, float y) {
-      current_path_.emplace_back(x, y);
+      currentPath().emplace_back(x, y);
       values_.push_back(0.0f);
     }
 
-    std::vector<Point> current_path_ {};
+    std::vector<std::vector<Point>> paths_;
     Point smooth_control_point_;
     std::vector<float> values_ {};
   };
