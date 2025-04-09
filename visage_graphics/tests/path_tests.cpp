@@ -160,10 +160,10 @@ TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
 
   std::vector<Point> intersections;
   for (int i = 0; i < kStarPoints; ++i) {
-    Point start = star.points()[i];
-    Point end = star.points()[(i + 1) % kStarPoints];
-    Point start1 = star.points()[(i + 2) % kStarPoints];
-    Point end1 = star.points()[(i + 3) % kStarPoints];
+    Point start = star.subPaths()[0][i];
+    Point end = star.subPaths()[0][(i + 1) % kStarPoints];
+    Point start1 = star.subPaths()[0][(i + 2) % kStarPoints];
+    Point end1 = star.subPaths()[0][(i + 3) % kStarPoints];
 
     auto intersection = Path::findIntersection(start, end, start1, end1);
     REQUIRE(intersection.has_value());
@@ -172,36 +172,35 @@ TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
 
   std::set<Triangle> expected;
   for (int i = 0; i < kStarPoints; ++i)
-    expected.insert(Triangle(star.points()[i], intersections[i], intersections[(i + 2) % kStarPoints]));
+    expected.insert(Triangle(star.subPaths()[0][i], intersections[i], intersections[(i + 2) % kStarPoints]));
 
   REQUIRE(matchTriangles(star, expected));
 }
 
+/* Currently breaks with numerical precision issues
 TEST_CASE("Random path triangulation", "[graphics]") {
   static constexpr float kWidth = 10000.0f;
   static constexpr float kHeight = 10000.0f;
   static constexpr int kNumPoints = 6;
   static constexpr int kNumPaths = 1000;
 
-  // Currently breaks with numerical precision issues
-  //
-  // for (int p = 0; p < kNumPaths; ++p) {
-  //   Path path;
-  //   std::set<std::pair<int, int>> points;
-  //   int x = randomFloat(0.0f, kWidth);
-  //   int y = randomFloat(0.0f, kHeight);
-  //   points.insert({ x, y });
-  //   path.moveTo(x, y);
-  //
-  //   for (int i = 1; i < kNumPoints; ++i) {
-  //     while (points.count({ x, y })) {
-  //       x = randomFloat(0.0f, kWidth);
-  //       y = randomFloat(0.0f, kHeight);
-  //     }
-  //     points.insert({ x, y });
-  //     path.lineTo(x, y);
-  //   }
-  //
-  //   path.triangulate();
-  // }
-}
+  for (int p = 0; p < kNumPaths; ++p) {
+    Path path;
+    std::set<std::pair<int, int>> points;
+    int x = randomFloat(0.0f, kWidth);
+    int y = randomFloat(0.0f, kHeight);
+    points.insert({ x, y });
+    path.moveTo(x, y);
+
+    for (int i = 1; i < kNumPoints; ++i) {
+      while (points.count({ x, y })) {
+        x = randomFloat(0.0f, kWidth);
+        y = randomFloat(0.0f, kHeight);
+      }
+      points.insert({ x, y });
+      path.lineTo(x, y);
+    }
+
+    path.triangulate();
+  }
+}*/
