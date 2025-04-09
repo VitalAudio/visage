@@ -30,10 +30,7 @@ namespace visage {
                    Point point, bool relative) {
     static constexpr float kPi = 3.14159265358979323846f;
 
-    if (current_path_.empty())
-      return;
-
-    Point p0 = current_path_.back();
+    Point p0 = lastPoint();
     if (relative)
       point += p0;
 
@@ -201,12 +198,15 @@ namespace visage {
       if (slope != other_slope)
         return slope < other_slope;
 
-      return to.x + from.x < other.to.x + other.from.x;
+      return to.y + from.y < other.to.y + other.from.y;
     }
 
     float sample(float position) const {
-      if (position == to.x || to.x == from.x)
+      if (position == to.x || to.x == from.x) {
+        if (position < from.x)
+          return from.y;
         return to.y;
+      }
 
       return from.y + (to.y - from.y) * (position - from.x) / (to.x - from.x);
     }
@@ -234,13 +234,20 @@ namespace visage {
   public:
     Path::Triangulation triangulate(const Path* path) {
       num_points_ = path->numPoints();
-      points_ = path->points();
-
       prev_edge_.reserve(num_points_);
       next_edge_.reserve(num_points_);
-      for (int i = 0; i < num_points_; ++i) {
-        prev_edge_.push_back((i + num_points_ - 1) % num_points_);
-        next_edge_.push_back((i + 1) % num_points_);
+
+      points_.reserve(num_points_);
+      int path_start = 0;
+      for (const auto& sub_path : path->subPaths()) {
+        int i = 0;
+        int sub_path_size = sub_path.size();
+        for (int i = 0; i < sub_path.size(); ++i) {
+          points_.push_back(sub_path[i]);
+          prev_edge_.push_back(path_start + ((i + sub_path_size - 1) % sub_path_size));
+          next_edge_.push_back(path_start + ((i + 1) % sub_path_size));
+        }
+        path_start += sub_path_size;
       }
 
       removeIntersections();
@@ -414,8 +421,10 @@ namespace visage {
       if (prev == next)
         return;
 
-      bool begin_area = point < prev && point < next;
-      bool end_area = prev < point && next < point;
+      float compare_prev = compareIndices(index, prev_index);
+      float compare_next = compareIndices(index, next_index);
+      bool begin_area = compare_prev < 0.0f && compare_next < 0.0f;
+      bool end_area = compare_prev > 0.0f && compare_next > 0.0f;
 
       auto area = std::lower_bound(areas.begin(), areas.end(), point, ScanLineArea::compare);
 
