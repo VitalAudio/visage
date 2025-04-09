@@ -106,15 +106,15 @@ int runExample() {
     float radius = 300.0f;
 
     path.clear();
-    path.moveTo(62.2793274, 48.9161758);
-    path.lineTo(45.0926628, 84.2278595);
-    path.lineTo(72.8265762, 82.5315933);
-    path.lineTo(53.3742180, 20.3975220);
-    path.lineTo(26.6854343, 65.3102036);
-    path.lineTo(92.9621124, 54.6855507);
+
+    // path.moveTo(5.77652073, 11.6435375);
+    // path.lineTo(66.2032089, 52.9795418);
+    // path.lineTo(38.3846359, 51.1438065);
+    // path.lineTo(94.0983429, 19.7032890);
+    // path.lineTo(2.88614821, 75.6742630);
     // path.scale(6.0f);
-    canvas.setColor(0xffffffff);
-    canvas.line(&path, 0, 0, app.width(), app.height(), 3.0f);
+    // canvas.setColor(0xffffffff);
+    // canvas.line(&path, 0, 0, app.width(), app.height(), 3.0f);
 
     // path.moveTo(center_x, center_y - radius);
     // std::complex<float> delta(cos(-2.0f * kPi * 2.0f / kStarPoints), sin(-2.0f * kPi * 2.0f / kStarPoints));
@@ -130,6 +130,23 @@ int runExample() {
     // path.parseSvgPath("M9 3.881v-3.881l6 6-6 6v-3.966c-6.98-0.164-6.681 4.747-4.904 "
     //                   "7.966-4.386-4.741-3.455-12.337 4.904-12.119z");
     // path.scale(40.0f);
+    path.moveTo(400, 300);
+    path.lineTo(400, 10);
+    path.lineTo(800, 300);
+    path.closePath();
+
+    path.moveTo(50, 50);
+    path.lineTo(1001, 49);
+    path.lineTo(1000, 101);
+    path.closePath();
+
+    // path.moveTo(101, 10);
+    // path.lineTo(300, 10);
+    // path.lineTo(301, 200);
+    // path.lineTo(100, 200);
+
+    canvas.setColor(0xffffffff);
+    canvas.line(&path, 0, 0, app.width(), app.height(), 3.0f);
 
     visage::Path::Triangulation tri = path.triangulate();
     for (int i = 0; i < tri.triangles.size() / 3; ++i) {
