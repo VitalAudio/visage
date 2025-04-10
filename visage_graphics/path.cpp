@@ -428,7 +428,7 @@ namespace visage {
     }
 
     void addArea(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas, int index,
-                 Point point, int end_index1, Point end1, bool check_remove = true) {
+                 Point point, int end_index1, Point end1, bool check_remove = true) const {
       addArea(events, areas, ScanLineArea(index, points_[index], end_index1, end1), check_remove);
     }
 
@@ -461,7 +461,7 @@ namespace visage {
       addArea(events, areas, area2);
     }
 
-    void handlePointEvent(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas, int index) {
+    void handlePointEvent(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas, int index) const {
       Point point = points_[index];
       int prev_index = prev_edge_[index];
       int next_index = next_edge_[index];
