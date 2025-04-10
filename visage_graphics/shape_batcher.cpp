@@ -340,6 +340,9 @@ namespace visage {
 
   void submitLine(const LineWrapper& line_wrapper, const Layer& layer, int submit_pass) {
     int num_vertices = line_wrapper.numVertices();
+    if (num_vertices == 0)
+      return;
+
     if (bgfx::getAvailTransientVertexBuffer(num_vertices, LineVertex::layout()) != num_vertices)
       return;
 
@@ -420,6 +423,9 @@ namespace visage {
 
   void submitLineFill(const LineFillWrapper& line_fill_wrapper, const Layer& layer, int submit_pass) {
     int num_vertices = line_fill_wrapper.numVertices();
+    if (num_vertices == 0)
+      return;
+
     if (bgfx::getAvailTransientVertexBuffer(num_vertices, LineVertex::layout()) != num_vertices)
       return;
 
