@@ -19,8 +19,6 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
-
 #include "path.h"
 
 #include <set>
@@ -70,7 +68,7 @@ namespace visage {
     auto vectorAngle = [](float ux, float uy, float vx, float vy) -> float {
       float dot = ux * vx + uy * vy;
       float len = sqrtf((ux * ux + uy * uy) * (vx * vx + vy * vy));
-      float ang = acos(std::min(std::max(dot / len, -1.0f), 1.0f));
+      float ang = acos(std::clamp(dot / len, -1.0f, 1.0f));
       if (ux * vy - uy * vx < 0.0f)
         ang = -ang;
       return ang;
@@ -86,7 +84,7 @@ namespace visage {
       delta_theta += 2 * kPi;
 
     for (int i = 1; i <= kMaxCurveResolution; ++i) {
-      float t = theta1 + delta_theta * (float(i) / kMaxCurveResolution);
+      float t = theta1 + delta_theta * (static_cast<float>(i) / kMaxCurveResolution);
       float cos_t = cosf(t);
       float sin_t = sinf(t);
       float x = cos_phi * rx * cos_t - sin_phi * ry * sin_t + cx;
@@ -209,7 +207,7 @@ namespace visage {
           return to.y;
         float min = std::min(from.y, to.y);
         float max = std::max(from.y, to.y);
-        return std::max(min, std::min(max, position.y));
+        return std::clamp(position.y, min, max);
       }
       if (position.x == to.x)
         return to.y;
@@ -306,7 +304,7 @@ namespace visage {
       }
     }
 
-    float compareIndices(int a_index, int b_index) {
+    float compareIndices(int a_index, int b_index) const {
       float comp = points_[a_index].x - points_[b_index].x;
       int a_prev = a_index;
       int a_next = a_index;
@@ -339,7 +337,7 @@ namespace visage {
       return true;
     }
 
-    std::vector<int> sortedIndices() {
+    std::vector<int> sortedIndices() const {
       std::vector<int> sorted_indices;
       sorted_indices.resize(prev_edge_.size());
       std::iota(sorted_indices.begin(), sorted_indices.end(), 0);
@@ -379,7 +377,7 @@ namespace visage {
     }
 
     std::optional<IntersectionEvent> adjacentIntersection(std::set<ScanLineArea>& areas,
-                                                          std::set<ScanLineArea>::iterator it) {
+                                                          std::set<ScanLineArea>::iterator it) const {
       if (it == areas.end())
         return std::nullopt;
 
@@ -401,33 +399,37 @@ namespace visage {
     }
 
     void checkAddIntersection(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas,
-                              std::set<ScanLineArea>::iterator it) {
+                              std::set<ScanLineArea>::iterator it) const {
       auto intersection = adjacentIntersection(areas, it);
       if (intersection.has_value())
         events.insert(intersection.value());
     };
 
     void checkRemoveIntersection(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas,
-                                 std::set<ScanLineArea>::iterator it) {
+                                 std::set<ScanLineArea>::iterator it) const {
       auto intersection = adjacentIntersection(areas, it);
-      if (intersection.has_value())
+      if (intersection.has_value()) {
+        VISAGE_ASSERT(events.count(intersection.value()));
         events.erase(intersection.value());
+      }
     };
 
-    void addArea(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas, ScanLineArea area) {
-      auto adjacent = areas.lower_bound(area);
-      if (adjacent != areas.end() && adjacent != areas.begin())
-        checkRemoveIntersection(events, areas, std::prev(adjacent));
+    void addArea(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas,
+                 const ScanLineArea& area, bool check_remove = true) const {
+      if (check_remove) {
+        auto adjacent = areas.lower_bound(area);
+        if (adjacent != areas.end() && adjacent != areas.begin())
+          checkRemoveIntersection(events, areas, std::prev(adjacent));
+      }
 
       auto it = areas.insert(area).first;
-
       checkAddIntersection(events, areas, it);
       checkAddIntersection(events, areas, std::prev(it));
     }
 
     void addArea(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas, int index,
-                 Point point, int end_index1, Point end1) {
-      addArea(events, areas, ScanLineArea(index, points_[index], end_index1, end1));
+                 Point point, int end_index1, Point end1, bool check_remove = true) {
+      addArea(events, areas, ScanLineArea(index, points_[index], end_index1, end1), check_remove);
     }
 
     void handleIntersectionEvent(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas,
@@ -437,16 +439,25 @@ namespace visage {
       std::optional<std::pair<int, int>> broken = breakIntersection(a_from, e.a_to, b_from, e.b_to);
       VISAGE_ASSERT(broken.has_value());
 
-      areas.erase(ScanLineArea(a_from, points_[a_from], e.a_to, points_[e.a_to]));
+      ScanLineArea erase_area1(a_from, points_[a_from], e.a_to, points_[e.a_to]);
+      ScanLineArea erase_area2(b_from, points_[b_from], e.b_to, points_[e.b_to]);
+      if (erase_area2 < erase_area1)
+        std::swap(erase_area1, erase_area2);
+
+      auto erase1 = areas.find(erase_area1);
+      checkRemoveIntersection(events, areas, std::prev(erase1));
+      areas.erase(erase1);
       VISAGE_ASSERT(areas.size() % 2 == 1);
-      areas.erase(ScanLineArea(b_from, points_[b_from], e.b_to, points_[e.b_to]));
+
+      auto erase2 = areas.find(erase_area2);
+      checkRemoveIntersection(events, areas, erase2);
       VISAGE_ASSERT(areas.size() % 2 == 0);
 
       int a_index = connected(broken->first, e.a_to) ? broken->first : broken->second;
       int b_index = connected(broken->first, e.b_to) ? broken->first : broken->second;
       ScanLineArea area1(a_index, points_[a_index], e.a_to, points_[e.a_to]);
       ScanLineArea area2(b_index, points_[b_index], e.b_to, points_[e.b_to]);
-      addArea(events, areas, area1);
+      addArea(events, areas, area1, false);
       addArea(events, areas, area2);
     }
 
@@ -486,15 +497,16 @@ namespace visage {
       else {
         areas.erase(area);
         if (compareIndices(prev_index, next_index) < 0.0f)
-          addArea(events, areas, index, point, next_index, next);
+          addArea(events, areas, index, point, next_index, next, false);
         else
-          addArea(events, areas, index, point, prev_index, prev);
+          addArea(events, areas, index, point, prev_index, prev, false);
       }
 
       VISAGE_ASSERT(checkValidPolygons());
       VISAGE_ASSERT(areas.size() % 2 == 0);
     }
 
+    // Bentley-Ottmann algorithm for finding intersections
     void removeIntersections() {
       std::set<ScanLineArea> current_areas;
       auto sorted_indices = sortedIndices();
@@ -540,6 +552,7 @@ namespace visage {
       return new_index;
     }
 
+    // Seidel's algorithm for breaking simple polygon into monotonic polygons
     void breakIntoMonotonicPolygons() {
       std::map<ScanLineArea, int> current_areas;
       auto sorted_indices = sortedIndices();

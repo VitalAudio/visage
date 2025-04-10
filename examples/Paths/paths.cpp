@@ -87,13 +87,12 @@ int runExample() {
   // path.lineTo(301, 300);
   // path.lineTo(300, 200);
 
-  path.moveTo(148.934921, 316.650543);
-  path.lineTo(24.3060322, 193.408173);
-  path.lineTo(446.026733, 217.018295);
-  path.lineTo(52.0974693, 544.881226);
-  path.lineTo(285.841125, 4.64129734);
-  path.lineTo(551.393860, 125.010536);
-  path.lineTo(148.934921, 316.650543);
+  path.clear();
+  std::set<std::pair<int, int>> points;
+  float x = randomFloat(0.0f, app.width());
+  float y = randomFloat(0.0f, app.height());
+  points.insert({ x, y });
+  path.moveTo(x, y);
 
   // Star
 
@@ -156,38 +155,21 @@ int runExample() {
     // path.lineTo(301, 200);
     // path.lineTo(100, 200);
 
-    // path.clear();
-    // std::set<std::pair<int, int>> points;
-    // float x = randomFloat(0.0f, app.width());
-    // float y = randomFloat(0.0f, app.height());
-    // points.insert({ x, y });
-    // path.moveTo(x, y);
-    //
-    // for (int i = 1; i < 6; ++i) {
-    //   while (points.count({ x, y })) {
-    //     x = randomFloat(0.0f, app.width());
-    //     y = randomFloat(0.0f, app.height());
-    //   }
-    //   points.insert({ x, y });
-    //   path.lineTo(x, y);
-    // }
-    // app.redraw();
-
     canvas.setColor(0xffffffff);
     canvas.line(&path, 0, 0, app.width(), app.height(), 3.0f);
 
-    // visage::Path::Triangulation tri = path.triangulate();
-    // for (int i = 0; i < tri.triangles.size() / 3; ++i) {
-    //   int num = num_draw % (tri.triangles.size() / 3 + 1);
-    //   if (i >= colors.size())
-    //     colors.push_back(visage::Color(1.0f, randomFloat(), randomFloat(), randomFloat()));
-    //
-    //   canvas.setColor(colors[i]);
-    //   int index = i * 3;
-    //   canvas.triangle(tri.points[tri.triangles[index]].x, tri.points[tri.triangles[index]].y,
-    //                   tri.points[tri.triangles[index + 1]].x, tri.points[tri.triangles[index + 1]].y,
-    //                   tri.points[tri.triangles[index + 2]].x, tri.points[tri.triangles[index + 2]].y);
-    // }
+    visage::Path::Triangulation tri = path.triangulate();
+    for (int i = 0; i < tri.triangles.size() / 3; ++i) {
+      int num = num_draw % (tri.triangles.size() / 3 + 1);
+      if (i >= colors.size())
+        colors.push_back(visage::Color(1.0f, randomFloat(), randomFloat(), randomFloat()));
+
+      canvas.setColor(colors[i]);
+      int index = i * 3;
+      canvas.triangle(tri.points[tri.triangles[index]].x, tri.points[tri.triangles[index]].y,
+                      tri.points[tri.triangles[index + 1]].x, tri.points[tri.triangles[index + 1]].y,
+                      tri.points[tri.triangles[index + 2]].x, tri.points[tri.triangles[index + 2]].y);
+    }
   };
 
   app.onMouseMove() = [&](const visage::MouseEvent& e) { ratio = e.position.y / app.height(); };
