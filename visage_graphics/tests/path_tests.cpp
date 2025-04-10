@@ -178,18 +178,18 @@ TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
   REQUIRE(matchTriangles(star, expected));
 }
 
-/* Currently breaks with numerical precision issues
 TEST_CASE("Random path triangulation", "[graphics]") {
+  // TODO: This can fail (rarely) because of floating point precision
   static constexpr float kWidth = 10000.0f;
   static constexpr float kHeight = 10000.0f;
-  static constexpr int kNumPoints = 6;
-  static constexpr int kNumPaths = 1000;
+  static constexpr int kNumPoints = 10;
+  static constexpr int kNumPaths = 100;
 
   for (int p = 0; p < kNumPaths; ++p) {
     Path path;
     std::set<std::pair<int, int>> points;
-    int x = randomFloat(0.0f, kWidth);
-    int y = randomFloat(0.0f, kHeight);
+    float x = randomFloat(0.0f, kWidth);
+    float y = randomFloat(0.0f, kHeight);
     points.insert({ x, y });
     path.moveTo(x, y);
 
@@ -204,4 +204,4 @@ TEST_CASE("Random path triangulation", "[graphics]") {
 
     path.triangulate();
   }
-}*/
+}
