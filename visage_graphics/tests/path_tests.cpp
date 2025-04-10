@@ -98,8 +98,9 @@ TEST_CASE("Path triangulate single", "[graphics]") {
   path0.moveTo(0, 0);
   path0.lineTo(0, 1);
   path0.lineTo(1, 1);
-  Path::Triangulation triangulation = path0.triangulate();
-  REQUIRE(triangulation.triangles.size() == 3);
+  path0.reverse();
+  std::set<Triangle> expected = { Triangle(Point(0, 0), Point(0, 1), Point(1, 1)) };
+  REQUIRE(matchTriangles(path0, expected));
 }
 
 TEST_CASE("Path triangulate intersection", "[graphics]") {

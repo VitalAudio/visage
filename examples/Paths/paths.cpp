@@ -24,10 +24,10 @@
 #include <visage/app.h>
 #include <visage/graphics.h>
 
-inline float randomFloat() {
+inline float randomFloat(float min = 0.0f, float max = 1.0f) {
   static std::random_device random_device;
   static std::mt19937 generator(random_device());
-  std::uniform_real_distribution distribution(0.0f, 1.0f);
+  std::uniform_real_distribution distribution(min, max);
   return distribution(generator);
 }
 
@@ -87,15 +87,35 @@ int runExample() {
   // path.lineTo(301, 300);
   // path.lineTo(300, 200);
 
-  // path.moveTo(100, 300);
-  // path.lineTo(400, 500);
-  // path.lineTo(701, 100);
-  // path.lineTo(900, 400);
-  // path.lineTo(901, 100);
-  // path.lineTo(700, 400);
-  // path.lineTo(401, 100);
+  path.moveTo(148.934921, 316.650543);
+  path.lineTo(24.3060322, 193.408173);
+  path.lineTo(446.026733, 217.018295);
+  path.lineTo(52.0974693, 544.881226);
+  path.lineTo(285.841125, 4.64129734);
+  path.lineTo(551.393860, 125.010536);
+  path.lineTo(148.934921, 316.650543);
 
   // Star
+
+  app.onMouseDown() = [&](const visage::MouseEvent& e) {
+    path.clear();
+    num_draw++;
+    std::set<std::pair<int, int>> points;
+    float x = randomFloat(0.0f, app.width());
+    float y = randomFloat(0.0f, app.height());
+    points.insert({ x, y });
+    path.moveTo(x, y);
+
+    for (int i = 1; i < 6; ++i) {
+      while (points.count({ x, y })) {
+        x = randomFloat(0.0f, app.width());
+        y = randomFloat(0.0f, app.height());
+      }
+      points.insert({ x, y });
+      path.lineTo(x, y);
+    }
+    app.redraw();
+  };
 
   app.onDraw() = [&](visage::Canvas& canvas) {
     canvas.setColor(0xff000066);
@@ -104,8 +124,6 @@ int runExample() {
     float center_x = app.width() / 2.0f;
     float center_y = app.height() / 2.0f;
     float radius = 300.0f;
-
-    path.clear();
 
     // path.moveTo(5.77652073, 11.6435375);
     // path.lineTo(66.2032089, 52.9795418);
@@ -130,42 +148,46 @@ int runExample() {
     // path.parseSvgPath("M9 3.881v-3.881l6 6-6 6v-3.966c-6.98-0.164-6.681 4.747-4.904 "
     //                   "7.966-4.386-4.741-3.455-12.337 4.904-12.119z");
     // path.scale(40.0f);
-    path.moveTo(400, 300);
-    path.lineTo(400, 10);
-    path.lineTo(800, 300);
-    path.closePath();
 
-    path.moveTo(50, 50);
-    path.lineTo(1001, 49);
-    path.lineTo(1000, 101);
-    path.closePath();
+    // Intersecting triangles
 
     // path.moveTo(101, 10);
     // path.lineTo(300, 10);
     // path.lineTo(301, 200);
     // path.lineTo(100, 200);
 
+    // path.clear();
+    // std::set<std::pair<int, int>> points;
+    // float x = randomFloat(0.0f, app.width());
+    // float y = randomFloat(0.0f, app.height());
+    // points.insert({ x, y });
+    // path.moveTo(x, y);
+    //
+    // for (int i = 1; i < 6; ++i) {
+    //   while (points.count({ x, y })) {
+    //     x = randomFloat(0.0f, app.width());
+    //     y = randomFloat(0.0f, app.height());
+    //   }
+    //   points.insert({ x, y });
+    //   path.lineTo(x, y);
+    // }
+    // app.redraw();
+
     canvas.setColor(0xffffffff);
     canvas.line(&path, 0, 0, app.width(), app.height(), 3.0f);
 
-    visage::Path::Triangulation tri = path.triangulate();
-    for (int i = 0; i < tri.triangles.size() / 3; ++i) {
-      int num = num_draw % (tri.triangles.size() / 3 + 1);
-      if (i >= colors.size())
-        colors.push_back(visage::Color(1.0f, randomFloat(), randomFloat(), randomFloat()));
-
-      canvas.setColor(colors[i]);
-      int index = i * 3;
-      canvas.triangle(tri.points[tri.triangles[index]].x, tri.points[tri.triangles[index]].y,
-                      tri.points[tri.triangles[index + 1]].x, tri.points[tri.triangles[index + 1]].y,
-                      tri.points[tri.triangles[index + 2]].x, tri.points[tri.triangles[index + 2]].y);
-    }
-    app.redraw();
-  };
-
-  app.onMouseDown() = [&](const visage::MouseEvent& e) {
-    num_draw++;
-    app.redraw();
+    // visage::Path::Triangulation tri = path.triangulate();
+    // for (int i = 0; i < tri.triangles.size() / 3; ++i) {
+    //   int num = num_draw % (tri.triangles.size() / 3 + 1);
+    //   if (i >= colors.size())
+    //     colors.push_back(visage::Color(1.0f, randomFloat(), randomFloat(), randomFloat()));
+    //
+    //   canvas.setColor(colors[i]);
+    //   int index = i * 3;
+    //   canvas.triangle(tri.points[tri.triangles[index]].x, tri.points[tri.triangles[index]].y,
+    //                   tri.points[tri.triangles[index + 1]].x, tri.points[tri.triangles[index + 1]].y,
+    //                   tri.points[tri.triangles[index + 2]].x, tri.points[tri.triangles[index + 2]].y);
+    // }
   };
 
   app.onMouseMove() = [&](const visage::MouseEvent& e) { ratio = e.position.y / app.height(); };
