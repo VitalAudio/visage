@@ -614,7 +614,8 @@ namespace visage {
 
 - (void)windowOcclusionChanged:(NSNotification*)notification {
   NSWindow* window = notification.object;
-  self.visage_window->setVisible(window.occlusionState & NSWindowOcclusionStateVisible);
+  if (self.visage_window)
+    self.visage_window->setVisible(window.occlusionState & NSWindowOcclusionStateVisible);
 }
 
 - (std::vector<std::string>)dropFileList:(id<NSDraggingInfo>)sender {
@@ -961,7 +962,7 @@ namespace visage {
   }
 
   void WindowMac::hide() {
-    if (window_handle_) {
+    if (window_handle_ && parent_view_ == nullptr) {
       [window_handle_ orderOut:nil];
       notifyHide();
     }
