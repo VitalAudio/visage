@@ -496,9 +496,10 @@ namespace visage {
     LineVertex* line_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
     uint16_t* indices = reinterpret_cast<uint16_t*>(index_buffer.data);
 
+    float scale = path_fill_wrapper.scale;
     for (int i = 0; i < num_vertices; ++i) {
-      line_data[i].x = path_fill_wrapper.triangulation.points[i].x;
-      line_data[i].y = path_fill_wrapper.triangulation.points[i].y;
+      line_data[i].x = path_fill_wrapper.triangulation.points[i].x * scale;
+      line_data[i].y = path_fill_wrapper.triangulation.points[i].y * scale;
       line_data[i].fill = 0.5f;
       line_data[i].value = 0.0f;
     }

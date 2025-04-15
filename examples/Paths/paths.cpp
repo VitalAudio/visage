@@ -81,11 +81,11 @@ int runExample() {
   std::vector<visage::Color> colors;
   visage::Path path;
 
-  path.moveTo(34.3214836, 553.355164);
-  path.lineTo(772.289001, 559.124390);
-  path.lineTo(542.298035, 122.156006);
-  path.lineTo(526.498108, 282.228333);
-  path.lineTo(612.932434, 234.620361);
+  path.moveTo(-40, -40);
+  path.lineTo(40, -40);
+  path.lineTo(40, 40);
+  path.lineTo(-40, 40);
+  path.close();
 
   // path.parseSvgPath("M0,-100 L23.5,-31 L95.1,-30.9 L38.2,11.8 L58.8,81.2 L0,45 L-58.8,81.2 "
   //                   "L-38.2,11.8 L-95.1,-30.9 L-23.5,-31 Z");
@@ -95,13 +95,20 @@ int runExample() {
   // path.lineTo(-20, 20);
   // path.close();
 
+  path.scale(5.0f);
+  path.translate(800, 800);
+
   app.onDraw() = [&](visage::Canvas& canvas) {
     canvas.setColor(0xff662244);
     canvas.fill(0, 0, app.width(), app.height());
+    path.clear();
+    path.moveTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
+    for (int i = 0; i < 5; ++i) {
+      path.lineTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
+    }
 
     canvas.setColor(0xffffffff);
     canvas.fill(&path, 0, 0, app.width(), app.height());
-    canvas.line(&path, 0, 0, app.width(), app.height(), 3.0f);
     app.redraw();
   };
 
