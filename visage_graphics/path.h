@@ -27,26 +27,31 @@
 #include <string>
 
 namespace visage {
+  struct SubPath {
+    std::vector<Point> points;
+    std::vector<IPoint64> internals;
+    std::vector<float> values;
+  };
+
   class Path {
   public:
-    static std::optional<Point> findIntersection(Point start1, Point end1, Point start2, Point end2) {
-      if (start1 == start2 || end1 == end2)
-        return std::nullopt;
+    static constexpr int kMaxCurveResolution = 32;
+    static constexpr double kScale = 1LL << 10LL;
 
-      Point delta1 = end1 - start1;
-      Point delta2 = end2 - start2;
-      float det = delta1.cross(delta2);
-      if (det == 0.0f)
-        return std::nullopt;
+    static IPoint64 toInternal(const Point& point) {
+      return IPoint64(toInternal(point.x), toInternal(point.y));
+    }
 
-      Point start_delta = start2 - start1;
-      float t1 = start_delta.cross(delta2) / det;
-      float t2 = start_delta.cross(delta1) / det;
+    static int64_t toInternal(float value) {
+      return static_cast<int64_t>(static_cast<double>(value) * kScale);
+    }
 
-      if (t1 <= 0.0f || t2 <= 0.0f || t1 >= 1.0f || t2 >= 1.0f)
-        return std::nullopt;
+    static Point toOriginal(const IPoint64& point) {
+      return Point(toOriginal(point.x), toOriginal(point.y));
+    }
 
-      return start1 + delta1 * t1;
+    static float toOriginal(int64_t value) {
+      return static_cast<float>(static_cast<double>(value) * (1.0f / kScale));
     }
 
     struct Triangulation {
@@ -54,13 +59,13 @@ namespace visage {
       std::vector<int> triangles;
     };
 
-    static constexpr int kMaxCurveResolution = 32;
+    void setPointValue(float value) { current_value_ = value; }
 
     Point lastPoint() const {
-      if (paths_.empty() || paths_.back().empty())
+      if (paths_.empty() || paths_.back().points.empty())
         return Point(0.0f, 0.0f);
 
-      return paths_.back().back();
+      return paths_.back().points.back();
     }
 
     void moveTo(Point point, bool relative = false) {
@@ -101,9 +106,10 @@ namespace visage {
       smooth_control_point_ = {};
     }
 
-    void closePath() {
+    void close() {
       paths_.emplace_back();
       smooth_control_point_ = {};
+      current_value_ = 0.0f;
     }
 
     void quadraticTo(Point control, Point end, bool relative = false) {
@@ -180,16 +186,13 @@ namespace visage {
     int numPoints() const {
       int count = 0;
       for (const auto& path : paths_)
-        count += path.size();
+        count += path.internals.size();
       return count;
     }
 
-    const std::vector<std::vector<Point>>& subPaths() const { return paths_; }
+    const std::vector<SubPath>& subPaths() const { return paths_; }
 
-    void clear() {
-      paths_.clear();
-      values_.clear();
-    }
+    void clear() { paths_.clear(); }
 
     void parseSvgPath(const std::string& path);
     Triangulation triangulate() const;
@@ -201,10 +204,34 @@ namespace visage {
     }
 
     void scale(float mult) {
-      for (auto& path : paths_)
-        for (Point& point : path)
+      for (auto& path : paths_) {
+        path.internals.clear();
+        for (Point& point : path.points) {
           point *= mult;
+          path.internals.push_back(toInternal(point));
+        }
+      }
     }
+
+    Path translated(const Point& offset) const {
+      Path result = *this;
+      result.translate(offset);
+      return result;
+    }
+
+    Path translated(float x, float y) const { return translated(Point(x, y)); }
+
+    void translate(const Point& offset) {
+      for (auto& path : paths_) {
+        path.internals.clear();
+        for (Point& point : path.points) {
+          point += offset;
+          path.internals.push_back(toInternal(point));
+        }
+      }
+    }
+
+    void translate(float x, float y) { translate(Point(x, y)); }
 
     Path reversed() const {
       Path reversed_path = *this;
@@ -213,29 +240,34 @@ namespace visage {
     }
 
     void reverse() {
-      for (auto& path : paths_)
-        std::reverse(path.begin(), path.end());
+      for (auto& path : paths_) {
+        std::reverse(path.internals.begin(), path.internals.end());
+        std::reverse(path.points.begin(), path.points.end());
+        std::reverse(path.values.begin(), path.values.end());
+      }
     }
 
   private:
-    std::vector<Point>& currentPath() {
+    SubPath& currentPath() {
       if (paths_.empty())
         paths_.emplace_back();
       return paths_.back();
     }
 
     void addPoint(Point point) {
-      currentPath().push_back(point);
-      values_.push_back(0.0f);
+      currentPath().points.push_back(point);
+      currentPath().internals.push_back(toInternal(point));
+      currentPath().values.push_back(current_value_);
     }
 
     void addPoint(float x, float y) {
-      currentPath().emplace_back(x, y);
-      values_.push_back(0.0f);
+      currentPath().points.emplace_back(x, y);
+      currentPath().internals.push_back(toInternal(currentPath().points.back()));
+      currentPath().values.push_back(current_value_);
     }
 
-    std::vector<std::vector<Point>> paths_;
+    std::vector<SubPath> paths_;
     Point smooth_control_point_;
-    std::vector<float> values_ {};
+    float current_value_ = 0.0f;
   };
 }

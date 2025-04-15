@@ -435,6 +435,12 @@ namespace visage {
                              pixels(width), pixels(height), shader));
     }
 
+    template<typename T1, typename T2, typename T3, typename T4>
+    void fill(Path* line, const T1& x, const T2& y, const T3& width, const T4& height) {
+      addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
+                               pixels(width), pixels(height), line, state_.scale));
+    }
+
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
     void line(Path* line, const T1& x, const T2& y, const T3& width, const T4& height, const T5& line_width) {
       addShape(LineWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),

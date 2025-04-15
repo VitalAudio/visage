@@ -447,6 +447,25 @@ namespace visage {
     ImageAtlas* image_atlas = nullptr;
   };
 
+  struct PathFillWrapper : Shape<> {
+    VISAGE_CREATE_BATCH_ID
+    static constexpr int kLineVerticesPerPoint = 6;
+    static const EmbeddedFile& vertexShader();
+    static const EmbeddedFile& fragmentShader();
+
+    PathFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
+                    float width, float height, Path* path, float scale) :
+        Shape(batchId(), clamp, brush, x, y, width, height), path(path), scale(scale) {
+      triangulation = path->triangulate();
+    }
+
+    Path* path = nullptr;
+    float scale = 1.0f;
+    Path::Triangulation triangulation;
+
+    int numVertices() const { return triangulation.points.size(); }
+  };
+
   struct LineWrapper : Shape<> {
     VISAGE_CREATE_BATCH_ID
     static constexpr int kLineVerticesPerPoint = 6;
