@@ -28,84 +28,85 @@
 #include <vector>
 
 namespace visage {
-  struct IPoint {
-    int x = 0;
-    int y = 0;
+  template<typename T>
+  struct BasePoint {
+    T x = 0;
+    T y = 0;
 
-    IPoint() = default;
-    IPoint(int initial_x, int initial_y) : x(initial_x), y(initial_y) { }
+    BasePoint() = default;
+    BasePoint(T initial_x, T initial_y) : x(initial_x), y(initial_y) { }
+    template<typename Base>
+    explicit BasePoint(const BasePoint<Base>& other) {
+      x = other.x;
+      y = other.y;
+    }
 
-    IPoint operator+(const IPoint& other) const { return { x + other.x, y + other.y }; }
+    BasePoint& operator=(const BasePoint& other) {
+      x = other.x;
+      y = other.y;
+      return *this;
+    }
 
-    IPoint operator+=(const IPoint& other) {
+    BasePoint operator+(const BasePoint& other) const { return { x + other.x, y + other.y }; }
+    BasePoint operator+=(const BasePoint& other) {
       x += other.x;
       y += other.y;
       return *this;
     }
-
-    IPoint operator-(const IPoint& other) const { return { x - other.x, y - other.y }; }
-
-    IPoint operator-=(const IPoint& other) {
+    BasePoint operator-(const BasePoint& other) const { return { x - other.x, y - other.y }; }
+    BasePoint operator-=(const BasePoint& other) {
       x -= other.x;
       y -= other.y;
       return *this;
     }
 
-    bool operator==(const IPoint& other) const { return x == other.x && y == other.y; }
-    bool operator!=(const IPoint& other) const { return !(*this == other); }
+    T dot(const BasePoint& other) const { return x * other.x + y * other.y; }
+    T operator*(const BasePoint& other) const { return dot(other); }
 
-    int squareMagnitude() const { return x * x + y * y; }
-    float length() const { return sqrtf(x * x + y * y); }
-  };
-
-  struct Point {
-    float x = 0;
-    float y = 0;
-
-    Point() = default;
-    Point(float initial_x, float initial_y) : x(initial_x), y(initial_y) { }
-    explicit Point(const IPoint& point) : x(point.x), y(point.y) { }
-
-    IPoint round() const {
-      return { static_cast<int>(std::round(x)), static_cast<int>(std::round(y)) };
-    }
-
-    Point operator+(const Point& other) const { return { x + other.x, y + other.y }; }
-    Point operator+=(const Point& other) {
-      x += other.x;
-      y += other.y;
-      return *this;
-    }
-    Point operator-(const Point& other) const { return { x - other.x, y - other.y }; }
-    Point operator-=(const Point& other) {
-      x -= other.x;
-      y -= other.y;
-      return *this;
-    }
-
-    friend Point operator*(float scalar, const Point& point) {
-      return { point.x * scalar, point.y * scalar };
-    }
-    Point operator*(float scalar) const { return { x * scalar, y * scalar }; }
-    Point operator*=(float scalar) {
+    BasePoint operator*(T scalar) const { return { x * scalar, y * scalar }; }
+    BasePoint operator*=(T scalar) {
       x *= scalar;
       y *= scalar;
       return *this;
     }
-
-    Point operator+(const IPoint& other) const { return { x + other.x, y + other.y }; }
-    Point operator-(const IPoint& other) const { return { x - other.x, y - other.y }; }
-    bool operator==(const Point& other) const { return x == other.x && y == other.y; }
-    bool operator!=(const Point& other) const { return x != other.x || y != other.y; }
-    float operator*(const Point& other) const { return x * other.x + y * other.y; }
-    bool operator<(const Point& other) const {
-      return x < other.x || (x == other.x && y < other.y);
+    friend BasePoint operator*(T scalar, const BasePoint& point) {
+      return { point.x * scalar, point.y * scalar };
     }
 
-    float squareMagnitude() const { return x * x + y * y; }
-    float length() const { return sqrtf(squareMagnitude()); }
-    float cross(const Point& other) const { return x * other.y - y * other.x; }
+    BasePoint operator/(T scalar) const { return { x / scalar, y / scalar }; }
+    BasePoint operator/=(T scalar) {
+      x /= scalar;
+      y /= scalar;
+      return *this;
+    }
+    friend BasePoint operator/(T scalar, const BasePoint& point) {
+      return { point.x / scalar, point.y / scalar };
+    }
+
+    bool operator==(const BasePoint& other) const { return x == other.x && y == other.y; }
+    bool operator!=(const BasePoint& other) const { return !(*this == other); }
+    bool operator<(const BasePoint& other) const {
+      return x < other.x || (x == other.x && y < other.y);
+    }
+    T squareMagnitude() const { return x * x + y * y; }
+    double length() const { return sqrt(squareMagnitude()); }
+
+    T cross(const BasePoint& other) const { return x * other.y - y * other.x; }
+
+    auto round() const {
+      if constexpr (std::is_integral_v<T>)
+        return { x, y };
+      else if constexpr (std::is_same(v<T, float>::value))
+        return { static_cast<int>(std::round(x)), static_cast<int>(std::round(y)) };
+      else
+        return { static_cast<int64_t>(std::round(x)), static_cast<int64_t>(std::round(y)) };
+    }
   };
+
+  typedef BasePoint<int> IPoint;
+  typedef BasePoint<float> Point;
+  typedef BasePoint<double> DPoint;
+  typedef BasePoint<int64_t> IPoint64;
 
   class IBounds {
   public:
