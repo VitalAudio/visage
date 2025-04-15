@@ -121,6 +121,14 @@ target_include_directories(VisageGraphics
   ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+if(WIN32)
+  target_compile_definitions(VisageGraphics PRIVATE
+    WINVER=0x0A00
+    _WIN32_WINNT=0x0A00
+    NTDDI_VERSION=0x0A000000
+  )
+endif()
+
 target_include_directories(VisageGraphics
   SYSTEM PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/
