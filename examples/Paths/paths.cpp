@@ -80,101 +80,32 @@ int runExample() {
 
   std::vector<visage::Color> colors;
   visage::Path path;
-  // path.moveTo(100, 400);
-  // path.lineTo(400, 400);
-  // path.lineTo(401, 100);
-  // path.lineTo(101, 100);
-  // path.lineTo(301, 300);
-  // path.lineTo(300, 200);
 
-  path.clear();
-  std::set<std::pair<int, int>> points;
-  float x = randomFloat(0.0f, app.width());
-  float y = randomFloat(0.0f, app.height());
-  points.insert({ x, y });
-  path.moveTo(x, y);
+  path.moveTo(34.3214836, 553.355164);
+  path.lineTo(772.289001, 559.124390);
+  path.lineTo(542.298035, 122.156006);
+  path.lineTo(526.498108, 282.228333);
+  path.lineTo(612.932434, 234.620361);
 
-  // Star
+  // path.parseSvgPath("M0,-100 L23.5,-31 L95.1,-30.9 L38.2,11.8 L58.8,81.2 L0,45 L-58.8,81.2 "
+  //                   "L-38.2,11.8 L-95.1,-30.9 L-23.5,-31 Z");
+  // path.moveTo(-20, -20);
+  // path.lineTo(20, -20);
+  // path.lineTo(20, 20);
+  // path.lineTo(-20, 20);
+  // path.close();
 
-  app.onMouseDown() = [&](const visage::MouseEvent& e) {
-    path.clear();
-    num_draw++;
-    std::set<std::pair<int, int>> points;
-    float x = randomFloat(0.0f, app.width());
-    float y = randomFloat(0.0f, app.height());
-    points.insert({ x, y });
-    path.moveTo(x, y);
+  app.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff662244);
+    canvas.fill(0, 0, app.width(), app.height());
 
-    for (int i = 1; i < 6; ++i) {
-      while (points.count({ x, y })) {
-        x = randomFloat(0.0f, app.width());
-        y = randomFloat(0.0f, app.height());
-      }
-      points.insert({ x, y });
-      path.lineTo(x, y);
-    }
+    canvas.setColor(0xffffffff);
+    canvas.fill(&path, 0, 0, app.width(), app.height());
+    canvas.line(&path, 0, 0, app.width(), app.height(), 3.0f);
     app.redraw();
   };
 
-  app.onDraw() = [&](visage::Canvas& canvas) {
-    canvas.setColor(0xff000066);
-    canvas.fill(0, 0, app.width(), app.height());
-
-    float center_x = app.width() / 2.0f;
-    float center_y = app.height() / 2.0f;
-    float radius = 300.0f;
-
-    // path.moveTo(5.77652073, 11.6435375);
-    // path.lineTo(66.2032089, 52.9795418);
-    // path.lineTo(38.3846359, 51.1438065);
-    // path.lineTo(94.0983429, 19.7032890);
-    // path.lineTo(2.88614821, 75.6742630);
-    // path.scale(6.0f);
-    // canvas.setColor(0xffffffff);
-    // canvas.line(&path, 0, 0, app.width(), app.height(), 3.0f);
-
-    // path.moveTo(center_x, center_y - radius);
-    // std::complex<float> delta(cos(-2.0f * kPi * 2.0f / kStarPoints), sin(-2.0f * kPi * 2.0f / kStarPoints));
-    // std::complex<float> position(0.0f, -1.0f);
-    //
-    // for (int i = 1; i < kStarPoints; ++i) {
-    //   position = position * delta;
-    //   path.lineTo(center_x + radius * position.real(), center_y + radius * position.imag());
-    // }
-
-    // path.reverse();
-
-    // path.parseSvgPath("M9 3.881v-3.881l6 6-6 6v-3.966c-6.98-0.164-6.681 4.747-4.904 "
-    //                   "7.966-4.386-4.741-3.455-12.337 4.904-12.119z");
-    // path.scale(40.0f);
-
-    // Intersecting triangles
-
-    // path.moveTo(101, 10);
-    // path.lineTo(300, 10);
-    // path.lineTo(301, 200);
-    // path.lineTo(100, 200);
-
-    canvas.setColor(0xffffffff);
-    canvas.line(&path, 0, 0, app.width(), app.height(), 3.0f);
-
-    visage::Path::Triangulation tri = path.triangulate();
-    for (int i = 0; i < tri.triangles.size() / 3; ++i) {
-      int num = num_draw % (tri.triangles.size() / 3 + 1);
-      if (i >= colors.size())
-        colors.push_back(visage::Color(1.0f, randomFloat(), randomFloat(), randomFloat()));
-
-      canvas.setColor(colors[i]);
-      int index = i * 3;
-      canvas.triangle(tri.points[tri.triangles[index]].x, tri.points[tri.triangles[index]].y,
-                      tri.points[tri.triangles[index + 1]].x, tri.points[tri.triangles[index + 1]].y,
-                      tri.points[tri.triangles[index + 2]].x, tri.points[tri.triangles[index + 2]].y);
-    }
-  };
-
-  app.onMouseMove() = [&](const visage::MouseEvent& e) { ratio = e.position.y / app.height(); };
-
-  app.setTitle("Visage Basic Example");
+  app.setTitle("Visage Paths Example");
   app.show(800, 600);
   app.runEventLoop();
   return 0;

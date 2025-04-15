@@ -104,6 +104,7 @@ namespace visage {
   void submitShapes(const Layer& layer, const EmbeddedFile& vertex_shader,
                     const EmbeddedFile& fragment_shader, int submit_pass);
 
+  void submitPathFill(const PathFillWrapper& path_fill_wrapper, const Layer& layer, int submit_pass);
   void submitLine(const LineWrapper& line_wrapper, const Layer& layer, int submit_pass);
   void submitLineFill(const LineFillWrapper& line_fill_wrapper, const Layer& layer, int submit_pass);
   void submitImages(const BatchVector<ImageWrapper>& batches, const Layer& layer, int submit_pass);
@@ -150,6 +151,20 @@ namespace visage {
 
     setBlendMode(state);
     submitShapes(layer, T::vertexShader(), T::fragmentShader(), submit_pass);
+  }
+
+  template<>
+  inline void submitShapes<PathFillWrapper>(const BatchVector<PathFillWrapper>& batches,
+                                            BlendMode state, Layer& layer, int submit_pass) {
+    for (const auto& batch : batches) {
+      for (const PathFillWrapper& path_wrapper : *batch.shapes) {
+        PathFillWrapper path = path_wrapper;
+        path.x = batch.x + path_wrapper.x;
+        path.y = batch.y + path_wrapper.y;
+        setBlendMode(state);
+        submitPathFill(path, layer, submit_pass);
+      }
+    }
   }
 
   template<>
