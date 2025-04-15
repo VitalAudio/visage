@@ -220,7 +220,17 @@ namespace visage {
       if (cross)
         return cross > 0;
 
-      return to.y + from.y < other.to.y + other.from.y;
+      if (to.y != other.to.y)
+        return to.y < other.to.y;
+      if (from.y != other.from.y)
+        return from.y < other.from.y;
+      if (to.x != other.to.x)
+        return to.x < other.to.x;
+      if (from.x != other.from.x)
+        return from.x < other.from.x;
+      if (from_index != other.from_index)
+        return from_index < other.from_index;
+      return to_index < other.to_index;
     }
 
     int64_t sample(IPoint64 position) const {
@@ -342,16 +352,19 @@ namespace visage {
 
       while (comp == 0) {
         a_next = next_edge_[a_next];
-        if (a_next == a_prev || a_next == prev_edge_[a_prev])
-          return 0;
         a_prev = prev_edge_[a_prev];
 
         b_next = next_edge_[b_next];
         b_prev = prev_edge_[b_prev];
 
         comp = points_[a_next].x + points_[a_prev].x - points_[b_next].x - points_[b_prev].x;
+
+        if (next_edge_[a_next] == a_prev || next_edge_[a_next] == prev_edge_[a_prev])
+          break;
       }
-      return comp;
+      if (comp)
+        return comp;
+      return a_index - b_index;
     }
 
     bool checkValidPolygons() const {
@@ -485,6 +498,7 @@ namespace visage {
       ScanLineArea area2(b_index, points_[b_index], e.b_to, points_[e.b_to]);
       addArea(events, areas, area1, false);
       addArea(events, areas, area2);
+      VISAGE_ASSERT(areas.size() % 2 == 0);
     }
 
     void handlePointEvent(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas,
@@ -579,7 +593,7 @@ namespace visage {
       return new_index;
     }
 
-    // Seidel's algorithm for breaking simple polygon into monotonic polygons
+    // Seidel's algorithm for breaking simple polygons into monotonic polygons
     void breakIntoMonotonicPolygons() {
       std::map<ScanLineArea, int> current_areas;
       auto sorted_indices = sortedIndices();
@@ -590,8 +604,6 @@ namespace visage {
         int next_index = next_edge_[index];
         IPoint64 prev = points_[prev_index];
         IPoint64 next = points_[next_index];
-        if (prev == next)
-          continue;
 
         int64_t compare_prev = compareIndices(index, prev_index);
         int64_t compare_next = compareIndices(index, next_index);
