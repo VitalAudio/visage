@@ -41,6 +41,7 @@ namespace visage {
     };
     static constexpr int kBitsPerColor = 8;
     static constexpr float kFloatScale = 1.0f / 0xff;
+    static constexpr float kFloatScale16 = 1.0f / 0xffff;
     static constexpr float kHueRange = 360.0f;
     static constexpr float kGradientNormalization = 64.0f;
 
@@ -98,13 +99,13 @@ namespace visage {
       return result;
     }
 
-    static Color fromABGR16(uint16_t abgr) {
+    static Color fromABGR16(uint64_t abgr) {
       Color result;
       result.loadABGR16(abgr);
       return result;
     }
 
-    static Color fromARGB16(uint16_t argb) {
+    static Color fromARGB16(uint64_t argb) {
       Color result;
       result.loadARGB16(argb);
       return result;
@@ -153,7 +154,7 @@ namespace visage {
     void loadARGB16(uint64_t abgr) {
       for (int i = 0; i < kNumChannels; ++i) {
         int shift = kBitsPerColor * i * 2;
-        values_[i] = ((abgr >> shift) & 0xffff) * kFloatScale;
+        values_[i] = ((abgr >> shift) & 0xffff) * kFloatScale16;
       }
     }
 
@@ -186,17 +187,17 @@ namespace visage {
     uint64_t toABGR16() const {
       float mult = hdr_ / kGradientNormalization;
       uint64_t value = floatToHex16(values_[kAlpha]) << (6 * kBitsPerColor);
-      value += floatToHex16(values_[kBlue] * mult) << (4 * kBitsPerColor);
-      value += floatToHex16(values_[kGreen] * mult) << (2 * kBitsPerColor);
-      return value + floatToHex16(values_[kRed] * mult);
+      value += floatToHex16(values_[kBlue]) << (4 * kBitsPerColor);
+      value += floatToHex16(values_[kGreen]) << (2 * kBitsPerColor);
+      return value + floatToHex16(values_[kRed]);
     }
 
     uint64_t toARGB16() const {
       float mult = hdr_ / kGradientNormalization;
       uint64_t value = floatToHex16(values_[kAlpha]) << (6 * kBitsPerColor);
-      value += floatToHex16(values_[kRed] * mult) << (4 * kBitsPerColor);
-      value += floatToHex16(values_[kGreen] * mult) << (2 * kBitsPerColor);
-      return value + floatToHex16(values_[kBlue] * mult);
+      value += floatToHex16(values_[kRed]) << (4 * kBitsPerColor);
+      value += floatToHex16(values_[kGreen]) << (2 * kBitsPerColor);
+      return value + floatToHex16(values_[kBlue]);
     }
 
     uint64_t toABGR16F() const {

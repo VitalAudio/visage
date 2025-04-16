@@ -68,6 +68,40 @@ TEST_CASE("String remove characters", "[utils]") {
   REQUIRE(test.removeCharacters("\n HeloAgain").toUtf8() == "\t\rWrd\r\t\r");
 }
 
+TEST_CASE("String upper/lower case conversion", "[utils]") {
+  String test = "Hello World 123!";
+  REQUIRE(test.toUpper().toUtf8() == "HELLO WORLD 123!");
+  REQUIRE(test.toLower().toUtf8() == "hello world 123!");
+}
+
+TEST_CASE("String comparison operators", "[utils]") {
+  String a = "abc";
+  String b = "abc";
+  String c = "def";
+
+  REQUIRE(bool(a == b));
+  REQUIRE(bool(a != c));
+  REQUIRE(bool(a < c));
+  REQUIRE(bool(a <= b));
+  REQUIRE(bool(a <= c));
+  REQUIRE(bool(c > a));
+  REQUIRE(bool(c >= a));
+  REQUIRE(bool(b >= a));
+}
+
+TEST_CASE("String contains and endsWith", "[utils]") {
+  String test = "Hello World";
+
+  REQUIRE(test.contains("Hello"));
+  REQUIRE(test.contains("World"));
+  REQUIRE(test.contains(" "));
+  REQUIRE_FALSE(test.contains("goodbye"));
+
+  REQUIRE(test.endsWith("World"));
+  REQUIRE(test.endsWith('d'));
+  REQUIRE_FALSE(test.endsWith("Hello"));
+}
+
 TEST_CASE("String numerical precision", "[utils]") {
   String test1 = "0.123456";
   REQUIRE(test1.withPrecision(0).toUtf8() == "0");

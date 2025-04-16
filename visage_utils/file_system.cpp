@@ -47,14 +47,29 @@ static visage::File xdgFolder(const char* env_var, const char* default_folder) {
 #endif
 
 namespace visage {
-  void replaceFileWithData(const File& file, const char* data, size_t size) {
+  bool replaceFileWithData(const File& file, const char* data, size_t size) {
     std::ofstream stream(file, std::ios::binary);
+    if (!stream)
+      return false;
+
     stream.write(data, size);
+
+    if (stream.fail())
+      return false;
+
+    return true;
   }
 
-  void replaceFileWithText(const File& file, const std::string& text) {
+  bool replaceFileWithText(const File& file, const std::string& text) {
     std::ofstream stream(file);
+    if (!stream)
+      return false;
+
     stream << text;
+    if (stream.fail())
+      return false;
+
+    return true;
   }
 
   bool hasWriteAccess(const File& file) {
@@ -66,9 +81,16 @@ namespace visage {
     return std::filesystem::exists(file);
   }
 
-  void appendTextToFile(const File& file, const std::string& text) {
+  bool appendTextToFile(const File& file, const std::string& text) {
     std::ofstream stream(file, std::ios::app);
+    if (!stream)
+      return false;
+
     stream << text;
+    if (stream.fail())
+      return false;
+
+    return true;
   }
 
   std::unique_ptr<char[]> loadFileData(const File& file, int& size) {
