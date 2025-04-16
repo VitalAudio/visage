@@ -24,29 +24,6 @@
 #include <set>
 
 namespace visage {
-  static std::optional<IPoint64> findIntersection(IPoint64 start1, IPoint64 end1, IPoint64 start2,
-                                                  IPoint64 end2) {
-    if (start1 == start2 || end1 == end2)
-      return std::nullopt;
-
-    IPoint64 delta1 = end1 - start1;
-    IPoint64 delta2 = end2 - start2;
-    int64_t det = delta1.cross(delta2);
-    if (det == 0)
-      return std::nullopt;
-
-    IPoint64 start_delta = start2 - start1;
-    int64_t amount1 = start_delta.cross(delta2);
-    int64_t amount2 = start_delta.cross(delta1);
-    auto min = std::min(0LL, det);
-    auto max = std::max(0LL, det);
-
-    if (amount1 < min || amount2 < min || amount1 > max || amount2 > max)
-      return std::nullopt;
-
-    return start1 + (delta1 * amount1) / det;
-  }
-
   void Path::arcTo(float rx, float ry, float x_axis_rotation, bool large_arc, bool sweep_flag,
                    Point point, bool relative) {
     static constexpr float kPi = 3.14159265358979323846f;
@@ -200,23 +177,23 @@ namespace visage {
   }
 
   struct ScanLineArea {
-    static bool compare(const ScanLineArea& area, IPoint64 point) {
+    static bool compare(const ScanLineArea& area, DPoint point) {
       return area.sample(point) < point.y;
     }
 
-    ScanLineArea(int from_index, IPoint64 from, int to_index, IPoint64 to, bool above_fill = false) :
+    ScanLineArea(int from_index, DPoint from, int to_index, DPoint to, bool above_fill = false) :
         from_index(from_index), from(from), to_index(to_index), to(to), above_fill(above_fill) { }
 
     bool operator<(const ScanLineArea& other) const {
-      IPoint64 position = from.x > other.from.x ? from : other.from;
-      int64_t sample1 = sample(position);
-      int64_t sample2 = other.sample(position);
+      double position = from.x > other.from.x ? from.x : other.from.x;
+      double sample1 = sample({ position, from.y });
+      double sample2 = other.sample({ position, other.from.y });
       if (sample1 != sample2)
         return sample1 < sample2;
 
-      IPoint64 delta = to - from;
-      IPoint64 other_delta = other.to - other.from;
-      int64_t cross = delta.cross(other_delta);
+      DPoint delta = to - from;
+      DPoint other_delta = other.to - other.from;
+      double cross = delta.cross(other_delta);
       if (cross)
         return cross > 0;
 
@@ -233,14 +210,14 @@ namespace visage {
       return to_index < other.to_index;
     }
 
-    int64_t sample(IPoint64 position) const {
+    double sample(DPoint position) const {
       if (to.x == from.x) {
         if (position.x < from.x)
           return from.y;
         if (position.x > from.x)
           return to.y;
-        int64_t min = std::min(from.y, to.y);
-        int64_t max = std::max(from.y, to.y);
+        double min = std::min(from.y, to.y);
+        double max = std::max(from.y, to.y);
         return std::clamp(position.y, min, max);
       }
       if (position.x == to.x)
@@ -248,19 +225,19 @@ namespace visage {
       if (position.x == from.x)
         return from.y;
 
-      IPoint64 delta = to - from;
+      DPoint delta = to - from;
       return from.y + (delta.y * (position.x - from.x)) / delta.x;
     }
 
     int from_index;
-    IPoint64 from;
+    DPoint from;
     int to_index;
-    IPoint64 to;
+    DPoint to;
     bool above_fill;
   };
 
   struct IntersectionEvent {
-    IPoint64 point;
+    DPoint point;
     int a_to;
     bool a_forward;
     int b_to;
@@ -285,9 +262,9 @@ namespace visage {
       points_.reserve(num_points_);
       int path_start = 0;
       for (const auto& sub_path : path->subPaths()) {
-        int sub_path_size = sub_path.internals.size();
-        for (int i = 0; i < sub_path.internals.size(); ++i) {
-          points_.push_back(sub_path.internals[i]);
+        int sub_path_size = sub_path.points.size();
+        for (int i = 0; i < sub_path.points.size(); ++i) {
+          points_.emplace_back(sub_path.points[i]);
           prev_edge_.push_back(path_start + ((i + sub_path_size - 1) % sub_path_size));
           next_edge_.push_back(path_start + ((i + 1) % sub_path_size));
         }
@@ -299,12 +276,12 @@ namespace visage {
       Path::Triangulation result;
       result.triangles = breakIntoTriangles();
       for (const auto& point : points_)
-        result.points.push_back(Path::toOriginal(point));
+        result.points.emplace_back(point);
       return result;
     }
 
   private:
-    int addAdditionalPoint(IPoint64 point) {
+    int addAdditionalPoint(DPoint point) {
       points_.push_back(point);
       int new_index = points_.size() - 1;
       prev_edge_.push_back(new_index);
@@ -339,18 +316,21 @@ namespace visage {
       }
     }
 
-    int64_t compareIndices(int a_index, int b_index) const {
-      int64_t comp = points_[a_index].x - points_[b_index].x;
+    double compareIndices(int a_index, int b_index) const {
+      DPoint delta = points_[a_index] - points_[b_index];
+      if (delta.x)
+        return delta.x;
+      if (delta.y)
+        return delta.y;
+
       int a_prev = a_index;
       int a_next = a_index;
       int b_prev = b_index;
       int b_next = b_index;
 
-      int64_t y_comp = points_[a_index].y - points_[b_index].y;
-      if (comp == 0 && y_comp)
-        return y_comp;
+      double comp = 0.0;
 
-      while (comp == 0) {
+      while (comp == 0.0) {
         a_next = next_edge_[a_next];
         a_prev = prev_edge_[a_prev];
 
@@ -381,18 +361,18 @@ namespace visage {
       std::iota(sorted_indices.begin(), sorted_indices.end(), 0);
 
       std::sort(sorted_indices.begin(), sorted_indices.end(),
-                [this](const int a, const int b) { return compareIndices(a, b) < 0; });
+                [this](const int a, const int b) { return compareIndices(a, b) < 0.0; });
       return sorted_indices;
     }
 
     std::optional<std::pair<int, int>> breakIntersection(int start_index1, int end_index1,
                                                          int start_index2, int end_index2) {
-      IPoint64 start1 = points_[start_index1];
-      IPoint64 end1 = points_[end_index1];
-      IPoint64 start2 = points_[start_index2];
-      IPoint64 end2 = points_[end_index2];
+      DPoint start1 = points_[start_index1];
+      DPoint end1 = points_[end_index1];
+      DPoint start2 = points_[start_index2];
+      DPoint end2 = points_[end_index2];
 
-      std::optional<IPoint64> intersection = findIntersection(start1, end1, start2, end2);
+      std::optional<DPoint> intersection = Path::findIntersection(start1, end1, start2, end2);
       VISAGE_ASSERT(intersection.has_value());
       if (!intersection.has_value())
         return std::nullopt;
@@ -423,7 +403,7 @@ namespace visage {
       if (next == areas.end())
         return std::nullopt;
 
-      auto intersection = findIntersection(it->from, it->to, next->from, next->to);
+      auto intersection = Path::findIntersection(it->from, it->to, next->from, next->to);
       if (!intersection.has_value())
         return std::nullopt;
 
@@ -466,7 +446,7 @@ namespace visage {
     }
 
     void addArea(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas, int index,
-                 IPoint64 point, int end_index1, IPoint64 end1, bool check_remove = true) const {
+                 DPoint point, int end_index1, DPoint end1, bool check_remove = true) const {
       addArea(events, areas, ScanLineArea(index, points_[index], end_index1, end1), check_remove);
     }
 
@@ -503,19 +483,19 @@ namespace visage {
 
     void handlePointEvent(std::set<IntersectionEvent>& events, std::set<ScanLineArea>& areas,
                           int index) const {
-      IPoint64 point = points_[index];
+      DPoint point = points_[index];
       int prev_index = prev_edge_[index];
       int next_index = next_edge_[index];
-      IPoint64 prev = points_[prev_index];
-      IPoint64 next = points_[next_index];
+      DPoint prev = points_[prev_index];
+      DPoint next = points_[next_index];
 
       if (prev == next)
         return;
 
-      int64_t compare_prev = compareIndices(index, prev_index);
-      int64_t compare_next = compareIndices(index, next_index);
-      bool begin_area = compare_prev < 0 && compare_next < 0;
-      bool end_area = compare_prev > 0 && compare_next > 0;
+      double compare_prev = compareIndices(index, prev_index);
+      double compare_next = compareIndices(index, next_index);
+      bool begin_area = compare_prev < 0.0 && compare_next < 0.0;
+      bool end_area = compare_prev > 0.0 && compare_next > 0.0;
 
       auto area = std::lower_bound(areas.begin(), areas.end(), point, ScanLineArea::compare);
 
@@ -537,7 +517,7 @@ namespace visage {
       }
       else {
         areas.erase(area);
-        if (compareIndices(prev_index, next_index) < 0)
+        if (compareIndices(prev_index, next_index) < 0.0)
           addArea(events, areas, index, point, next_index, next, false);
         else
           addArea(events, areas, index, point, prev_index, prev, false);
@@ -596,42 +576,55 @@ namespace visage {
     // Seidel's algorithm for breaking simple polygons into monotonic polygons
     void breakIntoMonotonicPolygons() {
       std::map<ScanLineArea, int> current_areas;
-      auto sorted_indices = sortedIndices();
+      auto indices = sortedIndices();
+      std::set<int> merge_vertices;
 
-      for (int index : sorted_indices) {
-        IPoint64 point = points_[index];
+      for (int index : indices) {
+        DPoint point = points_[index];
         int prev_index = prev_edge_[index];
         int next_index = next_edge_[index];
-        IPoint64 prev = points_[prev_index];
-        IPoint64 next = points_[next_index];
+        if (index == next_index || prev_index == next_index)
+          continue;
 
-        int64_t compare_prev = compareIndices(index, prev_index);
-        int64_t compare_next = compareIndices(index, next_index);
-        bool begin_area = compare_prev < 0 && compare_next < 0;
-        bool end_area = compare_prev > 0 && compare_next > 0;
+        DPoint prev = points_[prev_index];
+        DPoint next = points_[next_index];
+
+        double compare_prev = compareIndices(index, prev_index);
+        double compare_next = compareIndices(index, next_index);
+        bool begin_area = compare_prev < 0.0 && compare_next < 0.0;
+        bool end_area = compare_prev > 0.0 && compare_next > 0.0;
 
         auto area = std::lower_bound(current_areas.begin(), current_areas.end(), point,
-                                     [](const auto& pair, const IPoint64& p) {
+                                     [](const auto& pair, const DPoint& p) {
                                        return ScanLineArea::compare(pair.first, p);
                                      });
 
         if (!begin_area) {
+          while (area != current_areas.end() && area->first.to_index != index)
+            ++area;
+
           if (area != current_areas.end() && area->first.above_fill) {
-            if (merge_vertices_.count(area->second))
+            if (merge_vertices.count(area->second))
               addDiagonal(index, area->second);
           }
         }
 
         if (begin_area) {
           bool start_hole = area != current_areas.end() && !area->first.above_fill;
-          bool convex = (prev - point).cross(next - point) > 0;
+          bool convex = (prev - point).cross(next - point) > 0.0;
           if (start_hole == convex)
             reverseCycle(index);
 
           int diagonal_index = index;
 
-          if (start_hole)
+          if (start_hole) {
             diagonal_index = addDiagonal(index, area->second);
+            if (area != current_areas.end())
+              area->second = index;
+            area = std::prev(area);
+            if (area != current_areas.end())
+              area->second = diagonal_index;
+          }
 
           auto area1 = ScanLineArea(index, point, prev_index, prev, !start_hole);
           auto area2 = ScanLineArea(diagonal_index, point, next_index, next, start_hole);
@@ -654,12 +647,10 @@ namespace visage {
           if (area != current_areas.end() && !area->first.above_fill) {
             area->second = index;
             std::prev(area)->second = index;
-            merge_vertices_.insert(index);
+            merge_vertices.insert(index);
           }
         }
         else {
-          while (area != current_areas.end() && area->first.to_index != index)
-            ++area;
           if (area == current_areas.end()) {
             VISAGE_ASSERT(false);
             return;
@@ -667,7 +658,7 @@ namespace visage {
           bool above_fill = area->first.above_fill;
           current_areas.erase(area);
 
-          if (compareIndices(prev_index, next_index) < 0)
+          if (compareIndices(prev_index, next_index) < 0.0)
             current_areas[ScanLineArea(index, point, next_index, next, above_fill)] = index;
           else
             current_areas[ScanLineArea(index, point, prev_index, prev, above_fill)] = index;
@@ -689,15 +680,15 @@ namespace visage {
       if (intermediate_index == index || target_index == index)
         return false;
 
-      IPoint64 start = points_[index];
-      IPoint64 intermediate = points_[intermediate_index];
-      IPoint64 target = points_[target_index];
+      DPoint start = points_[index];
+      DPoint intermediate = points_[intermediate_index];
+      DPoint target = points_[target_index];
 
       if (start < intermediate || start < target)
         return false;
 
-      int64_t cross = (intermediate - start).cross(target - intermediate);
-      if ((cross < 0) != forward && cross)
+      double cross = (intermediate - start).cross(target - intermediate);
+      if ((cross < 0.0) != forward && cross)
         return false;
 
       if (cross) {
@@ -732,8 +723,7 @@ namespace visage {
     }
 
     int num_points_ = 0;
-    std::vector<IPoint64> points_;
-    std::set<int> merge_vertices_;
+    std::vector<DPoint> points_;
     std::vector<int> prev_edge_;
     std::vector<int> next_edge_;
   };
