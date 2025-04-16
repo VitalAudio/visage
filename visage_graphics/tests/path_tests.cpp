@@ -166,20 +166,20 @@ TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
     Point start1 = star.subPaths()[0].points[(i + 2) % kStarPoints];
     Point end1 = star.subPaths()[0].points[(i + 3) % kStarPoints];
 
-    // auto intersection = Path::findIntersection(start, end, start1, end1);
-    // REQUIRE(intersection.has_value());
-    // intersections.push_back(intersection.value());
+    auto intersection = Path::findIntersection(start, end, start1, end1);
+    REQUIRE(intersection.has_value());
+    intersections.push_back(intersection.value());
   }
 
-  // std::set<Triangle> expected;
-  // for (int i = 0; i < kStarPoints; ++i)
-  //   expected.insert(Triangle(star.subPaths()[0][i], intersections[i], intersections[(i + 2) % kStarPoints]));
+  std::set<Triangle> expected;
+  for (int i = 0; i < kStarPoints; ++i)
+    expected.insert(Triangle(star.subPaths()[0].points[i], intersections[i],
+                             intersections[(i + 2) % kStarPoints]));
 
-  //REQUIRE(matchTriangles(star, expected));
+  REQUIRE(matchTriangles(star, expected));
 }
 
 TEST_CASE("Random path triangulation", "[graphics]") {
-  // TODO: This can fail (rarely) because of floating point precision
   static constexpr float kWidth = 10000.0f;
   static constexpr float kHeight = 10000.0f;
   static constexpr int kNumPoints = 10;

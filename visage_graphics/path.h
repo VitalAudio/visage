@@ -29,29 +29,32 @@
 namespace visage {
   struct SubPath {
     std::vector<Point> points;
-    std::vector<IPoint64> internals;
     std::vector<float> values;
   };
 
   class Path {
   public:
     static constexpr int kMaxCurveResolution = 32;
-    static constexpr double kScale = 1LL << 10LL;
 
-    static IPoint64 toInternal(const Point& point) {
-      return IPoint64(toInternal(point.x), toInternal(point.y));
-    }
+    template<typename T>
+    static std::optional<T> findIntersection(T start1, T end1, T start2, T end2) {
+      if (start1 == start2 || end1 == end2)
+        return std::nullopt;
 
-    static int64_t toInternal(float value) {
-      return static_cast<int64_t>(static_cast<double>(value) * kScale);
-    }
+      auto delta1 = end1 - start1;
+      auto delta2 = end2 - start2;
+      auto det = delta1.cross(delta2);
+      if (det == 0.0)
+        return std::nullopt;
 
-    static Point toOriginal(const IPoint64& point) {
-      return Point(toOriginal(point.x), toOriginal(point.y));
-    }
+      auto start_delta = start2 - start1;
+      auto t1 = start_delta.cross(delta2) / det;
+      auto t2 = start_delta.cross(delta1) / det;
 
-    static float toOriginal(int64_t value) {
-      return static_cast<float>(static_cast<double>(value) * (1.0f / kScale));
+      if (t1 < 0 || t2 < 0 || t1 > 1 || t2 > 1)
+        return std::nullopt;
+
+      return start1 + delta1 * t1;
     }
 
     struct Triangulation {
@@ -63,7 +66,7 @@ namespace visage {
 
     Point lastPoint() const {
       if (paths_.empty() || paths_.back().points.empty())
-        return Point(0.0f, 0.0f);
+        return { 0.0f, 0.0f };
 
       return paths_.back().points.back();
     }
@@ -186,7 +189,7 @@ namespace visage {
     int numPoints() const {
       int count = 0;
       for (const auto& path : paths_)
-        count += path.internals.size();
+        count += path.points.size();
       return count;
     }
 
@@ -205,11 +208,8 @@ namespace visage {
 
     void scale(float mult) {
       for (auto& path : paths_) {
-        path.internals.clear();
-        for (Point& point : path.points) {
+        for (Point& point : path.points)
           point *= mult;
-          path.internals.push_back(toInternal(point));
-        }
       }
     }
 
@@ -223,11 +223,8 @@ namespace visage {
 
     void translate(const Point& offset) {
       for (auto& path : paths_) {
-        path.internals.clear();
-        for (Point& point : path.points) {
+        for (Point& point : path.points)
           point += offset;
-          path.internals.push_back(toInternal(point));
-        }
       }
     }
 
@@ -241,7 +238,6 @@ namespace visage {
 
     void reverse() {
       for (auto& path : paths_) {
-        std::reverse(path.internals.begin(), path.internals.end());
         std::reverse(path.points.begin(), path.points.end());
         std::reverse(path.values.begin(), path.values.end());
       }
@@ -254,15 +250,13 @@ namespace visage {
       return paths_.back();
     }
 
-    void addPoint(Point point) {
+    void addPoint(const Point& point) {
       currentPath().points.push_back(point);
-      currentPath().internals.push_back(toInternal(point));
       currentPath().values.push_back(current_value_);
     }
 
     void addPoint(float x, float y) {
       currentPath().points.emplace_back(x, y);
-      currentPath().internals.push_back(toInternal(currentPath().points.back()));
       currentPath().values.push_back(current_value_);
     }
 
