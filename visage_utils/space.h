@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 namespace visage {
@@ -96,7 +97,7 @@ namespace visage {
     auto round() const {
       if constexpr (std::is_integral_v<T>)
         return { x, y };
-      else if constexpr (std::is_same(v<T, float>::value))
+      else if constexpr (std::is_same_v<T, float>)
         return { static_cast<int>(std::round(x)), static_cast<int>(std::round(y)) };
       else
         return { static_cast<int64_t>(std::round(x)), static_cast<int64_t>(std::round(y)) };
@@ -251,8 +252,6 @@ namespace visage {
     // Create nonoverlapping rectangles that cover the same area as _rect1_ and _rect2_.
     // Input bounds are modified and additional rectangles needed are put into _pieces_.
     static void breakIntoNonOverlapping(IBounds& rect1, IBounds& rect2, std::vector<IBounds>& pieces) {
-      IBounds original_new = rect1;
-      IBounds original_old = rect2;
       if (!rect1.overlaps(rect2))
         return;
 
