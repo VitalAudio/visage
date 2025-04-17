@@ -27,39 +27,71 @@
 static constexpr int kStarPoints = 5;
 static constexpr float kPi = 3.14159265358979323846f;
 
-visage::Path drawStar(visage::ApplicationWindow& app, double time, float ratio) {
+visage::Path drawStar(visage::ApplicationWindow& app, double phase, float ratio) {
   visage::Path path;
   std::complex<float> delta(cos(kPi / kStarPoints), sin(kPi / kStarPoints));
-  std::complex<float> position(cos(time), sin(time));
+  std::complex<float> position(0, -1);
 
   float center_x = app.width() / 2.0f;
   float center_y = app.height() / 2.0f;
 
   for (int i = 0; i < kStarPoints; ++i) {
     std::complex<float> inner_position = position * delta;
-    path.lineTo(center_x + 100.0f * position.real(), center_y - 100.0f * position.imag());
-    path.lineTo(center_x + 100.0f * ratio * inner_position.real(),
-                center_y - 100.0f * ratio * inner_position.imag());
+    path.lineTo(100.0f * position.real(), 100.0f * position.imag());
+    path.lineTo(100.0f * ratio * inner_position.real(), 100.0f * ratio * inner_position.imag());
     position = inner_position * delta;
   }
+
+  path.rotate(phase);
+  path.translate(center_x, center_y);
 
   return path;
 }
 
+inline float randomFloat(float min, float max) {
+  static std::random_device random_device;
+  static std::mt19937 generator(random_device());
+  std::uniform_real_distribution distribution(min, max);
+  return distribution(generator);
+}
+
 int runExample() {
   visage::ApplicationWindow app;
-  float ratio = 0.5f;
+  float ratio = 0.4f;
 
-  visage::Path path;
+  visage::Path star;
+  visage::Path svg_path;
+  // svg_path.moveTo(10, 10);
+  // svg_path.lineTo(100, 10);
+  // svg_path.lineTo(100, 100);
+  // svg_path.lineTo(10, 100);
+  // svg_path.close();
+  //
+  // svg_path.moveTo(20, 20);
+  // svg_path.lineTo(50, 20);
+  // svg_path.lineTo(50, 50);
+  // svg_path.lineTo(20, 50);
 
   app.onDraw() = [&](visage::Canvas& canvas) {
-    canvas.setColor(0xff662244);
+    canvas.setColor(0xff442233);
     canvas.fill(0, 0, app.width(), app.height());
-    path = drawStar(app, canvas.time(), ratio);
 
-    canvas.setColor(0xffffffff);
-    canvas.fill(&path, 0, 0, app.width(), app.height());
-    app.redraw();
+    svg_path.clear();
+    svg_path.moveTo(10, 10);
+    svg_path.lineTo(110, 10);
+    svg_path.lineTo(110, 100);
+    svg_path.lineTo(10, 100);
+    svg_path.lineTo(10, 10);
+    svg_path.close();
+
+    svg_path.moveTo(30, 150);
+    svg_path.lineTo(90, 50);
+    svg_path.lineTo(30, 50);
+    svg_path.lineTo(90, 150);
+
+    canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
+                                          visage::Point(app.width(), app.height())));
+    canvas.fill(&svg_path, 0, 0, app.width(), app.height());
   };
 
   app.onMouseDown() = [&](const visage::MouseEvent& e) { app.redraw(); };
