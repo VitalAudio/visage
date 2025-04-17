@@ -182,7 +182,7 @@ TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
 TEST_CASE("Random path triangulation", "[graphics]") {
   static constexpr float kWidth = 10000.0f;
   static constexpr float kHeight = 10000.0f;
-  static constexpr int kNumPoints = 10;
+  static constexpr int kNumPoints = 20;
   static constexpr int kNumPaths = 100;
 
   for (int p = 0; p < kNumPaths; ++p) {
