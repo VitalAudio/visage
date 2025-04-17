@@ -110,6 +110,8 @@ namespace visage {
     }
 
     void close() {
+      if (!paths_.empty())
+        paths_.back().points.push_back(paths_.back().points.front());
       paths_.emplace_back();
       smooth_control_point_ = {};
       current_value_ = 0.0f;
@@ -229,6 +231,25 @@ namespace visage {
     }
 
     void translate(float x, float y) { translate(Point(x, y)); }
+
+    void rotate(float angle) {
+      Point row1 = { cos(angle), sin(angle) };
+      Point row2 = { -sin(angle), cos(angle) };
+      for (auto& path : paths_) {
+        for (Point& point : path.points) {
+          float x = point.x;
+          float y = point.y;
+          point.x = row1.x * x + row1.y * y;
+          point.y = row2.x * x + row2.y * y;
+        }
+      }
+    }
+
+    Path rotated(float angle) const {
+      Path result = *this;
+      result.rotate(angle);
+      return result;
+    }
 
     Path reversed() const {
       Path reversed_path = *this;
