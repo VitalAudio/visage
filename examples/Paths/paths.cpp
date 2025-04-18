@@ -72,29 +72,40 @@ int runExample() {
   // svg_path.lineTo(50, 50);
   // svg_path.lineTo(20, 50);
 
+  svg_path.clear();
+  svg_path.moveTo(0, 25);
+  svg_path.lineTo(100, 25);
+  svg_path.lineTo(100, 75);
+  svg_path.lineTo(0, 75);
+  svg_path.close();
+
+  svg_path.moveTo(25, 0);
+  svg_path.lineTo(75, 0);
+  svg_path.lineTo(75, 100);
+  svg_path.lineTo(25, 100);
+
   app.onDraw() = [&](visage::Canvas& canvas) {
     canvas.setColor(0xff442233);
     canvas.fill(0, 0, app.width(), app.height());
 
-    svg_path.clear();
-    svg_path.moveTo(10, 10);
-    svg_path.lineTo(110, 10);
-    svg_path.lineTo(110, 100);
-    svg_path.lineTo(10, 100);
-    svg_path.lineTo(10, 10);
-    svg_path.close();
-
-    svg_path.moveTo(30, 150);
-    svg_path.lineTo(90, 50);
-    svg_path.lineTo(30, 50);
-    svg_path.lineTo(90, 150);
+    // svg_path.moveTo(randomFloat(0, app.width()), randomFloat(0, app.height()));
+    // for (int i = 0; i < 5; ++i)
+    //   svg_path.lineTo(randomFloat(0, app.width()), randomFloat(0, app.height()));
 
     canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));
     canvas.fill(&svg_path, 0, 0, app.width(), app.height());
+
+    canvas.setColor(0xffffffff);
+    canvas.line(&svg_path, 0, 0, app.width(), app.height(), 3);
   };
 
-  app.onMouseDown() = [&](const visage::MouseEvent& e) { app.redraw(); };
+  app.onMouseDown() = [&](const visage::MouseEvent& e) {
+    app.redraw();
+    svg_path.translate(-0.5f * app.width(), -0.5f * app.height());
+    svg_path.rotate(0.1f);
+    svg_path.translate(0.5f * app.width(), 0.5f * app.height());
+  };
 
   app.setTitle("Visage Paths Example");
   app.show(800, 600);

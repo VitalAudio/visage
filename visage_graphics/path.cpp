@@ -261,7 +261,7 @@ namespace visage {
       }
     };
 
-    Path::Triangulation triangulate(const Path* path) {
+    Path::Triangulation triangulate(const Path* path, Path::FillRule fill_rule) {
       num_points_ = path->numPoints();
       prev_edge_.reserve(num_points_);
       next_edge_.reserve(num_points_);
@@ -279,7 +279,7 @@ namespace visage {
       }
 
       removeIntersections();
-      breakSimpleIntoMonotonicPolygons();
+      breakSimpleIntoMonotonicPolygons(fill_rule);
       Path::Triangulation result;
       result.triangles = breakIntoTriangles();
       for (const auto& point : points_)
@@ -596,7 +596,7 @@ namespace visage {
       return new_index;
     }
 
-    void breakSimpleIntoMonotonicPolygons() {
+    void breakSimpleIntoMonotonicPolygons(Path::FillRule fill_rule) {
       std::map<ScanLineArea, int> current_areas;
       auto indices = sortedIndices();
       std::set<int> merge_vertices;
@@ -623,6 +623,12 @@ namespace visage {
 
           for (int i = index; windings[i] == 0; i = next_edge_[i])
             windings[i] = winding;
+
+          // TODO
+          // if (fill_rule == Path::FillRule::NonZero && winding < 0) {
+          //   removeCycle(index);
+          //   continue;
+          // }
 
           if (convex != (winding == 1)) {
             reverseCycle(index);
@@ -701,21 +707,20 @@ namespace visage {
       VISAGE_ASSERT(current_areas.empty());
     }
 
-    bool tryCutEar(int index, bool forward, std::vector<int>& triangles) {
+    bool tryCutEar(int index, bool forward, std::vector<int>& triangles, std::unique_ptr<bool[]>& touched) {
       auto& direction = forward ? next_edge_ : prev_edge_;
       auto& reverse = forward ? prev_edge_ : next_edge_;
 
       int intermediate_index = direction[index];
       int target_index = direction[intermediate_index];
-      if (intermediate_index == index || target_index == index)
+      if (intermediate_index == index || target_index == index || !touched[intermediate_index] ||
+          !touched[target_index]) {
         return false;
+      }
 
       DPoint start = points_[index];
       DPoint intermediate = points_[intermediate_index];
       DPoint target = points_[target_index];
-
-      if (start < intermediate || start < target)
-        return false;
 
       double cross = (intermediate - start).cross(target - intermediate);
       if ((cross < 0.0) != forward && cross)
@@ -734,10 +739,10 @@ namespace visage {
       return true;
     }
 
-    void cutEars(int index, std::vector<int>& triangles) {
-      while (tryCutEar(index, true, triangles))
+    void cutEars(int index, std::vector<int>& triangles, std::unique_ptr<bool[]>& touched) {
+      while (tryCutEar(index, true, triangles, touched))
         ;
-      while (tryCutEar(index, false, triangles))
+      while (tryCutEar(index, false, triangles, touched))
         ;
     }
 
@@ -745,9 +750,12 @@ namespace visage {
       removeDuplicatePoints();
       std::vector<int> triangles;
       auto sorted_indices = sortedIndices();
+      std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(points_.size());
 
-      for (int index : sorted_indices)
-        cutEars(index, triangles);
+      for (int index : sorted_indices) {
+        touched[index] = true;
+        cutEars(index, triangles, touched);
+      }
 
       return triangles;
     }
@@ -758,8 +766,8 @@ namespace visage {
     std::vector<int> next_edge_;
   };
 
-  Path::Triangulation Path::triangulate() const {
+  Path::Triangulation Path::triangulate(FillRule fill_rule) const {
     TriangulationGraph graph;
-    return graph.triangulate(this);
+    return graph.triangulate(this, fill_rule);
   }
 }
