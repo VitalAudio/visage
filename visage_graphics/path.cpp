@@ -562,6 +562,15 @@ namespace visage {
       }
     }
 
+    void removeCycle(int start_index) {
+      for (int i = start_index; next_edge_[i] != i;) {
+        int next = next_edge_[i];
+        prev_edge_[i] = i;
+        next_edge_[i] = i;
+        i = next;
+      }
+    }
+
     void reverseCycle(int start_index) {
       std::swap(prev_edge_[start_index], next_edge_[start_index]);
       for (int i = next_edge_[start_index]; i != start_index; i = next_edge_[i])
@@ -652,6 +661,8 @@ namespace visage {
           for (int i = 0; i < 2 && area != current_areas.end();) {
             if (area->first.to_index == index) {
               ++i;
+              if (i == 0 && merge_vertices.count(area->second))
+                addDiagonal(index, area->second);
               area = current_areas.erase(area);
             }
             else
@@ -666,8 +677,6 @@ namespace visage {
                 area->second = index;
               merge_vertices.insert(index);
             }
-            else if (merge_vertices.count(area->second))
-              addDiagonal(index, area->second);
           }
         }
         else {
