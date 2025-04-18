@@ -205,7 +205,7 @@ namespace visage {
     void clear() { paths_.clear(); }
 
     void parseSvgPath(const std::string& path);
-    Triangulation triangulate(FillRule fill_rule = FillRule::NonZero) const;
+    Triangulation triangulate() const;
 
     Path scaled(float mult) const {
       Path result = *this;
@@ -269,6 +269,9 @@ namespace visage {
       }
     }
 
+    void setFillRule(FillRule fill_rule) { fill_rule_ = fill_rule; }
+    FillRule fillRule() const { return fill_rule_; }
+
   private:
     SubPath& currentPath() {
       if (paths_.empty())
@@ -287,6 +290,7 @@ namespace visage {
     }
 
     std::vector<SubPath> paths_;
+    FillRule fill_rule_ = FillRule::EvenOdd;
     Point smooth_control_point_;
     float current_value_ = 0.0f;
   };
