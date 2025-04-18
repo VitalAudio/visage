@@ -34,6 +34,11 @@ namespace visage {
 
   class Path {
   public:
+    enum class FillRule {
+      NonZero,
+      EvenOdd
+    };
+
     static constexpr int kMaxCurveResolution = 32;
 
     template<typename T>
@@ -111,7 +116,7 @@ namespace visage {
 
     void close() {
       if (!paths_.empty())
-        paths_.back().points.push_back(paths_.back().points.front());
+        addPoint(paths_.back().points.front());
       paths_.emplace_back();
       smooth_control_point_ = {};
       current_value_ = 0.0f;
@@ -200,7 +205,7 @@ namespace visage {
     void clear() { paths_.clear(); }
 
     void parseSvgPath(const std::string& path);
-    Triangulation triangulate() const;
+    Triangulation triangulate(FillRule fill_rule = FillRule::NonZero) const;
 
     Path scaled(float mult) const {
       Path result = *this;
