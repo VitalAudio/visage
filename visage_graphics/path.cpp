@@ -176,6 +176,27 @@ namespace visage {
     }
   }
 
+  static double orientation(const DPoint& source, const DPoint& target1, const DPoint& target2) {
+    static constexpr double kEpsilon = 3.3306690738754716e-16;
+    double l = (target2.y - source.y) * (target1.x - source.x);
+    double r = (target2.x - source.x) * (target1.y - source.y);
+    double sum = std::abs(l + r);
+    double diff = l - r;
+    return std::abs(diff) >= kEpsilon * sum ? diff : 0.0;
+  }
+
+  double stableOrientation(const DPoint& source, const DPoint& target1, const DPoint& target2) {
+    double result = orientation(source, target1, target2);
+    if (result != 0.0)
+      return result;
+
+    result = orientation(target2, source, target1);
+    if (result != 0.0)
+      return result;
+
+    return orientation(target1, target2, source);
+  }
+
   struct ScanLineArea {
     static bool compare(const ScanLineArea& area, DPoint point) {
       return area.sample(point) < point.y;
@@ -196,11 +217,9 @@ namespace visage {
       if (from == other.to && to != other.from)
         return false;
 
-      DPoint delta = to - from;
-      DPoint other_delta = other.to - other.from;
-      double cross = delta.cross(other_delta);
-      if (cross)
-        return cross > 0;
+      double orientation = stableOrientation(from, to, other.to);
+      if (orientation)
+        return orientation > 0;
 
       if (to.y != other.to.y)
         return to.y < other.to.y;
@@ -278,7 +297,7 @@ namespace visage {
         path_start += sub_path_size;
       }
 
-      removeDuplicatePoints();
+      simplify();
       breakIntersections();
       fixWindings(path->fillRule());
       breakSimpleIntoMonotonicPolygons();
@@ -363,11 +382,24 @@ namespace visage {
       connect(prev, next);
     }
 
-    void removeDuplicatePoints() {
+    void simplify() {
       std::unique_ptr<bool[]> visited = std::make_unique<bool[]>(points_.size());
       for (int i = 0; i < points_.size(); ++i) {
-        while (i != next_edge_[i] && points_[i] == points_[next_edge_[i]])
+        if (i == next_edge_[i])
+          continue;
+
+        if (points_[i] == points_[next_edge_[i]])
           removeFromCycle(i);
+        else {
+          while (i != next_edge_[i]) {
+            double orientation = stableOrientation(points_[i], points_[next_edge_[i]],
+                                                   points_[next_edge_[next_edge_[i]]]);
+            if (orientation)
+              break;
+
+            removeFromCycle(next_edge_[i]);
+          }
+        }
       }
     }
 
@@ -576,7 +608,7 @@ namespace visage {
           handleIntersectionEvent(intersection_events, areas, ev);
       }
 
-      removeDuplicatePoints();
+      simplify();
     }
 
     void fixWindings(Path::FillRule fill_rule) {
@@ -592,9 +624,9 @@ namespace visage {
 
         DPoint point = points_[index];
         if (winding_directions[index] == 0) {
-          auto delta1 = points_[prev_edge_[index]] - point;
-          auto delta2 = points_[next_edge_[index]] - point;
-          bool convex = delta1.cross(delta2) > 0.0;
+          bool convex = stableOrientation(point, points_[prev_edge_[index]],
+                                          points_[next_edge_[index]]) > 0.0;
+
           auto area = std::lower_bound(areas.begin(), areas.end(), point, ScanLineArea::compare);
 
           int current_winding = 0;
@@ -723,9 +755,7 @@ namespace visage {
                                        return ScanLineArea::compare(pair.first, p);
                                      });
 
-        auto delta1 = points_[prev_edge_[index]] - point;
-        auto delta2 = points_[next_edge_[index]] - point;
-        bool convex = delta1.cross(delta2) >= 0.0;
+        bool convex = stableOrientation(point, points_[prev_edge_[index]], points_[next_edge_[index]]) > 0.0;
 
         int prev_index = prev_edge_[index];
         int next_index = next_edge_[index];
@@ -791,6 +821,7 @@ namespace visage {
       }
 
       VISAGE_ASSERT(current_areas.empty());
+      simplify();
     }
 
     bool tryCutEar(int index, bool forward, std::vector<int>& triangles, std::unique_ptr<bool[]>& touched) {
@@ -808,11 +839,11 @@ namespace visage {
       DPoint intermediate = points_[intermediate_index];
       DPoint target = points_[target_index];
 
-      double cross = (intermediate - start).cross(target - intermediate);
-      if ((cross < 0.0) != forward && cross)
+      double orientation = stableOrientation(start, intermediate, target);
+      if ((orientation < 0.0) != forward && orientation)
         return false;
 
-      if (cross) {
+      if (orientation) {
         triangles.push_back(index);
         triangles.push_back(intermediate_index);
         triangles.push_back(target_index);
@@ -833,7 +864,6 @@ namespace visage {
     }
 
     std::vector<int> breakIntoTriangles() {
-      removeDuplicatePoints();
       std::vector<int> triangles;
       auto sorted_indices = sortedIndices();
       std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(points_.size());
