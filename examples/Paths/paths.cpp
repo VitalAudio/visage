@@ -77,15 +77,20 @@ int runExample() {
     canvas.setColor(0xff442233);
     canvas.fill(0, 0, app.width(), app.height());
 
-    // svg_path = drawStar(app, canvas.time());
+    std::complex<float> position(cos(-2.0f * kPi / kStarPoints), sin(-2.0f * kPi / kStarPoints));
+
+    star.clear();
+    star.moveTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
+    for (int i = 0; i < 20; ++i)
+      star.lineTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
+    star.close();
 
     canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));
-    canvas.fill(&svg_path, 0, 0, app.width(), app.height());
+    canvas.fill(&star, 0, 0, app.width(), app.height());
 
     canvas.setColor(0xffffffff);
-    canvas.line(&svg_path, 0, 0, app.width(), app.height(), 3);
-    app.redraw();
+    canvas.line(&star, 0, 0, app.width(), app.height(), 3);
   };
 
   app.onMouseDown() = [&](const visage::MouseEvent& e) {
