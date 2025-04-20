@@ -59,19 +59,9 @@ int runExample() {
   visage::ApplicationWindow app;
 
   visage::Path star;
-  visage::Path svg_path;
-  svg_path.moveTo(0, 20);
-  svg_path.lineTo(100, 20);
-  svg_path.lineTo(100, 80);
-  svg_path.lineTo(0, 80);
-  svg_path.close();
 
-  svg_path.lineTo(20, 0);
-  svg_path.lineTo(80, 0);
-  svg_path.lineTo(80, 100);
-  svg_path.lineTo(20, 100);
-  svg_path.close();
-  svg_path.setFillRule(visage::Path::FillRule::NonZero);
+  visage::Path path1;
+  visage::Path path2;
 
   app.onDraw() = [&](visage::Canvas& canvas) {
     canvas.setColor(0xff442233);
@@ -79,28 +69,50 @@ int runExample() {
 
     std::complex<float> position(cos(-2.0f * kPi / kStarPoints), sin(-2.0f * kPi / kStarPoints));
 
+    // while (true) {
+    //   star.clear();
+    //   star.moveTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
+    //   for (int i = 0; i < 3; ++i)
+    //     star.lineTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
+    //   star.close();
+    //
+    //   star.moveTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
+    //   for (int i = 0; i < 3; ++i)
+    //     star.lineTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
+    //   star.close();
+    //   star.triangulate();
+    // }
     star.clear();
     star.moveTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
-    for (int i = 0; i < 20; ++i)
+    for (int i = 0; i < 10; ++i)
       star.lineTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
     star.close();
 
+    path2.clear();
+    path2.moveTo(0.3f * app.width(), 0);
+    path2.lineTo(0.3f * app.width(), app.height());
+    path2.lineTo(0.6f * app.width(), app.height());
+    path2.lineTo(0.6f * app.width(), 0);
+    path2.close();
+
+    star = star.computeXor(path2);
     canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));
     canvas.fill(&star, 0, 0, app.width(), app.height());
 
     canvas.setColor(0xffffffff);
     canvas.line(&star, 0, 0, app.width(), app.height(), 3);
+    app.redraw();
   };
 
   app.onMouseDown() = [&](const visage::MouseEvent& e) {
     app.redraw();
-    svg_path.translate(-0.5f * app.width(), -0.5f * app.height());
-    if (e.isRightButton())
-      svg_path.rotate(-0.1f);
-    else
-      svg_path.rotate(0.1f);
-    svg_path.translate(0.5f * app.width(), 0.5f * app.height());
+    // svg_path.translate(-0.5f * app.width(), -0.5f * app.height());
+    // if (e.isRightButton())
+    //   svg_path.rotate(-0.1f);
+    // else
+    //   svg_path.rotate(0.1f);
+    // svg_path.translate(0.5f * app.width(), 0.5f * app.height());
   };
 
   app.setTitle("Visage Paths Example");
