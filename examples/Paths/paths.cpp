@@ -84,7 +84,7 @@ int runExample() {
     // }
     star.clear();
     star.moveTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
-    for (int i = 0; i < 10; ++i)
+    for (int i = 0; i < 20; ++i)
       star.lineTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
     star.close();
 
@@ -95,14 +95,14 @@ int runExample() {
     path2.lineTo(0.6f * app.width(), 0);
     path2.close();
 
-    star = star.computeXor(path2);
+    // star = star.computeXor(path2);
     canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));
     canvas.fill(&star, 0, 0, app.width(), app.height());
 
     canvas.setColor(0xffffffff);
     canvas.line(&star, 0, 0, app.width(), app.height(), 3);
-    app.redraw();
+    // app.redraw();
   };
 
   app.onMouseDown() = [&](const visage::MouseEvent& e) {
