@@ -206,29 +206,27 @@ namespace visage {
         from_index(from_index), from(from), to_index(to_index), to(to) { }
 
     bool operator<(const ScanLineArea& other) const {
-      double position = from.x > other.from.x ? from.x : other.from.x;
-      double sample1 = sample({ position, from.y });
-      double sample2 = other.sample({ position, other.from.y });
-      if (sample1 != sample2)
-        return sample1 < sample2;
+      double orientation = from.y - other.from.y;
+      if (other.from < from)
+        orientation = stableOrientation(other.from, other.to, from);
+      else if (from < other.from)
+        orientation = -stableOrientation(from, to, other.from);
+
+      if (orientation)
+        return orientation < 0.0;
 
       if (to == other.from && from != other.to)
         return true;
       if (from == other.to && to != other.from)
         return false;
 
-      double orientation = stableOrientation(from, to, other.to);
+      if (other.to < to)
+        orientation = -stableOrientation(other.from, other.to, to);
+      else if (to < other.to)
+        orientation = stableOrientation(from, to, other.to);
       if (orientation)
-        return orientation > 0;
+        return orientation > 0.0;
 
-      if (to.y != other.to.y)
-        return to.y < other.to.y;
-      if (from.y != other.from.y)
-        return from.y < other.from.y;
-      if (to.x != other.to.x)
-        return to.x < other.to.x;
-      if (from.x != other.from.x)
-        return from.x < other.from.x;
       if (from_index != other.from_index)
         return from_index < other.from_index;
       return to_index < other.to_index;
@@ -261,6 +259,24 @@ namespace visage {
 
   class TriangulationGraph {
   public:
+    TriangulationGraph(const Path* path) {
+      int num_points = path->numPoints();
+      prev_edge_.reserve(num_points);
+      next_edge_.reserve(num_points);
+
+      points_.reserve(num_points);
+      int path_start = 0;
+      for (const auto& sub_path : path->subPaths()) {
+        int sub_path_size = sub_path.points.size();
+        for (int i = 0; i < sub_path.points.size(); ++i) {
+          points_.emplace_back(sub_path.points[i]);
+          prev_edge_.push_back(path_start + ((i + sub_path_size - 1) % sub_path_size));
+          next_edge_.push_back(path_start + ((i + 1) % sub_path_size));
+        }
+        path_start += sub_path_size;
+      }
+    }
+
     struct IntersectionEvent {
       DPoint point;
       int a_to;
@@ -280,26 +296,10 @@ namespace visage {
       }
     };
 
-    Path::Triangulation triangulate(const Path* path) {
-      num_points_ = path->numPoints();
-      prev_edge_.reserve(num_points_);
-      next_edge_.reserve(num_points_);
-
-      points_.reserve(num_points_);
-      int path_start = 0;
-      for (const auto& sub_path : path->subPaths()) {
-        int sub_path_size = sub_path.points.size();
-        for (int i = 0; i < sub_path.points.size(); ++i) {
-          points_.emplace_back(sub_path.points[i]);
-          prev_edge_.push_back(path_start + ((i + sub_path_size - 1) % sub_path_size));
-          next_edge_.push_back(path_start + ((i + 1) % sub_path_size));
-        }
-        path_start += sub_path_size;
-      }
-
+    Path::Triangulation triangulate(Path::FillRule fill_rule, int minimum_cycles = 1) {
       simplify();
       breakIntersections();
-      fixWindings(path->fillRule());
+      fixWindings(fill_rule, minimum_cycles);
       breakSimpleIntoMonotonicPolygons();
       Path::Triangulation result;
       result.triangles = breakIntoTriangles();
@@ -336,6 +336,284 @@ namespace visage {
       } while (next_edge_[a_next] != a_prev && next_edge_[b_next] != b_prev &&
                next_edge_[a_next] != prev_edge_[a_prev] && next_edge_[b_next] != prev_edge_[b_prev]);
       return a_index - b_index;
+    }
+
+    // Bentley-Ottmann algorithm for finding intersections
+    void breakIntersections() {
+      std::set<ScanLineArea> areas;
+      auto sorted_indices = sortedIndices();
+
+      std::set<IntersectionEvent> intersection_events;
+      for (int index : sorted_indices)
+        intersection_events.insert(IntersectionEvent { points_[index], index, true, index, true, this });
+
+      VISAGE_ASSERT(checkValidPolygons());
+
+      while (!intersection_events.empty()) {
+        auto it = intersection_events.begin();
+        IntersectionEvent ev = *it;
+        intersection_events.erase(it);
+
+        if (ev.a_to == ev.b_to)
+          handlePointEvent(intersection_events, areas, ev.a_to);
+        else
+          handleIntersectionEvent(intersection_events, areas, ev);
+      }
+
+      simplify();
+    }
+
+    void fixWindings(Path::FillRule fill_rule, int minimum_cycles = 1) {
+      std::set<ScanLineArea> areas;
+      auto sorted_indices = sortedIndices();
+      auto windings = std::make_unique<int[]>(points_.size());
+      auto reversed = std::make_unique<bool[]>(points_.size());
+      auto winding_directions = std::make_unique<int[]>(points_.size());
+
+      for (int index : sorted_indices) {
+        if (next_edge_[index] == index || prev_edge_[index] == next_edge_[index])
+          continue;
+
+        DPoint point = points_[index];
+        if (winding_directions[index] == 0) {
+          bool convex = stableOrientation(point, points_[prev_edge_[index]],
+                                          points_[next_edge_[index]]) > 0.0;
+
+          auto area = std::lower_bound(areas.begin(), areas.end(), point, ScanLineArea::compare);
+
+          int current_winding = 0;
+          bool reverse = false;
+          if (area != areas.end()) {
+            bool area_fill_above = next_edge_[area->from_index] == area->to_index;
+            bool fill = winding_directions[area->from_index] == 1;
+            current_winding += windings[area->from_index];
+            bool inside_polygon = area_fill_above == fill;
+
+            if (inside_polygon) {
+              if (reversed[area->from_index] && fill_rule != Path::FillRule::EvenOdd)
+                reverse = true;
+            }
+            else
+              current_winding -= winding_directions[area->from_index];
+          }
+
+          if (fill_rule == Path::FillRule::EvenOdd) {
+            bool fill = (current_winding % 2) == 0;
+            reverse = reverse || (convex != fill);
+          }
+          else if (fill_rule == Path::FillRule::NonZero && current_winding == 0)
+            reverse = reverse || !convex;
+
+          if (reverse) {
+            reverseCycle(index);
+            convex = !convex;
+          }
+
+          int winding_direction = convex ? 1 : -1;
+          int winding = current_winding + winding_direction;
+          for (int i = index; winding_directions[i] == 0; i = next_edge_[i]) {
+            winding_directions[i] = winding_direction;
+            windings[i] = winding;
+            reversed[i] = reverse;
+          }
+        }
+
+        int prev_index = prev_edge_[index];
+        int next_index = next_edge_[index];
+        DPoint prev = points_[prev_index];
+        DPoint next = points_[next_index];
+
+        PointEvent point_event = pointEvent(index);
+        if (point_event == PointEvent::Begin) {
+          areas.insert(ScanLineArea(index, point, prev_index, prev));
+          areas.insert(ScanLineArea(index, point, next_index, next));
+        }
+        else if (point_event == PointEvent::End) {
+          areas.erase(ScanLineArea(prev_index, prev, index, point));
+          areas.erase(ScanLineArea(next_index, next, index, point));
+        }
+        else {
+          if (compareIndices(prev_index, next_index) < 0.0) {
+            areas.erase(ScanLineArea(prev_index, prev, index, point));
+            areas.insert(ScanLineArea(index, point, next_index, next));
+          }
+          else {
+            areas.erase(ScanLineArea(next_index, next, index, point));
+            areas.insert(ScanLineArea(index, point, prev_index, prev));
+          }
+        }
+
+        VISAGE_ASSERT(checkValidPolygons());
+        VISAGE_ASSERT(areas.size() % 2 == 0);
+      }
+
+      if (fill_rule != Path::FillRule::EvenOdd) {
+        for (int i = 0; i < points_.size(); ++i) {
+          if (next_edge_[i] == i)
+            continue;
+
+          bool empty = windings[i] < minimum_cycles;
+          bool was_empty = (windings[i] - winding_directions[i]) < minimum_cycles;
+
+          if (empty == was_empty)
+            removeCycle(i);
+        }
+      }
+    }
+
+    void reverse() {
+      for (int i = 0; i < points_.size(); ++i)
+        std::swap(prev_edge_[i], next_edge_[i]);
+    }
+
+    void breakSimpleIntoMonotonicPolygons() {
+      std::map<ScanLineArea, int> current_areas;
+      auto indices = sortedIndices();
+      std::set<int> merge_vertices;
+
+      for (int index : indices) {
+        DPoint point = points_[index];
+        if (index == next_edge_[index] || prev_edge_[index] == next_edge_[index])
+          continue;
+
+        auto area = std::lower_bound(current_areas.begin(), current_areas.end(), point,
+                                     [](const auto& pair, const DPoint& p) {
+                                       return ScanLineArea::compare(pair.first, p);
+                                     });
+
+        bool convex = stableOrientation(point, points_[prev_edge_[index]], points_[next_edge_[index]]) > 0.0;
+
+        int prev_index = prev_edge_[index];
+        int next_index = next_edge_[index];
+        DPoint prev = points_[prev_index];
+        DPoint next = points_[next_index];
+
+        PointEvent point_event = pointEvent(index);
+        if (point_event == PointEvent::Begin) {
+          int diagonal_index = index;
+          if (!convex) {
+            diagonal_index = addDiagonal(index, area->second);
+            if (area != current_areas.end())
+              area->second = index;
+            area = std::prev(area);
+            if (area != current_areas.end())
+              area->second = diagonal_index;
+          }
+
+          auto area1 = ScanLineArea(index, point, prev_index, prev);
+          auto area2 = ScanLineArea(diagonal_index, point, next_index, next);
+          current_areas[area1] = index;
+          current_areas[area2] = diagonal_index;
+        }
+        else if (point_event == PointEvent::End) {
+          for (int i = 0; i < 2 && area != current_areas.end();) {
+            if (area->first.to_index == index) {
+              ++i;
+              if (i == 0 && merge_vertices.count(area->second))
+                addDiagonal(index, area->second);
+              area = current_areas.erase(area);
+            }
+            else
+              ++area;
+          }
+
+          if (area != current_areas.end()) {
+            if (!convex) {
+              area->second = index;
+              area = std::prev(area);
+              if (area != current_areas.end())
+                area->second = index;
+              merge_vertices.insert(index);
+            }
+          }
+        }
+        else {
+          while (area != current_areas.end() && area->first.to_index != index)
+            ++area;
+
+          if (compareIndices(prev_index, next_index) < 0.0)
+            current_areas[ScanLineArea(index, point, next_index, next)] = index;
+          else {
+            if (merge_vertices.count(area->second))
+              addDiagonal(index, area->second);
+            current_areas[ScanLineArea(index, point, prev_index, prev)] = index;
+          }
+          current_areas.erase(area);
+        }
+
+        VISAGE_ASSERT(checkValidPolygons());
+        VISAGE_ASSERT(checkValidOrder(current_areas));
+        VISAGE_ASSERT(current_areas.size() % 2 == 0);
+      }
+
+      VISAGE_ASSERT(current_areas.empty());
+      simplify();
+    }
+
+    std::vector<int> breakIntoTriangles() {
+      // TODO switch to Delaunay triangulation
+      std::vector<int> triangles;
+      auto sorted_indices = sortedIndices();
+      std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(points_.size());
+
+      for (int index : sorted_indices) {
+        touched[index] = true;
+        cutEars(index, triangles, touched);
+      }
+
+      return triangles;
+    }
+
+    void combine(const TriangulationGraph& other) {
+      int offset = points_.size();
+      for (int i = 0; i < other.points_.size(); ++i) {
+        points_.push_back(other.points_[i]);
+        prev_edge_.push_back(other.prev_edge_[i] + offset);
+        next_edge_.push_back(other.next_edge_[i] + offset);
+      }
+
+      VISAGE_ASSERT(checkValidPolygons());
+    }
+
+    void simplify() {
+      std::unique_ptr<bool[]> visited = std::make_unique<bool[]>(points_.size());
+      for (int i = 0; i < points_.size(); ++i) {
+        if (i == next_edge_[i])
+          continue;
+
+        if (points_[i] == points_[next_edge_[i]])
+          removeFromCycle(i);
+        else {
+          while (i != next_edge_[i]) {
+            double orientation = stableOrientation(points_[i], points_[next_edge_[i]],
+                                                   points_[next_edge_[next_edge_[i]]]);
+            if (orientation)
+              break;
+
+            removeFromCycle(next_edge_[i]);
+          }
+        }
+      }
+    }
+
+    Path toPath() {
+      std::unique_ptr<bool[]> visited = std::make_unique<bool[]>(points_.size());
+      Path path;
+      for (int i = 0; i < points_.size(); ++i) {
+        if (i == next_edge_[i] || visited[i])
+          continue;
+
+        int index = i;
+        path.moveTo(Point(points_[i]));
+        while (!visited[index]) {
+          visited[index] = true;
+          index = next_edge_[index];
+          path.lineTo(Point(points_[index]));
+        }
+
+        path.close();
+      }
+      return path;
     }
 
   private:
@@ -382,27 +660,6 @@ namespace visage {
       connect(prev, next);
     }
 
-    void simplify() {
-      std::unique_ptr<bool[]> visited = std::make_unique<bool[]>(points_.size());
-      for (int i = 0; i < points_.size(); ++i) {
-        if (i == next_edge_[i])
-          continue;
-
-        if (points_[i] == points_[next_edge_[i]])
-          removeFromCycle(i);
-        else {
-          while (i != next_edge_[i]) {
-            double orientation = stableOrientation(points_[i], points_[next_edge_[i]],
-                                                   points_[next_edge_[next_edge_[i]]]);
-            if (orientation)
-              break;
-
-            removeFromCycle(next_edge_[i]);
-          }
-        }
-      }
-    }
-
     bool checkValidPolygons() const {
       for (int i = 0; i < points_.size(); ++i) {
         if (prev_edge_[next_edge_[i]] != i || next_edge_[prev_edge_[i]] != i)
@@ -414,6 +671,7 @@ namespace visage {
     bool checkValidOrder(const std::map<ScanLineArea, int>& areas) const {
       if (areas.empty())
         return true;
+
       auto start = areas.begin();
       for (auto offset = std::next(start); offset != areas.end(); ++offset) {
         auto it = start;
@@ -588,124 +846,6 @@ namespace visage {
       VISAGE_ASSERT(areas.size() % 2 == 0);
     }
 
-    // Bentley-Ottmann algorithm for finding intersections
-    void breakIntersections() {
-      std::set<ScanLineArea> areas;
-      auto sorted_indices = sortedIndices();
-
-      std::set<IntersectionEvent> intersection_events;
-      for (int index : sorted_indices)
-        intersection_events.insert(IntersectionEvent { points_[index], index, true, index, true, this });
-
-      while (!intersection_events.empty()) {
-        auto it = intersection_events.begin();
-        IntersectionEvent ev = *it;
-        intersection_events.erase(it);
-
-        if (ev.a_to == ev.b_to)
-          handlePointEvent(intersection_events, areas, ev.a_to);
-        else
-          handleIntersectionEvent(intersection_events, areas, ev);
-      }
-
-      simplify();
-    }
-
-    void fixWindings(Path::FillRule fill_rule) {
-      std::set<ScanLineArea> areas;
-      auto sorted_indices = sortedIndices();
-      auto windings = std::make_unique<int[]>(points_.size());
-      auto reversed = std::make_unique<bool[]>(points_.size());
-      auto winding_directions = std::make_unique<int[]>(points_.size());
-
-      for (int index : sorted_indices) {
-        if (next_edge_[index] == index || prev_edge_[index] == next_edge_[index])
-          continue;
-
-        DPoint point = points_[index];
-        if (winding_directions[index] == 0) {
-          bool convex = stableOrientation(point, points_[prev_edge_[index]],
-                                          points_[next_edge_[index]]) > 0.0;
-
-          auto area = std::lower_bound(areas.begin(), areas.end(), point, ScanLineArea::compare);
-
-          int current_winding = 0;
-          bool reverse = false;
-          if (area != areas.end()) {
-            bool area_fill_above = next_edge_[area->from_index] == area->to_index;
-            bool fill = winding_directions[area->from_index] == 1;
-            current_winding += windings[area->from_index];
-            bool inside_polygon = area_fill_above == fill;
-
-            if (inside_polygon) {
-              if (reversed[area->from_index] && fill_rule == Path::FillRule::NonZero)
-                reverse = true;
-            }
-            else
-              current_winding -= winding_directions[area->from_index];
-          }
-
-          if (fill_rule == Path::FillRule::EvenOdd) {
-            bool fill = (current_winding % 2) == 0;
-            reverse = reverse || (convex != fill);
-          }
-          else if (current_winding == 0)
-            reverse = reverse || !convex;
-
-          if (reverse) {
-            reverseCycle(index);
-            convex = !convex;
-          }
-
-          int winding_direction = convex ? 1 : -1;
-          int winding = current_winding + winding_direction;
-          for (int i = index; winding_directions[i] == 0; i = next_edge_[i]) {
-            winding_directions[i] = winding_direction;
-            windings[i] = winding;
-            reversed[i] = reverse;
-          }
-        }
-
-        int prev_index = prev_edge_[index];
-        int next_index = next_edge_[index];
-        DPoint prev = points_[prev_index];
-        DPoint next = points_[next_index];
-
-        PointEvent point_event = pointEvent(index);
-        if (point_event == PointEvent::Begin) {
-          areas.insert(ScanLineArea(index, point, prev_index, prev));
-          areas.insert(ScanLineArea(index, point, next_index, next));
-        }
-        else if (point_event == PointEvent::End) {
-          areas.erase(ScanLineArea(prev_index, prev, index, point));
-          areas.erase(ScanLineArea(next_index, next, index, point));
-        }
-        else {
-          if (compareIndices(prev_index, next_index) < 0.0) {
-            areas.erase(ScanLineArea(prev_index, prev, index, point));
-            areas.insert(ScanLineArea(index, point, next_index, next));
-          }
-          else {
-            areas.erase(ScanLineArea(next_index, next, index, point));
-            areas.insert(ScanLineArea(index, point, prev_index, prev));
-          }
-        }
-
-        VISAGE_ASSERT(checkValidPolygons());
-        VISAGE_ASSERT(areas.size() % 2 == 0);
-      }
-
-      if (fill_rule == Path::FillRule::NonZero) {
-        for (int i = 0; i < points_.size(); ++i) {
-          if (next_edge_[i] == i)
-            continue;
-
-          if (windings[i] < -1 || windings[i] > 1)
-            removeCycle(i);
-        }
-      }
-    }
-
     void removeCycle(int start_index) {
       for (int i = start_index; next_edge_[i] != i;) {
         int next = next_edge_[i];
@@ -738,90 +878,6 @@ namespace visage {
       connect(index, target);
 
       return new_index;
-    }
-
-    void breakSimpleIntoMonotonicPolygons() {
-      std::map<ScanLineArea, int> current_areas;
-      auto indices = sortedIndices();
-      std::set<int> merge_vertices;
-
-      for (int index : indices) {
-        DPoint point = points_[index];
-        if (index == next_edge_[index] || prev_edge_[index] == next_edge_[index])
-          continue;
-
-        auto area = std::lower_bound(current_areas.begin(), current_areas.end(), point,
-                                     [](const auto& pair, const DPoint& p) {
-                                       return ScanLineArea::compare(pair.first, p);
-                                     });
-
-        bool convex = stableOrientation(point, points_[prev_edge_[index]], points_[next_edge_[index]]) > 0.0;
-
-        int prev_index = prev_edge_[index];
-        int next_index = next_edge_[index];
-        DPoint prev = points_[prev_index];
-        DPoint next = points_[next_index];
-
-        PointEvent point_event = pointEvent(index);
-        if (point_event == PointEvent::Begin) {
-          int diagonal_index = index;
-          if (!convex) {
-            diagonal_index = addDiagonal(index, area->second);
-            if (area != current_areas.end())
-              area->second = index;
-            area = std::prev(area);
-            if (area != current_areas.end())
-              area->second = diagonal_index;
-          }
-
-          auto area1 = ScanLineArea(index, point, prev_index, prev);
-          auto area2 = ScanLineArea(diagonal_index, point, next_index, next);
-          current_areas[area1] = index;
-          current_areas[area2] = diagonal_index;
-        }
-        else if (point_event == PointEvent::End) {
-          for (int i = 0; i < 2 && area != current_areas.end();) {
-            if (area->first.to_index == index) {
-              ++i;
-              if (i == 0 && merge_vertices.count(area->second))
-                addDiagonal(index, area->second);
-              area = current_areas.erase(area);
-            }
-            else
-              ++area;
-          }
-
-          if (area != current_areas.end()) {
-            if (!convex) {
-              area->second = index;
-              area = std::prev(area);
-              if (area != current_areas.end())
-                area->second = index;
-              merge_vertices.insert(index);
-            }
-          }
-        }
-        else {
-          while (area != current_areas.end() && area->first.to_index != index)
-            ++area;
-
-          if (compareIndices(prev_index, next_index) < 0.0)
-            current_areas[ScanLineArea(index, point, next_index, next)] = index;
-          else {
-            if (merge_vertices.count(area->second))
-              addDiagonal(index, area->second);
-            current_areas[ScanLineArea(index, point, prev_index, prev)] = index;
-          }
-          current_areas.erase(area);
-        }
-
-        VISAGE_ASSERT(checkValidPolygons());
-        VISAGE_ASSERT(checkValidOrder(current_areas));
-        VISAGE_ASSERT(current_areas.size() % 2 == 0);
-      }
-
-      VISAGE_ASSERT(current_areas.empty());
-      simplify();
     }
 
     bool tryCutEar(int index, bool forward, std::vector<int>& triangles, std::unique_ptr<bool[]>& touched) {
@@ -863,27 +919,49 @@ namespace visage {
         ;
     }
 
-    std::vector<int> breakIntoTriangles() {
-      std::vector<int> triangles;
-      auto sorted_indices = sortedIndices();
-      std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(points_.size());
-
-      for (int index : sorted_indices) {
-        touched[index] = true;
-        cutEars(index, triangles, touched);
-      }
-
-      return triangles;
-    }
-
-    int num_points_ = 0;
     std::vector<DPoint> points_;
     std::vector<int> prev_edge_;
     std::vector<int> next_edge_;
   };
 
   Path::Triangulation Path::triangulate() const {
-    TriangulationGraph graph;
-    return graph.triangulate(this);
+    TriangulationGraph graph(this);
+    return graph.triangulate(fillRule());
+  }
+
+  Path Path::computeUnion(const Path& other) const {
+    return computeCombo(other, Path::FillRule::NonZero, 1, false);
+  }
+
+  Path Path::computeIntersection(const Path& other) const {
+    return computeCombo(other, Path::FillRule::NonZero, 2, false);
+  }
+
+  Path Path::computeDifference(const Path& other) const {
+    return computeCombo(other, Path::FillRule::Positive, 1, true);
+  }
+
+  Path Path::computeXor(const Path& other) const {
+    return computeCombo(other, Path::FillRule::EvenOdd, 1, false);
+  }
+
+  Path Path::computeCombo(const Path& other, Path::FillRule fill_rule, int num_cycles_needed,
+                          bool reverse_other) const {
+    TriangulationGraph graph(this);
+    TriangulationGraph other_graph(&other);
+    graph.simplify();
+    graph.breakIntersections();
+    graph.fixWindings(fillRule());
+
+    other_graph.simplify();
+    other_graph.breakIntersections();
+    other_graph.fixWindings(other.fillRule());
+    if (reverse_other)
+      other_graph.reverse();
+
+    graph.combine(other_graph);
+    graph.breakIntersections();
+    graph.fixWindings(fill_rule, num_cycles_needed);
+    return graph.toPath();
   }
 }
