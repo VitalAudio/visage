@@ -199,14 +199,14 @@ namespace visage {
 
   struct ScanLineArea {
     static bool compare(const ScanLineArea& area, DPoint point) {
-      return area.sample(point) < point.y;
+      return stableOrientation(area.from, area.to, point) > 0.0;
     }
 
     ScanLineArea(int from_index, DPoint from, int to_index, DPoint to) :
         from_index(from_index), from(from), to_index(to_index), to(to) { }
 
     bool operator<(const ScanLineArea& other) const {
-      double orientation = from.y - other.from.y;
+      double orientation = 0.0;
       if (other.from < from)
         orientation = stableOrientation(other.from, other.to, from);
       else if (from < other.from)
@@ -214,6 +214,9 @@ namespace visage {
 
       if (orientation)
         return orientation < 0.0;
+
+      if (from.y != other.from.y)
+        return from.y < other.from.y;
 
       if (to == other.from && from != other.to)
         return true;
@@ -230,25 +233,6 @@ namespace visage {
       if (from_index != other.from_index)
         return from_index < other.from_index;
       return to_index < other.to_index;
-    }
-
-    double sample(DPoint position) const {
-      if (to.x == from.x) {
-        if (position.x < from.x)
-          return from.y;
-        if (position.x > from.x)
-          return to.y;
-        double min = std::min(from.y, to.y);
-        double max = std::max(from.y, to.y);
-        return std::clamp(position.y, min, max);
-      }
-      if (position.x == to.x)
-        return to.y;
-      if (position.x == from.x)
-        return from.y;
-
-      DPoint delta = to - from;
-      return from.y + (delta.y * (position.x - from.x)) / delta.x;
     }
 
     int from_index;
@@ -309,11 +293,9 @@ namespace visage {
     }
 
     double compareIndices(int a_index, int b_index) const {
-      DPoint delta = points_[a_index] - points_[b_index];
-      if (delta.x)
-        return delta.x;
-      if (delta.y)
-        return delta.y;
+      double compare = points_[a_index].compare(points_[b_index]);
+      if (compare)
+        return compare;
 
       int a_prev = a_index;
       int a_next = a_index;
@@ -321,18 +303,31 @@ namespace visage {
       int b_next = b_index;
 
       do {
-        a_next = next_edge_[a_next];
         a_prev = prev_edge_[a_prev];
+        a_next = next_edge_[a_next];
 
-        b_next = next_edge_[b_next];
         b_prev = prev_edge_[b_prev];
+        b_next = next_edge_[b_next];
 
-        double sum_a = points_[a_next].x + points_[a_prev].x;
-        double sum_b = points_[b_next].x + points_[b_prev].x;
-        if (sum_a < sum_b)
+        double compare_prev = points_[a_prev].compare(points_[b_prev]);
+        double compare_next = points_[a_next].compare(points_[b_next]);
+        if (compare_prev == 0.0 && compare_next == 0.0)
+          continue;
+        if (compare_prev <= 0.0 && compare_next <= 0.0)
           return -1.0;
-        if (sum_a > sum_b)
+        if (compare_prev >= 0.0 && compare_next >= 0.0)
           return 1.0;
+        if (compare_prev == 0.0 || compare_next == 0.0)
+          return compare_prev + compare_next;
+
+        double compare_a = points_[a_prev].compare(points_[a_next]);
+        double compare_b = points_[b_prev].compare(points_[b_next]);
+
+        if (compare_a < 0.0 && compare_b < 0.0)
+          return compare_prev;
+        if (compare_a > 0.0 && compare_b > 0.0)
+          return compare_next;
+
       } while (next_edge_[a_next] != a_prev && next_edge_[b_next] != b_prev &&
                next_edge_[a_next] != prev_edge_[a_prev] && next_edge_[b_next] != prev_edge_[b_prev]);
       return a_index - b_index;
