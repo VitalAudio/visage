@@ -187,19 +187,31 @@ TEST_CASE("Random path triangulation", "[graphics]") {
 
   for (int p = 0; p < kNumPaths; ++p) {
     Path path;
-    std::set<std::pair<int, int>> points;
-    float x = randomFloat(0.0f, kWidth);
-    float y = randomFloat(0.0f, kHeight);
-    points.insert({ x, y });
-    path.moveTo(x, y);
+    path.moveTo(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+
+    for (int i = 1; i < kNumPoints; ++i)
+      path.lineTo(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+
+    path.triangulate();
+  }
+}
+
+TEST_CASE("Random robust degeneracy triangulation", "[graphics]") {
+  static constexpr float kWidth = 10000.0f;
+  static constexpr float kHeight = 10000.0f;
+  static constexpr int kNumPoints = 5000;
+  static constexpr int kNumPaths = 100;
+
+  for (int p = 0; p < kNumPaths; ++p) {
+    Path path;
+    Point point1(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+    Point point2(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+    path.moveTo(point1);
 
     for (int i = 1; i < kNumPoints; ++i) {
-      while (points.count({ x, y })) {
-        x = randomFloat(0.0f, kWidth);
-        y = randomFloat(0.0f, kHeight);
-      }
-      points.insert({ x, y });
-      path.lineTo(x, y);
+      float t = randomFloat(0.0f, kWidth);
+      Point point = point1 + (point2 - point1) * t;
+      path.lineTo(point.x, point.y);
     }
 
     path.triangulate();
