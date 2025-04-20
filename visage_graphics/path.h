@@ -36,6 +36,7 @@ namespace visage {
   public:
     enum class FillRule {
       NonZero,
+      Positive,
       EvenOdd
     };
 
@@ -43,7 +44,7 @@ namespace visage {
 
     template<typename T>
     static std::optional<T> findIntersection(T start1, T end1, T start2, T end2) {
-      if (start1 == start2 || end1 == end2)
+      if (start1 == start2 || start1 == end2 || end1 == start2 || end1 == end2)
         return std::nullopt;
 
       auto delta1 = end1 - start1;
@@ -115,8 +116,12 @@ namespace visage {
     }
 
     void close() {
-      if (!paths_.empty())
+      if (paths_.empty() || paths_.back().points.empty())
+        return;
+
+      if (paths_.back().points.front() != paths_.back().points.back())
         addPoint(paths_.back().points.front());
+
       paths_.emplace_back();
       smooth_control_point_ = {};
       current_value_ = 0.0f;
@@ -206,6 +211,10 @@ namespace visage {
 
     void parseSvgPath(const std::string& path);
     Triangulation triangulate() const;
+    Path computeUnion(const Path& other) const;
+    Path computeIntersection(const Path& other) const;
+    Path computeDifference(const Path& other) const;
+    Path computeXor(const Path& other) const;
 
     Path scaled(float mult) const {
       Path result = *this;
@@ -273,6 +282,9 @@ namespace visage {
     FillRule fillRule() const { return fill_rule_; }
 
   private:
+    Path computeCombo(const Path& other, Path::FillRule fill_rule, int num_cycles_needed,
+                      bool reverse_other) const;
+
     SubPath& currentPath() {
       if (paths_.empty())
         paths_.emplace_back();
