@@ -79,6 +79,7 @@ namespace visage {
     event_handler_.set_cursor_visible = visage::setCursorVisible;
     event_handler_.read_clipboard_text = visage::readClipboardText;
     event_handler_.set_clipboard_text = visage::setClipboardText;
+
     top_level_.setEventHandler(&event_handler_);
     onResize() += [this] { top_level_.setNativeBounds(nativeLocalBounds()); };
   }
@@ -88,10 +89,7 @@ namespace visage {
   }
 
   const Screenshot& ApplicationEditor::takeScreenshot() {
-    canvas_->requestScreenshot();
-    redraw();
-    drawWindow();
-    return canvas_->screenshot();
+    return canvas_->takeScreenshot();
   }
 
   void ApplicationEditor::setCanvasDetails() {
@@ -104,7 +102,7 @@ namespace visage {
   void ApplicationEditor::addToWindow(Window* window) {
     window_ = window;
 
-    Renderer::instance().checkInitialization(window_->initWindow(), window->globalDisplay());
+    Renderer::instance().initialize(window_->initWindow(), window->globalDisplay());
     canvas_->pairToWindow(window_->nativeHandle(), window->clientWidth(), window->clientHeight());
     top_level_.setDpiScale(window_->dpiScale());
     top_level_.setNativeBounds(0, 0, window->clientWidth(), window->clientHeight());
@@ -125,7 +123,6 @@ namespace visage {
   void ApplicationEditor::setWindowless(int width, int height) {
     canvas_->removeFromWindow();
     window_ = nullptr;
-    Renderer::instance().checkInitialization(headlessWindowHandle(), nullptr);
     setBounds(0, 0, width, height);
     canvas_->setWindowless(width, height);
     drawWindow();

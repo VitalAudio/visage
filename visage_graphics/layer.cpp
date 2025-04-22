@@ -361,6 +361,7 @@ namespace visage {
       screenshot_requested_ = true;
     else
       bgfx::requestScreenShot(frameBuffer(), "screenshot.png");
+    invalidate();
   }
 
   const Screenshot& Layer::screenshot() const {
