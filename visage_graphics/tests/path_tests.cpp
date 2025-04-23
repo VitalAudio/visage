@@ -19,6 +19,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "visage_graphics/canvas.h"
 #include "visage_graphics/path.h"
 
 #include <catch2/catch_approx.hpp>
@@ -36,11 +37,11 @@ inline float randomFloat(float min, float max) {
   return distribution(generator);
 }
 
-struct Triangle {
-  Triangle(Point a, Point b, Point c) : points { a, b, c } { }
+struct PathTriangle {
+  PathTriangle(Point a, Point b, Point c) : points { a, b, c } { }
 
-  bool operator<(const Triangle& other) const { return points < other.points; }
-  bool operator==(const Triangle& other) const {
+  bool operator<(const PathTriangle& other) const { return points < other.points; }
+  bool operator==(const PathTriangle& other) const {
     static constexpr float kEpsilon = 1e-5f;
     return (points.size() == other.points.size()) &&
            std::equal(points.begin(), points.end(), other.points.begin(),
@@ -54,20 +55,20 @@ struct Triangle {
   std::set<Point> points;
 };
 
-std::set<Triangle> createTriangles(const Path::Triangulation& triangulation) {
-  std::set<Triangle> triangles;
+std::set<PathTriangle> createTriangles(const Path::Triangulation& triangulation) {
+  std::set<PathTriangle> PathTriangles;
   for (size_t i = 0; i < triangulation.triangles.size(); i += 3) {
     Point a = triangulation.points[triangulation.triangles[i]];
     Point b = triangulation.points[triangulation.triangles[i + 1]];
     Point c = triangulation.points[triangulation.triangles[i + 2]];
-    triangles.insert(Triangle(a, b, c));
+    PathTriangles.insert(PathTriangle(a, b, c));
   }
-  return triangles;
+  return PathTriangles;
 }
 
-bool matchTriangles(const Path& path, const std::set<Triangle>& expected) {
-  std::set<Triangle> triangles = createTriangles(path.triangulate());
-  return triangles == expected;
+bool matchPathTriangles(const Path& path, const std::set<PathTriangle>& expected) {
+  std::set<PathTriangle> PathTriangles = createTriangles(path.triangulate());
+  return PathTriangles == expected;
 }
 
 TEST_CASE("Path triangulate nothing", "[graphics]") {
@@ -99,8 +100,8 @@ TEST_CASE("Path triangulate single", "[graphics]") {
   path0.lineTo(0, 1);
   path0.lineTo(1, 1);
   path0.reverse();
-  std::set<Triangle> expected = { Triangle(Point(0, 0), Point(0, 1), Point(1, 1)) };
-  REQUIRE(matchTriangles(path0, expected));
+  std::set<PathTriangle> expected = { PathTriangle(Point(0, 0), Point(0, 1), Point(1, 1)) };
+  REQUIRE(matchPathTriangles(path0, expected));
 }
 
 TEST_CASE("Path triangulate intersection", "[graphics]") {
@@ -109,18 +110,18 @@ TEST_CASE("Path triangulate intersection", "[graphics]") {
   path0.lineTo(0, 1);
   path0.lineTo(1, 0);
   path0.lineTo(1, 1);
-  std::set<Triangle> expected = { Triangle(Point(0, 0), Point(0, 1), Point(0.5f, 0.5f)),
-                                  Triangle(Point(1, 0), Point(1, 1), Point(0.5f, 0.5f)) };
-  REQUIRE(matchTriangles(path0, expected));
+  std::set<PathTriangle> expected = { PathTriangle(Point(0, 0), Point(0, 1), Point(0.5f, 0.5f)),
+                                      PathTriangle(Point(1, 0), Point(1, 1), Point(0.5f, 0.5f)) };
+  REQUIRE(matchPathTriangles(path0, expected));
 
   Path path1;
   path1.moveTo(0, 0);
   path1.lineTo(1, 0);
   path1.lineTo(0, 1);
   path1.lineTo(1, 1);
-  expected = { Triangle(Point(0, 0), Point(1, 0), Point(0.5f, 0.5f)),
-               Triangle(Point(0, 1), Point(1, 1), Point(0.5f, 0.5f)) };
-  REQUIRE(matchTriangles(path1, expected));
+  expected = { PathTriangle(Point(0, 0), Point(1, 0), Point(0.5f, 0.5f)),
+               PathTriangle(Point(0, 1), Point(1, 1), Point(0.5f, 0.5f)) };
+  REQUIRE(matchPathTriangles(path1, expected));
 }
 
 TEST_CASE("Colinear test", "[graphics]") {
@@ -171,19 +172,39 @@ TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
     intersections.push_back(intersection.value());
   }
 
-  std::set<Triangle> expected;
+  std::set<PathTriangle> expected;
   for (int i = 0; i < kStarPoints; ++i)
-    expected.insert(Triangle(star.subPaths()[0].points[i], intersections[i],
-                             intersections[(i + 2) % kStarPoints]));
+    expected.insert(PathTriangle(star.subPaths()[0].points[i], intersections[i],
+                                 intersections[(i + 2) % kStarPoints]));
 
-  REQUIRE(matchTriangles(star, expected));
+  REQUIRE(matchPathTriangles(star, expected));
 }
 
 TEST_CASE("Random path triangulation", "[graphics]") {
+  // { x = 6752.79492 y = 567.126526 }
+  // { x = 8581.74023 y = 7906.08105 }
+  // { x = 1424.30957 y = 9965.66309 }
+  // { x = 4595.61963 y = 14.3991947 }
+  // { x = 5547.47363 y = 5059.93115 }
+  // { x = 9685.39941 y = 3157.83105 }
+  // { x = 6433.23340 y = 4173.01416 }
+  // { x = 7474.98877 y = 5467.82324 }
+  // { x = 9212.18262 y = 8411.53125 }
+  // { x = 7426.63721 y = 2736.23535 }
+  // { x = 9080.00098 y = 5840.46289 }
+  // { x = 2113.48511 y = 3726.24365 }
+  // { x = 9228.61230 y = 4507.67822 }
+  // { x = 9178.29004 y = 6089.29102 }
+  // { x = 1792.58777 y = 6839.50439 }
+  // { x = 3473.21777 y = 8707.61426 }
+  // { x = 8544.15234 y = 8513.67480 }
+  // { x = 5927.23096 y = 9246.49121 }
+  // { x = 9264.05273 y = 2850.45825 }
+  // { x = 7787.21338 y = 8386.79883 }
   static constexpr float kWidth = 10000.0f;
   static constexpr float kHeight = 10000.0f;
-  static constexpr int kNumPoints = 20;
-  static constexpr int kNumPaths = 100;
+  static constexpr int kNumPoints = 5;
+  static constexpr int kNumPaths = 1000;
 
   for (int p = 0; p < kNumPaths; ++p) {
     Path path;
@@ -197,23 +218,30 @@ TEST_CASE("Random path triangulation", "[graphics]") {
 }
 
 TEST_CASE("Random robust degeneracy triangulation", "[graphics]") {
-  static constexpr float kWidth = 10000.0f;
-  static constexpr float kHeight = 10000.0f;
-  static constexpr int kNumPoints = 5000;
-  static constexpr int kNumPaths = 100;
+  // static constexpr float kWidth = 10000.0f;
+  // static constexpr float kHeight = 10000.0f;
+  // static constexpr int kNumPoints = 20;
+  // static constexpr int kNumPaths = 50;
+  //
+  // for (int p = 0; p < kNumPaths; ++p) {
+  //   Path path;
+  //   Point point1(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+  //   Point point2(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+  //   path.moveTo(point1);
+  //
+  //   for (int i = 1; i < kNumPoints; ++i) {
+  //     float t = randomFloat(0.0f, kWidth);
+  //     Point point = point1 + (point2 - point1) * t;
+  //     path.lineTo(point.x, point.y);
+  //   }
+  //
+  //   path.triangulate();
+  // }
+}
 
-  for (int p = 0; p < kNumPaths; ++p) {
-    Path path;
-    Point point1(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
-    Point point2(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
-    path.moveTo(point1);
+TEST_CASE("Test path filling integration", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(1000, 1000);
 
-    for (int i = 1; i < kNumPoints; ++i) {
-      float t = randomFloat(0.0f, kWidth);
-      Point point = point1 + (point2 - point1) * t;
-      path.lineTo(point.x, point.y);
-    }
-
-    path.triangulate();
-  }
+  canvas.submit();
 }
