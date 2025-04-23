@@ -307,39 +307,12 @@ namespace visage {
       if (compare)
         return compare;
 
-      int a_prev = a_index;
-      int a_next = a_index;
-      int b_prev = b_index;
-      int b_next = b_index;
-
-      do {
-        a_prev = prev_edge_[a_prev];
-        a_next = next_edge_[a_next];
-
-        b_prev = prev_edge_[b_prev];
-        b_next = next_edge_[b_next];
-
-        double compare_prev = points_[a_prev].compare(points_[b_prev]);
-        double compare_next = points_[a_next].compare(points_[b_next]);
-        if (compare_prev == 0.0 && compare_next == 0.0)
-          continue;
-        if (compare_prev <= 0.0 && compare_next <= 0.0)
-          return -1.0;
-        if (compare_prev >= 0.0 && compare_next >= 0.0)
-          return 1.0;
-        if (compare_prev == 0.0 || compare_next == 0.0)
-          return compare_prev + compare_next;
-
-        double compare_a = points_[a_prev].compare(points_[a_next]);
-        double compare_b = points_[b_prev].compare(points_[b_next]);
-
-        if (compare_a < 0.0 && compare_b < 0.0)
-          return compare_prev;
-        if (compare_a > 0.0 && compare_b > 0.0)
-          return compare_next;
-
-      } while (next_edge_[a_next] != a_prev && next_edge_[b_next] != b_prev &&
-               next_edge_[a_next] != prev_edge_[a_prev] && next_edge_[b_next] != prev_edge_[b_prev]);
+      PointType a_type = pointType(a_index);
+      PointType b_type = pointType(b_index);
+      if (a_type == PointType::End && b_type == PointType::Begin)
+        return -1.0;
+      if (a_type == PointType::Begin && b_type == PointType::End)
+        return 1.0;
       return a_index - b_index;
     }
 
@@ -803,9 +776,9 @@ namespace visage {
 
   private:
     PointType pointType(int index) const {
-      double compare_prev = compareIndices(index, prev_edge_[index]);
-      double compare_next = compareIndices(index, next_edge_[index]);
-      VISAGE_ASSERT(compare_prev && compare_next);
+      double compare_prev = points_[index].compare(points_[prev_edge_[index]]);
+      double compare_next = points_[index].compare(points_[next_edge_[index]]);
+      VISAGE_ASSERT((compare_prev && compare_next) || index == prev_edge_[index]);
 
       if (compare_prev < 0.0 && compare_next < 0.0)
         return PointType::Begin;

@@ -247,8 +247,8 @@ namespace visage {
     void translate(float x, float y) { translate(Point(x, y)); }
 
     void rotate(float angle) {
-      Point row1 = { cos(angle), sin(angle) };
-      Point row2 = { -sin(angle), cos(angle) };
+      Point row1 = { cosf(angle), sinf(angle) };
+      Point row2 = { -sinf(angle), cosf(angle) };
       for (auto& path : paths_) {
         for (Point& point : path.points) {
           float x = point.x;
