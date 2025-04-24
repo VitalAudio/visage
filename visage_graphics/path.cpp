@@ -115,7 +115,7 @@ namespace visage {
   }
 
   void Path::parseSvgPath(const std::string& path) {
-    clear();
+    startNewPath();
 
     size_t i = 0;
     char command_char = 0;
@@ -154,8 +154,10 @@ namespace visage {
 
   static double orientation(const DPoint& source, const DPoint& target1, const DPoint& target2) {
     static constexpr double kEpsilon = 3.3306690738754716e-16;
-    double l = (target2.y - source.y) * (target1.x - source.x);
-    double r = (target2.x - source.x) * (target1.y - source.y);
+    DPoint delta1 = target1 - source;
+    DPoint delta2 = target2 - source;
+    double l = delta2.y * delta1.x;
+    double r = delta2.x * delta1.y;
     double sum = std::abs(l + r);
     double diff = l - r;
     return std::abs(diff) >= kEpsilon * sum ? diff : 0.0;

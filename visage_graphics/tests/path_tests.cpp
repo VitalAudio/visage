@@ -197,7 +197,7 @@ TEST_CASE("Random path triangulation", "[graphics]") {
   }
 }
 
-TEST_CASE("Random robust degeneracy triangulation", "[graphics]") {
+TEST_CASE("Random line degeneracy", "[graphics]") {
   static constexpr float kWidth = 10000.0f;
   static constexpr float kHeight = 10000.0f;
   static constexpr int kNumPoints = 20;
@@ -211,17 +211,40 @@ TEST_CASE("Random robust degeneracy triangulation", "[graphics]") {
 
     for (int i = 1; i < kNumPoints; ++i) {
       float t = randomFloat(0.0f, kWidth);
-      Point point = point1 + (point2 - point1) * t;
-      path.lineTo(point.x, point.y);
+      if (randomFloat(0.0f, 1.0f) < 0.5f) {
+        Point point = point1 + (point2 - point1) * t;
+        path.lineTo(point.x, point.y);
+      }
+      else
+        path.lineTo(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
     }
 
     path.triangulate();
   }
 }
 
-TEST_CASE("Test path filling integration", "[graphics]") {
-  Canvas canvas;
-  canvas.setWindowless(1000, 1000);
+TEST_CASE("Random point degeneracy", "[graphics]") {
+  static constexpr float kWidth = 10000.0f;
+  static constexpr float kHeight = 10000.0f;
+  static constexpr int kNumPoints = 20;
+  static constexpr int kNumPaths = 50;
 
-  canvas.submit();
+  for (int p = 0; p < kNumPaths; ++p) {
+    Path path;
+    Point point1(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+    Point point2(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+    path.moveTo(point1);
+
+    for (int i = 1; i < kNumPoints; ++i) {
+      float t = randomFloat(0.0f, kWidth);
+      if (randomFloat(0.0f, 1.0f) < 0.3f)
+        path.lineTo(kWidth * 0.5f, kHeight * 0.5f);
+      else
+        path.lineTo(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+    }
+
+    path.triangulate();
+  }
 }
+
+TEST_CASE("Test path filling integration", "[graphics]") { }
