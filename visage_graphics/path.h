@@ -124,9 +124,7 @@ namespace visage {
       if (paths_.back().points.front() != paths_.back().points.back())
         addPoint(paths_.back().points.front());
 
-      paths_.emplace_back();
-      smooth_control_point_ = {};
-      current_value_ = 0.0f;
+      startNewPath();
     }
 
     void quadraticTo(Point control, Point end, bool relative = false) {
@@ -321,6 +319,14 @@ namespace visage {
 
     Path computeCombo(const Path& other, Path::FillRule fill_rule, int num_cycles_needed,
                       bool reverse_other) const;
+
+    void startNewPath() {
+      if (paths_.empty() || !paths_.back().points.empty())
+        paths_.emplace_back();
+
+      smooth_control_point_ = {};
+      current_value_ = 0.0f;
+    }
 
     SubPath& currentPath() {
       if (paths_.empty())
