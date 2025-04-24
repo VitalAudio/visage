@@ -34,7 +34,7 @@ namespace visage {
 
   class Path {
   public:
-    static constexpr float kDefaultArcErrorTolerance = 0.05f;
+    static constexpr float kDefaultErrorTolerance = 0.05f;
 
     enum class FillRule {
       NonZero,
@@ -161,21 +161,27 @@ namespace visage {
       smoothQuadraticTo(Point(end_x, end_y), relative);
     }
 
+    Point deltaFromLine(const Point& point, const Point& line_from, const Point& line_to) {
+      if (line_from == line_to)
+        return point - line_from;
+
+      Point line_delta = line_to - line_from;
+      Point point_delta = point - line_from;
+      float t = point_delta.dot(line_delta) / line_delta.dot(line_delta);
+      t = std::clamp(t, 0.0f, 1.0f);
+      Point closest_point = line_from + t * line_delta;
+      return point - closest_point;
+    }
+
     void bezierTo(Point control1, Point control2, Point end, bool relative = false) {
-      Point p0 = lastPoint();
+      Point from = lastPoint();
       if (relative) {
-        control1 += p0;
-        control2 += p0;
-        end += p0;
+        control1 += from;
+        control2 += from;
+        end += from;
       }
 
-      for (int i = 1; i <= kMaxCurveResolution; ++i) {
-        float t = i / static_cast<float>(kMaxCurveResolution);
-        float u = 1 - t;
-        Point point = u * u * u * p0 + 3 * u * u * t * control1 + 3 * u * t * t * control2 + t * t * t * end;
-        addPoint(point);
-      }
-
+      recurseBezierTo(from, control1, control2, end);
       smooth_control_point_ = end + (end - control2);
     }
 
@@ -283,14 +289,36 @@ namespace visage {
     void setFillRule(FillRule fill_rule) { fill_rule_ = fill_rule; }
     FillRule fillRule() const { return fill_rule_; }
 
-    void setArcErrorTolerance(float tolerance) {
+    void setErrorTolerance(float tolerance) {
       if (tolerance > 0.0f)
-        arc_error_tolerance_ = tolerance;
+        error_tolerance_ = tolerance;
     }
 
-    float arcErrorTolerance() const { return arc_error_tolerance_; }
+    float errorTolerance() const { return error_tolerance_; }
 
   private:
+    void recurseBezierTo(Point from, Point control1, Point control2, Point to) {
+      float error_squared = error_tolerance_ * error_tolerance_;
+      Point delta1 = deltaFromLine(control1, from, to);
+      Point delta2 = deltaFromLine(control2, from, to);
+      if (delta1.squareMagnitude() <= error_squared && delta2.squareMagnitude() <= error_squared) {
+        addPoint(to);
+        return;
+      }
+
+      Point mid1 = (from + control1) * 0.5f;
+      Point mid2 = (control1 + control2) * 0.5f;
+      Point mid3 = (control2 + to) * 0.5f;
+
+      Point midmid1 = (mid1 + mid2) * 0.5f;
+      Point midmid2 = (mid2 + mid3) * 0.5f;
+
+      Point break_point = (midmid1 + midmid2) * 0.5f;
+
+      recurseBezierTo(from, mid1, midmid1, break_point);
+      recurseBezierTo(break_point, midmid2, mid3, to);
+    }
+
     Path computeCombo(const Path& other, Path::FillRule fill_rule, int num_cycles_needed,
                       bool reverse_other) const;
 
@@ -314,6 +342,6 @@ namespace visage {
     FillRule fill_rule_ = FillRule::EvenOdd;
     Point smooth_control_point_;
     float current_value_ = 0.0f;
-    float arc_error_tolerance_ = kDefaultArcErrorTolerance;
+    float error_tolerance_ = kDefaultErrorTolerance;
   };
 }
