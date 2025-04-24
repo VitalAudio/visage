@@ -55,7 +55,7 @@ namespace visage {
     if (!sweep_flag)
       arc_angle = -arc_angle;
 
-    float max_delta_radians = 2.0f * std::acos(1.0f - arc_error_tolerance_ / std::max(x_radius, y_radius));
+    float max_delta_radians = 2.0f * std::acos(1.0f - error_tolerance_ / std::max(x_radius, y_radius));
     int num_points = std::ceil(std::abs(arc_angle) / max_delta_radians);
 
     std::complex<double> position(-center.x, -center.y);
@@ -575,8 +575,8 @@ namespace visage {
             bool area_fill_above = next_edge_[area.from_index] == area.to_index;
             bool fill = winding_directions[area.from_index] == 1;
             current_winding += windings[area.from_index];
-            bool inside_polygon = area_fill_above == fill;
 
+            bool inside_polygon = area_fill_above == fill;
             if (inside_polygon) {
               if (reversed[area.from_index] && fill_rule != Path::FillRule::EvenOdd)
                 reverse = true;
