@@ -181,30 +181,10 @@ TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
 }
 
 TEST_CASE("Random path triangulation", "[graphics]") {
-  // { x = 6752.79492 y = 567.126526 }
-  // { x = 8581.74023 y = 7906.08105 }
-  // { x = 1424.30957 y = 9965.66309 }
-  // { x = 4595.61963 y = 14.3991947 }
-  // { x = 5547.47363 y = 5059.93115 }
-  // { x = 9685.39941 y = 3157.83105 }
-  // { x = 6433.23340 y = 4173.01416 }
-  // { x = 7474.98877 y = 5467.82324 }
-  // { x = 9212.18262 y = 8411.53125 }
-  // { x = 7426.63721 y = 2736.23535 }
-  // { x = 9080.00098 y = 5840.46289 }
-  // { x = 2113.48511 y = 3726.24365 }
-  // { x = 9228.61230 y = 4507.67822 }
-  // { x = 9178.29004 y = 6089.29102 }
-  // { x = 1792.58777 y = 6839.50439 }
-  // { x = 3473.21777 y = 8707.61426 }
-  // { x = 8544.15234 y = 8513.67480 }
-  // { x = 5927.23096 y = 9246.49121 }
-  // { x = 9264.05273 y = 2850.45825 }
-  // { x = 7787.21338 y = 8386.79883 }
   static constexpr float kWidth = 10000.0f;
   static constexpr float kHeight = 10000.0f;
-  static constexpr int kNumPoints = 5;
-  static constexpr int kNumPaths = 1000;
+  static constexpr int kNumPoints = 20;
+  static constexpr int kNumPaths = 50;
 
   for (int p = 0; p < kNumPaths; ++p) {
     Path path;
@@ -218,25 +198,25 @@ TEST_CASE("Random path triangulation", "[graphics]") {
 }
 
 TEST_CASE("Random robust degeneracy triangulation", "[graphics]") {
-  // static constexpr float kWidth = 10000.0f;
-  // static constexpr float kHeight = 10000.0f;
-  // static constexpr int kNumPoints = 20;
-  // static constexpr int kNumPaths = 50;
-  //
-  // for (int p = 0; p < kNumPaths; ++p) {
-  //   Path path;
-  //   Point point1(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
-  //   Point point2(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
-  //   path.moveTo(point1);
-  //
-  //   for (int i = 1; i < kNumPoints; ++i) {
-  //     float t = randomFloat(0.0f, kWidth);
-  //     Point point = point1 + (point2 - point1) * t;
-  //     path.lineTo(point.x, point.y);
-  //   }
-  //
-  //   path.triangulate();
-  // }
+  static constexpr float kWidth = 10000.0f;
+  static constexpr float kHeight = 10000.0f;
+  static constexpr int kNumPoints = 20;
+  static constexpr int kNumPaths = 50;
+
+  for (int p = 0; p < kNumPaths; ++p) {
+    Path path;
+    Point point1(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+    Point point2(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+    path.moveTo(point1);
+
+    for (int i = 1; i < kNumPoints; ++i) {
+      float t = randomFloat(0.0f, kWidth);
+      Point point = point1 + (point2 - point1) * t;
+      path.lineTo(point.x, point.y);
+    }
+
+    path.triangulate();
+  }
 }
 
 TEST_CASE("Test path filling integration", "[graphics]") {

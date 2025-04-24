@@ -61,6 +61,8 @@ namespace visage {
       return *this;
     }
 
+    BasePoint operator-() const { return { -x, -y }; }
+
     T dot(const BasePoint& other) const { return x * other.x + y * other.y; }
     T operator*(const BasePoint& other) const { return dot(other); }
 
@@ -116,10 +118,75 @@ namespace visage {
     }
   };
 
+  template<typename T>
+  struct BaseMatrix {
+    T matrix[2][2] = { { 0, 0 }, { 0, 0 } };
+
+    BaseMatrix() = default;
+    BaseMatrix(T a, T b, T c, T d) {
+      matrix[0][0] = a;
+      matrix[0][1] = b;
+      matrix[1][0] = c;
+      matrix[1][1] = d;
+    }
+
+    BaseMatrix operator*(const BaseMatrix& other) const {
+      return { matrix[0][0] * other.matrix[0][0] + matrix[0][1] * other.matrix[1][0],
+               matrix[0][0] * other.matrix[0][1] + matrix[0][1] * other.matrix[1][1],
+               matrix[1][0] * other.matrix[0][0] + matrix[1][1] * other.matrix[1][0],
+               matrix[1][0] * other.matrix[0][1] + matrix[1][1] * other.matrix[1][1] };
+    }
+
+    BasePoint<T> operator*(const BasePoint<T>& point) const {
+      return { matrix[0][0] * point.x + matrix[0][1] * point.y,
+               matrix[1][0] * point.x + matrix[1][1] * point.y };
+    }
+
+    BaseMatrix operator*(T scalar) const {
+      return { matrix[0][0] * scalar, matrix[0][1] * scalar, matrix[1][0] * scalar, matrix[1][1] * scalar };
+    }
+
+    BaseMatrix operator/(T scalar) const {
+      return { matrix[0][0] / scalar, matrix[0][1] / scalar, matrix[1][0] / scalar, matrix[1][1] / scalar };
+    }
+
+    static BaseMatrix identity() { return { 1, 0, 0, 1 }; }
+
+    static BaseMatrix rotation(T angle) {
+      T cos_angle = std::cos(angle);
+      T sin_angle = std::sin(angle);
+      return { cos_angle, -sin_angle, sin_angle, cos_angle };
+    }
+
+    static BaseMatrix scale(T scale_x, T scale_y) { return { scale_x, 0, 0, scale_y }; }
+
+    static BaseMatrix rebasis(const BasePoint<T>& new_identity) {
+      return { new_identity.x, new_identity.y, -new_identity.y, new_identity.x };
+    };
+
+    BaseMatrix transpose() const {
+      return { matrix[0][0], matrix[1][0], matrix[0][1], matrix[1][1] };
+    }
+
+    BaseMatrix inverse() const {
+      T det = matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0];
+      if (det == 0)
+        return { 0, 0, 0, 0 };
+      T inv_det = 1.0 / det;
+      return { matrix[1][1] * inv_det, -matrix[0][1] * inv_det, -matrix[1][0] * inv_det,
+               matrix[0][0] * inv_det };
+    }
+  };
+
   typedef BasePoint<int> IPoint;
   typedef BasePoint<float> Point;
   typedef BasePoint<double> DPoint;
   typedef BasePoint<int64_t> IPoint64;
+
+  typedef BaseMatrix<int> IMatrix;
+  typedef BaseMatrix<float> Matrix;
+  typedef BaseMatrix<double> DMatrix;
+  typedef BaseMatrix<int64_t> IMatrix64;
 
   class IBounds {
   public:

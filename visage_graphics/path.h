@@ -34,6 +34,8 @@ namespace visage {
 
   class Path {
   public:
+    static constexpr float kDefaultArcErrorTolerance = 0.05f;
+
     enum class FillRule {
       NonZero,
       Positive,
@@ -281,6 +283,13 @@ namespace visage {
     void setFillRule(FillRule fill_rule) { fill_rule_ = fill_rule; }
     FillRule fillRule() const { return fill_rule_; }
 
+    void setArcErrorTolerance(float tolerance) {
+      if (tolerance > 0.0f)
+        arc_error_tolerance_ = tolerance;
+    }
+
+    float arcErrorTolerance() const { return arc_error_tolerance_; }
+
   private:
     Path computeCombo(const Path& other, Path::FillRule fill_rule, int num_cycles_needed,
                       bool reverse_other) const;
@@ -305,5 +314,6 @@ namespace visage {
     FillRule fill_rule_ = FillRule::EvenOdd;
     Point smooth_control_point_;
     float current_value_ = 0.0f;
+    float arc_error_tolerance_ = kDefaultArcErrorTolerance;
   };
 }

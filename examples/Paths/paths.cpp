@@ -35,21 +35,11 @@ int runExample() {
   visage::ApplicationWindow app;
 
   visage::Path path;
-  path.moveTo(107.989151, 492.898651);
-  path.lineTo(190.269104, 18.6316490);
-  path.lineTo(754.102112, 208.022049);
-  path.lineTo(279.940582, 84.3667450);
-  path.lineTo(708.273193, 63.2528839);
+  path.parseSvgPath("M 300 300 A 180 50 50 1 1 200 200");
 
   app.onDraw() = [&](visage::Canvas& canvas) {
     canvas.setColor(0xff442233);
     canvas.fill(0, 0, app.width(), app.height());
-
-    path.clear();
-    path.moveTo(randomFloat(0, app.width()), randomFloat(0, app.height()));
-    for (int i = 0; i < 20; ++i)
-      path.lineTo(randomFloat(0, app.width()), randomFloat(0, app.height()));
-    path.close();
 
     canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));

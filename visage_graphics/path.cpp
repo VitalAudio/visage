@@ -21,78 +21,54 @@
 
 #include "path.h"
 
+#include <complex>
 #include <set>
 
 namespace visage {
-  void Path::arcTo(float rx, float ry, float x_axis_rotation, bool large_arc, bool sweep_flag,
-                   Point point, bool relative) {
+  void Path::arcTo(float x_radius, float y_radius, float x_axis_rotation, bool large_arc,
+                   bool sweep_flag, Point to, bool relative) {
     static constexpr float kPi = 3.14159265358979323846f;
 
-    Point p0 = lastPoint();
-    if (relative)
-      point += p0;
-
-    float phi = x_axis_rotation * kPi / 180.0f;
-    float cos_phi = cosf(phi);
-    float sin_phi = sinf(phi);
-
-    float dx2 = (p0.x - point.x) / 2.0f;
-    float dy2 = (p0.y - point.y) / 2.0f;
-    float x1p = cos_phi * dx2 + sin_phi * dy2;
-    float y1p = -sin_phi * dx2 + cos_phi * dy2;
-
-    float rx_sq = rx * rx;
-    float ry_sq = ry * ry;
-    float x1p_sq = x1p * x1p;
-    float y1p_sq = y1p * y1p;
-    float radii_scale = x1p_sq / rx_sq + y1p_sq / ry_sq;
-    if (radii_scale > 1.0f) {
-      float scale = sqrtf(radii_scale);
-      rx *= scale;
-      ry *= scale;
-      rx_sq = rx * rx;
-      ry_sq = ry * ry;
-    }
-
-    float sign = (large_arc != sweep_flag) ? 1.0f : -1.0f;
-    float sq = ((rx_sq * ry_sq) - (rx_sq * y1p_sq) - (ry_sq * x1p_sq)) /
-               ((rx_sq * y1p_sq) + (ry_sq * x1p_sq));
-    sq = std::max(0.0f, sq);
-    float coef = sign * sqrtf(sq);
-    float cxp = coef * ((rx * y1p) / ry);
-    float cyp = coef * -((ry * x1p) / rx);
-
-    float cx = cos_phi * cxp - sin_phi * cyp + (p0.x + point.x) / 2.0f;
-    float cy = sin_phi * cxp + cos_phi * cyp + (p0.y + point.y) / 2.0f;
-
-    auto vectorAngle = [](float ux, float uy, float vx, float vy) -> float {
-      float dot = ux * vx + uy * vy;
-      float len = sqrtf((ux * ux + uy * uy) * (vx * vx + vy * vy));
-      float ang = acos(std::clamp(dot / len, -1.0f, 1.0f));
-      if (ux * vy - uy * vx < 0.0f)
-        ang = -ang;
-      return ang;
-    };
-
-    float theta1 = vectorAngle(1.0f, 0.0f, (x1p - cxp) / rx, (y1p - cyp) / ry);
-    float delta_theta = vectorAngle((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx,
-                                    (-y1p - cyp) / ry);
-
-    if (!sweep_flag && delta_theta > 0)
-      delta_theta -= 2 * kPi;
-    else if (sweep_flag && delta_theta < 0)
-      delta_theta += 2 * kPi;
-
-    for (int i = 1; i <= kMaxCurveResolution; ++i) {
-      float t = theta1 + delta_theta * (static_cast<float>(i) / kMaxCurveResolution);
-      float cos_t = cosf(t);
-      float sin_t = sinf(t);
-      float x = cos_phi * rx * cos_t - sin_phi * ry * sin_t + cx;
-      float y = sin_phi * rx * cos_t + cos_phi * ry * sin_t + cy;
-      addPoint(x, y);
-    }
-
     smooth_control_point_ = {};
+
+    Point from = lastPoint();
+    if (relative)
+      to += from;
+
+    auto ellipse_rotation = Matrix::rotation(x_axis_rotation * kPi / 180.0f);
+    Point delta = ellipse_rotation.transpose() * (to - from);
+    float radius_ratio = x_radius / y_radius;
+    delta.y *= radius_ratio;
+
+    float length = delta.length();
+    float radius = std::max(length * 0.5f, x_radius);
+    float center_offset = std::sqrt(radius * radius - length * length * 0.25f);
+    Point normal = Point(delta.y, -delta.x) / length;
+    if (large_arc != sweep_flag)
+      normal = -normal;
+
+    Point center = delta * 0.5f + normal * center_offset;
+    float arc_angle = 2.0f * std::asin(length * 0.5f / radius);
+
+    if (large_arc)
+      arc_angle = 2.0f * kPi - arc_angle;
+    if (!sweep_flag)
+      arc_angle = -arc_angle;
+
+    float max_delta_radians = 2.0f * std::acos(1.0f - arc_error_tolerance_ / std::max(x_radius, y_radius));
+    int num_points = std::ceil(std::abs(arc_angle) / max_delta_radians);
+
+    std::complex<double> position(-center.x, -center.y);
+    double angle_delta = arc_angle / num_points;
+    std::complex<double> rotation = std::polar(1.0, angle_delta);
+
+    for (int i = 0; i < num_points; ++i) {
+      position *= rotation;
+      Point point = center + Point(position.real(), position.imag());
+      point.y /= radius_ratio;
+      point = ellipse_rotation * point + from;
+      addPoint(point);
+    }
   }
 
   static std::vector<float> parseNumbers(const std::string& str, size_t& i, int num) {
@@ -198,15 +174,15 @@ namespace visage {
   }
 
   struct ScanLineArea {
-    static double compare(const ScanLineArea& area, DPoint point) {
+    static double compare(const ScanLineArea& area, const DPoint& point) {
       return stableOrientation(area.from, area.to, point);
     }
 
-    static bool lessThan(const ScanLineArea& area, DPoint point) {
+    static bool lessThan(const ScanLineArea& area, const DPoint& point) {
       return compare(area, point) > 0.0;
     }
 
-    ScanLineArea(int from_index, DPoint from, int to_index, DPoint to) :
+    ScanLineArea(int from_index, const DPoint& from, int to_index, const DPoint& to) :
         from_index(from_index), from(from), to_index(to_index), to(to) { }
 
     bool operator<(const ScanLineArea& other) const {
@@ -253,7 +229,7 @@ namespace visage {
       End
     };
 
-    TriangulationGraph(const Path* path) {
+    explicit TriangulationGraph(const Path* path) {
       int num_points = path->numPoints();
       prev_edge_.reserve(num_points);
       next_edge_.reserve(num_points);
@@ -345,6 +321,11 @@ namespace visage {
     class ScanLine {
     public:
       struct Event {
+        Event(PointType type, int index, const DPoint& point, int prev_index, const DPoint& prev,
+              int next_index, const DPoint& next) :
+            type(type), index(index), point(point), prev_index(prev_index), prev(prev),
+            next_index(next_index), next(next) { }
+
         PointType type;
         int index;
         DPoint point;
@@ -354,19 +335,19 @@ namespace visage {
         DPoint next;
       };
 
-      ScanLine(TriangulationGraph* graph, bool find_intersections = false) :
+      explicit ScanLine(TriangulationGraph* graph, bool find_intersections = false) :
           graph_(graph), find_intersections_(find_intersections),
           sorted_indices_(graph->sortedIndices()) {
         progressToNextEvent();
       }
 
-      bool hasNext() { return event_index_ < sorted_indices_.size(); }
+      bool hasNext() const { return current_index_ < sorted_indices_.size(); }
       void progressToNextEvent() {
-        while (event_index_ < sorted_indices_.size()) {
-          int index = sorted_indices_[event_index_];
+        while (current_index_ < sorted_indices_.size()) {
+          int index = sorted_indices_[current_index_];
           if (graph_->next_edge_[index] != index)
             break;
-          event_index_++;
+          current_index_++;
         }
       }
 
@@ -384,7 +365,7 @@ namespace visage {
       }
 
       Event nextEvent() const {
-        int index = sorted_indices_[event_index_];
+        int index = sorted_indices_[current_index_];
         int prev_index = resolveAlias(graph_->prev_edge_[index]);
         int next_index = resolveAlias(graph_->next_edge_[index]);
         auto point = graph_->points_[index];
@@ -442,10 +423,8 @@ namespace visage {
 
       void checkAddIntersection(const std::map<ScanLineArea, int>::iterator& it) {
         auto intersection = adjacentIntersection(it);
-        if (intersection.has_value()) {
-          auto next = std::next(it);
+        if (intersection.has_value())
           intersection_events_.insert(intersection.value());
-        }
       };
 
       void updateBeginAreas(const Event& ev) {
@@ -534,15 +513,13 @@ namespace visage {
         else
           updateContinueArea(ev);
 
-        event_index_++;
+        current_index_++;
         progressToNextEvent();
 
-        VISAGE_ASSERT(graph_->checkValidPolygons());
-        VISAGE_ASSERT(checkValidOrder(areas_));
         VISAGE_ASSERT(areas_.size() % 2 == 0);
       }
 
-      auto lowerBound(DPoint point) {
+      auto lowerBound(const DPoint& point) {
         return std::lower_bound(areas_.begin(), areas_.end(), point, [](const auto& pair, const DPoint& p) {
           return ScanLineArea::lessThan(pair.first, p);
         });
@@ -555,15 +532,15 @@ namespace visage {
 
     private:
       TriangulationGraph* graph_ = nullptr;
-      std::map<ScanLineArea, int> areas_;
+      bool find_intersections_ = false;
       std::vector<int> sorted_indices_;
-      int event_index_ = 0;
+      int current_index_ = 0;
 
-      std::map<ScanLineArea, int>::iterator last_position1_;
-      std::map<ScanLineArea, int>::iterator last_position2_;
+      std::map<ScanLineArea, int> areas_;
+      std::map<ScanLineArea, int>::iterator last_position1_ = areas_.end();
+      std::map<ScanLineArea, int>::iterator last_position2_ = areas_.end();
       std::map<int, int> aliases_;
 
-      bool find_intersections_ = false;
       std::set<IntersectionEvent> intersection_events_;
       int last_id_ = 0;
     };
@@ -610,7 +587,7 @@ namespace visage {
 
           if (fill_rule == Path::FillRule::EvenOdd) {
             bool fill = (current_winding % 2) == 0;
-            reverse = reverse || (convex != fill);
+            reverse = convex != fill;
           }
           else if (fill_rule == Path::FillRule::NonZero && current_winding == 0)
             reverse = reverse || !convex;
@@ -679,7 +656,7 @@ namespace visage {
         }
         else if (ev.type == PointType::End) {
           scan_line.update();
-          auto& area = scan_line.lowerBound(ev.point);
+          auto area = scan_line.lowerBound(ev.point);
 
           if (convex && merge_vertices.count(scan_line.lastId()))
             addDiagonal(scan_line, ev.index, scan_line.lastId());
@@ -743,9 +720,7 @@ namespace visage {
           removeFromCycle(i);
         else {
           while (i != next_edge_[i]) {
-            double orientation = stableOrientation(points_[i], points_[next_edge_[i]],
-                                                   points_[next_edge_[next_edge_[i]]]);
-            if (orientation)
+            if (stableOrientation(points_[i], points_[next_edge_[i]], points_[next_edge_[next_edge_[i]]]))
               break;
 
             removeFromCycle(next_edge_[i]);
@@ -754,7 +729,7 @@ namespace visage {
       }
     }
 
-    Path toPath() {
+    Path toPath() const {
       std::unique_ptr<bool[]> visited = std::make_unique<bool[]>(points_.size());
       Path path;
       for (int i = 0; i < points_.size(); ++i) {
@@ -787,7 +762,7 @@ namespace visage {
       return PointType::Continue;
     }
 
-    int addAdditionalPoint(DPoint point) {
+    int addAdditionalPoint(const DPoint& point) {
       points_.push_back(point);
       int new_index = points_.size() - 1;
       prev_edge_.push_back(new_index);
@@ -828,7 +803,7 @@ namespace visage {
       for (auto offset = std::next(start); offset != areas.end(); ++offset) {
         auto it = start;
         for (auto next = offset; next != areas.end(); ++it, ++next) {
-          if (!(*it < *next))
+          if (*it >= *next)
             return false;
         }
       }
@@ -910,7 +885,8 @@ namespace visage {
       return new_index;
     }
 
-    bool tryCutEar(int index, bool forward, std::vector<int>& triangles, std::unique_ptr<bool[]>& touched) {
+    bool tryCutEar(int index, bool forward, std::vector<int>& triangles,
+                   const std::unique_ptr<bool[]>& touched) {
       auto& direction = forward ? next_edge_ : prev_edge_;
       auto& reverse = forward ? prev_edge_ : next_edge_;
 
@@ -942,7 +918,7 @@ namespace visage {
       return true;
     }
 
-    void cutEars(int index, std::vector<int>& triangles, std::unique_ptr<bool[]>& touched) {
+    void cutEars(int index, std::vector<int>& triangles, const std::unique_ptr<bool[]>& touched) {
       while (tryCutEar(index, true, triangles, touched))
         ;
       while (tryCutEar(index, false, triangles, touched))
