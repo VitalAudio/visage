@@ -35,7 +35,7 @@ int runExample() {
   visage::ApplicationWindow app;
 
   visage::Path path;
-  path.parseSvgPath("M 300 300 A 180 50 50 1 1 200 200");
+  path.parseSvgPath("M10 80 C 40 10, 160 10, 190 80");
 
   app.onDraw() = [&](visage::Canvas& canvas) {
     canvas.setColor(0xff442233);
