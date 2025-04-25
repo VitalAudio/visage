@@ -424,14 +424,14 @@ namespace visage {
         if (find_intersections_ && check_remove) {
           auto adjacent = areas_.lower_bound(area);
           if (adjacent != areas_.end() && adjacent != areas_.begin())
-            checkRemoveIntersection(std::prev(adjacent));
+            checkRemoveIntersection(safePrev(adjacent));
         }
 
         auto it = areas_.insert({ area, id }).first;
         last_id_ = id;
         if (find_intersections_) {
           checkAddIntersection(it);
-          checkAddIntersection(std::prev(it));
+          checkAddIntersection(safePrev(it));
         }
         return it;
       }
@@ -459,7 +459,7 @@ namespace visage {
         last_position1_ = areas_.erase(areas_.find(to_erase));
         last_position2_ = last_position1_;
         if (find_intersections_ && last_position1_ != areas_.end() && last_position1_ != areas_.begin())
-          checkAddIntersection(std::prev(last_position1_));
+          checkAddIntersection(safePrev(last_position1_));
       }
 
       void updateAreaIntersection(const IntersectionEvent& ev) {
@@ -475,7 +475,7 @@ namespace visage {
           std::swap(erase_area1, erase_area2);
 
         auto erase1 = areas_.find(erase_area1);
-        checkRemoveIntersection(std::prev(erase1));
+        checkRemoveIntersection(safePrev(erase1));
         areas_.erase(erase1);
         VISAGE_ASSERT(areas_.size() % 2 == 1);
 
@@ -538,6 +538,18 @@ namespace visage {
         return std::lower_bound(areas_.begin(), areas_.end(), point, [](const auto& pair, const DPoint& p) {
           return ScanLineArea::lessThan(pair.first, p);
         });
+      }
+
+      std::map<ScanLineArea, int>::iterator safePrev(const std::map<ScanLineArea, int>::iterator& it) {
+        if (it != areas_.begin() && it != areas_.end())
+          return std::prev(it);
+        return areas_.end();
+      }
+
+      std::map<ScanLineArea, int>::const_iterator safePrev(const std::map<ScanLineArea, int>::const_iterator& it) const {
+        if (it != areas_.begin() && it != areas_.end())
+          return std::prev(it);
+        return areas_.end();
       }
 
       auto end() const { return areas_.end(); }
@@ -663,7 +675,7 @@ namespace visage {
             diagonal_index = addDiagonal(scan_line, ev.index, after->second);
             after->second = ev.index;
 
-            auto before = std::prev(scan_line.lastPosition1());
+            auto before = scan_line.safePrev(scan_line.lastPosition1());
             before->second = diagonal_index;
           }
 
@@ -679,7 +691,7 @@ namespace visage {
           if (area != scan_line.end()) {
             if (!convex) {
               area->second = ev.index;
-              area = std::prev(area);
+              area = scan_line.safePrev(area);
               if (area != scan_line.end())
                 area->second = ev.index;
               merge_vertices.insert(ev.index);
