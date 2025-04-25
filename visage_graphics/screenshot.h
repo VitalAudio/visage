@@ -77,6 +77,14 @@ namespace visage {
     uint8_t* data() const { return data_.get(); }
     int width() const { return width_; }
     int height() const { return height_; }
+    Color sample(int x, int y) const {
+      int index = (y * width_ + x) * 4;
+      uint32_t color = (data_[index + 3] << 24) | (data_[index] << 16) | (data_[index + 1] << 8) |
+                       data_[index + 2];
+      return color;
+    }
+
+    Color sample(Point point) const { return sample(point.x, point.y); }
 
   private:
     void flipBlueRed() {
