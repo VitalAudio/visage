@@ -46,9 +46,6 @@ namespace visage {
 
     template<typename T>
     static std::optional<T> findIntersection(T start1, T end1, T start2, T end2) {
-      if (start1 == start2 || start1 == end2 || end1 == start2 || end1 == end2)
-        return std::nullopt;
-
       auto delta1 = end1 - start1;
       auto delta2 = end2 - start2;
       auto det = delta1.cross(delta2);

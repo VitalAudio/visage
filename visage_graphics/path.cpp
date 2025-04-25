@@ -231,6 +231,19 @@ namespace visage {
       End
     };
 
+    static std::optional<DPoint> findIntersection(DPoint start_a, DPoint end_a, DPoint start_b,
+                                                  DPoint end_b) {
+      double compare1 = stableOrientation(start_a, end_a, start_b);
+      double compare2 = stableOrientation(start_a, end_a, end_b);
+      if ((compare1 < 0.0 && compare2 > 0.0) || (compare1 > 0.0 && compare2 < 0.0))
+        return Path::findIntersection(start_a, end_a, start_b, end_b);
+      return std::nullopt;
+    }
+
+    std::optional<DPoint> findIntersection(int start_a, int end_a, int start_b, int end_b) {
+      return Path::findIntersection(points_[start_a], points_[end_a], points_[start_b], points_[end_b]);
+    }
+
     explicit TriangulationGraph(const Path* path) {
       int num_points = path->numPoints();
       prev_edge_.reserve(num_points);
@@ -387,7 +400,7 @@ namespace visage {
 
         const ScanLineArea& area = it->first;
         const ScanLineArea& next = next_it->first;
-        auto intersection = Path::findIntersection(area.from, area.to, next.from, next.to);
+        auto intersection = findIntersection(area.from, area.to, next.from, next.to);
         if (!intersection.has_value())
           return std::nullopt;
 
@@ -824,12 +837,7 @@ namespace visage {
 
     std::optional<std::pair<int, int>> breakIntersection(int start_index1, int end_index1,
                                                          int start_index2, int end_index2) {
-      DPoint start1 = points_[start_index1];
-      DPoint end1 = points_[end_index1];
-      DPoint start2 = points_[start_index2];
-      DPoint end2 = points_[end_index2];
-
-      std::optional<DPoint> intersection = Path::findIntersection(start1, end1, start2, end2);
+      auto intersection = findIntersection(start_index1, end_index1, start_index2, end_index2);
       VISAGE_ASSERT(intersection.has_value());
       if (!intersection.has_value())
         return std::nullopt;

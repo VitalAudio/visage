@@ -34,12 +34,28 @@ inline float randomFloat(float min, float max) {
 int runExample() {
   visage::ApplicationWindow app;
 
+  static constexpr float kPi = 3.14159265358979323846f;
+  static constexpr int kStarPoints = 20;
+  static constexpr int kWidth = 100;
+  static constexpr float kRadius = 40.0f;
+
   visage::Path path;
-  path.parseSvgPath("M10 80 C 40 10, 160 10, 190 80");
+  path.moveTo(10, 10);
+  path.lineTo(50, 50);
+  path.lineTo(90, 90);
+  path.lineTo(20, 80);
+  path.lineTo(50, 50);
+  path.lineTo(80, 30);
 
   app.onDraw() = [&](visage::Canvas& canvas) {
     canvas.setColor(0xff442233);
     canvas.fill(0, 0, app.width(), app.height());
+
+    // path.clear();
+    // path.moveTo(randomFloat(0, app.width()), randomFloat(0, app.height()));
+    // for (int i = 0; i < 20; ++i)
+    //   path.lineTo(randomFloat(0, app.width()), randomFloat(0, app.height()));
+    // path.close();
 
     canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));
