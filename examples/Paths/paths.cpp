@@ -40,12 +40,13 @@ int runExample() {
   static constexpr float kRadius = 40.0f;
 
   visage::Path path;
-  path.moveTo(10, 10);
-  path.lineTo(50, 50);
-  path.lineTo(90, 90);
-  path.lineTo(20, 80);
-  path.lineTo(50, 50);
-  path.lineTo(80, 30);
+  path.moveTo(4033.99146, 5125.91162);
+  path.lineTo(2524.65796, 2570.17236);
+  path.lineTo(5000.00000, 5000.00000);
+  path.lineTo(6954.66162, 2650.49731);
+  path.lineTo(483.266479, 3701.33105);
+  path.lineTo(5000.00000, 5000.00000);
+  path.scale(0.05f);
 
   app.onDraw() = [&](visage::Canvas& canvas) {
     canvas.setColor(0xff442233);
