@@ -197,9 +197,6 @@ namespace visage {
       if (orientation)
         return orientation < 0.0;
 
-      if (from.y != other.from.y)
-        return from.y < other.from.y;
-
       if (to == other.from && from != other.to)
         return true;
       if (from == other.to && to != other.from)
@@ -226,22 +223,30 @@ namespace visage {
   class TriangulationGraph {
   public:
     enum class PointType {
-      Continue,
       Begin,
+      Continue,
       End
     };
 
-    static std::optional<DPoint> findIntersection(DPoint start_a, DPoint end_a, DPoint start_b,
-                                                  DPoint end_b) {
-      double compare1 = stableOrientation(start_a, end_a, start_b);
-      double compare2 = stableOrientation(start_a, end_a, end_b);
-      if ((compare1 < 0.0 && compare2 > 0.0) || (compare1 > 0.0 && compare2 < 0.0))
-        return Path::findIntersection(start_a, end_a, start_b, end_b);
-      return std::nullopt;
-    }
+    static std::optional<DPoint> findIntersection(const ScanLineArea& area1, int area1_index,
+                                                  const ScanLineArea& area2, int area2_index) {
+      if (area1.from_index == area2.from_index || area1.to_index == area2.to_index ||
+          area1.from == area2.to || area1.to == area2.from || area1.from == area1.to ||
+          area2.from == area2.to)
+        return std::nullopt;
 
-    std::optional<DPoint> findIntersection(int start_a, int end_a, int start_b, int end_b) {
-      return Path::findIntersection(points_[start_a], points_[end_a], points_[start_b], points_[end_b]);
+      double compare1 = stableOrientation(area1.from, area1.to, area2.from);
+      double compare2 = stableOrientation(area1.from, area1.to, area2.to);
+      if (compare1 == 0.0 && compare2 == 0.0)
+        return std::nullopt;
+      if ((compare1 > 0.0 && compare2 > 0.0) || (compare1 < 0.0 && compare2 < 0.0))
+        return std::nullopt;
+
+      bool intersect_if_degeneracy = (area1 < area2) == (area1_index > area2_index);
+      if ((compare1 && compare2) || intersect_if_degeneracy)
+        return Path::findIntersection(area1.from, area1.to, area2.from, area2.to);
+
+      return std::nullopt;
     }
 
     explicit TriangulationGraph(const Path* path) {
@@ -300,11 +305,11 @@ namespace visage {
 
       PointType a_type = pointType(a_index);
       PointType b_type = pointType(b_index);
-      if (a_type == PointType::End && b_type == PointType::Begin)
+      if (a_type == b_type)
+        return a_index - b_index;
+      if (a_type == PointType::End || b_type == PointType::Begin)
         return -1.0;
-      if (a_type == PointType::Begin && b_type == PointType::End)
-        return 1.0;
-      return a_index - b_index;
+      return 1.0;
     }
 
     struct Degeneracy {
@@ -400,7 +405,7 @@ namespace visage {
 
         const ScanLineArea& area = it->first;
         const ScanLineArea& next = next_it->first;
-        auto intersection = findIntersection(area.from, area.to, next.from, next.to);
+        auto intersection = findIntersection(area, it->second, next, next_it->second);
         if (!intersection.has_value())
           return std::nullopt;
 
@@ -448,8 +453,8 @@ namespace visage {
         if (to_insert2 < to_insert1)
           std::swap(to_insert1, to_insert2);
 
-        last_position1_ = addArea(to_insert1, -1);
-        last_position2_ = addArea(to_insert2, -1);
+        last_position1_ = addArea(to_insert1, area_index_++);
+        last_position2_ = addArea(to_insert2, area_index_++);
       }
 
       void updateEndAreas(const Event& ev) {
@@ -475,11 +480,13 @@ namespace visage {
           std::swap(erase_area1, erase_area2);
 
         auto erase1 = areas_.find(erase_area1);
+        int index1 = erase1->second;
         checkRemoveIntersection(safePrev(erase1));
         areas_.erase(erase1);
         VISAGE_ASSERT(areas_.size() % 2 == 1);
 
         auto erase2 = areas_.find(erase_area2);
+        int index2 = erase2->second;
         checkRemoveIntersection(erase2);
         areas_.erase(erase2);
         VISAGE_ASSERT(areas_.size() % 2 == 0);
@@ -488,8 +495,13 @@ namespace visage {
         int b_index = graph_->connected(broken->first, ev.b_to) ? broken->first : broken->second;
         ScanLineArea area1(a_index, graph_->points_[a_index], ev.a_to, graph_->points_[ev.a_to]);
         ScanLineArea area2(b_index, graph_->points_[b_index], ev.b_to, graph_->points_[ev.b_to]);
-        last_position1_ = addArea(area1, -1, false);
-        last_position2_ = addArea(area2, -1);
+        if (area2 < area1)
+          std::swap(area2, area1);
+        if (index2 < index1)
+          std::swap(index2, index1);
+
+        last_position1_ = addArea(area1, index1, false);
+        last_position2_ = addArea(area2, index2);
         VISAGE_ASSERT(areas_.size() % 2 == 0);
       }
 
@@ -514,7 +526,7 @@ namespace visage {
           auto it = intersection_events_.begin();
           IntersectionEvent intersection = *it;
 
-          if (intersection.point < ev.point) {
+          if (intersection.point <= ev.point) {
             intersection_events_.erase(it);
             updateAreaIntersection(intersection);
             return;
@@ -534,11 +546,7 @@ namespace visage {
         VISAGE_ASSERT(areas_.size() % 2 == 0);
       }
 
-      auto lowerBound(const DPoint& point) {
-        return std::lower_bound(areas_.begin(), areas_.end(), point, [](const auto& pair, const DPoint& p) {
-          return ScanLineArea::lessThan(pair.first, p);
-        });
-      }
+      auto lowerBound(const ScanLineArea& area) { return areas_.lower_bound(area); }
 
       std::map<ScanLineArea, int>::iterator safePrev(const std::map<ScanLineArea, int>::iterator& it) {
         if (it != areas_.begin() && it != areas_.end())
@@ -567,6 +575,7 @@ namespace visage {
       std::map<ScanLineArea, int>::iterator last_position1_ = areas_.end();
       std::map<ScanLineArea, int>::iterator last_position2_ = areas_.end();
       std::map<int, int> aliases_;
+      int area_index_ = 1;
 
       std::set<IntersectionEvent> intersection_events_;
       int last_id_ = 0;
@@ -593,7 +602,8 @@ namespace visage {
         if (winding_directions[ev.index] == 0) {
           bool convex = stableOrientation(ev.point, ev.prev, ev.next) > 0.0;
 
-          auto area_iterator = scan_line.lowerBound(ev.point);
+          ScanLineArea area(ev.index, ev.point, ev.next_index, ev.next);
+          auto area_iterator = scan_line.lowerBound(area);
 
           int current_winding = 0;
           bool reverse = false;
@@ -683,7 +693,8 @@ namespace visage {
         }
         else if (ev.type == PointType::End) {
           scan_line.update();
-          auto area = scan_line.lowerBound(ev.point);
+          ScanLineArea scan_area(ev.prev_index, ev.prev, ev.next_index, ev.next);
+          auto area = scan_line.lowerBound(scan_area);
 
           if (convex && merge_vertices.count(scan_line.lastId()))
             addDiagonal(scan_line, ev.index, scan_line.lastId());
@@ -780,7 +791,6 @@ namespace visage {
     PointType pointType(int index) const {
       double compare_prev = points_[index].compare(points_[prev_edge_[index]]);
       double compare_next = points_[index].compare(points_[next_edge_[index]]);
-      VISAGE_ASSERT((compare_prev && compare_next) || index == prev_edge_[index]);
 
       if (compare_prev < 0.0 && compare_next < 0.0)
         return PointType::Begin;
@@ -822,21 +832,6 @@ namespace visage {
       return true;
     }
 
-    static bool checkValidOrder(const std::map<ScanLineArea, int>& areas) {
-      if (areas.empty())
-        return true;
-
-      auto start = areas.begin();
-      for (auto offset = std::next(start); offset != areas.end(); ++offset) {
-        auto it = start;
-        for (auto next = offset; next != areas.end(); ++it, ++next) {
-          if (*it >= *next)
-            return false;
-        }
-      }
-      return true;
-    }
-
     std::vector<int> sortedIndices() const {
       std::vector<int> sorted_indices;
       sorted_indices.resize(prev_edge_.size());
@@ -849,18 +844,19 @@ namespace visage {
 
     std::optional<std::pair<int, int>> breakIntersection(int start_index1, int end_index1,
                                                          int start_index2, int end_index2) {
-      auto intersection = findIntersection(start_index1, end_index1, start_index2, end_index2);
+      auto intersection = Path::findIntersection(points_[start_index1], points_[end_index1],
+                                                 points_[start_index2], points_[end_index2]);
       VISAGE_ASSERT(intersection.has_value());
       if (!intersection.has_value())
         return std::nullopt;
-
-      int new_index1 = addAdditionalPoint(intersection.value());
-      int new_index2 = addAdditionalPoint(intersection.value());
 
       if (next_edge_[start_index1] != end_index1)
         std::swap(start_index1, end_index1);
       if (next_edge_[start_index2] != end_index2)
         std::swap(start_index2, end_index2);
+
+      int new_index1 = addAdditionalPoint(intersection.value());
+      int new_index2 = addAdditionalPoint(intersection.value());
 
       connect(start_index1, new_index1);
       connect(new_index1, end_index2);

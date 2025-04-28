@@ -91,6 +91,15 @@ namespace visage {
     bool operator<(const BasePoint& other) const {
       return x < other.x || (x == other.x && y < other.y);
     }
+    bool operator>(const BasePoint& other) const {
+      return x > other.x || (x == other.x && y > other.y);
+    }
+    bool operator<=(const BasePoint& other) const {
+      return x < other.x || (x == other.x && y <= other.y);
+    }
+    bool operator>=(const BasePoint& other) const {
+      return x > other.x || (x == other.x && y >= other.y);
+    }
     T compare(const BasePoint& other) const {
       if (x < other.x)
         return -1;
