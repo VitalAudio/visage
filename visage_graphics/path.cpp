@@ -184,8 +184,8 @@ namespace visage {
       return compare(area, point) > 0.0;
     }
 
-    ScanLineArea(int from_index, const DPoint& from, int to_index, const DPoint& to) :
-        from_index(from_index), from(from), to_index(to_index), to(to) { }
+    ScanLineArea(int from_index, const DPoint& from, int to_index, const DPoint& to, bool forward) :
+        from_index(from_index), from(from), to_index(to_index), to(to), forward(forward) { }
 
     bool operator<(const ScanLineArea& other) const {
       double orientation = 0.0;
@@ -218,6 +218,7 @@ namespace visage {
     DPoint from;
     int to_index;
     DPoint to;
+    bool forward;
   };
 
   class TriangulationGraph {
@@ -267,25 +268,6 @@ namespace visage {
       }
     }
 
-    struct IntersectionEvent {
-      DPoint point;
-      int a_to;
-      bool a_forward;
-      int b_to;
-      bool b_forward;
-      const TriangulationGraph* graph;
-
-      bool operator<(const IntersectionEvent& other) const {
-        if (point.x != other.point.x)
-          return point.x < other.point.x;
-        if (point.y != other.point.y)
-          return point.y < other.point.y;
-        if (a_to == b_to && other.a_to == other.b_to)
-          return graph->compareIndices(a_to, other.a_to) < 0.0;
-        return a_to < other.a_to;
-      }
-    };
-
     Path::Triangulation triangulate(Path::FillRule fill_rule, int minimum_cycles = 1) {
       simplify();
       breakIntersections();
@@ -320,21 +302,6 @@ namespace visage {
         if (to != other.to)
           return to < other.to;
         return point < other.point;
-      }
-    };
-
-    struct ScanLinePair {
-      int scan_line_id1, scan_line_id2;
-
-      ScanLinePair(int id1, int id2) {
-        scan_line_id1 = std::min(id1, id2);
-        scan_line_id2 = std::max(id1, id2);
-      }
-
-      bool operator<(const ScanLinePair& other) const {
-        if (scan_line_id1 != other.scan_line_id1)
-          return scan_line_id1 < other.scan_line_id1;
-        return scan_line_id2 < other.scan_line_id2;
       }
     };
 
@@ -395,150 +362,183 @@ namespace visage {
         return { type, index, point, prev_index, prev, next_index, next };
       }
 
-      std::optional<IntersectionEvent> adjacentIntersection(const std::map<ScanLineArea, int>::iterator& it) const {
-        if (it == areas_.end())
+      struct Break {
+        DPoint point;
+        int area1_new_index;
+        int area2_new_index;
+      };
+
+      std::optional<Break> breakIntersection(const ScanLineArea& area1, const ScanLineArea& area2) {
+        if (area1.from == area2.from || area1.to == area2.to)
           return std::nullopt;
 
-        auto next_it = std::next(it);
-        if (next_it == areas_.end())
+        double compare1 = stableOrientation(area1.from, area1.to, area2.to);
+        double compare2 = stableOrientation(area2.from, area2.to, area1.to);
+        if (compare1 > 0.0 || compare2 < 0.0)
           return std::nullopt;
 
-        const ScanLineArea& area = it->first;
-        const ScanLineArea& next = next_it->first;
-        auto intersection = findIntersection(area, it->second, next, next_it->second);
-        if (!intersection.has_value())
-          return std::nullopt;
+        int area1_prev = area1.from_index;
+        int area1_next = area1.to_index;
+        if (graph_->next_edge_[area1_prev] != area1_next)
+          std::swap(area1_prev, area1_next);
 
-        return IntersectionEvent { intersection.value(),
-                                   area.to_index,
-                                   graph_->next_edge_[area.from_index] == area.to_index,
-                                   next.to_index,
-                                   graph_->next_edge_[next.from_index] == next.to_index,
-                                   graph_ };
+        int area2_prev = area2.from_index;
+        int area2_next = area2.to_index;
+        if (graph_->next_edge_[area2_prev] != area2_next)
+          std::swap(area2_prev, area2_next);
+
+        if (compare1 == 0.0) {
+          int new_index = graph_->insertPointBetween(area1_prev, area1_next, area2.to);
+          return Break { area2.to, new_index, area2.to_index };
+        }
+        if (compare2 == 0.0) {
+          int new_index = graph_->insertPointBetween(area2_prev, area2_next, area1.to);
+          return Break { area1.to, area1.to_index, new_index };
+        }
+
+        std::optional<DPoint> intersection = Path::findIntersection(area1.from, area1.to,
+                                                                    area2.from, area2.to);
+        VISAGE_ASSERT(intersection.has_value());
+        int new_index1 = graph_->insertPointBetween(area1_prev, area1_next, intersection.value());
+        int new_index2 = graph_->insertPointBetween(area2_prev, area2_next, intersection.value());
+
+        return Break { intersection.value(), new_index1, new_index2 };
       }
 
-      void checkRemoveIntersection(const std::map<ScanLineArea, int>::iterator& it) {
-        auto intersection = adjacentIntersection(it);
-        if (intersection.has_value()) {
-          VISAGE_ASSERT(intersection_events_.count(intersection.value()));
-          intersection_events_.erase(intersection.value());
+      std::optional<Break> breakIntersection(const std::map<ScanLineArea, int>::iterator& area1,
+                                             const ScanLineArea& area2) {
+        if (area1 == areas_.end())
+          return std::nullopt;
+        return breakIntersection(area1->first, area2);
+      }
+
+      std::optional<Break> breakIntersection(const ScanLineArea& area1,
+                                             const std::map<ScanLineArea, int>::iterator& area2) {
+        if (area2 == areas_.end())
+          return std::nullopt;
+        return breakIntersection(area1, area2->first);
+      }
+
+      struct IntersectionEvent {
+        DPoint point;
+        int area1_from_index;
+        int area1_to_index;
+        int area2_from_index;
+        int area2_to_index;
+
+        bool operator<(const IntersectionEvent& other) const {
+          if (point != other.point)
+            return point < other.point;
+          if (area1_from_index != other.area1_from_index)
+            return area1_from_index < other.area1_from_index;
+          return area2_from_index < other.area2_from_index;
         }
       };
 
-      auto addArea(const ScanLineArea& area, int id, bool check_remove = true) {
-        if (find_intersections_ && check_remove) {
-          auto adjacent = areas_.lower_bound(area);
-          if (adjacent != areas_.end() && adjacent != areas_.begin())
-            checkRemoveIntersection(safePrev(adjacent));
+      void addArea(const ScanLineArea& area, int id) {
+        last_id_ = id;
+        if (!find_intersections_)
+          areas_[area] = id;
+
+        auto after = areas_.lower_bound(area);
+        auto before = safePrev(after);
+        auto intersect_before = breakIntersection(before, area);
+        ScanLineArea new_area = area;
+        if (intersect_before.has_value()) {
+          int before_to_index = before->first.to_index;
+          segmentScanLineArea(before, intersect_before.value().area1_new_index,
+                              intersect_before.value().point);
+
+          intersection_events_.insert(IntersectionEvent {
+              intersect_before.value().point, intersect_before.value().area1_new_index,
+              before_to_index, intersect_before.value().area2_new_index, new_area.to_index });
+          new_area.to_index = intersect_before.value().area2_new_index;
+          new_area.to = intersect_before.value().point;
         }
 
-        auto it = areas_.insert({ area, id }).first;
-        last_id_ = id;
-        if (find_intersections_) {
-          checkAddIntersection(it);
-          checkAddIntersection(safePrev(it));
+        auto intersect_after = breakIntersection(new_area, after);
+        if (intersect_after.has_value()) {
+          int after_to_index = after->first.to_index;
+          segmentScanLineArea(after, intersect_after.value().area2_new_index,
+                              intersect_after.value().point);
+
+          intersection_events_.insert(IntersectionEvent {
+              intersect_after.value().point, intersect_after.value().area1_new_index,
+              new_area.to_index, intersect_after.value().area2_new_index, after_to_index });
+
+          new_area.to_index = intersect_after.value().area1_new_index;
+          new_area.to = intersect_after.value().point;
         }
-        return it;
+
+        areas_[new_area] = id;
+        VISAGE_ASSERT(graph_->checkValidPolygons());
+      }
+
+      void segmentScanLineArea(const std::map<ScanLineArea, int>::iterator& it, int new_index,
+                               const DPoint& new_point) {
+        const ScanLineArea& area = it->first;
+        if (new_index == area.to_index)
+          return;
+
+        int id = it->second;
+        ScanLineArea new_area(area.from_index, area.from, new_index, new_point, area.forward);
+        areas_.erase(it);
+        areas_.insert({ new_area, id }).first;
       }
 
       void checkAddIntersection(const std::map<ScanLineArea, int>::iterator& it) {
-        auto intersection = adjacentIntersection(it);
-        if (intersection.has_value())
-          intersection_events_.insert(intersection.value());
-      };
+        if (it == areas_.end())
+          return;
+        auto next = std::next(it);
+        if (next == areas_.end())
+          return;
 
-      void updateBeginAreas(const Event& ev) {
-        ScanLineArea to_insert1(ev.index, ev.point, ev.prev_index, ev.prev);
-        ScanLineArea to_insert2(ev.index, ev.point, ev.next_index, ev.next);
-        if (to_insert2 < to_insert1)
-          std::swap(to_insert1, to_insert2);
+        auto intersection = breakIntersection(it->first, next->first);
+        if (!intersection.has_value())
+          return;
 
-        last_position1_ = addArea(to_insert1, area_index_++);
-        last_position2_ = addArea(to_insert2, area_index_++);
+        intersection_events_.insert(IntersectionEvent {
+            intersection.value().point, intersection.value().area1_new_index, it->first.to_index,
+            intersection.value().area2_new_index, next->first.to_index });
+
+        segmentScanLineArea(it, intersection.value().area1_new_index, intersection.value().point);
+        segmentScanLineArea(next, intersection.value().area2_new_index, intersection.value().point);
       }
 
-      void updateEndAreas(const Event& ev) {
-        areas_.erase(ScanLineArea(ev.prev_index, ev.prev, ev.index, ev.point));
-        ScanLineArea to_erase(ev.next_index, ev.next, ev.index, ev.point);
-        last_id_ = areas_[to_erase];
-        last_position1_ = areas_.erase(areas_.find(to_erase));
-        last_position2_ = last_position1_;
-        if (find_intersections_ && last_position1_ != areas_.end() && last_position1_ != areas_.begin())
-          checkAddIntersection(safePrev(last_position1_));
-      }
-
-      void updateAreaIntersection(const IntersectionEvent& ev) {
-        int a_from = ev.a_forward ? graph_->prev_edge_[ev.a_to] : graph_->next_edge_[ev.a_to];
-        int b_from = ev.b_forward ? graph_->prev_edge_[ev.b_to] : graph_->next_edge_[ev.b_to];
-        std::optional<std::pair<int, int>> broken = graph_->breakIntersection(a_from, ev.a_to,
-                                                                              b_from, ev.b_to);
-        VISAGE_ASSERT(broken.has_value());
-
-        ScanLineArea erase_area1(a_from, graph_->points_[a_from], ev.a_to, graph_->points_[ev.a_to]);
-        ScanLineArea erase_area2(b_from, graph_->points_[b_from], ev.b_to, graph_->points_[ev.b_to]);
-        if (erase_area2 < erase_area1)
-          std::swap(erase_area1, erase_area2);
-
-        auto erase1 = areas_.find(erase_area1);
-        int index1 = erase1->second;
-        checkRemoveIntersection(safePrev(erase1));
-        areas_.erase(erase1);
-        VISAGE_ASSERT(areas_.size() % 2 == 1);
-
-        auto erase2 = areas_.find(erase_area2);
-        int index2 = erase2->second;
-        checkRemoveIntersection(erase2);
-        areas_.erase(erase2);
-        VISAGE_ASSERT(areas_.size() % 2 == 0);
-
-        int a_index = graph_->connected(broken->first, ev.a_to) ? broken->first : broken->second;
-        int b_index = graph_->connected(broken->first, ev.b_to) ? broken->first : broken->second;
-        ScanLineArea area1(a_index, graph_->points_[a_index], ev.a_to, graph_->points_[ev.a_to]);
-        ScanLineArea area2(b_index, graph_->points_[b_index], ev.b_to, graph_->points_[ev.b_to]);
-        if (area2 < area1)
-          std::swap(area2, area1);
-        if (index2 < index1)
-          std::swap(index2, index1);
-
-        last_position1_ = addArea(area1, index1, false);
-        last_position2_ = addArea(area2, index2);
-        VISAGE_ASSERT(areas_.size() % 2 == 0);
-      }
-
-      void updateContinueArea(const Event& ev) {
-        int from_index = ev.prev_index;
-        int to_index = ev.next_index;
-        if (graph_->compareIndices(ev.prev_index, ev.next_index) > 0.0)
-          std::swap(from_index, to_index);
-
-        ScanLineArea to_erase(from_index, graph_->points_[from_index], ev.index, ev.point);
-        ScanLineArea to_insert(ev.index, ev.point, to_index, graph_->points_[to_index]);
-        last_id_ = areas_[to_erase];
-        areas_.erase(to_erase);
-        last_position1_ = addArea(to_insert, last_id_, false);
-        last_position2_ = last_position1_;
-      }
-
-      void update() {
+      void updateNoIntersections() {
         Event ev = nextEvent();
 
-        if (!intersection_events_.empty()) {
-          auto it = intersection_events_.begin();
-          IntersectionEvent intersection = *it;
+        if (ev.type == PointType::Begin) {
+          ScanLineArea to_insert1(ev.index, ev.point, ev.prev_index, ev.prev, false);
+          ScanLineArea to_insert2(ev.index, ev.point, ev.next_index, ev.next, true);
+          last_position1_ = areas_.insert({ to_insert1, area_index_++ }).first;
+          last_position2_ = areas_.insert({ to_insert2, area_index_++ }).first;
 
-          if (intersection.point <= ev.point) {
-            intersection_events_.erase(it);
-            updateAreaIntersection(intersection);
-            return;
-          }
+          if (to_insert2 < to_insert1)
+            std::swap(last_position1_, last_position2_);
+          last_id_ = area_index_ - 1;
         }
+        else if (ev.type == PointType::End) {
+          areas_.erase(ScanLineArea(ev.prev_index, ev.prev, ev.index, ev.point, true));
+          auto to_erase = areas_.find(ScanLineArea(ev.next_index, ev.next, ev.index, ev.point, false));
+          last_id_ = to_erase->second;
+          last_position1_ = areas_.erase(to_erase);
+          last_position2_ = last_position1_;
+        }
+        else {
+          int from_index = ev.prev_index;
+          int to_index = ev.next_index;
+          bool forward = graph_->compareIndices(ev.prev_index, ev.next_index) < 0.0;
+          if (!forward)
+            std::swap(from_index, to_index);
 
-        if (ev.type == PointType::Begin)
-          updateBeginAreas(ev);
-        else if (ev.type == PointType::End)
-          updateEndAreas(ev);
-        else
-          updateContinueArea(ev);
+          ScanLineArea to_erase(from_index, graph_->points_[from_index], ev.index, ev.point, forward);
+          ScanLineArea to_insert(ev.index, ev.point, to_index, graph_->points_[to_index], forward);
+          last_id_ = areas_[to_erase];
+          areas_.erase(to_erase);
+          last_position1_ = areas_.insert({ to_insert, last_id_ }).first;
+          last_position2_ = last_position1_;
+        }
 
         current_index_++;
         progressToNextEvent();
@@ -546,16 +546,161 @@ namespace visage {
         VISAGE_ASSERT(areas_.size() % 2 == 0);
       }
 
+      DPoint checkForIntersections(const DPoint& point, std::vector<ScanLineArea>& new_areas) {
+        DPoint result_point = point;
+        while (!intersection_events_.empty() && intersection_events_.begin()->point <= result_point) {
+          result_point = intersection_events_.begin()->point;
+          auto it = intersection_events_.begin();
+          if (it->area1_from_index != it->area1_to_index)
+            new_areas.emplace_back(it->area1_from_index, graph_->points_[it->area1_from_index],
+                                   it->area1_to_index, graph_->points_[it->area1_to_index],
+                                   graph_->next_edge_[it->area1_from_index] == it->area1_to_index);
+          if (it->area2_from_index != it->area2_to_index)
+            new_areas.emplace_back(it->area2_from_index, graph_->points_[it->area2_from_index],
+                                   it->area2_to_index, graph_->points_[it->area2_to_index],
+                                   graph_->next_edge_[it->area2_from_index] == it->area2_to_index);
+          intersection_events_.erase(it);
+        }
+
+        return result_point;
+      }
+
+      void processPointEvents(Event ev, const DPoint& point, std::vector<ScanLineArea>& new_areas,
+                              std::set<ScanLineArea>& old_areas) {
+        while (ev.point == point) {
+          if (ev.type == PointType::Begin) {
+            new_areas.emplace_back(ev.index, ev.point, ev.prev_index, ev.prev, false);
+            new_areas.emplace_back(ev.index, ev.point, ev.next_index, ev.next, true);
+          }
+          else if (ev.type == PointType::End) {
+            old_areas.emplace(ev.prev_index, ev.prev, ev.index, ev.point, true);
+            old_areas.emplace(ev.next_index, ev.next, ev.index, ev.point, false);
+          }
+          else {
+            int from_index = ev.prev_index;
+            int to_index = ev.next_index;
+            bool forward = graph_->compareIndices(ev.prev_index, ev.next_index) < 0.0;
+            if (!forward)
+              std::swap(from_index, to_index);
+
+            old_areas.emplace(from_index, graph_->points_[from_index], ev.index, ev.point, forward);
+            new_areas.emplace_back(ev.index, ev.point, to_index, graph_->points_[to_index], forward);
+          }
+
+          current_index_++;
+          progressToNextEvent();
+          if (!hasNext())
+            break;
+
+          ev = nextEvent();
+        }
+      }
+
+      void update() {
+        if (!find_intersections_) {
+          updateNoIntersections();
+          return;
+        }
+
+        Event ev = nextEvent();
+        std::set<ScanLineArea> old_areas;
+        std::vector<ScanLineArea> new_areas;
+
+        DPoint point = checkForIntersections(ev.point, new_areas);
+
+        auto lower_bound = std::lower_bound(areas_.begin(), areas_.end(), point,
+                                            [](const auto& area, const DPoint& point) {
+                                              return stableOrientation(area.first.from,
+                                                                       area.first.to, point) > 0.0;
+                                            });
+        while (lower_bound != areas_.end() && lower_bound->first.to == point) {
+          old_areas.insert(lower_bound->first);
+          lower_bound = areas_.erase(lower_bound);
+        }
+
+        processPointEvents(ev, point, new_areas, old_areas);
+
+        std::sort(new_areas.begin(), new_areas.end(),
+                  [](const ScanLineArea& area1, const ScanLineArea& area2) { return area1 < area2; });
+
+        for (auto it = old_areas.begin(); it != old_areas.end();) {
+          auto next = std::next(it);
+          if (next != old_areas.end() && it->forward != next->forward) {
+            if (it->forward)
+              graph_->connect(it->to_index, next->from_index);
+            else
+              graph_->connect(next->to_index, it->from_index);
+
+            it = old_areas.erase(it);
+            it = old_areas.erase(it);
+            if (it == old_areas.end())
+              break;
+            if (it != old_areas.begin())
+              it = std::prev(it);
+          }
+          else
+            ++it;
+        }
+
+        auto new_areas1 = std::move(new_areas);
+        new_areas.clear();
+        for (auto it = new_areas1.begin(); it != new_areas1.end();) {
+          auto next = std::next(it);
+          if (next != new_areas1.end() && it->forward != next->forward) {
+            if (it->forward) {
+              it->from_index = next->from_index;
+              graph_->connect(next->from_index, it->to_index);
+            }
+            else {
+              next->from_index = it->from_index;
+              graph_->connect(it->from_index, next->to_index);
+            }
+
+            new_areas.push_back(*it);
+            new_areas.push_back(*next);
+
+            it = new_areas1.erase(it);
+            it = new_areas1.erase(it);
+            if (it == new_areas1.end())
+              break;
+            if (it != new_areas1.begin())
+              it = std::prev(it);
+          }
+          else
+            ++it;
+        }
+
+        VISAGE_ASSERT(old_areas.size() == new_areas1.size());
+        auto new_area = new_areas1.begin();
+        for (auto old_area = old_areas.begin(); old_area != old_areas.end(); ++old_area, ++new_area) {
+          if (old_area->forward) {
+            new_area->from_index = old_area->to_index;
+            graph_->connect(old_area->to_index, new_area->to_index);
+          }
+          else
+            graph_->connect(new_area->from_index, old_area->from_index);
+          new_areas.push_back(*new_area);
+        }
+
+        for (auto it = new_areas.begin(); it != new_areas.end(); ++it)
+          addArea(*it, -1);
+        if (new_areas.empty() && lower_bound != areas_.begin())
+          checkAddIntersection(std::prev(lower_bound));
+
+        VISAGE_ASSERT(graph_->checkValidPolygons());
+        VISAGE_ASSERT(areas_.size() % 2 == 0);
+      }
+
       auto lowerBound(const ScanLineArea& area) { return areas_.lower_bound(area); }
 
       std::map<ScanLineArea, int>::iterator safePrev(const std::map<ScanLineArea, int>::iterator& it) {
-        if (it != areas_.begin() && it != areas_.end())
+        if (it != areas_.begin())
           return std::prev(it);
         return areas_.end();
       }
 
       std::map<ScanLineArea, int>::const_iterator safePrev(const std::map<ScanLineArea, int>::const_iterator& it) const {
-        if (it != areas_.begin() && it != areas_.end())
+        if (it != areas_.begin())
           return std::prev(it);
         return areas_.end();
       }
@@ -602,7 +747,7 @@ namespace visage {
         if (winding_directions[ev.index] == 0) {
           bool convex = stableOrientation(ev.point, ev.prev, ev.next) > 0.0;
 
-          ScanLineArea area(ev.index, ev.point, ev.next_index, ev.next);
+          ScanLineArea area(ev.index, ev.point, ev.next_index, ev.next, true);
           auto area_iterator = scan_line.lowerBound(area);
 
           int current_winding = 0;
@@ -693,7 +838,7 @@ namespace visage {
         }
         else if (ev.type == PointType::End) {
           scan_line.update();
-          ScanLineArea scan_area(ev.prev_index, ev.prev, ev.next_index, ev.next);
+          ScanLineArea scan_area(ev.prev_index, ev.prev, ev.next_index, ev.next, true);
           auto area = scan_line.lowerBound(scan_area);
 
           if (convex && merge_vertices.count(scan_line.lastId()))
@@ -807,6 +952,13 @@ namespace visage {
       return new_index;
     }
 
+    int insertPointBetween(int start_index, int end_index, const DPoint& point) {
+      int new_index = addAdditionalPoint(point);
+      connect(start_index, new_index);
+      connect(new_index, end_index);
+      return new_index;
+    }
+
     bool connected(int a_index, int b_index) const {
       return prev_edge_[a_index] == b_index || next_edge_[a_index] == b_index;
     }
@@ -840,31 +992,6 @@ namespace visage {
       std::sort(sorted_indices.begin(), sorted_indices.end(),
                 [this](const int a, const int b) { return compareIndices(a, b) < 0.0; });
       return sorted_indices;
-    }
-
-    std::optional<std::pair<int, int>> breakIntersection(int start_index1, int end_index1,
-                                                         int start_index2, int end_index2) {
-      auto intersection = Path::findIntersection(points_[start_index1], points_[end_index1],
-                                                 points_[start_index2], points_[end_index2]);
-      VISAGE_ASSERT(intersection.has_value());
-      if (!intersection.has_value())
-        return std::nullopt;
-
-      if (next_edge_[start_index1] != end_index1)
-        std::swap(start_index1, end_index1);
-      if (next_edge_[start_index2] != end_index2)
-        std::swap(start_index2, end_index2);
-
-      int new_index1 = addAdditionalPoint(intersection.value());
-      int new_index2 = addAdditionalPoint(intersection.value());
-
-      connect(start_index1, new_index1);
-      connect(new_index1, end_index2);
-      connect(start_index2, new_index2);
-      connect(new_index2, end_index1);
-
-      VISAGE_ASSERT(checkValidPolygons());
-      return std::pair(new_index1, new_index2);
     }
 
     void removeCycle(int start_index) {
