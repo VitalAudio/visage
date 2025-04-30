@@ -479,18 +479,36 @@ namespace visage {
         segmentScanLineArea(next, intersection.value().area2_new_index, intersection.value().point);
       }
 
+      DPoint checkForIntersections(const DPoint& point, std::vector<ScanLineArea>& new_areas) {
+        DPoint result_point = point;
+        while (!intersection_events_.empty() && intersection_events_.begin()->point <= result_point) {
+          result_point = intersection_events_.begin()->point;
+          auto it = intersection_events_.begin();
+          if (it->area1_from_index != it->area1_to_index)
+            new_areas.emplace_back(it->area1_from_index, graph_->points_[it->area1_from_index],
+                                   it->area1_to_index, graph_->points_[it->area1_to_index],
+                                   graph_->next_edge_[it->area1_from_index] == it->area1_to_index);
+          if (it->area2_from_index != it->area2_to_index)
+            new_areas.emplace_back(it->area2_from_index, graph_->points_[it->area2_from_index],
+                                   it->area2_to_index, graph_->points_[it->area2_to_index],
+                                   graph_->next_edge_[it->area2_from_index] == it->area2_to_index);
+          intersection_events_.erase(it);
+        }
+
+        return result_point;
+      }
+
       void updateNoIntersections() {
         Event ev = nextEvent();
 
         if (ev.type == PointType::Begin) {
           ScanLineArea to_insert1(ev.index, ev.point, ev.prev_index, ev.prev, false);
           ScanLineArea to_insert2(ev.index, ev.point, ev.next_index, ev.next, true);
-          last_position1_ = areas_.insert({ to_insert1, area_index_++ }).first;
-          last_position2_ = areas_.insert({ to_insert2, area_index_++ }).first;
+          last_position1_ = areas_.insert({ to_insert1, -1 }).first;
+          last_position2_ = areas_.insert({ to_insert2, -1 }).first;
 
           if (to_insert2 < to_insert1)
             std::swap(last_position1_, last_position2_);
-          last_id_ = area_index_ - 1;
         }
         else if (ev.type == PointType::End) {
           areas_.erase(ScanLineArea(ev.prev_index, ev.prev, ev.index, ev.point, true));
@@ -518,25 +536,6 @@ namespace visage {
         progressToNextEvent();
 
         VISAGE_ASSERT(areas_.size() % 2 == 0);
-      }
-
-      DPoint checkForIntersections(const DPoint& point, std::vector<ScanLineArea>& new_areas) {
-        DPoint result_point = point;
-        while (!intersection_events_.empty() && intersection_events_.begin()->point <= result_point) {
-          result_point = intersection_events_.begin()->point;
-          auto it = intersection_events_.begin();
-          if (it->area1_from_index != it->area1_to_index)
-            new_areas.emplace_back(it->area1_from_index, graph_->points_[it->area1_from_index],
-                                   it->area1_to_index, graph_->points_[it->area1_to_index],
-                                   graph_->next_edge_[it->area1_from_index] == it->area1_to_index);
-          if (it->area2_from_index != it->area2_to_index)
-            new_areas.emplace_back(it->area2_from_index, graph_->points_[it->area2_from_index],
-                                   it->area2_to_index, graph_->points_[it->area2_to_index],
-                                   graph_->next_edge_[it->area2_from_index] == it->area2_to_index);
-          intersection_events_.erase(it);
-        }
-
-        return result_point;
       }
 
       void processPointEvents(Event ev, const DPoint& point, std::vector<ScanLineArea>& new_areas,
@@ -689,7 +688,6 @@ namespace visage {
       std::map<ScanLineArea, int>::iterator last_position1_ = areas_.end();
       std::map<ScanLineArea, int>::iterator last_position2_ = areas_.end();
       std::map<int, int> aliases_;
-      int area_index_ = 1;
 
       std::set<IntersectionEvent> intersection_events_;
       int last_id_ = 0;
