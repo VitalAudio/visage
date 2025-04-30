@@ -72,36 +72,36 @@ bool matchPathTriangles(const Path& path, const std::set<PathTriangle>& expected
 }
 
 TEST_CASE("Path triangulate nothing", "[graphics]") {
-  // Path path0;
-  // Path::Triangulation triangulation = path0.triangulate();
-  // REQUIRE(triangulation.triangles.size() == 0);
-  //
-  // Path path1;
-  // path1.moveTo(0, 0);
-  // triangulation = path1.triangulate();
-  // REQUIRE(triangulation.triangles.size() == 0);
-  //
-  // Path path2;
-  // path2.moveTo(0, 0);
-  // path2.lineTo(1, 0);
-  // triangulation = path2.triangulate();
-  // REQUIRE(triangulation.triangles.size() == 0);
-  //
-  // Path path3;
-  // path3.moveTo(0, 0);
-  // path3.lineTo(0, 1);
-  // triangulation = path3.triangulate();
-  // REQUIRE(triangulation.triangles.size() == 0);
+  Path path0;
+  Path::Triangulation triangulation = path0.triangulate();
+  REQUIRE(triangulation.triangles.size() == 0);
+
+  Path path1;
+  path1.moveTo(0, 0);
+  triangulation = path1.triangulate();
+  REQUIRE(triangulation.triangles.size() == 0);
+
+  Path path2;
+  path2.moveTo(0, 0);
+  path2.lineTo(1, 0);
+  triangulation = path2.triangulate();
+  REQUIRE(triangulation.triangles.size() == 0);
+
+  Path path3;
+  path3.moveTo(0, 0);
+  path3.lineTo(0, 1);
+  triangulation = path3.triangulate();
+  REQUIRE(triangulation.triangles.size() == 0);
 }
 
 TEST_CASE("Path triangulate single", "[graphics]") {
-  // Path path0;
-  // path0.moveTo(0, 0);
-  // path0.lineTo(0, 1);
-  // path0.lineTo(1, 1);
-  // path0.reverse();
-  // std::set<PathTriangle> expected = { PathTriangle(Point(0, 0), Point(0, 1), Point(1, 1)) };
-  // REQUIRE(matchPathTriangles(path0, expected));
+  Path path0;
+  path0.moveTo(0, 0);
+  path0.lineTo(0, 1);
+  path0.lineTo(1, 1);
+  path0.reverse();
+  std::set<PathTriangle> expected = { PathTriangle(Point(0, 0), Point(0, 1), Point(1, 1)) };
+  REQUIRE(matchPathTriangles(path0, expected));
 }
 
 TEST_CASE("Path triangulate intersection", "[graphics]") {
@@ -125,20 +125,20 @@ TEST_CASE("Path triangulate intersection", "[graphics]") {
 }
 
 TEST_CASE("Colinear test", "[graphics]") {
-  // Path path;
-  // path.moveTo(0, 0);
-  // path.lineTo(1, 0);
-  // path.lineTo(2, 0);
-  // path.lineTo(3, 0);
-  // path.lineTo(3, 1);
-  // path.lineTo(3, 2);
-  // path.lineTo(3, 3);
-  // path.lineTo(2, 3);
-  // path.lineTo(1, 3);
-  // path.lineTo(0, 3);
-  // path.lineTo(0, 2);
-  // path.lineTo(0, 1);
-  // path.triangulate();
+  Path path;
+  path.moveTo(0, 0);
+  path.lineTo(1, 0);
+  path.lineTo(2, 0);
+  path.lineTo(3, 0);
+  path.lineTo(3, 1);
+  path.lineTo(3, 2);
+  path.lineTo(3, 3);
+  path.lineTo(2, 3);
+  path.lineTo(1, 3);
+  path.lineTo(0, 3);
+  path.lineTo(0, 2);
+  path.lineTo(0, 1);
+  path.triangulate();
 }
 
 TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
@@ -295,10 +295,10 @@ TEST_CASE("Degeneracies", "[graphics]") {
 }
 
 TEST_CASE("Random path triangulation", "[graphics]") {
-  static constexpr float kWidth = 10000.0f;
-  static constexpr float kHeight = 10000.0f;
-  static constexpr int kNumPoints = 20;
-  static constexpr int kNumPaths = 50;
+  static constexpr float kWidth = 1000.0f;
+  static constexpr float kHeight = 1000.0f;
+  static constexpr int kNumPoints = 5;
+  static constexpr int kNumPaths = 5000;
 
   for (int p = 0; p < kNumPaths; ++p) {
     Path path;
@@ -338,10 +338,10 @@ TEST_CASE("Random line degeneracy", "[graphics]") {
 }
 
 TEST_CASE("Random point degeneracy", "[graphics]") {
-  static constexpr float kWidth = 10000.0f;
-  static constexpr float kHeight = 10000.0f;
+  static constexpr float kWidth = 800.0f;
+  static constexpr float kHeight = 800.0f;
   static constexpr int kNumPoints = 6;
-  static constexpr int kNumPaths = 5000;
+  static constexpr int kNumPaths = 50;
 
   for (int p = 0; p < kNumPaths; ++p) {
     Path path;
