@@ -209,6 +209,8 @@ namespace visage {
       if (orientation)
         return orientation > 0.0;
 
+      if (to.y != other.to.y)
+        return to.y < other.to.y;
       if (from_index != other.from_index)
         return from_index < other.from_index;
       return to_index < other.to_index;
@@ -589,6 +591,7 @@ namespace visage {
 
         processPointEvents(ev, point);
         std::sort(old_areas_.begin(), old_areas_.end());
+        std::sort(new_areas_.begin(), new_areas_.end());
         old_areas_.erase(std::unique(old_areas_.begin(), old_areas_.end()), old_areas_.end());
 
         degeneracies_.clear();

@@ -244,6 +244,71 @@ TEST_CASE("Degeneracies", "[graphics]") {
     REQUIRE(sample_right.hexRed() == 0);
   }
 
+  SECTION("Degeneracy rectangle in rectangle corner") {
+    Path path;
+    path.moveTo(10, 10);
+    path.lineTo(40, 10);
+    path.lineTo(40, 40);
+    path.lineTo(10, 40);
+    path.close();
+
+    path.moveTo(10, 10);
+    path.lineTo(30, 10);
+    path.lineTo(30, 30);
+    path.lineTo(10, 30);
+    path.close();
+
+    Canvas canvas;
+    canvas.setWindowless(50, 50);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.setColor(0xffff0000);
+    canvas.fill(&path, 0, 0, kWidth, kWidth);
+    canvas.submit();
+    const auto& screenshot = canvas.takeScreenshot();
+
+    REQUIRE(screenshot.sample(10, 10).hexRed() == 0);
+    REQUIRE(screenshot.sample(29, 29).hexRed() == 0);
+    REQUIRE(screenshot.sample(10, 10).hexRed() == 0);
+  }
+
+  SECTION("Degeneracy rectangle in rectangle middle") {
+    Path path;
+    path.moveTo(10, 10);
+    path.lineTo(40, 10);
+    path.lineTo(40, 40);
+    path.lineTo(10, 40);
+    path.close();
+
+    path.moveTo(20, 10);
+    path.lineTo(30, 10);
+    path.lineTo(30, 40);
+    path.lineTo(20, 40);
+    path.close();
+
+    Canvas canvas;
+    canvas.setWindowless(50, 50);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.setColor(0xffff0000);
+    canvas.fill(&path, 0, 0, kWidth, kWidth);
+    canvas.submit();
+    const auto& screenshot = canvas.takeScreenshot();
+
+    REQUIRE(screenshot.sample(10, 10).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(10, 25).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(10, 39).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(21, 10).hexRed() == 0);
+    REQUIRE(screenshot.sample(21, 25).hexRed() == 0);
+    REQUIRE(screenshot.sample(21, 40).hexRed() == 0);
+    REQUIRE(screenshot.sample(29, 10).hexRed() == 0);
+    REQUIRE(screenshot.sample(29, 20).hexRed() == 0);
+    REQUIRE(screenshot.sample(29, 40).hexRed() == 0);
+    REQUIRE(screenshot.sample(31, 10).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(31, 20).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(31, 39).hexRed() == 0xff);
+  }
+
   SECTION("Degeneracy point star") {
     static constexpr float kPi = 3.14159265358979323846f;
     static constexpr int kStarPoints = 10;
@@ -312,29 +377,29 @@ TEST_CASE("Random path triangulation", "[graphics]") {
 }
 
 TEST_CASE("Random line degeneracy", "[graphics]") {
-  static constexpr float kWidth = 10000.0f;
-  static constexpr float kHeight = 10000.0f;
+  static constexpr float kWidth = 1000.0f;
+  static constexpr float kHeight = 1000.0f;
   static constexpr int kNumPoints = 20;
   static constexpr int kNumPaths = 50;
 
-  // for (int p = 0; p < kNumPaths; ++p) {
-  //   Path path;
-  //   Point point1(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
-  //   Point point2(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
-  //   path.moveTo(point1);
-  //
-  //   for (int i = 1; i < kNumPoints; ++i) {
-  //     float t = randomFloat(0.0f, kWidth);
-  //     if (randomFloat(0.0f, 1.0f) < 0.5f) {
-  //       Point point = point1 + (point2 - point1) * t;
-  //       path.lineTo(point.x, point.y);
-  //     }
-  //     else
-  //       path.lineTo(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
-  //   }
-  //
-  //   path.triangulate();
-  // }
+  for (int p = 0; p < kNumPaths; ++p) {
+    Path path;
+    Point point1(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+    Point point2(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+    path.moveTo(point1);
+
+    for (int i = 1; i < kNumPoints; ++i) {
+      float t = randomFloat(0.0f, kWidth);
+      if (randomFloat(0.0f, 1.0f) < 0.5f) {
+        Point point = point1 + (point2 - point1) * t;
+        path.lineTo(point.x, point.y);
+      }
+      else
+        path.lineTo(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+    }
+
+    path.triangulate();
+  }
 }
 
 TEST_CASE("Random point degeneracy", "[graphics]") {
