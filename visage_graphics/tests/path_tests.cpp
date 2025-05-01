@@ -297,8 +297,8 @@ TEST_CASE("Degeneracies", "[graphics]") {
 TEST_CASE("Random path triangulation", "[graphics]") {
   static constexpr float kWidth = 1000.0f;
   static constexpr float kHeight = 1000.0f;
-  static constexpr int kNumPoints = 5;
-  static constexpr int kNumPaths = 5000;
+  static constexpr int kNumPoints = 20;
+  static constexpr int kNumPaths = 50;
 
   for (int p = 0; p < kNumPaths; ++p) {
     Path path;
@@ -340,7 +340,7 @@ TEST_CASE("Random line degeneracy", "[graphics]") {
 TEST_CASE("Random point degeneracy", "[graphics]") {
   static constexpr float kWidth = 800.0f;
   static constexpr float kHeight = 800.0f;
-  static constexpr int kNumPoints = 6;
+  static constexpr int kNumPoints = 20;
   static constexpr int kNumPaths = 50;
 
   for (int p = 0; p < kNumPaths; ++p) {
