@@ -272,6 +272,35 @@ TEST_CASE("Degeneracies", "[graphics]") {
     REQUIRE(screenshot.sample(10, 10).hexRed() == 0);
   }
 
+  SECTION("Degeneracy embedded rectangles sharing two points") {
+    // TODO: windings aren't fixed when sharing multiple points in a row
+    // Path path;
+    // path.moveTo(10, 10);
+    // path.lineTo(40, 10);
+    // path.lineTo(40, 40);
+    // path.lineTo(10, 40);
+    // path.close();
+    //
+    // path.moveTo(10, 10);
+    // path.lineTo(30, 10);
+    // path.lineTo(30, 40);
+    // path.lineTo(10, 40);
+    // path.close();
+    //
+    // Canvas canvas;
+    // canvas.setWindowless(50, 50);
+    // canvas.setColor(0xff000000);
+    // canvas.fill(0, 0, canvas.width(), canvas.height());
+    // canvas.setColor(0xffff0000);
+    // canvas.fill(&path, 0, 0, kWidth, kWidth);
+    // canvas.submit();
+    // const auto& screenshot = canvas.takeScreenshot();
+    //
+    // REQUIRE(screenshot.sample(10, 10).hexRed() == 0);
+    // REQUIRE(screenshot.sample(29, 29).hexRed() == 0);
+    // REQUIRE(screenshot.sample(10, 10).hexRed() == 0);
+  }
+
   SECTION("Degeneracy rectangle in rectangle middle") {
     Path path;
     path.moveTo(10, 10);
