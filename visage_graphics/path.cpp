@@ -209,8 +209,8 @@ namespace visage {
       if (orientation)
         return orientation > 0.0;
 
-      if (to.y != other.to.y)
-        return to.y < other.to.y;
+      if (id != other.id)
+        return id < other.id;
       if (from_index != other.from_index)
         return from_index < other.from_index;
       return to_index < other.to_index;
@@ -231,27 +231,6 @@ namespace visage {
       Continue,
       End
     };
-
-    static std::optional<DPoint> findIntersection(const ScanLineArea& area1, int area1_index,
-                                                  const ScanLineArea& area2, int area2_index) {
-      if (area1.from_index == area2.from_index || area1.to_index == area2.to_index ||
-          area1.from == area2.to || area1.to == area2.from || area1.from == area1.to ||
-          area2.from == area2.to)
-        return std::nullopt;
-
-      double compare1 = stableOrientation(area1.from, area1.to, area2.from);
-      double compare2 = stableOrientation(area1.from, area1.to, area2.to);
-      if (compare1 == 0.0 && compare2 == 0.0)
-        return std::nullopt;
-      if ((compare1 > 0.0 && compare2 > 0.0) || (compare1 < 0.0 && compare2 < 0.0))
-        return std::nullopt;
-
-      bool intersect_if_degeneracy = (area1 < area2) == (area1_index > area2_index);
-      if ((compare1 && compare2) || intersect_if_degeneracy)
-        return Path::findIntersection(area1.from, area1.to, area2.from, area2.to);
-
-      return std::nullopt;
-    }
 
     explicit TriangulationGraph(const Path* path) {
       int num_points = path->numPoints();
@@ -388,11 +367,11 @@ namespace visage {
         int area2_prev = area2.forward ? area2.from_index : area2.to_index;
         int area2_next = area2.forward ? area2.to_index : area2.from_index;
 
-        if (compare1 == 0.0) {
+        if (compare1 == 0.0 && area2.to < area1.to) {
           int new_index = graph_->insertPointBetween(area1_prev, area1_next, area2.to);
           return Break { area2.to, new_index, area2.to_index };
         }
-        if (compare2 == 0.0) {
+        if (compare2 == 0.0 && area1.to < area2.to) {
           int new_index = graph_->insertPointBetween(area2_prev, area2_next, area1.to);
           return Break { area1.to, area1.to_index, new_index };
         }
@@ -423,11 +402,13 @@ namespace visage {
       };
 
       void addArea(const ScanLineArea& area) {
+        VISAGE_ASSERT(area.from_index != area.to_index);
+
         auto it = areas_.insert(std::lower_bound(areas_.begin(), areas_.end(), area), area);
         auto before = safePrev(it);
         checkAddIntersection(before);
         checkAddIntersection(it);
-        last_id_ = -1;
+        last_id_ = area.id;
         VISAGE_ASSERT(graph_->checkValidPolygons());
       }
 
@@ -452,8 +433,31 @@ namespace visage {
         next->to = intersection.value().point;
       }
 
+      void checkForBeginIntersections(const Event& ev) {
+        if (ev.type != PointType::Begin)
+          return;
+
+        auto lower_bound = std::lower_bound(areas_.begin(), areas_.end(), ev.point,
+                                            [](const auto& area, const DPoint& point) {
+                                              return stableOrientation(area.from, area.to, point) > 0.0;
+                                            });
+
+        while (lower_bound != areas_.end() &&
+               stableOrientation(lower_bound->from, lower_bound->to, ev.point) == 0.0) {
+          if (lower_bound->from != ev.point && lower_bound->to != ev.point) {
+            int new_index = graph_->insertPointBetween(lower_bound->from_index,
+                                                       lower_bound->to_index, ev.point);
+
+            intersection_events_.insert(IntersectionEvent { ev.point, new_index,
+                                                            lower_bound->to_index, 0, 0 });
+            lower_bound->to_index = new_index;
+            lower_bound->to = ev.point;
+          }
+          lower_bound++;
+        }
+      }
+
       DPoint checkForIntersections(const DPoint& point) {
-        new_areas_.clear();
         DPoint result_point = point;
         while (!intersection_events_.empty() && intersection_events_.begin()->point <= result_point) {
           result_point = intersection_events_.begin()->point;
@@ -461,11 +465,13 @@ namespace visage {
           if (it->area1_from_index != it->area1_to_index)
             new_areas_.emplace_back(it->area1_from_index, graph_->points_[it->area1_from_index],
                                     it->area1_to_index, graph_->points_[it->area1_to_index],
-                                    graph_->next_edge_[it->area1_from_index] == it->area1_to_index);
+                                    graph_->next_edge_[it->area1_from_index] == it->area1_to_index,
+                                    findAreaByEndIndex(it->area1_from_index)->id);
           if (it->area2_from_index != it->area2_to_index)
             new_areas_.emplace_back(it->area2_from_index, graph_->points_[it->area2_from_index],
                                     it->area2_to_index, graph_->points_[it->area2_to_index],
-                                    graph_->next_edge_[it->area2_from_index] == it->area2_to_index);
+                                    graph_->next_edge_[it->area2_from_index] == it->area2_to_index,
+                                    findAreaByEndIndex(it->area2_from_index)->id);
           intersection_events_.erase(it);
         }
 
@@ -475,22 +481,19 @@ namespace visage {
       void processPointEvents(Event ev, const DPoint& point) {
         while (ev.point == point) {
           if (ev.type == PointType::Begin) {
-            new_areas_.emplace_back(ev.index, ev.point, ev.prev_index, ev.prev, false);
-            new_areas_.emplace_back(ev.index, ev.point, ev.next_index, ev.next, true);
+            area_index_++;
+            new_areas_.emplace_back(ev.index, ev.point, ev.prev_index, ev.prev, false, -area_index_);
+            new_areas_.emplace_back(ev.index, ev.point, ev.next_index, ev.next, true, area_index_);
           }
-          else if (ev.type == PointType::End) {
-            old_areas_.emplace_back(ev.prev_index, ev.prev, ev.index, ev.point, true);
-            old_areas_.emplace_back(ev.next_index, ev.next, ev.index, ev.point, false);
-          }
-          else {
+          else if (ev.type == PointType::Continue) {
             int from_index = ev.prev_index;
             int to_index = ev.next_index;
             bool forward = ev.prev < ev.next;
             if (!forward)
               std::swap(from_index, to_index);
 
-            old_areas_.emplace_back(from_index, graph_->points_[from_index], ev.index, ev.point, forward);
-            new_areas_.emplace_back(ev.index, ev.point, to_index, graph_->points_[to_index], forward);
+            int id = findAreaByEndIndex(ev.index)->id;
+            new_areas_.emplace_back(ev.index, ev.point, to_index, graph_->points_[to_index], forward, id);
           }
 
           current_index_++;
@@ -553,8 +556,9 @@ namespace visage {
           }
         }
         else if (ev.type == PointType::Begin) {
-          ScanLineArea to_insert1(ev.index, ev.point, ev.prev_index, ev.prev, false);
-          ScanLineArea to_insert2(ev.index, ev.point, ev.next_index, ev.next, true);
+          area_index_++;
+          ScanLineArea to_insert1(ev.index, ev.point, ev.prev_index, ev.prev, false, -area_index_);
+          ScanLineArea to_insert2(ev.index, ev.point, ev.next_index, ev.next, true, area_index_);
           if (to_insert2 < to_insert1)
             std::swap(to_insert1, to_insert2);
 
@@ -583,16 +587,15 @@ namespace visage {
                                               return stableOrientation(area.from, area.to, point) > 0.0;
                                             });
 
+        processPointEvents(ev, point);
+
         old_areas_.clear();
         while (lower_bound != areas_.end() && lower_bound->to == point) {
           old_areas_.push_back(*lower_bound);
           lower_bound = areas_.erase(lower_bound);
         }
-
-        processPointEvents(ev, point);
         std::sort(old_areas_.begin(), old_areas_.end());
         std::sort(new_areas_.begin(), new_areas_.end());
-        old_areas_.erase(std::unique(old_areas_.begin(), old_areas_.end()), old_areas_.end());
 
         degeneracies_.clear();
         for (auto& area : old_areas_) {
@@ -646,6 +649,7 @@ namespace visage {
           int index = degeneracies_[old_index++];
           next_areas_.push_back(*new_area);
           next_areas_.back().from_index = index;
+          next_areas_.back().id = old_area->id;
 
           if (old_area->forward) {
             graph_->connect(old_area->from_index, index);
@@ -676,6 +680,8 @@ namespace visage {
           return;
         }
 
+        new_areas_.clear();
+        checkForBeginIntersections(ev);
         DPoint point = checkForIntersections(ev.point);
         if (!new_areas_.empty() || ev.degeneracy) {
           updateDegeneracy(ev, point);
@@ -725,6 +731,7 @@ namespace visage {
       std::vector<ScanLineArea> old_areas_;
       std::vector<ScanLineArea> next_areas_;
       std::vector<int> degeneracies_;
+      int area_index_ = 0;
 
       std::set<IntersectionEvent> intersection_events_;
       int last_id_ = 0;
@@ -752,7 +759,7 @@ namespace visage {
           bool convex = stableOrientation(ev.point, ev.prev, ev.next) > 0.0;
 
           auto area_iterator = scan_line.lowerBound(ScanLineArea(ev.index, ev.point, ev.next_index,
-                                                                 ev.next, true));
+                                                                 ev.next, true, INT_MAX));
 
           int current_winding = 0;
           bool reverse = false;
@@ -956,6 +963,9 @@ namespace visage {
     }
 
     int insertPointBetween(int start_index, int end_index, const DPoint& point) {
+      VISAGE_ASSERT(points_[start_index] != point);
+      VISAGE_ASSERT(points_[end_index] != point);
+
       int new_index = addAdditionalPoint(point);
       connect(start_index, new_index);
       connect(new_index, end_index);
