@@ -305,6 +305,8 @@ namespace visage {
         bool degeneracy;
       };
 
+      ScanLine() = delete;
+
       explicit ScanLine(TriangulationGraph* graph) :
           graph_(graph), sorted_indices_(graph->sortedIndices()) {
         progressToNextEvent();
@@ -347,6 +349,7 @@ namespace visage {
       }
 
       struct Break {
+        Break() = delete;
         DPoint point;
         int area1_new_index;
         int area2_new_index;
@@ -386,6 +389,7 @@ namespace visage {
       }
 
       struct IntersectionEvent {
+        IntersectionEvent() = delete;
         DPoint point;
         int area1_from_index;
         int area1_to_index;
@@ -445,16 +449,19 @@ namespace visage {
         while (lower_bound != areas_.end() &&
                stableOrientation(lower_bound->from, lower_bound->to, ev.point) == 0.0) {
           if (lower_bound->from != ev.point && lower_bound->to != ev.point) {
-            int new_index = graph_->insertPointBetween(lower_bound->from_index,
-                                                       lower_bound->to_index, ev.point);
+            int prev = lower_bound->forward ? lower_bound->from_index : lower_bound->to_index;
+            int next = lower_bound->forward ? lower_bound->to_index : lower_bound->from_index;
+            int new_index = graph_->insertPointBetween(prev, next, ev.point);
 
             intersection_events_.insert(IntersectionEvent { ev.point, new_index,
                                                             lower_bound->to_index, 0, 0 });
             lower_bound->to_index = new_index;
             lower_bound->to = ev.point;
           }
-          lower_bound++;
+          ++lower_bound;
         }
+
+        VISAGE_ASSERT(graph_->checkValidPolygons());
       }
 
       DPoint checkForIntersections(const DPoint& point) {
@@ -467,8 +474,7 @@ namespace visage {
             old_areas_.push_back(*old);
             new_areas_.emplace_back(old->to_index, old->to, it->area1_to_index,
                                     graph_->points_[it->area1_to_index],
-                                    graph_->next_edge_[it->area1_from_index] == it->area1_to_index,
-                                    old->id);
+                                    graph_->next_edge_[old->to_index] == it->area1_to_index, old->id);
             last_position1_ = areas_.erase(old);
           }
           if (it->area2_from_index != it->area2_to_index) {
@@ -476,8 +482,7 @@ namespace visage {
             old_areas_.push_back(*old);
             new_areas_.emplace_back(old->to_index, old->to, it->area2_to_index,
                                     graph_->points_[it->area2_to_index],
-                                    graph_->next_edge_[it->area2_from_index] == it->area2_to_index,
-                                    old->id);
+                                    graph_->next_edge_[old->to_index] == it->area2_to_index, old->id);
             last_position1_ = areas_.erase(old);
           }
           intersection_events_.erase(it);
