@@ -364,6 +364,39 @@ TEST_CASE("Degeneracies", "[graphics]") {
     REQUIRE(screenshot.sample(25, 12).hexRed() == 0x00);
   }
 
+  SECTION("Degeneracy begin point on two existing lines") {
+    Path path;
+    path.moveTo(0, 0);
+    path.lineTo(0, 20);
+    path.lineTo(10, 10);
+    path.lineTo(90, 10);
+    path.lineTo(100, 20);
+    path.lineTo(100, 0);
+    path.lineTo(90, 10);
+    path.lineTo(10, 10);
+    path.close();
+
+    path.moveTo(20, 10);
+    path.lineTo(30, 0);
+    path.lineTo(30, 20);
+    path.close();
+
+    Canvas canvas;
+    canvas.setWindowless(50, 50);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.setColor(0xffff0000);
+    canvas.fill(&path, 0, 0, kWidth, kWidth);
+    canvas.submit();
+    const auto& screenshot = canvas.takeScreenshot();
+
+    REQUIRE(screenshot.sample(5, 10).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(15, 10).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(25, 10).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(35, 10).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(95, 10).hexRed() == 0xff);
+  }
+
   SECTION("Degeneracy point star") {
     static constexpr float kPi = 3.14159265358979323846f;
     static constexpr int kStarPoints = 10;
