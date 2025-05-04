@@ -382,7 +382,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
     path.close();
 
     Canvas canvas;
-    canvas.setWindowless(50, 50);
+    canvas.setWindowless(100, 50);
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, canvas.width(), canvas.height());
     canvas.setColor(0xffff0000);
