@@ -462,16 +462,24 @@ namespace visage {
         while (!intersection_events_.empty() && intersection_events_.begin()->point <= result_point) {
           result_point = intersection_events_.begin()->point;
           auto it = intersection_events_.begin();
-          if (it->area1_from_index != it->area1_to_index)
-            new_areas_.emplace_back(it->area1_from_index, graph_->points_[it->area1_from_index],
-                                    it->area1_to_index, graph_->points_[it->area1_to_index],
+          if (it->area1_from_index != it->area1_to_index) {
+            auto old = findAreaByEndIndex(it->area1_from_index);
+            old_areas_.push_back(*old);
+            new_areas_.emplace_back(old->to_index, old->to, it->area1_to_index,
+                                    graph_->points_[it->area1_to_index],
                                     graph_->next_edge_[it->area1_from_index] == it->area1_to_index,
-                                    findAreaByEndIndex(it->area1_from_index)->id);
-          if (it->area2_from_index != it->area2_to_index)
-            new_areas_.emplace_back(it->area2_from_index, graph_->points_[it->area2_from_index],
-                                    it->area2_to_index, graph_->points_[it->area2_to_index],
+                                    old->id);
+            last_position1_ = areas_.erase(old);
+          }
+          if (it->area2_from_index != it->area2_to_index) {
+            auto old = findAreaByEndIndex(it->area2_from_index);
+            old_areas_.push_back(*old);
+            new_areas_.emplace_back(old->to_index, old->to, it->area2_to_index,
+                                    graph_->points_[it->area2_to_index],
                                     graph_->next_edge_[it->area2_from_index] == it->area2_to_index,
-                                    findAreaByEndIndex(it->area2_from_index)->id);
+                                    old->id);
+            last_position1_ = areas_.erase(old);
+          }
           intersection_events_.erase(it);
         }
 
@@ -480,20 +488,31 @@ namespace visage {
 
       void processPointEvents(Event ev, const DPoint& point) {
         while (ev.point == point) {
-          if (ev.type == PointType::Begin) {
-            area_index_++;
-            new_areas_.emplace_back(ev.index, ev.point, ev.prev_index, ev.prev, false, -area_index_);
-            new_areas_.emplace_back(ev.index, ev.point, ev.next_index, ev.next, true, area_index_);
-          }
-          else if (ev.type == PointType::Continue) {
+          if (ev.type == PointType::Continue) {
             int from_index = ev.prev_index;
             int to_index = ev.next_index;
             bool forward = ev.prev < ev.next;
             if (!forward)
               std::swap(from_index, to_index);
 
-            int id = findAreaByEndIndex(ev.index)->id;
-            new_areas_.emplace_back(ev.index, ev.point, to_index, graph_->points_[to_index], forward, id);
+            auto old = findAreaByEndIndex(ev.index);
+            old_areas_.push_back(*old);
+            new_areas_.emplace_back(ev.index, ev.point, to_index, graph_->points_[to_index],
+                                    forward, old->id);
+            areas_.erase(old);
+          }
+          else if (ev.type == PointType::Begin) {
+            area_index_++;
+            new_areas_.emplace_back(ev.index, ev.point, ev.prev_index, ev.prev, false, -area_index_);
+            new_areas_.emplace_back(ev.index, ev.point, ev.next_index, ev.next, true, area_index_);
+          }
+          else {
+            auto old = findAreaByEndIndex(ev.index);
+            old_areas_.push_back(*old);
+            areas_.erase(old);
+            old = findAreaByEndIndex(ev.index);
+            old_areas_.push_back(*old);
+            last_position1_ = areas_.erase(old);
           }
 
           current_index_++;
@@ -582,18 +601,8 @@ namespace visage {
       }
 
       void updateDegeneracy(const Event& ev, const DPoint& point) {
-        auto lower_bound = std::lower_bound(areas_.begin(), areas_.end(), point,
-                                            [](const auto& area, const DPoint& point) {
-                                              return stableOrientation(area.from, area.to, point) > 0.0;
-                                            });
-
         processPointEvents(ev, point);
 
-        old_areas_.clear();
-        while (lower_bound != areas_.end() && lower_bound->to == point) {
-          old_areas_.push_back(*lower_bound);
-          lower_bound = areas_.erase(lower_bound);
-        }
         std::sort(old_areas_.begin(), old_areas_.end());
         std::sort(new_areas_.begin(), new_areas_.end());
 
@@ -665,11 +674,14 @@ namespace visage {
 
         for (auto& next_area : next_areas_)
           addArea(next_area);
-        if (next_areas_.empty() && lower_bound != areas_.begin())
-          checkAddIntersection(std::prev(lower_bound));
+        if (next_areas_.empty())
+          checkAddIntersection(safePrev(last_position1_));
 
         VISAGE_ASSERT(graph_->checkValidPolygons());
         VISAGE_ASSERT(areas_.size() % 2 == 0);
+
+        old_areas_.clear();
+        new_areas_.clear();
       }
 
       void update() {
@@ -680,7 +692,6 @@ namespace visage {
           return;
         }
 
-        new_areas_.clear();
         checkForBeginIntersections(ev);
         DPoint point = checkForIntersections(ev.point);
         if (!new_areas_.empty() || ev.degeneracy) {
