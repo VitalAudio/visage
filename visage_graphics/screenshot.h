@@ -78,6 +78,8 @@ namespace visage {
     int width() const { return width_; }
     int height() const { return height_; }
     Color sample(int x, int y) const {
+      VISAGE_ASSERT(x >= 0 && x < width_ && y >= 0 && y < height_);
+
       int index = (y * width_ + x) * 4;
       uint32_t color = (data_[index + 3] << 24) | (data_[index] << 16) | (data_[index + 1] << 8) |
                        data_[index + 2];
