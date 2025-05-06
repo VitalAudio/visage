@@ -61,32 +61,15 @@ int runExample() {
     // for (int i = 0; i < 20; ++i)
     //   path.lineTo(randomFloat(0, app.width()), randomFloat(0, app.height()));
     // path.close();
-    path2 = path.computeOffset(offset);
+    path2 = path.computeOffset(sin(canvas.time()) * 100.0f);
 
     canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));
-    auto triangulation = path2.triangulate();
-    int i = 0;
-    for (int t = 0; t < triangulation.triangles.size(); t += 3) {
-      if (i >= colors.size()) {
-        colors.push_back(visage::Color::fromAHSV(0.7f, randomFloat(0, 360), 1.0f, 1.0f));
-      }
-      canvas.setColor(colors[i++]);
-      auto p1 = triangulation.points[triangulation.triangles[t]];
-      auto p2 = triangulation.points[triangulation.triangles[t + 1]];
-      auto p3 = triangulation.points[triangulation.triangles[t + 2]];
-      canvas.triangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
-    }
 
+    canvas.fill(&path2, 0, 0, app.width(), app.height());
     canvas.setColor(0xffffffff);
 
     canvas.line(&path2, 0, 0, app.width(), app.height(), 3);
-
-    visage::Font font(14, resources::fonts::Lato_Regular_ttf);
-    for (int p = 0; p < triangulation.points.size(); ++p) {
-      canvas.text(std::to_string(p), font, visage::Font::Justification::kCenter,
-                  triangulation.points[p].x, triangulation.points[p].y, 16, 16);
-    }
 
     canvas.setColor(0xffffffff);
     // canvas.line(&path, 0, 0, app.width(), app.height(), 3);

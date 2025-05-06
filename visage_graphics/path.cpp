@@ -878,7 +878,7 @@ namespace visage {
         }
         else {
           scan_line.update();
-          ScanLineArea scan_area(ev.prev_index, ev.prev, ev.next_index, ev.next, true);
+          ScanLineArea scan_area(ev.prev_index, ev.prev, ev.index, ev.point, true);
           auto area = scan_line.lowerBound(scan_area);
 
           if (convex && merge_vertices.count(scan_line.lastId()))
