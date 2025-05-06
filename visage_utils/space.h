@@ -126,11 +126,11 @@ namespace visage {
 
     auto round() const {
       if constexpr (std::is_integral_v<T>)
-        return { x, y };
+        return *this;
       else if constexpr (std::is_same_v<T, float>)
-        return { static_cast<int>(std::round(x)), static_cast<int>(std::round(y)) };
+        return BasePoint<int>(std::round(x), std::round(y));
       else
-        return { static_cast<int64_t>(std::round(x)), static_cast<int64_t>(std::round(y)) };
+        return BasePoint<int64_t>((std::round(x)), std::round(y));
     }
   };
 
