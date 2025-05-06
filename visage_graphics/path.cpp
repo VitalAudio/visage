@@ -382,8 +382,12 @@ namespace visage {
         std::optional<DPoint> intersection = Path::findIntersection(area1.from, area1.to,
                                                                     area2.from, area2.to);
         VISAGE_ASSERT(intersection.has_value());
-        int new_index1 = graph_->insertPointBetween(area1_prev, area1_next, intersection.value());
-        int new_index2 = graph_->insertPointBetween(area2_prev, area2_next, intersection.value());
+        int new_index1 = area1.to_index;
+        int new_index2 = area2.to_index;
+        if (intersection.value() != area1.to)
+          new_index1 = graph_->insertPointBetween(area1_prev, area1_next, intersection.value());
+        if (intersection.value() != area2.to)
+          new_index2 = graph_->insertPointBetween(area2_prev, area2_next, intersection.value());
 
         return Break { intersection.value(), new_index1, new_index2 };
       }
@@ -909,6 +913,40 @@ namespace visage {
       return triangles;
     }
 
+    void offset(double amount) {
+      if (amount == 0.0)
+        return;
+
+      simplify();
+      int start_points = points_.size();
+      std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(start_points);
+      for (int i = 0; i < start_points; ++i) {
+        if (i == next_edge_[i])
+          continue;
+
+        DPoint start = points_[i];
+        int index = i;
+        while (!touched[index]) {
+          touched[index] = true;
+          int next_index = next_edge_[index];
+
+          DPoint point = points_[index];
+          DPoint next = next_index == i ? start : points_[next_index];
+          DPoint delta = point - next;
+
+          delta.normalize();
+          auto offset = DPoint(delta.y, -delta.x) * amount;
+          points_[index] += offset;
+          insertPointBetween(index, next_index, next + offset);
+
+          index = next_index;
+        }
+      }
+
+      breakIntersections();
+      fixWindings(Path::FillRule::Positive);
+    }
+
     void combine(const TriangulationGraph& other) {
       int offset = points_.size();
       for (int i = 0; i < other.points_.size(); ++i) {
@@ -1142,6 +1180,12 @@ namespace visage {
     graph.combine(other_graph);
     graph.breakIntersections();
     graph.fixWindings(fill_rule, num_cycles_needed);
+    return graph.toPath();
+  }
+
+  Path Path::computeOffset(float offset) const {
+    TriangulationGraph graph(this);
+    graph.offset(offset);
     return graph.toPath();
   }
 }
