@@ -22,6 +22,7 @@
 #pragma once
 
 #include "screenshot.h"
+#include "windowless_context.h"
 #include "visage_utils/thread_utils.h"
 
 namespace visage {
@@ -47,8 +48,6 @@ namespace visage {
     bool initialized() const { return initialized_; }
 
   private:
-    static void* windowlessContext() { return nullptr; }
-
     void startRenderThread();
     void render();
     void run() override;

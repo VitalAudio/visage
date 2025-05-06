@@ -34,6 +34,6 @@ target_link_libraries(VisageWindowing PRIVATE ${X11_LIBS} ${WIN_LIBS})
 
 set_target_properties(VisageWindowing PROPERTIES FOLDER "visage")
 if (APPLE)
-  set_target_properties(VisageWindowing PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+  target_compile_options(VisageWindowing PRIVATE -fobjc-arc)
 endif ()
 
