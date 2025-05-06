@@ -64,9 +64,10 @@ public:
       float t = 1.1f * i / (kNumPoints - 1.0f) - 0.05f;
       float delta = std::min(t, 1.0f - t);
       position += 0.02f * delta * delta + 0.003f;
-      graph_line_.setXAt(i, t * render_width);
-      graph_line_.setYAt(i, offset + sin1(phase + position) * 0.5f * line_height);
-      graph_line_.setBoostAt(i, compute_boost(boost_phase - t));
+      // TODO
+      // graph_line_.setXAt(i, t * render_width);
+      // graph_line_.setYAt(i, offset + sin1(phase + position) * 0.5f * line_height);
+      // graph_line_.setBoostAt(i, compute_boost(boost_phase - t));
     }
 
     float center_y = (render_height - line_height) * 0.25f;
