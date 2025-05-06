@@ -19,44 +19,31 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#pragma once
-
-#include "screenshot.h"
 #include "windowless_context.h"
-#include "visage_utils/thread_utils.h"
+
+#include <Carbon/Carbon.h>
+#include <MetalKit/MetalKit.h>
 
 namespace visage {
-  class GraphicsCallbackHandler;
-
-  class Renderer : public Thread {
+  class WindowlessMetalLayer {
   public:
-    static Renderer& instance();
-
-    Renderer();
-    ~Renderer() override;
-
-    void initializeWindowless() { initialize(windowlessContext(), nullptr); }
-    void initialize(void* model_window, void* display);
-    void setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool blue_red);
-    const Screenshot& screenshot() const { return screenshot_; }
-
-    const std::string& errorMessage() const { return error_message_; }
-    bool supported() const { return supported_; }
-    bool swapChainSupported() const { return swap_chain_supported_; }
-    bool initialized() const { return initialized_; }
+    static CAMetalLayer* layer() { return instance().metal_layer_; }
 
   private:
-    void startRenderThread();
-    void render();
-    void run() override;
+    static WindowlessMetalLayer& instance() {
+      static WindowlessMetalLayer instance;
+      return instance;
+    }
 
-    bool initialized_ = false;
-    bool supported_ = false;
-    bool swap_chain_supported_ = false;
+    WindowlessMetalLayer() {
+      metal_layer_ = [CAMetalLayer layer];
+      metal_layer_.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
+    }
 
-    Screenshot screenshot_;
-    std::string error_message_;
-    std::atomic<bool> render_thread_started_ = false;
-    std::unique_ptr<GraphicsCallbackHandler> callback_handler_;
+    CAMetalLayer* metal_layer_ = nullptr;
   };
+
+  void* windowlessContext() {
+    return (__bridge void*)WindowlessMetalLayer::layer();
+  }
 }
