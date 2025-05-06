@@ -5,6 +5,7 @@ if (WIN32)
   set(WIN_LIBS d2d1 dwrite Windowscodecs)
 elseif (APPLE)
   list(APPEND SOURCE_FILES macos/emoji_macos.cpp)
+  list(APPEND PLATFORM_FILES macos/windowless_context.mm)
 elseif (UNIX)
   list(APPEND SOURCE_FILES linux/emoji_linux.cpp)
 endif ()
@@ -17,7 +18,7 @@ endif ()
 amalgamate_headers(${VISAGE_INCLUDE}/visage/graphics.h "${HEADERS}")
 list(APPEND HEADERS ${VISAGE_INCLUDE}/visage/graphics.h)
 
-add_library(VisageGraphics OBJECT ${SOURCE_FILES} ${HEADERS})
+add_library(VisageGraphics OBJECT ${SOURCE_FILES} ${PLATFORM_FILES} ${HEADERS})
 
 if (APPLE)
   find_library(METAL_LIBRARY Metal)
@@ -154,3 +155,8 @@ add_test_target(
   TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
 set_target_properties(freetype PROPERTIES FOLDER "visage/third_party")
+
+if (APPLE)
+  target_compile_options(VisageGraphics PRIVATE -fobjc-arc)
+endif ()
+
