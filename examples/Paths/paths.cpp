@@ -19,6 +19,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "embedded/example_fonts.h"
+
 #include <complex>
 #include <random>
 #include <visage/app.h>
@@ -40,13 +42,15 @@ int runExample() {
   static constexpr float kRadius = 40.0f;
 
   visage::Path path;
-  path.moveTo(4033.99146, 5125.91162);
-  path.lineTo(2524.65796, 2570.17236);
-  path.lineTo(5000.00000, 5000.00000);
-  path.lineTo(6954.66162, 2650.49731);
-  path.lineTo(483.266479, 3701.33105);
-  path.lineTo(5000.00000, 5000.00000);
-  path.scale(0.05f);
+  path.parseSvgPath("M8 9l4-4h-3v-4zM11.636 7.364l-1.121 1.121 4.064 1.515-6.579 "
+                    "2.453-6.579-2.453 4.064-1.515-1.121-1.121-4.364 1.636v4l8 3 8-3v-4z");
+  path.scale(30);
+  path.translate(30, 30);
+
+  visage::Path path2;
+  float offset = 0.0f;
+
+  std::vector<visage::Color> colors;
 
   app.onDraw() = [&](visage::Canvas& canvas) {
     canvas.setColor(0xff442233);
@@ -57,16 +61,39 @@ int runExample() {
     // for (int i = 0; i < 20; ++i)
     //   path.lineTo(randomFloat(0, app.width()), randomFloat(0, app.height()));
     // path.close();
+    path2 = path.computeOffset(offset);
 
     canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));
-    canvas.fill(&path, 0, 0, app.width(), app.height());
+    auto triangulation = path2.triangulate();
+    int i = 0;
+    for (int t = 0; t < triangulation.triangles.size(); t += 3) {
+      if (i >= colors.size()) {
+        colors.push_back(visage::Color::fromAHSV(0.7f, randomFloat(0, 360), 1.0f, 1.0f));
+      }
+      canvas.setColor(colors[i++]);
+      auto p1 = triangulation.points[triangulation.triangles[t]];
+      auto p2 = triangulation.points[triangulation.triangles[t + 1]];
+      auto p3 = triangulation.points[triangulation.triangles[t + 2]];
+      canvas.triangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
+    }
 
     canvas.setColor(0xffffffff);
-    canvas.line(&path, 0, 0, app.width(), app.height(), 3);
-    // app.redraw();
+
+    canvas.line(&path2, 0, 0, app.width(), app.height(), 3);
+
+    visage::Font font(14, resources::fonts::Lato_Regular_ttf);
+    for (int p = 0; p < triangulation.points.size(); ++p) {
+      canvas.text(std::to_string(p), font, visage::Font::Justification::kCenter,
+                  triangulation.points[p].x, triangulation.points[p].y, 16, 16);
+    }
+
+    canvas.setColor(0xffffffff);
+    // canvas.line(&path, 0, 0, app.width(), app.height(), 3);
+    app.redraw();
   };
 
+  app.onMouseMove() = [&](const visage::MouseEvent& e) { offset = e.position.y; };
   app.onMouseDown() = [&](const visage::MouseEvent& e) {
     app.redraw();
     // svg_path.translate(-0.5f * app.width(), -0.5f * app.height());
