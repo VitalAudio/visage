@@ -61,7 +61,7 @@ int runExample() {
     // for (int i = 0; i < 20; ++i)
     //   path.lineTo(randomFloat(0, app.width()), randomFloat(0, app.height()));
     // path.close();
-    path2 = path.computeOffset(sin(canvas.time()) * 100.0f);
+    path2 = path.computeOffset(-11.550000190734863);
 
     canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));
@@ -76,7 +76,7 @@ int runExample() {
     app.redraw();
   };
 
-  app.onMouseMove() = [&](const visage::MouseEvent& e) { offset = e.position.y; };
+  app.onMouseMove() = [&](const visage::MouseEvent& e) { offset = e.position.y * 0.1f; };
   app.onMouseDown() = [&](const visage::MouseEvent& e) {
     app.redraw();
     // svg_path.translate(-0.5f * app.width(), -0.5f * app.height());
