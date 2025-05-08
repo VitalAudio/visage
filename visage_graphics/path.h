@@ -42,6 +42,19 @@ namespace visage {
       EvenOdd
     };
 
+    enum class JointType {
+      Round,
+      Miter,
+      Bevel,
+      Square
+    };
+
+    enum class EndType {
+      Round,
+      Square,
+      Butt
+    };
+
     static constexpr int kMaxCurveResolution = 32;
 
     template<typename T>
@@ -54,11 +67,6 @@ namespace visage {
 
       auto start_delta = start2 - start1;
       auto t1 = start_delta.cross(delta2) / det;
-      auto t2 = start_delta.cross(delta1) / det;
-
-      if (t1 < 0 || t2 < 0 || t1 > 1 || t2 > 1)
-        return std::nullopt;
-
       return start1 + delta1 * t1;
     }
 
@@ -218,7 +226,7 @@ namespace visage {
     Path computeIntersection(const Path& other) const;
     Path computeDifference(const Path& other) const;
     Path computeXor(const Path& other) const;
-    Path computeOffset(float offset) const;
+    Path computeOffset(float offset, JointType joint_type = JointType::Miter) const;
 
     Path scaled(float mult) const {
       Path result = *this;

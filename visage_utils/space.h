@@ -114,12 +114,15 @@ namespace visage {
 
     T squareMagnitude() const { return x * x + y * y; }
     double length() const { return sqrt(squareMagnitude()); }
+
+    BasePoint normalized() const {
+      T magnitude = length();
+      if (magnitude)
+        return BasePoint(x / magnitude, y / magnitude);
+      return *this;
+    }
     void normalize() {
-      T mag = length();
-      if (mag) {
-        x /= mag;
-        y /= mag;
-      }
+      *this = normalized();
     }
 
     T cross(const BasePoint& other) const { return x * other.y - y * other.x; }

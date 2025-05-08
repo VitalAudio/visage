@@ -913,7 +913,7 @@ namespace visage {
       return triangles;
     }
 
-    void offset(double amount) {
+    void offset(double amount, Path::JointType joint_type) {
       if (amount == 0.0)
         return;
 
@@ -925,24 +925,35 @@ namespace visage {
           continue;
 
         DPoint start = points_[i];
+        DPoint prev = points_[prev_edge_[i]];
+        DPoint point = start;
+        DPoint prev_offset = (point - prev).normalized();
+        prev_offset = DPoint(-prev_offset.y, prev_offset.x) * amount;
         int index = i;
         while (!touched[index]) {
           touched[index] = true;
           int next_index = next_edge_[index];
 
-          DPoint point = points_[index];
           DPoint next = next_index == i ? start : points_[next_index];
-          DPoint delta = point - next;
-
-          delta.normalize();
-          auto offset = DPoint(delta.y, -delta.x) * amount;
-          points_[index] += offset;
-          insertPointBetween(index, next_index, next + offset);
-
+          DPoint delta = (next - point).normalized();
+          auto offset = DPoint(-delta.y, delta.x) * amount;
+          if (joint_type == Path::JointType::Bevel) {
+            points_[index] += offset;
+            insertPointBetween(index, next_index, next + offset);
+          }
+          else if (joint_type == Path::JointType::Miter) {
+            auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
+                                                       point + offset, next + offset);
+            points_[index] = intersection.value();
+          }
           index = next_index;
+          prev = point;
+          point = next;
+          prev_offset = offset;
         }
       }
 
+      simplify();
       breakIntersections();
       fixWindings(Path::FillRule::Positive);
     }
@@ -1183,9 +1194,9 @@ namespace visage {
     return graph.toPath();
   }
 
-  Path Path::computeOffset(float offset) const {
+  Path Path::computeOffset(float offset, JointType joint_type) const {
     TriangulationGraph graph(this);
-    graph.offset(offset);
+    graph.offset(offset, joint_type);
     return graph.toPath();
   }
 }
