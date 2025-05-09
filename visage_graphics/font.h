@@ -24,6 +24,7 @@
 #include "color.h"
 #include "graphics_utils.h"
 #include "visage_file_embed/embedded_file.h"
+#include "visage_utils/file_system.h"
 
 #include <map>
 #include <vector>
@@ -80,10 +81,9 @@ namespace visage {
     static bool hasNewLine(const char32_t* string, int length);
 
     Font() = default;
-    Font(float size, const char* font_data, int data_size);
-    Font(float size, const EmbeddedFile& file);
-    Font(float size, const char* font_data, int data_size, float dpi_scale);
-    Font(float size, const EmbeddedFile& file, float dpi_scale);
+    Font(float size, const char* font_data, int data_size, float dpi_scale = 0.0f);
+    Font(float size, const EmbeddedFile& file, float dpi_scale = 0.0f);
+    Font(float size, const std::string& file_path, float dpi_scale = 0.0f);
     Font(const Font& other);
     Font& operator=(const Font& other);
     ~Font();
@@ -94,9 +94,8 @@ namespace visage {
 
       return dpi_scale_ ? dpi_scale_ : 1.0f;
     }
-    Font withDpiScale(float dpi_scale) const {
-      return Font(size_, fontData(), dataSize(), dpi_scale);
-    }
+    Font withDpiScale(float dpi_scale) const;
+    Font withSize(float size) const;
 
     int widthOverflowIndex(const char32_t* string, int string_length, float width,
                            bool round = false, int character_override = 0) const {
@@ -119,8 +118,6 @@ namespace visage {
     int atlasWidth() const;
     int atlasHeight() const;
     int size() const { return size_; }
-    const char* fontData() const { return font_data_; }
-    int dataSize() const { return data_size_; }
     const bgfx::TextureHandle& textureHandle() const;
 
     void setVertexPositions(FontAtlasQuad* quads, const char32_t* string, int length, float x, float y,
@@ -144,8 +141,6 @@ namespace visage {
 
     float size_ = 0.0f;
     int native_size_ = 0;
-    const char* font_data_ = nullptr;
-    int data_size_ = 0;
     float dpi_scale_ = 0.0f;
     PackedFont* packed_font_ = nullptr;
   };
@@ -162,18 +157,37 @@ namespace visage {
     }
 
   private:
+    struct TypeFaceData {
+      TypeFaceData(const char* data, int data_size) : data(data), data_size(data_size) { }
+      int data_size = 0;
+      const char* data = nullptr;
+
+      bool operator<(const TypeFaceData& other) const {
+        if (data_size != other.data_size)
+          return data_size < other.data_size;
+        return std::strcmp(data, other.data);
+      }
+    };
+
     static FontCache* instance() {
       static FontCache cache;
       return &cache;
     }
 
     static PackedFont* loadPackedFont(int size, const EmbeddedFile& font) {
-      return instance()->createOrLoadPackedFont(size, font.data, font.size);
+      std::string id = "embed: " + std::string(font.name) + " - " + std::to_string(size);
+      return instance()->createOrLoadPackedFont(id, size, font.data, font.size);
     }
 
-    static PackedFont* loadPackedFont(int size, const char* font_data, int data_size) {
-      return instance()->createOrLoadPackedFont(size, font_data, data_size);
+    static PackedFont* loadPackedFont(int size, const std::string& file_path) {
+      std::string id = "file: " + file_path + " - " + std::to_string(size);
+      File file(file_path);
+      std::string data = loadFileAsString(file);
+      return instance()->createOrLoadPackedFont(id, size, data.c_str(), data.size());
     }
+
+    static PackedFont* loadPackedFont(const PackedFont* packed_font_);
+    static PackedFont* loadPackedFont(int size, const char* font_data, int data_size);
 
     static void returnPackedFont(PackedFont* packed_font) {
       instance()->decrementPackedFont(packed_font);
@@ -181,12 +195,15 @@ namespace visage {
 
     FontCache();
 
-    PackedFont* createOrLoadPackedFont(int size, const char* font_data, int data_size);
+    PackedFont* incrementPackedFont(const std::string& id);
+    PackedFont* createOrLoadPackedFont(const std::string& id, int size, const char* font_data, int data_size);
     void decrementPackedFont(PackedFont* packed_font);
     void removeStaleFonts();
 
-    std::map<std::pair<int, unsigned const char*>, std::unique_ptr<PackedFont>> cache_;
+    std::map<std::string, std::unique_ptr<PackedFont>> cache_;
     std::map<PackedFont*, int> ref_count_;
+    std::map<TypeFaceData, std::unique_ptr<char[]>> type_face_data_lookup_;
+    std::map<TypeFaceData, int> type_face_data_ref_count_;
     bool has_stale_fonts_ = false;
   };
 }
