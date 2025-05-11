@@ -41,15 +41,16 @@ namespace visage {
   }
 
   bgfx::ShaderHandle& ShaderCache::handle(const EmbeddedFile& file) const {
-    if (cache_->cache.count(file.data))
-      return cache_->cache[file.data];
+    auto file_data = reinterpret_cast<const char*>(file.data);
+    if (cache_->cache.count(file_data))
+      return cache_->cache[file_data];
 
     const bgfx::Memory* shader_memory = bgfx::copy(file.data, file.size);
-    cache_->name_lookup[file.name] = file.data;
-    cache_->cache[file.data] = bgfx::createShader(shader_memory);
-    cache_->originals[file.data] = cache_->cache[file.data];
+    cache_->name_lookup[file.name] = file_data;
+    cache_->cache[file_data] = bgfx::createShader(shader_memory);
+    cache_->originals[file_data] = cache_->cache[file_data];
 
-    return cache_->cache[file.data];
+    return cache_->cache[file_data];
   }
 
   bgfx::ShaderHandle& ShaderCache::handle(const char* data) const {
@@ -67,7 +68,7 @@ namespace visage {
   }
 
   bool ShaderCache::swap(const EmbeddedFile& file, const char* data, int size) const {
-    return swap(file.data, data, size);
+    return swap(reinterpret_cast<const char*>(file.data), data, size);
   }
 
   bool ShaderCache::swap(const std::string& name, const char* data, int size) const {
@@ -79,7 +80,8 @@ namespace visage {
   }
 
   void ShaderCache::restore(const EmbeddedFile& file) const {
-    cache_->cache[file.data] = cache_->originals[file.data];
+    auto file_data = reinterpret_cast<const char*>(file.data);
+    cache_->cache[file_data] = cache_->originals[file_data];
   }
 
   struct ProgramCacheMap {
@@ -111,23 +113,29 @@ namespace visage {
   }
 
   bgfx::ProgramHandle& ProgramCache::handle(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
-    if (cache_->cache.count(vertex.data) && cache_->cache[vertex.data].count(fragment.data))
-      return cache_->cache[vertex.data][fragment.data];
+    auto vertex_data = reinterpret_cast<const char*>(vertex.data);
+    auto fragment_data = reinterpret_cast<const char*>(fragment.data);
+
+    if (cache_->cache.count(vertex_data) && cache_->cache[vertex_data].count(fragment_data))
+      return cache_->cache[vertex_data][fragment_data];
 
     bgfx::ProgramHandle program = bgfx::createProgram(ShaderCache::shaderHandle(vertex),
                                                       ShaderCache::shaderHandle(fragment), false);
-    cache_->cache[vertex.data][fragment.data] = program;
-    cache_->shader_lookup[vertex.data][fragment.data] = { vertex, fragment };
+    cache_->cache[vertex_data][fragment_data] = program;
+    cache_->shader_lookup[vertex_data][fragment_data] = { vertex, fragment };
 
-    cache_->originals[vertex.data][fragment.data] = cache_->cache[vertex.data][fragment.data];
-    return cache_->cache[vertex.data][fragment.data];
+    cache_->originals[vertex_data][fragment_data] = cache_->cache[vertex_data][fragment_data];
+    return cache_->cache[vertex_data][fragment_data];
   }
 
   void ProgramCache::reload(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
     bgfx::ProgramHandle handle = bgfx::createProgram(ShaderCache::shaderHandle(vertex),
                                                      ShaderCache::shaderHandle(fragment), false);
+    auto vertex_data = reinterpret_cast<const char*>(vertex.data);
+    auto fragment_data = reinterpret_cast<const char*>(fragment.data);
+
     if (bgfx::isValid(handle))
-      cache_->cache[vertex.data][fragment.data] = handle;
+      cache_->cache[vertex_data][fragment_data] = handle;
   }
 
   void ProgramCache::reloadAll(const char* shader_data) const {
@@ -148,11 +156,13 @@ namespace visage {
   }
 
   void ProgramCache::reloadAll(const EmbeddedFile& shader) const {
-    reloadAll(ShaderCache::originalData(shader.data));
+    reloadAll(ShaderCache::originalData(reinterpret_cast<const char*>(shader.data)));
   }
 
   void ProgramCache::restore(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
-    cache_->cache[vertex.data][fragment.data] = cache_->originals[vertex.data][fragment.data];
+    auto vertex_data = reinterpret_cast<const char*>(vertex.data);
+    auto fragment_data = reinterpret_cast<const char*>(fragment.data);
+    cache_->cache[vertex_data][fragment_data] = cache_->originals[vertex_data][fragment_data];
   }
 
   struct UniformCacheMap {

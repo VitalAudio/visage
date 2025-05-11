@@ -29,13 +29,13 @@
 namespace visage {
   struct ImageFile {
     ImageFile() = default;
-    ImageFile(bool svg, const char* data, int data_size, int width = 0, int height = 0,
+    ImageFile(bool svg, const unsigned char* data, int data_size, int width = 0, int height = 0,
               int blur_radius = 0) :
         svg(svg), data(data), data_size(data_size), width(width), height(height),
         blur_radius(blur_radius) { }
 
     bool svg = false;
-    const char* data = nullptr;
+    const unsigned char* data = nullptr;
     int data_size = 0;
     int width = 0;
     int height = 0;
@@ -58,14 +58,14 @@ namespace visage {
 
   struct Svg : ImageFile {
     Svg() = default;
-    Svg(const char* data, int data_size, int width, int height, int blur_radius = 0) :
+    Svg(const unsigned char* data, int data_size, int width, int height, int blur_radius = 0) :
         ImageFile(true, data, data_size, width, height, blur_radius) { }
   };
 
   struct Image : ImageFile {
     Image() = default;
-    Image(const char* data, int data_size) : ImageFile(false, data, data_size) { }
-    Image(const char* data, int data_size, int width, int height) :
+    Image(const unsigned char* data, int data_size) : ImageFile(false, data, data_size) { }
+    Image(const unsigned char* data, int data_size, int width, int height) :
         ImageFile(false, data, data_size, width, height) { }
   };
 

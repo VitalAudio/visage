@@ -52,7 +52,7 @@ TEST_CASE("Gradient initialization", "[graphics]") {
 
 TEST_CASE("Gradient fromSampleFunction", "[graphics]") {
   SECTION("Creates gradient with sample function") {
-    auto sampleFunc = [](float t) -> Color { return Color(1.0f, t, 0.0f, 0.0f); };
+    auto sampleFunc = [](float t) -> Color { return { 1.0f, t, 0.0f, 0.0f }; };
 
     Gradient gradient = Gradient::fromSampleFunction(5, sampleFunc);
 

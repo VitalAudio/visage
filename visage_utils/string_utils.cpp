@@ -24,7 +24,7 @@
 #include <algorithm>
 
 namespace visage {
-  std::string encodeDataBase64(const char* data, size_t size) {
+  std::string encodeDataBase64(const unsigned char* data, size_t size) {
     static const char* kBase64Chars =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 

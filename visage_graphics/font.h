@@ -81,7 +81,7 @@ namespace visage {
     static bool hasNewLine(const char32_t* string, int length);
 
     Font() = default;
-    Font(float size, const char* font_data, int data_size, float dpi_scale = 0.0f);
+    Font(float size, const unsigned char* font_data, int data_size, float dpi_scale = 0.0f);
     Font(float size, const EmbeddedFile& file, float dpi_scale = 0.0f);
     Font(float size, const std::string& file_path, float dpi_scale = 0.0f);
     Font(const Font& other);
@@ -158,14 +158,14 @@ namespace visage {
 
   private:
     struct TypeFaceData {
-      TypeFaceData(const char* data, int data_size) : data(data), data_size(data_size) { }
+      TypeFaceData(const unsigned char* data, int data_size) : data(data), data_size(data_size) { }
       int data_size = 0;
-      const char* data = nullptr;
+      const unsigned char* data = nullptr;
 
       bool operator<(const TypeFaceData& other) const {
         if (data_size != other.data_size)
           return data_size < other.data_size;
-        return std::strcmp(data, other.data);
+        return std::memcmp(data, other.data, data_size);
       }
     };
 
@@ -182,12 +182,13 @@ namespace visage {
     static PackedFont* loadPackedFont(int size, const std::string& file_path) {
       std::string id = "file: " + file_path + " - " + std::to_string(size);
       File file(file_path);
-      std::string data = loadFileAsString(file);
-      return instance()->createOrLoadPackedFont(id, size, data.c_str(), data.size());
+      int file_size = 0;
+      std::unique_ptr<unsigned char[]> data = loadFileData(file, file_size);
+      return instance()->createOrLoadPackedFont(id, size, data.get(), file_size);
     }
 
     static PackedFont* loadPackedFont(const PackedFont* packed_font_);
-    static PackedFont* loadPackedFont(int size, const char* font_data, int data_size);
+    static PackedFont* loadPackedFont(int size, const unsigned char* font_data, int data_size);
 
     static void returnPackedFont(PackedFont* packed_font) {
       instance()->decrementPackedFont(packed_font);
@@ -196,13 +197,14 @@ namespace visage {
     FontCache();
 
     PackedFont* incrementPackedFont(const std::string& id);
-    PackedFont* createOrLoadPackedFont(const std::string& id, int size, const char* font_data, int data_size);
+    PackedFont* createOrLoadPackedFont(const std::string& id, int size,
+                                       const unsigned char* font_data, int data_size);
     void decrementPackedFont(PackedFont* packed_font);
     void removeStaleFonts();
 
     std::map<std::string, std::unique_ptr<PackedFont>> cache_;
     std::map<PackedFont*, int> ref_count_;
-    std::map<TypeFaceData, std::unique_ptr<char[]>> type_face_data_lookup_;
+    std::map<TypeFaceData, std::unique_ptr<unsigned char[]>> type_face_data_lookup_;
     std::map<TypeFaceData, int> type_face_data_ref_count_;
     bool has_stale_fonts_ = false;
   };

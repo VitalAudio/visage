@@ -47,12 +47,12 @@ static visage::File xdgFolder(const char* env_var, const char* default_folder) {
 #endif
 
 namespace visage {
-  bool replaceFileWithData(const File& file, const char* data, size_t size) {
+  bool replaceFileWithData(const File& file, const unsigned char* data, size_t size) {
     std::ofstream stream(file, std::ios::binary);
     if (!stream)
       return false;
 
-    stream.write(data, size);
+    stream.write(reinterpret_cast<const char*>(data), size);
 
     if (stream.fail())
       return false;
@@ -93,7 +93,7 @@ namespace visage {
     return true;
   }
 
-  std::unique_ptr<char[]> loadFileData(const File& file, int& size) {
+  std::unique_ptr<unsigned char[]> loadFileData(const File& file, int& size) {
     std::ifstream stream(file, std::ios::binary | std::ios::ate);
     if (!stream)
       return {};
@@ -101,8 +101,8 @@ namespace visage {
     size = stream.tellg();
     stream.seekg(0, std::ios::beg);
 
-    auto data = std::make_unique<char[]>(size);
-    stream.read(data.get(), size);
+    auto data = std::make_unique<unsigned char[]>(size);
+    stream.read(reinterpret_cast<char*>(data.get()), size);
     return data;
   }
 
