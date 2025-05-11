@@ -160,7 +160,8 @@ namespace visage {
     void setShader(const EmbeddedFile& shader, const EmbeddedFile& original_shader) {
       shader_ = shader;
       original_shader_ = original_shader;
-      editor_.setText(std::string(original_shader_.data, original_shader_.size));
+      editor_.setText(std::string(reinterpret_cast<const char*>(original_shader_.data),
+                                  original_shader_.size));
     }
 
     void draw(Canvas& canvas) override;

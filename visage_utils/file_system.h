@@ -27,12 +27,12 @@
 namespace visage {
   typedef std::filesystem::path File;
 
-  bool replaceFileWithData(const File& file, const char* data, size_t size);
+  bool replaceFileWithData(const File& file, const unsigned char* data, size_t size);
   bool replaceFileWithText(const File& file, const std::string& text);
   bool hasWriteAccess(const File& file);
   bool fileExists(const File& file);
   bool appendTextToFile(const File& file, const std::string& text);
-  std::unique_ptr<char[]> loadFileData(const File& file, int& size);
+  std::unique_ptr<unsigned char[]> loadFileData(const File& file, int& size);
   std::string loadFileAsString(const File& file);
 
   File hostExecutable();

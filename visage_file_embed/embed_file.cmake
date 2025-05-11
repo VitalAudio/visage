@@ -22,7 +22,7 @@ set(FILE_CONTENTS_BEGIN "${FILE_CONTENTS_BEGIN}static const char ${VAR_NAME}_nam
 set(FILE_CONTENTS_BEGIN "${FILE_CONTENTS_BEGIN}static const unsigned char ${VAR_NAME}_tmp[] = {")
 set(FILE_CONTENTS_END "};\n")
 set(FILE_CONTENTS_END "${FILE_CONTENTS_END}::visage::EmbeddedFile ${VAR_NAME} = { ${VAR_NAME}_name, ")
-set(FILE_CONTENTS_END "${FILE_CONTENTS_END}(const char*)${VAR_NAME}_tmp, sizeof(${VAR_NAME}_tmp) };\n")
+set(FILE_CONTENTS_END "${FILE_CONTENTS_END}${VAR_NAME}_tmp, sizeof(${VAR_NAME}_tmp) };\n")
 set(FILE_CONTENTS_END "${FILE_CONTENTS_END}}\n")
 
 file(CONFIGURE OUTPUT ${DEST_FILE} CONTENT "${FILE_CONTENTS_BEGIN} ${DATA} ${FILE_CONTENTS_END}")

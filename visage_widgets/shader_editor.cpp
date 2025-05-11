@@ -59,8 +59,10 @@ namespace visage {
 
   void ShaderCompiler::compileWebGlShader(const std::string& shader_name, const std::string& code,
                                           const std::function<void(std::string)>& callback) {
-    std::string varying(shaders::varying_def_sc.data, shaders::varying_def_sc.size);
-    std::string utils(shaders::shader_utils_sh.data, shaders::shader_utils_sh.size);
+    auto varying_data = reinterpret_cast<const char*>(shaders::varying_def_sc.data);
+    auto utils_data = reinterpret_cast<const char*>(shaders::shader_utils_sh.data);
+    std::string varying(varying_data, shaders::varying_def_sc.size);
+    std::string utils(utils_data, shaders::shader_utils_sh.size);
     std::string result;
     if (visage::preprocessWebGlShader(result, code, utils, varying)) {
       if (ShaderCache::swapShader(shader_name, result.c_str(), result.length()))
@@ -111,10 +113,8 @@ namespace visage {
     int seconds = shaderEditTime(file_path);
     if (watched_edit_times_[file_path] < seconds) {
       watched_edit_times_[file_path] = seconds;
-      int size = 0;
-      std::unique_ptr<char[]> shader_memory = loadFileData(file_path, size);
+      std::string code = loadFileAsString(file_path);
       std::string file_stem = fileStem(file_path);
-      std::string code(shader_memory.get(), size);
       setCode(file_stem, code, [](const std::string& error) {
         if (!error.empty())
           VISAGE_LOG(error);
@@ -180,11 +180,9 @@ namespace visage {
       return false;
     }
 
-    int size = 0;
-    std::unique_ptr<char[]> shader_memory = loadFileData(output_file, size);
-    std::string compile_shader(shader_memory.get(), size);
-    runOnEventThread([compile_shader, shader_name, size]() {
-      if (ShaderCache::swapShader(shader_name, compile_shader.c_str(), size))
+    std::string compile_shader = loadFileAsString(output_file);
+    runOnEventThread([compile_shader, shader_name]() {
+      if (ShaderCache::swapShader(shader_name, compile_shader.c_str(), compile_shader.size()))
         ProgramCache::refreshAllProgramsWithShader(shader_name);
     });
 
