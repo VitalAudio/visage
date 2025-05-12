@@ -46,6 +46,8 @@ namespace visage {
     drawing_ = drawing;
     if (drawing_)
       redraw();
+    else
+      redrawing_ = false;
 
     for (Frame* child : children_) {
       if (child->isVisible() && child->isDrawing() != drawing_)
@@ -295,7 +297,8 @@ namespace visage {
   }
 
   void Frame::initChildren() {
-    VISAGE_ASSERT(!initialized_);
+    if (initialized_)
+      return;
 
     initialized_ = true;
     for (Frame* child : children_)

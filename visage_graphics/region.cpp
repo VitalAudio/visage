@@ -64,7 +64,7 @@ namespace visage {
   }
 
   void Region::setNeedsLayer(bool needs_layer) {
-    if (needsLayer() == needs_layer)
+    if (needsLayer() == needs_layer || canvas_ == nullptr)
       return;
 
     if (needs_layer) {

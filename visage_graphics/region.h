@@ -55,6 +55,7 @@ namespace visage {
 
     void removeRegion(Region* region) {
       region->clear();
+      region->setNeedsLayer(false);
       region->parent_ = nullptr;
       region->setCanvas(nullptr);
       sub_regions_.erase(std::find(sub_regions_.begin(), sub_regions_.end(), region));
