@@ -850,7 +850,8 @@ namespace visage {
           scan_line.lastPosition1()->id = ev.index;
           if (!scan_line.lastPosition1()->forward) {
             auto after = std::next(scan_line.lastPosition1());
-            after->id = ev.index;
+            if (after != scan_line.end())
+              after->id = ev.index;
           }
         }
         else if (ev.type == PointType::Begin) {
