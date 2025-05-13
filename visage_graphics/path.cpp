@@ -232,6 +232,8 @@ namespace visage {
       End
     };
 
+    TriangulationGraph() = delete;
+
     explicit TriangulationGraph(const Path* path) {
       int num_points = path->numPoints();
       prev_edge_.reserve(num_points);
@@ -274,17 +276,6 @@ namespace visage {
 
       return a_index < b_index;
     }
-
-    struct Degeneracy {
-      DPoint from, to, point;
-      bool operator<(const Degeneracy& other) const {
-        if (from != other.from)
-          return from < other.from;
-        if (to != other.to)
-          return to < other.to;
-        return point < other.point;
-      }
-    };
 
     template<bool find_intersections = false>
     class ScanLine {
@@ -857,6 +848,10 @@ namespace visage {
             addDiagonal(scan_line, ev.index, diagonal_target);
 
           scan_line.lastPosition1()->id = ev.index;
+          if (!scan_line.lastPosition1()->forward) {
+            auto after = std::next(scan_line.lastPosition1());
+            after->id = ev.index;
+          }
         }
         else if (ev.type == PointType::Begin) {
           scan_line.update();
@@ -954,6 +949,10 @@ namespace visage {
       }
 
       simplify();
+      // TODO maybe use robust comparisons instead of this
+      for (auto& point : points_)
+        point = DPoint((float)point.x, (float)point.y);
+
       breakIntersections();
       fixWindings(Path::FillRule::Positive);
     }
@@ -995,11 +994,10 @@ namespace visage {
           continue;
 
         int index = i;
-        path.moveTo(Point(points_[i]));
         while (!visited[index]) {
+          path.lineTo(Point(points_[index]));
           visited[index] = true;
           index = next_edge_[index];
-          path.lineTo(Point(points_[index]));
         }
 
         path.close();
