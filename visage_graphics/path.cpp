@@ -942,6 +942,36 @@ namespace visage {
                                                        point + offset, next + offset);
             points_[index] = intersection.value();
           }
+          else if (joint_type == Path::JointType::Square) {
+            // points_[index] += offset;
+            // insertPointBetween(index, next_index, next + offset);
+            std::complex<double> position(-center.x, -center.y);
+            double angle_delta = arc_angle / num_points;
+            std::complex<double> rotation = std::polar(1.0, angle_delta);
+
+            for (int i = 0; i < num_points; ++i) {
+              position *= rotation;
+              Point point = center + Point(position.real(), position.imag());
+              point.y /= radius_ratio;
+              point = ellipse_rotation * point + from;
+              addPoint(point);
+            }
+          }
+          else if (joint_type == Path::JointType::Round) {
+            points_[index] += offset;
+            insertPointBetween(index, next_index, next + offset);
+            std::complex<double> position(-center.x, -center.y);
+            double angle_delta = arc_angle / num_points;
+            std::complex<double> rotation = std::polar(1.0, angle_delta);
+
+            for (int i = 0; i < num_points; ++i) {
+              position *= rotation;
+              Point point = center + Point(position.real(), position.imag());
+              point.y /= radius_ratio;
+              point = ellipse_rotation * point + from;
+              addPoint(point);
+            }
+          }
           index = next_index;
           prev = point;
           point = next;
