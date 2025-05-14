@@ -33,6 +33,42 @@ inline float randomFloat(float min, float max) {
   return distribution(generator);
 }
 
+void drawTriangles(visage::Canvas& canvas, const visage::Path& path) {
+  static std::vector<visage::Color> colors;
+  auto triangulation = path.triangulate();
+  for (int i = 0; i * 3 < triangulation.triangles.size(); ++i) {
+    if (i <= colors.size())
+      colors.push_back(visage::Color::fromAHSV(0.8f, randomFloat(0.0f, 360.0f), 1.0f, 1.0f));
+
+    canvas.setColor(colors[i]);
+    visage::Point p1 = triangulation.points[triangulation.triangles[i * 3]];
+    visage::Point p2 = triangulation.points[triangulation.triangles[i * 3 + 1]];
+    visage::Point p3 = triangulation.points[triangulation.triangles[i * 3 + 2]];
+    canvas.triangle(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
+  }
+}
+
+void drawPointIndices(visage::Canvas& canvas, const visage::Path& path) {
+  canvas.setColor(0xffffffff);
+  visage::Font font(14, resources::fonts::Lato_Regular_ttf);
+  int i = 0;
+  for (const auto& sub_path : path.subPaths()) {
+    for (const auto& point : sub_path.points) {
+      canvas.text(std::to_string(i), font, visage::Font::Justification::kTopLeft, point.x, point.y, 50, 50);
+      ++i;
+    }
+  }
+}
+
+void printPath(const visage::Path& path) {
+  for (const auto& sub_path : path.subPaths()) {
+    for (const auto& point : sub_path.points) {
+      VISAGE_LOG("path.lineTo(%f, %f);", point.x, point.y);
+    }
+    VISAGE_LOG("path.close();");
+  }
+}
+
 int runExample() {
   visage::ApplicationWindow app;
 
@@ -56,16 +92,12 @@ int runExample() {
     canvas.setColor(0xff442233);
     canvas.fill(0, 0, app.width(), app.height());
 
-    // path.clear();
-    // path.moveTo(randomFloat(0, app.width()), randomFloat(0, app.height()));
-    // for (int i = 0; i < 20; ++i)
-    //   path.lineTo(randomFloat(0, app.width()), randomFloat(0, app.height()));
-    // path.close();
-    path2 = path.computeOffset(-11.550000190734863);
-
+    path2 = path.computeOffset(50 * sin(canvas.time()));
     canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));
 
+    // drawTriangles(canvas, path);
+    // drawPointIndices(canvas, path);
     canvas.fill(&path2, 0, 0, app.width(), app.height());
     canvas.setColor(0xffffffff);
 
