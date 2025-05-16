@@ -78,10 +78,21 @@ int runExample() {
   static constexpr float kRadius = 40.0f;
 
   visage::Path path;
-  path.parseSvgPath("M8 9l4-4h-3v-4zM11.636 7.364l-1.121 1.121 4.064 1.515-6.579 "
-                    "2.453-6.579-2.453 4.064-1.515-1.121-1.121-4.364 1.636v4l8 3 8-3v-4z");
-  path.scale(30);
-  path.translate(30, 30);
+  // path.parseSvgPath("M8 9l4-4h-3v-4zM11.636 7.364l-1.121 1.121 4.064 1.515-6.579 "
+  //                   "2.453-6.579-2.453 4.064-1.515-1.121-1.121-4.364 1.636v4l8 3 8-3v-4z");
+  // path.scale(30);
+  // path.translate(30, 30);
+  path.moveTo(10, 10);
+  path.lineTo(40, 10);
+  path.lineTo(40, 40);
+  path.lineTo(10, 40);
+  path.close();
+
+  path.moveTo(11, 11);
+  path.lineTo(30, 11);
+  path.lineTo(30, 30);
+  path.lineTo(11, 30);
+  path.close();
 
   visage::Path path2;
   float offset = 0.0f;
@@ -92,16 +103,16 @@ int runExample() {
     canvas.setColor(0xff442233);
     canvas.fill(0, 0, app.width(), app.height());
 
-    path2 = path.computeOffset(50 * sin(canvas.time()));
+    // path2 = path.computeOffset(50 * sin(canvas.time()));
     canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));
 
     // drawTriangles(canvas, path);
     // drawPointIndices(canvas, path);
-    canvas.fill(&path2, 0, 0, app.width(), app.height());
+    canvas.fill(&path, 0, 0, app.width(), app.height());
     canvas.setColor(0xffffffff);
 
-    canvas.line(&path2, 0, 0, app.width(), app.height(), 3);
+    canvas.line(&path, 0, 0, app.width(), app.height(), 3);
 
     canvas.setColor(0xffffffff);
     // canvas.line(&path, 0, 0, app.width(), app.height(), 3);
