@@ -375,9 +375,9 @@ namespace visage {
         VISAGE_ASSERT(intersection.has_value());
         int new_index1 = area1.to_index;
         int new_index2 = area2.to_index;
-        if (intersection.value() != area1.to)
+        if (intersection.value() != area1.from && intersection.value() != area1.to)
           new_index1 = graph_->insertPointBetween(area1_prev, area1_next, intersection.value());
-        if (intersection.value() != area2.to)
+        if (intersection.value() != area2.from && intersection.value() != area2.to)
           new_index2 = graph_->insertPointBetween(area2_prev, area2_next, intersection.value());
 
         return Break { intersection.value(), new_index1, new_index2 };
@@ -909,11 +909,12 @@ namespace visage {
       return triangles;
     }
 
-    void offset(double amount, Path::JointType joint_type) {
+    template<Path::JointType joint_type>
+    void offset(double amount) {
       if (amount == 0.0)
         return;
 
-      simplify();
+      double max_delta_radians = 2.0 * std::acos(1.0 - Path::kDefaultErrorTolerance / std::abs(amount));
       int start_points = points_.size();
       std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(start_points);
       for (int i = 0; i < start_points; ++i) {
@@ -921,60 +922,74 @@ namespace visage {
           continue;
 
         DPoint start = points_[i];
-        DPoint prev = points_[prev_edge_[i]];
+        int prev_index = prev_edge_[i];
+        DPoint prev = points_[prev_index];
         DPoint point = start;
-        DPoint prev_offset = (point - prev).normalized();
-        prev_offset = DPoint(-prev_offset.y, prev_offset.x) * amount;
+        DPoint prev_direction = (start - prev).normalized();
+        DPoint prev_offset = DPoint(-prev_direction.y, prev_direction.x) * amount;
         int index = i;
         while (!touched[index]) {
           touched[index] = true;
           int next_index = next_edge_[index];
 
           DPoint next = next_index == i ? start : points_[next_index];
-          DPoint delta = (next - point).normalized();
-          auto offset = DPoint(-delta.y, delta.x) * amount;
-          if (joint_type == Path::JointType::Bevel) {
+          DPoint direction = (next - point).normalized();
+          auto offset = DPoint(-direction.y, direction.x) * amount;
+          if constexpr (joint_type == Path::JointType::Bevel) {
             points_[index] += offset;
             insertPointBetween(index, next_index, next + offset);
           }
-          else if (joint_type == Path::JointType::Miter) {
+          else if constexpr (joint_type == Path::JointType::Miter) {
             auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
                                                        point + offset, next + offset);
             points_[index] = intersection.value();
           }
-          else if (joint_type == Path::JointType::Square) {
-            // points_[index] += offset;
-            // insertPointBetween(index, next_index, next + offset);
-            std::complex<double> position(-center.x, -center.y);
-            double angle_delta = arc_angle / num_points;
-            std::complex<double> rotation = std::polar(1.0, angle_delta);
+          else if constexpr (joint_type == Path::JointType::Square) {
+            DPoint square_offset = (prev_direction - direction).normalized() * amount;
+            DPoint square_center = point + square_offset;
+            DPoint square_tangent = DPoint(-square_offset.y, square_offset.x);
+            auto intersection_prev = Path::findIntersection(square_center, square_center + square_tangent,
+                                                            prev + prev_offset, point + prev_offset);
+            auto intersection = Path::findIntersection(square_center, square_center + square_tangent,
+                                                       point + offset, next + offset);
+            points_[index] = intersection_prev.value();
+            insertPointBetween(index, next_index, intersection.value());
+          }
+          else if constexpr (joint_type == Path::JointType::Round) {
+            bool convex = stableOrientation(prev, point, next) < 0.0;
+            if (convex == (amount > 0.0)) {
+              double arc_angle = std::acos(prev_offset.dot(offset) / (amount * amount));
+              points_[index] += prev_offset;
+              int num_points = std::ceil(arc_angle / max_delta_radians);
+              std::complex<double> position(prev_offset.x, prev_offset.y);
+              double angle_delta = arc_angle / num_points;
+              std::complex<double> rotation = std::polar(1.0, (amount < 0.0) ? angle_delta : -angle_delta);
+              int current_index = index;
 
-            for (int i = 0; i < num_points; ++i) {
-              position *= rotation;
-              Point point = center + Point(position.real(), position.imag());
-              point.y /= radius_ratio;
-              point = ellipse_rotation * point + from;
-              addPoint(point);
+              for (int i = 0; i < num_points; ++i) {
+                position *= rotation;
+                DPoint insert = point + DPoint(position.real(), position.imag());
+                current_index = insertPointBetween(current_index, next_index, insert);
+              }
+            }
+            else {
+              if (amount < 0.0) {
+                auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
+                                                           point + offset, next + offset);
+                points_[index] = intersection.value();
+              }
+              else {
+                points_[index] += prev_offset;
+                insertPointBetween(index, next_index, point + offset);
+              }
             }
           }
-          else if (joint_type == Path::JointType::Round) {
-            points_[index] += offset;
-            insertPointBetween(index, next_index, next + offset);
-            std::complex<double> position(-center.x, -center.y);
-            double angle_delta = arc_angle / num_points;
-            std::complex<double> rotation = std::polar(1.0, angle_delta);
 
-            for (int i = 0; i < num_points; ++i) {
-              position *= rotation;
-              Point point = center + Point(position.real(), position.imag());
-              point.y /= radius_ratio;
-              point = ellipse_rotation * point + from;
-              addPoint(point);
-            }
-          }
+          prev_index = index;
           index = next_index;
           prev = point;
           point = next;
+          prev_direction = direction;
           prev_offset = offset;
         }
       }
@@ -1059,6 +1074,8 @@ namespace visage {
     int insertPointBetween(int start_index, int end_index, const DPoint& point) {
       VISAGE_ASSERT(points_[start_index] != point);
       VISAGE_ASSERT(points_[end_index] != point);
+      VISAGE_ASSERT(next_edge_[start_index] == end_index);
+      VISAGE_ASSERT(prev_edge_[end_index] == start_index);
 
       int new_index = addAdditionalPoint(point);
       connect(start_index, new_index);
@@ -1225,7 +1242,15 @@ namespace visage {
 
   Path Path::computeOffset(float offset, JointType joint_type) const {
     TriangulationGraph graph(this);
-    graph.offset(offset, joint_type);
+    graph.simplify();
+    graph.breakIntersections();
+    graph.fixWindings(fillRule());
+    switch (joint_type) {
+    case JointType::Bevel: graph.offset<JointType::Bevel>(offset); break;
+    case JointType::Miter: graph.offset<JointType::Miter>(offset); break;
+    case JointType::Square: graph.offset<JointType::Square>(offset); break;
+    case JointType::Round: graph.offset<JointType::Round>(offset); break;
+    }
     return graph.toPath();
   }
 }

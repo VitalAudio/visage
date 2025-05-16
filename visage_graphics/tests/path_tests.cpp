@@ -513,3 +513,67 @@ TEST_CASE("Random point degeneracy", "[graphics]") {
     path.triangulate();
   }
 }
+
+TEST_CASE("Path difference", "[graphics]") {
+  SECTION("Exact") {
+    Path path1;
+    path1.moveTo(1, 1);
+    path1.lineTo(4, 1);
+    path1.lineTo(4, 4);
+    path1.lineTo(1, 4);
+    path1.close();
+
+    Path path2;
+    path2.moveTo(1, 1);
+    path2.lineTo(4, 1);
+    path2.lineTo(4, 4);
+    path2.lineTo(1, 4);
+    path2.close();
+
+    Path difference = path1.computeDifference(path2);
+
+    Canvas canvas;
+    canvas.setWindowless(5, 5);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.setColor(0xffffffff);
+    canvas.fill(&difference, 0, 0, 5, 5);
+    canvas.submit();
+    const auto& screenshot = canvas.takeScreenshot();
+    for (int r = 0; r < 5; ++r) {
+      for (int c = 0; c < 5; ++c)
+        REQUIRE(screenshot.sample(c, r).hexRed() == 0x0);
+    }
+  }
+
+  SECTION("Embedded") {
+    Path path1;
+    path1.moveTo(1, 1);
+    path1.lineTo(4, 1);
+    path1.lineTo(4, 4);
+    path1.lineTo(1, 4);
+    path1.close();
+
+    Path path2;
+    path2.moveTo(0, 0);
+    path2.lineTo(5, 0);
+    path2.lineTo(5, 5);
+    path2.lineTo(0, 5);
+    path2.close();
+
+    Path difference = path1.computeDifference(path2);
+
+    Canvas canvas;
+    canvas.setWindowless(5, 5);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.setColor(0xffffffff);
+    canvas.fill(&difference, 0, 0, 5, 5);
+    canvas.submit();
+    const auto& screenshot = canvas.takeScreenshot();
+    for (int r = 0; r < 5; ++r) {
+      for (int c = 0; c < 5; ++c)
+        REQUIRE(screenshot.sample(c, r).hexRed() == 0x0);
+    }
+  }
+}
