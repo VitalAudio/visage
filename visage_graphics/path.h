@@ -42,7 +42,7 @@ namespace visage {
       EvenOdd
     };
 
-    enum class JointType {
+    enum class JoinType {
       Round,
       Miter,
       Bevel,
@@ -227,7 +227,7 @@ namespace visage {
     Path computeDifference(const Path& other) const;
     Path computeXor(const Path& other) const;
 
-    Path computeOffset(float offset, JointType joint_type = JointType::Square) const;
+    Path computeOffset(float offset, JoinType join_type = JoinType::Square) const;
 
     Path scaled(float mult) const {
       Path result = *this;
