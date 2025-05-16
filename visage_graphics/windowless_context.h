@@ -25,7 +25,8 @@ namespace visage {
 #if VISAGE_MAC
   void* windowlessContext();
 #else
-  void* windowlessContext() { return nullptr; }
+  static void* windowlessContext() {
+    return nullptr;
+  }
 #endif
 }
-
