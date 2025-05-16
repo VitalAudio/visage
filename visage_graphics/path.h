@@ -226,7 +226,8 @@ namespace visage {
     Path computeIntersection(const Path& other) const;
     Path computeDifference(const Path& other) const;
     Path computeXor(const Path& other) const;
-    Path computeOffset(float offset, JointType joint_type = JointType::Miter) const;
+
+    Path computeOffset(float offset, JointType joint_type = JointType::Square) const;
 
     Path scaled(float mult) const {
       Path result = *this;
