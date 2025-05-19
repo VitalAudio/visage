@@ -909,7 +909,7 @@ namespace visage {
       return triangles;
     }
 
-    template<Path::JointType joint_type>
+    template<Path::JoinType joint_type>
     void offset(double amount) {
       if (amount == 0.0)
         return;
@@ -935,16 +935,16 @@ namespace visage {
           DPoint next = next_index == i ? start : points_[next_index];
           DPoint direction = (next - point).normalized();
           auto offset = DPoint(-direction.y, direction.x) * amount;
-          if constexpr (joint_type == Path::JointType::Bevel) {
+          if constexpr (joint_type == Path::JoinType::Bevel) {
             points_[index] += offset;
             insertPointBetween(index, next_index, next + offset);
           }
-          else if constexpr (joint_type == Path::JointType::Miter) {
+          else if constexpr (joint_type == Path::JoinType::Miter) {
             auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
                                                        point + offset, next + offset);
             points_[index] = intersection.value();
           }
-          else if constexpr (joint_type == Path::JointType::Square) {
+          else if constexpr (joint_type == Path::JoinType::Square) {
             DPoint square_offset = (prev_direction - direction).normalized() * amount;
             DPoint square_center = point + square_offset;
             DPoint square_tangent = DPoint(-square_offset.y, square_offset.x);
@@ -955,7 +955,7 @@ namespace visage {
             points_[index] = intersection_prev.value();
             insertPointBetween(index, next_index, intersection.value());
           }
-          else if constexpr (joint_type == Path::JointType::Round) {
+          else if constexpr (joint_type == Path::JoinType::Round) {
             bool convex = stableOrientation(prev, point, next) < 0.0;
             if (convex == (amount > 0.0)) {
               double arc_angle = std::acos(prev_offset.dot(offset) / (amount * amount));
@@ -1240,16 +1240,16 @@ namespace visage {
     return graph.toPath();
   }
 
-  Path Path::computeOffset(float offset, JointType joint_type) const {
+  Path Path::computeOffset(float offset, JoinType joint_type) const {
     TriangulationGraph graph(this);
     graph.simplify();
     graph.breakIntersections();
     graph.fixWindings(fillRule());
     switch (joint_type) {
-    case JointType::Bevel: graph.offset<JointType::Bevel>(offset); break;
-    case JointType::Miter: graph.offset<JointType::Miter>(offset); break;
-    case JointType::Square: graph.offset<JointType::Square>(offset); break;
-    case JointType::Round: graph.offset<JointType::Round>(offset); break;
+    case JoinType::Bevel: graph.offset<JoinType::Bevel>(offset); break;
+    case JoinType::Miter: graph.offset<JoinType::Miter>(offset); break;
+    case JoinType::Square: graph.offset<JoinType::Square>(offset); break;
+    case JoinType::Round: graph.offset<JoinType::Round>(offset); break;
     }
     return graph.toPath();
   }
