@@ -82,19 +82,44 @@ int runExample() {
   //                   "2.453-6.579-2.453 4.064-1.515-1.121-1.121-4.364 1.636v4l8 3 8-3v-4z");
   // path.scale(30);
   // path.translate(30, 30);
-  path.moveTo(10, 10);
-  path.lineTo(40, 10);
-  path.lineTo(40, 40);
-  path.lineTo(10, 40);
-  path.close();
 
-  path.moveTo(11, 11);
-  path.lineTo(30, 11);
-  path.lineTo(30, 30);
-  path.lineTo(11, 30);
-  path.close();
+  // path.lineTo(3.00000000, 4.00000000);
+  // path.lineTo(4.00000000, 2.00000000);
+  // path.lineTo(3.00000000, 1.00000000);
+  // path.lineTo(0.00000000, 3.00000000);
+  // path.lineTo(4.00000000, 2.00000000);
+  // path.lineTo(3.00000000, 1.00000000);
 
-  visage::Path path2;
+  // path.lineTo(2.00000000, 0.00000000);
+  // path.lineTo(3.00000000, 2.00000000);
+  // path.lineTo(4.00000000, 2.00000000);
+  // path.lineTo(1.00000000, 1.00000000);
+  // path.lineTo(2.00000000, 4.00000000);
+  // path.lineTo(3.00000000, 1.00000000);
+
+  // path.lineTo(1.00000000, 4.00000000);
+  // path.lineTo(4.00000000, 4.00000000);
+  // path.lineTo(2.00000000, 2.00000000);
+  // path.lineTo(2.00000000, 3.00000000);
+  // path.lineTo(1.00000000, 0.00000000);
+  // path.lineTo(3.00000000, 0.00000000);
+
+  // path.lineTo(1.00000000, 0.00000000);
+  // path.lineTo(3.00000000, 4.00000000);
+  // path.lineTo(0.00000000, 1.00000000);
+  // path.lineTo(4.00000000, 4.00000000);
+  // path.lineTo(2.00000000, 3.00000000);
+  // path.lineTo(4.00000000, 2.00000000);
+
+  path.lineTo(0.00000000, 3.00000000);
+  path.lineTo(2.00000000, 2.00000000);
+  path.lineTo(3.00000000, 0.00000000);
+  path.lineTo(1.00000000, 3.00000000);
+  path.lineTo(0.00000000, 3.00000000);
+  path.lineTo(4.00000000, 1.00000000);
+  path.lineTo(4.00000000, 4.00000000);
+
+  path.scale(100);
   float offset = 0.0f;
 
   std::vector<visage::Color> colors;
@@ -103,7 +128,9 @@ int runExample() {
     canvas.setColor(0xff442233);
     canvas.fill(0, 0, app.width(), app.height());
 
-    // path2 = path.computeOffset(50 * sin(canvas.time()));
+    double value = 50 * sin(3.5500089999999997 * 0.2);
+    value = 50;
+    // path2 = path.computeOffset(value, visage::Path::JoinType::Miter);
     canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));
 
@@ -113,14 +140,15 @@ int runExample() {
     canvas.setColor(0xffffffff);
 
     canvas.line(&path, 0, 0, app.width(), app.height(), 3);
-
-    canvas.setColor(0xffffffff);
-    // canvas.line(&path, 0, 0, app.width(), app.height(), 3);
     app.redraw();
   };
 
   app.onMouseMove() = [&](const visage::MouseEvent& e) { offset = e.position.y * 0.1f; };
   app.onMouseDown() = [&](const visage::MouseEvent& e) {
+    path.clear();
+    for (int i = 0; i < 10; ++i) {
+      path.lineTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
+    }
     app.redraw();
     // svg_path.translate(-0.5f * app.width(), -0.5f * app.height());
     // if (e.isRightButton())
