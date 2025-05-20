@@ -501,10 +501,10 @@ TEST_CASE("Random path triangulation", "[graphics]") {
   }
 }
 
-TEST_CASE("Random path triangulation with integer positions", "[graphics]") {
+TEST_CASE("Random path triangulation with integer position degeneracies", "[graphics]") {
   static constexpr float kWidth = 5.0f;
   static constexpr float kHeight = 5.0f;
-  static constexpr int kNumPoints = 6;
+  static constexpr int kNumPoints = 7;
   static constexpr int kNumPaths = 50000;
 
   for (int p = 0; p < kNumPaths; ++p) {
