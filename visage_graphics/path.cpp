@@ -348,7 +348,9 @@ namespace visage {
       };
 
       std::optional<Break> breakIntersection(const ScanLineArea& area1, const ScanLineArea& area2) {
-        if (area1.from == area2.from || area1.to == area2.to)
+        if (area1.to == area2.to || area1.from_index == area2.from_index)
+          return std::nullopt;
+        if (area1.from == area2.to || area2.from == area1.to)
           return std::nullopt;
 
         double compare1 = stableOrientation(area1.from, area1.to, area2.to);
@@ -403,6 +405,7 @@ namespace visage {
 
       void addArea(const ScanLineArea& area) {
         VISAGE_ASSERT(area.from_index != area.to_index);
+        VISAGE_ASSERT(area.from != area.to);
 
         auto it = areas_.insert(std::lower_bound(areas_.begin(), areas_.end(), area), area);
         auto before = safePrev(it);
@@ -431,6 +434,8 @@ namespace visage {
         it->to = intersection.value().point;
         next->to_index = intersection.value().area2_new_index;
         next->to = intersection.value().point;
+        VISAGE_ASSERT(it->to != it->from);
+        VISAGE_ASSERT(next->to != next->from);
       }
 
       void checkForBeginIntersections(const Event& ev) {
@@ -590,6 +595,8 @@ namespace visage {
           to_insert1.id = -area_index_;
           to_insert2.id = area_index_;
 
+          VISAGE_ASSERT(to_insert1.from != to_insert1.to);
+          VISAGE_ASSERT(to_insert2.from != to_insert2.to);
           auto lower_bound = std::lower_bound(areas_.begin(), areas_.end(), to_insert1);
           last_position1_ = areas_.insert(lower_bound, to_insert2);
           last_position1_ = areas_.insert(last_position1_, to_insert1);
