@@ -445,6 +445,43 @@ TEST_CASE("Degeneracies", "[graphics]") {
       REQUIRE(sample.hexRed() == 0);
     }
   }
+
+  SECTION("Vertical cross line degeneracy") {
+    Path path;
+    path.lineTo(10, 10);
+    path.lineTo(40, 10);
+    path.lineTo(40, 30);
+    path.lineTo(50, 25);
+    path.lineTo(40, 20);
+    path.lineTo(40, 40);
+    path.lineTo(10, 40);
+
+    Canvas canvases[2];
+    for (int i = 0; i < 2; ++i) {
+      canvases[i].setWindowless(50, 40);
+      canvases[i].setColor(0xff000000);
+      canvases[i].fill(0, 0, canvases[i].width(), canvases[i].height());
+      canvases[i].setColor(0xffff0000);
+    }
+
+    canvases[0].fill(&path, 0, 0, canvases[0].width(), canvases[0].height());
+    canvases[0].submit();
+    path.reverse();
+    canvases[1].fill(&path, 0, 0, canvases[1].width(), canvases[1].height());
+    canvases[1].submit();
+    Screenshot screenshots[] = { canvases[0].takeScreenshot(), canvases[1].takeScreenshot() };
+
+    for (int i = 0; i < 2; ++i) {
+      REQUIRE(screenshots[i].sample(5, 20).hexRed() == 0x00);
+      REQUIRE(screenshots[i].sample(20, 5).hexRed() == 0x00);
+      REQUIRE(screenshots[i].sample(20, 20).hexRed() == 0xff);
+      REQUIRE(screenshots[i].sample(45, 25).hexRed() == 0xff);
+      REQUIRE(screenshots[i].sample(45, 30).hexRed() == 0x00);
+      REQUIRE(screenshots[i].sample(45, 20).hexRed() == 0x00);
+      REQUIRE(screenshots[i].sample(35, 15).hexRed() == 0xff);
+      REQUIRE(screenshots[i].sample(35, 35).hexRed() == 0xff);
+    }
+  }
 }
 
 TEST_CASE("Random path triangulation", "[graphics]") {
@@ -459,6 +496,25 @@ TEST_CASE("Random path triangulation", "[graphics]") {
 
     for (int i = 1; i < kNumPoints; ++i)
       path.lineTo(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
+
+    path.triangulate();
+  }
+}
+
+TEST_CASE("Random path triangulation with integer positions", "[graphics]") {
+  static constexpr float kWidth = 5.0f;
+  static constexpr float kHeight = 5.0f;
+  static constexpr int kNumPoints = 6;
+  static constexpr int kNumPaths = 50000;
+
+  for (int p = 0; p < kNumPaths; ++p) {
+    Path path;
+    int x = static_cast<int>(randomFloat(0.0f, kWidth));
+    int y = static_cast<int>(randomFloat(0.0f, kHeight));
+    path.moveTo(x, y);
+
+    for (int i = 1; i < kNumPoints; ++i)
+      path.lineTo(static_cast<int>(randomFloat(0, kWidth)), static_cast<int>(randomFloat(0, kHeight)));
 
     path.triangulate();
   }
