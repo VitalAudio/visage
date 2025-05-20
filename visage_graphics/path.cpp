@@ -155,7 +155,7 @@ namespace visage {
   }
 
   static double orientation(const DPoint& source, const DPoint& target1, const DPoint& target2) {
-    static constexpr double kEpsilon = 3.3306690738754716e-16;
+    static constexpr double kEpsilon = 1.0e-10;
     DPoint delta1 = target1 - source;
     DPoint delta2 = target2 - source;
     double l = delta2.y * delta1.x;
@@ -348,6 +348,8 @@ namespace visage {
       };
 
       std::optional<Break> breakIntersection(const ScanLineArea& area1, const ScanLineArea& area2) {
+        static constexpr double kEpsilon = 1.0e-12;
+
         if (area1.to == area2.to || area1.from_index == area2.from_index)
           return std::nullopt;
         if (area1.from == area2.to || area2.from == area1.to)
@@ -375,6 +377,16 @@ namespace visage {
 
         std::optional<DPoint> intersection = Path::findIntersection(area1.from, area1.to,
                                                                     area2.from, area2.to);
+
+        if ((area1.from - intersection.value()).squareMagnitude() < kEpsilon)
+          intersection.value() = area1.from;
+        else if ((area2.from - intersection.value()).squareMagnitude() < kEpsilon)
+          intersection.value() = area1.from;
+        else if ((area1.to - intersection.value()).squareMagnitude() < kEpsilon)
+          intersection.value() = area1.to;
+        else if ((area2.to - intersection.value()).squareMagnitude() < kEpsilon)
+          intersection.value() = area2.to;
+
         VISAGE_ASSERT(intersection.has_value());
         int new_index1 = area1.to_index;
         int new_index2 = area2.to_index;
@@ -411,31 +423,37 @@ namespace visage {
         auto before = safePrev(it);
         checkAddIntersection(before);
         checkAddIntersection(it);
+
         last_data_ = area.data;
         VISAGE_ASSERT(graph_->checkValidPolygons());
       }
 
-      void checkAddIntersection(std::vector<ScanLineArea>::iterator it) {
+      bool checkAddIntersection(std::vector<ScanLineArea>::iterator it) {
         if (it == areas_.end())
-          return;
+          return false;
         auto next = std::next(it);
         if (next == areas_.end())
-          return;
+          return false;
 
         auto intersection = breakIntersection(*it, *next);
         if (!intersection.has_value())
-          return;
+          return false;
 
         intersection_events_.insert(IntersectionEvent {
             intersection.value().point, intersection.value().area1_new_index, it->to_index,
             intersection.value().area2_new_index, next->to_index });
 
-        it->to_index = intersection.value().area1_new_index;
-        it->to = intersection.value().point;
-        next->to_index = intersection.value().area2_new_index;
-        next->to = intersection.value().point;
-        VISAGE_ASSERT(it->to != it->from);
-        VISAGE_ASSERT(next->to != next->from);
+        if (it->to_index != intersection.value().area1_new_index) {
+          it->to_index = intersection.value().area1_new_index;
+          it->to = intersection.value().point;
+          VISAGE_ASSERT(it->to != it->from);
+        }
+        if (next->to_index != intersection.value().area2_new_index) {
+          next->to_index = intersection.value().area2_new_index;
+          next->to = intersection.value().point;
+          VISAGE_ASSERT(next->to != next->from);
+        }
+        return true;
       }
 
       void checkForBeginIntersections(const Event& ev) {
@@ -870,11 +888,11 @@ namespace visage {
           if (!scan_line.lastPosition1()->forward && merge_vertices.count(diagonal_target))
             addDiagonal(scan_line, ev.index, diagonal_target);
 
-          scan_line.lastPosition1()->id = ev.index;
+          scan_line.lastPosition1()->data = ev.index;
           if (!scan_line.lastPosition1()->forward) {
             auto after = std::next(scan_line.lastPosition1());
             if (after != scan_line.end())
-              after->id = ev.index;
+              after->data = ev.index;
           }
         }
         else if (ev.type == PointType::Begin) {
@@ -1039,23 +1057,25 @@ namespace visage {
 
     void simplify() {
       bool removed = true;
-      for (int i = 0; i < points_.size(); ++i) {
-        if (i == next_edge_[i])
-          continue;
+      while (removed) {
+        removed = false;
+        for (int i = 0; i < points_.size(); ++i) {
+          if (i == next_edge_[i])
+            continue;
 
-        if (points_[i] == points_[next_edge_[i]])
-          removeFromCycle(i);
-        else {
-          bool removed = false;
-          while (i != next_edge_[i]) {
-            if (stableOrientation(points_[i], points_[next_edge_[i]], points_[next_edge_[next_edge_[i]]]))
-              break;
-
+          if (points_[i] == points_[next_edge_[i]]) {
             removed = true;
-            removeFromCycle(next_edge_[i]);
+            removeFromCycle(i);
           }
-          if (removed)
-            i = std::max(-1, i - 2);
+          else {
+            while (i != next_edge_[i]) {
+              if (stableOrientation(points_[i], points_[next_edge_[i]], points_[next_edge_[next_edge_[i]]]))
+                break;
+
+              removed = true;
+              removeFromCycle(next_edge_[i]);
+            }
+          }
         }
       }
     }
