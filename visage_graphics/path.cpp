@@ -350,9 +350,7 @@ namespace visage {
       std::optional<Break> breakIntersection(const ScanLineArea& area1, const ScanLineArea& area2) {
         static constexpr double kEpsilon = 1.0e-12;
 
-        if (area1.to == area2.to || area1.from_index == area2.from_index)
-          return std::nullopt;
-        if (area1.from == area2.to || area2.from == area1.to)
+        if (area1.to == area2.to || area1.from == area2.to || area2.from == area1.to)
           return std::nullopt;
 
         double compare1 = stableOrientation(area1.from, area1.to, area2.to);
@@ -419,10 +417,14 @@ namespace visage {
         VISAGE_ASSERT(area.from_index != area.to_index);
         VISAGE_ASSERT(area.from != area.to);
 
-        auto it = areas_.insert(std::lower_bound(areas_.begin(), areas_.end(), area), area);
-        auto before = safePrev(it);
-        checkAddIntersection(before);
-        checkAddIntersection(it);
+        auto position = areas_.insert(std::lower_bound(areas_.begin(), areas_.end(), area), area);
+        auto it = safePrev(position);
+        while (checkAddIntersection(it))
+          it = safePrev(it);
+
+        it = position;
+        while (checkAddIntersection(it))
+          it = std::next(it);
 
         last_data_ = area.data;
         VISAGE_ASSERT(graph_->checkValidPolygons());
@@ -710,8 +712,15 @@ namespace visage {
 
         for (auto& next_area : next_areas_)
           addArea(next_area);
-        if (next_areas_.empty())
-          checkAddIntersection(safePrev(last_position1_));
+        if (next_areas_.empty()) {
+          auto it = safePrev(last_position1_);
+          while (checkAddIntersection(it))
+            it = safePrev(it);
+
+          it = last_position1_;
+          while (checkAddIntersection(it))
+            it = std::next(it);
+        }
 
         VISAGE_ASSERT(graph_->checkValidPolygons());
         VISAGE_ASSERT(areas_.size() % 2 == 0);
@@ -736,11 +745,19 @@ namespace visage {
         }
 
         updateNormalEvent(ev);
-        if (ev.type == PointType::End)
-          checkAddIntersection(safePrev(last_position1_));
+        if (ev.type == PointType::End) {
+          auto it = safePrev(last_position1_);
+          while (checkAddIntersection(it))
+            it = safePrev(it);
+        }
         else {
-          checkAddIntersection(safePrev(last_position1_));
-          checkAddIntersection(last_position2_);
+          auto it = safePrev(last_position1_);
+          while (checkAddIntersection(it))
+            it = safePrev(it);
+
+          it = last_position2_;
+          while (checkAddIntersection(it))
+            it = std::next(it);
         }
       }
 
