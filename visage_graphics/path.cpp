@@ -350,8 +350,10 @@ namespace visage {
       std::optional<Break> breakIntersection(const ScanLineArea& area1, const ScanLineArea& area2) {
         static constexpr double kEpsilon = 1.0e-12;
 
-        if (area1.to == area2.to || area1.from == area2.to || area2.from == area1.to)
+        if (area1.to == area2.to || area1.from_index == area2.from_index ||
+            area1.from == area2.to || area2.from == area1.to) {
           return std::nullopt;
+        }
 
         double compare1 = stableOrientation(area1.from, area1.to, area2.to);
         double compare2 = stableOrientation(area2.from, area2.to, area1.to);
@@ -460,6 +462,8 @@ namespace visage {
 
       void checkForBeginIntersections(const Event& ev) {
         if (ev.type != PointType::Begin)
+          return;
+        if (!intersection_events_.empty() && intersection_events_.begin()->point < ev.point)
           return;
 
         auto lower_bound = std::lower_bound(areas_.begin(), areas_.end(), ev.point,
@@ -583,6 +587,7 @@ namespace visage {
             return it;
         }
 
+        VISAGE_ASSERT(false);
         return areas_.end();
       }
 
