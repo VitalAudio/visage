@@ -472,7 +472,10 @@ namespace visage {
             intersection = it->to < next->to ? it->to : next->to;
         }
         else {
-          intersection = Path::findIntersection(it->from, it->to, next->from, next->to).value();
+          auto intersection_option = Path::findIntersection(it->from, it->to, next->from, next->to);
+          VISAGE_ASSERT(intersection_option.has_value());
+          intersection = intersection_option.value();
+
           double min_x = std::max(it->from.x, next->from.x);
           double max_x = std::min(it->to.x, next->to.x);
           intersection.x = std::clamp(intersection.x, min_x, max_x);
@@ -861,9 +864,11 @@ namespace visage {
       VISAGE_ASSERT(checkValidPolygons());
       removeLinearPoints();
 
-      scan_line_->reset();
-      while (scan_line_->hasNext())
-        scan_line_->updateSplitIntersections();
+      for (int i = 0; i < 5; ++i) {
+        scan_line_->reset();
+        while (scan_line_->hasNext())
+          scan_line_->updateSplitIntersections();
+      }
 
       simplify();
       scan_line_->reset();
@@ -1055,6 +1060,7 @@ namespace visage {
           else if constexpr (joint_type == Path::JoinType::Miter) {
             auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
                                                        point + offset, next + offset);
+            VISAGE_ASSERT(intersection.has_value());
             points_[index] = intersection.value();
           }
           else if constexpr (joint_type == Path::JoinType::Square) {
@@ -1065,6 +1071,8 @@ namespace visage {
                                                             prev + prev_offset, point + prev_offset);
             auto intersection = Path::findIntersection(square_center, square_center + square_tangent,
                                                        point + offset, next + offset);
+            VISAGE_ASSERT(intersection_prev.has_value());
+            VISAGE_ASSERT(intersection.has_value());
             points_[index] = intersection_prev.value();
             insertPointBetween(index, next_index, intersection.value());
           }
@@ -1089,6 +1097,7 @@ namespace visage {
               if (amount < 0.0) {
                 auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
                                                            point + offset, next + offset);
+                VISAGE_ASSERT(intersection.has_value());
                 points_[index] = intersection.value();
               }
               else {
