@@ -73,7 +73,7 @@ int runExample() {
   visage::ApplicationWindow app;
 
   static constexpr float kPi = 3.14159265358979323846f;
-  static constexpr int kStarPoints = 20;
+  static constexpr int kStarPoints = 10;
   static constexpr int kWidth = 100;
   static constexpr float kRadius = 40.0f;
 
@@ -83,43 +83,56 @@ int runExample() {
   // path.scale(30);
   // path.translate(30, 30);
 
-  // path.lineTo(3.00000000, 4.00000000);
-  // path.lineTo(4.00000000, 2.00000000);
-  // path.lineTo(3.00000000, 1.00000000);
-  // path.lineTo(0.00000000, 3.00000000);
-  // path.lineTo(4.00000000, 2.00000000);
-  // path.lineTo(3.00000000, 1.00000000);
+  std::vector<std::vector<visage::DPoint>> paths = {
+    { { 0, 4 }, { 4, 0 }, { 0, 3 }, { 1, 4 }, { 3, 1 }, { 1, 3 }, { 4, 4 } },
+    { { 4, 1 }, { 4, 4 }, { 3, 3 }, { 0, 1 }, { 0, 2 }, { 4, 3 }, { 1, 4 } },
+    { { 1, 2 }, { 2, 2 }, { 0, 1 }, { 4, 1 }, { 4, 0 }, { 0, 4 }, { 4, 1 } },
+    { { 0, 2 }, { 4, 4 }, { 4, 0 }, { 1, 2 }, { 4, 4 }, { 4, 2 }, { 0, 3 } },
+    { { 3, 4 }, { 3, 1 }, { 1, 2 }, { 3, 0 }, { 3, 2 }, { 4, 2 }, { 2, 0 } },
+    { { 2, 2 }, { 4, 4 }, { 0, 4 }, { 1, 0 }, { 0, 0 }, { 0, 4 }, { 3, 4 } },
+    { { 4, 1 }, { 2, 2 }, { 2, 1 }, { 0, 3 }, { 4, 1 }, { 1, 3 }, { 0, 1 } },
+    { { 1, 0 }, { 3, 2 }, { 2, 0 }, { 4, 3 }, { 2, 1 }, { 4, 0 }, { 4, 1 } },
+    { { 1, 3 }, { 0, 3 }, { 3, 2 }, { 2, 0 }, { 0, 3 }, { 0, 3 }, { 2, 2 } },
+    { { 1, 1 }, { 1, 0 }, { 3, 4 }, { 4, 3 }, { 1, 0 }, { 1, 2 }, { 2, 0 } },
+    { { 0, 3 }, { 2, 2 }, { 3, 0 }, { 1, 3 }, { 0, 3 }, { 4, 1 } },
+    { { 4, 4 }, { 2, 0 }, { 2, 4 }, { 3, 4 }, { 4, 4 }, { 2, 0 }, { 0, 4 } },
+    { { 0, 0 }, { 3, 4 }, { 4, 3 }, { 0, 3 }, { 4, 4 }, { 3, 3 }, { 4, 3 } },
+    { { 2, 4 }, { 2, 2 }, { 1, 3 }, { 1, 2 }, { 1, 2 }, { 0, 4 }, { 3, 1 } },
+    { { 1, 2 }, { 1, 1 }, { 1, 1 }, { 3, 0 }, { 1, 1 }, { 0, 4 }, { 4, 1 } },
+    { { 3, 4 }, { 4, 2 }, { 3, 1 }, { 0, 3 }, { 4, 2 }, { 3, 1 } },
+    { { 2, 0 }, { 3, 2 }, { 4, 2 }, { 1, 1 }, { 2, 4 }, { 3, 1 } },
+    { { 1, 4 }, { 4, 4 }, { 2, 2 }, { 2, 3 }, { 1, 0 }, { 3, 0 } },
+    { { 1, 0 }, { 3, 4 }, { 0, 1 }, { 4, 4 }, { 2, 3 }, { 4, 2 } },
+    { { 4, 4 }, { 4, 0 }, { 0, 2 }, { 1, 0 }, { 3, 2 }, { 0, 2 }, { 2, 1 } },
+    { { 4, 4 }, { 2, 0 }, { 4, 1 }, { 0, 1 }, { 0, 3 }, { 4, 0 }, { 3, 1 } },
+    { { 0, 3 }, { 3, 1 }, { 0, 2 }, { 4, 4 }, { 1, 4 }, { 1, 1 }, { 2, 2 } },
+    { { 2, 2 }, { 0, 4 }, { 0, 2 }, { 1, 4 }, { 1, 0 }, { 2, 4 }, { 0, 2 } },
+    { { 1, 4 }, { 2, 3 }, { 4, 2 }, { 1, 1 }, { 2, 1 }, { 4, 4 }, { 3, 0 } },
+    { { 4, 0 }, { 0, 2 }, { 3, 1 }, { 3, 3 }, { 4, 4 }, { 0, 3 }, { 0, 4 } },
+    { { 4, 4 }, { 1, 1 }, { 2, 3 }, { 2, 2 }, { 3, 0 }, { 4, 0 }, { 1, 3 } },
+    { { 2, 1 }, { 3, 0 }, { 1, 4 }, { 2, 3 }, { 2, 1 }, { 4, 2 }, { 2, 2 } },
+    { { 3, 3 }, { 2, 2 }, { 4, 3 }, { 5, -2 }, { 0, 4 }, { 4, 2 }, { 3, 1 } },
+  };
 
-  // path.lineTo(2.00000000, 0.00000000);
-  // path.lineTo(3.00000000, 2.00000000);
-  // path.lineTo(4.00000000, 2.00000000);
-  // path.lineTo(1.00000000, 1.00000000);
-  // path.lineTo(2.00000000, 4.00000000);
-  // path.lineTo(3.00000000, 1.00000000);
+  float radius = 100.0f;
 
-  // path.lineTo(1.00000000, 4.00000000);
-  // path.lineTo(4.00000000, 4.00000000);
-  // path.lineTo(2.00000000, 2.00000000);
-  // path.lineTo(2.00000000, 3.00000000);
-  // path.lineTo(1.00000000, 0.00000000);
-  // path.lineTo(3.00000000, 0.00000000);
+  float phase = 0.1315f;
+  VISAGE_LOG(phase);
+  std::complex<float> position(cos(-2.0f * kPi * phase / kStarPoints),
+                               sin(-2.0f * kPi * phase / kStarPoints));
 
-  // path.lineTo(1.00000000, 0.00000000);
-  // path.lineTo(3.00000000, 4.00000000);
-  // path.lineTo(0.00000000, 1.00000000);
-  // path.lineTo(4.00000000, 4.00000000);
-  // path.lineTo(2.00000000, 3.00000000);
-  // path.lineTo(4.00000000, 2.00000000);
+  float center = kWidth * 0.5f;
+  path.moveTo(center, center);
+  std::complex<float> delta(cos(2.0f * kPi / kStarPoints), sin(2.0f * kPi / kStarPoints));
 
-  path.lineTo(0.00000000, 3.00000000);
-  path.lineTo(2.00000000, 2.00000000);
-  path.lineTo(3.00000000, 0.00000000);
-  path.lineTo(1.00000000, 3.00000000);
-  path.lineTo(0.00000000, 3.00000000);
-  path.lineTo(4.00000000, 1.00000000);
-  path.lineTo(4.00000000, 4.00000000);
+  for (int i = 0; i < kStarPoints; ++i) {
+    position = position * delta;
+    path.lineTo(center + kRadius * position.real(), center + kRadius * position.imag());
+    if (i % 2)
+      path.lineTo(center, center);
+  }
 
-  path.scale(100);
+  path.scale(5);
   float offset = 0.0f;
 
   std::vector<visage::Color> colors;
@@ -131,11 +144,12 @@ int runExample() {
     double value = 50 * sin(3.5500089999999997 * 0.2);
     value = 50;
     // path2 = path.computeOffset(value, visage::Path::JoinType::Miter);
-    canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
-                                          visage::Point(app.width(), app.height())));
 
     // drawTriangles(canvas, path);
-    // drawPointIndices(canvas, path);
+    drawPointIndices(canvas, path);
+
+    canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
+                                          visage::Point(app.width(), app.height())));
     canvas.fill(&path, 0, 0, app.width(), app.height());
     canvas.setColor(0xffffffff);
 
