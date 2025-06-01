@@ -84,6 +84,7 @@ int runExample() {
   // path.translate(30, 30);
 
   std::vector<std::vector<visage::DPoint>> paths = {
+    { { 1, 2 }, { 4, 2 }, { 3, 4 }, { 4, 0 }, { 4, 4 }, { 3, 3 }, { 4, 1 } },
     { { 0, 4 }, { 4, 0 }, { 0, 3 }, { 1, 4 }, { 3, 1 }, { 1, 3 }, { 4, 4 } },
     { { 4, 1 }, { 4, 4 }, { 3, 3 }, { 0, 1 }, { 0, 2 }, { 4, 3 }, { 1, 4 } },
     { { 1, 2 }, { 2, 2 }, { 0, 1 }, { 4, 1 }, { 4, 0 }, { 0, 4 }, { 4, 1 } },
@@ -115,25 +116,11 @@ int runExample() {
   };
 
   float radius = 100.0f;
-
-  float phase = 0.1315f;
-  VISAGE_LOG(phase);
-  std::complex<float> position(cos(-2.0f * kPi * phase / kStarPoints),
-                               sin(-2.0f * kPi * phase / kStarPoints));
-
-  float center = kWidth * 0.5f;
-  path.moveTo(center, center);
-  std::complex<float> delta(cos(2.0f * kPi / kStarPoints), sin(2.0f * kPi / kStarPoints));
-
-  for (int i = 0; i < kStarPoints; ++i) {
-    position = position * delta;
-    path.lineTo(center + kRadius * position.real(), center + kRadius * position.imag());
-    if (i % 2)
-      path.lineTo(center, center);
-  }
-
-  path.scale(5);
   float offset = 0.0f;
+  for (const auto& point : paths[0])
+    path.lineTo(point.x, point.y);
+
+  // path.scale(100);
 
   std::vector<visage::Color> colors;
 
