@@ -436,13 +436,14 @@ namespace visage {
         if (it->from == next->to || next->from == it->to || it->to_index == next->to_index)
           return IntersectionType::None;
 
+        double cross = (area1.to - area1.from).cross(area2.to - area2.from);
         double compare1 = stableOrientation(area1.from, area1.to, area2.to);
         double compare2 = stableOrientation(area2.from, area2.to, area1.to);
         if (compare1 == 0.0 && compare2 == 0.0) {
           if (it->from == next->from && it->to == next->to)
             return IntersectionType::None;
 
-          if (stableOrientation(area1.from, area1.to, area2.from) == 0.0)
+          if (cross == 0.0 || stableOrientation(area1.from, area1.to, area2.from) == 0.0)
             return IntersectionType::Colinear;
 
           if (it->to == next->to)
@@ -452,7 +453,7 @@ namespace visage {
         }
 
         if (compare1 <= 0.0 && compare2 >= 0.0)
-          return IntersectionType::Cross;
+          return cross == 0.0 ? IntersectionType::Colinear : IntersectionType::Cross;
 
         return IntersectionType::None;
       }
@@ -750,6 +751,9 @@ namespace visage {
             last_position1_->to_index = ev.prev_index;
             last_position1_->to = ev.prev;
           }
+
+          checkAddIntersection(safePrev(last_position1_));
+          checkAddIntersection(last_position1_);
         }
         else if (ev.type == PointType::Begin) {
           ScanLineArea to_insert1(ev.index, ev.point, ev.prev_index, ev.prev, false);
@@ -766,6 +770,10 @@ namespace visage {
           last_position1_ = areas_.insert(lower_bound, to_insert2);
           last_position1_ = areas_.insert(last_position1_, to_insert1);
           last_position2_ = std::next(last_position1_);
+
+          checkAddIntersection(safePrev(last_position1_));
+          checkAddIntersection(last_position1_);
+          checkAddIntersection(last_position2_);
         }
         else {
           auto end1 = findAreaByToIndex(ev.index);
@@ -786,17 +794,9 @@ namespace visage {
             auto end2 = findAreaByToIndex(ev.index, last_position1_);
             last_data_ = end2->data;
             last_position2_ = areas_.erase(end2);
-          }
-        }
-
-        if (ev.type != PointType::End) {
-          checkAddIntersection(safePrev(last_position1_));
-          checkAddIntersection(last_position2_);
-        }
-        else {
-          checkAddIntersection(safePrev(last_position1_));
-          if (last_position2_ != last_position1_)
             checkAddIntersection(safePrev(last_position2_));
+          }
+          checkAddIntersection(safePrev(last_position1_));
         }
 
         current_index_++;
@@ -864,7 +864,7 @@ namespace visage {
       VISAGE_ASSERT(checkValidPolygons());
       removeLinearPoints();
 
-      for (int i = 0; i < 5; ++i) {
+      for (int i = 0; i < 10; ++i) {
         scan_line_->reset();
         while (scan_line_->hasNext())
           scan_line_->updateSplitIntersections();

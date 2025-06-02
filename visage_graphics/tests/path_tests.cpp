@@ -486,6 +486,11 @@ TEST_CASE("Degeneracies", "[graphics]") {
 
   SECTION("Found degeneracy tests") {
     std::vector<std::vector<DPoint>> paths = {
+      { { 1, 2 }, { 4, 2 }, { 3, 4 }, { 4, 0 }, { 4, 4 }, { 3, 3 }, { 4, 1 } },
+      { { 0, 4 }, { 4, 0 }, { 0, 3 }, { 1, 4 }, { 3, 1 }, { 1, 3 }, { 4, 4 } },
+      { { 4, 1 }, { 4, 4 }, { 3, 3 }, { 0, 1 }, { 0, 2 }, { 4, 3 }, { 1, 4 } },
+      { { 1, 2 }, { 2, 2 }, { 0, 1 }, { 4, 1 }, { 4, 0 }, { 0, 4 }, { 4, 1 } },
+      { { 0, 2 }, { 4, 4 }, { 4, 0 }, { 1, 2 }, { 4, 4 }, { 4, 2 }, { 0, 3 } },
       { { 3, 4 }, { 3, 1 }, { 1, 2 }, { 3, 0 }, { 3, 2 }, { 4, 2 }, { 2, 0 } },
       { { 2, 2 }, { 4, 4 }, { 0, 4 }, { 1, 0 }, { 0, 0 }, { 0, 4 }, { 3, 4 } },
       { { 4, 1 }, { 2, 2 }, { 2, 1 }, { 0, 3 }, { 4, 1 }, { 1, 3 }, { 0, 1 } },
@@ -542,7 +547,7 @@ TEST_CASE("Random path triangulation", "[graphics]") {
 TEST_CASE("Random path triangulation with integer position degeneracies", "[graphics]") {
   static constexpr float kWidth = 5.0f;
   static constexpr float kHeight = 5.0f;
-  static constexpr int kNumPoints = 7;
+  static constexpr int kNumPoints = 12;
   static constexpr int kNumPaths = 50000;
 
   for (int p = 0; p < kNumPaths; ++p) {
