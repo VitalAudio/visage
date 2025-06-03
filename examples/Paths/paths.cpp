@@ -84,6 +84,7 @@ int runExample() {
   // path.translate(30, 30);
 
   std::vector<std::vector<visage::DPoint>> paths = {
+    // { { 2, 1 }, { 0, 3 }, { 4, 4 }, { 1, 3 }, { 3, 2 }, { 2, 0 }, { 0, 1 }, { 4, 1 }, { 3, 3 }, { 3, 0 }, { 3, 2 }, { 2, 4 } },
     { { 4, 3 }, { 3, 0 }, { 2, 2 }, { 3, 1 }, { 3, 2 }, { 0, 2 }, { 4, 3 }, { 4, 4 }, { 2, 2 } },
     { { 2, 4 },
       { 1, 2 },
@@ -152,6 +153,7 @@ int runExample() {
   float offset = 0.0f;
   for (const auto& point : paths[0])
     path.lineTo(point.x, point.y);
+  path.close();
 
   path.scale(100);
 
