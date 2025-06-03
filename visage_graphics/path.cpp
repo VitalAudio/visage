@@ -415,7 +415,8 @@ namespace visage {
           last_position2_->from = ev.point;
         }
 
-        std::swap(*last_position1_, *last_position2_);
+        if (*last_position2_ < *last_position1_)
+          std::swap(*last_position1_, *last_position2_);
         progressToNextIntersection();
 
         checkAddIntersection(safePrev(last_position1_));
@@ -454,6 +455,23 @@ namespace visage {
 
         if (compare1 <= 0.0 && compare2 >= 0.0)
           return cross == 0.0 ? IntersectionType::Colinear : IntersectionType::Cross;
+
+        if (area1.from == area2.from)
+          return IntersectionType::None;
+
+        compare1 = stableOrientation(area1.from, area1.to, area2.from);
+        double min_y = std::min(area1.from.y, area1.to.y);
+        double max_y = std::max(area1.from.y, area1.to.y);
+        if (compare1 == 0.0 && area2.from.x >= area1.from.x && area2.from.x <= area1.to.x &&
+            area2.from.y >= min_y && area2.from.y <= max_y)
+          return IntersectionType::Cross;
+
+        compare2 = stableOrientation(area2.from, area2.to, area1.from);
+        min_y = std::min(area2.from.y, area2.to.y);
+        max_y = std::max(area2.from.y, area2.to.y);
+        if (compare2 == 0.0 && area1.from.x >= area2.from.x && area1.from.x <= area2.to.x &&
+            area1.from.y >= min_y && area1.from.y <= max_y)
+          return IntersectionType::Cross;
 
         return IntersectionType::None;
       }
