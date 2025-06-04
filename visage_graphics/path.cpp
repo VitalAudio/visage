@@ -395,7 +395,7 @@ namespace visage {
         return areas_.end();
       }
 
-      void splitIntersection() {
+      bool splitIntersection() {
         auto it = intersection_events_.begin() + next_intersection_;
         IntersectionEvent ev = *it;
         intersection_events_.erase(it);
@@ -404,24 +404,30 @@ namespace visage {
         checkRemoveIntersection(safePrev(last_position1_));
         checkRemoveIntersection(last_position2_);
 
+        bool added = false;
+
         if (ev.point != last_position1_->from && ev.point != last_position1_->to) {
           last_position1_->from_index = graph_->insertPointBetween(last_position1_->from_index,
                                                                    last_position1_->to_index, ev.point);
           last_position1_->from = ev.point;
+          added = true;
         }
         if (ev.point != last_position2_->from && ev.point != last_position2_->to) {
           last_position2_->from_index = graph_->insertPointBetween(last_position2_->from_index,
                                                                    last_position2_->to_index, ev.point);
           last_position2_->from = ev.point;
+          added = true;
         }
 
+        progressToNextIntersection();
         if (*last_position2_ < *last_position1_)
           std::swap(*last_position1_, *last_position2_);
-        progressToNextIntersection();
 
         checkAddIntersection(safePrev(last_position1_));
         checkAddIntersection(last_position1_);
         checkAddIntersection(last_position2_);
+
+        return added;
       }
 
       IntersectionType intersectionType(std::vector<ScanLineArea>::iterator it) {
@@ -476,7 +482,18 @@ namespace visage {
         return IntersectionType::None;
       }
 
+      bool hasIntersection(int from1, int to1, int from2, int to2) const {
+        return std::any_of(intersection_events_.begin(), intersection_events_.end(), [&](const auto& intersection) {
+          return (intersection.area1_from_index == from1 && intersection.area1_to_index == to1 &&
+                  intersection.area2_from_index == from2 && intersection.area2_to_index == to2) ||
+                 (intersection.area1_from_index == from2 && intersection.area1_to_index == to2 &&
+                  intersection.area2_from_index == from1 && intersection.area2_to_index == to1);
+        });
+      }
+
       void checkAddIntersection(std::vector<ScanLineArea>::iterator it) {
+        double kEpsilon = 1.0e-8;
+
         auto intersection_type = intersectionType(it);
         if (intersection_type == IntersectionType::None)
           return;
@@ -502,12 +519,20 @@ namespace visage {
           double max_y = std::min(std::max(it->from.y, it->to.y), std::max(next->from.y, next->to.y));
           max_y = std::max(min_y, max_y);
           intersection.y = std::clamp(intersection.y, min_y, max_y);
+          if ((intersection - it->from).squareMagnitude() < kEpsilon)
+            intersection = it->from;
+          else if ((intersection - it->to).squareMagnitude() < kEpsilon)
+            intersection = it->to;
+          else if ((intersection - next->from).squareMagnitude() < kEpsilon)
+            intersection = next->from;
+          else if ((intersection - next->to).squareMagnitude() < kEpsilon)
+            intersection = next->to;
         }
 
-        // TODO: this can possibly move the intersection point a lot
+        // TODO: this can possibly move the intersection point a lot if points are set with double precision
         // e.g. intersecting (0.0, 0.0) -> (std::nextafter(0.0), 2.0) and (-1.0, 0.0) -> (1.0, 0.0)
         // This doesn't happen when defining the path with floats since you get more space
-        // between them when converting to double.
+        // between x positions when converting to double.
         intersection = std::clamp(intersection, it->from, it->to);
         intersection = std::clamp(intersection, next->from, next->to);
 
@@ -516,6 +541,7 @@ namespace visage {
         else if (next_intersection_ < 0)
           next_intersection_ = 0;
 
+        VISAGE_ASSERT(!hasIntersection(it->from_index, it->to_index, next->from_index, next->to_index));
         intersection_events_.push_back(IntersectionEvent { intersection, it->from_index, it->to_index,
                                                            next->from_index, next->to_index });
       }
@@ -744,13 +770,11 @@ namespace visage {
         new_areas_.clear();
       }
 
-      void updateSplitIntersections() {
+      bool updateSplitIntersections() {
         Event ev = nextEvent();
 
-        if (next_intersection_ >= 0 && intersection_events_[next_intersection_].point <= ev.point) {
-          splitIntersection();
-          return;
-        }
+        if (next_intersection_ >= 0 && intersection_events_[next_intersection_].point <= ev.point)
+          return splitIntersection();
 
         if (ev.type == PointType::Continue) {
           last_position1_ = findAreaByToIndex(ev.index);
@@ -797,8 +821,12 @@ namespace visage {
           auto end1 = findAreaByToIndex(ev.index);
           for (auto it = std::next(end1); it->to_index != ev.index; ++it) {
             if (it->from != ev.point && it->to != ev.point) {
+              checkRemoveIntersection(it);
+              checkRemoveIntersection(safePrev(it));
               it->from = ev.point;
               it->from_index = graph_->insertPointBetween(it->from_index, it->to_index, ev.point);
+              checkAddIntersection(it);
+              checkAddIntersection(safePrev(it));
             }
           }
 
@@ -819,6 +847,7 @@ namespace visage {
 
         current_index_++;
         progressToNextEvent();
+        return false;
       }
 
       void updateBreakIntersections() {
@@ -882,10 +911,14 @@ namespace visage {
       VISAGE_ASSERT(checkValidPolygons());
       removeLinearPoints();
 
-      for (int i = 0; i < 10; ++i) {
+      bool intersection_added = true;
+      while (intersection_added) {
+        intersection_added = false;
         scan_line_->reset();
-        while (scan_line_->hasNext())
-          scan_line_->updateSplitIntersections();
+        while (scan_line_->hasNext()) {
+          if (scan_line_->updateSplitIntersections())
+            intersection_added = true;
+        }
       }
 
       simplify();
