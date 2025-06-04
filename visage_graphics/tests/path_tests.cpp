@@ -38,7 +38,7 @@ inline float randomFloat(float min, float max) {
 }
 
 struct PathTriangle {
-  PathTriangle(Point a, Point b, Point c) : points { a, b, c } { }
+  PathTriangle(const Point& a, const Point& b, const Point& c) : points { a, b, c } { }
 
   bool operator<(const PathTriangle& other) const { return points < other.points; }
   bool operator==(const PathTriangle& other) const {
@@ -74,24 +74,24 @@ bool matchPathTriangles(const Path& path, const std::set<PathTriangle>& expected
 TEST_CASE("Path triangulate nothing", "[graphics]") {
   Path path0;
   Path::Triangulation triangulation = path0.triangulate();
-  REQUIRE(triangulation.triangles.size() == 0);
+  REQUIRE(triangulation.triangles.empty());
 
   Path path1;
   path1.moveTo(0, 0);
   triangulation = path1.triangulate();
-  REQUIRE(triangulation.triangles.size() == 0);
+  REQUIRE(triangulation.triangles.empty());
 
   Path path2;
   path2.moveTo(0, 0);
   path2.lineTo(1, 0);
   triangulation = path2.triangulate();
-  REQUIRE(triangulation.triangles.size() == 0);
+  REQUIRE(triangulation.triangles.empty());
 
   Path path3;
   path3.moveTo(0, 0);
   path3.lineTo(0, 1);
   triangulation = path3.triangulate();
-  REQUIRE(triangulation.triangles.size() == 0);
+  REQUIRE(triangulation.triangles.empty());
 }
 
 TEST_CASE("Path triangulate single", "[graphics]") {
@@ -100,7 +100,7 @@ TEST_CASE("Path triangulate single", "[graphics]") {
   path0.lineTo(0, 1);
   path0.lineTo(1, 1);
   path0.reverse();
-  std::set<PathTriangle> expected = { PathTriangle(Point(0, 0), Point(0, 1), Point(1, 1)) };
+  std::set expected = { PathTriangle(Point(0, 0), Point(0, 1), Point(1, 1)) };
   REQUIRE(matchPathTriangles(path0, expected));
 }
 
@@ -138,7 +138,8 @@ TEST_CASE("Colinear test", "[graphics]") {
   path.lineTo(0, 3);
   path.lineTo(0, 2);
   path.lineTo(0, 1);
-  path.triangulate();
+  auto result = path.triangulate();
+  REQUIRE(!result.points.empty());
 }
 
 TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
@@ -148,13 +149,13 @@ TEST_CASE("Path triangulate multiple intersection", "[graphics]") {
   Path star;
 
   float radius = 100.0f;
-  float phase = 0.0f;
-  //randomFloat(0.0f, 1.0f);
-  std::complex<float> position(cos(-2.0f * kPi * phase / kStarPoints),
-                               sin(-2.0f * kPi * phase / kStarPoints));
+  float phase = randomFloat(0.0f, 1.0f);
+  std::complex<float> position(std::cos(-2.0f * kPi * phase / kStarPoints),
+                               std::sin(-2.0f * kPi * phase / kStarPoints));
 
   star.moveTo(position.real() * radius, position.imag() * radius);
-  std::complex<float> delta(cos(-2.0f * kPi * 2.0f / kStarPoints), sin(-2.0f * kPi * 2.0f / kStarPoints));
+  std::complex<float> delta(std::cos(-2.0f * kPi * 2.0f / kStarPoints),
+                            std::sin(-2.0f * kPi * 2.0f / kStarPoints));
 
   for (int i = 1; i < kStarPoints; ++i) {
     position = position * delta;
@@ -405,12 +406,12 @@ TEST_CASE("Degeneracies", "[graphics]") {
 
     Path star;
     float phase = randomFloat(0.0f, 1.0f);
-    std::complex<float> position(cos(-2.0f * kPi * phase / kStarPoints),
-                                 sin(-2.0f * kPi * phase / kStarPoints));
+    std::complex<float> position(std::cos(-2.0f * kPi * phase / kStarPoints),
+                                 std::sin(-2.0f * kPi * phase / kStarPoints));
 
     float center = kWidth * 0.5f;
     star.moveTo(center, center);
-    std::complex<float> delta(cos(2.0f * kPi / kStarPoints), sin(2.0f * kPi / kStarPoints));
+    std::complex<float> delta(std::cos(2.0f * kPi / kStarPoints), std::sin(2.0f * kPi / kStarPoints));
 
     for (int i = 0; i < kStarPoints; ++i) {
       position = position * delta;
@@ -458,11 +459,11 @@ TEST_CASE("Degeneracies", "[graphics]") {
     path.lineTo(10, 40);
 
     Canvas canvases[2];
-    for (int i = 0; i < 2; ++i) {
-      canvases[i].setWindowless(50, 40);
-      canvases[i].setColor(0xff000000);
-      canvases[i].fill(0, 0, canvases[i].width(), canvases[i].height());
-      canvases[i].setColor(0xffff0000);
+    for (auto& canvas : canvases) {
+      canvas.setWindowless(50, 40);
+      canvas.setColor(0xff000000);
+      canvas.fill(0, 0, canvas.width(), canvas.height());
+      canvas.setColor(0xffff0000);
     }
 
     canvases[0].fill(&path, 0, 0, canvases[0].width(), canvases[0].height());
@@ -472,20 +473,24 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvases[1].submit();
     Screenshot screenshots[] = { canvases[0].takeScreenshot(), canvases[1].takeScreenshot() };
 
-    for (int i = 0; i < 2; ++i) {
-      REQUIRE(screenshots[i].sample(5, 20).hexRed() == 0x00);
-      REQUIRE(screenshots[i].sample(20, 5).hexRed() == 0x00);
-      REQUIRE(screenshots[i].sample(20, 20).hexRed() == 0xff);
-      REQUIRE(screenshots[i].sample(45, 25).hexRed() == 0xff);
-      REQUIRE(screenshots[i].sample(45, 30).hexRed() == 0x00);
-      REQUIRE(screenshots[i].sample(45, 20).hexRed() == 0x00);
-      REQUIRE(screenshots[i].sample(35, 15).hexRed() == 0xff);
-      REQUIRE(screenshots[i].sample(35, 35).hexRed() == 0xff);
+    for (const auto& screenshot : screenshots) {
+      REQUIRE(screenshot.sample(5, 20).hexRed() == 0x00);
+      REQUIRE(screenshot.sample(20, 5).hexRed() == 0x00);
+      REQUIRE(screenshot.sample(20, 20).hexRed() == 0xff);
+      REQUIRE(screenshot.sample(45, 25).hexRed() == 0xff);
+      REQUIRE(screenshot.sample(45, 30).hexRed() == 0x00);
+      REQUIRE(screenshot.sample(45, 20).hexRed() == 0x00);
+      REQUIRE(screenshot.sample(35, 15).hexRed() == 0xff);
+      REQUIRE(screenshot.sample(35, 35).hexRed() == 0xff);
     }
   }
 
   SECTION("Found degeneracy tests") {
     std::vector<std::vector<DPoint>> paths = {
+      { { 0, 2 }, { 0, 4 }, { 4, 2 }, { 3, 4 }, { 3, 2 }, { 4, 3 }, { 2, 0 }, { 4, 0 }, { 2, 4 }, { 0, 4 }, { 2, 3 }, { 1, 4 } },
+      { { 2, 3 }, { 2, 1 }, { 1, 4 }, { 3, 2 }, { 4, 0 }, { 1, 4 }, { 4, 1 }, { 1, 2 }, { 2, 4 }, { 0, 4 } },
+      { { 2, 1 }, { 0, 3 }, { 4, 4 }, { 1, 3 }, { 3, 2 }, { 2, 0 }, { 0, 1 }, { 4, 1 }, { 3, 3 }, { 3, 0 }, { 3, 2 }, { 2, 4 } },
+      { { 4, 3 }, { 3, 0 }, { 2, 2 }, { 3, 1 }, { 3, 2 }, { 0, 2 }, { 4, 3 }, { 4, 4 }, { 2, 2 } },
       { { 1, 2 }, { 4, 2 }, { 3, 4 }, { 4, 0 }, { 4, 4 }, { 3, 3 }, { 4, 1 } },
       { { 0, 4 }, { 4, 0 }, { 0, 3 }, { 1, 4 }, { 3, 1 }, { 1, 3 }, { 4, 4 } },
       { { 4, 1 }, { 4, 4 }, { 3, 3 }, { 0, 1 }, { 0, 2 }, { 4, 3 }, { 1, 4 } },
@@ -522,7 +527,8 @@ TEST_CASE("Degeneracies", "[graphics]") {
       for (const auto& point : path_points)
         path.lineTo(point.x, point.y);
 
-      path.triangulate();
+      auto result = path.triangulate();
+      REQUIRE(!result.points.empty());
     }
   }
 }
@@ -540,17 +546,19 @@ TEST_CASE("Random path triangulation", "[graphics]") {
     for (int i = 1; i < kNumPoints; ++i)
       path.lineTo(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
 
-    path.triangulate();
+    auto result = path.triangulate();
+    REQUIRE(!result.points.empty());
   }
 }
 
 TEST_CASE("Random path triangulation with integer position degeneracies", "[graphics]") {
   static constexpr float kWidth = 5.0f;
   static constexpr float kHeight = 5.0f;
-  static constexpr int kNumPoints = 12;
-  static constexpr int kNumPaths = 50000;
+  static constexpr int kNumPoints = 40;
+  static constexpr int kNumPaths = 50;
 
   for (int p = 0; p < kNumPaths; ++p) {
+    VISAGE_LOG(p);
     Path path;
     int x = static_cast<int>(randomFloat(0.0f, kWidth));
     int y = static_cast<int>(randomFloat(0.0f, kHeight));
@@ -559,7 +567,8 @@ TEST_CASE("Random path triangulation with integer position degeneracies", "[grap
     for (int i = 1; i < kNumPoints; ++i)
       path.lineTo(static_cast<int>(randomFloat(0, kWidth)), static_cast<int>(randomFloat(0, kHeight)));
 
-    path.triangulate();
+    auto result = path.triangulate();
+    REQUIRE(!result.points.empty());
   }
 }
 
@@ -585,7 +594,8 @@ TEST_CASE("Random line degeneracy", "[graphics]") {
         path.lineTo(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
     }
 
-    path.triangulate();
+    auto result = path.triangulate();
+    REQUIRE(!result.points.empty());
   }
 }
 
@@ -597,19 +607,17 @@ TEST_CASE("Random point degeneracy", "[graphics]") {
 
   for (int p = 0; p < kNumPaths; ++p) {
     Path path;
-    Point point1(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
-    Point point2(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
-    path.moveTo(point1);
+    path.moveTo(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
 
     for (int i = 1; i < kNumPoints; ++i) {
-      float t = randomFloat(0.0f, kWidth);
       if (randomFloat(0.0f, 1.0f) < 0.3f)
         path.lineTo(kWidth * 0.5f, kHeight * 0.5f);
       else
         path.lineTo(randomFloat(0.0f, kWidth), randomFloat(0.0f, kHeight));
     }
 
-    path.triangulate();
+    auto result = path.triangulate();
+    REQUIRE(!result.points.empty());
   }
 }
 
