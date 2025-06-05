@@ -260,8 +260,8 @@ namespace visage {
     int w = lists_[0].renderWidth();
 
     Bounds window_bounds = parent_->relativeBounds(source);
-    int x = point.x == PopupMenu::kNotSet ? window_bounds.x() : point.x;
-    int y = point.y == PopupMenu::kNotSet ? window_bounds.bottom() : point.y;
+    int x = point.x == PopupMenu::kNotSet ? window_bounds.x() : window_bounds.x() + point.x;
+    int y = point.y == PopupMenu::kNotSet ? window_bounds.bottom() : window_bounds.y() + point.y;
     int bottom = y + h;
     int right = x + w;
     if (bottom > height()) {
