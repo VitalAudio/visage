@@ -165,6 +165,8 @@ namespace visage {
       bool operator<(const TypeFaceData& other) const {
         if (data_size != other.data_size)
           return data_size < other.data_size;
+        if (data == nullptr || other.data == nullptr)
+          return data < other.data;
         return std::memcmp(data, other.data, data_size);
       }
     };
