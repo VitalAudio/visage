@@ -39,13 +39,13 @@ TEST_CASE("Base 64 conversion", "[utils]") {
   static constexpr int kMaxSize = 10000;
   int size = 1 + (rand() % (kMaxSize - 1));
 
-  std::unique_ptr<char[]> random_data = std::make_unique<char[]>(size);
+  std::unique_ptr<unsigned char[]> random_data = std::make_unique<unsigned char[]>(size);
   for (int i = 0; i < size; ++i)
-    random_data[i] = static_cast<char>(rand() % 256);
+    random_data[i] = static_cast<unsigned char>(rand() % 256);
 
   std::string encoded = visage::encodeDataBase64(random_data.get(), size);
   int decoded_size = 0;
-  std::unique_ptr<char[]> decoded = visage::decodeBase64Data(encoded, decoded_size);
+  std::unique_ptr<unsigned char[]> decoded = visage::decodeBase64Data(encoded, decoded_size);
   REQUIRE(decoded_size == size);
   bool equal = true;
   for (int i = 0; i < size; ++i)

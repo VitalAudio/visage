@@ -394,5 +394,5 @@ namespace visage {
   };
 
   std::string encodeDataBase64(const unsigned char* data, size_t size);
-  std::unique_ptr<char[]> decodeBase64Data(const std::string& string, int& size);
+  std::unique_ptr<unsigned char[]> decodeBase64Data(const std::string& string, int& size);
 }
