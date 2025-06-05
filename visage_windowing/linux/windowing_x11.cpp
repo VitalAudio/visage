@@ -311,7 +311,7 @@ namespace visage {
         if (result.bounds.width() == 0 || bounds.contains(point)) {
           result.bounds = bounds;
           if (output_info->mm_height && bounds.height())
-            result.dpi = bounds.height() * kInchToMm / output_info->mm_height;
+            result.dpi = std::max(Window::kDefaultDpi, bounds.height() * kInchToMm / output_info->mm_height);
           result.refresh_rate = refreshRate(screen_resources, info);
         }
         XRRFreeCrtcInfo(info);
