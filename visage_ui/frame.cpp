@@ -77,7 +77,7 @@ namespace visage {
 
     computeLayout();
     computeLayout(child);
-    child->redraw();
+    child->redrawAll();
   }
 
   void Frame::addChild(std::unique_ptr<Frame> child, bool make_visible) {
