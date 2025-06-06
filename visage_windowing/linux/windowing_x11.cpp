@@ -310,8 +310,8 @@ namespace visage {
         IBounds bounds(info->x, info->y, info->width, info->height);
         if (result.bounds.width() == 0 || bounds.contains(point)) {
           result.bounds = bounds;
-          if (output_info->mm_height && bounds.height())
-            result.dpi = std::max(Window::kDefaultDpi, bounds.height() * kInchToMm / output_info->mm_height);
+          int screen = DefaultScreen(display);
+          result.dpi = DisplayWidth(display, screen) * kInchToMm / DisplayWidthMM(display, screen);
           result.refresh_rate = refreshRate(screen_resources, info);
         }
         XRRFreeCrtcInfo(info);
