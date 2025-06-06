@@ -87,9 +87,8 @@ public:
         float delta = std::min(t, 1.0f - t);
         position += 0.1f * delta * delta + 0.003f;
         double phase = (render_time + r) * 0.5;
-        // TODO
-        // graph_lines_[r]->setXAt(i, t * render_width);
-        // graph_lines_[r]->setYAt(i, offset + (sin1(phase + position) * 0.5f + 0.5f) * line_height);
+        float y = offset + (sin1(phase + position) * 0.5f + 0.5f) * line_height;
+        graph_lines_[r]->setAt(i, { t * render_width, y });
       }
     }
 
