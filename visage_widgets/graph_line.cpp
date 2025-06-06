@@ -38,8 +38,8 @@ namespace visage {
   VISAGE_THEME_VALUE(PositionBulbWidth, 4.0f);
 
   GraphLine::GraphLine(int num_points, bool loop) : fill_center_(kCenter), loop_(loop) {
-    // for (int i = 0; i < line_.num_points; ++i)
-    //   setXAt(i, i / (line_.num_points - 1.0f));
+    for (int i = 0; i < num_points; ++i)
+      path_.lineTo(i / (num_points - 1.0f), 0.0f);
   }
 
   GraphLine::~GraphLine() = default;
@@ -67,13 +67,13 @@ namespace visage {
     // line_.line_value_scale = canvas.value(LineColorBoost);
     canvas.setColor(color_id);
     float line_width = line_width_.compute(canvas.dpiScale(), width(), height(), paletteValue(LineWidth));
-    canvas.line(&line_, 0.0f, 0.0f, width(), height(), line_width);
+    canvas.line(&path_, 0.0f, 0.0f, width(), height(), line_width);
   }
 
   void GraphLine::drawFill(Canvas& canvas, theme::ColorId color_id) {
     Brush color = canvas.color(color_id);
     // line_.fill_value_scale = canvas.value(LineFillBoost);
     canvas.setColor(color.withMultipliedAlpha(fill_alpha_mult_));
-    canvas.lineFill(&line_, 0.0f, 0.0f, width(), height(), fillLocation());
+    canvas.lineFill(&path_, 0.0f, 0.0f, width(), height(), fillLocation());
   }
 }
