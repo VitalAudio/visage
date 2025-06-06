@@ -65,25 +65,25 @@ namespace visage {
     //   redraw();
     // }
     //
-    // float yAt(int index) const { return line_.points[index].y; }
-    // void setYAt(int index, float val) {
-    //   VISAGE_ASSERT(index < line_.num_points && index >= 0);
-    //   line_.points[index].y = val;
-    //   redraw();
-    // }
-    //
-    // float xAt(int index) const { return line_.points[index].x; }
-    // void setXAt(int index, float val) {
-    //   VISAGE_ASSERT(index < line_.num_points && index >= 0);
-    //   line_.points[index].x = val;
-    //   redraw();
-    // }
-    //
-    // void setAt(int index, Point point) {
-    //   VISAGE_ASSERT(index < line_.num_points && index >= 0);
-    //   line_.points[index] = point;
-    //   redraw();
-    // }
+    float yAt(int index) const { return path_.subPaths()[0].points[index].y; }
+    void setYAt(int index, float val) {
+      VISAGE_ASSERT(index < path_.numPoints() && index >= 0);
+      path_.subPaths()[0].points[index].y = val;
+      redraw();
+    }
+
+    float xAt(int index) const { return path_.subPaths()[0].points[index].x; }
+    void setXAt(int index, float val) {
+      VISAGE_ASSERT(index < path_.numPoints() && index >= 0);
+      path_.subPaths()[0].points[index].x = val;
+      redraw();
+    }
+
+    void setAt(int index, Point point) {
+      VISAGE_ASSERT(index < path_.numPoints() && index >= 0);
+      path_.subPaths()[0].points[index] = point;
+      redraw();
+    }
 
     bool fill() const { return fill_; }
 
@@ -96,7 +96,7 @@ namespace visage {
     }
     int fillLocation() const;
 
-    int numPoints() const { return line_.numPoints(); }
+    int numPoints() const { return path_.numPoints(); }
 
     bool active() const { return active_; }
     void setActive(bool active) { active_ = active; }
@@ -106,7 +106,7 @@ namespace visage {
     void drawLine(Canvas& canvas, theme::ColorId color_id);
     void drawFill(Canvas& canvas, theme::ColorId color_id);
 
-    Path line_;
+    Path path_;
     Dimension line_width_;
 
     bool fill_ = false;

@@ -216,6 +216,7 @@ namespace visage {
       return count;
     }
 
+    std::vector<SubPath>& subPaths() { return paths_; }
     const std::vector<SubPath>& subPaths() const { return paths_; }
 
     void clear() { paths_.clear(); }
