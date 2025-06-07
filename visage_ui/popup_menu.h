@@ -29,6 +29,13 @@
 #include <climits>
 
 namespace visage {
+  class PopupMenu;
+#if VISAGE_MAC
+  void setNativeMenuBar(const PopupMenu& menu);
+#else
+  inline void setNativeMenuBar(const PopupMenu& menu) { }
+#endif
+
   class PopupMenu {
   public:
     static constexpr int kNotSet = INT_MIN;
@@ -37,34 +44,74 @@ namespace visage {
     PopupMenu(const String& name, int id = -1, std::vector<PopupMenu> options = {}, bool is_break = false) :
         name_(name), id_(id), options_(std::move(options)), is_break_(is_break) { }
 
-    void show(Frame* source, Point position = { kNotSet, kNotSet });
+    PopupMenu(const PopupMenu& other) : PopupMenu() { *this = other; }
 
-    void addOption(int option_id, const String& option_name, bool option_selected = false) {
+    PopupMenu& operator=(const PopupMenu& other) {
+      if (this != &other) {
+        name_ = other.name_;
+        id_ = other.id_;
+        is_break_ = other.is_break_;
+        selected_ = other.selected_;
+        active_ = other.active_;
+        on_selection_ = other.on_selection_;
+        on_cancel_ = other.on_cancel_;
+        options_ = other.options_;
+        parent_ = nullptr;
+
+        for (auto& option : options_)
+          option.parent_ = this;
+      }
+      return *this;
+    }
+
+    void show(Frame* source, Point position = { kNotSet, kNotSet });
+    void setAsNativeMenuBar() { setNativeMenuBar(*this); }
+
+    void addOption(int option_id, const String& option_name, bool option_selected = false,
+                   bool active = true) {
       options_.push_back({ option_name, option_id });
       options_.back().selected_ = option_selected;
+      options_.back().active_ = active;
+      options_.back().parent_ = this;
     }
 
     auto& onSelection() { return on_selection_; }
     auto& onCancel() { return on_cancel_; }
 
-    void addSubMenu(PopupMenu options) { options_.push_back(std::move(options)); }
+    const auto& onSelection() const { return on_selection_; }
+    const auto& onCancel() const { return on_cancel_; }
+
+    void addSubMenu(PopupMenu sub_menu) {
+      sub_menu.parent_ = this;
+      options_.push_back(std::move(sub_menu));
+    }
+
     void addBreak() { options_.push_back({ "", -1, {}, true }); }
 
+    const std::vector<PopupMenu>& options() const { return options_; }
+    const PopupMenu* parent() const { return parent_; }
     int size() const { return options_.size(); }
 
     int id() const { return id_; }
     const String& name() const { return name_; }
     bool isBreak() const { return is_break_; }
     bool hasOptions() const { return !options_.empty(); }
-    const std::vector<PopupMenu>& options() const { return options_; }
+
+    void setActive(bool active) { active_ = active; }
+    bool isActive() const { return active_; }
+
+    void setSelected(bool selected) { selected_ = selected; }
+    bool isSelected() const { return selected_; }
 
   private:
+    PopupMenu* parent_ = nullptr;
     CallbackList<void(int)> on_selection_;
     CallbackList<void()> on_cancel_;
     String name_;
     int id_ = -1;
     bool is_break_ = false;
     bool selected_ = false;
+    bool active_ = true;
     std::vector<PopupMenu> options_;
   };
 

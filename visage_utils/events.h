@@ -336,14 +336,28 @@ namespace visage {
     }
 
     CallbackList() = default;
+
     explicit CallbackList(std::function<T> callback) :
         original_(std::make_unique<std::function<T>>(callback)) {
       add(callback);
     }
+
     CallbackList(const CallbackList& other) {
       if (other.original_)
         original_ = std::make_unique<std::function<T>>(*other.original_);
       callbacks_ = other.callbacks_;
+    }
+
+    CallbackList& operator=(const CallbackList& other) {
+      if (this != &other) {
+        if (other.original_)
+          original_ = std::make_unique<std::function<T>>(*other.original_);
+        else
+          original_.reset();
+
+        callbacks_ = other.callbacks_;
+      }
+      return *this;
     }
 
     void add(std::function<T> callback) { callbacks_.push_back(std::move(callback)); }
@@ -386,11 +400,11 @@ namespace visage {
     void clear() { callbacks_.clear(); }
 
     template<typename... Args>
-    auto callback(Args&&... args) {
+    auto callback(Args&&... args) const {
       if (callbacks_.empty())
         return defaultResult<decltype(std::declval<std::function<T>>()(args...))>();
 
-      for (size_t i = 0; i < callbacks_.size() - 1; ++i)
+      for (size_t i = 0; i + 1 < callbacks_.size(); ++i)
         callbacks_[i](std::forward<Args>(args)...);
 
       return callbacks_.back()(std::forward<Args>(args)...);

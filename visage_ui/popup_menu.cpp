@@ -28,6 +28,7 @@ namespace visage {
   VISAGE_THEME_COLOR(PopupMenuBackground, 0xff262a2e);
   VISAGE_THEME_COLOR(PopupMenuBorder, 0xff606265);
   VISAGE_THEME_COLOR(PopupMenuText, 0xffeeeeee);
+  VISAGE_THEME_COLOR(PopupMenuDisabledText, 0xff888888);
   VISAGE_THEME_COLOR(PopupMenuSelection, 0xffaa88ff);
   VISAGE_THEME_COLOR(PopupMenuSelectionText, 0xffffffff);
 
@@ -83,7 +84,8 @@ namespace visage {
 
     int option_height = paletteValue(PopupOptionHeight);
     for (int i = 0; i < options_.size(); ++i) {
-      if (!options_[i].isBreak() && position.y >= y && position.y < y + option_height) {
+      if (!options_[i].isBreak() && options_[i].isActive() && position.y >= y &&
+          position.y < y + option_height) {
         hover_index_ = i;
         return;
       }
@@ -110,13 +112,13 @@ namespace visage {
     canvas.setColor(border);
     canvas.roundedRectangleBorder(0, 0, width(), height(), 8.0f, 1);
 
-    canvas.setColor(PopupMenuText);
     int selection_padding = paletteValue(PopupSelectionPadding);
     int x_padding = selection_padding + paletteValue(PopupTextPadding);
     int option_height = paletteValue(PopupOptionHeight);
     int y = selection_padding - yPosition();
 
     Brush text = canvas.color(PopupMenuText).withMultipliedAlpha(opacity_);
+    Brush disabled_text = canvas.color(PopupMenuDisabledText).withMultipliedAlpha(opacity_);
     Brush selected_text = canvas.color(PopupMenuSelectionText).withMultipliedAlpha(opacity_);
     for (int i = 0; i < options_.size(); ++i) {
       if (y + option_height > 0 && y < height()) {
@@ -130,8 +132,10 @@ namespace visage {
                                     option_height, 4.0f);
             canvas.setColor(selected_text);
           }
-          else
+          else if (options_[i].isActive())
             canvas.setColor(text);
+          else
+            canvas.setColor(disabled_text);
 
           int popup_font_size = paletteValue(PopupFontSize);
           Font font = font_.withSize(popup_font_size);
@@ -341,8 +345,13 @@ namespace visage {
   }
 
   void PopupMenuFrame::optionSelected(const PopupMenu& option, PopupList* list) {
-    if (isVisible())
-      menu_.onSelection().callback(option.id());
+    if (isVisible()) {
+      const PopupMenu* menu = &option;
+      while (menu) {
+        menu->onSelection().callback(option.id());
+        menu = menu->parent();
+      }
+    }
     else
       menu_.onCancel().callback();
 
