@@ -23,7 +23,7 @@ function(add_embedded_resources project include_filename namespace files)
     add_custom_command(
       OUTPUT ${source_file}
       COMMAND ${CMAKE_COMMAND} -DDEST_FILE=${source_file} -DORIGINAL_FILE=${file} -DVAR_NAMESPACE=${namespace} -P ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/embed_file.cmake
-      DEPENDS ${file} ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/embed_file.cmake
+      DEPENDS ${file}
       COMMENT "Generating ${embedded_file_name} for ${original_file_name}"
     )
     set_source_files_properties(${source_file} PROPERTIES GENERATED TRUE)
