@@ -30,7 +30,7 @@
 
 namespace visage {
   class PopupMenu;
-#if VISAGE_MAC
+#if defined(__APPLE__) && defined(__MACH__)
   void setNativeMenuBar(const PopupMenu& menu);
 #else
   inline void setNativeMenuBar(const PopupMenu& menu) { }
