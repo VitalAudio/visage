@@ -346,11 +346,8 @@ namespace visage {
 
   void PopupMenuFrame::optionSelected(const PopupMenu& option, PopupList* list) {
     if (isVisible()) {
-      const PopupMenu* menu = &option;
-      while (menu) {
-        menu->onSelection().callback(option.id());
-        menu = menu->parent();
-      }
+      option.onSelection().callback(option.id());
+      menu_.onSelection().callback(option.id());
     }
     else
       menu_.onCancel().callback();
