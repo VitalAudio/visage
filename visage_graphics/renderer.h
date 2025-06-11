@@ -34,6 +34,8 @@ namespace visage {
     Renderer();
     ~Renderer() override;
 
+    static void resetResolution(int width, int height);
+
     void checkInitialization(void* model_window, void* display);
     void setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool blue_red);
     const Screenshot& screenshot() const { return screenshot_; }

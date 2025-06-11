@@ -361,8 +361,10 @@ namespace visage {
   void Layer::requestScreenshot() {
     if (headless_render_)
       screenshot_requested_ = true;
-    else
+    else {
+      Renderer::resetResolution(width_, height_);
       bgfx::requestScreenShot(frameBuffer(), "screenshot.png");
+    }
   }
 
   const Screenshot& Layer::screenshot() const {

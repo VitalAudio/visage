@@ -58,6 +58,18 @@ namespace visage {
     void captureFrame(const void*, uint32_t) override { }
   };
 
+  static constexpr uint32_t resetFlags() {
+#if VISAGE_WINDOWS
+    return BGFX_RESET_FLIP_AFTER_RENDER;
+#elif VISAGE_MAC
+    return BGFX_RESET_FLIP_AFTER_RENDER | BGFX_RESET_VSYNC;
+#elif VISAGE_LINUX
+    return BGFX_RESET_VSYNC;
+#else
+    return 0;
+#endif
+  }
+
   Renderer& Renderer::instance() {
     static Renderer renderer;
     return renderer;
@@ -111,7 +123,6 @@ namespace visage {
 
 #if VISAGE_WINDOWS
     bgfx_init.type = bgfx::RendererType::Direct3D11;
-    bgfx_init.resolution.reset = BGFX_RESET_FLIP_AFTER_RENDER;
 #if USE_DIRECTX12
     for (int i = 0; i < num_supported; ++i) {
       if (supported_renderers[i] == bgfx::RendererType::Direct3D12)
@@ -122,13 +133,13 @@ namespace visage {
     bgfx_init.type = bgfx::RendererType::Metal;
     bgfx_init.resolution.width = 1;
     bgfx_init.resolution.height = 1;
-    bgfx_init.resolution.reset = BGFX_RESET_FLIP_AFTER_RENDER | BGFX_RESET_VSYNC;
 #elif VISAGE_LINUX
     bgfx_init.type = bgfx::RendererType::Vulkan;
-    bgfx_init.resolution.reset = BGFX_RESET_VSYNC;
 #elif VISAGE_EMSCRIPTEN
     bgfx_init.type = bgfx::RendererType::OpenGLES;
 #endif
+
+    bgfx_init.resolution.reset = resetFlags();
 
     for (int i = 0; i < num_supported && !supported_; ++i)
       supported_ = supported_renderers[i] == bgfx_init.type;
@@ -142,6 +153,10 @@ namespace visage {
     bgfx::init(bgfx_init);
     VISAGE_ASSERT(bgfx::getRendererType() == bgfx_init.type);
     swap_chain_supported_ = bgfx::getCaps()->supported & BGFX_CAPS_SWAP_CHAIN;
+  }
+
+  void Renderer::resetResolution(int width, int height) {
+    bgfx::reset(width, height, resetFlags());
   }
 
   void Renderer::setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool blue_red) {
