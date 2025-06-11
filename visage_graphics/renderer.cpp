@@ -156,7 +156,9 @@ namespace visage {
   }
 
   void Renderer::resetResolution(int width, int height) {
+#if VISAGE_MAC
     bgfx::reset(width, height, resetFlags());
+#endif
   }
 
   void Renderer::setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool blue_red) {
