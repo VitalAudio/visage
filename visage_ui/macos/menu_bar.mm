@@ -24,23 +24,6 @@
 
 #include <Cocoa/Cocoa.h>
 
-@interface PopupMenuTarget : NSObject
-- (void)invoke:(id)sender;
-@end
-
-@implementation PopupMenuTarget {
-}
-
-- (void)invoke:(id)sender {
-  const visage::PopupMenu* menu = (const visage::PopupMenu*)[[sender representedObject] pointerValue];
-  int id = menu ? menu->id() : 0;
-  while (menu) {
-    menu->onSelection().callback(id);
-    menu = menu->parent();
-  }
-}
-@end
-
 namespace visage {
   class NativeMenu {
   public:
@@ -55,7 +38,23 @@ namespace visage {
   private:
     PopupMenu menu_;
   };
+}
 
+@interface PopupMenuTarget : NSObject
+- (void)invoke:(id)sender;
+@end
+
+@implementation PopupMenuTarget {
+}
+
+- (void)invoke:(id)sender {
+  const visage::PopupMenu* menu = (const visage::PopupMenu*)[[sender representedObject] pointerValue];
+  menu->onSelection().callback(menu->id());
+  visage::NativeMenu::menu().onSelection().callback(menu->id());
+}
+@end
+
+namespace visage {
   NSMenu* buildMenu(const PopupMenu& popup_menu, id target) {
     NSMenu* menu = [[NSMenu alloc] init];
     auto handler = [[PopupMenuTarget alloc] init];
@@ -83,7 +82,7 @@ namespace visage {
         }
         if (item.isSelected())
           [menu_item setState:NSControlStateValueOn];
-        
+
         [menu addItem:menu_item];
       }
     }
