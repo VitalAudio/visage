@@ -30,6 +30,7 @@
 #include <visage_graphics/theme.h>
 #include <visage_ui/popup_menu.h>
 #include <visage_utils/file_system.h>
+#include <visage_windowing/windowing.h>
 
 using namespace visage::dimension;
 
@@ -346,6 +347,7 @@ void ExamplesFrame::setupButtons() {
     menu.addSubMenu(sub_menu2);
     menu.addBreak();
     menu.addOption(12, "Force Crash");
+    menu.addOption(13, "Close Application");
 
     menu.onSelection() = [this](int id) {
       if (id == 0) {
@@ -355,7 +357,9 @@ void ExamplesFrame::setupButtons() {
       else if (id == 1)
         on_toggle_debug_.callback();
       else if (id == 12)
-        VISAGE_FORCE_CRASH();
+        visage::forceCrash();
+      else if (id == 13)
+        visage::closeApplication();
     };
 
     menu.show(action_button_.get());
