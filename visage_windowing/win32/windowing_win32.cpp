@@ -105,6 +105,11 @@ namespace visage {
       return findByNativeParentHandle(hwnd);
     }
 
+    void closeAll() {
+      for (auto& window : native_window_lookup_)
+        PostMessage(window.second->windowHandle(), WM_CLOSE, 0, 0);
+    }
+
   private:
     NativeWindowLookup() = default;
     ~NativeWindowLookup() = default;
@@ -919,6 +924,8 @@ namespace visage {
     HWND parent = GetParent(hwnd);
     if (parent)
       PostMessage(parent, msg, w_param, l_param);
+    else
+      DefWindowProc(hwnd, msg, w_param, l_param);
   }
 
   static bool isWindowOccluded(HWND hwnd) {
@@ -1262,6 +1269,12 @@ namespace visage {
       default: return HTCLIENT;
       }
     }
+    if (msg == WM_QUERYENDSESSION)
+      return window->closeRequested();
+    if (msg == WM_CLOSE) {
+      if (!window->closeRequested())
+        return 0;
+    }
     return windowProcedure(hwnd, msg, w_param, l_param);
   }
 
@@ -1405,6 +1418,10 @@ namespace visage {
 
   void* headlessWindowHandle() {
     return nullptr;
+  }
+
+  void closeApplication() {
+    NativeWindowLookup::instance().closeAll();
   }
 
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
