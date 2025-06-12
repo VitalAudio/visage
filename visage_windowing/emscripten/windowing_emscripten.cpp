@@ -146,6 +146,8 @@ namespace visage {
     return nullptr;
   }
 
+  void closeApplication() { }
+
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle) {
     VISAGE_ASSERT(false);

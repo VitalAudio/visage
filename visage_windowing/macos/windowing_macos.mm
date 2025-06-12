@@ -51,6 +51,21 @@ namespace visage {
       return false;
     }
 
+    void closeAll() const {
+      auto windows = native_window_lookup_;
+      for (auto& window : windows)
+        window.second->close();
+    }
+
+    bool requestAllToClose() const {
+      bool result = true;
+      for (auto& window : native_window_lookup_) {
+        if (!window.second->closeRequested())
+          result = false;
+      }
+      return result;
+    }
+
     WindowMac* findWindow(void* handle) {
       auto it = native_window_lookup_.find((void*)handle);
       return it != native_window_lookup_.end() ? it->second : nullptr;
@@ -350,7 +365,7 @@ namespace visage {
   bool q_or_w = [[event charactersIgnoringModifiers] isEqualToString:@"q"] ||
                 [[event charactersIgnoringModifiers] isEqualToString:@"w"];
   if (self.allow_quit && command && q_or_w) {
-    [NSApp stop:nil];
+    visage::NativeWindowLookup::instance().closeAll();
     return;
   }
 
@@ -667,6 +682,12 @@ namespace visage {
 @end
 
 @implementation VisageAppWindowDelegate
+- (BOOL)windowShouldClose:(NSWindow*)sender {
+  NSView* view = [sender contentView];
+  visage::WindowMac* window = visage::NativeWindowLookup::instance().findWindow((__bridge void*)view);
+  return window->closeRequested();
+}
+
 - (void)windowWillClose:(NSNotification*)notification {
   NSWindow* ns_window = notification.object;
   NSView* view = ns_window.contentView;
@@ -715,6 +736,7 @@ namespace visage {
 }
 
 - (void)applicationWillTerminate:(NSNotification*)notification {
+  VISAGE_LOG("TEST");
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)sender {
@@ -722,7 +744,8 @@ namespace visage {
 }
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication*)sender {
-  [NSApp stop:nil];
+  if (visage::NativeWindowLookup::instance().requestAllToClose())
+    return NSTerminateNow;
   return NSTerminateCancel;
 }
 
@@ -815,6 +838,10 @@ namespace visage {
 
   void* headlessWindowHandle() {
     return (__bridge void*)InitialMetalLayer::layer();
+  }
+
+  void closeApplication() {
+    NativeWindowLookup::instance().closeAll();
   }
 
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
@@ -966,6 +993,10 @@ namespace visage {
       [window_handle_ orderOut:nil];
       notifyHide();
     }
+  }
+
+  void WindowMac::close() {
+    [window_handle_ performClose:nil];
   }
 
   bool WindowMac::isShowing() const {
