@@ -107,7 +107,7 @@ namespace visage {
 
     void closeAll() {
       for (auto& window : native_window_lookup_)
-        PostMessage(window.second->windowHandle(), WM_CLOSE, 0, 0);
+        window.second->close();
     }
 
   private:
@@ -1563,6 +1563,10 @@ namespace visage {
   void WindowWin32::hide() {
     ShowWindow(window_handle_, SW_HIDE);
     notifyHide();
+  }
+
+  void WindowWin32::close() {
+    PostMessage(window_handle_, WM_CLOSE, 0, 0);
   }
 
   bool WindowWin32::isShowing() const {
