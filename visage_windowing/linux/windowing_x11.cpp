@@ -56,7 +56,8 @@ namespace visage {
     }
 
     void closeAll() const {
-      for (auto& window : native_window_lookup_)
+      auto windows = native_window_lookup_;
+      for (auto& window : windows)
         window.second->close();
     }
 

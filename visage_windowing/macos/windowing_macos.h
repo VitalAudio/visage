@@ -83,6 +83,7 @@ namespace visage {
     void show() override;
     void showMaximized() override;
     void hide() final;
+    void close() final;
     bool isShowing() const override;
 
     void setWindowTitle(const std::string& title) override;
