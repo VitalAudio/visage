@@ -47,12 +47,33 @@ namespace visage {
     void show(Frame* source, Point position = { kNotSet, kNotSet });
     void setAsNativeMenuBar() { setNativeMenuBar(*this); }
 
-    void addOption(int option_id, const String& option_name, bool option_selected = false,
-                   bool active = true) {
+    PopupMenu& addOption(int option_id, const String& option_name) {
       options_.push_back({ option_name, option_id });
-      options_.back().selected_ = option_selected;
-      options_.back().active_ = active;
+      return options_.back();
     }
+
+    PopupMenu& select(bool selected) {
+      selected_ = selected;
+      return *this;
+    }
+
+    bool selected() const { return selected_; }
+
+    PopupMenu& enable(bool enabled) {
+      enabled_ = enabled;
+      return *this;
+    }
+
+    PopupMenu& withNativeKeyboardShortcut(int modifiers, std::string character) {
+      shortcut_modifiers_ = modifiers;
+      shortcut_character_ = character;
+      return *this;
+    }
+
+    const int nativeShortcutModifiers() const { return shortcut_modifiers_; }
+    const std::string& nativeShortcutCharacter() const { return shortcut_character_; }
+
+    bool enabled() const { return enabled_; }
 
     auto& onSelection() { return on_selection_; }
     auto& onCancel() { return on_cancel_; }
@@ -61,7 +82,6 @@ namespace visage {
     const auto& onCancel() const { return on_cancel_; }
 
     void addSubMenu(PopupMenu sub_menu) { options_.push_back(std::move(sub_menu)); }
-
     void addBreak() { options_.push_back({ "", -1, {}, true }); }
 
     const std::vector<PopupMenu>& options() const { return options_; }
@@ -72,12 +92,6 @@ namespace visage {
     bool isBreak() const { return is_break_; }
     bool hasOptions() const { return !options_.empty(); }
 
-    void setActive(bool active) { active_ = active; }
-    bool isActive() const { return active_; }
-
-    void setSelected(bool selected) { selected_ = selected; }
-    bool isSelected() const { return selected_; }
-
   private:
     CallbackList<void(int)> on_selection_;
     CallbackList<void()> on_cancel_;
@@ -85,7 +99,10 @@ namespace visage {
     int id_ = -1;
     bool is_break_ = false;
     bool selected_ = false;
-    bool active_ = true;
+    bool enabled_ = true;
+
+    int shortcut_modifiers_ = 0;
+    std::string shortcut_character_;
     std::vector<PopupMenu> options_;
   };
 

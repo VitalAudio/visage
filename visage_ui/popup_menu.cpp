@@ -84,7 +84,7 @@ namespace visage {
 
     int option_height = paletteValue(PopupOptionHeight);
     for (int i = 0; i < options_.size(); ++i) {
-      if (!options_[i].isBreak() && options_[i].isActive() && position.y >= y &&
+      if (!options_[i].isBreak() && options_[i].enabled() && position.y >= y &&
           position.y < y + option_height) {
         hover_index_ = i;
         return;
@@ -132,7 +132,7 @@ namespace visage {
                                     option_height, 4.0f);
             canvas.setColor(selected_text);
           }
-          else if (options_[i].isActive())
+          else if (options_[i].enabled())
             canvas.setColor(text);
           else
             canvas.setColor(disabled_text);

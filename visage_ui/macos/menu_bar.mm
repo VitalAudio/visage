@@ -73,14 +73,29 @@ namespace visage {
         [menu addItem:submenu_item];
       }
       else {
+        NSString* key = [NSString stringWithUTF8String:item.nativeShortcutCharacter().c_str()];
         NSMenuItem* menu_item = [[NSMenuItem alloc] initWithTitle:name
                                                            action:@selector(invoke:)
-                                                    keyEquivalent:@""];
-        if (item.isActive()) {
+                                                    keyEquivalent:key];
+        int modifiers = item.nativeShortcutModifiers();
+        if (modifiers) {
+          NSEventModifierFlags flags = 0;
+          if (modifiers & Modifiers::kModifierCmd)
+            flags = flags | NSEventModifierFlagCommand;
+          if (modifiers & Modifiers::kModifierOption)
+            flags = flags | NSEventModifierFlagOption;
+          if (modifiers & Modifiers::kModifierMacCtrl)
+            flags = flags | NSEventModifierFlagControl;
+          if (modifiers & Modifiers::kModifierShift)
+            flags = flags | NSEventModifierFlagShift;
+
+          [menu_item setKeyEquivalentModifierMask:flags];
+        }
+        if (item.enabled()) {
           [menu_item setTarget:handler];
           [menu_item setRepresentedObject:[NSValue valueWithPointer:&item]];
         }
-        if (item.isSelected())
+        if (item.selected())
           [menu_item setState:NSControlStateValueOn];
 
         [menu addItem:menu_item];
