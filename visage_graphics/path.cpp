@@ -1111,8 +1111,10 @@ namespace visage {
           else if constexpr (joint_type == Path::JoinType::Miter) {
             auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
                                                        point + offset, next + offset);
-            VISAGE_ASSERT(intersection.has_value());
-            points_[index] = intersection.value();
+            if (intersection.has_value())
+              points_[index] = intersection.value();
+            else
+              points_[index] = point;
           }
           else if constexpr (joint_type == Path::JoinType::Square) {
             DPoint square_offset = (prev_direction - direction).normalized() * amount;
@@ -1153,7 +1155,9 @@ namespace visage {
               }
               else {
                 points_[index] += prev_offset;
-                insertPointBetween(index, next_index, point + offset);
+                DPoint insert = point + offset;
+                if (insert != points_[index] && insert != next)
+                  insertPointBetween(index, next_index, insert);
               }
             }
           }
