@@ -129,7 +129,6 @@ namespace visage {
 
   static void setLineVertices(const LineWrapper& line_wrapper, bgfx::TransientVertexBuffer vertex_buffer) {
     LineVertex* line_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
-    Path* path = line_wrapper.path;
     int num_vertices = line_wrapper.numVertices();
 
     for (int i = 0; i < num_vertices; i += 2) {
@@ -137,8 +136,7 @@ namespace visage {
       line_data[i + 1].fill = 1.0f;
     }
 
-    int num_points = path->numPoints();
-    const auto& sub_paths = path->subPaths();
+    const auto& sub_paths = line_wrapper.path->subPaths();
     float radius = line_wrapper.line_width * 0.5f + 0.5f;
     float prev_magnitude = radius;
     float scale = line_wrapper.scale;
@@ -346,7 +344,6 @@ namespace visage {
     if (bgfx::getAvailTransientVertexBuffer(num_vertices, LineVertex::layout()) != num_vertices)
       return;
 
-    Path* path = path_fill_wrapper.path;
     bgfx::TransientVertexBuffer vertex_buffer {};
     bgfx::TransientIndexBuffer index_buffer {};
     bgfx::allocTransientBuffers(&vertex_buffer, LineVertex::layout(), num_vertices, &index_buffer,
@@ -402,7 +399,6 @@ namespace visage {
     if (bgfx::getAvailTransientVertexBuffer(num_vertices, LineVertex::layout()) != num_vertices)
       return;
 
-    Path* path = line_wrapper.path;
     bgfx::TransientVertexBuffer vertex_buffer {};
     bgfx::allocTransientVertexBuffer(&vertex_buffer, num_vertices, LineVertex::layout());
     setLineVertices(line_wrapper, vertex_buffer);
@@ -483,7 +479,6 @@ namespace visage {
     if (bgfx::getAvailTransientVertexBuffer(num_vertices, LineVertex::layout()) != num_vertices)
       return;
 
-    Path* path = line_fill_wrapper.path;
     float dimension_y_scale = line_fill_wrapper.fill_center / line_fill_wrapper.height;
     float dimensions[4] = { line_fill_wrapper.width, line_fill_wrapper.height * dimension_y_scale,
                             1.0f, 1.0f };
