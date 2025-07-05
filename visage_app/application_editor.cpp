@@ -102,6 +102,7 @@ namespace visage {
 
   void ApplicationEditor::addToWindow(Window* window) {
     window_ = window;
+    window_->setFixedAspectRatio(fixed_aspect_ratio_);
 
     Renderer::instance().checkInitialization(window_->initWindow(), window->globalDisplay());
     canvas_->pairToWindow(window_->nativeHandle(), window->clientWidth(), window->clientHeight());
@@ -148,6 +149,12 @@ namespace visage {
 
     drawStaleChildren();
     canvas_->submit();
+  }
+
+  void ApplicationEditor::setFixedAspectRatio(bool fixed) {
+    fixed_aspect_ratio_ = fixed;
+    if (window_)
+      window_->setFixedAspectRatio(fixed);
   }
 
   void ApplicationEditor::drawStaleChildren() {

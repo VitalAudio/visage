@@ -62,11 +62,9 @@ namespace visage {
     void removeFromWindow();
     void drawWindow();
 
-    bool isFixedAspectRatio() const { return fixed_aspect_ratio_ > 0.0f; }
-    void setFixedAspectRatio(float aspect_ratio) { fixed_aspect_ratio_ = aspect_ratio; }
+    bool isFixedAspectRatio() const { return fixed_aspect_ratio_; }
+    void setFixedAspectRatio(bool fixed);
     float aspectRatio() const override {
-      if (fixed_aspect_ratio_)
-        return fixed_aspect_ratio_;
       if (height() && width())
         return width() * 1.0f / height();
       return 1.0f;
@@ -95,10 +93,7 @@ namespace visage {
     FrameEventHandler event_handler_;
     std::unique_ptr<Canvas> canvas_;
     std::unique_ptr<WindowEventHandler> window_event_handler_;
-    float fixed_aspect_ratio_ = 0.0f;
-
-    int reference_width_ = 0;
-    int reference_height_ = 0;
+    bool fixed_aspect_ratio_ = false;
 
     std::set<Frame*> stale_children_;
     std::set<Frame*> drawing_children_;
