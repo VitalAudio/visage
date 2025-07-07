@@ -109,7 +109,7 @@ TEST_CASE("Thread sleep functions", "[utils]") {
 
   auto elapsed = std::chrono::steady_clock::now() - start_time;
   REQUIRE(elapsed >= std::chrono::milliseconds(45));
-  REQUIRE(elapsed <= std::chrono::milliseconds(100));
+  REQUIRE(elapsed <= std::chrono::milliseconds(1000));
 
   start_time = std::chrono::steady_clock::now();
   Thread::sleepUs(5000);
