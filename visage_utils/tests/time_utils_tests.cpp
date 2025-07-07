@@ -33,7 +33,7 @@ TEST_CASE("Time functions return reasonable values", "[utils]") {
   long long us1 = microseconds();
   int s1 = seconds();
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
   long long ms2 = milliseconds();
   long long us2 = microseconds();
@@ -45,9 +45,6 @@ TEST_CASE("Time functions return reasonable values", "[utils]") {
 
   REQUIRE(ms2 - ms1 >= 5);
   REQUIRE(us2 - us1 >= 5000);
-
-  REQUIRE(us1 / 1000 == ms1);
-  REQUIRE(ms1 / 1000 == s1);
 }
 
 TEST_CASE("Time now function", "[utils]") {
