@@ -403,11 +403,6 @@ TEST_CASE("PopupList rendering", "[ui]") {
   std::vector<PopupMenu> options = { PopupMenu("Option 1", 1), PopupMenu("Option 2", 2) };
   popup_list.setOptions(std::move(options));
 
-  SECTION("Render dimensions") {
-    // Note: renderHeight/renderWidth require graphics context initialization
-    // These would be tested in integration tests with proper setup
-  }
-
   SECTION("Resized handling") {
     popup_list.setBounds(0, 0, 150, 200);
     popup_list.resized();
@@ -424,11 +419,6 @@ TEST_CASE("ValueDisplay functionality", "[ui]") {
   SECTION("Setting font") {
     Font font;
     display.setFont(font);
-  }
-
-  SECTION("Showing display") {
-    // Note: showDisplay requires graphics context initialization
-    // This would be tested in integration tests with proper setup
   }
 }
 

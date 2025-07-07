@@ -393,6 +393,10 @@ namespace visage {
     std::u32string string_;
   };
 
+  inline std::ostream& operator<<(std::ostream& os, const String& string) {
+    return os << string.toUtf32();
+  }
+
   std::string encodeDataBase64(const unsigned char* data, size_t size);
   std::unique_ptr<unsigned char[]> decodeBase64Data(const std::string& string, int& size);
 }

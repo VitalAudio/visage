@@ -22,7 +22,6 @@
 #include "visage_utils/thread_utils.h"
 
 #include <atomic>
-#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 
