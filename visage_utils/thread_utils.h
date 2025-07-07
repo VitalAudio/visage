@@ -40,6 +40,7 @@ namespace visage {
       main_thread_set_ = true;
       main_thread_id_ = std::this_thread::get_id();
     }
+    
     static bool isMainThread() {
       return !main_thread_set_ || main_thread_id_ == std::this_thread::get_id();
     }
