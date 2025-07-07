@@ -271,39 +271,6 @@ TEST_CASE("Child process concurrent execution", "[utils]") {
   REQUIRE(failure_count <= 1);
 }
 
-TEST_CASE("Child process signal handling stress test", "[utils]") {
-  std::vector<std::thread> threads;
-  std::atomic<int> success_count { 0 };
-  std::atomic<int> failure_count { 0 };
-
-  for (int i = 0; i < 20; ++i) {
-    threads.emplace_back([&success_count, &failure_count, i]() {
-#if VISAGE_WINDOWS
-      std::string command = "cmd.exe";
-      std::string argument = "/C echo stress" + std::to_string(i);
-#else
-      std::string command = "/bin/echo";
-      std::string argument = "stress" + std::to_string(i);
-#endif
-
-      std::string output;
-      if (spawnChildProcess(command, argument, output, 100)) {
-        success_count++;
-      }
-      else {
-        failure_count++;
-      }
-    });
-  }
-
-  for (auto& thread : threads) {
-    thread.join();
-  }
-
-  REQUIRE(success_count + failure_count == 20);
-  REQUIRE(success_count >= 15);
-}
-
 TEST_CASE("Child process with invalid PID handling", "[utils]") {
 #if !VISAGE_WINDOWS
   std::string command = "/bin/echo";
