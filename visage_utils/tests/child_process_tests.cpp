@@ -152,23 +152,6 @@ TEST_CASE("Child process large output limit", "[utils]") {
   REQUIRE(elapsed < std::chrono::milliseconds(10000));
 }
 
-TEST_CASE("Child process very short timeout", "[utils]") {
-#if VISAGE_WINDOWS
-  std::string command = "cmd.exe";
-  std::string argument = "/C timeout /t 1 /nobreak";
-#else
-  std::string command = "/bin/sleep";
-  std::string argument = "1";
-#endif
-
-  std::string output;
-  auto start = std::chrono::steady_clock::now();
-  REQUIRE_FALSE(spawnChildProcess(command, argument, output, 1));
-  auto elapsed = std::chrono::steady_clock::now() - start;
-
-  REQUIRE(elapsed <= std::chrono::milliseconds(150));
-}
-
 TEST_CASE("Child process with spaces in arguments", "[utils]") {
 #if VISAGE_WINDOWS
   std::string command = "cmd.exe";

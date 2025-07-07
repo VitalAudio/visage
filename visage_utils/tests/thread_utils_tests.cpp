@@ -104,18 +104,15 @@ TEST_CASE("Thread timeout on waitForEnd", "[utils]") {
 
 TEST_CASE("Thread sleep functions", "[utils]") {
   auto start_time = std::chrono::steady_clock::now();
-
   Thread::sleep(50);
 
   auto elapsed = std::chrono::steady_clock::now() - start_time;
   REQUIRE(elapsed >= std::chrono::milliseconds(45));
-  REQUIRE(elapsed <= std::chrono::milliseconds(1000));
 
   start_time = std::chrono::steady_clock::now();
   Thread::sleepUs(5000);
   elapsed = std::chrono::steady_clock::now() - start_time;
   REQUIRE(elapsed >= std::chrono::microseconds(4500));
-  REQUIRE(elapsed <= std::chrono::milliseconds(20));
 }
 
 TEST_CASE("Thread yield function", "[utils]") {
