@@ -93,6 +93,9 @@ namespace visage {
     void setAnimationTime(int milliseconds) { time_ = milliseconds; }
 
     T value() const {
+      if (t_ == 0.0f)
+        return source_;
+
       float t = t_;
       EasingFunction easing = forward_easing_;
       const T* from = &source_;

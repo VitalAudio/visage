@@ -14,4 +14,9 @@ if (VISAGE_ENABLE_WIDGETS)
   target_include_directories(VisageWidgets PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VISAGE_INCLUDE_PATH})
   target_link_libraries(VisageWidgets PRIVATE VisageGraphicsEmbeds)
   set_target_properties(VisageWidgets PROPERTIES FOLDER "visage")
+
+  add_test_target(
+    TARGET VisageWidgetsTests
+    TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
+  )
 endif ()
