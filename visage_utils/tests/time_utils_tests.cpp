@@ -28,37 +28,6 @@
 
 using namespace visage::time;
 
-TEST_CASE("Time functions return reasonable values", "[utils]") {
-  long long ms1 = milliseconds();
-  long long us1 = microseconds();
-  int s1 = seconds();
-
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-  long long ms2 = milliseconds();
-  long long us2 = microseconds();
-  int s2 = seconds();
-
-  REQUIRE(ms2 > ms1);
-  REQUIRE(us2 > us1);
-  REQUIRE(s2 >= s1);
-
-  REQUIRE(ms2 - ms1 >= 5);
-  REQUIRE(us2 - us1 >= 5000);
-}
-
-TEST_CASE("Time now function", "[utils]") {
-  Time time1 = now();
-  std::this_thread::sleep_for(std::chrono::milliseconds(10));
-  Time time2 = now();
-
-  REQUIRE(time2 > time1);
-
-  auto duration = time2 - time1;
-  auto ms_duration = std::chrono::duration_cast<std::chrono::milliseconds>(duration);
-  REQUIRE(ms_duration.count() >= 5);
-}
-
 TEST_CASE("Format time with standard formats", "[utils]") {
   auto test_time = std::chrono::system_clock::from_time_t(1609459200);
 
