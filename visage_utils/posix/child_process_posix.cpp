@@ -88,8 +88,6 @@ namespace visage {
 
   static bool readPipeWithSizeCheck(int pipe_fd, char* buffer, std::string& output, pid_t pid,
                                     int out_pipe, int err_pipe, int* status) {
-    static constexpr size_t kMaxOutputSize = 16 * 1024 * 1024;
-
     ssize_t count;
     while ((count = read(pipe_fd, buffer, 255)) > 0) {
       if (output.size() + count > kMaxOutputSize) {

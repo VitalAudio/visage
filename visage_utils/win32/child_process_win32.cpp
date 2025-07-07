@@ -73,24 +73,65 @@ namespace visage {
     }
 
     CloseHandle(std_out_write);
-    WaitForSingleObject(pi.hProcess, timeout_ms);
-    CHAR buffer[256] {};
-    DWORD bytes_read = 0;
+
     std::ostringstream stream;
+    CHAR buffer[4096] {};
+    DWORD bytes_read = 0;
+    DWORD bytes_available = 0;
+    size_t total_output_size = 0;
 
-    while (ReadFile(std_out_read, buffer, sizeof(buffer) - 1, &bytes_read, nullptr) && bytes_read > 0) {
-      buffer[bytes_read] = '\0';
-      stream << buffer;
+    auto read_available_output = [&]() {
+      if (total_output_size >= kMaxOutputSize)
+        return false;
+
+      if (PeekNamedPipe(std_out_read, nullptr, 0, nullptr, &bytes_available, nullptr) &&
+          bytes_available > 0) {
+        DWORD bytes_to_read = min(bytes_available, sizeof(buffer) - 1);
+        if (ReadFile(std_out_read, buffer, bytes_to_read, &bytes_read, nullptr) && bytes_read > 0) {
+          bytes_read = std::min<DWORD>(bytes_read, kMaxOutputSize - total_output_size);
+          buffer[bytes_read] = '\0';
+          stream << buffer;
+          total_output_size += bytes_read;
+          return true;
+        }
+      }
+      return false;
+    };
+
+    DWORD wait_result = WAIT_TIMEOUT;
+    auto start_time = GetTickCount64();
+
+    while (wait_result == WAIT_TIMEOUT) {
+      wait_result = WaitForSingleObject(pi.hProcess, 0);
+
+      if (read_available_output() && total_output_size >= kMaxOutputSize)
+        break;
+
+      if (GetTickCount64() - start_time >= (DWORD)timeout_ms) {
+        wait_result = WAIT_TIMEOUT;
+        break;
+      }
+
+      if (wait_result == WAIT_TIMEOUT)
+        Sleep(1);
     }
 
-    DWORD exit_code;
+    while (read_available_output())
+      ;
+
+    DWORD exit_code = 0;
     bool success = true;
-    if (!GetExitCodeProcess(pi.hProcess, &exit_code))
+
+    if (wait_result == WAIT_TIMEOUT) {
+      TerminateProcess(pi.hProcess, 1);
+      WaitForSingleObject(pi.hProcess, INFINITE);
       success = false;
-    else {
-      if (exit_code)
-        success = false;
     }
+    else if (wait_result == WAIT_OBJECT_0)
+      success = GetExitCodeProcess(pi.hProcess, &exit_code) && exit_code == 0;
+    else
+      success = false;
+
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
     CloseHandle(std_out_read);
