@@ -112,13 +112,19 @@ namespace visage {
   }
 
   void setCursorStyle(MouseCursor style) {
+    if (style == MouseCursor::Invisible) {
+      setCursorVisible(false);
+      return;
+    }
+
+    setCursorVisible(true);
     static const NSCursor* arrow_cursor = [NSCursor arrowCursor];
     static const NSCursor* ibeam_cursor = [NSCursor IBeamCursor];
     static const NSCursor* crosshair_cursor = [NSCursor crosshairCursor];
     static const NSCursor* pointing_cursor = [NSCursor pointingHandCursor];
+    static const NSCursor* dragging_cursor = [NSCursor openHandCursor];
     static const NSCursor* horizontal_resize_cursor = [NSCursor resizeLeftRightCursor];
     static const NSCursor* vertical_resize_cursor = [NSCursor resizeUpDownCursor];
-    static const NSCursor* multi_directional_resize_cursor = [NSCursor openHandCursor];
 
     const NSCursor* cursor = nil;
     switch (style) {
@@ -126,9 +132,10 @@ namespace visage {
     case MouseCursor::IBeam: cursor = ibeam_cursor; break;
     case MouseCursor::Crosshair: cursor = crosshair_cursor; break;
     case MouseCursor::Pointing: cursor = pointing_cursor; break;
+    case MouseCursor::MultiDirectionalResize:
+    case MouseCursor::Dragging: cursor = dragging_cursor; break;
     case MouseCursor::HorizontalResize: cursor = horizontal_resize_cursor; break;
     case MouseCursor::VerticalResize: cursor = vertical_resize_cursor; break;
-    case MouseCursor::MultiDirectionalResize: cursor = multi_directional_resize_cursor; break;
     default: return;
     }
     [cursor set];
