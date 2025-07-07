@@ -86,7 +86,7 @@ namespace visage {
 
       if (PeekNamedPipe(std_out_read, nullptr, 0, nullptr, &bytes_available, nullptr) &&
           bytes_available > 0) {
-        DWORD bytes_to_read = min(bytes_available, sizeof(buffer) - 1);
+        DWORD bytes_to_read = std::min<DWORD>(bytes_available, sizeof(buffer) - 1);
         if (ReadFile(std_out_read, buffer, bytes_to_read, &bytes_read, nullptr) && bytes_read > 0) {
           bytes_read = std::min<DWORD>(bytes_read, kMaxOutputSize - total_output_size);
           buffer[bytes_read] = '\0';
