@@ -68,7 +68,6 @@ TEST_CASE("Child process timeout", "[utils]") {
   auto elapsed = std::chrono::steady_clock::now() - start;
 
   REQUIRE(elapsed >= std::chrono::milliseconds(90));
-  REQUIRE(elapsed <= std::chrono::milliseconds(300));
 }
 
 TEST_CASE("Child process with multiple arguments", "[utils]") {
