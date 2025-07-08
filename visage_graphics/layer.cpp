@@ -370,7 +370,6 @@ namespace visage {
   const Screenshot& Layer::screenshot() const {
     if (headless_render_)
       return screenshot_;
-    else
-      return Renderer::instance().screenshot();
+    return Renderer::instance().screenshot();
   }
 }
