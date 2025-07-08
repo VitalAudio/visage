@@ -54,9 +54,10 @@ namespace visage {
 #endif
   }
 
-  ApplicationEditor::ApplicationEditor() : top_level_(this), canvas_(std::make_unique<Canvas>()) {
-    canvas_->addRegion(top_level_.region());
-    top_level_.addChild(this);
+  ApplicationEditor::ApplicationEditor() :
+      canvas_(std::make_unique<Canvas>()), top_level_(std::make_unique<TopLevelFrame>(this)) {
+    canvas_->addRegion(top_level_->region());
+    top_level_->addChild(this);
 
     event_handler_.request_redraw = [this](Frame* frame) { stale_children_.insert(frame); };
     event_handler_.request_keyboard_focus = [this](Frame* frame) {
@@ -78,12 +79,12 @@ namespace visage {
     event_handler_.set_cursor_visible = visage::setCursorVisible;
     event_handler_.read_clipboard_text = visage::readClipboardText;
     event_handler_.set_clipboard_text = visage::setClipboardText;
-    top_level_.setEventHandler(&event_handler_);
-    onResize() += [this] { top_level_.setNativeBounds(nativeLocalBounds()); };
+    top_level_->setEventHandler(&event_handler_);
+    onResize() += [this] { top_level_->setNativeBounds(nativeLocalBounds()); };
   }
 
   ApplicationEditor::~ApplicationEditor() {
-    top_level_.setEventHandler(nullptr);
+    top_level_->setEventHandler(nullptr);
   }
 
   const Screenshot& ApplicationEditor::takeScreenshot() {
@@ -106,10 +107,10 @@ namespace visage {
 
     Renderer::instance().checkInitialization(window_->initWindow(), window->globalDisplay());
     canvas_->pairToWindow(window_->nativeHandle(), window->clientWidth(), window->clientHeight());
-    top_level_.setDpiScale(window_->dpiScale());
-    top_level_.setNativeBounds(0, 0, window->clientWidth(), window->clientHeight());
+    top_level_->setDpiScale(window_->dpiScale());
+    top_level_->setNativeBounds(0, 0, window->clientWidth(), window->clientHeight());
 
-    window_event_handler_ = std::make_unique<WindowEventHandler>(window, &top_level_);
+    window_event_handler_ = std::make_unique<WindowEventHandler>(window, top_level_.get());
 
     window->setDrawCallback([this](double time) {
       canvas_->updateTime(time);

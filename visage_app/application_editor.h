@@ -79,9 +79,9 @@ namespace visage {
       setNativeBounds(nativeX(), nativeY(), width, height);
     }
 
-    void addClientDecoration() { top_level_.addClientDecoration(); }
+    void addClientDecoration() { top_level_->addClientDecoration(); }
     HitTestResult hitTest(const Point& position) const override {
-      if (position.y < kDefaultClientTitleBarHeight && top_level_.hasClientDecoration())
+      if (position.y < kDefaultClientTitleBarHeight && top_level_->hasClientDecoration())
         return HitTestResult::TitleBar;
 
       return HitTestResult::Client;
@@ -89,9 +89,9 @@ namespace visage {
 
   private:
     Window* window_ = nullptr;
-    TopLevelFrame top_level_;
     FrameEventHandler event_handler_;
     std::unique_ptr<Canvas> canvas_;
+    std::unique_ptr<TopLevelFrame> top_level_;
     std::unique_ptr<WindowEventHandler> window_event_handler_;
     bool fixed_aspect_ratio_ = false;
 
