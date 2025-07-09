@@ -33,7 +33,7 @@ namespace visage {
     ~ApplicationWindow() override;
 
     const std::string& title() const { return title_; }
-    void setTitle(std::string title) { title_ = std::move(title); }
+    void setTitle(std::string title);
 
     void setWindowDecoration(Window::Decoration decoration) {
       decoration_ = decoration;

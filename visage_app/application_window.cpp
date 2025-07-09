@@ -53,6 +53,12 @@ namespace visage {
     initial_position_ = bounds.topLeft();
   }
 
+  void ApplicationWindow::setTitle(std::string title) {
+    title_ = std::move(title);
+    if (window_)
+      window_->setWindowTitle(title_);
+  }
+
   void ApplicationWindow::show() {
     show(Dimension::nativePixels(initial_position_.x), Dimension::nativePixels(initial_position_.y),
          Dimension::nativePixels(nativeWidth()), Dimension::nativePixels(nativeHeight()));
