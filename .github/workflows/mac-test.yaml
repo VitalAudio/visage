@@ -22,7 +22,7 @@ jobs:
         run: |
           mkdir cmake_build
           cd cmake_build
-          cmake "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" "-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15" -G "Xcode" ..
+          cmake "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" "-DVISAGE_ADDRESS_SANITIZER=ON" "-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15" -G "Xcode" ..
 
       - name: Build Project and Test
         run: |
