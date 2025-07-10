@@ -463,6 +463,8 @@ TEST_CASE("Frame event handler integration", "[ui]") {
 
     REQUIRE(child_ptr->eventHandler() == &handler);
   }
+
+  frame.setEventHandler(nullptr);
 }
 
 TEST_CASE("Frame layout management", "[ui]") {
