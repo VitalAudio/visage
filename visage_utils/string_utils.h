@@ -394,7 +394,7 @@ namespace visage {
   };
 
   inline std::ostream& operator<<(std::ostream& os, const String& string) {
-    return os << string.toUtf32();
+    return os << string.toUtf8();
   }
 
   std::string encodeDataBase64(const unsigned char* data, size_t size);
