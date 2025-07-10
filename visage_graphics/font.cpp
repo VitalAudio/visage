@@ -516,6 +516,7 @@ namespace visage {
       TypeFaceData type_face_data(font_data, data_size);
       if (type_face_data_lookup_.count(type_face_data) == 0) {
         auto saved_data = std::make_unique<unsigned char[]>(data_size);
+        memcpy(saved_data.get(), font_data, data_size);
         type_face_data.data = saved_data.get();
         type_face_data_lookup_[type_face_data] = std::move(saved_data);
       }
