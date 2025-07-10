@@ -17,7 +17,7 @@ option(VISAGE_ENABLE_GRAPHICS_DEBUG_LOGGING "Shows graphics debug log in console
 option(VISAGE_ADDRESS_SANITIZER "Enable AddressSanitizer" OFF)
 if (VISAGE_ADDRESS_SANITIZER)
   if (MSVC)
-    add_compile_options(/fsanitize=address)
+    add_compile_options(/fsanitize=address /Zi)
     add_link_options(/fsanitize=address)
   else ()
     add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
