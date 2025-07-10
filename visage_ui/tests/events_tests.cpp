@@ -69,8 +69,8 @@ TEST_CASE("EventManager functionality", "[ui]") {
     manager.removeTimer(&timer2);
   }
 
+  int callback_count = 0;
   SECTION("Adding callbacks") {
-    int callback_count = 0;
     manager.addCallback([&callback_count]() { callback_count++; });
   }
 
