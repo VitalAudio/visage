@@ -86,22 +86,21 @@ namespace visage {
 
     alt_clicked_ = e.isAltDown();
     hover_amount_.target(false);
+    redraw();
+
     if (toggle_on_mouse_down_)
       notify(toggle());
-
-    redraw();
   }
 
   void Button::mouseUp(const MouseEvent& e) {
     if (!active_)
       return;
 
+    redraw();
     if (localBounds().contains(e.position)) {
       hover_amount_.target(true, true);
       if (!toggle_on_mouse_down_)
         notify(toggle());
-
-      redraw();
     }
   }
 
