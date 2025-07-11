@@ -67,6 +67,7 @@ TEST_CASE("EventManager functionality", "[ui]") {
 
   SECTION("Adding callbacks") {
     manager.addCallback([&callback_count]() { callback_count++; });
+    manager.checkEventTimers();
   }
 
   SECTION("Checking event timers") {
