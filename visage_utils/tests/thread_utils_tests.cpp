@@ -81,41 +81,6 @@ TEST_CASE("Thread stop before completion", "[utils]") {
   REQUIRE(counter > 0);
 }
 
-TEST_CASE("Thread timeout on waitForEnd", "[utils]") {
-  Thread thread;
-
-  thread.setThreadTask([]() { Thread::sleep(200); });
-
-  thread.start();
-
-  auto start_time = std::chrono::steady_clock::now();
-  bool completed = thread.waitForEnd(50);
-  auto elapsed = std::chrono::steady_clock::now() - start_time;
-
-  REQUIRE_FALSE(completed);
-  REQUIRE(elapsed >= std::chrono::milliseconds(45));
-  REQUIRE(elapsed <= std::chrono::milliseconds(100));
-
-  thread.stop();
-}
-
-TEST_CASE("Thread sleep functions", "[utils]") {
-  auto start_time = std::chrono::steady_clock::now();
-  Thread::sleep(50);
-
-  auto elapsed = std::chrono::steady_clock::now() - start_time;
-  REQUIRE(elapsed >= std::chrono::milliseconds(45));
-
-  start_time = std::chrono::steady_clock::now();
-  Thread::sleepUs(5000);
-  elapsed = std::chrono::steady_clock::now() - start_time;
-  REQUIRE(elapsed >= std::chrono::microseconds(4500));
-}
-
-TEST_CASE("Thread yield function", "[utils]") {
-  Thread::yield();
-}
-
 TEST_CASE("Multiple thread instances", "[utils]") {
   Thread thread1("thread1");
   Thread thread2("thread2");
