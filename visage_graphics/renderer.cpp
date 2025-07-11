@@ -76,6 +76,7 @@ namespace visage {
   }
 
   Renderer::Renderer() : Thread("Renderer Thread") { }
+
   Renderer::~Renderer() {
     stop();
   }

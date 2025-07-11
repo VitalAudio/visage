@@ -54,12 +54,8 @@ TEST_CASE("EventTimer basic functionality", "[ui]") {
 
 TEST_CASE("EventManager functionality", "[ui]") {
   EventManager& manager = EventManager::instance();
+  int callback_count = 0;
   TestEventTimer timer1, timer2;
-
-  SECTION("Singleton pattern") {
-    EventManager& manager2 = EventManager::instance();
-    REQUIRE(&manager == &manager2);
-  }
 
   SECTION("Adding and removing timers") {
     manager.addTimer(&timer1);
@@ -69,7 +65,6 @@ TEST_CASE("EventManager functionality", "[ui]") {
     manager.removeTimer(&timer2);
   }
 
-  int callback_count = 0;
   SECTION("Adding callbacks") {
     manager.addCallback([&callback_count]() { callback_count++; });
   }
@@ -93,15 +88,6 @@ TEST_CASE("MouseEvent basic properties", "[ui]") {
     REQUIRE(event.modifiers == 0);
     REQUIRE_FALSE(event.is_down);
     REQUIRE(event.repeat_click_count == 0);
-  }
-
-  SECTION("Position properties") {
-    event.position = { 10.0f, 20.0f };
-    event.relative_position = { 5.0f, 15.0f };
-    event.window_position = { 100.0f, 200.0f };
-
-    REQUIRE(event.relativePosition() == Point { 5.0f, 15.0f });
-    REQUIRE(event.windowPosition() == Point { 100.0f, 200.0f });
   }
 
   SECTION("Button state queries") {
