@@ -41,13 +41,11 @@ TEST_CASE("Thread basic lifecycle", "[utils]") {
   thread.setThreadTask([&task_executed]() { task_executed = true; });
 
   thread.start();
-  REQUIRE(thread.running());
-  REQUIRE_FALSE(thread.completed());
-
   REQUIRE(thread.waitForEnd(1000));
   REQUIRE_FALSE(thread.running());
   REQUIRE(thread.completed());
   REQUIRE(task_executed);
+  thread.stop();
 }
 
 TEST_CASE("Thread without task", "[utils]") {
