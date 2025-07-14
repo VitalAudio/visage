@@ -334,6 +334,144 @@ namespace visage {
     bgfx::submit(submit_pass, ProgramCache::programHandle(vertex_shader, fragment_shader));
   }
 
+  void submitPathAntiAliasStrip(const PathFillWrapper& path_fill_wrapper, const Layer& layer,
+                                int submit_pass) {
+    int num_vertices = path_fill_wrapper.antiAliasStripLength();
+    if (num_vertices == 0)
+      return;
+
+    if (bgfx::getAvailTransientVertexBuffer(num_vertices, LineVertex::layout()) != num_vertices)
+      return;
+
+    auto next_path_index = [&path_fill_wrapper](int path_index) {
+      path_index++;
+      while (path_index < path_fill_wrapper.path.subPaths().size() &&
+             path_fill_wrapper.path.subPaths()[path_index].points.empty())
+        path_index++;
+
+      return path_index;
+    };
+
+    bgfx::TransientVertexBuffer vertex_buffer {};
+    bgfx::allocTransientVertexBuffer(&vertex_buffer, num_vertices, LineVertex::layout());
+    LineVertex* line_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
+    int outer_index = 0;
+    int inner_index = 0;
+    int path_index = next_path_index(-1);
+
+    int point_index = 0;
+    int vertex_index = 2;
+
+    float scale = path_fill_wrapper.scale;
+    Point inner = path_fill_wrapper.anti_alias.first.subPaths()[0].points[0];
+    line_data[0].x = inner.x * scale;
+    line_data[0].y = inner.y * scale;
+    line_data[1].x = inner.x * scale;
+    line_data[1].y = inner.y * scale;
+    Point outer;
+    for (int i = 0; i < path_fill_wrapper.outer_added_points.size(); ++i) {
+      int num_outer = path_fill_wrapper.outer_added_points[i];
+      int num_inner = path_fill_wrapper.inner_added_points[i];
+
+      while (point_index >= path_fill_wrapper.path.subPaths()[path_index].points.size() - 1) {
+        inner = path_fill_wrapper.anti_alias.first.subPaths()[path_index].points.back();
+        outer = path_fill_wrapper.anti_alias.second.subPaths()[path_index].points.back();
+
+        path_index = next_path_index(path_index);
+        point_index = 0;
+        inner_index = 0;
+        outer_index = 0;
+
+        line_data[vertex_index].x = inner.x * scale;
+        line_data[vertex_index].y = inner.y * scale;
+        line_data[vertex_index + 1].x = outer.x * scale;
+        line_data[vertex_index + 1].y = outer.y * scale;
+        line_data[vertex_index + 2].x = outer.x * scale;
+        line_data[vertex_index + 2].y = outer.y * scale;
+        inner = path_fill_wrapper.anti_alias.first.subPaths()[path_index].points[0];
+        outer = path_fill_wrapper.anti_alias.second.subPaths()[path_index].points[0];
+        line_data[vertex_index + 3].x = inner.x * scale;
+        line_data[vertex_index + 3].y = inner.y * scale;
+        line_data[vertex_index + 4].x = inner.x * scale;
+        line_data[vertex_index + 4].y = inner.y * scale;
+        line_data[vertex_index + 5].x = outer.x * scale;
+        line_data[vertex_index + 5].y = outer.y * scale;
+        vertex_index += 6;
+      }
+
+      inner = path_fill_wrapper.anti_alias.first.subPaths()[path_index].points[inner_index++];
+      outer = path_fill_wrapper.anti_alias.second.subPaths()[path_index].points[outer_index++];
+      line_data[vertex_index].x = inner.x * scale;
+      line_data[vertex_index].y = inner.y * scale;
+      line_data[vertex_index + 1].x = outer.x * scale;
+      line_data[vertex_index + 1].y = outer.y * scale;
+      vertex_index += 2;
+
+      for (int out = 1; out < num_outer; ++out) {
+        outer = path_fill_wrapper.anti_alias.second.subPaths()[path_index].points[outer_index++];
+        line_data[vertex_index].x = inner.x * scale;
+        line_data[vertex_index].y = inner.y * scale;
+        line_data[vertex_index + 1].x = outer.x * scale;
+        line_data[vertex_index + 1].y = outer.y * scale;
+        vertex_index += 2;
+      }
+
+      for (int in = 1; in < num_inner; ++in) {
+        inner = path_fill_wrapper.anti_alias.first.subPaths()[path_index].points[inner_index++];
+        line_data[vertex_index].x = inner.x * scale;
+        line_data[vertex_index].y = inner.y * scale;
+        line_data[vertex_index + 1].x = outer.x * scale;
+        line_data[vertex_index + 1].y = outer.y * scale;
+        vertex_index += 2;
+      }
+
+      point_index++;
+    }
+
+    inner = path_fill_wrapper.anti_alias.first.subPaths()[path_index].points.back();
+    outer = path_fill_wrapper.anti_alias.second.subPaths()[path_index].points.back();
+    line_data[vertex_index].x = inner.x * scale;
+    line_data[vertex_index].y = inner.y * scale;
+    line_data[vertex_index + 1].x = outer.x * scale;
+    line_data[vertex_index + 1].y = outer.y * scale;
+    vertex_index += 2;
+
+    VISAGE_ASSERT(vertex_index == num_vertices);
+
+    for (int i = 0; i < num_vertices; i += 2) {
+      line_data[i].fill = 0.5f;
+      line_data[i + 1].fill = 0.0f;
+      line_data[i].value = 0.0f;
+      line_data[i + 1].value = 0.0f;
+    }
+
+    bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
+
+    float dimensions[4] = { path_fill_wrapper.width, path_fill_wrapper.height, 1.0f, 1.0f };
+    float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
+    auto pos = PackedBrush::computeVertexGradientPositions(path_fill_wrapper.brush, 0, 0, 0, 0,
+                                                           path_fill_wrapper.width,
+                                                           path_fill_wrapper.height);
+    float gradient_color_pos[] = { pos.gradient_color_from_x, pos.gradient_color_y,
+                                   pos.gradient_color_to_x, pos.gradient_color_y };
+    float gradient_pos[] = { pos.gradient_position_from_x, pos.gradient_position_from_y,
+                             pos.gradient_position_to_x, pos.gradient_position_to_y };
+    float line_width[] = { 4.0f, 0.0f, 0.0f, 0.0f };
+    setUniform<Uniforms::kDimensions>(dimensions);
+    setUniform<Uniforms::kTime>(time);
+    setUniform<Uniforms::kGradientColorPosition>(gradient_color_pos);
+    setUniform<Uniforms::kGradientPosition>(gradient_pos);
+    setUniform<Uniforms::kLineWidth>(line_width);
+    setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
+
+    bgfx::setVertexBuffer(0, &vertex_buffer);
+    setUniformBounds(path_fill_wrapper.x, path_fill_wrapper.y, layer.width(), layer.height());
+    setScissor(path_fill_wrapper, layer.width(), layer.height());
+    setColorMult(layer.hdr());
+    auto program = ProgramCache::programHandle(LineWrapper::vertexShader(), LineWrapper::fragmentShader());
+    bgfx::submit(submit_pass, program);
+  }
+
   void submitPathFill(const PathFillWrapper& path_fill_wrapper, const Layer& layer, int submit_pass) {
     int num_vertices = path_fill_wrapper.numVertices();
     int num_indices = path_fill_wrapper.triangulation.triangles.size();
@@ -389,6 +527,8 @@ namespace visage {
     setScissor(path_fill_wrapper, layer.width(), layer.height());
     auto program = ProgramCache::programHandle(LineWrapper::vertexShader(), LineWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
+
+    submitPathAntiAliasStrip(path_fill_wrapper, layer, submit_pass);
   }
 
   void submitLine(const LineWrapper& line_wrapper, const Layer& layer, int submit_pass) {
