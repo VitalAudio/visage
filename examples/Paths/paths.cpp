@@ -153,8 +153,16 @@ int runExample() {
 
   float radius = 100.0f;
   float offset = 0.0f;
-  for (const auto& point : paths[0])
-    path.lineTo(point.x, point.y);
+  path.lineTo(12, 12);
+  path.lineTo(100, 12);
+  path.lineTo(100, 100);
+  path.lineTo(12, 100);
+  path.close();
+
+  path.lineTo(112, 112);
+  path.lineTo(200, 112);
+  path.lineTo(200, 200);
+  path.lineTo(112, 200);
   path.close();
 
   // path.scale(100);
@@ -162,6 +170,7 @@ int runExample() {
   std::vector<visage::Color> colors;
 
   app.onDraw() = [&](visage::Canvas& canvas) {
+    path.translate(0.01f, 0.01f);
     canvas.setColor(0xff442233);
     canvas.fill(0, 0, app.width(), app.height());
 
@@ -170,14 +179,13 @@ int runExample() {
     // path2 = path.computeOffset(value, visage::Path::JoinType::Miter);
 
     // drawTriangles(canvas, path);
-    drawPointIndices(canvas, path);
+    // drawPointIndices(canvas, path);
 
-    canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
+    canvas.setColor(visage::Brush::linear(0x33ff00ff, 0x33ffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));
     canvas.fill(&path, 0, 0, app.width(), app.height());
     canvas.setColor(0xffffffff);
-
-    canvas.line(&path, 0, 0, app.width(), app.height(), 3);
+    // canvas.line(&path, 0, 0, app.width(), app.height(), 3);
     app.redraw();
   };
 

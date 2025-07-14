@@ -42,6 +42,13 @@ namespace visage {
       EvenOdd
     };
 
+    enum class Operation {
+      Union,
+      Intersection,
+      Difference,
+      Xor,
+    };
+
     enum class JoinType {
       Round,
       Miter,
@@ -223,12 +230,11 @@ namespace visage {
 
     void parseSvgPath(const std::string& path);
     Triangulation triangulate() const;
-    Path computeUnion(const Path& other) const;
-    Path computeIntersection(const Path& other) const;
-    Path computeDifference(const Path& other) const;
-    Path computeXor(const Path& other) const;
-
-    Path computeOffset(float offset, JoinType join_type = JoinType::Square) const;
+    Path combine(const Path& other, Operation operation = Operation::Union) const;
+    std::pair<Path, Path> offsetAntiAlias(float scale, std::vector<int>& inner_added_points,
+                                          std::vector<int>& outer_added_points) const;
+    Path offset(float offset, JoinType join_type = JoinType::Square) const;
+    Path breakIntoSimplePolygons() const;
 
     Path scaled(float mult) const {
       Path result = *this;
@@ -296,6 +302,7 @@ namespace visage {
     FillRule fillRule() const { return fill_rule_; }
 
     void setErrorTolerance(float tolerance) {
+      VISAGE_ASSERT(tolerance > 0.0f);
       if (tolerance > 0.0f)
         error_tolerance_ = tolerance;
     }
@@ -325,8 +332,7 @@ namespace visage {
       recurseBezierTo(break_point, midmid2, mid3, to);
     }
 
-    Path computeCombo(const Path& other, Path::FillRule fill_rule, int num_cycles_needed,
-                      bool reverse_other) const;
+    Path combine(const Path& other, Path::FillRule fill_rule, int num_cycles_needed, bool reverse_other) const;
 
     void startNewPath() {
       if (paths_.empty() || !paths_.back().points.empty())

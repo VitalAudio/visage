@@ -637,7 +637,7 @@ TEST_CASE("Path difference", "[graphics]") {
     path2.lineTo(1, 4);
     path2.close();
 
-    Path difference = path1.computeDifference(path2);
+    Path difference = path1.combine(path2, Path::Operation::Difference);
 
     Canvas canvas;
     canvas.setWindowless(5, 5);
@@ -668,7 +668,7 @@ TEST_CASE("Path difference", "[graphics]") {
     path2.lineTo(0, 5);
     path2.close();
 
-    Path difference = path1.computeDifference(path2);
+    Path difference = path1.combine(path2, Path::Operation::Difference);
 
     Canvas canvas;
     canvas.setWindowless(5, 5);
