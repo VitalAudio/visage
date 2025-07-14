@@ -84,16 +84,9 @@ namespace visage {
 
     void setPointValue(float value) { current_value_ = value; }
 
-    Point lastPoint() const {
-      if (paths_.empty() || paths_.back().points.empty())
-        return { 0.0f, 0.0f };
-
-      return paths_.back().points.back();
-    }
-
     void moveTo(Point point, bool relative = false) {
       if (relative)
-        point += lastPoint();
+        point += last_point_;
 
       addPoint(point);
       smooth_control_point_ = {};
@@ -103,7 +96,7 @@ namespace visage {
 
     void lineTo(Point point, bool relative = false) {
       if (relative)
-        point += lastPoint();
+        point += last_point_;
 
       addPoint(point);
       smooth_control_point_ = {};
@@ -112,20 +105,18 @@ namespace visage {
     void lineTo(float x, float y, bool relative = false) { lineTo(Point(x, y), relative); }
 
     void verticalTo(float y, bool relative = false) {
-      Point last_point = lastPoint();
       if (relative)
-        y += lastPoint().y;
+        y += last_point_.y;
 
-      lineTo(last_point.x, y);
+      lineTo(last_point_.x, y);
       smooth_control_point_ = {};
     }
 
     void horizontalTo(float x, bool relative = false) {
-      Point last_point = lastPoint();
       if (relative)
-        x += last_point.x;
+        x += last_point_.x;
 
-      lineTo(x, last_point.y);
+      lineTo(x, last_point_.y);
       smooth_control_point_ = {};
     }
 
@@ -140,7 +131,7 @@ namespace visage {
     }
 
     void quadraticTo(Point control, Point end, bool relative = false) {
-      Point p0 = lastPoint();
+      Point p0 = last_point_;
       if (relative) {
         control += p0;
         end += p0;
@@ -162,7 +153,7 @@ namespace visage {
 
     void smoothQuadraticTo(Point end, bool relative = false) {
       if (relative)
-        end += lastPoint();
+        end += last_point_;
 
       quadraticTo(smooth_control_point_, end);
     }
@@ -184,7 +175,7 @@ namespace visage {
     }
 
     void bezierTo(Point control1, Point control2, Point end, bool relative = false) {
-      Point from = lastPoint();
+      Point from = last_point_;
       if (relative) {
         control1 += from;
         control2 += from;
@@ -201,8 +192,8 @@ namespace visage {
 
     void smoothBezierTo(Point end_control, Point end, bool relative = false) {
       if (relative) {
-        end_control += lastPoint();
-        end += lastPoint();
+        end_control += last_point_;
+        end += last_point_;
       }
 
       bezierTo(smooth_control_point_, end_control, end);
@@ -226,9 +217,12 @@ namespace visage {
     std::vector<SubPath>& subPaths() { return paths_; }
     const std::vector<SubPath>& subPaths() const { return paths_; }
 
-    void clear() { paths_.clear(); }
+    void clear() {
+      paths_.clear();
+      last_point_ = {};
+    }
 
-    void parseSvgPath(const std::string& path);
+    void parseSvgPath(const std::string& path, float scale = 1.0f);
     Triangulation triangulate() const;
     Path combine(const Path& other, Operation operation = Operation::Union) const;
     std::pair<Path, Path> offsetAntiAlias(float scale, std::vector<int>& inner_added_points,
@@ -349,6 +343,7 @@ namespace visage {
     }
 
     void addPoint(const Point& point) {
+      last_point_ = point;
       currentPath().points.push_back(point);
       currentPath().values.push_back(current_value_);
     }
@@ -361,6 +356,7 @@ namespace visage {
     std::vector<SubPath> paths_;
     FillRule fill_rule_ = FillRule::EvenOdd;
     Point smooth_control_point_;
+    Point last_point_;
     float current_value_ = 0.0f;
     float error_tolerance_ = kDefaultErrorTolerance;
   };

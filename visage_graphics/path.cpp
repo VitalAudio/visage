@@ -33,9 +33,9 @@ namespace visage {
 
     smooth_control_point_ = {};
 
-    Point from = lastPoint();
+    Point from = last_point_;
     if (relative)
-      to += from;
+      to += last_point_;
 
     auto ellipse_rotation = Matrix::rotation(x_axis_rotation * kPi / 180.0f);
     Point delta = ellipse_rotation.transpose() * (to - from);
@@ -73,13 +73,15 @@ namespace visage {
     }
   }
 
-  static std::vector<float> parseNumbers(const std::string& str, size_t& i, int num) {
+  static std::vector<float> parseNumbers(const std::string& str, size_t& i, int num, bool bit_flags = false) {
     std::vector<float> numbers;
     std::string number;
     while (i < str.size() && numbers.size() < num) {
       bool sign = str[i] == '-' || str[i] == '+';
-      if (std::isdigit(str[i]) || (number.empty() && sign) || str[i] == '.' || str[i] == 'e' || str[i] == 'E')
+      if (std::isdigit(str[i]) || (number.empty() && sign) || str[i] == '.' || str[i] == 'e' ||
+          str[i] == 'E') {
         number += str[i++];
+      }
       else if (str[i] == ',' || std::isspace(str[i]) || sign) {
         if (!number.empty()) {
           numbers.push_back(std::stof(number));
@@ -92,6 +94,11 @@ namespace visage {
         break;
       else
         ++i;
+
+      if (bit_flags && !number.empty()) {
+        numbers.push_back(std::stof(number));
+        number.clear();
+      }
     }
     if (!number.empty())
       numbers.push_back(std::stof(number));
@@ -116,7 +123,7 @@ namespace visage {
     }
   }
 
-  void Path::parseSvgPath(const std::string& path) {
+  void Path::parseSvgPath(const std::string& path, float scale) {
     startNewPath();
 
     size_t i = 0;
@@ -134,7 +141,23 @@ namespace visage {
       }
 
       bool relative = std::islower(command_char);
-      std::vector<float> vals = parseNumbers(path, i, numbersForCommand(command_char));
+      std::vector<float> vals;
+      if (std::toupper(command_char) == 'A') {
+        vals = parseNumbers(path, i, 3);
+        vals[0] *= scale;
+        vals[1] *= scale;
+        auto flags = parseNumbers(path, i, 2, true);
+        auto end = parseNumbers(path, i, 2);
+        end[0] *= scale;
+        end[1] *= scale;
+        vals.insert(vals.end(), flags.begin(), flags.end());
+        vals.insert(vals.end(), end.begin(), end.end());
+      }
+      else {
+        vals = parseNumbers(path, i, numbersForCommand(command_char));
+        for (auto& val : vals)
+          val *= scale;
+      }
 
       switch (std::toupper(command_char)) {
       case 'M': moveTo(vals[0], vals[1], relative); break;
