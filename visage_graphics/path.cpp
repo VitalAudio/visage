@@ -247,6 +247,13 @@ namespace visage {
       scan_line_ = std::make_unique<ScanLine>(this);
     }
 
+    TriangulationGraph(const TriangulationGraph& other) {
+      points_ = other.points_;
+      prev_edge_ = other.prev_edge_;
+      next_edge_ = other.next_edge_;
+      scan_line_ = std::make_unique<ScanLine>(this);
+    }
+
     Path::Triangulation triangulate(Path::FillRule fill_rule, int minimum_cycles = 1) {
       removeLinearPoints();
       breakIntersections();
@@ -1080,7 +1087,7 @@ namespace visage {
     }
 
     template<Path::JoinType joint_type>
-    void offset(double amount) {
+    void offset(double amount, bool post_simplify, std::vector<int>& points_created) {
       if (amount == 0.0)
         return;
 
@@ -1093,6 +1100,8 @@ namespace visage {
 
         DPoint start = points_[i];
         DPoint prev = points_[prev_edge_[i]];
+        if (prev == start)
+          prev = points_[prev_edge_[prev_edge_[i]]];
         DPoint point = start;
         DPoint prev_direction = (start - prev).normalized();
         DPoint prev_offset = DPoint(-prev_direction.y, prev_direction.x) * amount;
@@ -1107,6 +1116,7 @@ namespace visage {
           if constexpr (joint_type == Path::JoinType::Bevel) {
             points_[index] += offset;
             insertPointBetween(index, next_index, next + offset);
+            points_created.push_back(2);
           }
           else if constexpr (joint_type == Path::JoinType::Miter) {
             auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
@@ -1115,6 +1125,7 @@ namespace visage {
               points_[index] = intersection.value();
             else
               points_[index] = point;
+            points_created.push_back(1);
           }
           else if constexpr (joint_type == Path::JoinType::Square) {
             DPoint square_offset = (prev_direction - direction).normalized() * amount;
@@ -1128,6 +1139,7 @@ namespace visage {
             VISAGE_ASSERT(intersection.has_value());
             points_[index] = intersection_prev.value();
             insertPointBetween(index, next_index, intersection.value());
+            points_created.push_back(2);
           }
           else if constexpr (joint_type == Path::JoinType::Round) {
             bool convex = stableOrientation(prev, point, next) < 0.0;
@@ -1145,6 +1157,7 @@ namespace visage {
                 DPoint insert = point + DPoint(position.real(), position.imag());
                 current_index = insertPointBetween(current_index, next_index, insert);
               }
+              points_created.push_back(num_points + 1);
             }
             else {
               if (amount < 0.0) {
@@ -1152,12 +1165,17 @@ namespace visage {
                                                            point + offset, next + offset);
                 VISAGE_ASSERT(intersection.has_value());
                 points_[index] = intersection.value();
+                points_created.push_back(1);
               }
               else {
                 points_[index] += prev_offset;
                 DPoint insert = point + offset;
-                if (insert != points_[index] && insert != next)
+                if (insert != points_[index] && insert != next) {
                   insertPointBetween(index, next_index, insert);
+                  points_created.push_back(2);
+                }
+                else
+                  points_created.push_back(1);
               }
             }
           }
@@ -1170,9 +1188,17 @@ namespace visage {
         }
       }
 
-      simplify();
-      breakIntersections();
-      fixWindings(Path::FillRule::Positive);
+      if (post_simplify) {
+        simplify();
+        breakIntersections();
+        fixWindings(Path::FillRule::Positive);
+      }
+    }
+
+    template<Path::JoinType joint_type>
+    void offset(double amount, bool post_simplify = true) {
+      std::vector<int> points_created;
+      offset<joint_type>(amount, post_simplify, points_created);
     }
 
     void combine(const TriangulationGraph& other) {
@@ -1397,24 +1423,18 @@ namespace visage {
     return graph.triangulate(fillRule());
   }
 
-  Path Path::computeUnion(const Path& other) const {
-    return computeCombo(other, Path::FillRule::NonZero, 1, false);
+  Path Path::combine(const Path& other, Operation operation) const {
+    switch (operation) {
+    case Operation::Union: return combine(other, Path::FillRule::NonZero, 1, false);
+    case Operation::Intersection: return combine(other, Path::FillRule::NonZero, 2, false);
+    case Operation::Difference: return combine(other, Path::FillRule::Positive, 1, true);
+    case Operation::Xor: return combine(other, Path::FillRule::EvenOdd, 1, false);
+    default: return *this;
+    }
   }
 
-  Path Path::computeIntersection(const Path& other) const {
-    return computeCombo(other, Path::FillRule::NonZero, 2, false);
-  }
-
-  Path Path::computeDifference(const Path& other) const {
-    return computeCombo(other, Path::FillRule::Positive, 1, true);
-  }
-
-  Path Path::computeXor(const Path& other) const {
-    return computeCombo(other, Path::FillRule::EvenOdd, 1, false);
-  }
-
-  Path Path::computeCombo(const Path& other, Path::FillRule fill_rule, int num_cycles_needed,
-                          bool reverse_other) const {
+  Path Path::combine(const Path& other, Path::FillRule fill_rule, int num_cycles_needed,
+                     bool reverse_other) const {
     TriangulationGraph graph(this);
     TriangulationGraph other_graph(&other);
     graph.simplify();
@@ -1433,7 +1453,17 @@ namespace visage {
     return graph.toPath();
   }
 
-  Path Path::computeOffset(float offset, JoinType joint_type) const {
+  std::pair<Path, Path> Path::offsetAntiAlias(float scale, std::vector<int>& inner_added_points,
+                                              std::vector<int>& outer_added_points) const {
+    TriangulationGraph outer(this);
+    outer.simplify();
+    TriangulationGraph inner = outer;
+    outer.offset<JoinType::Round>(0.5f / scale, false, outer_added_points);
+    inner.offset<JoinType::Round>(-0.5f / scale, false, inner_added_points);
+    return { inner.toPath(), outer.toPath() };
+  }
+
+  Path Path::offset(float offset, JoinType joint_type) const {
     TriangulationGraph graph(this);
     graph.simplify();
     graph.breakIntersections();
@@ -1444,6 +1474,15 @@ namespace visage {
     case JoinType::Square: graph.offset<JoinType::Square>(offset); break;
     case JoinType::Round: graph.offset<JoinType::Round>(offset); break;
     }
+    return graph.toPath();
+  }
+
+  Path Path::breakIntoSimplePolygons() const {
+    TriangulationGraph graph(this);
+    graph.removeLinearPoints();
+    graph.simplify();
+    graph.breakIntersections();
+    graph.fixWindings(fillRule());
     return graph.toPath();
   }
 }
