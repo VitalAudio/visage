@@ -454,16 +454,32 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     PathFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
-                    float width, float height, Path* path, float scale) :
-        Shape(batchId(), clamp, brush, x, y, width, height), path(path), scale(scale) {
-      triangulation = path->triangulate();
+                    float width, float height, Path* original, float scale) :
+        Shape(batchId(), clamp, brush, x, y, width, height),
+        path(original->breakIntoSimplePolygons()), scale(scale) {
+      anti_alias = path.offsetAntiAlias(scale, inner_added_points, outer_added_points);
+      VISAGE_ASSERT(inner_added_points.size() == outer_added_points.size());
+      triangulation = anti_alias.first.triangulate();
     }
 
-    Path* path = nullptr;
+    Path path;
     float scale = 1.0f;
+    std::vector<int> outer_added_points;
+    std::vector<int> inner_added_points;
+    std::pair<Path, Path> anti_alias;
     Path::Triangulation triangulation;
 
     int numVertices() const { return triangulation.points.size(); }
+    int antiAliasStripLength() const {
+      int total = 0;
+      for (int i = 0; i < outer_added_points.size(); ++i)
+        total += 2 * (outer_added_points[i] + inner_added_points[i]) - 2;
+      for (const auto& sub_path : path.subPaths()) {
+        if (!sub_path.points.empty())
+          total += 6;
+      }
+      return total - 2;
+    }
   };
 
   struct LineWrapper : Shape<> {
