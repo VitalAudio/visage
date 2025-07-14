@@ -78,10 +78,11 @@ int runExample() {
   static constexpr float kRadius = 40.0f;
 
   visage::Path path;
-  // path.parseSvgPath("M8 9l4-4h-3v-4zM11.636 7.364l-1.121 1.121 4.064 1.515-6.579 "
-  //                   "2.453-6.579-2.453 4.064-1.515-1.121-1.121-4.364 1.636v4l8 3 8-3v-4z");
-  // path.scale(30);
-  // path.translate(30, 30);
+  path.parseSvgPath("M10 18a8 8 0 100 -16 8 8 0 000 16zm3.707 -9.293a1 1 0 00 -1.414 -1.414L9 "
+                    "10.586 "
+                    "7.707 9.293a1 1 0 00 -1.414 1.414l2 2a1 1 0 001.414 0l4 -4z",
+                    30.0f);
+  path.translate(30, 30);
 
   std::vector<std::vector<visage::DPoint>> paths = {
     { { 0, 2 }, { 0, 4 }, { 4, 2 }, { 3, 4 }, { 3, 2 }, { 4, 3 }, { 2, 0 }, { 4, 0 }, { 2, 4 }, { 0, 4 }, { 2, 3 }, { 1, 4 } },
@@ -153,17 +154,17 @@ int runExample() {
 
   float radius = 100.0f;
   float offset = 0.0f;
-  path.lineTo(12, 12);
-  path.lineTo(100, 12);
-  path.lineTo(100, 100);
-  path.lineTo(12, 100);
-  path.close();
-
-  path.lineTo(112, 112);
-  path.lineTo(200, 112);
-  path.lineTo(200, 200);
-  path.lineTo(112, 200);
-  path.close();
+  // path.lineTo(12, 12);
+  // path.lineTo(100, 12);
+  // path.lineTo(100, 100);
+  // path.lineTo(12, 100);
+  // path.close();
+  //
+  // path.lineTo(112, 112);
+  // path.lineTo(200, 112);
+  // path.lineTo(200, 200);
+  // path.lineTo(112, 200);
+  // path.close();
 
   // path.scale(100);
 
@@ -181,7 +182,7 @@ int runExample() {
     // drawTriangles(canvas, path);
     // drawPointIndices(canvas, path);
 
-    canvas.setColor(visage::Brush::linear(0x33ff00ff, 0x33ffff00, visage::Point(0, 0),
+    canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
                                           visage::Point(app.width(), app.height())));
     canvas.fill(&path, 0, 0, app.width(), app.height());
     canvas.setColor(0xffffffff);
