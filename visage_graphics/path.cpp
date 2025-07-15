@@ -289,19 +289,6 @@ namespace visage {
       return result;
     }
 
-    bool lessThan(int a_index, int b_index) const {
-      double compare = points_[a_index].compare(points_[b_index]);
-      if (compare)
-        return compare < 0.0;
-
-      PointType a_type = pointType(a_index);
-      PointType b_type = pointType(b_index);
-      if (a_type != b_type)
-        return a_type == PointType::End || b_type == PointType::Begin;
-
-      return a_index < b_index;
-    }
-
     class ScanLine {
     public:
       enum class IntersectionType {
@@ -1350,12 +1337,36 @@ namespace visage {
     }
 
     std::vector<int> sortedIndices() const {
-      std::vector<int> sorted_indices;
-      sorted_indices.resize(prev_edge_.size());
-      std::iota(sorted_indices.begin(), sorted_indices.end(), 0);
+      struct IndexData {
+        int index;
+        DPoint point;
+        PointType type;
 
-      std::sort(sorted_indices.begin(), sorted_indices.end(),
-                [this](const int a, const int b) { return lessThan(a, b); });
+        IndexData(int i, const DPoint& p, PointType t) : index(i), point(p), type(t) { }
+
+        bool operator<(const IndexData& other) const {
+          double compare = point.compare(other.point);
+          if (compare)
+            return compare < 0.0;
+
+          if (type != other.type)
+            return type == PointType::End || other.type == PointType::Begin;
+
+          return index < other.index;
+        }
+      };
+
+      std::vector<IndexData> sorted_data;
+      sorted_data.reserve(prev_edge_.size());
+      for (int i = 0; i < prev_edge_.size(); ++i)
+        sorted_data.emplace_back(i, points_[i], pointType(i));
+
+      std::sort(sorted_data.begin(), sorted_data.end());
+
+      std::vector<int> sorted_indices;
+      sorted_indices.reserve(sorted_data.size());
+      for (const auto& data : sorted_data)
+        sorted_indices.push_back(data.index);
       return sorted_indices;
     }
 
