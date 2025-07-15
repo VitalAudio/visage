@@ -121,9 +121,7 @@ namespace visage {
         return BasePoint(x / magnitude, y / magnitude);
       return *this;
     }
-    void normalize() {
-      *this = normalized();
-    }
+    void normalize() { *this = normalized(); }
 
     T cross(const BasePoint& other) const { return x * other.y - y * other.x; }
 
