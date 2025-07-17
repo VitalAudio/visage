@@ -573,7 +573,7 @@ namespace visage {
   static void setFillVertices(const LineFillWrapper& line_fill_wrapper,
                               const bgfx::TransientVertexBuffer& vertex_buffer) {
     LineVertex* fill_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
-    Path* path = line_fill_wrapper.path;
+    const Path* path = line_fill_wrapper.path;
     const auto& sub_paths = path->subPaths();
 
     float scale = line_fill_wrapper.scale;

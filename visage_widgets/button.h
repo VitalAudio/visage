@@ -23,7 +23,7 @@
 
 #include "visage_file_embed/embedded_file.h"
 #include "visage_graphics/animation.h"
-#include "visage_graphics/image.h"
+#include "visage_graphics/svg.h"
 #include "visage_graphics/text.h"
 #include "visage_graphics/theme.h"
 #include "visage_ui/frame.h"

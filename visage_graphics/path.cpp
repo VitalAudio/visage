@@ -27,10 +27,10 @@
 #include <set>
 
 namespace visage {
+  static constexpr float kPi = 3.14159265358979323846f;
+
   void Path::arcTo(float x_radius, float y_radius, float x_axis_rotation, bool large_arc,
                    bool sweep_flag, Point to, bool relative) {
-    static constexpr float kPi = 3.14159265358979323846f;
-
     smooth_control_point_ = {};
 
     Point from = last_point_;
@@ -80,7 +80,14 @@ namespace visage {
       bool sign = str[i] == '-' || str[i] == '+';
       if (std::isdigit(str[i]) || (number.empty() && sign) || str[i] == '.' || str[i] == 'e' ||
           str[i] == 'E') {
-        number += str[i++];
+        if (str[i] == '.') {
+          if (number.find('.') != std::string::npos) {
+            numbers.push_back(std::stof(number));
+            number.clear();
+          }
+        }
+        if (numbers.size() < num)
+          number += str[i++];
       }
       else if (str[i] == ',' || std::isspace(str[i]) || sign) {
         if (!number.empty()) {
@@ -103,7 +110,8 @@ namespace visage {
     if (!number.empty())
       numbers.push_back(std::stof(number));
 
-    VISAGE_ASSERT(num == numbers.size());
+    if (num != numbers.size())
+      VISAGE_ASSERT(num == numbers.size());
     return numbers;
   }
 
@@ -123,7 +131,35 @@ namespace visage {
     }
   }
 
-  void Path::parseSvgPath(const std::string& path, float scale) {
+  void Path::addRectangle(float x, float y, float width, float height, Matrix transform) {
+    startNewPath();
+    Point top_left = transform * Point(x, y);
+    Point top_right = transform * Point(x + width, y);
+    Point bottom_right = transform * Point(x + width, y + height);
+    Point bottom_left = transform * Point(x, y + height);
+    moveTo(top_left);
+    lineTo(top_right);
+    lineTo(bottom_right);
+    lineTo(bottom_left);
+    close();
+  }
+
+  void Path::addEllipse(float x, float y, float rx, float ry, Matrix transform) {
+    startNewPath();
+    moveTo(x + rx, y);
+    for (int i = 0; i < 4; ++i) {
+      float angle = i * kPi;
+      arcTo(rx, ry, angle * 180.0f / kPi, false, true,
+            transform * Point(x + rx * cosf(angle), y + ry * sinf(angle)), false);
+    }
+    close();
+  }
+
+  void Path::addCircle(float x, float y, float r, Matrix transform) {
+    addEllipse(x, y, r, r, transform);
+  }
+
+  void Path::parseSvgPath(const std::string& path, Matrix transform) {
     startNewPath();
 
     size_t i = 0;
@@ -144,32 +180,35 @@ namespace visage {
       std::vector<float> vals;
       if (std::toupper(command_char) == 'A') {
         vals = parseNumbers(path, i, 3);
-        vals[0] *= scale;
-        vals[1] *= scale;
         auto flags = parseNumbers(path, i, 2, true);
         auto end = parseNumbers(path, i, 2);
-        end[0] *= scale;
-        end[1] *= scale;
         vals.insert(vals.end(), flags.begin(), flags.end());
         vals.insert(vals.end(), end.begin(), end.end());
       }
-      else {
+      else
         vals = parseNumbers(path, i, numbersForCommand(command_char));
-        for (auto& val : vals)
-          val *= scale;
-      }
+
+      Point point1;
+      if (vals.size() > 0)
+        point1.x = vals[0];
+      if (vals.size() > 1)
+        point1.y = vals[1];
+
+      point1 = transform * point1;
 
       switch (std::toupper(command_char)) {
-      case 'M': moveTo(vals[0], vals[1], relative); break;
-      case 'L': lineTo(vals[0], vals[1], relative); break;
-      case 'H': horizontalTo(vals[0], relative); break;
-      case 'V': verticalTo(vals[0], relative); break;
-      case 'Q': quadraticTo(vals[0], vals[1], vals[2], vals[3], relative); break;
-      case 'T': smoothQuadraticTo(vals[0], vals[1], relative); break;
-      case 'C': bezierTo(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], relative); break;
-      case 'S': smoothBezierTo(vals[0], vals[1], vals[2], vals[3], relative); break;
+      case 'M': moveTo(point1, relative); break;
+      case 'L': lineTo(point1, relative); break;
+      case 'H': horizontalTo(point1.x, relative); break;
+      case 'V': verticalTo((transform * Point(0.0f, vals[0])).y, relative); break;
+      case 'Q': quadraticTo(point1, transform * Point(vals[2], vals[3]), relative); break;
+      case 'T': smoothQuadraticTo(point1, relative); break;
+      case 'C':
+        bezierTo(point1, transform * Point(vals[2], vals[3]), transform * Point(vals[4], vals[5]), relative);
+        break;
+      case 'S': smoothBezierTo(point1, transform * Point(vals[2], vals[3]), relative); break;
       case 'A':
-        arcTo(vals[0], vals[1], vals[2], vals[3], vals[4], Point(vals[5], vals[6]), relative);
+        arcTo(point1.x, point1.y, vals[2], vals[3], vals[4], transform * Point(vals[5], vals[6]), relative);
         break;
       case 'Z': close(); break;
       default: VISAGE_ASSERT(false);
@@ -1105,7 +1144,7 @@ namespace visage {
       int start_points = points_.size();
       std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(start_points);
       for (int i = 0; i < start_points; ++i) {
-        if (i == next_edge_[i])
+        if (i == next_edge_[i] || touched[i])
           continue;
 
         DPoint start = points_[i];
@@ -1123,7 +1162,9 @@ namespace visage {
           DPoint next = next_index == i ? start : points_[next_index];
           DPoint direction = (next - point).normalized();
           auto offset = DPoint(-direction.y, direction.x) * amount;
-          if constexpr (joint_type == Path::JoinType::Bevel) {
+          if (i == next_edge_[next_edge_[index]])
+            points_created.push_back(1);
+          else if constexpr (joint_type == Path::JoinType::Bevel) {
             points_[index] += offset;
             insertPointBetween(index, next_index, next + offset);
             points_created.push_back(2);

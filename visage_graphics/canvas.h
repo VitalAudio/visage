@@ -27,6 +27,7 @@
 #include "region.h"
 #include "screenshot.h"
 #include "shape_batcher.h"
+#include "svg.h"
 #include "text.h"
 #include "theme.h"
 #include "visage_utils/dimension.h"
@@ -375,19 +376,19 @@ namespace visage {
 
     template<typename T1, typename T2>
     void svg(const Svg& svg, const T1& x, const T2& y) {
-      int radius = std::round(pixels(svg.blur_radius));
-      int w = std::round(pixels(svg.width));
-      int h = std::round(pixels(svg.height));
-      addSvg({ svg.data, svg.data_size, w, h, radius }, pixels(x), pixels(y));
+      // int radius = std::round(pixels(svg.blur_radius));
+      // int w = std::round(pixels(svg.width));
+      // int h = std::round(pixels(svg.height));
+      // addSvg({ svg.data, svg.data_size, w, h, radius }, pixels(x), pixels(y));
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
     void svg(const unsigned char* svg_data, int svg_size, const T1& x, const T2& y, const T3& width,
              const T4& height, const T5& blur_radius) {
-      int w = std::round(pixels(width));
-      int h = std::round(pixels(height));
-      int radius = std::round(pixels(blur_radius));
-      addSvg({ svg_data, svg_size, w, h, radius }, pixels(x), pixels(y));
+      // int w = std::round(pixels(width));
+      // int h = std::round(pixels(height));
+      // int radius = std::round(pixels(blur_radius));
+      // addSvg({ svg_data, svg_size, w, h, radius }, pixels(x), pixels(y));
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
@@ -437,19 +438,20 @@ namespace visage {
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
-    void fill(Path* line, const T1& x, const T2& y, const T3& width, const T4& height) {
+    void fill(const Path* line, const T1& x, const T2& y, const T3& width, const T4& height) {
       addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
                                pixels(width), pixels(height), line, state_.scale));
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
-    void line(Path* line, const T1& x, const T2& y, const T3& width, const T4& height, const T5& line_width) {
+    void line(const Path* line, const T1& x, const T2& y, const T3& width, const T4& height,
+              const T5& line_width) {
       addShape(LineWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
                            pixels(width), pixels(height), line, pixels(line_width), state_.scale));
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
-    void lineFill(Path* line, const T1& x, const T2& y, const T3& width, const T4& height,
+    void lineFill(const Path* line, const T1& x, const T2& y, const T3& width, const T4& height,
                   const T5& fill_position) {
       addShape(LineFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
                                pixels(width), pixels(height), line, pixels(fill_position), state_.scale));
@@ -728,8 +730,8 @@ namespace visage {
     }
 
     void addSvg(const Svg& svg, float x, float y) {
-      addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, svg.width,
-                            svg.height, svg, imageAtlas()));
+      // addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, svg.width,
+      //                       svg.height, svg, imageAtlas()));
     }
 
     void addImage(const Image& image, float x, float y) {

@@ -137,61 +137,99 @@ namespace visage {
 
   template<typename T>
   struct BaseMatrix {
-    T matrix[2][2] = { { 0, 0 }, { 0, 0 } };
+    T matrix[3][3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
 
     BaseMatrix() = default;
-    BaseMatrix(T a, T b, T c, T d) {
-      matrix[0][0] = a;
-      matrix[0][1] = b;
-      matrix[1][0] = c;
-      matrix[1][1] = d;
+
+    BaseMatrix(T a1, T a2, T a3, T b1, T b2, T b3, T c1, T c2, T c3) {
+      matrix[0][0] = a1;
+      matrix[0][1] = a2;
+      matrix[0][2] = a3;
+      matrix[1][0] = b1;
+      matrix[1][1] = b2;
+      matrix[1][2] = b3;
+      matrix[2][0] = c1;
+      matrix[2][1] = c2;
+      matrix[2][2] = c3;
     }
 
+    BaseMatrix(T a1, T a2, T a3, T b1, T b2, T b3) :
+        BaseMatrix(a1, a2, a3, b1, b2, b3, 0.0f, 0.0f, 1.0f) { }
+
     BaseMatrix operator*(const BaseMatrix& other) const {
-      return { matrix[0][0] * other.matrix[0][0] + matrix[0][1] * other.matrix[1][0],
-               matrix[0][0] * other.matrix[0][1] + matrix[0][1] * other.matrix[1][1],
-               matrix[1][0] * other.matrix[0][0] + matrix[1][1] * other.matrix[1][0],
-               matrix[1][0] * other.matrix[0][1] + matrix[1][1] * other.matrix[1][1] };
+      return { matrix[0][0] * other.matrix[0][0] + matrix[0][1] * other.matrix[1][0] +
+                   matrix[0][2] * other.matrix[2][0],
+               matrix[0][0] * other.matrix[0][1] + matrix[0][1] * other.matrix[1][1] +
+                   matrix[0][2] * other.matrix[2][1],
+               matrix[0][0] * other.matrix[0][2] + matrix[0][1] * other.matrix[1][2] +
+                   matrix[0][2] * other.matrix[2][2],
+               matrix[1][0] * other.matrix[0][0] + matrix[1][1] * other.matrix[1][0] +
+                   matrix[1][2] * other.matrix[2][0],
+               matrix[1][0] * other.matrix[0][1] + matrix[1][1] * other.matrix[1][1] +
+                   matrix[1][2] * other.matrix[2][1],
+               matrix[1][0] * other.matrix[0][2] + matrix[1][1] * other.matrix[1][2] +
+                   matrix[1][2] * other.matrix[2][2],
+               matrix[2][0] * other.matrix[0][0] + matrix[2][1] * other.matrix[1][0] +
+                   matrix[2][2] * other.matrix[2][0],
+               matrix[2][0] * other.matrix[0][1] + matrix[2][1] * other.matrix[1][1] +
+                   matrix[2][2] * other.matrix[2][1],
+               matrix[2][0] * other.matrix[0][2] + matrix[2][1] * other.matrix[1][2] +
+                   matrix[2][2] * other.matrix[2][2] };
     }
 
     BasePoint<T> operator*(const BasePoint<T>& point) const {
-      return { matrix[0][0] * point.x + matrix[0][1] * point.y,
-               matrix[1][0] * point.x + matrix[1][1] * point.y };
+      return { matrix[0][0] * point.x + matrix[0][1] * point.y + matrix[0][2],
+               matrix[1][0] * point.x + matrix[1][1] * point.y + matrix[1][2] };
     }
 
     BaseMatrix operator*(T scalar) const {
-      return { matrix[0][0] * scalar, matrix[0][1] * scalar, matrix[1][0] * scalar, matrix[1][1] * scalar };
+      return { matrix[0][0] * scalar, matrix[0][1] * scalar, matrix[0][2] * scalar,
+               matrix[1][0] * scalar, matrix[1][1] * scalar, matrix[1][2] * scalar,
+               matrix[2][0] * scalar, matrix[2][1] * scalar, matrix[2][2] * scalar };
     }
 
     BaseMatrix operator/(T scalar) const {
-      return { matrix[0][0] / scalar, matrix[0][1] / scalar, matrix[1][0] / scalar, matrix[1][1] / scalar };
+      if (scalar == 0)
+        return { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+      return { matrix[0][0] / scalar, matrix[0][1] / scalar, matrix[0][2] / scalar,
+               matrix[1][0] / scalar, matrix[1][1] / scalar, matrix[1][2] / scalar,
+               matrix[2][0] / scalar, matrix[2][1] / scalar, matrix[2][2] / scalar };
     }
 
-    static BaseMatrix identity() { return { 1, 0, 0, 1 }; }
+    static BaseMatrix identity() { return { 1, 0, 0, 0, 1, 0, 0, 0, 1 }; }
 
     static BaseMatrix rotation(T angle) {
       T cos_angle = std::cos(angle);
       T sin_angle = std::sin(angle);
-      return { cos_angle, -sin_angle, sin_angle, cos_angle };
+      return { cos_angle, -sin_angle, 0.0f, sin_angle, cos_angle, 0.0f };
     }
 
-    static BaseMatrix scale(T scale_x, T scale_y) { return { scale_x, 0, 0, scale_y }; }
+    static BaseMatrix rotation(T angle, const BasePoint<T>& center) {
+      T cos_angle = std::cos(angle);
+      T sin_angle = std::sin(angle);
+      return { cos_angle, -sin_angle, center.x * (1 - cos_angle) + center.y * sin_angle,
+               sin_angle, cos_angle,  center.y * (1 - cos_angle) - center.x * sin_angle };
+    }
 
-    static BaseMatrix rebasis(const BasePoint<T>& new_identity) {
-      return { new_identity.x, new_identity.y, -new_identity.y, new_identity.x };
-    };
+    static BaseMatrix scale(T scale_x, T scale_y) {
+      return { scale_x, 0.0f, 0.0f, 0.0f, scale_y, 0.0f };
+    }
+
+    static BaseMatrix translation(T translate_x, T translate_y) {
+      return { 1.0f, 0.0f, translate_x, 0.0f, 1.0f, translate_y };
+    }
+
+    static BaseMatrix translation(const BasePoint<T>& translate) {
+      return translation(translate.x, translate.y);
+    }
+
+    static BaseMatrix skewX(T skew) { return { 1.0f, std::tan(skew), 0.0f, 0.0f, 1.0f, 0.0f }; }
+
+    static BaseMatrix skewY(T skew) { return { 1.0f, 0.0f, 0.0f, std::tan(skew), 1.0f, 0.0f }; }
 
     BaseMatrix transpose() const {
-      return { matrix[0][0], matrix[1][0], matrix[0][1], matrix[1][1] };
-    }
-
-    BaseMatrix inverse() const {
-      T det = matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0];
-      if (det == 0)
-        return { 0, 0, 0, 0 };
-      T inv_det = 1.0 / det;
-      return { matrix[1][1] * inv_det, -matrix[0][1] * inv_det, -matrix[1][0] * inv_det,
-               matrix[0][0] * inv_det };
+      return { matrix[0][0], matrix[1][0], matrix[2][0], matrix[0][1], matrix[1][1],
+               matrix[2][1], matrix[0][2], matrix[1][2], matrix[2][2] };
     }
   };
 

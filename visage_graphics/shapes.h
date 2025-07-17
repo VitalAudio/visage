@@ -430,10 +430,10 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     ImageWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-                 float height, const ImageFile& image, ImageAtlas* image_atlas) :
+                 float height, const Image& image, ImageAtlas* image_atlas) :
         Shape(image_atlas, clamp, brush, x, y, width, height),
         packed_image(image_atlas->addImage(image)), image_atlas(image_atlas) {
-      if (width == 0.0f && !image.svg) {
+      if (width == 0.0f) {
         this->width = packed_image.w();
         this->height = packed_image.h();
       }
@@ -454,7 +454,7 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     PathFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
-                    float width, float height, Path* original, float scale) :
+                    float width, float height, const Path* original, float scale) :
         Shape(batchId(), clamp, brush, x, y, width, height),
         path(original->breakIntoSimplePolygons()), scale(scale) {
       anti_alias = path.offsetAntiAlias(scale, inner_added_points, outer_added_points);
@@ -489,11 +489,11 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     LineWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-                float height, Path* path, float line_width, float scale) :
+                float height, const Path* path, float line_width, float scale) :
         Shape(batchId(), clamp, brush, x, y, width, height), path(path), line_width(line_width),
         scale(scale) { }
 
-    Path* path = nullptr;
+    const Path* path = nullptr;
     float line_width = 0.0f;
     float scale = 1.0f;
     float line_value_mult = 1.0f;
@@ -510,11 +510,11 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     LineFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
-                    float width, float height, Path* path, float fill_center, float scale) :
+                    float width, float height, const Path* path, float fill_center, float scale) :
         Shape(batchId(), clamp, brush, x, y, width, height), path(path), fill_center(fill_center),
         scale(scale) { }
 
-    Path* path = nullptr;
+    const Path* path = nullptr;
     float fill_center = 0.0f;
     float scale = 1.0f;
     float fill_value_mult = 1.0f;

@@ -222,7 +222,11 @@ namespace visage {
       last_point_ = {};
     }
 
-    void parseSvgPath(const std::string& path, float scale = 1.0f);
+    void parseSvgPath(const std::string& path, Matrix transform = {});
+    void addRectangle(float x, float y, float width, float height, Matrix transform = {});
+    void addEllipse(float cx, float cy, float rx, float ry, Matrix transform = {});
+    void addCircle(float cx, float cy, float r, Matrix transform = {});
+
     Triangulation triangulate() const;
     Path combine(const Path& other, Operation operation = Operation::Union) const;
     std::pair<Path, Path> offsetAntiAlias(float scale, std::vector<int>& inner_added_points,

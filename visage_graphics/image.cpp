@@ -25,8 +25,6 @@
 #include <bimg/decode.h>
 #include <bx/allocator.h>
 #include <cstring>
-#include <nanosvg/src/nanosvg.h>
-#include <nanosvg/src/nanosvgrast.h>
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include <stb_image_resize2.h>
@@ -65,42 +63,6 @@ namespace visage {
       write_index++;
     }
   }
-
-  class SvgRasterizer {
-  public:
-    static SvgRasterizer& instance() {
-      static SvgRasterizer instance;
-      return instance;
-    }
-
-    ~SvgRasterizer() { nsvgDeleteRasterizer(rasterizer_); }
-
-    std::unique_ptr<unsigned char[]> rasterize(const ImageFile& svg) const {
-      VISAGE_ASSERT(svg.svg);
-      std::unique_ptr<char[]> copy = std::make_unique<char[]>(svg.data_size + 1);
-      memcpy(copy.get(), svg.data, svg.data_size);
-
-      NSVGimage* image = nsvgParse(copy.get(), "px", 96);
-      std::unique_ptr<unsigned char[]> data = std::make_unique<unsigned char[]>(svg.width * svg.height *
-                                                                                ImageAtlas::kChannels);
-
-      float width_scale = svg.width / image->width;
-      float height_scale = svg.height / image->height;
-      float scale = std::min(width_scale, height_scale);
-      float x_offset = (svg.width - image->width * scale) * 0.5f;
-      float y_offset = (svg.height - image->height * scale) * 0.5f;
-
-      nsvgRasterize(rasterizer_, image, x_offset, y_offset, scale, data.get(), svg.width,
-                    svg.height, svg.width * ImageAtlas::kChannels);
-      nsvgDelete(image);
-      return data;
-    }
-
-  private:
-    SvgRasterizer() : rasterizer_(nsvgCreateRasterizer()) { }
-
-    NSVGrasterizer* rasterizer_ = nullptr;
-  };
 
   class ImageAtlasTexture {
   public:
@@ -170,11 +132,11 @@ namespace visage {
 
   ImageAtlas::~ImageAtlas() = default;
 
-  ImageAtlas::PackedImage ImageAtlas::addImage(const ImageFile& image) {
+  ImageAtlas::PackedImage ImageAtlas::addImage(const Image& image) {
     if (images_.count(image) == 0) {
       int width = image.width;
       int height = image.height;
-      if (image.width == 0 && !image.svg) {
+      if (image.width == 0) {
         bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image.data, image.data_size);
         if (image_container) {
           width = image_container->m_width;
@@ -219,42 +181,28 @@ namespace visage {
   }
 
   void ImageAtlas::updateImage(const PackedImageRect* image) const {
-    if (image->w == 0 && image->image.svg)
-      return;
-
     if (texture_ == nullptr || !bgfx::isValid(texture_->handle()))
       return;
 
     PackedRect packed_rect = atlas_map_.rectForId(image);
-    if (image->image.svg) {
-      std::unique_ptr<unsigned char[]> data = SvgRasterizer::instance().rasterize(image->image);
-
-      if (image->image.blur_radius)
-        blurImage(data.get(), image->image.width, image->image.height, image->image.blur_radius);
-
-      texture_->updateTexture(data.get(), packed_rect.x, packed_rect.y, packed_rect.w, packed_rect.h);
-    }
-    else {
-      bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image->image.data,
-                                                               image->image.data_size,
-                                                               bimg::TextureFormat::RGBA8);
-      if (image_container) {
-        unsigned char* image_data = static_cast<unsigned char*>(image_container->m_data);
-        if (image_container->m_width == packed_rect.w && image_container->m_height == packed_rect.h) {
-          texture_->updateTexture(image_data, packed_rect.x, packed_rect.y, packed_rect.w,
-                                  packed_rect.h);
-        }
-        else {
-          int size = packed_rect.w * packed_rect.h * kChannels;
-          std::unique_ptr<unsigned char[]> resampled = std::make_unique<unsigned char[]>(size);
-          stbir_resize_uint8_srgb(image_data, image_container->m_width, image_container->m_height,
-                                  image_container->m_width * kChannels, resampled.get(),
-                                  packed_rect.w, packed_rect.h, packed_rect.w * kChannels, STBIR_BGRA);
-          texture_->updateTexture(resampled.get(), packed_rect.x, packed_rect.y, packed_rect.w,
-                                  packed_rect.h);
-        }
-        bimg::imageFree(image_container);
+    bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image->image.data,
+                                                             image->image.data_size,
+                                                             bimg::TextureFormat::RGBA8);
+    if (image_container) {
+      unsigned char* image_data = static_cast<unsigned char*>(image_container->m_data);
+      if (image_container->m_width == packed_rect.w && image_container->m_height == packed_rect.h) {
+        texture_->updateTexture(image_data, packed_rect.x, packed_rect.y, packed_rect.w, packed_rect.h);
       }
+      else {
+        int size = packed_rect.w * packed_rect.h * kChannels;
+        std::unique_ptr<unsigned char[]> resampled = std::make_unique<unsigned char[]>(size);
+        stbir_resize_uint8_srgb(image_data, image_container->m_width, image_container->m_height,
+                                image_container->m_width * kChannels, resampled.get(),
+                                packed_rect.w, packed_rect.h, packed_rect.w * kChannels, STBIR_BGRA);
+        texture_->updateTexture(resampled.get(), packed_rect.x, packed_rect.y, packed_rect.w,
+                                packed_rect.h);
+      }
+      bimg::imageFree(image_container);
     }
   }
 

@@ -27,26 +27,23 @@
 #include <utility>
 
 namespace visage {
-  struct ImageFile {
-    ImageFile() = default;
-    ImageFile(bool svg, const unsigned char* data, int data_size, int width = 0, int height = 0,
-              int blur_radius = 0) :
-        svg(svg), data(data), data_size(data_size), width(width), height(height),
-        blur_radius(blur_radius) { }
+  struct Image {
+    Image() = default;
+    Image(const unsigned char* data, int data_size, int width = 0, int height = 0, int blur_radius = 0) :
+        data(data), data_size(data_size), width(width), height(height), blur_radius(blur_radius) { }
 
-    bool svg = false;
     const unsigned char* data = nullptr;
     int data_size = 0;
     int width = 0;
     int height = 0;
     int blur_radius = 0;
 
-    bool operator==(const ImageFile& other) const {
+    bool operator==(const Image& other) const {
       return data == other.data && data_size == other.data_size && width == other.width &&
              height == other.height && blur_radius == other.blur_radius;
     }
 
-    bool operator<(const ImageFile& other) const {
+    bool operator<(const Image& other) const {
       return data < other.data || (data == other.data && data_size < other.data_size) ||
              (data == other.data && data_size == other.data_size && width < other.width) ||
              (data == other.data && data_size == other.data_size && width == other.width &&
@@ -54,19 +51,6 @@ namespace visage {
              (data == other.data && data_size == other.data_size && width == other.width &&
               height == other.height && blur_radius < other.blur_radius);
     }
-  };
-
-  struct Svg : ImageFile {
-    Svg() = default;
-    Svg(const unsigned char* data, int data_size, int width, int height, int blur_radius = 0) :
-        ImageFile(true, data, data_size, width, height, blur_radius) { }
-  };
-
-  struct Image : ImageFile {
-    Image() = default;
-    Image(const unsigned char* data, int data_size) : ImageFile(false, data, data_size) { }
-    Image(const unsigned char* data, int data_size, int width, int height) :
-        ImageFile(false, data, data_size, width, height) { }
   };
 
   class ImageAtlasTexture;
@@ -79,9 +63,9 @@ namespace visage {
     static void blurImage(unsigned char* location, int width, int height, int blur_radius);
 
     struct PackedImageRect {
-      explicit PackedImageRect(const ImageFile& image) : image(image) { }
+      explicit PackedImageRect(const Image& image) : image(image) { }
 
-      ImageFile image;
+      Image image;
       int x = 0;
       int y = 0;
       int w = 0;
@@ -119,7 +103,7 @@ namespace visage {
         return reference_->packed_image_rect->h;
       }
 
-      const ImageFile& image() const {
+      const Image& image() const {
         VISAGE_ASSERT(reference_->atlas.lock().get());
         return reference_->packed_image_rect->image;
       }
@@ -139,7 +123,7 @@ namespace visage {
     ImageAtlas();
     virtual ~ImageAtlas();
 
-    PackedImage addImage(const ImageFile& image);
+    PackedImage addImage(const Image& image);
     void clearStaleImages() {
       for (const auto& stale : stale_images_) {
         images_.erase(stale.first);
@@ -158,7 +142,7 @@ namespace visage {
     void loadImageRect(PackedImageRect* image) const;
     void updateImage(const PackedImageRect* image) const;
 
-    void removeImage(const ImageFile& image) {
+    void removeImage(const Image& image) {
       VISAGE_ASSERT(images_.count(image));
       stale_images_[image] = images_[image].get();
     }
@@ -167,9 +151,9 @@ namespace visage {
       removeImage(packed_image_rect->image);
     }
 
-    std::map<ImageFile, std::weak_ptr<PackedImageReference>> references_;
-    std::map<ImageFile, std::unique_ptr<PackedImageRect>> images_;
-    std::map<ImageFile, const PackedImageRect*> stale_images_;
+    std::map<Image, std::weak_ptr<PackedImageReference>> references_;
+    std::map<Image, std::unique_ptr<PackedImageRect>> images_;
+    std::map<Image, const PackedImageRect*> stale_images_;
 
     PackedAtlasMap<const PackedImageRect*> atlas_map_;
     std::unique_ptr<ImageAtlasTexture> texture_;
