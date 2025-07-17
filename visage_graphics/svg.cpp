@@ -1,0 +1,617 @@
+/* Copyright Vital Audio, LLC
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+#include "svg.h"
+
+#include <unordered_map>
+
+namespace visage {
+  struct TagData {
+    std::string name;
+    std::map<std::string, std::string> attributes;
+    bool is_closing = false;
+    bool is_self_closing = false;
+    bool ignored = false;
+  };
+
+  struct Tag {
+    TagData data;
+    std::vector<Tag> children;
+  };
+
+  void SvgDrawable::draw(Canvas& canvas) const {
+    if (!state.visible)
+      return;
+
+    if (state.fill_opacity > 0.0f && !state.fill_brush.isNone())
+      fill(canvas);
+    if (state.stroke_opacity > 0.0f && state.stroke_width > 0.0f && !state.stroke_brush.isNone())
+      stroke(canvas);
+  }
+
+  void SvgDrawable::fill(Canvas& canvas) const {
+    canvas.setColor(state.fill_brush);
+    canvas.fill(&path, 0, 0, 1000, 1000);
+  }
+
+  void SvgDrawable::stroke(Canvas& canvas) const {
+    canvas.setColor(state.stroke_brush);
+    canvas.line(&path, 0, 0, 1000, 1000, state.stroke_width);
+  }
+
+  inline void tryReadFloat(float& result, const std::string& string) {
+    try {
+      result = std::stof(string);
+    }
+    catch (...) {
+    }
+  }
+
+  void consumeWhiteSpace(const std::string& str, int& i) {
+    while (i < str.size() && (str[i] == ' ' || str[i] == '\t' || str[i] == '\n' || str[i] == '\r'))
+      i++;
+  }
+
+  void consumeTillEndTag(const std::string& str, int& i) {
+    int size = str.size();
+    while (i < size && str[i] != '>') {
+      if (str[i] == '"' || str[i] == '\'') {
+        char quote = str[i];
+        i++;
+        while (i < size && str[i] != quote)
+          i++;
+      }
+
+      i++;
+    }
+  }
+
+  std::string unescape(std::string input, const std::string& from, const std::string& to) {
+    size_t pos = 0;
+
+    while ((pos = input.find(from, pos)) != std::string::npos) {
+      input.replace(pos, from.length(), to);
+      pos += to.length();
+    }
+
+    return input;
+  }
+
+  std::pair<std::string, std::string> parseAttribute(const std::string& str, int& i) {
+    std::string key, value;
+    consumeWhiteSpace(str, i);
+    while (i < str.size() && str[i] != '=' && str[i] != ' ' && str[i] != '\t' && str[i] != '>' &&
+           str[i] != '/')
+      key += str[i++];
+
+    if (key.empty() || i >= str.size() || str[i] != '=')
+      return { "", "" };
+
+    i++;
+    char quote_char = str[i++];
+    VISAGE_ASSERT(quote_char == '"' || quote_char == '\'');
+
+    int end = str.find(quote_char, i);
+    if (end == std::string::npos) {
+      VISAGE_ASSERT(false);
+      return { "", "" };
+    }
+
+    value = str.substr(i, end - i);
+    i = end + 1;
+    value = unescape(value, "&quot;", "\"");
+    value = unescape(value, "&apos;", "'");
+    value = unescape(value, "&lt;", "<");
+    value = unescape(value, "&gt;", ">");
+    value = unescape(value, "&amp;", "&");
+
+    return { key, value };
+  }
+
+  TagData parseTag(const std::string& str, int& i) {
+    TagData tag_data;
+    if (i >= str.size())
+      return tag_data;
+
+    i = str.find('<', i);
+    if (i == std::string::npos)
+      return tag_data;
+
+    i++;
+    if (i >= str.size()) {
+      VISAGE_ASSERT(false);
+      return tag_data;
+    }
+
+    if (str[i] == '!' || str[i] == '?') {
+      tag_data.ignored = true;
+      consumeTillEndTag(str, i);
+      return tag_data;
+    }
+
+    if (str[i] == '/') {
+      tag_data.is_closing = true;
+      i++;
+    }
+
+    while (i < str.size() && str[i] != ' ' && str[i] != '\t' && str[i] != '>' && str[i] != '/')
+      tag_data.name += str[i++];
+
+    if (tag_data.is_closing) {
+      VISAGE_ASSERT(!tag_data.name.empty() && i < str.size() && str[i] == '>');
+      return tag_data;
+    }
+
+    auto attribute = parseAttribute(str, i);
+    while (!attribute.first.empty()) {
+      tag_data.attributes[attribute.first] = attribute.second;
+      attribute = parseAttribute(str, i);
+    }
+
+    if (i >= str.size())
+      return tag_data;
+
+    if (str[i] == '/') {
+      tag_data.is_self_closing = true;
+      i++;
+    }
+    if (str[i] == '>')
+      i++;
+    else
+      VISAGE_ASSERT(false);
+
+    return tag_data;
+  }
+
+  Tag parseTagTree(const std::string& str, int& i) {
+    Tag tag;
+    tag.data = parseTag(str, i);
+
+    if (tag.data.ignored || tag.data.is_self_closing || tag.data.is_closing || tag.data.name.empty())
+      return tag;
+
+    Tag child = parseTagTree(str, i);
+    while (!child.data.is_closing && !child.data.name.empty()) {
+      tag.children.push_back(child);
+      child = parseTagTree(str, i);
+    }
+
+    VISAGE_ASSERT(tag.data.name == child.data.name);
+    return tag;
+  }
+
+  Brush parseGradient(Tag& tag) {
+    return Brush::solid(Color(0xffff00ff));  // TODO
+  }
+
+  void collectDefs(std::vector<Tag>& tags, std::map<std::string, Tag>& defs,
+                   std::map<std::string, Brush>& brushes) {
+    for (auto& tag : tags) {
+      if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
+        std::string id = tag.data.attributes.at("id");
+        if (tag.data.name == "linearGradient" || tag.data.name == "radialGradient")
+          brushes[id] = parseGradient(tag);
+        else {
+          defs[id] = tag;
+          defs[id].data.attributes.erase("id");
+        }
+      }
+      collectDefs(tag.children, defs, brushes);
+    }
+  }
+
+  void resolveUses(std::vector<Tag>& tags, const std::map<std::string, Tag> defs) {
+    for (auto& tag : tags) {
+      if (tag.data.name == "use") {
+        if (tag.data.attributes.count("href"))
+          tag.children.push_back(defs.at(tag.data.attributes.at("href").substr(1)));
+        else if (tag.data.attributes.count("xlink:href"))
+          tag.children.push_back(defs.at(tag.data.attributes.at("xlink:href").substr(1)));
+      }
+
+      resolveUses(tag.children, defs);
+    }
+  }
+
+  std::vector<std::string> parseFunctionTokens(const std::string& function_string) {
+    size_t start = function_string.find_first_not_of(" \t\n\r", 0);
+    if (start == std::string::npos)
+      return {};
+
+    size_t end = function_string.find('(', start);
+    if (end == std::string::npos)
+      return { function_string };
+
+    std::vector<std::string> result;
+
+    result.push_back(function_string.substr(start, end - start));
+    size_t close = function_string.find(')', end);
+    if (close == std::string::npos)
+      return {};
+
+    std::string token;
+    std::istringstream stream(function_string.substr(end + 1, close - end - 1));
+
+    while (std::getline(stream, token, ',')) {
+      std::istringstream substream(token);
+      std::string part;
+      while (substream >> part)
+        result.push_back(part);
+    }
+
+    return result;
+  }
+
+  Matrix parseTransform(const std::string& transform_string) {
+    Matrix matrix;
+    std::istringstream ss(transform_string);
+    std::string function_name;
+    size_t pos = 0;
+    while (pos < transform_string.size()) {
+      auto tokens = parseFunctionTokens(transform_string.substr(pos));
+      if (tokens.size() < 2)
+        break;
+
+      std::vector<float> args;
+      for (int i = 1; i < tokens.size(); ++i) {
+        try {
+          args.push_back(std::stof(tokens[i]));
+        }
+        catch (...) {
+          return matrix;
+        }
+      }
+
+      if (function_name == "translate" && args.size() > 0) {
+        float y = args.size() > 1 ? args[1] : args[0];
+        matrix = matrix * Matrix::translation(args[0], y);
+      }
+      else if (function_name == "scale" && args.size() > 0) {
+        float y = args.size() > 1 ? args[1] : args[0];
+        matrix = matrix * Matrix::scale(args[0], y);
+      }
+      else if (function_name == "rotate" && args.size() > 0) {
+        if (args.size() > 2)
+          matrix = matrix * Matrix::rotation(args[0], { args[1], args[2] });
+        else
+          matrix = matrix * Matrix::rotation(args[0]);
+      }
+      else if (function_name == "skewX" && args.size() > 0)
+        matrix = matrix * Matrix::skewX(args[0]);
+      else if (function_name == "skewY" && args.size() > 0)
+        matrix = matrix * Matrix::skewY(args[0]);
+      else if (function_name == "matrix" && args.size() > 5)
+        matrix = matrix * Matrix(args[0], args[1], args[2], args[3], args[4], args[5]);
+    }
+    return matrix;
+  }
+
+  float parseNumber(const std::string& str, float max) {
+    auto percent_pos = str.find('%');
+    if (percent_pos != std::string::npos)
+      max = 100.0f;
+
+    try {
+      return std::stof(str) / max;
+    }
+    catch (...) {
+      return 0.0f;
+    }
+  }
+
+  void removeWhitespace(std::string& string) {
+    constexpr auto is_whitespace = [](char c) { return std::isspace(c); };
+    string.erase(std::remove_if(string.begin(), string.end(), is_whitespace), string.end());
+  }
+
+  Brush translateColor(const std::string& color) {
+    static const std::unordered_map<std::string, Color> named_colors = {
+      { "aliceblue", Color(1, 0.941f, 0.973f, 1.0f) },
+      { "antiquewhite", Color(1, 0.980f, 0.922f, 0.843f) },
+      { "aqua", Color(1, 0.0f, 1.0f, 1.0f) },
+      { "aquamarine", Color(1, 0.498f, 1.0f, 0.831f) },
+      { "azure", Color(1, 0.941f, 1.0f, 1.0f) },
+      { "beige", Color(1, 0.961f, 0.961f, 0.863f) },
+      { "bisque", Color(1, 1.0f, 0.894f, 0.769f) },
+      { "black", Color(1, 0.0f, 0.0f, 0.0f) },
+      { "blanchedalmond", Color(1, 1.0f, 0.922f, 0.804f) },
+      { "blue", Color(1, 0.0f, 0.0f, 1.0f) },
+      { "blueviolet", Color(1, 0.541f, 0.169f, 0.886f) },
+      { "brown", Color(1, 0.647f, 0.165f, 0.165f) },
+      { "burlywood", Color(1, 0.871f, 0.722f, 0.529f) },
+      { "cadetblue", Color(1, 0.373f, 0.620f, 0.627f) },
+      { "chartreuse", Color(1, 0.498f, 1.0f, 0.0f) },
+      { "chocolate", Color(1, 0.824f, 0.412f, 0.118f) },
+      { "coral", Color(1, 1.0f, 0.498f, 0.314f) },
+      { "cornflowerblue", Color(1, 0.392f, 0.584f, 0.929f) },
+      { "cornsilk", Color(1, 1.0f, 0.973f, 0.863f) },
+      { "crimson", Color(1, 0.863f, 0.078f, 0.235f) },
+      { "cyan", Color(1, 0.0f, 1.0f, 1.0f) },
+      { "darkblue", Color(1, 0.0f, 0.0f, 0.545f) },
+      { "darkcyan", Color(1, 0.0f, 0.545f, 0.545f) },
+      { "darkgoldenrod", Color(1, 0.722f, 0.525f, 0.043f) },
+      { "darkgray", Color(1, 0.663f, 0.663f, 0.663f) },
+      { "darkgrey", Color(1, 0.663f, 0.663f, 0.663f) },
+      { "darkgreen", Color(1, 0.0f, 0.392f, 0.0f) },
+      { "darkkhaki", Color(1, 0.741f, 0.718f, 0.420f) },
+      { "darkmagenta", Color(1, 0.545f, 0.0f, 0.545f) },
+      { "darkolivegreen", Color(1, 0.333f, 0.420f, 0.184f) },
+      { "darkorange", Color(1, 1.0f, 0.549f, 0.0f) },
+      { "darkorchid", Color(1, 0.600f, 0.196f, 0.800f) },
+      { "darkred", Color(1, 0.545f, 0.0f, 0.0f) },
+      { "darksalmon", Color(1, 0.914f, 0.588f, 0.478f) },
+      { "darkseagreen", Color(1, 0.561f, 0.737f, 0.561f) },
+      { "darkslateblue", Color(1, 0.282f, 0.239f, 0.545f) },
+      { "darkslategray", Color(1, 0.184f, 0.310f, 0.310f) },
+      { "darkslategrey", Color(1, 0.184f, 0.310f, 0.310f) },
+      { "darkturquoise", Color(1, 0.0f, 0.808f, 0.820f) },
+      { "darkviolet", Color(1, 0.580f, 0.0f, 0.827f) },
+      { "deeppink", Color(1, 1.0f, 0.078f, 0.576f) },
+      { "deepskyblue", Color(1, 0.0f, 0.749f, 1.0f) },
+      { "dimgray", Color(1, 0.412f, 0.412f, 0.412f) },
+      { "dimgrey", Color(1, 0.412f, 0.412f, 0.412f) },
+      { "dodgerblue", Color(1, 0.118f, 0.565f, 1.0f) },
+      { "firebrick", Color(1, 0.698f, 0.133f, 0.133f) },
+      { "floralwhite", Color(1, 1.0f, 0.980f, 0.941f) },
+      { "forestgreen", Color(1, 0.133f, 0.545f, 0.133f) },
+      { "fuchsia", Color(1, 1.0f, 0.0f, 1.0f) },
+      { "gainsboro", Color(1, 0.863f, 0.863f, 0.863f) },
+      { "ghostwhite", Color(1, 0.973f, 0.973f, 1.0f) },
+      { "gold", Color(1, 1.0f, 0.843f, 0.0f) },
+      { "goldenrod", Color(1, 0.855f, 0.647f, 0.125f) },
+      { "gray", Color(1, 0.502f, 0.502f, 0.502f) },
+      { "grey", Color(1, 0.502f, 0.502f, 0.502f) },
+      { "green", Color(1, 0.0f, 0.502f, 0.0f) },
+      { "greenyellow", Color(1, 0.678f, 1.0f, 0.184f) },
+      { "honeydew", Color(1, 0.941f, 1.0f, 0.941f) },
+      { "hotpink", Color(1, 1.0f, 0.412f, 0.706f) },
+      { "indianred", Color(1, 0.804f, 0.361f, 0.361f) },
+      { "indigo", Color(1, 0.294f, 0.0f, 0.510f) },
+      { "ivory", Color(1, 1.0f, 1.0f, 0.941f) },
+      { "khaki", Color(1, 0.941f, 0.902f, 0.549f) },
+      { "lavender", Color(1, 0.902f, 0.902f, 0.980f) },
+      { "lavenderblush", Color(1, 1.0f, 0.941f, 0.961f) },
+      { "lawngreen", Color(1, 0.486f, 0.988f, 0.0f) },
+      { "lemonchiffon", Color(1, 1.0f, 0.980f, 0.804f) },
+      { "lightblue", Color(1, 0.678f, 0.847f, 0.902f) },
+      { "lightcoral", Color(1, 0.941f, 0.502f, 0.502f) },
+      { "lightcyan", Color(1, 0.878f, 1.0f, 1.0f) },
+      { "lightgoldenrodyellow", Color(1, 0.980f, 0.980f, 0.824f) },
+      { "lightgray", Color(1, 0.827f, 0.827f, 0.827f) },
+      { "lightgrey", Color(1, 0.827f, 0.827f, 0.827f) },
+      { "lightgreen", Color(1, 0.565f, 0.933f, 0.565f) },
+      { "lightpink", Color(1, 1.0f, 0.714f, 0.757f) },
+      { "lightsalmon", Color(1, 1.0f, 0.627f, 0.478f) },
+      { "lightseagreen", Color(1, 0.125f, 0.698f, 0.667f) },
+      { "lightskyblue", Color(1, 0.529f, 0.808f, 0.980f) },
+      { "lightslategray", Color(1, 0.467f, 0.533f, 0.600f) },
+      { "lightslategrey", Color(1, 0.467f, 0.533f, 0.600f) },
+      { "lightsteelblue", Color(1, 0.690f, 0.769f, 0.871f) },
+      { "lightyellow", Color(1, 1.0f, 1.0f, 0.878f) },
+      { "lime", Color(1, 0.0f, 1.0f, 0.0f) },
+      { "limegreen", Color(1, 0.196f, 0.804f, 0.196f) },
+      { "linen", Color(1, 0.980f, 0.941f, 0.902f) },
+      { "magenta", Color(1, 1.0f, 0.0f, 1.0f) },
+      { "maroon", Color(1, 0.502f, 0.0f, 0.0f) },
+      { "mediumaquamarine", Color(1, 0.400f, 0.804f, 0.667f) },
+      { "mediumblue", Color(1, 0.0f, 0.0f, 0.804f) },
+      { "mediumorchid", Color(1, 0.729f, 0.333f, 0.827f) },
+      { "mediumpurple", Color(1, 0.576f, 0.439f, 0.859f) },
+      { "mediumseagreen", Color(1, 0.235f, 0.702f, 0.443f) },
+      { "mediumslateblue", Color(1, 0.482f, 0.408f, 0.933f) },
+      { "mediumspringgreen", Color(1, 0.0f, 0.980f, 0.604f) },
+      { "mediumturquoise", Color(1, 0.282f, 0.820f, 0.800f) },
+      { "mediumvioletred", Color(1, 0.780f, 0.082f, 0.522f) },
+      { "midnightblue", Color(1, 0.098f, 0.098f, 0.439f) },
+      { "mintcream", Color(1, 0.961f, 1.0f, 0.980f) },
+      { "mistyrose", Color(1, 1.0f, 0.894f, 0.882f) },
+      { "moccasin", Color(1, 1.0f, 0.894f, 0.710f) },
+      { "navajowhite", Color(1, 1.0f, 0.871f, 0.678f) },
+      { "navy", Color(1, 0.0f, 0.0f, 0.502f) },
+      { "oldlace", Color(1, 0.992f, 0.961f, 0.902f) },
+      { "olive", Color(1, 0.502f, 0.502f, 0.0f) },
+      { "olivedrab", Color(1, 0.420f, 0.557f, 0.137f) },
+      { "orange", Color(1, 1.0f, 0.647f, 0.0f) },
+      { "orangered", Color(1, 1.0f, 0.271f, 0.0f) },
+      { "orchid", Color(1, 0.855f, 0.439f, 0.839f) },
+      { "palegoldenrod", Color(1, 0.933f, 0.910f, 0.667f) },
+      { "palegreen", Color(1, 0.596f, 0.984f, 0.596f) },
+      { "paleturquoise", Color(1, 0.686f, 0.933f, 0.933f) },
+      { "palevioletred", Color(1, 0.859f, 0.439f, 0.576f) },
+      { "papayawhip", Color(1, 1.0f, 0.937f, 0.835f) },
+      { "peachpuff", Color(1, 1.0f, 0.855f, 0.725f) },
+      { "peru", Color(1, 0.804f, 0.522f, 0.247f) },
+      { "pink", Color(1, 1.0f, 0.753f, 0.796f) },
+      { "plum", Color(1, 0.867f, 0.627f, 0.867f) },
+      { "powderblue", Color(1, 0.690f, 0.878f, 0.902f) },
+      { "purple", Color(1, 0.502f, 0.0f, 0.502f) },
+      { "red", Color(1, 1.0f, 0.0f, 0.0f) },
+      { "rosybrown", Color(1, 0.737f, 0.561f, 0.561f) },
+      { "royalblue", Color(1, 0.255f, 0.412f, 0.882f) },
+      { "saddlebrown", Color(1, 0.545f, 0.271f, 0.075f) },
+      { "salmon", Color(1, 0.980f, 0.502f, 0.447f) },
+      { "sandybrown", Color(1, 0.957f, 0.643f, 0.376f) },
+      { "seagreen", Color(1, 0.180f, 0.545f, 0.341f) },
+      { "seashell", Color(1, 1.0f, 0.961f, 0.933f) },
+      { "sienna", Color(1, 0.627f, 0.322f, 0.176f) },
+      { "silver", Color(1, 0.753f, 0.753f, 0.753f) },
+      { "skyblue", Color(1, 0.529f, 0.808f, 0.922f) },
+      { "slateblue", Color(1, 0.416f, 0.353f, 0.804f) },
+      { "slategray", Color(1, 0.439f, 0.502f, 0.565f) },
+      { "slategrey", Color(1, 0.439f, 0.502f, 0.565f) },
+      { "snow", Color(1, 1.0f, 0.980f, 0.980f) },
+      { "springgreen", Color(1, 0.0f, 1.0f, 0.498f) },
+      { "steelblue", Color(1, 0.275f, 0.510f, 0.706f) },
+      { "tan", Color(1, 0.824f, 0.706f, 0.549f) },
+      { "teal", Color(1, 0.0f, 0.502f, 0.502f) },
+      { "thistle", Color(1, 0.847f, 0.749f, 0.847f) },
+      { "tomato", Color(1, 1.0f, 0.388f, 0.278f) },
+      { "turquoise", Color(1, 0.251f, 0.878f, 0.816f) },
+      { "violet", Color(1, 0.933f, 0.510f, 0.933f) },
+      { "wheat", Color(1, 0.961f, 0.871f, 0.702f) },
+      { "white", Color(1, 1.0f, 1.0f, 1.0f) },
+      { "whitesmoke", Color(1, 0.961f, 0.961f, 0.961f) },
+      { "yellow", Color(1, 1.0f, 1.0f, 0.0f) },
+      { "yellowgreen", Color(1, 0.604f, 0.804f, 0.196f) },
+      { "transparent", Color(0, 0.0f, 0.0f, 0.0f) }
+    };
+
+    auto it = named_colors.find(color);
+    if (it != named_colors.end()) {
+      return Brush::solid(it->second);
+    }
+    return Brush::none();
+  }
+
+  Brush parseColor(std::string& color, const std::map<std::string, Brush>& brushes) {
+    removeWhitespace(color);
+
+    if (color == "none")
+      return Brush::none();
+    if (color[0] == '#')
+      return Brush::solid(Color::fromHexString(color.substr(1)));
+
+    auto tokens = parseFunctionTokens(color);
+    if (tokens.size() == 0)
+      return Brush::none();
+    if (tokens.size() == 1)
+      return translateColor(tokens[0]);
+
+    if (tokens[0].substr(0, 3) == "rgb" && tokens.size() > 3) {
+      float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;
+      return Brush::solid(Color(alpha, parseNumber(tokens[1], 255.0f),
+                                parseNumber(tokens[2], 255.0f), parseNumber(tokens[3], 255.0f)));
+    }
+    if (tokens[0].substr(0, 3) == "hsl" && tokens.size() > 3) {
+      float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;
+      return Brush::solid(Color::fromAHSV(alpha, parseNumber(tokens[1], 360.0f),
+                                          parseNumber(tokens[2], 100.0f), parseNumber(tokens[3], 100.0f)));
+    }
+    if (tokens[0].substr(0, 3) == "url" && tokens.size() > 1) {
+      if (tokens[1].size() > 1 && tokens[1][0] == '#') {
+        std::string id = tokens[1].substr(1);
+        if (brushes.count(id) == 0)
+          return brushes.at(id);
+      }
+    }
+    return Brush::none();
+  }
+
+  void loadDrawableState(Tag& tag, DrawableState& state, const std::map<std::string, Brush>& brushes) {
+    for (auto& attribute : tag.data.attributes) {
+      if (attribute.first == "transform")
+        state.transform = state.transform * parseTransform(attribute.second);
+      else if (attribute.first == "fill")
+        state.fill_brush = parseColor(attribute.second, brushes);
+      else if (attribute.first == "fill-opacity")
+        tryReadFloat(state.fill_opacity, attribute.second);
+      else if (attribute.first == "stroke")
+        state.stroke_brush = parseColor(attribute.second, brushes);
+      else if (attribute.first == "stroke-opacity")
+        tryReadFloat(state.stroke_opacity, attribute.second);
+      else if (attribute.first == "stroke-width")
+        tryReadFloat(state.stroke_width, attribute.second);
+      else if (attribute.first == "visibility")
+        state.visible = attribute.second != "hidden";
+    }
+  }
+
+  void loadDrawable(Tag& tag, DrawableState& state, std::vector<std::unique_ptr<SvgDrawable>>& drawables) {
+    if (tag.data.name == "path") {
+      if (tag.data.attributes.count("d")) {
+        auto drawable = std::make_unique<SvgDrawable>();
+        drawable->path.parseSvgPath(tag.data.attributes.at("d"), state.transform);
+        drawable->state = state;
+        drawables.push_back(std::move(drawable));
+      }
+    }
+    else if (tag.data.name == "rect") {
+      auto drawable = std::make_unique<SvgDrawable>();
+      float x = 0.0f, y = 0.0f, width = 0.0f, height = 0.0f;
+      if (tag.data.attributes.count("x"))
+        x = parseNumber(tag.data.attributes.at("x"), 1.0f);
+      if (tag.data.attributes.count("y"))
+        y = parseNumber(tag.data.attributes.at("y"), 1.0f);
+      if (tag.data.attributes.count("width"))
+        width = parseNumber(tag.data.attributes.at("width"), 1.0f);
+      if (tag.data.attributes.count("height"))
+        height = parseNumber(tag.data.attributes.at("height"), 1.0f);
+
+      drawable->path.addRectangle(x, y, width, height, state.transform);
+      drawable->state = state;
+      drawables.push_back(std::move(drawable));
+    }
+    else if (tag.data.name == "circle" || tag.data.name == "ellipse") {
+      auto drawable = std::make_unique<SvgDrawable>();
+      float cx = 0.0f, cy = 0.0f, rx = 0.0f, ry = 0.0f;
+      if (tag.data.attributes.count("cx"))
+        cx = parseNumber(tag.data.attributes.at("cx"), 1.0f);
+      if (tag.data.attributes.count("cy"))
+        cy = parseNumber(tag.data.attributes.at("cy"), 1.0f);
+      if (tag.data.attributes.count("r"))
+        rx = ry = parseNumber(tag.data.attributes.at("r"), 1.0f);
+      else if (tag.data.attributes.count("rx"))
+        rx = parseNumber(tag.data.attributes.at("rx"), 1.0f);
+      else if (tag.data.attributes.count("ry"))
+        ry = parseNumber(tag.data.attributes.at("ry"), 1.0f);
+
+      drawable->path.addEllipse(cx, cy, rx, ry, state.transform);
+      drawable->state = state;
+      drawables.push_back(std::move(drawable));
+    }
+  }
+
+  void computeDrawables(Tag& tag, DrawableState state, std::vector<std::unique_ptr<SvgDrawable>>& drawables,
+                        const std::map<std::string, Tag>& defs,
+                        const std::map<std::string, Brush>& brushes) {
+    if (tag.data.name == "defs")
+      return;
+
+    loadDrawableState(tag, state, brushes);
+    loadDrawable(tag, state, drawables);
+    for (auto& child : tag.children)
+      computeDrawables(child, state, drawables, defs, brushes);
+  }
+
+  void Svg::parseData(const unsigned char* data, int data_size) {
+    drawables_.clear();
+    std::string str(reinterpret_cast<const char*>(data), data_size);
+
+    std::vector<Tag> tags;
+    int i = 0;
+    Tag root = parseTagTree(str, i);
+    while (root.data.ignored || !root.data.name.empty()) {
+      if (!root.data.ignored)
+        tags.push_back(root);
+
+      root = parseTagTree(str, i);
+    }
+
+    std::map<std::string, Tag> defs;
+    std::map<std::string, Brush> brushes;
+    collectDefs(tags, defs, brushes);
+    resolveUses(tags, defs);
+
+    DrawableState state;
+    for (auto& tag : tags)
+      computeDrawables(tag, state, drawables_, defs, brushes);
+  }
+}
