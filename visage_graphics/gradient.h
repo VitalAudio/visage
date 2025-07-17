@@ -286,6 +286,10 @@ namespace visage {
 
   class Brush {
   public:
+    static Brush none() {
+      return { {}, GradientPosition(GradientPosition::InterpolationShape::Solid) };
+    }
+
     static Brush solid(const Color& color) {
       return { Gradient(color), GradientPosition(GradientPosition::InterpolationShape::Solid) };
     }
@@ -339,6 +343,7 @@ namespace visage {
     void encode(std::ostringstream& stream) const;
     void decode(const std::string& data);
     void decode(std::istringstream& stream);
+    bool isNone() const { return gradient_.colors().empty(); }
 
   private:
     Brush(Gradient gradient, const GradientPosition& position) :
