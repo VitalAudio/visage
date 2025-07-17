@@ -36,10 +36,12 @@ namespace visage {
     EventTimer() = default;
     virtual ~EventTimer();
 
+    auto& onTimerCallback() { return on_timer_callback_; }
+
     void startTimer(int ms);
     void stopTimer();
     bool checkTimer(long long current_time);
-    virtual void timerCallback() = 0;
+    virtual void timerCallback() { }
 
     bool isRunning() const {
       VISAGE_ASSERT(ms_ >= -1);
@@ -47,6 +49,9 @@ namespace visage {
     }
 
   private:
+    void notifyTimerCallback() { on_timer_callback_.callback(); }
+
+    CallbackList<void()> on_timer_callback_ { [this]() -> void { timerCallback(); } };
     int ms_ = 0;
     long long last_run_time_ = 0;
   };

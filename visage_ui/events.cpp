@@ -55,7 +55,7 @@ namespace visage {
 
     if (current_time - last_run_time_ >= ms_) {
       last_run_time_ = current_time;
-      timerCallback();
+      notifyTimerCallback();
       return true;
     }
 
