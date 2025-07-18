@@ -132,11 +132,11 @@ namespace visage {
     }
 
     void setIcon(const EmbeddedFile& icon_file, bool shadow = false) {
-      setIcon({ icon_file.data, icon_file.size, 0, 0 }, shadow);
+      setIcon({ icon_file.data, icon_file.size }, shadow);
     }
 
     void setIcon(const unsigned char* svg, int svg_size, bool shadow = false) {
-      setIcon({ svg, svg_size, 0, 0 }, shadow);
+      setIcon({ svg, svg_size }, shadow);
     }
 
     void setIcon(const Svg& icon, bool shadow = false) {
@@ -249,12 +249,12 @@ namespace visage {
     }
 
     ToggleIconButton(const unsigned char* svg, int svg_size, bool shadow = false) :
-        ToggleButton(), icon_({ svg, svg_size, 0, 0 }) {
+        ToggleButton(), icon_({ svg, svg_size }) {
       initSettings(shadow);
     }
 
     ToggleIconButton(const std::string& name, const unsigned char* svg, int svg_size,
-                     bool shadow = false) : ToggleButton(name), icon_({ svg, svg_size, 0, 0 }) {
+                     bool shadow = false) : ToggleButton(name), icon_({ svg, svg_size }) {
       initSettings(shadow);
     }
 

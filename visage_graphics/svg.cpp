@@ -37,24 +37,24 @@ namespace visage {
     std::vector<Tag> children;
   };
 
-  void SvgDrawable::draw(Canvas& canvas) const {
+  void SvgDrawable::draw(Canvas& canvas, float x, float y, float width, float height) const {
     if (!state.visible)
       return;
 
     if (state.fill_opacity > 0.0f && !state.fill_brush.isNone())
-      fill(canvas);
+      fill(canvas, x, y, width, height);
     if (state.stroke_opacity > 0.0f && state.stroke_width > 0.0f && !state.stroke_brush.isNone())
-      stroke(canvas);
+      stroke(canvas, x, y, width, height);
   }
 
-  void SvgDrawable::fill(Canvas& canvas) const {
+  void SvgDrawable::fill(Canvas& canvas, float x, float y, float width, float height) const {
     canvas.setColor(state.fill_brush);
-    canvas.fill(&path, 0, 0, 1000, 1000);
+    canvas.fill(&path, x, y, width, height);
   }
 
-  void SvgDrawable::stroke(Canvas& canvas) const {
+  void SvgDrawable::stroke(Canvas& canvas, float x, float y, float width, float height) const {
     canvas.setColor(state.stroke_brush);
-    canvas.line(&path, 0, 0, 1000, 1000, state.stroke_width);
+    canvas.line(&path, x, y, width, height, state.stroke_width);
   }
 
   inline void tryReadFloat(float& result, const std::string& string) {
@@ -231,6 +231,21 @@ namespace visage {
     }
   }
 
+  std::vector<std::string> splitArguments(const std::string& str) {
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream stream(str);
+    while (std::getline(stream, token, ' ')) {
+      if (!token.empty())
+        tokens.push_back(token);
+
+      std::string part;
+      while (stream >> part)
+        tokens.push_back(part);
+    }
+    return tokens;
+  }
+
   std::vector<std::string> parseFunctionTokens(const std::string& function_string) {
     size_t start = function_string.find_first_not_of(" \t\n\r", 0);
     if (start == std::string::npos)
@@ -240,23 +255,13 @@ namespace visage {
     if (end == std::string::npos)
       return { function_string };
 
-    std::vector<std::string> result;
-
-    result.push_back(function_string.substr(start, end - start));
+    std::string function_name = function_string.substr(start, end - start);
     size_t close = function_string.find(')', end);
     if (close == std::string::npos)
       return {};
 
-    std::string token;
-    std::istringstream stream(function_string.substr(end + 1, close - end - 1));
-
-    while (std::getline(stream, token, ',')) {
-      std::istringstream substream(token);
-      std::string part;
-      while (substream >> part)
-        result.push_back(part);
-    }
-
+    auto result = splitArguments(function_string.substr(end + 1, close - end - 1));
+    result.insert(result.begin(), function_name);
     return result;
   }
 
@@ -591,6 +596,81 @@ namespace visage {
       computeDrawables(child, state, drawables, defs, brushes);
   }
 
+  static Svg::ViewSettings loadSvgViewSettings(const Tag& tag) {
+    Svg::ViewSettings result;
+    if (tag.data.attributes.count("width"))
+      result.width = parseNumber(tag.data.attributes.at("width"), 1.0f);
+    if (tag.data.attributes.count("height"))
+      result.height = parseNumber(tag.data.attributes.at("height"), 1.0f);
+    if (tag.data.attributes.count("viewBox")) {
+      std::vector<std::string> tokens = splitArguments(tag.data.attributes.at("viewBox"));
+      if (tokens.size() >= 4) {
+        result.view_box_x = parseNumber(tokens[0], 1.0f);
+        result.view_box_y = parseNumber(tokens[1], 1.0f);
+        result.view_box_width = parseNumber(tokens[2], 1.0f);
+        result.view_box_height = parseNumber(tokens[3], 1.0f);
+      }
+    }
+
+    result.align = "xMidYMid";
+    result.scale = "meet";
+    if (tag.data.attributes.count("preserveAspectRatio")) {
+      auto aspect_ratio_settings = tag.data.attributes.at("preserveAspectRatio");
+      std::vector<std::string> tokens = splitArguments(aspect_ratio_settings);
+      if (tokens.size() > 0) {
+        if (tokens[0][0] == 'x' || tokens[0][0] == 'X')
+          result.align = tokens[0];
+        else
+          result.scale = tokens[0];
+      }
+      if (tokens.size() > 1) {
+        if (tokens[1][0] == 'x' || tokens[1][0] == 'X')
+          result.align = tokens[1];
+        else
+          result.scale = tokens[1];
+      }
+    }
+    return result;
+  }
+
+  Matrix initialTransform(const Svg::ViewSettings& view) {
+    Matrix transform;
+
+    float extra_width = 0.0f;
+    float extra_height = 0.0f;
+    if (view.width > 0 && view.height > 0 && view.view_box_width > 0 && view.view_box_height > 0) {
+      float scale_x = view.width / view.view_box_width;
+      float scale_y = view.height / view.view_box_height;
+      if (view.scale == "meet")
+        scale_x = scale_y = std::min(scale_x, scale_y);
+      else if (view.scale == "slice")
+        scale_x = scale_y = std::max(scale_x, scale_y);
+
+      transform = Matrix::scale(scale_x, scale_y) * Matrix::translation(-view.view_box_x, -view.view_box_y);
+      extra_width = view.width - (view.view_box_width * scale_x);
+      extra_height = view.height - (view.view_box_height * scale_y);
+    }
+
+    if (view.align == "xMidYMid")
+      transform = Matrix::translation(extra_width / 2, extra_height / 2) * transform;
+    else if (view.align == "xMaxYMax")
+      transform = Matrix::translation(extra_width, extra_height) * transform;
+    else if (view.align == "xMinYMax")
+      transform = Matrix::translation(0, extra_height) * transform;
+    else if (view.align == "xMaxYMin")
+      transform = Matrix::translation(extra_width, 0) * transform;
+    else if (view.align == "xMidYMin")
+      transform = Matrix::translation(extra_width / 2, 0) * transform;
+    else if (view.align == "xMidYMax")
+      transform = Matrix::translation(extra_width / 2, extra_height) * transform;
+    else if (view.align == "xMinYMid")
+      transform = Matrix::translation(0, extra_height / 2) * transform;
+    else if (view.align == "xMaxYMid")
+      transform = Matrix::translation(extra_width, extra_height / 2) * transform;
+
+    return transform;
+  }
+
   void Svg::parseData(const unsigned char* data, int data_size) {
     drawables_.clear();
     std::string str(reinterpret_cast<const char*>(data), data_size);
@@ -611,7 +691,13 @@ namespace visage {
     resolveUses(tags, defs);
 
     DrawableState state;
-    for (auto& tag : tags)
+    for (auto& tag : tags) {
+      if (tag.data.name == "svg") {
+        view_ = loadSvgViewSettings(tag);
+        state.transform = initialTransform(view_);
+      }
+
       computeDrawables(tag, state, drawables_, defs, brushes);
+    }
   }
 }
