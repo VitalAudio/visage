@@ -34,7 +34,7 @@ namespace visage {
 
   class Path {
   public:
-    static constexpr float kDefaultErrorTolerance = 0.05f;
+    static constexpr float kDefaultErrorTolerance = 0.1f;
 
     enum class FillRule {
       NonZero,
