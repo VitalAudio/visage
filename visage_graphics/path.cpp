@@ -287,6 +287,25 @@ namespace visage {
       End
     };
 
+    struct IndexData {
+      int index;
+      DPoint point;
+      PointType type;
+
+      IndexData(int i, const DPoint& p, PointType t) : index(i), point(p), type(t) { }
+
+      bool operator<(const IndexData& other) const {
+        double compare = point.compare(other.point);
+        if (compare)
+          return compare < 0.0;
+
+        if (type != other.type)
+          return type == PointType::End || other.type == PointType::Begin;
+
+        return index < other.index;
+      }
+    };
+
     TriangulationGraph() = delete;
 
     explicit TriangulationGraph(const Path* path) {
@@ -363,7 +382,7 @@ namespace visage {
       bool hasNext() const { return current_index_ < sorted_indices_.size(); }
       void progressToNextEvent() {
         while (current_index_ < sorted_indices_.size()) {
-          int index = sorted_indices_[current_index_];
+          int index = sorted_indices_[current_index_].index;
           if (graph_->next_edge_[index] != index)
             break;
           current_index_++;
@@ -384,18 +403,17 @@ namespace visage {
       }
 
       Event nextEvent() const {
-        int index = sorted_indices_[current_index_];
-        int prev_index = resolveAlias(graph_->prev_edge_[index]);
-        int next_index = resolveAlias(graph_->next_edge_[index]);
-        auto point = graph_->points_[index];
+        auto current = sorted_indices_[current_index_];
+        int prev_index = resolveAlias(graph_->prev_edge_[current.index]);
+        int next_index = resolveAlias(graph_->next_edge_[current.index]);
         auto prev = graph_->points_[prev_index];
         auto next = graph_->points_[next_index];
-        auto type = graph_->pointType(index);
         bool degeneracy = current_index_ + 1 < sorted_indices_.size() &&
-                          graph_->points_[sorted_indices_[current_index_ + 1]] == point;
+                          sorted_indices_[current_index_ + 1].point == current.point;
         degeneracy = degeneracy || (current_index_ - 1 >= 0 &&
-                                    graph_->points_[sorted_indices_[current_index_ - 1]] == point);
-        return { type, index, point, prev_index, prev, next_index, next, degeneracy };
+                                    sorted_indices_[current_index_ - 1].point == current.point);
+        return { current.type, current.index, current.point, prev_index,
+                 prev,         next_index,    next,          degeneracy };
       }
 
       struct IntersectionEvent {
@@ -945,7 +963,7 @@ namespace visage {
 
     private:
       TriangulationGraph* graph_ = nullptr;
-      std::vector<int> sorted_indices_;
+      std::vector<IndexData> sorted_indices_;
       int current_index_ = 0;
       int next_intersection_ = -1;
 
@@ -1127,9 +1145,9 @@ namespace visage {
       auto sorted_indices = sortedIndices();
       std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(points_.size());
 
-      for (int index : sorted_indices) {
-        touched[index] = true;
-        cutEars(index, triangles, touched);
+      for (const auto& index : sorted_indices) {
+        touched[index.index] = true;
+        cutEars(index.index, triangles, touched);
       }
 
       return triangles;
@@ -1137,7 +1155,8 @@ namespace visage {
 
     template<Path::JoinType joint_type>
     void offset(double amount, bool post_simplify, std::vector<int>& points_created) {
-      if (amount == 0.0)
+      static constexpr float kMinOffset = 0.001f;
+      if (std::abs(amount) < kMinOffset)
         return;
 
       double max_delta_radians = 2.0 * std::acos(1.0 - Path::kDefaultErrorTolerance / std::abs(amount));
@@ -1162,7 +1181,7 @@ namespace visage {
           DPoint next = next_index == i ? start : points_[next_index];
           DPoint direction = (next - point).normalized();
           auto offset = DPoint(-direction.y, direction.x) * amount;
-          if (i == next_edge_[next_edge_[index]])
+          if (index == next_edge_[next_edge_[index]])
             points_created.push_back(1);
           else if constexpr (joint_type == Path::JoinType::Bevel) {
             points_[index] += offset;
@@ -1212,10 +1231,14 @@ namespace visage {
             }
             else {
               if (amount < 0.0) {
-                auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
-                                                           point + offset, next + offset);
-                VISAGE_ASSERT(intersection.has_value());
-                points_[index] = intersection.value();
+                DPoint result = point + offset;
+                if (std::abs(direction.dot(prev_direction)) < 0.99f) {
+                  auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
+                                                             point + offset, next + offset);
+                  VISAGE_ASSERT(intersection.has_value());
+                  result = intersection.value();
+                }
+                points_[index] = result;
                 points_created.push_back(1);
               }
               else {
@@ -1377,38 +1400,18 @@ namespace visage {
       return true;
     }
 
-    std::vector<int> sortedIndices() const {
-      struct IndexData {
-        int index;
-        DPoint point;
-        PointType type;
+    std::vector<IndexData> sortedIndices() {
+      sorted_indices_.reserve(prev_edge_.size());
+      for (auto& point : sorted_indices_) {
+        point.type = pointType(point.index);
+        point.point = points_[point.index];
+      }
 
-        IndexData(int i, const DPoint& p, PointType t) : index(i), point(p), type(t) { }
+      for (int i = sorted_indices_.size(); i < prev_edge_.size(); ++i)
+        sorted_indices_.emplace_back(i, points_[i], pointType(i));
 
-        bool operator<(const IndexData& other) const {
-          double compare = point.compare(other.point);
-          if (compare)
-            return compare < 0.0;
-
-          if (type != other.type)
-            return type == PointType::End || other.type == PointType::Begin;
-
-          return index < other.index;
-        }
-      };
-
-      std::vector<IndexData> sorted_data;
-      sorted_data.reserve(prev_edge_.size());
-      for (int i = 0; i < prev_edge_.size(); ++i)
-        sorted_data.emplace_back(i, points_[i], pointType(i));
-
-      std::sort(sorted_data.begin(), sorted_data.end());
-
-      std::vector<int> sorted_indices;
-      sorted_indices.reserve(sorted_data.size());
-      for (const auto& data : sorted_data)
-        sorted_indices.push_back(data.index);
-      return sorted_indices;
+      std::sort(sorted_indices_.begin(), sorted_indices_.end());
+      return sorted_indices_;
     }
 
     void removeCycle(int start_index) {
@@ -1489,6 +1492,7 @@ namespace visage {
 
     std::unique_ptr<ScanLine> scan_line_;
     std::vector<DPoint> points_;
+    std::vector<IndexData> sorted_indices_;
     std::vector<int> prev_edge_;
     std::vector<int> next_edge_;
   };
@@ -1533,8 +1537,8 @@ namespace visage {
     TriangulationGraph outer(this);
     outer.simplify();
     TriangulationGraph inner = outer;
-    outer.offset<JoinType::Bevel>(0.5f / scale, false, outer_added_points);
-    inner.offset<JoinType::Bevel>(-0.5f / scale, false, inner_added_points);
+    outer.offset<JoinType::Round>(0.5f / scale, false, outer_added_points);
+    inner.offset<JoinType::Round>(-0.5f / scale, false, inner_added_points);
     return { inner.toPath(), outer.toPath() };
   }
 
