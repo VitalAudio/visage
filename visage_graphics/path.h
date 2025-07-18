@@ -62,8 +62,6 @@ namespace visage {
       Butt
     };
 
-    static constexpr int kMaxCurveResolution = 32;
-
     template<typename T>
     static std::optional<T> findIntersection(T start1, T end1, T start2, T end2) {
       auto delta1 = end1 - start1;
@@ -131,20 +129,12 @@ namespace visage {
     }
 
     void quadraticTo(Point control, Point end, bool relative = false) {
-      Point p0 = last_point_;
+      Point from = last_point_;
       if (relative) {
-        control += p0;
-        end += p0;
+        control += from;
+        end += from;
       }
-
-      for (int i = 1; i <= kMaxCurveResolution; ++i) {
-        float t = i / static_cast<float>(kMaxCurveResolution);
-        float u = 1 - t;
-        Point point = u * u * p0 + 2 * u * t * control + t * t * end;
-        addPoint(point);
-      }
-
-      smooth_control_point_ = end + (end - control);
+      recurseBezierTo(from, control, control, end);
     }
 
     void quadraticTo(float control_x, float control_y, float end_x, float end_y, bool relative = false) {
