@@ -41,9 +41,9 @@ namespace visage {
   };
 
   struct SvgDrawable {
-    void draw(Canvas& canvas) const;
-    void fill(Canvas& canvas) const;
-    void stroke(Canvas& canvas) const;
+    void draw(Canvas& canvas, float x, float y, float width, float height) const;
+    void fill(Canvas& canvas, float x, float y, float width, float height) const;
+    void stroke(Canvas& canvas, float x, float y, float width, float height) const;
 
     Path path;
     DrawableState state;
@@ -51,14 +51,23 @@ namespace visage {
 
   class Svg {
   public:
+    struct ViewSettings {
+      float width = 0.0f;
+      float height = 0.0f;
+      float view_box_x = 0.0f;
+      float view_box_y = 0.0f;
+      float view_box_width = 0.0f;
+      float view_box_height = 0.0f;
+      std::string align;
+      std::string scale;
+    };
+
     Svg() = default;
 
     Svg& operator=(const Svg& other) {
-      width = other.width;
-      height = other.height;
-      blur_radius = other.blur_radius;
       drawables_.clear();
       drawables_.reserve(other.drawables_.size());
+      view_ = other.view_;
       for (const auto& drawable : other.drawables_)
         drawables_.emplace_back(std::make_unique<SvgDrawable>(*drawable));
       return *this;
@@ -66,16 +75,12 @@ namespace visage {
 
     Svg(const Svg& other) { *this = other; }
 
-    Svg(const unsigned char* data, int data_size, int width = 0, int height = 0, int blur_radius = 0) :
-        width(width), height(height), blur_radius(blur_radius) {
-      parseData(data, data_size);
-    }
-    Svg(const EmbeddedFile& file, int width = 0, int height = 0, int blur_radius = 0) :
-        Svg(file.data, file.size, width, height, blur_radius) { }
+    Svg(const unsigned char* data, int data_size) { parseData(data, data_size); }
+    Svg(const EmbeddedFile& file) : Svg(file.data, file.size) { }
 
-    void draw(Canvas& canvas) const {
+    void draw(Canvas& canvas, float x, float y, float width = 0.0f, float height = 0.0f) const {
       for (const auto& drawable : drawables_)
-        drawable->draw(canvas);
+        drawable->draw(canvas, x, y, width ? width : view_.width, height ? height : view_.height);
     }
 
     int width = 0;
@@ -86,5 +91,6 @@ namespace visage {
     void parseData(const unsigned char* data, int data_size);
 
     std::vector<std::unique_ptr<SvgDrawable>> drawables_;
+    ViewSettings view_;
   };
 }
