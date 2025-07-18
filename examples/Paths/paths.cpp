@@ -78,11 +78,26 @@ int runExample() {
   static constexpr float kRadius = 40.0f;
 
   visage::Path path;
-  path.parseSvgPath("M10 18a8 8 0 100 -16 8 8 0 000 16zm3.707 -9.293a1 1 0 00 -1.414 -1.414L9 "
-                    "10.586 "
-                    "7.707 9.293a1 1 0 00 -1.414 1.414l2 2a1 1 0 001.414 0l4 -4z",
-                    30.0f);
-  path.translate(30, 30);
+  // path.parseSvgPath(
+  //     "M417.03 387.52C405.88 380.67 396.85 370.88 390.91 359.22C376.72 331.39 343.25 265.7 329.07 "
+  //     "237.86C325.29 230.45 314.7       230.46 310.93 237.87C296.74 265.81 263.23 331.78 249.05 "
+  //     "359.71C243.12 371.37 234.08 381.16 222.93 387.99C186.34 410.39 93.63 467.15 57.04 "
+  //     "489.56C47.57 495.36       35.2 492.51 29.21 483.15C24.97 476.51 23.01 473.44 18.76 "
+  //     "466.8C12.87 457.59 15.78 445.32 25.18 439.74C60.74 418.6 150.23 365.4 185.8 344.26C197.02 "
+  //     "337.59 206.09 327.83 211.93 316.15C229.54 280.93 273.43 193.15 291.04 157.93C296.53 "
+  //     "146.97 307.73 140.04 319.99 140.04C323.99 140.04 315.99 140.04 319.99 140.04C332.25       "
+  //     "140.04 343.47 146.95 348.99 157.9C366.59 192.83 410.39 279.75 427.99 314.68C433.87 326.35 "
+  //     "442.94 336.11 454.14 342.83C489.91 364.27 580.07 418.32 615.83 439.76C625.18 445.36 "
+  //     "627.97 457.63 621.96 466.73C617.57 473.38 615.41 476.66 611.01 483.31C604.87 492.62 592.45 "
+  //     "495.36 582.95 489.53C546.36 467.03 453.62 410.01        417.03 387.52Z");
+  //path.parseSvgPath("M632.44 336.35C642.52 327.78 642.52 312.22 632.44 303.65C603.02 278.66 534 "
+  //                  "220.04 504.58 195.05C497.05 188.66 485.49        194.08 485.59 203.96C485.67 "
+  //                  "212.74 485.89 234.68 486.24 269.8C459.05 269.87 442.05 269.92 435.25 "
+  //                  "269.93C421.3 269.97 410 281.3 410 295.25C410 310.2 410 329.8       410 "
+  //                  "344.75C410 358.71 421.29 370.04 435.25 370.08C442.05 370.1 459.05 370.15 "
+  //                  "486.24 370.24C485.89 405.33 485.67 427.27 485.59 436.04C485.49 445.92 497.05 "
+  //                  "451.34 504.58 444.95C534 419.96 603.02 361.34 632.44 336.35Z");
+  // path.translate(30, 30);
 
   std::vector<std::vector<visage::DPoint>> paths = {
     { { 0, 2 }, { 0, 4 }, { 4, 2 }, { 3, 4 }, { 3, 2 }, { 4, 3 }, { 2, 0 }, { 4, 0 }, { 2, 4 }, { 0, 4 }, { 2, 3 }, { 1, 4 } },
@@ -154,11 +169,14 @@ int runExample() {
 
   float radius = 100.0f;
   float offset = 0.0f;
-  // path.lineTo(12, 12);
-  // path.lineTo(100, 12);
-  // path.lineTo(100, 100);
-  // path.lineTo(12, 100);
+  // path.lineTo(0, 0);
+  // path.lineTo(500, 0);
+  // path.lineTo(500, 500);
+  // path.lineTo(250, 250);
+  // path.lineTo(0, 500);
   // path.close();
+  // path.translate(100, 100);
+  // path = path.offset(-35.0f, visage::Path::JoinType::Round);
   //
   // path.lineTo(112, 112);
   // path.lineTo(200, 112);
@@ -166,36 +184,32 @@ int runExample() {
   // path.lineTo(112, 200);
   // path.close();
 
-  // path.scale(100);
-
   std::vector<visage::Color> colors;
 
+  //loop over files in a directory and load them
+  auto svgs = visage::searchForFiles("C:\\Users\\matth\\vital\\icons", ".*\\.svg");
+  visage::Svg svg;
+  int svg_index = 0;
+
+  auto load_next_svg = [&] {
+    std::string svg_data = visage::loadFileAsString(svgs[svg_index]);
+    svg_index = (svg_index + 1) % svgs.size();
+    svg = visage::Svg((unsigned char*)svg_data.c_str(), svg_data.length());
+  };
+
   app.onDraw() = [&](visage::Canvas& canvas) {
-    path.translate(0.01f, 0.01f);
-    canvas.setColor(0xff442233);
+    canvas.setColor(0xffffffff);
     canvas.fill(0, 0, app.width(), app.height());
 
-    double value = 50 * sin(3.5500089999999997 * 0.2);
-    value = 50;
-    // path2 = path.computeOffset(value, visage::Path::JoinType::Miter);
-
-    // drawTriangles(canvas, path);
-    // drawPointIndices(canvas, path);
-
-    canvas.setColor(visage::Brush::linear(0xffff00ff, 0xffffff00, visage::Point(0, 0),
-                                          visage::Point(app.width(), app.height())));
+    svg.draw(canvas, 0, 0);
+    canvas.setColor(0xff00ff00);
     canvas.fill(&path, 0, 0, app.width(), app.height());
-    canvas.setColor(0xffffffff);
-    // canvas.line(&path, 0, 0, app.width(), app.height(), 3);
     app.redraw();
   };
 
   app.onMouseMove() = [&](const visage::MouseEvent& e) { offset = e.position.y * 0.1f; };
   app.onMouseDown() = [&](const visage::MouseEvent& e) {
-    path.clear();
-    for (int i = 0; i < 10; ++i) {
-      path.lineTo(randomFloat(0.0f, app.width()), randomFloat(0.0f, app.height()));
-    }
+    load_next_svg();
     app.redraw();
     // svg_path.translate(-0.5f * app.width(), -0.5f * app.height());
     // if (e.isRightButton())

@@ -394,9 +394,9 @@ namespace visage {
     template<typename T1, typename T2, typename T3, typename T4>
     void svg(const unsigned char* svg_data, int svg_size, const T1& x, const T2& y, const T3& width,
              const T4& height) {
-      int w = std::round(pixels(width));
-      int h = std::round(pixels(height));
-      addSvg({ svg_data, svg_size, w, h, 0 }, pixels(x), pixels(y));
+      // int w = std::round(pixels(width));
+      // int h = std::round(pixels(height));
+      // addSvg({ svg_data, svg_size, w, h, 0 }, pixels(x), pixels(y));
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
@@ -447,7 +447,7 @@ namespace visage {
     void line(const Path* line, const T1& x, const T2& y, const T3& width, const T4& height,
               const T5& line_width) {
       addShape(LineWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
-                           pixels(width), pixels(height), line, pixels(line_width), state_.scale));
+                           pixels(width), pixels(height), line, pixels(line_width) + 0.5f, state_.scale));
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
