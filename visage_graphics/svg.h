@@ -30,7 +30,7 @@ namespace visage {
   struct DrawableState {
     Matrix transform;
 
-    Brush fill_brush;
+    Brush fill_brush = Brush::solid(0xff000000);
     float fill_opacity = 1.0f;
 
     Brush stroke_brush;
