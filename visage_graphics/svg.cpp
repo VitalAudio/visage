@@ -152,7 +152,8 @@ namespace visage {
       i++;
     }
 
-    while (i < str.size() && str[i] != ' ' && str[i] != '\t' && str[i] != '>' && str[i] != '/')
+    while (i < str.size() && str[i] != ' ' && str[i] != '\t' && str[i] != '\n' && str[i] != '\r' &&
+           str[i] != '>' && str[i] != '/')
       tag_data.name += str[i++];
 
     if (tag_data.is_closing) {
@@ -246,8 +247,8 @@ namespace visage {
     return tokens;
   }
 
-  std::vector<std::string> parseFunctionTokens(const std::string& function_string) {
-    size_t start = function_string.find_first_not_of(" \t\n\r", 0);
+  std::vector<std::string> parseFunctionTokens(const std::string& function_string, int& pos) {
+    size_t start = function_string.find_first_not_of(" \t\n\r", pos);
     if (start == std::string::npos)
       return {};
 
@@ -260,6 +261,7 @@ namespace visage {
     if (close == std::string::npos)
       return {};
 
+    pos = close + 1;
     auto result = splitArguments(function_string.substr(end + 1, close - end - 1));
     result.insert(result.begin(), function_name);
     return result;
@@ -268,10 +270,9 @@ namespace visage {
   Matrix parseTransform(const std::string& transform_string) {
     Matrix matrix;
     std::istringstream ss(transform_string);
-    std::string function_name;
-    size_t pos = 0;
+    int pos = 0;
     while (pos < transform_string.size()) {
-      auto tokens = parseFunctionTokens(transform_string.substr(pos));
+      auto tokens = parseFunctionTokens(transform_string, pos);
       if (tokens.size() < 2)
         break;
 
@@ -285,25 +286,25 @@ namespace visage {
         }
       }
 
-      if (function_name == "translate" && args.size() > 0) {
+      if (tokens[0] == "translate" && args.size() > 0) {
         float y = args.size() > 1 ? args[1] : args[0];
         matrix = matrix * Matrix::translation(args[0], y);
       }
-      else if (function_name == "scale" && args.size() > 0) {
+      else if (tokens[0] == "scale" && args.size() > 0) {
         float y = args.size() > 1 ? args[1] : args[0];
         matrix = matrix * Matrix::scale(args[0], y);
       }
-      else if (function_name == "rotate" && args.size() > 0) {
+      else if (tokens[0] == "rotate" && args.size() > 0) {
         if (args.size() > 2)
           matrix = matrix * Matrix::rotation(args[0], { args[1], args[2] });
         else
           matrix = matrix * Matrix::rotation(args[0]);
       }
-      else if (function_name == "skewX" && args.size() > 0)
+      else if (tokens[0] == "skewX" && args.size() > 0)
         matrix = matrix * Matrix::skewX(args[0]);
-      else if (function_name == "skewY" && args.size() > 0)
+      else if (tokens[0] == "skewY" && args.size() > 0)
         matrix = matrix * Matrix::skewY(args[0]);
-      else if (function_name == "matrix" && args.size() > 5)
+      else if (tokens[0] == "matrix" && args.size() > 5)
         matrix = matrix * Matrix(args[0], args[1], args[2], args[3], args[4], args[5]);
     }
     return matrix;
@@ -494,7 +495,8 @@ namespace visage {
     if (color[0] == '#')
       return Brush::solid(Color::fromHexString(color.substr(1)));
 
-    auto tokens = parseFunctionTokens(color);
+    int pos = 0;
+    auto tokens = parseFunctionTokens(color, pos);
     if (tokens.size() == 0)
       return Brush::none();
     if (tokens.size() == 1)
@@ -573,9 +575,9 @@ namespace visage {
         cy = parseNumber(tag.data.attributes.at("cy"), 1.0f);
       if (tag.data.attributes.count("r"))
         rx = ry = parseNumber(tag.data.attributes.at("r"), 1.0f);
-      else if (tag.data.attributes.count("rx"))
+      if (tag.data.attributes.count("rx"))
         rx = parseNumber(tag.data.attributes.at("rx"), 1.0f);
-      else if (tag.data.attributes.count("ry"))
+      if (tag.data.attributes.count("ry"))
         ry = parseNumber(tag.data.attributes.at("ry"), 1.0f);
 
       drawable->path.addEllipse(cx, cy, rx, ry, state.transform);

@@ -101,14 +101,14 @@ namespace visage {
   void ApplicationEditor::addToWindow(Window* window) {
     window_ = window;
 
-    Renderer::instance().initialize(window_->initWindow(), window->globalDisplay());
-    canvas_->pairToWindow(window_->nativeHandle(), window->clientWidth(), window->clientHeight());
+    Renderer::instance().initialize(window_->initWindow(), window_->globalDisplay());
+    canvas_->pairToWindow(window_->nativeHandle(), window_->clientWidth(), window_->clientHeight());
     top_level_.setDpiScale(window_->dpiScale());
-    top_level_.setNativeBounds(0, 0, window->clientWidth(), window->clientHeight());
+    top_level_.setNativeBounds(0, 0, window_->clientWidth(), window_->clientHeight());
 
-    window_event_handler_ = std::make_unique<WindowEventHandler>(window, &top_level_);
+    window_event_handler_ = std::make_unique<WindowEventHandler>(window_, &top_level_);
 
-    window->setDrawCallback([this](double time) {
+    window_->setDrawCallback([this](double time) {
       canvas_->updateTime(time);
       EventManager::instance().checkEventTimers();
       drawWindow();
