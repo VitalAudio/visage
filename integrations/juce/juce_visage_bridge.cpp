@@ -86,16 +86,27 @@ void JuceVisageBridge::newOpenGLContextCreated() {
     // Initialize Visage graphics system with the JUCE OpenGL context
     // This ensures proper integration and prevents rendering conflicts
     
-    auto* display = openGLContext.extensions.glXGetCurrentDisplay != nullptr ? 
-                   openGLContext.extensions.glXGetCurrentDisplay() : nullptr;
+    // Get display handle for X11 (Linux) - on other platforms this will be null
+    void* display = nullptr;
+#if JUCE_LINUX
+    if (auto* peer = getPeer()) {
+        display = peer->getNativeHandle();
+    }
+#endif
     
     // Initialize Visage renderer with our OpenGL context
     // Note: The exact initialization may vary depending on Visage's internal API
-    visage::Renderer::instance().checkInitialization(
-        openGLContext.getNativeWindowHandle(), display);
+    void* windowHandle = nullptr;
+    if (auto* peer = getPeer()) {
+        windowHandle = peer->getNativeHandle();
+    }
     
-    contextReady = true;
-    createVisageWindowAsync();
+    visage::Renderer::instance().checkInitialization(windowHandle, display);
+    
+    isInitialized = true;
+    
+    // Trigger initial layout update
+    resized();
 }
 
 void JuceVisageBridge::createVisageWindowAsync() {
@@ -113,9 +124,10 @@ void JuceVisageBridge::createVisageWindowAsync() {
     // Clean up any existing setup
     shutdownVisageWindow();
     
-    // Set up the canvas for rendering
-    canvas.pairToWindow(openGLContext.getNativeWindowHandle(), 
-                       getWidth(), getHeight());
+    // Set up the canvas for rendering using peer's native handle
+    if (auto* peer = getPeer()) {
+        canvas.pairToWindow(peer->getNativeHandle(), getWidth(), getHeight());
+    }
     
     isInitialized = true;
     
@@ -167,9 +179,10 @@ void JuceVisageBridge::refreshContext() {
     // Force a refresh of the OpenGL context - useful for plugin hosts
     // that might change window states unexpectedly
     if (isInitialized && getWidth() > 0 && getHeight() > 0) {
-        // Re-pair the canvas to ensure proper viewport
-        canvas.pairToWindow(openGLContext.getNativeWindowHandle(), 
-                           getWidth(), getHeight());
+        // Re-pair the canvas to ensure proper viewport using peer's native handle
+        if (auto* peer = getPeer()) {
+            canvas.pairToWindow(peer->getNativeHandle(), getWidth(), getHeight());
+        }
         
         // Update frame bounds
         if (rootFrame) {

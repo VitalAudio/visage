@@ -90,6 +90,56 @@ if (VISAGE_BUILD_JUCE_INTEGRATION)
             DESTINATION include/visage/integrations/juce
         )
         
+        # Create a test executable to validate integration concepts
+        add_executable(VisageJuceIntegrationTest
+            integration_test.cpp
+        )
+        
+        target_link_libraries(VisageJuceIntegrationTest PRIVATE
+            visage
+        )
+        
+        set_target_properties(VisageJuceIntegrationTest PROPERTIES
+            FOLDER "visage/integrations/tests"
+        )
+        
+        # Create a GUI test application to demonstrate the fix
+        add_executable(VisageJuceTestApp
+            test_app.cpp
+        )
+        
+        target_include_directories(VisageJuceTestApp PRIVATE
+            ${JUCE_INCLUDE_DIR}
+        )
+        
+        target_link_libraries(VisageJuceTestApp PRIVATE
+            visage
+        )
+        
+        # Add platform-specific JUCE libraries for the test app
+        if (UNIX AND NOT APPLE)
+            target_link_libraries(VisageJuceTestApp PRIVATE
+                GL
+                X11
+                Xext
+                Xinerama
+                asound
+                dl
+                freetype
+                pthread
+                rt
+            )
+        endif()
+        
+        target_compile_definitions(VisageJuceTestApp PRIVATE
+            JUCE_STANDALONE_APPLICATION=1
+            JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1
+        )
+        
+        set_target_properties(VisageJuceTestApp PROPERTIES
+            FOLDER "visage/integrations/tests"
+        )
+        
     else()
         message(WARNING "JUCE not found. Set JUCE_DIR or JUCE_PATH to enable JUCE integration.")
         message(STATUS "You can download JUCE from: https://juce.com/")

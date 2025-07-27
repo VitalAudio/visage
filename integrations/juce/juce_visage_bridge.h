@@ -22,6 +22,8 @@
 #ifndef JUCE_VISAGE_BRIDGE_H
 #define JUCE_VISAGE_BRIDGE_H
 
+#define JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED 1
+
 #include <juce_core/juce_core.h>
 #include <juce_graphics/juce_graphics.h>
 #include <juce_gui_basics/juce_gui_basics.h>
