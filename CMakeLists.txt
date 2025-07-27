@@ -68,6 +68,9 @@ add_subdirectory(visage_widgets)
 add_subdirectory(visage_windowing)
 add_subdirectory(visage_app)
 
+# Optional integrations with third-party frameworks
+add_subdirectory(integrations)
+
 set(DUMMY_FILE ${CMAKE_CURRENT_BINARY_DIR}/dummy.cpp)
 if (NOT EXISTS ${DUMMY_FILE})
   file(WRITE ${DUMMY_FILE} "")
