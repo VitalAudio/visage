@@ -29,10 +29,15 @@ JuceVisageBridge::JuceVisageBridge() {
     // Enable continuous repainting to ensure stable 60fps rendering
     // This eliminates flickering and provides smooth updates
     openGLContext.setContinuousRepainting(true);
+    
+    // Set as opaque to prevent underlying component painting issues
+    setOpaque(true);
 }
 
 JuceVisageBridge::~JuceVisageBridge() {
-    // Clean shutdown: detach OpenGL context before destruction
+    // Clean shutdown: stop timer and detach OpenGL context
+    stopTimer();
+    shutdownVisageWindow();
     openGLContext.detach();
 }
 
@@ -52,15 +57,15 @@ void JuceVisageBridge::paint(juce::Graphics& g) {
     // Fallback rendering before OpenGL is initialized
     // This prevents the initial magenta flash by providing a proper background
     if (!isInitialized) {
-        g.fillAll(juce::Colour(0xff282828));  // Dark gray background
+        g.fillAll(juce::Colour(0xff282828));  // Dark gray background to prevent magenta flash
         
         if (rootFrame) {
-            // Show a placeholder or loading state
-            g.setColour(juce::Colours::white.withAlpha(0.5f));
-            g.drawText("Initializing Visage...", getLocalBounds(), 
-                      juce::Justification::centred, true);
+            // Show a subtle loading state without text to avoid visual artifacts
+            g.setColour(juce::Colour(0xff3a3a3a));
+            g.fillRect(getLocalBounds().reduced(2));
         }
     }
+    // When OpenGL is initialized, this paint method won't be called as OpenGL takes over
 }
 
 void JuceVisageBridge::resized() {
@@ -69,10 +74,11 @@ void JuceVisageBridge::resized() {
         rootFrame->setBounds(0, 0, getWidth(), getHeight());
     }
     
-    // If Visage canvas is initialized, update its viewport
-    if (isInitialized && getWidth() > 0 && getHeight() > 0) {
-        canvas.pairToWindow(openGLContext.getNativeWindowHandle(), 
-                           getWidth(), getHeight());
+    // Handle window creation/destruction asynchronously for thread safety
+    if (getWidth() > 0 && getHeight() > 0) {
+        juce::MessageManager::callAsync([this] {
+            createVisageWindowAsync();
+        });
     }
 }
 
@@ -88,14 +94,43 @@ void JuceVisageBridge::newOpenGLContextCreated() {
     visage::Renderer::instance().checkInitialization(
         openGLContext.getNativeWindowHandle(), display);
     
+    contextReady = true;
+    createVisageWindowAsync();
+}
+
+void JuceVisageBridge::createVisageWindowAsync() {
+    // Ensure we're on the message thread for thread safety
+    if (!juce::MessageManager::getInstance()->isThisTheMessageThread()) {
+        juce::MessageManager::callAsync([this] { createVisageWindowAsync(); });
+        return;
+    }
+    
+    // Ensure we have valid context and size
+    if (!contextReady || getWidth() <= 0 || getHeight() <= 0) {
+        return;
+    }
+    
+    // Clean up any existing setup
+    shutdownVisageWindow();
+    
     // Set up the canvas for rendering
     canvas.pairToWindow(openGLContext.getNativeWindowHandle(), 
                        getWidth(), getHeight());
     
     isInitialized = true;
     
+    // Start timer for 60fps rendering
+    startTimerHz(60);
+    
     // Trigger initial layout update
-    resized();
+    if (rootFrame) {
+        rootFrame->setBounds(0, 0, getWidth(), getHeight());
+    }
+}
+
+void JuceVisageBridge::shutdownVisageWindow() {
+    stopTimer();
+    isInitialized = false;
 }
 
 void JuceVisageBridge::renderOpenGL() {
@@ -114,12 +149,36 @@ void JuceVisageBridge::renderOpenGL() {
     canvas.submit();
 }
 
+void JuceVisageBridge::timerCallback() {
+    // Additional rendering update if needed
+    // The OpenGL context should handle most rendering via renderOpenGL()
+    if (isInitialized) {
+        repaint();
+    }
+}
+
 void JuceVisageBridge::openGLContextClosing() {
     // Clean shutdown of Visage graphics
-    isInitialized = false;
-    
-    // Note: Visage may have its own shutdown sequence
-    // Add any necessary cleanup here based on Visage's API
+    shutdownVisageWindow();
+    contextReady = false;
+}
+
+void JuceVisageBridge::refreshContext() {
+    // Force a refresh of the OpenGL context - useful for plugin hosts
+    // that might change window states unexpectedly
+    if (isInitialized && getWidth() > 0 && getHeight() > 0) {
+        // Re-pair the canvas to ensure proper viewport
+        canvas.pairToWindow(openGLContext.getNativeWindowHandle(), 
+                           getWidth(), getHeight());
+        
+        // Update frame bounds
+        if (rootFrame) {
+            rootFrame->setBounds(0, 0, getWidth(), getHeight());
+        }
+        
+        // Trigger a repaint
+        repaint();
+    }
 }
 
 void JuceVisageBridge::mouseDown(const juce::MouseEvent& event) {
@@ -189,5 +248,41 @@ void JuceVisageBridge::mouseDrag(const juce::MouseEvent& event) {
         }
         
         rootFrame->processMouseDrag(visageEvent);
+    }
+}
+
+void JuceVisageBridge::mouseUp(const juce::MouseEvent& event) {
+    // Forward mouse up events to Visage frame
+    if (rootFrame) {
+        visage::MouseEvent visageEvent;
+        visageEvent.position = { static_cast<float>(event.x), static_cast<float>(event.y) };
+        visageEvent.relative_position = visageEvent.position;
+        visageEvent.window_position = visageEvent.position;
+        visageEvent.is_down = false;
+        visageEvent.frame = rootFrame;
+        
+        if (event.mods.isLeftButtonDown()) {
+            visageEvent.button_id = visage::kMouseButtonLeft;
+        } else if (event.mods.isRightButtonDown()) {
+            visageEvent.button_id = visage::kMouseButtonRight;
+        } else if (event.mods.isMiddleButtonDown()) {
+            visageEvent.button_id = visage::kMouseButtonMiddle;
+        }
+        
+        rootFrame->processMouseUp(visageEvent);
+    }
+}
+
+void JuceVisageBridge::mouseMove(const juce::MouseEvent& event) {
+    // Forward mouse move events to Visage frame
+    if (rootFrame) {
+        visage::MouseEvent visageEvent;
+        visageEvent.position = { static_cast<float>(event.x), static_cast<float>(event.y) };
+        visageEvent.relative_position = visageEvent.position;
+        visageEvent.window_position = visageEvent.position;
+        visageEvent.is_down = false;
+        visageEvent.frame = rootFrame;
+        
+        rootFrame->processMouseMove(visageEvent);
     }
 }

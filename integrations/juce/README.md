@@ -4,12 +4,23 @@ This integration provides seamless embedding of Visage UI components within JUCE
 
 ## Problems Solved
 
-The `JuceVisageBridge` addresses several critical issues:
+The `JuceVisageBridge` addresses the specific issues reported in [GitHub Issue #47](https://github.com/VitalAudio/visage/issues/47):
 
-- **Magenta flashes and transparency artifacts** - Proper OpenGL context initialization and clear color management
-- **Flickering and dark bars** - Continuous repainting and correct viewport sizing
-- **Non-draggable frameless windows** - Optional draggable title bar support
-- **BGFX rendering conflicts** - Proper initialization order and context sharing
+### Issue 1: Titled `juce::DocumentWindow` Problems
+- **Magenta flash on window creation** ✅ - Proper OpenGL context initialization and fallback background
+- **Fleeting native title bar** ✅ - OpenGL renderer takes control immediately after context creation
+- **Flickering and overpainting** ✅ - Continuous repainting and correct viewport management
+- **Undraggable window** ✅ - Uses standard JUCE DocumentWindow dragging (works automatically)
+
+### Issue 2: Frameless Window Problems  
+- **Magenta flash** ✅ - Same OpenGL context solution as titled windows
+- **Not draggable** ✅ - Optional `setDraggableTitleHeight()` enables custom drag areas
+- **Persistent bottom bar** ✅ - Proper canvas viewport sizing prevents layout artifacts
+
+### Root Cause Solutions
+- **BGFX rendering conflicts** - Proper initialization order and context sharing with JUCE's OpenGL
+- **Missing GPU context in secondary windows** - Each bridge creates its own managed OpenGL context
+- **Initialization timing issues** - Fallback rendering prevents visual artifacts during setup
 
 ## Requirements
 
@@ -148,6 +159,34 @@ The main integration class that handles OpenGL rendering and event forwarding.
 - **Continuous Rendering** - 60fps rendering without manual timer management
 - **Background Color Control** - Prevents magenta flashes with proper clear colors
 - **Window Dragging** - Optional support for draggable title areas
+
+## Testing
+
+A comprehensive test suite is provided to verify the fix for GitHub issue #47. 
+
+### Quick Test
+```bash
+# Build with JUCE integration enabled
+cmake -B build -DVISAGE_BUILD_JUCE_INTEGRATION=ON -DJUCE_DIR=/path/to/JUCE
+cmake --build build
+
+# Run the test application (requires JUCE setup)
+# See test_application.cpp and TEST_PLAN.md for details
+```
+
+### Test Cases Covered
+- **Settings Panel**: 580x650 DocumentWindow (issue case 1)
+- **Waveform Editor**: 950x920 frameless window (issue case 2)  
+- **Plugin Window**: 600x730 plugin-style window (main window case)
+
+### What to Look For
+- ✅ No magenta flashes during window creation
+- ✅ Smooth 60fps animation without flickering
+- ✅ Functional draggable title areas
+- ✅ No dark bars at window bottom
+- ✅ Proper mouse event handling
+
+See `TEST_PLAN.md` for detailed testing procedures and success criteria.
 
 ## Troubleshooting
 

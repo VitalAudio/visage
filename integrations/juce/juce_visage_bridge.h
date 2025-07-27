@@ -45,7 +45,9 @@
  * 3. Set the root Visage frame using setRootFrame()
  * 4. For frameless windows, optionally set draggable title height
  */
-class JuceVisageBridge : public juce::Component, public juce::OpenGLRenderer {
+class JuceVisageBridge : public juce::Component, 
+                         public juce::OpenGLRenderer,
+                         private juce::Timer {
 public:
     JuceVisageBridge();
     ~JuceVisageBridge();
@@ -74,6 +76,12 @@ public:
      */
     int getDraggableTitleHeight() const { return draggableTitleHeight; }
 
+    /**
+     * Force a refresh of the OpenGL context and Visage renderer.
+     * Call this if you encounter rendering issues after window operations.
+     */
+    void refreshContext();
+
     // Component overrides
     void paint(juce::Graphics& g) override;
     void resized() override;
@@ -87,6 +95,15 @@ private:
     // Mouse handling for draggable support
     void mouseDown(const juce::MouseEvent& event) override;
     void mouseDrag(const juce::MouseEvent& event) override;
+    void mouseUp(const juce::MouseEvent& event) override;
+    void mouseMove(const juce::MouseEvent& event) override;
+    
+    // Async initialization helpers
+    void createVisageWindowAsync();
+    void shutdownVisageWindow();
+    
+    // Timer for driving Visage rendering loop
+    void timerCallback() override;
 
     juce::OpenGLContext openGLContext;
     visage::Frame* rootFrame = nullptr;
@@ -94,6 +111,7 @@ private:
     int draggableTitleHeight = 0;
     juce::ComponentDragger componentDragger;
     bool isInitialized = false;
+    bool contextReady = false;
 };
 
 #endif // JUCE_VISAGE_BRIDGE_H
