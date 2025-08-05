@@ -113,7 +113,7 @@ namespace visage {
     MouseEvent relativeTo(const Frame* new_frame) const;
 
     bool shouldTriggerPopup() const {
-      return isRightButton() || (isLeftButton() && isMainModifier());
+      return isRightButton() || (isLeftButton() && isMacCtrlDown());
     }
 
     const Frame* frame = nullptr;
