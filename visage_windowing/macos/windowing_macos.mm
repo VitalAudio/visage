@@ -357,6 +357,10 @@ namespace visage {
   self.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
   self.preferredFramesPerSecond = 120;
 
+  // Enable touch events and gestures
+  [self setAcceptsTouchEvents:YES];
+  [self setWantsRestingTouches:YES];
+
   [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
   self.drag_source = [[VisageDraggingSource alloc] init];
 
@@ -501,6 +505,20 @@ namespace visage {
   self.visage_window->handleMouseWheel(delta_x, delta_y, precise_x, precise_y, point.x, point.y,
                                        [self mouseButtonState], [self keyboardModifiers:event],
                                        [event momentumPhase] != NSEventPhaseNone);
+}
+
+- (void)magnifyWithEvent:(NSEvent*)event {
+  // Handle pinch gesture - convert magnification to scroll wheel delta
+  float magnification = [event magnification];
+  visage::Point point = [self eventPosition:event];
+
+  // Convert pinch magnification to scroll delta (positive for zoom out, negative for zoom in)
+  float delta_y = magnification * 10.0f; // Scale factor for natural feel
+
+  // Send as a mouse wheel event with both X and Y components to indicate pinch
+  self.visage_window->handleMouseWheel(delta_y * 0.5f, delta_y, 0, 0, point.x, point.y,
+                                       [self mouseButtonState], [self keyboardModifiers:event],
+                                       false);
 }
 
 - (void)mouseMoved:(NSEvent*)event {
