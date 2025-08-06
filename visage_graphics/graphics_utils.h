@@ -23,11 +23,11 @@
 
 #include "visage_utils/defines.h"
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
-#include <cstdint>
 
 namespace bgfx {
   struct VertexLayout;
