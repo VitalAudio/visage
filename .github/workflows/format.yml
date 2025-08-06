@@ -1,0 +1,25 @@
+name: Format check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  style-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install clang-tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-format
+
+    - name: Check clang-format
+      run: |
+        find . -name "*.cpp" -o -name "*.h" -o -name "*.hpp" | \
+        xargs clang-format --dry-run --Werror --style=file
