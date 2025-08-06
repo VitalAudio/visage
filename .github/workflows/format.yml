@@ -21,4 +21,4 @@ jobs:
 
       - name: Check clang-format
         run: |
-          find . \( -name "*.cpp" -o -name "*.h" \) -not -path "./visage_graphics/third_party/*" -not -path "./visage_windowing/macos/" | xargs clang-format --dry-run --Werror --verbose --style=file
+          find . \( -name "*.cpp" -o -name "*.h" \) -not -path "./visage_graphics/third_party/*" -not -path "./visage_windowing/macos/*" | xargs clang-format --dry-run --Werror --verbose --style=file
