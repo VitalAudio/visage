@@ -38,7 +38,7 @@ namespace visage {
   };
 
   void SvgDrawable::draw(Canvas& canvas, float x, float y, float width, float height) const {
-    if (!state.visible)
+    if (!state.visible || state.opacity <= 0.0f)
       return;
 
     if (state.fill_opacity > 0.0f && !state.fill_brush.isNone())
@@ -233,9 +233,11 @@ namespace visage {
   }
 
   std::vector<std::string> splitArguments(const std::string& str) {
+    std::string with_spaces = unescape(str, ",", " ");
+
     std::vector<std::string> tokens;
     std::string token;
-    std::istringstream stream(str);
+    std::istringstream stream(with_spaces);
     while (std::getline(stream, token, ' ')) {
       if (!token.empty())
         tokens.push_back(token);
@@ -522,6 +524,38 @@ namespace visage {
     return Brush::none();
   }
 
+  void parseStyleAttribute(DrawableState& state, const std::string& style,
+                           const std::map<std::string, Brush>& brushes) {
+    std::stringstream stream(style);
+    std::string line;
+
+    while (std::getline(stream, line, ';')) {
+      auto pos = line.find(':');
+      if (pos != std::string::npos) {
+        std::string key = line.substr(0, pos);
+        std::string value = line.substr(pos + 1);
+        removeWhitespace(key);
+        removeWhitespace(value);
+        if (key == "fill")
+          state.fill_brush = parseColor(value, brushes);
+        else if (key == "fill-opacity")
+          tryReadFloat(state.fill_opacity, value);
+        else if (key == "stroke")
+          state.stroke_brush = parseColor(value, brushes);
+        else if (key == "stroke-opacity")
+          tryReadFloat(state.stroke_opacity, value);
+        else if (key == "stroke-width")
+          tryReadFloat(state.stroke_width, value);
+        else if (key == "visibility")
+          state.visible = value != "hidden";
+        else if (key == "transform")
+          state.transform = state.transform * parseTransform(value);
+        else if (key == "opacity")
+          tryReadFloat(state.opacity, value);
+      }
+    }
+  }
+
   void loadDrawableState(Tag& tag, DrawableState& state, const std::map<std::string, Brush>& brushes) {
     for (auto& attribute : tag.data.attributes) {
       if (attribute.first == "transform")
@@ -538,6 +572,10 @@ namespace visage {
         tryReadFloat(state.stroke_width, attribute.second);
       else if (attribute.first == "visibility")
         state.visible = attribute.second != "hidden";
+      else if (attribute.first == "style")
+        parseStyleAttribute(state, attribute.second, brushes);
+      else if (attribute.first == "opacity")
+        tryReadFloat(state.opacity, attribute.second);
     }
   }
 
@@ -584,6 +622,13 @@ namespace visage {
       drawable->state = state;
       drawables.push_back(std::move(drawable));
     }
+    else
+      return;
+
+    drawables.back()->state.fill_brush =
+        drawables.back()->state.fill_brush.withMultipliedAlpha(state.fill_opacity * state.opacity);
+    drawables.back()->state.stroke_brush =
+        drawables.back()->state.stroke_brush.withMultipliedAlpha(state.stroke_opacity * state.opacity);
   }
 
   void computeDrawables(Tag& tag, DrawableState state, std::vector<std::unique_ptr<SvgDrawable>>& drawables,
