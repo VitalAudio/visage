@@ -528,6 +528,8 @@ namespace visage {
                            const std::map<std::string, Brush>& brushes) {
     std::stringstream stream(style);
     std::string line;
+    Matrix transform = Matrix::identity();
+    float offset_x = 0.0f, offset_y = 0.0f;
 
     while (std::getline(stream, line, ';')) {
       auto pos = line.find(':');
@@ -535,8 +537,9 @@ namespace visage {
         std::string key = line.substr(0, pos);
         std::string value = line.substr(pos + 1);
         removeWhitespace(key);
-        removeWhitespace(value);
-        if (key == "fill")
+        if (key == "opacity")
+          tryReadFloat(state.opacity, value);
+        else if (key == "fill")
           state.fill_brush = parseColor(value, brushes);
         else if (key == "fill-opacity")
           tryReadFloat(state.fill_opacity, value);
@@ -548,12 +551,35 @@ namespace visage {
           tryReadFloat(state.stroke_width, value);
         else if (key == "visibility")
           state.visible = value != "hidden";
+        else if (key == "display")
+          state.visible = value != "none";
         else if (key == "transform")
-          state.transform = state.transform * parseTransform(value);
-        else if (key == "opacity")
-          tryReadFloat(state.opacity, value);
+          transform = transform * parseTransform(value);
+        else if (key == "transform-origin") {
+          auto args = splitArguments(value);
+          if (!args.empty()) {
+            for (auto& arg : args) {
+              if (arg == "center")
+                arg = "50%";
+            }
+
+            offset_x = state.full_width * parseNumber(args[0], state.full_width);
+            offset_y = args.size() > 1 ? state.full_height * parseNumber(args[1], state.full_height) : 0;
+          }
+        }
+        else if (key == "stroke-linecap")
+          ;  // state.stroke_linecap = parseStrokeLineCap(value);
+        else if (key == "stroke-linejoin")
+          ;  // state.stroke_linejoin = parseStrokeLineJoin(value);
+        else if (key == "stroke-dasharray")
+          ;  // state.stroke_dasharray = parseStrokeDashArray(value);
       }
     }
+
+    //state.transform = state.transform * transform;
+
+    state.transform = state.transform * Matrix::translation(offset_x, offset_y) * transform *
+                      Matrix::translation(-offset_x, -offset_y);
   }
 
   void loadDrawableState(Tag& tag, DrawableState& state, const std::map<std::string, Brush>& brushes) {
@@ -742,6 +768,8 @@ namespace visage {
       if (tag.data.name == "svg") {
         view_ = loadSvgViewSettings(tag);
         state.transform = initialTransform(view_);
+        state.full_width = view_.view_box_width;
+        state.full_height = view_.view_box_height;
       }
 
       computeDrawables(tag, state, drawables_, defs, brushes);

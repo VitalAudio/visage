@@ -28,6 +28,9 @@
 
 namespace visage {
   struct DrawableState {
+    float full_width = 0.0f;
+    float full_height = 0.0f;
+
     Matrix transform;
     float opacity = 1.0f;
 
