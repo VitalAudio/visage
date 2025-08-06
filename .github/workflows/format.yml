@@ -8,7 +8,7 @@ on:
 
 jobs:
   style-check:
-    runs-on: ubuntu-latest
+     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
@@ -21,6 +21,4 @@ jobs:
 
     - name: Check clang-format
       run: |
-        find . -name "*.cpp" -o -name "*.h" -not -path "./visage_graphics/third_party"
-        find . -name "*.cpp" -o -name "*.h" -not -path "./visage_graphics/third_party" | \
-        xargs clang-format --dry-run --Werror --style=file
+        find . \( -name "*.cpp" -o -name "*.h" \) -not -path "./visage_graphics/third_party/*" | xargs clang-format --dry-run --Werror --style=file
