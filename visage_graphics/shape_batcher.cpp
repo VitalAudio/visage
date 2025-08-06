@@ -524,7 +524,6 @@ namespace visage {
     bgfx::setIndexBuffer(&index_buffer);
     setUniformBounds(path_fill_wrapper.x, path_fill_wrapper.y, layer.width(), layer.height());
     setColorMult(layer.hdr());
-    setScissor(path_fill_wrapper, layer.width(), layer.height());
     auto program = ProgramCache::programHandle(LineWrapper::vertexShader(), LineWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
 

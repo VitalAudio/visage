@@ -305,7 +305,7 @@ namespace visage {
       else if (tokens[0] == "skewY" && args.size() > 0)
         matrix = matrix * Matrix::skewY(args[0]);
       else if (tokens[0] == "matrix" && args.size() > 5)
-        matrix = matrix * Matrix(args[0], args[1], args[2], args[3], args[4], args[5]);
+        matrix = matrix * Matrix(args[0], args[2], args[4], args[1], args[3], args[5]);
     }
     return matrix;
   }
