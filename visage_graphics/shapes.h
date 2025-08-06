@@ -542,11 +542,12 @@ namespace visage {
       if (direction == Direction::Left || direction == Direction::Right)
         std::swap(w, h);
       if (text->multiLine()) {
-        font.setMultiLineVertexPositions(quads.data(), c_str, length, 0, 0, w, h, text->justification());
+        font.setMultiLineVertexPositions(quads.data(), c_str, length, 0, 0, w, h, text->justification(),
+                                text->horizontalSmear());
       }
       else {
         font.setVertexPositions(quads.data(), c_str, length, 0, 0, w, h, text->justification(),
-                                text->characterOverride());
+                                text->characterOverride(), text->horizontalSmear());
       }
 
       if (direction == Direction::Down) {
