@@ -201,12 +201,9 @@ TEST_CASE("MouseEvent popup trigger detection", "[ui]") {
     REQUIRE(event.shouldTriggerPopup());
   }
 
-  SECTION("Left button with main modifier triggers popup") {
+  SECTION("Check mac specific way to right click") {
     event.button_id = kMouseButtonLeft;
-    event.modifiers = kModifierRegCtrl;
-    REQUIRE(event.shouldTriggerPopup());
-
-    event.modifiers = kModifierCmd;
+    event.modifiers = kModifierMacCtrl;
     REQUIRE(event.shouldTriggerPopup());
   }
 
@@ -216,6 +213,12 @@ TEST_CASE("MouseEvent popup trigger detection", "[ui]") {
     REQUIRE_FALSE(event.shouldTriggerPopup());
 
     event.modifiers = kModifierAlt;
+    REQUIRE_FALSE(event.shouldTriggerPopup());
+
+    event.modifiers = kModifierRegCtrl;
+    REQUIRE_FALSE(event.shouldTriggerPopup());
+
+    event.modifiers = kModifierCmd;
     REQUIRE_FALSE(event.shouldTriggerPopup());
   }
 }
