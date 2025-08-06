@@ -45,19 +45,19 @@ namespace visage {
     waitpid(pid, status, 0);
   }
 
-  static std::vector<char*> parseArguments(const std::string& command, const std::string& arguments, 
-                                            std::vector<std::string>& storage) {
+  static std::vector<char*> parseArguments(const std::string& command, const std::string& arguments,
+                                           std::vector<std::string>& storage) {
     std::istringstream stream(arguments);
     std::string segment;
     while (std::getline(stream, segment, ' '))
       storage.push_back(segment);
 
     storage.insert(storage.begin(), command);
-    
+
     std::vector<char*> args;
     for (auto& str : storage)
       args.push_back(&str[0]);
-    
+
     args.push_back(nullptr);
     return args;
   }
@@ -78,7 +78,7 @@ namespace visage {
 
   static void gracefulTerminate(pid_t pid, int* status) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    
+
     int termination_check = waitpid(pid, status, WNOHANG);
     if (termination_check == 0) {
       kill(pid, SIGKILL);
