@@ -306,8 +306,10 @@ namespace visage {
   private:
     void recurseBezierTo(Point from, Point control1, Point control2, Point to) {
       float error_squared = error_tolerance_ * error_tolerance_;
-      Point delta1 = deltaFromLine(control1, from, to);
-      Point delta2 = deltaFromLine(control2, from, to);
+
+      auto scale = current_transform_.withNoTranslation();
+      Point delta1 = scale * deltaFromLine(control1, from, to);
+      Point delta2 = scale * deltaFromLine(control2, from, to);
       if (delta1.squareMagnitude() <= error_squared && delta2.squareMagnitude() <= error_squared) {
         addPoint(to);
         return;

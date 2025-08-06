@@ -60,7 +60,9 @@ namespace visage {
     if (!sweep_flag)
       arc_angle = -arc_angle;
 
-    float max_delta_radians = 2.0f * std::acos(1.0f - error_tolerance_ / std::max(x_radius, y_radius));
+    Point adjusted_radius = current_transform_ * Point(x_radius, y_radius);
+    float max_radius = std::max(adjusted_radius.x, adjusted_radius.y);
+    float max_delta_radians = 2.0f * std::acos(1.0f - error_tolerance_ / max_radius);
     int num_points = std::ceil(std::abs(arc_angle) / max_delta_radians);
 
     std::complex<double> position(-center.x, -center.y);
@@ -1219,7 +1221,7 @@ namespace visage {
             if (convex == (amount > 0.0)) {
               double arc_angle = std::acos(prev_offset.dot(offset) / (amount * amount));
               points_[index] += prev_offset;
-              int num_points = std::ceil(arc_angle / max_delta_radians);
+              int num_points = std::ceil(arc_angle / max_delta_radians - 0.1f);
               std::complex<double> position(prev_offset.x, prev_offset.y);
               double angle_delta = arc_angle / num_points;
               std::complex<double> rotation = std::polar(1.0, (amount < 0.0) ? angle_delta : -angle_delta);
