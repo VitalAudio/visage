@@ -31,7 +31,12 @@ namespace visage {
   }
 
   void Gradient::encode(std::ostringstream& stream) const {
+    stream << static_cast<int>(repeat_) << std::endl;
+    stream << static_cast<int>(reflect_) << std::endl;
     stream << static_cast<int>(colors_.size()) << std::endl;
+    for (float position : positions_)
+      stream << position << " ";
+    stream << std::endl;
     for (const Color& color : colors_)
       color.encode(stream);
   }
@@ -42,11 +47,17 @@ namespace visage {
   }
 
   void Gradient::decode(std::istringstream& stream) {
-    int size = 0;
-    stream >> size;
+    int size, repeat, reflect;
+    stream >> repeat >> reflect >> size;
+    repeat_ = repeat;
+    reflect_ = reflect;
+
+    positions_.resize(size);
     colors_.resize(size);
-    for (int i = 0; i < size; ++i)
-      colors_[i].decode(stream);
+    for (auto& position : positions_)
+      stream >> position;
+    for (Color& color : colors_)
+      color.decode(stream);
   }
 
   struct GradientAtlasTexture {
@@ -65,6 +76,8 @@ namespace visage {
 
   GradientAtlas::GradientAtlas() {
     reference_ = std::make_shared<GradientAtlas*>(this);
+    atlas_map_.fixWidth(Gradient::kMaxGradientResolution);
+    atlas_map_.setPadding(0);
   }
 
   GradientAtlas::~GradientAtlas() = default;
@@ -73,13 +86,14 @@ namespace visage {
     if (texture_ == nullptr || !bgfx::isValid(texture_->handle))
       return;
 
-    const auto& colors = gradient->gradient.colors();
-    std::unique_ptr<uint64_t[]> color_data = std::make_unique<uint64_t[]>(colors.size());
-    for (int i = 0; i < colors.size(); ++i)
-      color_data[i] = colors[i].toABGR16F();
+    int resolution = gradient->gradient.resolution();
+    std::unique_ptr<uint64_t[]> color_data = std::make_unique<uint64_t[]>(resolution);
+    float step = 1.0f / std::max(1, resolution - 1);
+    for (int i = 0; i < resolution; ++i)
+      color_data[i] = gradient->gradient.sample(i * step).toABGR16F();
 
-    bgfx::updateTexture2D(texture_->handle, 0, 0, gradient->x, gradient->y, colors.size(), 1,
-                          bgfx::copy(color_data.get(), colors.size() * sizeof(uint64_t)));
+    bgfx::updateTexture2D(texture_->handle, 0, 0, gradient->x, gradient->y, resolution, 1,
+                          bgfx::copy(color_data.get(), resolution * sizeof(uint64_t)));
   }
 
   void GradientAtlas::checkInit() {
@@ -123,10 +137,10 @@ namespace visage {
 
   void GradientPosition::encode(std::ostringstream& stream) const {
     stream << static_cast<int>(shape) << std::endl;
-    stream << point_from.x << std::endl;
-    stream << point_from.y << std::endl;
-    stream << point_to.x << std::endl;
-    stream << point_to.y << std::endl;
+    stream << from.x << std::endl;
+    stream << from.y << std::endl;
+    stream << to.x << std::endl;
+    stream << to.y << std::endl;
   }
 
   void GradientPosition::decode(const std::string& data) {
@@ -138,10 +152,10 @@ namespace visage {
     int shape_int = 0;
     stream >> shape_int;
     shape = static_cast<InterpolationShape>(shape_int);
-    stream >> point_from.x;
-    stream >> point_from.y;
-    stream >> point_to.x;
-    stream >> point_to.y;
+    stream >> from.x;
+    stream >> from.y;
+    stream >> to.x;
+    stream >> to.y;
   }
 
   std::string Brush::encode() const {

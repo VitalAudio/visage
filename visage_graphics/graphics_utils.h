@@ -134,6 +134,8 @@ namespace visage {
       else if (!packed_rects_.empty()) {
         for (int m = 0; !packed && m < kMaxMultiples; ++m) {
           width_ = height_ = kDefaultWidth << m;
+          if (fixed_width_)
+            width_ = fixed_width_;
           packed = packer_.pack(packed_rects_, width_, height_);
         }
       }
@@ -177,6 +179,7 @@ namespace visage {
       return texturePositionsForIndex(lookup_.at(id), bottom_left_origin);
     }
 
+    void fixWidth(int width) { fixed_width_ = width; }
     int width() const { return width_; }
     int height() const { return height_; }
     bool packed() const { return packer_.packed(); }
@@ -196,6 +199,7 @@ namespace visage {
       }
     }
 
+    int fixed_width_ = 0;
     int width_ = 0;
     int height_ = 0;
     std::vector<PackedRect> packed_rects_;

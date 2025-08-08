@@ -23,10 +23,12 @@
 
 #include "color.h"
 #include "graphics_utils.h"
+#include "visage_utils/dimension.h"
 
 #include <functional>
 #include <iosfwd>
 #include <map>
+#include <numeric>
 #include <utility>
 #include <vector>
 
@@ -35,16 +37,22 @@ namespace visage {
 
   class Gradient {
   public:
+    static constexpr int kMaxGradientResolution = 512;
+
     static int compare(const Gradient& a, const Gradient& b) {
-      if (a.resolution() < b.resolution())
+      if (a.numColors() < b.numColors())
         return -1;
-      if (a.resolution() > b.resolution())
+      if (a.numColors() > b.numColors())
         return 1;
 
-      for (int i = 0; i < a.resolution(); ++i) {
+      for (int i = 0; i < a.numColors(); ++i) {
         int comp = Color::compare(a.colors_[i], b.colors_[i]);
         if (comp)
           return comp;
+        if (a.positions_[i] < b.positions_[i])
+          return -1;
+        if (a.positions_[i] > b.positions_[i])
+          return -1;
       }
       return 0;
     }
@@ -57,7 +65,7 @@ namespace visage {
       float normalization = 1.0f / std::max(1.0f, resolution - 1.0f);
       for (int i = 0; i < resolution; ++i)
         result.colors_.emplace_back(sample_function(i * normalization));
-
+      result.evenlySpace();
       return result;
     }
 
@@ -72,6 +80,16 @@ namespace visage {
     explicit Gradient(const Args&... args) {
       colors_.reserve(sizeof...(args));
       (colors_.emplace_back(Color(args)), ...);
+      evenlySpace();
+    }
+
+    void evenlySpace() {
+      positions_.resize(colors_.size(), 0.0f);
+      if (colors_.size() > 1) {
+        float step = 1.0f / (colors_.size() - 1);
+        for (int i = 0; i < colors_.size(); ++i)
+          positions_[i] = i * step;
+      }
     }
 
     Color sample(float t) const {
@@ -80,12 +98,36 @@ namespace visage {
       if (colors_.size() <= 1)
         return colors_[0];
 
-      float position = t * (resolution() - 1);
-      int index = std::min(resolution() - 2, static_cast<int>(position));
-      return colors_[index].interpolateWith(colors_[index + 1], position - index);
+      if (reflect_) {
+        t *= 2.0f;
+        if (t > 1.0f)
+          t = 2.0f - t;
+      }
+
+      auto it = std::upper_bound(positions_.begin(), positions_.end(), t);
+      if (it == positions_.begin())
+        return colors_.front();
+      if (it == positions_.end())
+        return colors_.back();
+      int index = std::distance(positions_.begin(), it);
+      float t0 = positions_[index - 1];
+      float t1 = positions_[index];
+      float local_t = (t - t0) / std::max(0.000001f, (t1 - t0));
+      return colors_[index - 1].interpolateWith(colors_[index], local_t);
     }
 
-    int resolution() const { return colors_.size(); }
+    int numColors() const { return colors_.size(); }
+    void setRepeat(bool repeat) { repeat_ = repeat; }
+    void setReflect(bool reflect) { reflect_ = reflect; }
+    bool repeat() const { return repeat_; }
+    bool reflect() const { return reflect_; }
+
+    int resolution() const {
+      if (custom_stops_ || repeat_)
+        return kMaxGradientResolution;
+      return std::min<int>(kMaxGradientResolution, colors_.size());
+    }
+
     void setResolution(int resolution) {
       if (!colors_.empty())
         colors_.resize(resolution, colors_.back());
@@ -101,16 +143,24 @@ namespace visage {
       colors_[index] = color;
     }
 
+    void addColorStop(const Color& color, float position) {
+      position = std::clamp(position, 0.0f, 1.0f);
+      auto it = std::upper_bound(positions_.begin(), positions_.end(), position);
+      int index = std::distance(positions_.begin(), it);
+      positions_.insert(it, position);
+      colors_.insert(colors_.begin() + index, color);
+      custom_stops_ = true;
+    }
+
     Gradient interpolateWith(const Gradient& other, float t) const {
       return interpolate(*this, other, t);
     }
 
     Gradient withMultipliedAlpha(float mult) const {
-      Gradient result;
-      result.colors_.reserve(colors_.size());
+      Gradient result = *this;
 
-      for (const Color& color : colors_)
-        result.colors_.emplace_back(color.withAlpha(color.alpha() * mult));
+      for (int i = 0; i < colors_.size(); ++i)
+        result.colors_[i] = colors_[i].withAlpha(colors_[i].alpha() * mult);
 
       return result;
     }
@@ -121,7 +171,29 @@ namespace visage {
     void decode(std::istringstream& stream);
 
   private:
+    void sort() {
+      if (colors_.size() <= 1)
+        return;
+
+      std::vector<int> indices(colors_.size());
+      std::iota(indices.begin(), indices.end(), 0);
+      std::sort(indices.begin(), indices.end(),
+                [&](int a, int b) { return Color::compare(colors_[a], colors_[b]) < 0; });
+      std::vector<Color> sorted_colors(colors_.size());
+      std::vector<float> sorted_positions(colors_.size());
+      for (int i = 0; i < colors_.size(); ++i) {
+        sorted_colors[i] = colors_[indices[i]];
+        sorted_positions[i] = positions_[indices[i]];
+      }
+      colors_ = std::move(sorted_colors);
+      positions_ = std::move(sorted_positions);
+    }
+
     std::vector<Color> colors_;
+    std::vector<float> positions_;
+    bool custom_stops_ = false;
+    bool repeat_ = false;
+    bool reflect_ = false;
   };
 
   class GradientAtlas {
@@ -250,8 +322,8 @@ namespace visage {
                     to.shape == InterpolationShape::Solid);
       GradientPosition result;
       result.shape = from.shape;
-      result.point_from = from.point_from + (to.point_from - from.point_from) * t;
-      result.point_to = from.point_to + (to.point_to - from.point_to) * t;
+      result.from = from.from + (to.from - from.from) * t;
+      result.to = from.to + (to.to - from.to) * t;
       return result;
     }
 
@@ -259,11 +331,11 @@ namespace visage {
     explicit GradientPosition(InterpolationShape shape) : shape(shape) { }
 
     GradientPosition(Point from, Point to) :
-        shape(InterpolationShape::PointsLinear), point_from(from), point_to(to) { }
+        shape(InterpolationShape::PointsLinear), from(from), to(to) { }
 
     InterpolationShape shape = InterpolationShape::Solid;
-    Point point_from;
-    Point point_to;
+    Point from;
+    Point to;
 
     GradientPosition interpolateWith(const GradientPosition& other, float t) const {
       return interpolate(*this, other, t);
@@ -276,8 +348,8 @@ namespace visage {
 
     GradientPosition operator*(float mult) const {
       GradientPosition result = *this;
-      result.point_from *= mult;
-      result.point_to *= mult;
+      result.from = result.from * mult;
+      result.to = result.to * mult;
       return result;
     }
 
@@ -382,17 +454,20 @@ namespace visage {
           result.gradient_position_to_y = bottom - 0.5f;
         }
         else if (brush->position_.shape == GradientPosition::InterpolationShape::PointsLinear) {
-          result.gradient_position_from_x = offset_x + brush->position_.point_from.x;
-          result.gradient_position_from_y = offset_y + brush->position_.point_from.y;
-          result.gradient_position_to_x = offset_x + brush->position_.point_to.x;
-          result.gradient_position_to_y = offset_y + brush->position_.point_to.y;
+          result.gradient_position_from_x = offset_x + brush->position_.from.x;
+          result.gradient_position_from_y = offset_y + brush->position_.from.y;
+          result.gradient_position_to_x = offset_x + brush->position_.to.x;
+          result.gradient_position_to_y = offset_y + brush->position_.to.y;
         }
 
         float atlas_x_scale = 1.0f / brush->atlasWidth();
         float atlas_y_scale = 1.0f / brush->atlasHeight();
-        result.gradient_color_from_x = (brush->gradient_.x() + 0.5f) * atlas_x_scale;
-        result.gradient_color_to_x = result.gradient_color_from_x +
-                                     (brush->gradient_.gradient().resolution() - 1) * atlas_x_scale;
+        int offset = brush->gradient()->gradient().repeat() ? 0 : 1;
+        result.gradient_color_from_x = (brush->gradient_.x() + offset * 0.5f) * atlas_x_scale;
+        float span = (brush->gradient_.gradient().resolution() - offset) * atlas_x_scale;
+        if (brush->gradient()->gradient().reflect())
+          span *= 0.5f;
+        result.gradient_color_to_x = result.gradient_color_from_x + span;
         result.gradient_color_y = (brush->gradient_.y() + 0.5f) * atlas_y_scale;
       }
 

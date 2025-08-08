@@ -128,11 +128,14 @@ namespace visage {
         return 0;
 
       std::string hex = color_string[0] == '#' ? color_string.substr(1) : color_string;
-
-      if (hex.size() < 8) {
-        unsigned int value = std::stoul(hex, nullptr, 16);
-        return value | 0xff000000;
-      }
+      if (hex.size() == 3)
+        hex = std::string("ff") + hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+      else if (hex.size() == 4)
+        hex = std::string() + hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+      else if (hex.size() == 6)
+        hex = "ff" + hex;
+      else if (hex.size() != 8)
+        return Color();
       return fromARGB(std::stoul(hex, nullptr, 16));
     }
 
