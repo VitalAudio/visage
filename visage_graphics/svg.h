@@ -56,10 +56,13 @@ namespace visage {
   };
 
   struct DrawableState {
-    float width = 0.0f;
-    float height = 0.0f;
+    Matrix local_transform;
+    Matrix scale_transform;
+    bool transform_ratio_x = false;
+    bool transform_ratio_y = false;
+    float tranform_origin_x = 0.0f;
+    float tranform_origin_y = 0.0f;
 
-    Matrix transform;
     float opacity = 1.0f;
 
     GradientDef fill_gradient = GradientDef(0xff000000);
