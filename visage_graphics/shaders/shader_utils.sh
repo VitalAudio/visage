@@ -37,7 +37,9 @@ float sdRoundedDiamond(vec2 position, vec2 diamond, float rounding) {
 
 vec2 gradient(vec2 color_from, vec2 color_to, vec2 point_from, vec2 point_to, vec2 position) {
   vec2 delta = point_to - point_from;
-  float t = clamp(dot(position - point_from, delta) / dot(delta, delta), 0.0, 1.0);
+  bool should_clamp = color_from.x != 0.0;
+  float t = dot(position - point_from, delta) / dot(delta, delta);
+  t = should_clamp ? clamp(t, 0.0, 1.0) : t;
   return mix(color_from, color_to, t);
 }
 
