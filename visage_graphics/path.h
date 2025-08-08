@@ -126,7 +126,7 @@ namespace visage {
         return;
 
       if (paths_.back().points.front() != paths_.back().points.back())
-        addPoint(paths_.back().points.front());
+        addPoint(start_point_);
     }
 
     void quadraticTo(Point control, Point end, bool relative = false) {
@@ -213,6 +213,7 @@ namespace visage {
 
     void clear() {
       paths_.clear();
+      start_point_ = {};
       last_point_ = {};
     }
 
@@ -279,6 +280,19 @@ namespace visage {
       return result;
     }
 
+    Path transformed(const Matrix& transform) const {
+      Path result = *this;
+      result.transform(transform);
+      return result;
+    }
+
+    void transform(const Matrix& transform) {
+      for (auto& path : paths_) {
+        for (Point& point : path.points)
+          point = transform * point;
+      }
+    }
+
     Path reversed() const {
       Path reversed_path = *this;
       reversed_path.reverse();
@@ -299,6 +313,24 @@ namespace visage {
       VISAGE_ASSERT(tolerance > 0.0f);
       if (tolerance > 0.0f)
         error_tolerance_ = tolerance;
+    }
+
+    Bounds boundingBox() const {
+      float min_x = std::numeric_limits<float>::max();
+      float min_y = std::numeric_limits<float>::max();
+      float max_x = std::numeric_limits<float>::lowest();
+      float max_y = std::numeric_limits<float>::lowest();
+      for (const auto& path : paths_) {
+        for (const auto& point : path.points) {
+          min_x = std::min(min_x, point.x);
+          min_y = std::min(min_y, point.y);
+          max_x = std::max(max_x, point.x);
+          max_y = std::max(max_y, point.y);
+        }
+      }
+      if (min_x > max_x || min_y > max_y)
+        return { 0, 0, 0, 0 };
+      return { min_x, min_y, max_x - min_x, max_y - min_y };
     }
 
     float errorTolerance() const { return error_tolerance_; }
@@ -345,6 +377,9 @@ namespace visage {
     }
 
     void addPoint(const Point& point) {
+      if (currentPath().points.empty())
+        start_point_ = point;
+
       last_point_ = point;
       currentPath().points.push_back(current_transform_ * last_point_);
       currentPath().values.push_back(current_value_);
@@ -356,6 +391,7 @@ namespace visage {
     std::vector<SubPath> paths_;
     FillRule fill_rule_ = FillRule::EvenOdd;
     Point smooth_control_point_;
+    Point start_point_;
     Point last_point_;
     float current_value_ = 0.0f;
     float error_tolerance_ = kDefaultErrorTolerance;

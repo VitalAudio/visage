@@ -41,19 +41,19 @@ namespace visage {
     if (!state.visible || state.opacity <= 0.0f)
       return;
 
-    if (state.fill_opacity > 0.0f && !state.fill_brush.isNone())
+    if (state.fill_opacity > 0.0f && !fill_brush.isNone())
       fill(canvas, x, y, width, height);
-    if (state.stroke_opacity > 0.0f && state.stroke_width > 0.0f && !state.stroke_brush.isNone())
+    if (state.stroke_opacity > 0.0f && state.stroke_width > 0.0f && !stroke_brush.isNone())
       stroke(canvas, x, y, width, height);
   }
 
   void SvgDrawable::fill(Canvas& canvas, float x, float y, float width, float height) const {
-    canvas.setColor(state.fill_brush);
+    canvas.setColor(fill_brush);
     canvas.fill(&path, x, y, width, height);
   }
 
   void SvgDrawable::stroke(Canvas& canvas, float x, float y, float width, float height) const {
-    canvas.setColor(state.stroke_brush);
+    canvas.setColor(stroke_brush);
     canvas.line(&path, x, y, width, height, state.stroke_width);
   }
 
@@ -199,138 +199,7 @@ namespace visage {
     return tag;
   }
 
-  Brush parseGradient(Tag& tag) {
-    return Brush::solid(Color(0xffff00ff));  // TODO
-  }
-
-  void collectDefs(std::vector<Tag>& tags, std::map<std::string, Tag>& defs,
-                   std::map<std::string, Brush>& brushes) {
-    for (auto& tag : tags) {
-      if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
-        std::string id = tag.data.attributes.at("id");
-        if (tag.data.name == "linearGradient" || tag.data.name == "radialGradient")
-          brushes[id] = parseGradient(tag);
-        else {
-          defs[id] = tag;
-          defs[id].data.attributes.erase("id");
-        }
-      }
-      collectDefs(tag.children, defs, brushes);
-    }
-  }
-
-  void resolveUses(std::vector<Tag>& tags, const std::map<std::string, Tag> defs) {
-    for (auto& tag : tags) {
-      if (tag.data.name == "use") {
-        if (tag.data.attributes.count("href"))
-          tag.children.push_back(defs.at(tag.data.attributes.at("href").substr(1)));
-        else if (tag.data.attributes.count("xlink:href"))
-          tag.children.push_back(defs.at(tag.data.attributes.at("xlink:href").substr(1)));
-      }
-
-      resolveUses(tag.children, defs);
-    }
-  }
-
-  std::vector<std::string> splitArguments(const std::string& str) {
-    std::string with_spaces = unescape(str, ",", " ");
-
-    std::vector<std::string> tokens;
-    std::string token;
-    std::istringstream stream(with_spaces);
-    while (std::getline(stream, token, ' ')) {
-      if (!token.empty())
-        tokens.push_back(token);
-
-      std::string part;
-      while (stream >> part)
-        tokens.push_back(part);
-    }
-    return tokens;
-  }
-
-  std::vector<std::string> parseFunctionTokens(const std::string& function_string, int& pos) {
-    size_t start = function_string.find_first_not_of(" \t\n\r", pos);
-    if (start == std::string::npos)
-      return {};
-
-    size_t end = function_string.find('(', start);
-    if (end == std::string::npos)
-      return { function_string };
-
-    std::string function_name = function_string.substr(start, end - start);
-    size_t close = function_string.find(')', end);
-    if (close == std::string::npos)
-      return {};
-
-    pos = close + 1;
-    auto result = splitArguments(function_string.substr(end + 1, close - end - 1));
-    result.insert(result.begin(), function_name);
-    return result;
-  }
-
-  Matrix parseTransform(const std::string& transform_string) {
-    Matrix matrix;
-    std::istringstream ss(transform_string);
-    int pos = 0;
-    while (pos < transform_string.size()) {
-      auto tokens = parseFunctionTokens(transform_string, pos);
-      if (tokens.size() < 2)
-        break;
-
-      std::vector<float> args;
-      for (int i = 1; i < tokens.size(); ++i) {
-        try {
-          args.push_back(std::stof(tokens[i]));
-        }
-        catch (...) {
-          return matrix;
-        }
-      }
-
-      if (tokens[0] == "translate" && args.size() > 0) {
-        float y = args.size() > 1 ? args[1] : args[0];
-        matrix = matrix * Matrix::translation(args[0], y);
-      }
-      else if (tokens[0] == "scale" && args.size() > 0) {
-        float y = args.size() > 1 ? args[1] : args[0];
-        matrix = matrix * Matrix::scale(args[0], y);
-      }
-      else if (tokens[0] == "rotate" && args.size() > 0) {
-        if (args.size() > 2)
-          matrix = matrix * Matrix::rotation(args[0], { args[1], args[2] });
-        else
-          matrix = matrix * Matrix::rotation(args[0]);
-      }
-      else if (tokens[0] == "skewX" && args.size() > 0)
-        matrix = matrix * Matrix::skewX(args[0]);
-      else if (tokens[0] == "skewY" && args.size() > 0)
-        matrix = matrix * Matrix::skewY(args[0]);
-      else if (tokens[0] == "matrix" && args.size() > 5)
-        matrix = matrix * Matrix(args[0], args[2], args[4], args[1], args[3], args[5]);
-    }
-    return matrix;
-  }
-
-  float parseNumber(const std::string& str, float max) {
-    auto percent_pos = str.find('%');
-    if (percent_pos != std::string::npos)
-      max = 100.0f;
-
-    try {
-      return std::stof(str) / max;
-    }
-    catch (...) {
-      return 0.0f;
-    }
-  }
-
-  void removeWhitespace(std::string& string) {
-    constexpr auto is_whitespace = [](char c) { return std::isspace(c); };
-    string.erase(std::remove_if(string.begin(), string.end(), is_whitespace), string.end());
-  }
-
-  Brush translateColor(const std::string& color) {
+  Color translateColor(const std::string& color) {
     static const std::unordered_map<std::string, Color> named_colors = {
       { "aliceblue", Color(1, 0.941f, 0.973f, 1.0f) },
       { "antiquewhite", Color(1, 0.980f, 0.922f, 0.843f) },
@@ -483,49 +352,265 @@ namespace visage {
     };
 
     auto it = named_colors.find(color);
-    if (it != named_colors.end()) {
-      return Brush::solid(it->second);
-    }
-    return Brush::none();
+    if (it != named_colors.end())
+      return it->second;
+
+    return Color::fromHexString(color);
   }
 
-  Brush parseColor(std::string& color, const std::map<std::string, Brush>& brushes) {
+  float parseNumber(const std::string& str, float max) {
+    auto percent_pos = str.find('%');
+    if (percent_pos != std::string::npos)
+      max = 100.0f;
+
+    try {
+      return std::stof(str) / max;
+    }
+    catch (...) {
+      return 0.0f;
+    }
+  }
+
+  Color parseStopColor(Tag& tag) {
+    Color color;
+    if (tag.data.attributes.count("stop-color"))
+      color = translateColor(tag.data.attributes.at("stop-color"));
+    if (tag.data.attributes.count("stop-opacity"))
+      color = color.withAlpha(parseNumber(tag.data.attributes.at("stop-opacity"), 1.0f));
+    if (tag.data.attributes.count("style")) {
+      std::string style = tag.data.attributes.at("style");
+      std::stringstream ss(style);
+      std::string item;
+      while (std::getline(ss, item, ';')) {
+        auto pos = item.find(':');
+        if (pos != std::string::npos) {
+          std::string key = item.substr(0, pos);
+          std::string value = item.substr(pos + 1);
+          if (key == "stop-color")
+            color = translateColor(value);
+          else if (key == "stop-opacity")
+            color = color.withAlpha(parseNumber(value, 1.0f));
+        }
+      }
+    }
+    return color;
+  }
+
+  GradientDef parseGradient(const Svg::ViewSettings& view, Tag& tag) {
+    GradientDef gradient_def;
+    if (tag.data.attributes.count("x1")) {
+      gradient_def.x1 = parseNumber(tag.data.attributes.at("x1"), 1.0f);
+      gradient_def.x1_ratio = tag.data.attributes.at("x1").find('%') != std::string::npos;
+    }
+    if (tag.data.attributes.count("y1")) {
+      gradient_def.y1 = parseNumber(tag.data.attributes.at("y1"), 1.0f);
+      gradient_def.y1_ratio = tag.data.attributes.at("y1").find('%') != std::string::npos;
+    }
+    if (tag.data.attributes.count("x2")) {
+      gradient_def.x2 = parseNumber(tag.data.attributes.at("x2"), 1.0f);
+      gradient_def.x2_ratio = tag.data.attributes.at("x2").find('%') != std::string::npos;
+    }
+    if (tag.data.attributes.count("y2")) {
+      gradient_def.y2 = parseNumber(tag.data.attributes.at("y2"), 1.0f);
+      gradient_def.y2_ratio = tag.data.attributes.at("y2").find('%') != std::string::npos;
+    }
+
+    if (tag.data.attributes.count("spreadMethod")) {
+      std::string spread_method = tag.data.attributes.at("spreadMethod");
+      gradient_def.gradient.setRepeat(spread_method == "repeat" || spread_method == "reflect");
+      gradient_def.gradient.setReflect(spread_method == "reflect");
+    }
+
+    for (auto& tag : tag.children) {
+      if (tag.data.name != "stop" || !tag.data.attributes.count("offset"))
+        continue;
+
+      float offset = parseNumber(tag.data.attributes.at("offset"), 1.0f);
+      gradient_def.gradient.addColorStop(parseStopColor(tag), offset);
+    }
+
+    return gradient_def;
+  }
+
+  void collectDefs(std::vector<Tag>& tags, std::map<std::string, Tag>& defs) {
+    for (auto& tag : tags) {
+      if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
+        std::string id = "#" + tag.data.attributes.at("id");
+        defs[id] = tag;
+        defs[id].data.attributes.erase("id");
+      }
+      collectDefs(tag.children, defs);
+    }
+  }
+
+  void collectGradients(const Svg::ViewSettings& view, std::vector<Tag>& tags,
+                        std::map<std::string, GradientDef>& gradients) {
+    for (auto& tag : tags) {
+      if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
+        std::string id = tag.data.attributes.at("id");
+        if (tag.data.name == "linearGradient" || tag.data.name == "radialGradient")
+          gradients[id] = parseGradient(view, tag);
+      }
+      collectGradients(view, tag.children, gradients);
+    }
+  }
+
+  void resolveUses(std::vector<Tag>& tags, const std::map<std::string, Tag> defs) {
+    auto use_tag = [&defs](Tag& target, const std::string& reference_id) {
+      if (defs.count(reference_id) == 0)
+        return;
+
+      const Tag& reference = defs.at(reference_id);
+      for (const auto& attr : reference.data.attributes) {
+        if (!target.data.attributes.count(attr.first))
+          target.data.attributes[attr.first] = attr.second;
+      }
+      target.children.insert(target.children.begin(), reference.children.begin(),
+                             reference.children.end());
+
+      if (target.data.name.empty())
+        target.data.name = reference.data.name;
+    };
+
+    for (auto& tag : tags) {
+      if (tag.data.name == "use") {
+        Tag child;
+        if (tag.data.attributes.count("href"))
+          use_tag(child, tag.data.attributes.at("href"));
+        else if (tag.data.attributes.count("xlink:href"))
+          use_tag(child, tag.data.attributes.at("xlink:href"));
+        tag.children.push_back(child);
+      }
+      else if (tag.data.attributes.count("xlink:href"))
+        use_tag(tag, tag.data.attributes.at("xlink:href"));
+
+      resolveUses(tag.children, defs);
+    }
+  }
+
+  std::vector<std::string> splitArguments(const std::string& str) {
+    std::string with_spaces = unescape(str, ",", " ");
+
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream stream(with_spaces);
+    while (std::getline(stream, token, ' ')) {
+      if (!token.empty())
+        tokens.push_back(token);
+
+      std::string part;
+      while (stream >> part)
+        tokens.push_back(part);
+    }
+    return tokens;
+  }
+
+  std::vector<std::string> parseFunctionTokens(const std::string& function_string, int& pos) {
+    size_t start = function_string.find_first_not_of(" \t\n\r", pos);
+    if (start == std::string::npos)
+      return {};
+
+    size_t end = function_string.find('(', start);
+    if (end == std::string::npos)
+      return { function_string };
+
+    std::string function_name = function_string.substr(start, end - start);
+    size_t close = function_string.find(')', end);
+    if (close == std::string::npos)
+      return {};
+
+    pos = close + 1;
+    auto result = splitArguments(function_string.substr(end + 1, close - end - 1));
+    result.insert(result.begin(), function_name);
+    return result;
+  }
+
+  Matrix parseTransform(const std::string& transform_string) {
+    Matrix matrix;
+    std::istringstream ss(transform_string);
+    int pos = 0;
+    while (pos < transform_string.size()) {
+      auto tokens = parseFunctionTokens(transform_string, pos);
+      if (tokens.size() < 2)
+        break;
+
+      std::vector<float> args;
+      for (int i = 1; i < tokens.size(); ++i) {
+        try {
+          args.push_back(std::stof(tokens[i]));
+        }
+        catch (...) {
+          return matrix;
+        }
+      }
+
+      if (tokens[0] == "translate" && args.size() > 0) {
+        float y = args.size() > 1 ? args[1] : args[0];
+        matrix = matrix * Matrix::translation(args[0], y);
+      }
+      else if (tokens[0] == "scale" && args.size() > 0) {
+        float y = args.size() > 1 ? args[1] : args[0];
+        matrix = matrix * Matrix::scale(args[0], y);
+      }
+      else if (tokens[0] == "rotate" && args.size() > 0) {
+        if (args.size() > 2)
+          matrix = matrix * Matrix::rotation(args[0], { args[1], args[2] });
+        else
+          matrix = matrix * Matrix::rotation(args[0]);
+      }
+      else if (tokens[0] == "skewX" && args.size() > 0)
+        matrix = matrix * Matrix::skewX(args[0]);
+      else if (tokens[0] == "skewY" && args.size() > 0)
+        matrix = matrix * Matrix::skewY(args[0]);
+      else if (tokens[0] == "matrix" && args.size() > 5)
+        matrix = matrix * Matrix(args[0], args[2], args[4], args[1], args[3], args[5]);
+    }
+    return matrix;
+  }
+
+  void removeWhitespace(std::string& string) {
+    constexpr auto is_whitespace = [](char c) { return std::isspace(c); };
+    string.erase(std::remove_if(string.begin(), string.end(), is_whitespace), string.end());
+  }
+
+  GradientDef parseColor(DrawableState& state, std::string& color,
+                         const std::map<std::string, GradientDef>& gradients) {
     removeWhitespace(color);
 
     if (color == "none")
-      return Brush::none();
+      return {};
     if (color[0] == '#')
-      return Brush::solid(Color::fromHexString(color.substr(1)));
+      return GradientDef(Color::fromHexString(color.substr(1)));
 
     int pos = 0;
     auto tokens = parseFunctionTokens(color, pos);
     if (tokens.size() == 0)
-      return Brush::none();
+      return {};
     if (tokens.size() == 1)
-      return translateColor(tokens[0]);
+      return GradientDef(translateColor(tokens[0]));
 
     if (tokens[0].substr(0, 3) == "rgb" && tokens.size() > 3) {
       float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;
-      return Brush::solid(Color(alpha, parseNumber(tokens[1], 255.0f),
-                                parseNumber(tokens[2], 255.0f), parseNumber(tokens[3], 255.0f)));
+      return GradientDef(Color(alpha, parseNumber(tokens[1], 255.0f),
+                               parseNumber(tokens[2], 255.0f), parseNumber(tokens[3], 255.0f)));
     }
     if (tokens[0].substr(0, 3) == "hsl" && tokens.size() > 3) {
       float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;
-      return Brush::solid(Color::fromAHSV(alpha, parseNumber(tokens[1], 360.0f),
-                                          parseNumber(tokens[2], 100.0f), parseNumber(tokens[3], 100.0f)));
+      return GradientDef(Color::fromAHSV(alpha, parseNumber(tokens[1], 360.0f),
+                                         parseNumber(tokens[2], 100.0f), parseNumber(tokens[3], 100.0f)));
     }
     if (tokens[0].substr(0, 3) == "url" && tokens.size() > 1) {
       if (tokens[1].size() > 1 && tokens[1][0] == '#') {
         std::string id = tokens[1].substr(1);
-        if (brushes.count(id) == 0)
-          return brushes.at(id);
+        if (gradients.count(id) > 0)
+          return gradients.at(id);
       }
     }
-    return Brush::none();
+    return {};
   }
 
   void parseStyleAttribute(DrawableState& state, const std::string& style,
-                           const std::map<std::string, Brush>& brushes) {
+                           const std::map<std::string, GradientDef>& gradients) {
     std::stringstream stream(style);
     std::string line;
     Matrix transform = Matrix::identity();
@@ -540,11 +625,11 @@ namespace visage {
         if (key == "opacity")
           tryReadFloat(state.opacity, value);
         else if (key == "fill")
-          state.fill_brush = parseColor(value, brushes);
+          state.fill_gradient = parseColor(state, value, gradients);
         else if (key == "fill-opacity")
           tryReadFloat(state.fill_opacity, value);
         else if (key == "stroke")
-          state.stroke_brush = parseColor(value, brushes);
+          state.stroke_gradient = parseColor(state, value, gradients);
         else if (key == "stroke-opacity")
           tryReadFloat(state.stroke_opacity, value);
         else if (key == "stroke-width")
@@ -563,8 +648,10 @@ namespace visage {
                 arg = "50%";
             }
 
-            offset_x = state.full_width * parseNumber(args[0], state.full_width);
-            offset_y = args.size() > 1 ? state.full_height * parseNumber(args[1], state.full_height) : 0;
+            float width = std::max(state.width, 1.0f);
+            float height = std::max(state.height, 1.0f);
+            offset_x = width * parseNumber(args[0], width);
+            offset_y = args.size() > 1 ? height * parseNumber(args[1], height) : 0;
           }
         }
         else if (key == "stroke-linecap")
@@ -576,22 +663,25 @@ namespace visage {
       }
     }
 
-    //state.transform = state.transform * transform;
-
     state.transform = state.transform * Matrix::translation(offset_x, offset_y) * transform *
                       Matrix::translation(-offset_x, -offset_y);
   }
 
-  void loadDrawableState(Tag& tag, DrawableState& state, const std::map<std::string, Brush>& brushes) {
+  void loadDrawableState(Tag& tag, DrawableState& state, const std::map<std::string, GradientDef>& gradients) {
+    float x = 0.0, y = 0.0f;
     for (auto& attribute : tag.data.attributes) {
       if (attribute.first == "transform")
         state.transform = state.transform * parseTransform(attribute.second);
+      else if (attribute.first == "x")
+        tryReadFloat(x, attribute.second);
+      else if (attribute.first == "y")
+        tryReadFloat(y, attribute.second);
       else if (attribute.first == "fill")
-        state.fill_brush = parseColor(attribute.second, brushes);
+        state.fill_gradient = parseColor(state, attribute.second, gradients);
       else if (attribute.first == "fill-opacity")
         tryReadFloat(state.fill_opacity, attribute.second);
       else if (attribute.first == "stroke")
-        state.stroke_brush = parseColor(attribute.second, brushes);
+        state.stroke_gradient = parseColor(state, attribute.second, gradients);
       else if (attribute.first == "stroke-opacity")
         tryReadFloat(state.stroke_opacity, attribute.second);
       else if (attribute.first == "stroke-width")
@@ -599,39 +689,31 @@ namespace visage {
       else if (attribute.first == "visibility")
         state.visible = attribute.second != "hidden";
       else if (attribute.first == "style")
-        parseStyleAttribute(state, attribute.second, brushes);
+        parseStyleAttribute(state, attribute.second, gradients);
       else if (attribute.first == "opacity")
         tryReadFloat(state.opacity, attribute.second);
     }
+
+    if (x || y)
+      state.transform = Matrix::translation(x, y) * state.transform;
   }
 
-  void loadDrawable(Tag& tag, DrawableState& state, std::vector<std::unique_ptr<SvgDrawable>>& drawables) {
-    if (tag.data.name == "path") {
-      if (tag.data.attributes.count("d")) {
-        auto drawable = std::make_unique<SvgDrawable>();
-        drawable->path.parseSvgPath(tag.data.attributes.at("d"), state.transform);
-        drawable->state = state;
-        drawables.push_back(std::move(drawable));
-      }
-    }
-    else if (tag.data.name == "rect") {
-      auto drawable = std::make_unique<SvgDrawable>();
-      float x = 0.0f, y = 0.0f, width = 0.0f, height = 0.0f;
-      if (tag.data.attributes.count("x"))
-        x = parseNumber(tag.data.attributes.at("x"), 1.0f);
-      if (tag.data.attributes.count("y"))
-        y = parseNumber(tag.data.attributes.at("y"), 1.0f);
-      if (tag.data.attributes.count("width"))
-        width = parseNumber(tag.data.attributes.at("width"), 1.0f);
-      if (tag.data.attributes.count("height"))
-        height = parseNumber(tag.data.attributes.at("height"), 1.0f);
+  std::unique_ptr<SvgDrawable> loadDrawable(Tag& tag, DrawableState& state,
+                                            const std::map<std::string, GradientDef>& gradients) {
+    float width = 0.0f;
+    float height = 0.0f;
+    if (tag.data.attributes.count("width"))
+      width = parseNumber(tag.data.attributes.at("width"), 1.0f);
+    if (tag.data.attributes.count("height"))
+      height = parseNumber(tag.data.attributes.at("height"), 1.0f);
 
-      drawable->path.addRectangle(x, y, width, height, state.transform);
-      drawable->state = state;
-      drawables.push_back(std::move(drawable));
-    }
+    Path path;
+
+    if (tag.data.name == "path" && tag.data.attributes.count("d"))
+      path.parseSvgPath(tag.data.attributes.at("d"));
+    else if (tag.data.name == "rect")
+      path.addRectangle(0, 0, width, height);
     else if (tag.data.name == "circle" || tag.data.name == "ellipse") {
-      auto drawable = std::make_unique<SvgDrawable>();
       float cx = 0.0f, cy = 0.0f, rx = 0.0f, ry = 0.0f;
       if (tag.data.attributes.count("cx"))
         cx = parseNumber(tag.data.attributes.at("cx"), 1.0f);
@@ -644,29 +726,45 @@ namespace visage {
       if (tag.data.attributes.count("ry"))
         ry = parseNumber(tag.data.attributes.at("ry"), 1.0f);
 
-      drawable->path.addEllipse(cx, cy, rx, ry, state.transform);
-      drawable->state = state;
-      drawables.push_back(std::move(drawable));
+      path.addEllipse(cx, cy, rx, ry);
     }
     else
-      return;
+      return nullptr;
 
-    drawables.back()->state.fill_brush =
-        drawables.back()->state.fill_brush.withMultipliedAlpha(state.fill_opacity * state.opacity);
-    drawables.back()->state.stroke_brush =
-        drawables.back()->state.stroke_brush.withMultipliedAlpha(state.stroke_opacity * state.opacity);
+    Bounds bounding_box = path.boundingBox();
+    width = width ? width : bounding_box.width();
+    height = height ? height : bounding_box.height();
+    state.width = width;
+    state.height = height;
+    loadDrawableState(tag, state, gradients);
+
+    auto drawable = std::make_unique<SvgDrawable>();
+    drawable->path = path.transformed(state.transform);
+    state.transform = Matrix::translation(bounding_box.x(), bounding_box.y()) * state.transform;
+    drawable->state = state;
+    drawable->fill_brush = state.fill_gradient.toBrush(state.width, state.height, state.transform);
+    drawable->fill_brush = drawable->fill_brush.withMultipliedAlpha(state.fill_opacity * state.opacity);
+
+    drawable->stroke_brush = state.stroke_gradient.toBrush(state.width, state.height, state.transform);
+    drawable->stroke_brush = drawable->stroke_brush.withMultipliedAlpha(state.stroke_opacity * state.opacity);
+    return drawable;
   }
 
   void computeDrawables(Tag& tag, DrawableState state, std::vector<std::unique_ptr<SvgDrawable>>& drawables,
                         const std::map<std::string, Tag>& defs,
-                        const std::map<std::string, Brush>& brushes) {
+                        const std::map<std::string, GradientDef>& gradients) {
     if (tag.data.name == "defs")
       return;
 
-    loadDrawableState(tag, state, brushes);
-    loadDrawable(tag, state, drawables);
+    auto drawable = loadDrawable(tag, state, gradients);
+    if (drawable) {
+      drawables.push_back(std::move(drawable));
+      return;
+    }
+
+    loadDrawableState(tag, state, gradients);
     for (auto& child : tag.children)
-      computeDrawables(child, state, drawables, defs, brushes);
+      computeDrawables(child, state, drawables, defs, gradients);
   }
 
   static Svg::ViewSettings loadSvgViewSettings(const Tag& tag) {
@@ -758,21 +856,23 @@ namespace visage {
       root = parseTagTree(str, i);
     }
 
-    std::map<std::string, Tag> defs;
-    std::map<std::string, Brush> brushes;
-    collectDefs(tags, defs, brushes);
-    resolveUses(tags, defs);
-
     DrawableState state;
     for (auto& tag : tags) {
       if (tag.data.name == "svg") {
         view_ = loadSvgViewSettings(tag);
         state.transform = initialTransform(view_);
-        state.full_width = view_.view_box_width;
-        state.full_height = view_.view_box_height;
+        state.width = view_.width;
+        state.height = view_.height;
       }
-
-      computeDrawables(tag, state, drawables_, defs, brushes);
     }
+
+    std::map<std::string, Tag> defs;
+    collectDefs(tags, defs);
+    resolveUses(tags, defs);
+    std::map<std::string, GradientDef> gradients;
+    collectGradients(view_, tags, gradients);
+
+    for (auto& tag : tags)
+      computeDrawables(tag, state, drawables_, defs, gradients);
   }
 }
