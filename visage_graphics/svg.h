@@ -27,17 +27,45 @@
 #include <memory>
 
 namespace visage {
+  struct GradientDef {
+    GradientDef() = default;
+    GradientDef(const Color& color) {
+      gradient = Gradient(color);
+      solid = true;
+    }
+
+    Brush toBrush(float width, float height, Matrix transform) const {
+      if (solid)
+        return Brush::solid(gradient.colors().front());
+
+      Point from(x1_ratio ? x1 * width : x1, y1_ratio ? y1 * height : y1);
+      Point to(x2_ratio ? x2 * width : x2, y2_ratio ? y2 * height : y2);
+      return Brush::linear(gradient, transform * from, transform * to);
+    }
+
+    Gradient gradient;
+    bool solid = false;
+    bool x1_ratio = false;
+    bool y1_ratio = false;
+    bool x2_ratio = false;
+    bool y2_ratio = false;
+    float x1 = 0.0f;
+    float y1 = 0.0f;
+    float x2 = 0.0f;
+    float y2 = 0.0f;
+  };
+
   struct DrawableState {
-    float full_width = 0.0f;
-    float full_height = 0.0f;
+    float width = 0.0f;
+    float height = 0.0f;
 
     Matrix transform;
     float opacity = 1.0f;
 
-    Brush fill_brush = Brush::solid(0xff000000);
+    GradientDef fill_gradient = GradientDef(0xff000000);
     float fill_opacity = 1.0f;
 
-    Brush stroke_brush;
+    GradientDef stroke_gradient;
     float stroke_opacity = 1.0f;
     float stroke_width = 1.0f;
     Path::JoinType stroke_join = Path::JoinType::Miter;
@@ -52,6 +80,8 @@ namespace visage {
 
     Path path;
     DrawableState state;
+    Brush fill_brush;
+    Brush stroke_brush;
   };
 
   class Svg {
