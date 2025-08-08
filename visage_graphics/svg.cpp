@@ -613,8 +613,6 @@ namespace visage {
                            const std::map<std::string, GradientDef>& gradients) {
     std::stringstream stream(style);
     std::string line;
-    Matrix transform = Matrix::identity();
-    float offset_x = 0.0f, offset_y = 0.0f;
 
     while (std::getline(stream, line, ';')) {
       auto pos = line.find(':');
@@ -639,7 +637,7 @@ namespace visage {
         else if (key == "display")
           state.visible = value != "none";
         else if (key == "transform")
-          transform = transform * parseTransform(value);
+          state.local_transform = parseTransform(value);
         else if (key == "transform-origin") {
           auto args = splitArguments(value);
           if (!args.empty()) {
@@ -648,10 +646,12 @@ namespace visage {
                 arg = "50%";
             }
 
-            float width = std::max(state.width, 1.0f);
-            float height = std::max(state.height, 1.0f);
-            offset_x = width * parseNumber(args[0], width);
-            offset_y = args.size() > 1 ? height * parseNumber(args[1], height) : 0;
+            state.tranform_origin_x = parseNumber(args[0], 1.0f);
+            if (args.size() > 1)
+              state.tranform_origin_y = parseNumber(args[1], 1.0f);
+
+            state.transform_ratio_x = args[0].find('%') != std::string::npos;
+            state.transform_ratio_y = args.size() > 1 && args[1].find('%') != std::string::npos;
           }
         }
         else if (key == "stroke-linecap")
@@ -663,15 +663,20 @@ namespace visage {
       }
     }
 
-    state.transform = state.transform * Matrix::translation(offset_x, offset_y) * transform *
-                      Matrix::translation(-offset_x, -offset_y);
+    state.scale_transform = state.scale_transform * state.local_transform.withNoTranslation();
   }
 
-  void loadDrawableState(Tag& tag, DrawableState& state, const std::map<std::string, GradientDef>& gradients) {
+  void loadDrawableState(Tag& tag, std::vector<DrawableState>& state_stack,
+                         const std::map<std::string, GradientDef>& gradients) {
+    auto& state = state_stack.back();
+    state.local_transform = Matrix::identity();
+    state.tranform_origin_x = 0;
+    state.tranform_origin_y = 0;
+
     float x = 0.0, y = 0.0f;
     for (auto& attribute : tag.data.attributes) {
       if (attribute.first == "transform")
-        state.transform = state.transform * parseTransform(attribute.second);
+        state.local_transform = parseTransform(attribute.second);
       else if (attribute.first == "x")
         tryReadFloat(x, attribute.second);
       else if (attribute.first == "y")
@@ -695,11 +700,13 @@ namespace visage {
     }
 
     if (x || y)
-      state.transform = Matrix::translation(x, y) * state.transform;
+      state.local_transform = state.local_transform * Matrix::translation(x, y);
+    state.scale_transform = state.scale_transform * state.local_transform.withNoTranslation();
   }
 
-  std::unique_ptr<SvgDrawable> loadDrawable(Tag& tag, DrawableState& state,
+  std::unique_ptr<SvgDrawable> loadDrawable(Tag& tag, std::vector<DrawableState>& state_stack,
                                             const std::map<std::string, GradientDef>& gradients) {
+    auto& state = state_stack.back();
     float width = 0.0f;
     float height = 0.0f;
     if (tag.data.attributes.count("width"))
@@ -708,6 +715,7 @@ namespace visage {
       height = parseNumber(tag.data.attributes.at("height"), 1.0f);
 
     Path path;
+    path.setResolutionTransform(state.scale_transform);
 
     if (tag.data.name == "path" && tag.data.attributes.count("d"))
       path.parseSvgPath(tag.data.attributes.at("d"));
@@ -731,40 +739,62 @@ namespace visage {
     else
       return nullptr;
 
-    Bounds bounding_box = path.boundingBox();
-    width = width ? width : bounding_box.width();
-    height = height ? height : bounding_box.height();
-    state.width = width;
-    state.height = height;
-    loadDrawableState(tag, state, gradients);
-
     auto drawable = std::make_unique<SvgDrawable>();
-    drawable->path = path.transformed(state.transform);
-    state.transform = Matrix::translation(bounding_box.x(), bounding_box.y()) * state.transform;
     drawable->state = state;
-    drawable->fill_brush = state.fill_gradient.toBrush(state.width, state.height, state.transform);
+    auto start_bounding_box = path.boundingBox();
+
+    Matrix transform;
+    for (int i = state_stack.size() - 1; i >= 0; --i) {
+      if (state_stack[i].tranform_origin_x || state_stack[i].tranform_origin_y) {
+        Point origin(state_stack[i].tranform_origin_x, state_stack[i].tranform_origin_y);
+        if (state_stack[i].transform_ratio_x || state_stack[i].transform_ratio_x) {
+          auto bounding_box = path.transformed(transform).boundingBox();
+          if (state_stack[i].transform_ratio_x)
+            origin.x *= bounding_box.width();
+          if (state_stack[i].transform_ratio_y)
+            origin.y *= bounding_box.height();
+        }
+        transform = Matrix::translation(origin) * state_stack[i].local_transform *
+                    Matrix::translation(-origin) * transform;
+      }
+      else
+        transform = state_stack[i].local_transform * transform;
+    }
+
+    drawable->path = path.transformed(transform);
+
+    transform = transform * Matrix::translation(start_bounding_box.x(), start_bounding_box.y());
+    width = width ? width : start_bounding_box.width();
+    height = height ? height : start_bounding_box.height();
+    drawable->fill_brush = state.fill_gradient.toBrush(width, height, transform);
     drawable->fill_brush = drawable->fill_brush.withMultipliedAlpha(state.fill_opacity * state.opacity);
 
-    drawable->stroke_brush = state.stroke_gradient.toBrush(state.width, state.height, state.transform);
+    drawable->stroke_brush = state.stroke_gradient.toBrush(width, height, transform);
     drawable->stroke_brush = drawable->stroke_brush.withMultipliedAlpha(state.stroke_opacity * state.opacity);
     return drawable;
   }
 
-  void computeDrawables(Tag& tag, DrawableState state, std::vector<std::unique_ptr<SvgDrawable>>& drawables,
+  void computeDrawables(Tag& tag, std::vector<DrawableState>& state_stack,
+                        std::vector<std::unique_ptr<SvgDrawable>>& drawables,
                         const std::map<std::string, Tag>& defs,
                         const std::map<std::string, GradientDef>& gradients) {
     if (tag.data.name == "defs")
       return;
 
-    auto drawable = loadDrawable(tag, state, gradients);
+    state_stack.push_back(state_stack.back());
+
+    loadDrawableState(tag, state_stack, gradients);
+    auto drawable = loadDrawable(tag, state_stack, gradients);
     if (drawable) {
       drawables.push_back(std::move(drawable));
+      state_stack.pop_back();
       return;
     }
 
-    loadDrawableState(tag, state, gradients);
     for (auto& child : tag.children)
-      computeDrawables(child, state, drawables, defs, gradients);
+      computeDrawables(child, state_stack, drawables, defs, gradients);
+
+    state_stack.pop_back();
   }
 
   static Svg::ViewSettings loadSvgViewSettings(const Tag& tag) {
@@ -860,9 +890,8 @@ namespace visage {
     for (auto& tag : tags) {
       if (tag.data.name == "svg") {
         view_ = loadSvgViewSettings(tag);
-        state.transform = initialTransform(view_);
-        state.width = view_.width;
-        state.height = view_.height;
+        state.local_transform = initialTransform(view_);
+        state.scale_transform = state.local_transform.withNoTranslation();
       }
     }
 
@@ -872,7 +901,9 @@ namespace visage {
     std::map<std::string, GradientDef> gradients;
     collectGradients(view_, tags, gradients);
 
+    std::vector<DrawableState> state_stack;
+    state_stack.push_back(state);
     for (auto& tag : tags)
-      computeDrawables(tag, state, drawables_, defs, gradients);
+      computeDrawables(tag, state_stack, drawables_, defs, gradients);
   }
 }
