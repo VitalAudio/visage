@@ -60,7 +60,7 @@ namespace visage {
     if (!sweep_flag)
       arc_angle = -arc_angle;
 
-    Point adjusted_radius = current_transform_ * Point(x_radius, y_radius);
+    Point adjusted_radius = resolution_transform_ * Point(x_radius, y_radius);
     float max_radius = std::max(adjusted_radius.x, adjusted_radius.y);
     float max_delta_radians = 2.0f * std::acos(1.0f - error_tolerance_ / max_radius);
     int num_points = std::ceil(std::abs(arc_angle) / max_delta_radians);
@@ -136,34 +136,29 @@ namespace visage {
     }
   }
 
-  void Path::addRectangle(float x, float y, float width, float height, Matrix transform) {
+  void Path::addRectangle(float x, float y, float width, float height) {
     startNewPath();
-    current_transform_ = transform;
     moveTo(x, y);
     lineTo(x + width, y);
     lineTo(x + width, y + height);
     lineTo(x, y + height);
     close();
-    current_transform_ = {};
   }
 
-  void Path::addEllipse(float x, float y, float rx, float ry, Matrix transform) {
+  void Path::addEllipse(float x, float y, float rx, float ry) {
     startNewPath();
-    current_transform_ = transform;
     moveTo(x + rx, y);
     arcTo(rx, ry, 180.0f, false, true, Point(x - rx, y), false);
     arcTo(rx, ry, 180.0f, false, true, Point(x + rx, y), false);
     close();
-    current_transform_ = {};
   }
 
-  void Path::addCircle(float x, float y, float r, Matrix transform) {
-    addEllipse(x, y, r, r, transform);
+  void Path::addCircle(float x, float y, float r) {
+    addEllipse(x, y, r, r);
   }
 
-  void Path::parseSvgPath(const std::string& path, Matrix transform) {
+  void Path::parseSvgPath(const std::string& path) {
     startNewPath();
-    current_transform_ = transform;
 
     size_t i = 0;
     char command_char = 0;
@@ -209,8 +204,6 @@ namespace visage {
       default: VISAGE_ASSERT(false);
       }
     }
-
-    current_transform_ = {};
   }
 
   static double orientation(const DPoint& source, const DPoint& target1, const DPoint& target2) {

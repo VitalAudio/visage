@@ -126,7 +126,7 @@ namespace visage {
         return;
 
       if (paths_.back().points.front() != paths_.back().points.back())
-        addPoint(start_point_);
+        addPoint(paths_.back().points.front());
     }
 
     void quadraticTo(Point control, Point end, bool relative = false) {
@@ -213,14 +213,13 @@ namespace visage {
 
     void clear() {
       paths_.clear();
-      start_point_ = {};
       last_point_ = {};
     }
 
-    void parseSvgPath(const std::string& path, Matrix transform = {});
-    void addRectangle(float x, float y, float width, float height, Matrix transform = {});
-    void addEllipse(float cx, float cy, float rx, float ry, Matrix transform = {});
-    void addCircle(float cx, float cy, float r, Matrix transform = {});
+    void parseSvgPath(const std::string& path);
+    void addRectangle(float x, float y, float width, float height);
+    void addEllipse(float cx, float cy, float rx, float ry);
+    void addCircle(float cx, float cy, float r);
 
     Triangulation triangulate() const;
     Path combine(const Path& other, Operation operation = Operation::Union) const;
@@ -335,13 +334,16 @@ namespace visage {
 
     float errorTolerance() const { return error_tolerance_; }
 
+    void setResolutionTransform(const Matrix& transform) {
+      resolution_transform_ = transform.withNoTranslation();
+    }
+
   private:
     void recurseBezierTo(Point from, Point control1, Point control2, Point to) {
       float error_squared = error_tolerance_ * error_tolerance_;
 
-      auto scale = current_transform_.withNoTranslation();
-      Point delta1 = scale * deltaFromLine(control1, from, to);
-      Point delta2 = scale * deltaFromLine(control2, from, to);
+      Point delta1 = resolution_transform_ * deltaFromLine(control1, from, to);
+      Point delta2 = resolution_transform_ * deltaFromLine(control2, from, to);
       if (delta1.squareMagnitude() <= error_squared && delta2.squareMagnitude() <= error_squared) {
         addPoint(to);
         return;
@@ -377,21 +379,17 @@ namespace visage {
     }
 
     void addPoint(const Point& point) {
-      if (currentPath().points.empty())
-        start_point_ = point;
-
       last_point_ = point;
-      currentPath().points.push_back(current_transform_ * last_point_);
+      currentPath().points.push_back(point);
       currentPath().values.push_back(current_value_);
     }
 
     void addPoint(float x, float y) { addPoint({ x, y }); }
 
-    Matrix current_transform_;
+    Matrix resolution_transform_;
     std::vector<SubPath> paths_;
     FillRule fill_rule_ = FillRule::EvenOdd;
     Point smooth_control_point_;
-    Point start_point_;
     Point last_point_;
     float current_value_ = 0.0f;
     float error_tolerance_ = kDefaultErrorTolerance;
