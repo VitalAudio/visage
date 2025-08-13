@@ -125,10 +125,16 @@ namespace visage {
     }
 
     void close() {
+      static constexpr float kCloseEpsilon = 0.000001f;
+
       if (paths_.empty() || paths_.back().points.empty())
         return;
 
-      if (paths_.back().points.front() != paths_.back().points.back())
+      if ((paths_.back().points.front() - paths_.back().points.back()).squareMagnitude() < kCloseEpsilon) {
+        paths_.back().points.back() = paths_.back().points.front();
+        last_point_ = paths_.back().points.front();
+      }
+      else if (paths_.back().points.front() != paths_.back().points.back())
         addPoint(paths_.back().points.front());
     }
 
