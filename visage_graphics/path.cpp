@@ -315,7 +315,7 @@ namespace visage {
 
     TriangulationGraph() = delete;
 
-    explicit TriangulationGraph(const Path* path, bool close_paths = true) {
+    explicit TriangulationGraph(const Path* path) {
       int num_points = path->numPoints();
       prev_edge_.reserve(num_points);
       next_edge_.reserve(num_points);
@@ -327,20 +327,12 @@ namespace visage {
         if (sub_path_size == 0)
           continue;
 
-        for (int i = 0; i < sub_path_size; ++i)
+        for (int i = 0; i < sub_path_size; ++i) {
           points_.emplace_back(sub_path.points[i]);
-
-        prev_edge_.push_back(-1);
-        for (int i = 1; i < sub_path_size; ++i) {
-          prev_edge_.push_back(path_start + i - 1);
-          next_edge_.push_back(path_start + i);
+          prev_edge_.push_back(path_start + (i - 1 + sub_path_size) % sub_path_size);
+          next_edge_.push_back(path_start + (i + 1) % sub_path_size);
         }
-        next_edge_.push_back(-1);
 
-        if (sub_path.is_closed || close_paths) {
-          next_edge_[path_start + sub_path_size - 1] = path_start;
-          prev_edge_[path_start] = path_start + sub_path_size - 1;
-        }
         path_start += sub_path_size;
         VISAGE_ASSERT(next_edge_.size() == points_.size());
       }
@@ -1175,8 +1167,6 @@ namespace visage {
 
         DPoint start = points_[i];
         DPoint prev = points_[prev_edge_[i]];
-        if (prev == start)
-          prev = points_[prev_edge_[prev_edge_[i]]];
         DPoint point = start;
         DPoint prev_direction = (start - prev).normalized();
         DPoint prev_offset = DPoint(-prev_direction.y, prev_direction.x) * amount;
@@ -1201,8 +1191,8 @@ namespace visage {
           if (index == next_edge_[next_edge_[index]])
             points_created.push_back(1);
           else if (type == Path::JoinType::Bevel) {
-            points_[index] += offset;
-            insertPointBetween(index, next_index, next + offset);
+            points_[index] += prev_offset;
+            insertPointBetween(index, next_index, point + offset);
             points_created.push_back(2);
           }
           else if (type == Path::JoinType::Miter) {
@@ -1230,7 +1220,7 @@ namespace visage {
             points_created.push_back(2);
           }
           else if (type == Path::JoinType::Round) {
-            bool convex = stableOrientation(prev, point, next) < 0.0;
+            bool convex = stableOrientation(prev, point, next) <= 0.0;
             if (convex == (amount > 0.0)) {
               double arc_angle = std::acos(prev_offset.dot(offset) / (amount * amount));
               points_[index] += prev_offset;
@@ -1589,23 +1579,13 @@ namespace visage {
   Path Path::stroke(float stroke_width, JoinType join_type, EndType end_type) const {
     Path tmp = *this;
     for (auto& path : tmp.paths_) {
-      if (path.is_closed) {
-        int index = 0;
-        while (index < path.points.size() && path.points[index] == path.points.back())
-          index++;
-        if (index < path.points.size()) {
-          path.points.push_back(path.points[index]);
-          path.values.push_back(path.values[index]);
-        }
-      }
       for (int i = path.points.size() - 2; i >= 0; --i) {
         path.points.push_back(path.points[i]);
         path.values.push_back(path.values[i]);
       }
-      path.is_closed = true;
     }
 
-    TriangulationGraph graph(&tmp, false);
+    TriangulationGraph graph(&tmp);
     graph.simplify();
 
     std::vector<int> points_created;

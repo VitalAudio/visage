@@ -30,7 +30,6 @@ namespace visage {
   struct SubPath {
     std::vector<Point> points;
     std::vector<float> values;
-    bool is_closed = false;
   };
 
   class Path {
@@ -131,8 +130,6 @@ namespace visage {
 
       if (paths_.back().points.front() != paths_.back().points.back())
         addPoint(paths_.back().points.front());
-      currentPath().is_closed = true;
-      startNewPath();
     }
 
     void quadraticTo(Point control, Point end, bool relative = false) {
