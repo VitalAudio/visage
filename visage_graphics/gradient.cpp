@@ -137,10 +137,10 @@ namespace visage {
 
   void GradientPosition::encode(std::ostringstream& stream) const {
     stream << static_cast<int>(shape) << std::endl;
-    stream << from.x << std::endl;
-    stream << from.y << std::endl;
-    stream << to.x << std::endl;
-    stream << to.y << std::endl;
+    stream << point_from.x << std::endl;
+    stream << point_from.y << std::endl;
+    stream << point_to.x << std::endl;
+    stream << point_to.y << std::endl;
   }
 
   void GradientPosition::decode(const std::string& data) {
@@ -152,10 +152,10 @@ namespace visage {
     int shape_int = 0;
     stream >> shape_int;
     shape = static_cast<InterpolationShape>(shape_int);
-    stream >> from.x;
-    stream >> from.y;
-    stream >> to.x;
-    stream >> to.y;
+    stream >> point_from.x;
+    stream >> point_from.y;
+    stream >> point_to.x;
+    stream >> point_to.y;
   }
 
   std::string Brush::encode() const {

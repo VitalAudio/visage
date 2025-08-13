@@ -34,17 +34,25 @@ namespace visage {
       solid = true;
     }
 
-    Brush toBrush(float width, float height, Matrix transform) const {
+    Brush toBrush(float width, float height, Matrix current_transform, int x, int y) const {
       if (solid)
         return Brush::solid(gradient.colors().front());
 
       Point from(x1_ratio ? x1 * width : x1, y1_ratio ? y1 * height : y1);
       Point to(x2_ratio ? x2 * width : x2, y2_ratio ? y2 * height : y2);
-      return Brush::linear(gradient, transform * from, transform * to);
+      if (user_space) {
+        auto translate = Matrix::translation(-x, -y);
+        from = translate * from;
+        to = translate * to;
+      }
+      return Brush::linear(gradient, current_transform * transform * from,
+                           current_transform * transform * to);
     }
 
     Gradient gradient;
+    Matrix transform;
     bool solid = false;
+    bool user_space = false;
     bool x1_ratio = false;
     bool y1_ratio = false;
     bool x2_ratio = false;
@@ -67,11 +75,13 @@ namespace visage {
 
     GradientDef fill_gradient = GradientDef(0xff000000);
     float fill_opacity = 1.0f;
+    bool non_zero_fill = false;
 
     GradientDef stroke_gradient;
     float stroke_opacity = 1.0f;
     float stroke_width = 1.0f;
     Path::JoinType stroke_join = Path::JoinType::Miter;
+    Path::EndType stroke_end_cap = Path::EndType::Square;
 
     bool visible = true;
   };
@@ -82,6 +92,7 @@ namespace visage {
     void stroke(Canvas& canvas, float x, float y, float width, float height) const;
 
     Path path;
+    Path stroke_path;
     DrawableState state;
     Brush fill_brush;
     Brush stroke_brush;
