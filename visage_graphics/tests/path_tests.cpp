@@ -450,7 +450,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
 
   SECTION("Vertical cross line degeneracy") {
     Path path;
-    path.lineTo(10, 10);
+    path.moveTo(10, 10);
     path.lineTo(40, 10);
     path.lineTo(40, 30);
     path.lineTo(50, 25);
@@ -681,6 +681,34 @@ TEST_CASE("Path difference", "[graphics]") {
     for (int r = 0; r < 5; ++r) {
       for (int c = 0; c < 5; ++c)
         REQUIRE(screenshot.sample(c, r).hexRed() == 0x0);
+    }
+  }
+}
+
+TEST_CASE("Path interesection", "[graphics]") {
+  SECTION("Bug 1") {
+    Path path1;
+    path1.moveTo(0.00000000, 0);
+    path1.lineTo(-3.33066907e-6, 10);
+    path1.lineTo(10, 10);
+    path1.lineTo(10, 0);
+    path1.close();
+
+    Path path2;
+    path2.addRectangle(0, 0, 100, 100);
+    Path intersection = path1.combine(path2, Path::Operation::Intersection);
+
+    Canvas canvas;
+    canvas.setWindowless(10, 10);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.setColor(0xffffffff);
+    canvas.fill(&intersection, 0, 0, 10, 10);
+    canvas.submit();
+    const auto& screenshot = canvas.takeScreenshot();
+    for (int r = 0; r < 10; ++r) {
+      for (int c = 0; c < 10; ++c)
+        REQUIRE(screenshot.sample(c, r).hexRed() == 0xff);
     }
   }
 }

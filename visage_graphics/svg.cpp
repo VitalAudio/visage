@@ -54,7 +54,7 @@ namespace visage {
 
   void SvgDrawable::stroke(Canvas& canvas, float x, float y, float width, float height) const {
     canvas.setColor(stroke_brush);
-    canvas.line(&path, x, y, width, height, state.stroke_width);
+    canvas.fill(&stroke_path, x, y, width, height);
   }
 
   inline void tryReadFloat(float& result, const std::string& string) {
@@ -396,98 +396,6 @@ namespace visage {
     return color;
   }
 
-  GradientDef parseGradient(const Svg::ViewSettings& view, Tag& tag) {
-    GradientDef gradient_def;
-    if (tag.data.attributes.count("x1")) {
-      gradient_def.x1 = parseNumber(tag.data.attributes.at("x1"), 1.0f);
-      gradient_def.x1_ratio = tag.data.attributes.at("x1").find('%') != std::string::npos;
-    }
-    if (tag.data.attributes.count("y1")) {
-      gradient_def.y1 = parseNumber(tag.data.attributes.at("y1"), 1.0f);
-      gradient_def.y1_ratio = tag.data.attributes.at("y1").find('%') != std::string::npos;
-    }
-    if (tag.data.attributes.count("x2")) {
-      gradient_def.x2 = parseNumber(tag.data.attributes.at("x2"), 1.0f);
-      gradient_def.x2_ratio = tag.data.attributes.at("x2").find('%') != std::string::npos;
-    }
-    if (tag.data.attributes.count("y2")) {
-      gradient_def.y2 = parseNumber(tag.data.attributes.at("y2"), 1.0f);
-      gradient_def.y2_ratio = tag.data.attributes.at("y2").find('%') != std::string::npos;
-    }
-
-    if (tag.data.attributes.count("spreadMethod")) {
-      std::string spread_method = tag.data.attributes.at("spreadMethod");
-      gradient_def.gradient.setRepeat(spread_method == "repeat" || spread_method == "reflect");
-      gradient_def.gradient.setReflect(spread_method == "reflect");
-    }
-
-    for (auto& tag : tag.children) {
-      if (tag.data.name != "stop" || !tag.data.attributes.count("offset"))
-        continue;
-
-      float offset = parseNumber(tag.data.attributes.at("offset"), 1.0f);
-      gradient_def.gradient.addColorStop(parseStopColor(tag), offset);
-    }
-
-    return gradient_def;
-  }
-
-  void collectDefs(std::vector<Tag>& tags, std::map<std::string, Tag>& defs) {
-    for (auto& tag : tags) {
-      if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
-        std::string id = "#" + tag.data.attributes.at("id");
-        defs[id] = tag;
-        defs[id].data.attributes.erase("id");
-      }
-      collectDefs(tag.children, defs);
-    }
-  }
-
-  void collectGradients(const Svg::ViewSettings& view, std::vector<Tag>& tags,
-                        std::map<std::string, GradientDef>& gradients) {
-    for (auto& tag : tags) {
-      if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
-        std::string id = tag.data.attributes.at("id");
-        if (tag.data.name == "linearGradient" || tag.data.name == "radialGradient")
-          gradients[id] = parseGradient(view, tag);
-      }
-      collectGradients(view, tag.children, gradients);
-    }
-  }
-
-  void resolveUses(std::vector<Tag>& tags, const std::map<std::string, Tag> defs) {
-    auto use_tag = [&defs](Tag& target, const std::string& reference_id) {
-      if (defs.count(reference_id) == 0)
-        return;
-
-      const Tag& reference = defs.at(reference_id);
-      for (const auto& attr : reference.data.attributes) {
-        if (!target.data.attributes.count(attr.first))
-          target.data.attributes[attr.first] = attr.second;
-      }
-      target.children.insert(target.children.begin(), reference.children.begin(),
-                             reference.children.end());
-
-      if (target.data.name.empty())
-        target.data.name = reference.data.name;
-    };
-
-    for (auto& tag : tags) {
-      if (tag.data.name == "use") {
-        Tag child;
-        if (tag.data.attributes.count("href"))
-          use_tag(child, tag.data.attributes.at("href"));
-        else if (tag.data.attributes.count("xlink:href"))
-          use_tag(child, tag.data.attributes.at("xlink:href"));
-        tag.children.push_back(child);
-      }
-      else if (tag.data.attributes.count("xlink:href"))
-        use_tag(tag, tag.data.attributes.at("xlink:href"));
-
-      resolveUses(tag.children, defs);
-    }
-  }
-
   std::vector<std::string> splitArguments(const std::string& str) {
     std::string with_spaces = unescape(str, ",", " ");
 
@@ -568,6 +476,101 @@ namespace visage {
     return matrix;
   }
 
+  GradientDef parseGradient(const Svg::ViewSettings& view, Tag& tag) {
+    GradientDef gradient_def;
+    if (tag.data.attributes.count("x1")) {
+      gradient_def.x1 = parseNumber(tag.data.attributes.at("x1"), 1.0f);
+      gradient_def.x1_ratio = tag.data.attributes.at("x1").find('%') != std::string::npos;
+    }
+    if (tag.data.attributes.count("y1")) {
+      gradient_def.y1 = parseNumber(tag.data.attributes.at("y1"), 1.0f);
+      gradient_def.y1_ratio = tag.data.attributes.at("y1").find('%') != std::string::npos;
+    }
+    if (tag.data.attributes.count("x2")) {
+      gradient_def.x2 = parseNumber(tag.data.attributes.at("x2"), 1.0f);
+      gradient_def.x2_ratio = tag.data.attributes.at("x2").find('%') != std::string::npos;
+    }
+    if (tag.data.attributes.count("y2")) {
+      gradient_def.y2 = parseNumber(tag.data.attributes.at("y2"), 1.0f);
+      gradient_def.y2_ratio = tag.data.attributes.at("y2").find('%') != std::string::npos;
+    }
+    if (tag.data.attributes.count("spreadMethod")) {
+      std::string spread_method = tag.data.attributes.at("spreadMethod");
+      gradient_def.gradient.setRepeat(spread_method == "repeat" || spread_method == "reflect");
+      gradient_def.gradient.setReflect(spread_method == "reflect");
+    }
+    if (tag.data.attributes.count("gradientTransform"))
+      gradient_def.transform = parseTransform(tag.data.attributes.at("gradientTransform"));
+    if (tag.data.attributes.count("gradientUnits"))
+      gradient_def.user_space = tag.data.attributes.at("gradientUnits") == "userSpaceOnUse";
+
+    for (auto& tag : tag.children) {
+      if (tag.data.name != "stop" || !tag.data.attributes.count("offset"))
+        continue;
+
+      float offset = parseNumber(tag.data.attributes.at("offset"), 1.0f);
+      gradient_def.gradient.addColorStop(parseStopColor(tag), offset);
+    }
+
+    return gradient_def;
+  }
+
+  void collectDefs(std::vector<Tag>& tags, std::map<std::string, Tag>& defs) {
+    for (auto& tag : tags) {
+      if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
+        std::string id = "#" + tag.data.attributes.at("id");
+        defs[id] = tag;
+        defs[id].data.attributes.erase("id");
+      }
+      collectDefs(tag.children, defs);
+    }
+  }
+
+  void collectGradients(const Svg::ViewSettings& view, std::vector<Tag>& tags,
+                        std::map<std::string, GradientDef>& gradients) {
+    for (auto& tag : tags) {
+      if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
+        std::string id = tag.data.attributes.at("id");
+        if (tag.data.name == "linearGradient" || tag.data.name == "radialGradient")
+          gradients[id] = parseGradient(view, tag);
+      }
+      collectGradients(view, tag.children, gradients);
+    }
+  }
+
+  void resolveUses(std::vector<Tag>& tags, const std::map<std::string, Tag> defs) {
+    auto use_tag = [&defs](Tag& target, const std::string& reference_id) {
+      if (defs.count(reference_id) == 0)
+        return;
+
+      const Tag& reference = defs.at(reference_id);
+      for (const auto& attr : reference.data.attributes) {
+        if (!target.data.attributes.count(attr.first))
+          target.data.attributes[attr.first] = attr.second;
+      }
+      target.children.insert(target.children.begin(), reference.children.begin(),
+                             reference.children.end());
+
+      if (target.data.name.empty())
+        target.data.name = reference.data.name;
+    };
+
+    for (auto& tag : tags) {
+      if (tag.data.name == "use") {
+        Tag child;
+        if (tag.data.attributes.count("href"))
+          use_tag(child, tag.data.attributes.at("href"));
+        else if (tag.data.attributes.count("xlink:href"))
+          use_tag(child, tag.data.attributes.at("xlink:href"));
+        tag.children.push_back(child);
+      }
+      else if (tag.data.attributes.count("xlink:href"))
+        use_tag(tag, tag.data.attributes.at("xlink:href"));
+
+      resolveUses(tag.children, defs);
+    }
+  }
+
   void removeWhitespace(std::string& string) {
     constexpr auto is_whitespace = [](char c) { return std::isspace(c); };
     string.erase(std::remove_if(string.begin(), string.end(), is_whitespace), string.end());
@@ -609,6 +612,24 @@ namespace visage {
     return {};
   }
 
+  Path::EndType parseStrokeLineCap(const std::string& value) {
+    if (value == "round")
+      return Path::EndType::Round;
+    if (value == "square")
+      return Path::EndType::Square;
+
+    return Path::EndType::Butt;
+  }
+
+  Path::JoinType parseStrokeLineJoin(const std::string& value) {
+    if (value == "round")
+      return Path::JoinType::Round;
+    if (value == "bevel")
+      return Path::JoinType::Bevel;
+
+    return Path::JoinType::Miter;
+  }
+
   void parseStyleAttribute(DrawableState& state, const std::string& style,
                            const std::map<std::string, GradientDef>& gradients) {
     std::stringstream stream(style);
@@ -624,6 +645,8 @@ namespace visage {
           tryReadFloat(state.opacity, value);
         else if (key == "fill")
           state.fill_gradient = parseColor(state, value, gradients);
+        else if (key == "fill-rule")
+          state.non_zero_fill = value == "nonzero";
         else if (key == "fill-opacity")
           tryReadFloat(state.fill_opacity, value);
         else if (key == "stroke")
@@ -655,9 +678,9 @@ namespace visage {
           }
         }
         else if (key == "stroke-linecap")
-          ;  // state.stroke_linecap = parseStrokeLineCap(value);
+          state.stroke_end_cap = parseStrokeLineCap(value);
         else if (key == "stroke-linejoin")
-          ;  // state.stroke_linejoin = parseStrokeLineJoin(value);
+          state.stroke_join = parseStrokeLineJoin(value);
         else if (key == "stroke-dasharray")
           ;  // state.stroke_dasharray = parseStrokeDashArray(value);
       }
@@ -683,6 +706,8 @@ namespace visage {
         tryReadFloat(y, attribute.second);
       else if (attribute.first == "fill")
         state.fill_gradient = parseColor(state, attribute.second, gradients);
+      else if (attribute.first == "fill-rule")
+        state.non_zero_fill = attribute.second == "nonzero";
       else if (attribute.first == "fill-opacity")
         tryReadFloat(state.fill_opacity, attribute.second);
       else if (attribute.first == "stroke")
@@ -717,10 +742,24 @@ namespace visage {
     Path path;
     path.setResolutionTransform(state.scale_transform);
 
-    if (tag.data.name == "path" && tag.data.attributes.count("d"))
+    if (tag.data.name == "path" && tag.data.attributes.count("d")) {
+      if (state.non_zero_fill)
+        path.setFillRule(Path::FillRule::NonZero);
+      else
+        path.setFillRule(Path::FillRule::EvenOdd);
       path.parseSvgPath(tag.data.attributes.at("d"));
-    else if (tag.data.name == "rect")
-      path.addRectangle(0, 0, width, height);
+    }
+    else if (tag.data.name == "rect") {
+      float x = 0.0f, y = 0.0f, rx = 0.0f, ry = 0.0f;
+      if (tag.data.attributes.count("rx"))
+        rx = parseNumber(tag.data.attributes.at("rx"), 1.0f);
+      if (tag.data.attributes.count("ry"))
+        ry = parseNumber(tag.data.attributes.at("ry"), 1.0f);
+      if (rx > 0.0f || ry > 0.0f)
+        path.addRoundedRectangle(0, 0, width, height, rx, ry);
+      else
+        path.addRectangle(0, 0, width, height);
+    }
     else if (tag.data.name == "circle" || tag.data.name == "ellipse") {
       float cx = 0.0f, cy = 0.0f, rx = 0.0f, ry = 0.0f;
       if (tag.data.attributes.count("cx"))
@@ -762,14 +801,21 @@ namespace visage {
     }
 
     drawable->path = path.transformed(transform);
+    drawable->stroke_path = drawable->path.stroke(state.stroke_width, state.stroke_join,
+                                                  state.stroke_end_cap);
 
-    transform = transform * Matrix::translation(start_bounding_box.x(), start_bounding_box.y());
     width = width ? width : start_bounding_box.width();
     height = height ? height : start_bounding_box.height();
-    drawable->fill_brush = state.fill_gradient.toBrush(width, height, transform);
+    float x = 0.0f, y = 0.0f;
+    if (tag.data.attributes.count("x"))
+      x = parseNumber(tag.data.attributes.at("x"), 1.0f);
+    if (tag.data.attributes.count("y"))
+      y = parseNumber(tag.data.attributes.at("y"), 1.0f);
+    Matrix local_translation = Matrix::translation(x, y);
+    drawable->fill_brush = state.fill_gradient.toBrush(width, height, transform, x, y);
     drawable->fill_brush = drawable->fill_brush.withMultipliedAlpha(state.fill_opacity * state.opacity);
 
-    drawable->stroke_brush = state.stroke_gradient.toBrush(width, height, transform);
+    drawable->stroke_brush = state.stroke_gradient.toBrush(width, height, transform, x, y);
     drawable->stroke_brush = drawable->stroke_brush.withMultipliedAlpha(state.stroke_opacity * state.opacity);
     return drawable;
   }
