@@ -195,8 +195,19 @@ int runExample() {
     std::string svg_data = visage::loadFileAsString(svgs[svg_index]);
     svg_index = (svg_index + 1) % svgs.size();
     svg = visage::Svg((unsigned char*)svg_data.c_str(), svg_data.length());
-    svg.setDimensions(app.width(), app.height());
+    svg.setDimensions(app.width() * 2, app.height() * 2);
   };
+
+  // path.moveTo(0.00000000, 0);
+  // path.lineTo(-3.33066907e-16, 10);
+  // path.lineTo(5, 10);
+  // path.lineTo(5, 0);
+  // path.close();
+  //
+  // visage::Path intersect;
+  // intersect.addRectangle(0, 0, 400, 400);
+  // path = path.combine(intersect, visage::Path::Operation::Intersection);
+  // path.translate(50, 50);
 
   app.onDraw() = [&](visage::Canvas& canvas) {
     canvas.setColor(0xffffffff);
@@ -204,7 +215,7 @@ int runExample() {
 
     svg.draw(canvas, 0, 0);
     canvas.setColor(0xff00ff00);
-    canvas.fill(&path, 0, 0, app.width(), app.height());
+    canvas.fill(&path, 0, 0, 120, 150);
     app.redraw();
   };
 
