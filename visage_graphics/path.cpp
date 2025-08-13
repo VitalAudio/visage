@@ -31,6 +31,9 @@ namespace visage {
 
   void Path::arcTo(float x_radius, float y_radius, float x_axis_rotation, bool large_arc,
                    bool sweep_flag, Point to, bool relative) {
+    if (currentPath().points.empty())
+      addPoint(last_point_);
+
     smooth_control_point_ = {};
 
     Point from = last_point_;
@@ -142,6 +145,20 @@ namespace visage {
     lineTo(x + width, y);
     lineTo(x + width, y + height);
     lineTo(x, y + height);
+    close();
+  }
+
+  void Path::addRoundedRectangle(float x, float y, float width, float height, float rx, float ry) {
+    startNewPath();
+    moveTo(x + rx, y);
+    lineTo(x + width - rx, y);
+    arcTo(rx, ry, 90.0f, false, true, Point(x + width, y + ry), false);
+    lineTo(x + width, y + height - ry);
+    arcTo(rx, ry, 90.0f, false, true, Point(x + width - rx, y + height), false);
+    lineTo(x + rx, y + height);
+    arcTo(rx, ry, 90.0f, false, true, Point(x, y + height - ry), false);
+    lineTo(x, y + ry);
+    arcTo(rx, ry, 90.0f, false, true, Point(x + rx, y), false);
     close();
   }
 
@@ -320,7 +337,7 @@ namespace visage {
         }
         next_edge_.push_back(-1);
 
-        if (sub_path.points[0] == sub_path.points.back() || close_paths) {
+        if (sub_path.is_closed || close_paths) {
           next_edge_[path_start + sub_path_size - 1] = path_start;
           prev_edge_[path_start] = path_start + sub_path_size - 1;
         }
@@ -592,14 +609,6 @@ namespace visage {
           double max_y = std::min(std::max(it->from.y, it->to.y), std::max(next->from.y, next->to.y));
           max_y = std::max(min_y, max_y);
           intersection.y = std::clamp(intersection.y, min_y, max_y);
-          if ((intersection - it->from).squareMagnitude() < kEpsilon)
-            intersection = it->from;
-          else if ((intersection - it->to).squareMagnitude() < kEpsilon)
-            intersection = it->to;
-          else if ((intersection - next->from).squareMagnitude() < kEpsilon)
-            intersection = next->from;
-          else if ((intersection - next->to).squareMagnitude() < kEpsilon)
-            intersection = next->to;
         }
 
         // TODO: this can possibly move the intersection point a lot if points are set with double precision
@@ -1151,7 +1160,7 @@ namespace visage {
       return triangles;
     }
 
-    template<Path::JoinType joint_type>
+    template<Path::JoinType join_type>
     void offset(double amount, bool post_simplify, Path::EndType end_type, std::vector<int>& points_created) {
       static constexpr float kMinOffset = 0.001f;
       if (std::abs(amount) < kMinOffset)
@@ -1175,27 +1184,38 @@ namespace visage {
         while (!touched[index]) {
           touched[index] = true;
           int next_index = next_edge_[index];
-
           DPoint next = next_index == i ? start : points_[next_index];
+
+          auto type = join_type;
+          if (prev == next) {
+            if (end_type == Path::EndType::Butt)
+              type = Path::JoinType::Bevel;
+            else if (end_type == Path::EndType::Square)
+              type = Path::JoinType::Square;
+            else if (end_type == Path::EndType::Round)
+              type = Path::JoinType::Round;
+          }
+
           DPoint direction = (next - point).normalized();
           auto offset = DPoint(-direction.y, direction.x) * amount;
           if (index == next_edge_[next_edge_[index]])
             points_created.push_back(1);
-          else if constexpr (joint_type == Path::JoinType::Bevel) {
+          else if (type == Path::JoinType::Bevel) {
             points_[index] += offset;
             insertPointBetween(index, next_index, next + offset);
             points_created.push_back(2);
           }
-          else if constexpr (joint_type == Path::JoinType::Miter) {
+          else if (type == Path::JoinType::Miter) {
             auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
                                                        point + offset, next + offset);
+            // TODO check miter limit
             if (intersection.has_value())
               points_[index] = intersection.value();
             else
               points_[index] = point;
             points_created.push_back(1);
           }
-          else if constexpr (joint_type == Path::JoinType::Square) {
+          else if (type == Path::JoinType::Square) {
             DPoint square_offset = (prev_direction - direction).normalized() * amount;
             DPoint square_center = point + square_offset;
             DPoint square_tangent = DPoint(-square_offset.y, square_offset.x);
@@ -1209,7 +1229,7 @@ namespace visage {
             insertPointBetween(index, next_index, intersection.value());
             points_created.push_back(2);
           }
-          else if constexpr (joint_type == Path::JoinType::Round) {
+          else if (type == Path::JoinType::Round) {
             bool convex = stableOrientation(prev, point, next) < 0.0;
             if (convex == (amount > 0.0)) {
               double arc_angle = std::acos(prev_offset.dot(offset) / (amount * amount));
@@ -1567,8 +1587,27 @@ namespace visage {
   }
 
   Path Path::stroke(float stroke_width, JoinType join_type, EndType end_type) const {
-    TriangulationGraph graph(this, false);
+    Path tmp = *this;
+    for (auto& path : tmp.paths_) {
+      if (path.is_closed) {
+        int index = 0;
+        while (index < path.points.size() && path.points[index] == path.points.back())
+          index++;
+        if (index < path.points.size()) {
+          path.points.push_back(path.points[index]);
+          path.values.push_back(path.values[index]);
+        }
+      }
+      for (int i = path.points.size() - 2; i >= 0; --i) {
+        path.points.push_back(path.points[i]);
+        path.values.push_back(path.values[i]);
+      }
+      path.is_closed = true;
+    }
+
+    TriangulationGraph graph(&tmp, false);
     graph.simplify();
+
     std::vector<int> points_created;
     switch (join_type) {
     case JoinType::Bevel:

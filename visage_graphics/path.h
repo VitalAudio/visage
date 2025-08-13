@@ -30,6 +30,7 @@ namespace visage {
   struct SubPath {
     std::vector<Point> points;
     std::vector<float> values;
+    bool is_closed = false;
   };
 
   class Path {
@@ -96,6 +97,9 @@ namespace visage {
     void moveTo(float x, float y, bool relative = false) { moveTo(Point(x, y), relative); }
 
     void lineTo(Point point, bool relative = false) {
+      if (currentPath().points.empty())
+        addPoint(last_point_);
+
       if (relative)
         point += last_point_;
 
@@ -127,9 +131,14 @@ namespace visage {
 
       if (paths_.back().points.front() != paths_.back().points.back())
         addPoint(paths_.back().points.front());
+      currentPath().is_closed = true;
+      startNewPath();
     }
 
     void quadraticTo(Point control, Point end, bool relative = false) {
+      if (currentPath().points.empty())
+        addPoint(last_point_);
+
       Point from = last_point_;
       if (relative) {
         control += from;
@@ -169,6 +178,9 @@ namespace visage {
     }
 
     void bezierTo(Point control1, Point control2, Point end, bool relative = false) {
+      if (currentPath().points.empty())
+        addPoint(last_point_);
+
       Point from = last_point_;
       if (relative) {
         control1 += from;
@@ -218,6 +230,7 @@ namespace visage {
 
     void parseSvgPath(const std::string& path);
     void addRectangle(float x, float y, float width, float height);
+    void addRoundedRectangle(float x, float y, float width, float height, float rx, float ry);
     void addEllipse(float cx, float cy, float rx, float ry);
     void addCircle(float cx, float cy, float r);
 

@@ -322,8 +322,8 @@ namespace visage {
                     to.shape == InterpolationShape::Solid);
       GradientPosition result;
       result.shape = from.shape;
-      result.from = from.from + (to.from - from.from) * t;
-      result.to = from.to + (to.to - from.to) * t;
+      result.point_from = from.point_from + (to.point_from - from.point_from) * t;
+      result.point_to = from.point_to + (to.point_to - from.point_to) * t;
       return result;
     }
 
@@ -331,11 +331,11 @@ namespace visage {
     explicit GradientPosition(InterpolationShape shape) : shape(shape) { }
 
     GradientPosition(Point from, Point to) :
-        shape(InterpolationShape::PointsLinear), from(from), to(to) { }
+        shape(InterpolationShape::PointsLinear), point_from(from), point_to(to) { }
 
     InterpolationShape shape = InterpolationShape::Solid;
-    Point from;
-    Point to;
+    Point point_from;
+    Point point_to;
 
     GradientPosition interpolateWith(const GradientPosition& other, float t) const {
       return interpolate(*this, other, t);
@@ -348,8 +348,8 @@ namespace visage {
 
     GradientPosition operator*(float mult) const {
       GradientPosition result = *this;
-      result.from = result.from * mult;
-      result.to = result.to * mult;
+      result.point_from = result.point_from * mult;
+      result.point_to = result.point_to * mult;
       return result;
     }
 
@@ -383,6 +383,7 @@ namespace visage {
     }
 
     static Brush linear(Gradient gradient, const Point& from_position, const Point& to_position) {
+      VISAGE_LOG("%f %f %f %f", from_position.x, from_position.y, to_position.x, to_position.y);
       return { std::move(gradient), GradientPosition(from_position, to_position) };
     }
 
@@ -454,10 +455,10 @@ namespace visage {
           result.gradient_position_to_y = bottom - 0.5f;
         }
         else if (brush->position_.shape == GradientPosition::InterpolationShape::PointsLinear) {
-          result.gradient_position_from_x = offset_x + brush->position_.from.x;
-          result.gradient_position_from_y = offset_y + brush->position_.from.y;
-          result.gradient_position_to_x = offset_x + brush->position_.to.x;
-          result.gradient_position_to_y = offset_y + brush->position_.to.y;
+          result.gradient_position_from_x = offset_x + brush->position_.point_from.x;
+          result.gradient_position_from_y = offset_y + brush->position_.point_from.y;
+          result.gradient_position_to_x = offset_x + brush->position_.point_to.x;
+          result.gradient_position_to_y = offset_y + brush->position_.point_to.y;
         }
 
         float atlas_x_scale = 1.0f / brush->atlasWidth();
