@@ -167,6 +167,7 @@ namespace visage {
     moveTo(x + rx, y);
     arcTo(rx, ry, 180.0f, false, true, Point(x - rx, y), false);
     arcTo(rx, ry, 180.0f, false, true, Point(x + rx, y), false);
+
     close();
   }
 
@@ -1198,6 +1199,10 @@ namespace visage {
           else if (type == Path::JoinType::Miter) {
             auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
                                                        point + offset, next + offset);
+            if ((intersection.value() - prev).length() > 30.0f)
+              VISAGE_LOG("TEST");
+            intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
+                                                  point + offset, next + offset);
             // TODO check miter limit
             if (intersection.has_value())
               points_[index] = intersection.value();
@@ -1222,7 +1227,8 @@ namespace visage {
           else if (type == Path::JoinType::Round) {
             bool convex = stableOrientation(prev, point, next) <= 0.0;
             if (convex == (amount > 0.0)) {
-              double arc_angle = std::acos(prev_offset.dot(offset) / (amount * amount));
+              double acos_param = std::clamp(prev_offset.dot(offset) / (amount * amount), -1.0, 1.0);
+              double arc_angle = std::acos(acos_param);
               points_[index] += prev_offset;
               int num_points = std::ceil(arc_angle / max_delta_radians - 0.1f);
               std::complex<double> position(prev_offset.x, prev_offset.y);
