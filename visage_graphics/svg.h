@@ -82,6 +82,9 @@ namespace visage {
     float stroke_width = 1.0f;
     Path::JoinType stroke_join = Path::JoinType::Miter;
     Path::EndType stroke_end_cap = Path::EndType::Square;
+    std::vector<std::pair<float, bool>> stroke_dasharray;
+    float stroke_dashoffset = 0.0f;
+    bool stroke_dashoffset_ratio = false;
 
     bool visible = true;
   };

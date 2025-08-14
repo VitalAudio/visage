@@ -1153,9 +1153,42 @@ namespace visage {
       return triangles;
     }
 
+    void singlePointOffset(double amount, int index, Path::EndType end_type,
+                           std::vector<int>& points_created) {
+      if (amount < 0.0)
+        return;
+
+      auto point = points_[index];
+      auto next_index = next_edge_[index];
+      if (end_type == Path::EndType::Square) {
+        points_[index] += DPoint(amount, amount);
+        int current_index = index;
+        current_index = insertPointBetween(current_index, next_index, point + DPoint(amount, -amount));
+        current_index = insertPointBetween(current_index, next_index, point + DPoint(-amount, -amount));
+        current_index = insertPointBetween(current_index, next_index, point + DPoint(-amount, amount));
+        points_created.push_back(4);
+      }
+      else if (end_type == Path::EndType::Round) {
+        double max_delta_radians = 2.0 * std::acos(1.0 - Path::kDefaultErrorTolerance / std::abs(amount));
+        int num_points = std::ceil(2.0 * kPi / max_delta_radians - 0.1);
+        std::complex<double> position(amount, 0.0);
+        double angle_delta = 2.0 * kPi / num_points;
+        std::complex<double> rotation = std::polar(1.0, -angle_delta);
+        int current_index = index;
+
+        points_[index] += DPoint(position.real(), position.imag());
+        for (int p = 1; p < num_points; ++p) {
+          position *= rotation;
+          DPoint insert = point + DPoint(position.real(), position.imag());
+          current_index = insertPointBetween(current_index, next_index, insert);
+        }
+        points_created.push_back(num_points);
+      }
+    }
+
     template<Path::JoinType join_type>
     void offset(double amount, bool post_simplify, Path::EndType end_type, std::vector<int>& points_created) {
-      static constexpr float kMinOffset = 0.001f;
+      static constexpr double kMinOffset = 0.001;
       if (std::abs(amount) < kMinOffset)
         return;
 
@@ -1163,11 +1196,17 @@ namespace visage {
       int start_points = points_.size();
       std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(start_points);
       for (int i = 0; i < start_points; ++i) {
-        if (i == next_edge_[i] || touched[i])
+        if (touched[i])
           continue;
 
+        if (next_edge_[i] == i) {
+          singlePointOffset(amount, i, end_type, points_created);
+          continue;
+        }
+
         DPoint start = points_[i];
-        DPoint prev = points_[prev_edge_[i]];
+        int last_index = prev_edge_[i];
+        DPoint prev = points_[last_index];
         DPoint point = start;
         DPoint prev_direction = (start - prev).normalized();
         DPoint prev_offset = DPoint(-prev_direction.y, prev_direction.x) * amount;
@@ -1175,7 +1214,9 @@ namespace visage {
         while (!touched[index]) {
           touched[index] = true;
           int next_index = next_edge_[index];
-          DPoint next = next_index == i ? start : points_[next_index];
+          DPoint next = index == last_index ? start : points_[next_index];
+          DPoint direction = (next - point).normalized();
+          auto offset = DPoint(-direction.y, direction.x) * amount;
 
           auto type = join_type;
           if (prev == next) {
@@ -1186,12 +1227,7 @@ namespace visage {
             else if (end_type == Path::EndType::Round)
               type = Path::JoinType::Round;
           }
-
-          DPoint direction = (next - point).normalized();
-          auto offset = DPoint(-direction.y, direction.x) * amount;
-          if (index == next_edge_[next_edge_[index]])
-            points_created.push_back(1);
-          else if (type == Path::JoinType::Bevel) {
+          if (type == Path::JoinType::Bevel) {
             points_[index] += prev_offset;
             insertPointBetween(index, next_index, point + offset);
             points_created.push_back(2);
@@ -1199,7 +1235,7 @@ namespace visage {
           else if (type == Path::JoinType::Miter) {
             auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
                                                        point + offset, next + offset);
-            if ((intersection.value() - prev).length() > 30.0f)
+            if ((intersection.value() - prev).length() > 30.0)
               VISAGE_LOG("TEST");
             intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
                                                   point + offset, next + offset);
@@ -1230,7 +1266,7 @@ namespace visage {
               double acos_param = std::clamp(prev_offset.dot(offset) / (amount * amount), -1.0, 1.0);
               double arc_angle = std::acos(acos_param);
               points_[index] += prev_offset;
-              int num_points = std::ceil(arc_angle / max_delta_radians - 0.1f);
+              int num_points = std::ceil(arc_angle / max_delta_radians - 0.1);
               std::complex<double> position(prev_offset.x, prev_offset.y);
               double angle_delta = arc_angle / num_points;
               std::complex<double> rotation = std::polar(1.0, (amount < 0.0) ? angle_delta : -angle_delta);
@@ -1246,7 +1282,7 @@ namespace visage {
             else {
               if (amount < 0.0) {
                 DPoint result = point + offset;
-                if (std::abs(direction.dot(prev_direction)) < 0.99f) {
+                if (std::abs(direction.dot(prev_direction)) < 0.99) {
                   auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
                                                              point + offset, next + offset);
                   VISAGE_ASSERT(intersection.has_value());
@@ -1267,6 +1303,9 @@ namespace visage {
               }
             }
           }
+
+          if (index == last_index)
+            break;
 
           index = next_index;
           prev = point;
@@ -1377,7 +1416,7 @@ namespace visage {
     }
 
     int insertPointBetween(int start_index, int end_index, const DPoint& point) {
-      if (prev_edge_[start_index] == end_index)
+      if (next_edge_[start_index] != end_index)
         std::swap(start_index, end_index);
 
       VISAGE_ASSERT(points_[start_index] != point);
@@ -1582,16 +1621,74 @@ namespace visage {
     return graph.toPath();
   }
 
-  Path Path::stroke(float stroke_width, JoinType join_type, EndType end_type) const {
-    Path tmp = *this;
-    for (auto& path : tmp.paths_) {
+  Path Path::stroke(float stroke_width, JoinType join_type, EndType end_type,
+                    std::vector<float> dash_array, float dash_offset) const {
+    float dash_total = 0.0f;
+    for (auto& dash : dash_array)
+      dash_total += dash;
+
+    if (dash_total <= 0.0f)
+      dash_array.clear();
+
+    Path stroke_path;
+    if (!dash_array.empty()) {
+      if (dash_offset < 0.0f)
+        dash_offset = dash_total - std::fmod(-dash_offset, dash_total);
+      else
+        dash_offset = std::fmod(dash_offset, dash_total);
+
+      int dash_index = 0;
+      float dash_length = dash_array[0];
+      while (dash_offset > dash_length) {
+        dash_offset -= dash_length;
+        dash_index = (dash_index + 1) % dash_array.size();
+        dash_length = dash_array[dash_index];
+      }
+
+      dash_length -= dash_offset;
+
+      bool fill = true;
+      for (auto& path : paths_) {
+        auto prev = path.points[0];
+        stroke_path.moveTo(prev);
+        for (int i = 1; i < path.points.size(); ++i) {
+          stroke_path.setPointValue(path.values[i]);
+          auto length = (path.points[i] - prev).length();
+          while (length > dash_length) {
+            auto ratio = dash_length / length;
+            auto point = prev + (path.points[i] - prev) * ratio;
+
+            if (fill)
+              stroke_path.lineTo(point);
+            else
+              stroke_path.moveTo(point);
+
+            prev = point;
+            length -= dash_length;
+
+            dash_index = (dash_index + 1) % dash_array.size();
+            dash_length = dash_array[dash_index];
+            fill = !fill;
+          }
+          if (fill)
+            stroke_path.lineTo(path.points[i]);
+
+          dash_length -= (path.points[i] - prev).length();
+          prev = path.points[i];
+        }
+      }
+    }
+    else
+      stroke_path = *this;
+
+    for (auto& path : stroke_path.paths_) {
       for (int i = path.points.size() - 2; i >= 0; --i) {
         path.points.push_back(path.points[i]);
         path.values.push_back(path.values[i]);
       }
     }
 
-    TriangulationGraph graph(&tmp);
+    TriangulationGraph graph(&stroke_path);
     graph.simplify();
 
     std::vector<int> points_created;
