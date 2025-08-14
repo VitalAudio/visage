@@ -83,13 +83,13 @@ namespace visage {
     void setPointValue(float value) { current_value_ = value; }
 
     void moveTo(Point point, bool relative = false) {
-      if (!paths_.empty() && paths_.back().points.size() > 1)
+      if (!paths_.empty() && !paths_.back().points.empty())
         startNewPath();
 
       if (relative)
         point += last_point_;
 
-      addPoint(point);
+      last_point_ = point;
       smooth_control_point_ = {};
     }
 
@@ -242,8 +242,8 @@ namespace visage {
     std::pair<Path, Path> offsetAntiAlias(float scale, std::vector<int>& inner_added_points,
                                           std::vector<int>& outer_added_points) const;
     Path offset(float offset, JoinType join_type = JoinType::Square) const;
-    Path stroke(float stroke_width, JoinType join_type = JoinType::Round,
-                EndType end_type = EndType::Round) const;
+    Path stroke(float stroke_width, JoinType join_type = JoinType::Round, EndType end_type = EndType::Round,
+                std::vector<float> dash_array = {}, float dash_offset = 0.0f) const;
     Path breakIntoSimplePolygons() const;
 
     Path scaled(float mult) const {
@@ -395,6 +395,9 @@ namespace visage {
     }
 
     void addPoint(const Point& point) {
+      if (!currentPath().points.empty() && point == currentPath().points.back())
+        return;
+
       last_point_ = point;
       currentPath().points.push_back(point);
       currentPath().values.push_back(current_value_);

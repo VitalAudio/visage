@@ -466,6 +466,7 @@ namespace visage {
     float xCenter() const { return x_ + width_ * 0.5f; }
     float yCenter() const { return y_ + height_ * 0.5f; }
     Point topLeft() const { return { x_, y_ }; }
+    Point bottomRight() const { return { x_ + width_, y_ + height_ }; }
     Point clampPoint(const Point& point) const {
       return { std::max(x_, std::min(right(), point.x)), std::max(y_, std::min(bottom(), point.y)) };
     }

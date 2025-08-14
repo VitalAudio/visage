@@ -630,6 +630,24 @@ namespace visage {
     return Path::JoinType::Miter;
   }
 
+  std::vector<std::pair<float, bool>> parseStrokeDashArray(const std::string& value) {
+    std::vector<std::pair<float, bool>> array;
+    auto args = splitArguments(value);
+    if (args.empty() || args[0] == "none")
+      return array;
+
+    for (const auto& arg : args) {
+      if (arg.empty())
+        continue;
+
+      bool is_ratio = arg.find('%') != std::string::npos;
+      float number = parseNumber(arg, 1.0f);
+      array.emplace_back(number, is_ratio);
+    }
+
+    return array;
+  }
+
   void parseStyleAttribute(DrawableState& state, const std::string& style,
                            const std::map<std::string, GradientDef>& gradients) {
     std::stringstream stream(style);
@@ -682,7 +700,11 @@ namespace visage {
         else if (key == "stroke-linejoin")
           state.stroke_join = parseStrokeLineJoin(value);
         else if (key == "stroke-dasharray")
-          ;  // state.stroke_dasharray = parseStrokeDashArray(value);
+          state.stroke_dasharray = parseStrokeDashArray(value);
+        else if (key == "stroke-dashoffset") {
+          state.stroke_dashoffset = parseNumber(value, 1.0f);
+          state.stroke_dashoffset_ratio = value.find('%') != std::string::npos;
+        }
       }
     }
 
@@ -729,7 +751,8 @@ namespace visage {
     state.scale_transform = state.scale_transform * state.local_transform.withNoTranslation();
   }
 
-  std::unique_ptr<SvgDrawable> loadDrawable(Tag& tag, std::vector<DrawableState>& state_stack,
+  std::unique_ptr<SvgDrawable> loadDrawable(const Svg::ViewSettings& view, Tag& tag,
+                                            std::vector<DrawableState>& state_stack,
                                             const std::map<std::string, GradientDef>& gradients) {
     auto& state = state_stack.back();
     float width = 0.0f;
@@ -801,8 +824,23 @@ namespace visage {
     }
 
     drawable->path = path.transformed(transform);
+    std::vector<float> dashes;
+    float view_width = view.width ? view.width : start_bounding_box.width();
+    float view_height = view.height ? view.height : start_bounding_box.height();
+    float dash_scale = std::sqrtf(0.5f * (view_width * view_width + view_height * view_height));
+    float dash_offset = state.stroke_dashoffset;
+    if (state.stroke_dashoffset_ratio)
+      dash_offset *= dash_scale;
+
+    for (const auto& dash : state.stroke_dasharray) {
+      if (dash.second) {
+        dashes.push_back(dash.first * dash_scale);
+      }
+      else
+        dashes.push_back(dash.first);
+    }
     drawable->stroke_path = drawable->path.stroke(state.stroke_width, state.stroke_join,
-                                                  state.stroke_end_cap);
+                                                  state.stroke_end_cap, dashes, dash_offset);
 
     width = width ? width : start_bounding_box.width();
     height = height ? height : start_bounding_box.height();
@@ -820,7 +858,7 @@ namespace visage {
     return drawable;
   }
 
-  void computeDrawables(Tag& tag, std::vector<DrawableState>& state_stack,
+  void computeDrawables(const Svg::ViewSettings& view, Tag& tag, std::vector<DrawableState>& state_stack,
                         std::vector<std::unique_ptr<SvgDrawable>>& drawables,
                         const std::map<std::string, Tag>& defs,
                         const std::map<std::string, GradientDef>& gradients) {
@@ -830,7 +868,7 @@ namespace visage {
     state_stack.push_back(state_stack.back());
 
     loadDrawableState(tag, state_stack, gradients);
-    auto drawable = loadDrawable(tag, state_stack, gradients);
+    auto drawable = loadDrawable(view, tag, state_stack, gradients);
     if (drawable) {
       drawables.push_back(std::move(drawable));
       state_stack.pop_back();
@@ -838,7 +876,7 @@ namespace visage {
     }
 
     for (auto& child : tag.children)
-      computeDrawables(child, state_stack, drawables, defs, gradients);
+      computeDrawables(view, child, state_stack, drawables, defs, gradients);
 
     state_stack.pop_back();
   }
@@ -950,6 +988,6 @@ namespace visage {
     std::vector<DrawableState> state_stack;
     state_stack.push_back(state);
     for (auto& tag : tags)
-      computeDrawables(tag, state_stack, drawables_, defs, gradients);
+      computeDrawables(view_, tag, state_stack, drawables_, defs, gradients);
   }
 }
