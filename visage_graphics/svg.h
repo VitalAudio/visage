@@ -80,11 +80,12 @@ namespace visage {
     GradientDef stroke_gradient;
     float stroke_opacity = 1.0f;
     float stroke_width = 1.0f;
-    Path::JoinType stroke_join = Path::JoinType::Miter;
-    Path::EndType stroke_end_cap = Path::EndType::Square;
+    Path::Join stroke_join = Path::Join::Miter;
+    Path::EndCap stroke_end_cap = Path::EndCap::Butt;
     std::vector<std::pair<float, bool>> stroke_dasharray;
     float stroke_dashoffset = 0.0f;
     bool stroke_dashoffset_ratio = false;
+    float stroke_miter_limit = 4.0f;
 
     bool visible = true;
   };
@@ -104,8 +105,8 @@ namespace visage {
   class Svg {
   public:
     struct ViewSettings {
-      float width = 0.0f;
-      float height = 0.0f;
+      float width = 500.0f;
+      float height = 500.0f;
       float view_box_x = 0.0f;
       float view_box_y = 0.0f;
       float view_box_width = 0.0f;

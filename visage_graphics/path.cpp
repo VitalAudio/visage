@@ -318,6 +318,7 @@ namespace visage {
 
     explicit TriangulationGraph(const Path* path) {
       int num_points = path->numPoints();
+      resolution_transform_ = path->resolutionTransform();
       prev_edge_.reserve(num_points);
       next_edge_.reserve(num_points);
 
@@ -1153,14 +1154,13 @@ namespace visage {
       return triangles;
     }
 
-    void singlePointOffset(double amount, int index, Path::EndType end_type,
-                           std::vector<int>& points_created) {
+    void singlePointOffset(double amount, int index, Path::EndCap end_cap, std::vector<int>& points_created) {
       if (amount < 0.0)
         return;
 
       auto point = points_[index];
       auto next_index = next_edge_[index];
-      if (end_type == Path::EndType::Square) {
+      if (end_cap == Path::EndCap::Square) {
         points_[index] += DPoint(amount, amount);
         int current_index = index;
         current_index = insertPointBetween(current_index, next_index, point + DPoint(amount, -amount));
@@ -1168,8 +1168,9 @@ namespace visage {
         current_index = insertPointBetween(current_index, next_index, point + DPoint(-amount, amount));
         points_created.push_back(4);
       }
-      else if (end_type == Path::EndType::Round) {
-        double max_delta_radians = 2.0 * std::acos(1.0 - Path::kDefaultErrorTolerance / std::abs(amount));
+      else if (end_cap == Path::EndCap::Round) {
+        float adjusted_radius = (resolution_transform_ * Point(amount, 0.0f)).length();
+        double max_delta_radians = 2.0 * std::acos(1.0 - Path::kDefaultErrorTolerance / adjusted_radius);
         int num_points = std::ceil(2.0 * kPi / max_delta_radians - 0.1);
         std::complex<double> position(amount, 0.0);
         double angle_delta = 2.0 * kPi / num_points;
@@ -1186,11 +1187,14 @@ namespace visage {
       }
     }
 
-    template<Path::JoinType join_type>
-    void offset(double amount, bool post_simplify, Path::EndType end_type, std::vector<int>& points_created) {
+    template<Path::Join join>
+    void offset(double amount, bool post_simplify, Path::EndCap end_cap,
+                std::vector<int>& points_created, float miter_limit = Path::kDefaultMiterLimit) {
       static constexpr double kMinOffset = 0.001;
       if (std::abs(amount) < kMinOffset)
         return;
+
+      float square_miter_limit = miter_limit * miter_limit;
 
       double max_delta_radians = 2.0 * std::acos(1.0 - Path::kDefaultErrorTolerance / std::abs(amount));
       int start_points = points_.size();
@@ -1200,7 +1204,7 @@ namespace visage {
           continue;
 
         if (next_edge_[i] == i) {
-          singlePointOffset(amount, i, end_type, points_created);
+          singlePointOffset(amount, i, end_cap, points_created);
           continue;
         }
 
@@ -1218,35 +1222,35 @@ namespace visage {
           DPoint direction = (next - point).normalized();
           auto offset = DPoint(-direction.y, direction.x) * amount;
 
-          auto type = join_type;
+          auto type = join;
           if (prev == next) {
-            if (end_type == Path::EndType::Butt)
-              type = Path::JoinType::Bevel;
-            else if (end_type == Path::EndType::Square)
-              type = Path::JoinType::Square;
-            else if (end_type == Path::EndType::Round)
-              type = Path::JoinType::Round;
+            if (end_cap == Path::EndCap::Butt)
+              type = Path::Join::Bevel;
+            else if (end_cap == Path::EndCap::Square)
+              type = Path::Join::Square;
+            else if (end_cap == Path::EndCap::Round)
+              type = Path::Join::Round;
           }
-          if (type == Path::JoinType::Bevel) {
+          if (type == Path::Join::Bevel) {
             points_[index] += prev_offset;
             insertPointBetween(index, next_index, point + offset);
             points_created.push_back(2);
           }
-          else if (type == Path::JoinType::Miter) {
+          else if (type == Path::Join::Miter) {
             auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
                                                        point + offset, next + offset);
-            if ((intersection.value() - prev).length() > 30.0)
-              VISAGE_LOG("TEST");
-            intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
-                                                  point + offset, next + offset);
-            // TODO check miter limit
-            if (intersection.has_value())
+            if (intersection.has_value() &&
+                (intersection.value() - point).squareMagnitude() / (amount * amount) < square_miter_limit) {
               points_[index] = intersection.value();
-            else
-              points_[index] = point;
-            points_created.push_back(1);
+              points_created.push_back(1);
+            }
+            else {
+              points_[index] += prev_offset;
+              insertPointBetween(index, next_index, point + offset);
+              points_created.push_back(2);
+            }
           }
-          else if (type == Path::JoinType::Square) {
+          else if (type == Path::Join::Square) {
             DPoint square_offset = (prev_direction - direction).normalized() * amount;
             DPoint square_center = point + square_offset;
             DPoint square_tangent = DPoint(-square_offset.y, square_offset.x);
@@ -1260,7 +1264,7 @@ namespace visage {
             insertPointBetween(index, next_index, intersection.value());
             points_created.push_back(2);
           }
-          else if (type == Path::JoinType::Round) {
+          else if (type == Path::Join::Round) {
             bool convex = stableOrientation(prev, point, next) <= 0.0;
             if (convex == (amount > 0.0)) {
               double acos_param = std::clamp(prev_offset.dot(offset) / (amount * amount), -1.0, 1.0);
@@ -1546,6 +1550,7 @@ namespace visage {
     }
 
     std::unique_ptr<ScanLine> scan_line_;
+    Matrix resolution_transform_;
     std::vector<DPoint> points_;
     std::vector<IndexData> sorted_indices_;
     std::vector<int> prev_edge_;
@@ -1592,12 +1597,12 @@ namespace visage {
     TriangulationGraph outer(this);
     outer.simplify();
     TriangulationGraph inner = outer;
-    outer.offset<JoinType::Round>(0.5f / scale, false, Path::EndType::Butt, outer_added_points);
-    inner.offset<JoinType::Round>(-0.5f / scale, false, Path::EndType::Butt, inner_added_points);
+    outer.offset<Join::Round>(0.5f / scale, false, Path::EndCap::Butt, outer_added_points);
+    inner.offset<Join::Round>(-0.5f / scale, false, Path::EndCap::Butt, inner_added_points);
     return { inner.toPath(), outer.toPath() };
   }
 
-  Path Path::offset(float offset, JoinType joint_type) const {
+  Path Path::offset(float offset, Join joint_type, float miter_limit) const {
     TriangulationGraph graph(this);
     graph.simplify();
     graph.breakIntersections();
@@ -1605,24 +1610,24 @@ namespace visage {
     std::vector<int> points_created;
 
     switch (joint_type) {
-    case JoinType::Bevel:
-      graph.offset<JoinType::Bevel>(offset, true, Path::EndType::Butt, points_created);
+    case Join::Bevel:
+      graph.offset<Join::Bevel>(offset, true, Path::EndCap::Butt, points_created);
       break;
-    case JoinType::Miter:
-      graph.offset<JoinType::Miter>(offset, true, Path::EndType::Butt, points_created);
+    case Join::Miter:
+      graph.offset<Join::Miter>(offset, true, Path::EndCap::Butt, points_created, miter_limit);
       break;
-    case JoinType::Square:
-      graph.offset<JoinType::Square>(offset, true, Path::EndType::Butt, points_created);
+    case Join::Square:
+      graph.offset<Join::Square>(offset, true, Path::EndCap::Butt, points_created);
       break;
-    case JoinType::Round:
-      graph.offset<JoinType::Round>(offset, true, Path::EndType::Butt, points_created);
+    case Join::Round:
+      graph.offset<Join::Round>(offset, true, Path::EndCap::Butt, points_created);
       break;
     }
     return graph.toPath();
   }
 
-  Path Path::stroke(float stroke_width, JoinType join_type, EndType end_type,
-                    std::vector<float> dash_array, float dash_offset) const {
+  Path Path::stroke(float stroke_width, Join join, EndCap end_cap, std::vector<float> dash_array,
+                    float dash_offset, float miter_limit) const {
     float dash_total = 0.0f;
     for (auto& dash : dash_array)
       dash_total += dash;
@@ -1682,7 +1687,8 @@ namespace visage {
       stroke_path = *this;
 
     for (auto& path : stroke_path.paths_) {
-      for (int i = path.points.size() - 2; i >= 0; --i) {
+      int start_size = path.points.size();
+      for (int i = start_size - 2; i > 0; --i) {
         path.points.push_back(path.points[i]);
         path.values.push_back(path.values[i]);
       }
@@ -1692,18 +1698,18 @@ namespace visage {
     graph.simplify();
 
     std::vector<int> points_created;
-    switch (join_type) {
-    case JoinType::Bevel:
-      graph.offset<JoinType::Bevel>(stroke_width / 2.0f, true, end_type, points_created);
+    switch (join) {
+    case Join::Bevel:
+      graph.offset<Join::Bevel>(stroke_width / 2.0f, true, end_cap, points_created);
       break;
-    case JoinType::Miter:
-      graph.offset<JoinType::Miter>(stroke_width / 2.0f, true, end_type, points_created);
+    case Join::Miter:
+      graph.offset<Join::Miter>(stroke_width / 2.0f, true, end_cap, points_created, miter_limit);
       break;
-    case JoinType::Square:
-      graph.offset<JoinType::Square>(stroke_width / 2.0f, true, end_type, points_created);
+    case Join::Square:
+      graph.offset<Join::Square>(stroke_width / 2.0f, true, end_cap, points_created);
       break;
-    case JoinType::Round:
-      graph.offset<JoinType::Round>(stroke_width / 2.0f, true, end_type, points_created);
+    case Join::Round:
+      graph.offset<Join::Round>(stroke_width / 2.0f, true, end_cap, points_created);
       break;
     }
     return graph.toPath();

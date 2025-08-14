@@ -82,6 +82,7 @@ namespace visage {
 
       i++;
     }
+    i++;
   }
 
   std::string unescape(std::string input, const std::string& from, const std::string& to) {
@@ -190,8 +191,10 @@ namespace visage {
       return tag;
 
     Tag child = parseTagTree(str, i);
-    while (!child.data.is_closing && !child.data.name.empty()) {
-      tag.children.push_back(child);
+    while (!child.data.is_closing) {
+      if (child.data.ignored || !child.data.name.empty())
+        tag.children.push_back(child);
+
       child = parseTagTree(str, i);
     }
 
@@ -612,22 +615,22 @@ namespace visage {
     return {};
   }
 
-  Path::EndType parseStrokeLineCap(const std::string& value) {
+  Path::EndCap parseStrokeEndCap(const std::string& value) {
     if (value == "round")
-      return Path::EndType::Round;
+      return Path::EndCap::Round;
     if (value == "square")
-      return Path::EndType::Square;
+      return Path::EndCap::Square;
 
-    return Path::EndType::Butt;
+    return Path::EndCap::Butt;
   }
 
-  Path::JoinType parseStrokeLineJoin(const std::string& value) {
+  Path::Join parseStrokeJoin(const std::string& value) {
     if (value == "round")
-      return Path::JoinType::Round;
+      return Path::Join::Round;
     if (value == "bevel")
-      return Path::JoinType::Bevel;
+      return Path::Join::Bevel;
 
-    return Path::JoinType::Miter;
+    return Path::Join::Miter;
   }
 
   std::vector<std::pair<float, bool>> parseStrokeDashArray(const std::string& value) {
@@ -696,15 +699,17 @@ namespace visage {
           }
         }
         else if (key == "stroke-linecap")
-          state.stroke_end_cap = parseStrokeLineCap(value);
+          state.stroke_end_cap = parseStrokeEndCap(value);
         else if (key == "stroke-linejoin")
-          state.stroke_join = parseStrokeLineJoin(value);
+          state.stroke_join = parseStrokeJoin(value);
         else if (key == "stroke-dasharray")
           state.stroke_dasharray = parseStrokeDashArray(value);
         else if (key == "stroke-dashoffset") {
           state.stroke_dashoffset = parseNumber(value, 1.0f);
           state.stroke_dashoffset_ratio = value.find('%') != std::string::npos;
         }
+        else if (key == "stroke-miterlimit")
+          tryReadFloat(state.stroke_miter_limit, value);
       }
     }
 
@@ -738,6 +743,18 @@ namespace visage {
         tryReadFloat(state.stroke_opacity, attribute.second);
       else if (attribute.first == "stroke-width")
         tryReadFloat(state.stroke_width, attribute.second);
+      else if (attribute.first == "stroke-linecap")
+        state.stroke_end_cap = parseStrokeEndCap(attribute.second);
+      else if (attribute.first == "stroke-linejoin")
+        state.stroke_join = parseStrokeJoin(attribute.second);
+      else if (attribute.first == "stroke-dasharray")
+        state.stroke_dasharray = parseStrokeDashArray(attribute.second);
+      else if (attribute.first == "stroke-dashoffset") {
+        state.stroke_dashoffset = parseNumber(attribute.second, 1.0f);
+        state.stroke_dashoffset_ratio = attribute.second.find('%') != std::string::npos;
+      }
+      else if (attribute.first == "stroke-miterlimit")
+        tryReadFloat(state.stroke_miter_limit, attribute.second);
       else if (attribute.first == "visibility")
         state.visible = attribute.second != "hidden";
       else if (attribute.first == "style")
@@ -823,7 +840,6 @@ namespace visage {
         transform = state_stack[i].local_transform * transform;
     }
 
-    drawable->path = path.transformed(transform);
     std::vector<float> dashes;
     float view_width = view.width ? view.width : start_bounding_box.width();
     float view_height = view.height ? view.height : start_bounding_box.height();
@@ -839,8 +855,11 @@ namespace visage {
       else
         dashes.push_back(dash.first);
     }
-    drawable->stroke_path = drawable->path.stroke(state.stroke_width, state.stroke_join,
-                                                  state.stroke_end_cap, dashes, dash_offset);
+
+    drawable->path = path.transformed(transform);
+    drawable->stroke_path = path.stroke(state.stroke_width, state.stroke_join, state.stroke_end_cap,
+                                        dashes, dash_offset, state.stroke_miter_limit);
+    drawable->stroke_path.transform(transform);
 
     width = width ? width : start_bounding_box.width();
     height = height ? height : start_bounding_box.height();
