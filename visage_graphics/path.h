@@ -30,11 +30,13 @@ namespace visage {
   struct SubPath {
     std::vector<Point> points;
     std::vector<float> values;
+    bool closed = false;
   };
 
   class Path {
   public:
     static constexpr float kDefaultErrorTolerance = 0.1f;
+    static constexpr float kDefaultMiterLimit = 4.0f;
 
     enum class FillRule {
       NonZero,
@@ -49,14 +51,14 @@ namespace visage {
       Xor,
     };
 
-    enum class JoinType {
+    enum class Join {
       Round,
       Miter,
       Bevel,
       Square
     };
 
-    enum class EndType {
+    enum class EndCap {
       Round,
       Square,
       Butt
@@ -136,6 +138,8 @@ namespace visage {
       }
       else if (paths_.back().points.front() != paths_.back().points.back())
         addPoint(paths_.back().points.front());
+
+      currentPath().closed = true;
     }
 
     void quadraticTo(Point control, Point end, bool relative = false) {
@@ -241,9 +245,10 @@ namespace visage {
     Path combine(const Path& other, Operation operation = Operation::Union) const;
     std::pair<Path, Path> offsetAntiAlias(float scale, std::vector<int>& inner_added_points,
                                           std::vector<int>& outer_added_points) const;
-    Path offset(float offset, JoinType join_type = JoinType::Square) const;
-    Path stroke(float stroke_width, JoinType join_type = JoinType::Round, EndType end_type = EndType::Round,
-                std::vector<float> dash_array = {}, float dash_offset = 0.0f) const;
+    Path offset(float offset, Join join = Join::Square, float miter_limit = kDefaultMiterLimit) const;
+    Path stroke(float stroke_width, Join join = Join::Round, EndCap end_cap = EndCap::Round,
+                std::vector<float> dash_array = {}, float dash_offset = 0.0f,
+                float miter_limit = kDefaultMiterLimit) const;
     Path breakIntoSimplePolygons() const;
 
     Path scaled(float mult) const {
@@ -353,6 +358,7 @@ namespace visage {
     void setResolutionTransform(const Matrix& transform) {
       resolution_transform_ = transform.withNoTranslation();
     }
+    const Matrix& resolutionTransform() const { return resolution_transform_; }
 
   private:
     void recurseBezierTo(Point from, Point control1, Point control2, Point to) {
