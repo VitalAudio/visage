@@ -383,7 +383,6 @@ namespace visage {
     }
 
     static Brush linear(Gradient gradient, const Point& from_position, const Point& to_position) {
-      VISAGE_LOG("%f %f %f %f", from_position.x, from_position.y, to_position.x, to_position.y);
       return { std::move(gradient), GradientPosition(from_position, to_position) };
     }
 
