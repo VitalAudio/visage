@@ -154,6 +154,7 @@ namespace visage {
 
       Point control1 = from + (2.0f / 3.0f) * (control - from);
       Point control2 = end + (2.0f / 3.0f) * (control - end);
+      smooth_control_point_ = end + (end - control);
       recurseBezierTo(from, control1, control2, end);
     }
 

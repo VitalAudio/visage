@@ -1196,7 +1196,8 @@ namespace visage {
 
       float square_miter_limit = miter_limit * miter_limit;
 
-      double max_delta_radians = 2.0 * std::acos(1.0 - Path::kDefaultErrorTolerance / std::abs(amount));
+      float adjusted_radius = (resolution_transform_ * Point(amount, 0.0f)).length();
+      double max_delta_radians = 2.0 * std::acos(1.0 - Path::kDefaultErrorTolerance / adjusted_radius);
       int start_points = points_.size();
       std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(start_points);
       for (int i = 0; i < start_points; ++i) {
@@ -1246,8 +1247,12 @@ namespace visage {
             }
             else {
               points_[index] += prev_offset;
-              insertPointBetween(index, next_index, point + offset);
-              points_created.push_back(2);
+              if (point + offset == points_[index])
+                points_created.push_back(1);
+              else {
+                insertPointBetween(index, next_index, point + offset);
+                points_created.push_back(2);
+              }
             }
           }
           else if (type == Path::Join::Square) {
@@ -1687,6 +1692,13 @@ namespace visage {
       stroke_path = *this;
 
     for (auto& path : stroke_path.paths_) {
+      if (path.points.size() > 2 && path.closed && path.points.front() == path.points.back()) {
+        path.points.push_back(path.points.front());
+        path.values.push_back(path.values.front());
+        path.points.push_back(path.points[1]);
+        path.values.push_back(path.values[1]);
+      }
+
       int start_size = path.points.size();
       for (int i = start_size - 2; i > 0; --i) {
         path.points.push_back(path.points[i]);

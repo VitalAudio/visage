@@ -52,7 +52,7 @@ namespace visage {
         if (a.positions_[i] < b.positions_[i])
           return -1;
         if (a.positions_[i] > b.positions_[i])
-          return -1;
+          return 1;
       }
       return 0;
     }

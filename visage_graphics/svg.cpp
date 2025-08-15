@@ -781,13 +781,36 @@ namespace visage {
 
     Path path;
     path.setResolutionTransform(state.scale_transform);
+    if (state.non_zero_fill)
+      path.setFillRule(Path::FillRule::NonZero);
+    else
+      path.setFillRule(Path::FillRule::EvenOdd);
 
-    if (tag.data.name == "path" && tag.data.attributes.count("d")) {
-      if (state.non_zero_fill)
-        path.setFillRule(Path::FillRule::NonZero);
-      else
-        path.setFillRule(Path::FillRule::EvenOdd);
+    if (tag.data.name == "path" && tag.data.attributes.count("d"))
       path.parseSvgPath(tag.data.attributes.at("d"));
+    else if (tag.data.name == "line") {
+      float x1 = 0.0f, y1 = 0.0f, x2 = 0.0f, y2 = 0.0f;
+      if (tag.data.attributes.count("x1"))
+        x1 = parseNumber(tag.data.attributes.at("x1"), 1.0f);
+      if (tag.data.attributes.count("y1"))
+        y1 = parseNumber(tag.data.attributes.at("y1"), 1.0f);
+      if (tag.data.attributes.count("x2"))
+        x2 = parseNumber(tag.data.attributes.at("x2"), 1.0f);
+      if (tag.data.attributes.count("y2"))
+        y2 = parseNumber(tag.data.attributes.at("y2"), 1.0f);
+      path.moveTo(x1, y1);
+      path.lineTo(x2, y2);
+    }
+    else if (tag.data.name == "polygon" || tag.data.name == "polyline") {
+      auto points = splitArguments(tag.data.attributes.at("points"));
+      if (points.size() < 2)
+        return nullptr;
+      path.moveTo(parseNumber(points[0], 1.0f), parseNumber(points[1], 1.0f));
+      for (size_t i = 3; i < points.size(); i += 2)
+        path.lineTo(parseNumber(points[i - 1], 1.0f), parseNumber(points[i], 1.0f));
+
+      if (tag.data.name == "polygon")
+        path.close();
     }
     else if (tag.data.name == "rect") {
       float x = 0.0f, y = 0.0f, rx = 0.0f, ry = 0.0f;
