@@ -813,7 +813,7 @@ namespace visage {
         path.close();
     }
     else if (tag.data.name == "rect") {
-      float x = 0.0f, y = 0.0f, rx = 0.0f, ry = 0.0f;
+      float rx = 0.0f, ry = 0.0f;
       if (tag.data.attributes.count("rx"))
         rx = parseNumber(tag.data.attributes.at("rx"), 1.0f);
       if (tag.data.attributes.count("ry"))
@@ -836,7 +836,8 @@ namespace visage {
       if (tag.data.attributes.count("ry"))
         ry = parseNumber(tag.data.attributes.at("ry"), 1.0f);
 
-      path.addEllipse(cx, cy, rx, ry);
+      state.local_transform = state.local_transform * Matrix::translation(cx - rx, cy - ry);
+      path.addEllipse(rx, ry, rx, ry);
     }
     else
       return nullptr;
