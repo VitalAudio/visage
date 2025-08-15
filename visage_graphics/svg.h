@@ -55,11 +55,11 @@ namespace visage {
     bool user_space = false;
     bool x1_ratio = false;
     bool y1_ratio = false;
-    bool x2_ratio = false;
+    bool x2_ratio = true;
     bool y2_ratio = false;
     float x1 = 0.0f;
     float y1 = 0.0f;
-    float x2 = 0.0f;
+    float x2 = 1.0f;
     float y2 = 0.0f;
   };
 
