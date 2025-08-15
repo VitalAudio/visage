@@ -407,8 +407,9 @@ namespace visage {
       line_data[vertex_index + 1].y = outer.y * scale;
       vertex_index += 2;
 
+      auto& outer_path = path_fill_wrapper.anti_alias.second.subPaths()[path_index];
       for (int out = 1; out < num_outer; ++out) {
-        outer = path_fill_wrapper.anti_alias.second.subPaths()[path_index].points[outer_index++];
+        outer = outer_path.points[outer_index++ % outer_path.points.size()];
         line_data[vertex_index].x = inner.x * scale;
         line_data[vertex_index].y = inner.y * scale;
         line_data[vertex_index + 1].x = outer.x * scale;
@@ -416,8 +417,9 @@ namespace visage {
         vertex_index += 2;
       }
 
+      auto& inner_path = path_fill_wrapper.anti_alias.first.subPaths()[path_index];
       for (int in = 1; in < num_inner; ++in) {
-        inner = path_fill_wrapper.anti_alias.first.subPaths()[path_index].points[inner_index++];
+        inner = inner_path.points[inner_index++ % inner_path.points.size()];
         line_data[vertex_index].x = inner.x * scale;
         line_data[vertex_index].y = inner.y * scale;
         line_data[vertex_index + 1].x = outer.x * scale;
