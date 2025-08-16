@@ -596,6 +596,15 @@ namespace visage {
           VISAGE_ASSERT(intersection_option.has_value());
           intersection = intersection_option.value();
 
+          if ((intersection - it->from).squareMagnitude() < kEpsilon)
+            intersection = it->from;
+          else if ((intersection - it->to).squareMagnitude() < kEpsilon)
+            intersection = it->to;
+          else if ((intersection - next->from).squareMagnitude() < kEpsilon)
+            intersection = next->from;
+          else if ((intersection - next->to).squareMagnitude() < kEpsilon)
+            intersection = next->to;
+
           double min_x = std::max(it->from.x, next->from.x);
           double max_x = std::min(it->to.x, next->to.x);
           intersection.x = std::clamp(intersection.x, min_x, max_x);
