@@ -73,6 +73,8 @@ namespace visage {
 
     float opacity = 1.0f;
 
+    Color current_color = Color(0xff000000);
+
     GradientDef fill_gradient = GradientDef(0xff000000);
     float fill_opacity = 1.0f;
     bool non_zero_fill = false;

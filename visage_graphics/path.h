@@ -362,7 +362,7 @@ namespace visage {
     const Matrix& resolutionTransform() const { return resolution_transform_; }
 
   private:
-    void recurseBezierTo(Point from, Point control1, Point control2, Point to) {
+    void recurseBezierTo(const Point& from, const Point& control1, const Point& control2, const Point& to) {
       float error_squared = error_tolerance_ * error_tolerance_;
 
       Point delta1 = resolution_transform_ * deltaFromLine(control1, from, to);
