@@ -100,10 +100,14 @@ namespace visage {
     if (!state.visible || state.opacity <= 0.0f)
       return;
 
+    canvas.saveState();
+
     if (state.fill_opacity > 0.0f && !fill_brush.isNone())
       fill(canvas, x, y, width, height);
     if (state.stroke_opacity > 0.0f && state.stroke_width > 0.0f && !stroke_brush.isNone())
       stroke(canvas, x, y, width, height);
+
+    canvas.restoreState();
   }
 
   void SvgDrawable::fill(Canvas& canvas, float x, float y, float width, float height) const {
@@ -172,7 +176,7 @@ namespace visage {
   }
 
   std::pair<std::string, std::string> parseAttribute(const std::string& str, int& i) {
-    std::string key, value;
+    std::string key;
     consumeWhiteSpace(str, i);
     while (i < str.size() && str[i] != '=' && str[i] != ' ' && str[i] != '\t' && str[i] != '>' &&
            str[i] != '/')
@@ -191,7 +195,7 @@ namespace visage {
       return { "", "" };
     }
 
-    value = str.substr(i, end - i);
+    std::string value = str.substr(i, end - i);
     i = end + 1;
     value = unescape(value, "&quot;", "\"");
     value = unescape(value, "&apos;", "'");
@@ -458,7 +462,7 @@ namespace visage {
     }
   }
 
-  Color parseStopColor(Tag& tag) {
+  Color parseStopColor(const Tag& tag) {
     Color color;
     if (tag.data.attributes.count("stop-color"))
       color = translateColor(tag.data.attributes.at("stop-color"));
@@ -527,23 +531,26 @@ namespace visage {
         }
       }
 
-      if (tokens[0] == "translate" && args.size() > 0) {
+      if (args.empty())
+        return matrix;
+
+      if (tokens[0] == "translate") {
         float y = args.size() > 1 ? args[1] : args[0];
         matrix = matrix * Matrix::translation(args[0], y);
       }
-      else if (tokens[0] == "scale" && args.size() > 0) {
+      else if (tokens[0] == "scale") {
         float y = args.size() > 1 ? args[1] : args[0];
         matrix = matrix * Matrix::scale(args[0], y);
       }
-      else if (tokens[0] == "rotate" && args.size() > 0) {
+      else if (tokens[0] == "rotate") {
         if (args.size() > 2)
           matrix = matrix * Matrix::rotation(args[0], { args[1], args[2] });
         else
           matrix = matrix * Matrix::rotation(args[0]);
       }
-      else if (tokens[0] == "skewX" && args.size() > 0)
+      else if (tokens[0] == "skewX")
         matrix = matrix * Matrix::skewX(args[0]);
-      else if (tokens[0] == "skewY" && args.size() > 0)
+      else if (tokens[0] == "skewY")
         matrix = matrix * Matrix::skewY(args[0]);
       else if (tokens[0] == "matrix" && args.size() > 5)
         matrix = matrix * Matrix(args[0], args[2], args[4], args[1], args[3], args[5]);
@@ -579,12 +586,12 @@ namespace visage {
     if (tag.data.attributes.count("gradientUnits"))
       gradient_def.user_space = tag.data.attributes.at("gradientUnits") == "userSpaceOnUse";
 
-    for (auto& tag : tag.children) {
-      if (tag.data.name != "stop" || !tag.data.attributes.count("offset"))
+    for (auto& child : tag.children) {
+      if (child.data.name != "stop" || !child.data.attributes.count("offset"))
         continue;
 
-      float offset = parseNumber(tag.data.attributes.at("offset"), 1.0f);
-      gradient_def.gradient.addColorStop(parseStopColor(tag), offset);
+      float offset = parseNumber(child.data.attributes.at("offset"), 1.0f);
+      gradient_def.gradient.addColorStop(parseStopColor(child), offset);
     }
 
     return gradient_def;
@@ -613,7 +620,7 @@ namespace visage {
     }
   }
 
-  void resolveUses(std::vector<Tag>& tags, const std::map<std::string, Tag> defs) {
+  void resolveUses(std::vector<Tag>& tags, const std::map<std::string, Tag>& defs) {
     auto use_tag = [&defs](Tag& target, const std::string& reference_id) {
       if (defs.count(reference_id) == 0)
         return;
@@ -723,40 +730,50 @@ namespace visage {
     }
   }
 
-  GradientDef parseColor(DrawableState& state, std::string& color,
-                         const std::map<std::string, GradientDef>& gradients) {
+  Color parseColor(const std::string& color_string) {
+    std::string color = color_string;
     removeWhitespace(color);
 
     if (color == "none")
       return {};
     if (color[0] == '#')
-      return GradientDef(Color::fromHexString(color.substr(1)));
+      return Color::fromHexString(color.substr(1));
 
     int pos = 0;
     auto tokens = parseFunctionTokens(color, pos);
-    if (tokens.size() == 0)
+    if (tokens.empty())
       return {};
     if (tokens.size() == 1)
-      return GradientDef(translateColor(tokens[0]));
+      return translateColor(tokens[0]);
 
     if (tokens[0].substr(0, 3) == "rgb" && tokens.size() > 3) {
       float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;
-      return GradientDef(Color(alpha, parseNumber(tokens[1], 255.0f),
-                               parseNumber(tokens[2], 255.0f), parseNumber(tokens[3], 255.0f)));
+      return Color(alpha, parseNumber(tokens[1], 255.0f), parseNumber(tokens[2], 255.0f),
+                   parseNumber(tokens[3], 255.0f));
     }
     if (tokens[0].substr(0, 3) == "hsl" && tokens.size() > 3) {
       float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;
-      return GradientDef(Color::fromAHSV(alpha, parseNumber(tokens[1], 360.0f),
-                                         parseNumber(tokens[2], 100.0f), parseNumber(tokens[3], 100.0f)));
+      return Color::fromAHSV(alpha, parseNumber(tokens[1], 360.0f), parseNumber(tokens[2], 100.0f),
+                             parseNumber(tokens[3], 100.0f));
     }
-    if (tokens[0].substr(0, 3) == "url" && tokens.size() > 1) {
+    return {};
+  }
+
+  GradientDef parseGradient(DrawableState& state, const std::string& color_string,
+                            const std::map<std::string, GradientDef>& gradients) {
+    std::string color = color_string;
+    removeWhitespace(color);
+    if (color.substr(0, 3) == "url") {
+      int pos = 0;
+      auto tokens = parseFunctionTokens(color, pos);
       if (tokens[1].size() > 1 && tokens[1][0] == '#') {
         std::string id = tokens[1].substr(1);
         if (gradients.count(id) > 0)
           return gradients.at(id);
       }
     }
-    return {};
+
+    return parseColor(color);
   }
 
   Path::EndCap parseStrokeEndCap(const std::string& value) {
@@ -795,6 +812,60 @@ namespace visage {
     return array;
   }
 
+  void parseStyleDefinition(DrawableState& state, const std::string& key, const std::string& value,
+                            const std::map<std::string, GradientDef>& gradients) {
+    if (key == "opacity")
+      tryReadFloat(state.opacity, value);
+    else if (key == "color")
+      state.current_color = parseColor(value);
+    else if (key == "fill")
+      state.fill_gradient = parseGradient(state, value, gradients);
+    else if (key == "fill-rule")
+      state.non_zero_fill = value == "nonzero";
+    else if (key == "fill-opacity")
+      tryReadFloat(state.fill_opacity, value);
+    else if (key == "stroke")
+      state.stroke_gradient = parseGradient(state, value, gradients);
+    else if (key == "stroke-opacity")
+      tryReadFloat(state.stroke_opacity, value);
+    else if (key == "stroke-width")
+      tryReadFloat(state.stroke_width, value);
+    else if (key == "stroke-linecap")
+      state.stroke_end_cap = parseStrokeEndCap(value);
+    else if (key == "stroke-linejoin")
+      state.stroke_join = parseStrokeJoin(value);
+    else if (key == "stroke-dasharray")
+      state.stroke_dasharray = parseStrokeDashArray(value);
+    else if (key == "stroke-dashoffset") {
+      state.stroke_dashoffset = parseNumber(value, 1.0f);
+      state.stroke_dashoffset_ratio = value.find('%') != std::string::npos;
+    }
+    else if (key == "stroke-miterlimit")
+      tryReadFloat(state.stroke_miter_limit, value);
+    else if (key == "visibility")
+      state.visible = value != "hidden";
+    else if (key == "display")
+      state.visible = value != "none";
+    else if (key == "transform")
+      state.local_transform = parseTransform(value);
+    else if (key == "transform-origin") {
+      auto args = splitArguments(value);
+      if (!args.empty()) {
+        for (auto& arg : args) {
+          if (arg == "center")
+            arg = "50%";
+        }
+
+        state.tranform_origin_x = parseNumber(args[0], 1.0f);
+        if (args.size() > 1)
+          state.tranform_origin_y = parseNumber(args[1], 1.0f);
+
+        state.transform_ratio_x = args[0].find('%') != std::string::npos;
+        state.transform_ratio_y = args.size() > 1 && args[1].find('%') != std::string::npos;
+      }
+    }
+  }
+
   void parseStyleAttribute(DrawableState& state, const std::string& style,
                            const std::map<std::string, GradientDef>& gradients) {
     std::stringstream stream(style);
@@ -806,61 +877,14 @@ namespace visage {
         std::string key = line.substr(0, pos);
         std::string value = line.substr(pos + 1);
         removeWhitespace(key);
-        if (key == "opacity")
-          tryReadFloat(state.opacity, value);
-        else if (key == "fill")
-          state.fill_gradient = parseColor(state, value, gradients);
-        else if (key == "fill-rule")
-          state.non_zero_fill = value == "nonzero";
-        else if (key == "fill-opacity")
-          tryReadFloat(state.fill_opacity, value);
-        else if (key == "stroke")
-          state.stroke_gradient = parseColor(state, value, gradients);
-        else if (key == "stroke-opacity")
-          tryReadFloat(state.stroke_opacity, value);
-        else if (key == "stroke-width")
-          tryReadFloat(state.stroke_width, value);
-        else if (key == "visibility")
-          state.visible = value != "hidden";
-        else if (key == "display")
-          state.visible = value != "none";
-        else if (key == "transform")
-          state.local_transform = parseTransform(value);
-        else if (key == "transform-origin") {
-          auto args = splitArguments(value);
-          if (!args.empty()) {
-            for (auto& arg : args) {
-              if (arg == "center")
-                arg = "50%";
-            }
-
-            state.tranform_origin_x = parseNumber(args[0], 1.0f);
-            if (args.size() > 1)
-              state.tranform_origin_y = parseNumber(args[1], 1.0f);
-
-            state.transform_ratio_x = args[0].find('%') != std::string::npos;
-            state.transform_ratio_y = args.size() > 1 && args[1].find('%') != std::string::npos;
-          }
-        }
-        else if (key == "stroke-linecap")
-          state.stroke_end_cap = parseStrokeEndCap(value);
-        else if (key == "stroke-linejoin")
-          state.stroke_join = parseStrokeJoin(value);
-        else if (key == "stroke-dasharray")
-          state.stroke_dasharray = parseStrokeDashArray(value);
-        else if (key == "stroke-dashoffset") {
-          state.stroke_dashoffset = parseNumber(value, 1.0f);
-          state.stroke_dashoffset_ratio = value.find('%') != std::string::npos;
-        }
-        else if (key == "stroke-miterlimit")
-          tryReadFloat(state.stroke_miter_limit, value);
+        parseStyleDefinition(state, key, value, gradients);
       }
     }
 
     state.scale_transform = state.scale_transform * state.local_transform.withNoTranslation();
   }
 
-  void loadDrawableState(Tag& tag, std::vector<DrawableState>& state_stack,
+  void loadDrawableState(const Tag& tag, std::vector<DrawableState>& state_stack,
                          const std::map<std::string, GradientDef>& gradients) {
     auto& state = state_stack.back();
     state.local_transform = Matrix::identity();
@@ -869,42 +893,12 @@ namespace visage {
 
     float x = 0.0, y = 0.0f;
     for (auto& attribute : tag.data.attributes) {
-      if (attribute.first == "transform")
-        state.local_transform = parseTransform(attribute.second);
-      else if (attribute.first == "x")
+      if (attribute.first == "x")
         tryReadFloat(x, attribute.second);
       else if (attribute.first == "y")
         tryReadFloat(y, attribute.second);
-      else if (attribute.first == "fill")
-        state.fill_gradient = parseColor(state, attribute.second, gradients);
-      else if (attribute.first == "fill-rule")
-        state.non_zero_fill = attribute.second == "nonzero";
-      else if (attribute.first == "fill-opacity")
-        tryReadFloat(state.fill_opacity, attribute.second);
-      else if (attribute.first == "stroke")
-        state.stroke_gradient = parseColor(state, attribute.second, gradients);
-      else if (attribute.first == "stroke-opacity")
-        tryReadFloat(state.stroke_opacity, attribute.second);
-      else if (attribute.first == "stroke-width")
-        tryReadFloat(state.stroke_width, attribute.second);
-      else if (attribute.first == "stroke-linecap")
-        state.stroke_end_cap = parseStrokeEndCap(attribute.second);
-      else if (attribute.first == "stroke-linejoin")
-        state.stroke_join = parseStrokeJoin(attribute.second);
-      else if (attribute.first == "stroke-dasharray")
-        state.stroke_dasharray = parseStrokeDashArray(attribute.second);
-      else if (attribute.first == "stroke-dashoffset") {
-        state.stroke_dashoffset = parseNumber(attribute.second, 1.0f);
-        state.stroke_dashoffset_ratio = attribute.second.find('%') != std::string::npos;
-      }
-      else if (attribute.first == "stroke-miterlimit")
-        tryReadFloat(state.stroke_miter_limit, attribute.second);
-      else if (attribute.first == "visibility")
-        state.visible = attribute.second != "hidden";
-      else if (attribute.first == "style")
-        parseStyleAttribute(state, attribute.second, gradients);
-      else if (attribute.first == "opacity")
-        tryReadFloat(state.opacity, attribute.second);
+      else
+        parseStyleDefinition(state, attribute.first, attribute.second, gradients);
     }
 
     if (x || y)
@@ -912,7 +906,7 @@ namespace visage {
     state.scale_transform = state.scale_transform * state.local_transform.withNoTranslation();
   }
 
-  std::unique_ptr<SvgDrawable> loadDrawable(const Svg::ViewSettings& view, Tag& tag,
+  std::unique_ptr<SvgDrawable> loadDrawable(const Svg::ViewSettings& view, const Tag& tag,
                                             std::vector<DrawableState>& state_stack,
                                             const std::map<std::string, GradientDef>& gradients) {
     auto& state = state_stack.back();
@@ -1011,7 +1005,7 @@ namespace visage {
     std::vector<float> dashes;
     float view_width = view.width ? view.width : start_bounding_box.width();
     float view_height = view.height ? view.height : start_bounding_box.height();
-    float dash_scale = std::sqrtf(0.5f * (view_width * view_width + view_height * view_height));
+    float dash_scale = std::sqrt(0.5f * (view_width * view_width + view_height * view_height));
     float dash_offset = state.stroke_dashoffset;
     if (state.stroke_dashoffset_ratio)
       dash_offset *= dash_scale;
@@ -1036,7 +1030,6 @@ namespace visage {
       x = parseNumber(tag.data.attributes.at("x"), 1.0f);
     if (tag.data.attributes.count("y"))
       y = parseNumber(tag.data.attributes.at("y"), 1.0f);
-    Matrix local_translation = Matrix::translation(x, y);
     drawable->fill_brush = state.fill_gradient.toBrush(width, height, transform, x, y);
     drawable->fill_brush = drawable->fill_brush.withMultipliedAlpha(state.fill_opacity * state.opacity);
 
@@ -1095,7 +1088,7 @@ namespace visage {
     if (tag.data.attributes.count("preserveAspectRatio")) {
       auto aspect_ratio_settings = tag.data.attributes.at("preserveAspectRatio");
       std::vector<std::string> tokens = splitArguments(aspect_ratio_settings);
-      if (tokens.size() > 0) {
+      if (!tokens.empty()) {
         if (tokens[0][0] == 'x' || tokens[0][0] == 'X')
           result.align = tokens[0];
         else
