@@ -897,6 +897,8 @@ namespace visage {
         tryReadFloat(x, attribute.second);
       else if (attribute.first == "y")
         tryReadFloat(y, attribute.second);
+      else if (attribute.first == "style")
+        parseStyleAttribute(state, attribute.second, gradients);
       else
         parseStyleDefinition(state, attribute.first, attribute.second, gradients);
     }
