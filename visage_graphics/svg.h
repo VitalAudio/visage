@@ -47,18 +47,18 @@ namespace visage {
       }
       if (radial) {
         Point radius_vector = radius_ratio ? radius * Point(width, height) : Point(radius, radius);
+        float f_radius = (focal_radius_ratio ? focal_radius * width : focal_radius) / radius_vector.x;
         if (user_space && radius_ratio) {
           float normalized_width = std::sqrt(0.5f * (width * width + height * height));
           radius_vector = radius * normalized_width * Point(1.0f, 1.0f);
         }
 
-        radius_vector = current_transform * transform * radius_vector;
-
-        return Brush::radial(gradient, current_transform * transform * from, radius_vector.x,
-                             radius_vector.y, current_transform * transform * to);
+        GradientPosition position = GradientPosition::radial(from, radius_vector.x, radius_vector.y,
+                                                             to, f_radius);
+        return Brush(gradient, position.transform(current_transform * transform));
       }
-      return Brush::linear(gradient, current_transform * transform * from,
-                           current_transform * transform * to);
+      GradientPosition position = GradientPosition::linear(from, to).transform(current_transform * transform);
+      return Brush(gradient, position);
     }
 
     Gradient gradient;
