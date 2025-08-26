@@ -7,7 +7,6 @@ SAMPLER2D(s_texture, 0);
 uniform vec4 u_time;
 uniform vec4 u_atlas_scale;
 uniform vec4 u_dimensions;
-uniform vec4 u_color_mult;
 
 float random(vec2 uv) {
   return fract(sin(dot(uv, vec2(12.9898, 78.233))) * 43758.5453);
