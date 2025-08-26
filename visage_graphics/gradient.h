@@ -315,6 +315,7 @@ namespace visage {
       Horizontal,
       Vertical,
       PointsLinear,
+      Radial,
     };
 
     static GradientPosition interpolate(const GradientPosition& from, const GradientPosition& to, float t) {
@@ -322,8 +323,12 @@ namespace visage {
                     to.shape == InterpolationShape::Solid);
       GradientPosition result;
       result.shape = from.shape;
-      result.point_from = from.point_from + (to.point_from - from.point_from) * t;
-      result.point_to = from.point_to + (to.point_to - from.point_to) * t;
+      result.point1 = from.point1 + (to.point1 - from.point1) * t;
+      result.point2 = from.point2 + (to.point2 - from.point2) * t;
+      result.coefficientx2 = from.coefficientx2 + (to.coefficientx2 - from.coefficientx2) * t;
+      result.coefficienty2 = from.coefficienty2 + (to.coefficienty2 - from.coefficienty2) * t;
+      result.coefficientxy = from.coefficientxy + (to.coefficientxy - from.coefficientxy) * t;
+      result.focal_radius = from.focal_radius + (to.focal_radius - from.focal_radius) * t;
       return result;
     }
 
@@ -331,14 +336,36 @@ namespace visage {
     explicit GradientPosition(InterpolationShape shape) : shape(shape) { }
 
     GradientPosition(Point from, Point to) :
-        shape(InterpolationShape::PointsLinear), point_from(from), point_to(to) { }
+        shape(InterpolationShape::PointsLinear), point1(from), point2(to) { }
 
     InterpolationShape shape = InterpolationShape::Solid;
-    Point point_from;
-    Point point_to;
+    Point point1;
+    Point point2;
+    float focal_radius = 0.0f;
+    float coefficientx2 = 0.0f;
+    float coefficienty2 = 0.0f;
+    float coefficientxy = 0.0f;
 
     GradientPosition interpolateWith(const GradientPosition& other, float t) const {
       return interpolate(*this, other, t);
+    }
+
+    GradientPosition transform(const Transform& transform) const {
+      GradientPosition result = *this;
+      result.point1 = transform * point1;
+      result.point2 = transform * point2;
+      auto inverse = transform.matrix.inverse();
+      float a = inverse.matrix[0][0];
+      float b = inverse.matrix[1][0];
+      float c = inverse.matrix[0][1];
+      float d = inverse.matrix[1][1];
+
+      // TODO double check this
+      result.coefficientx2 = coefficientx2 * a * a + coefficienty2 * c * c + coefficientxy * a * c;
+      result.coefficienty2 = coefficientx2 * b * b + coefficienty2 * d * d + coefficientxy * b * d;
+      result.coefficientxy = 2.0f * (coefficientx2 * a * b + coefficienty2 * c * d) +
+                             coefficientxy * (a * d + b * c);
+      return result;
     }
 
     std::string encode() const;
@@ -348,9 +375,39 @@ namespace visage {
 
     GradientPosition operator*(float mult) const {
       GradientPosition result = *this;
-      result.point_from = result.point_from * mult;
-      result.point_to = result.point_to * mult;
+      result.point1 *= mult;
+      result.point2 *= mult;
+      if (mult) {
+        float coefficient_scale = 1.0f / (mult * mult);
+        result.coefficientx2 *= coefficient_scale;
+        result.coefficienty2 *= coefficient_scale;
+        result.coefficientxy *= coefficient_scale;
+      }
       return result;
+    }
+
+    static GradientPosition radial(const Point& center, float radius_x, float radius_y,
+                                   Point focal_center, float focal_radius = 0.0f) {
+      radius_x = std::max(0.0001f, radius_x);
+      radius_y = std::max(0.0001f, radius_y);
+
+      GradientPosition position;
+      position.point1 = center;
+      position.point2 = focal_center;
+      position.shape = GradientPosition::InterpolationShape::Radial;
+      position.coefficientxy = 0.0f;
+      position.coefficientx2 = 1.0f / (radius_x * radius_x);
+      position.coefficienty2 = 1.0f / (radius_y * radius_y);
+      position.focal_radius = focal_radius;
+      return position;
+    }
+
+    static GradientPosition radial(const Point& center, float radius_x, float radius_y) {
+      return radial(center, radius_x, radius_y, center);
+    }
+
+    static GradientPosition radial(const Point& center, float radius) {
+      return radial(center, radius, radius);
     }
 
     VISAGE_LEAK_CHECKER(GradientPosition)
@@ -391,6 +448,20 @@ namespace visage {
       return linear(Gradient(from_color, to_color), from_position, to_position);
     }
 
+    static Brush radial(Gradient gradient, const Point& center, float radius_x, float radius_y,
+                        Point focal_center, float focal_radius = 0.0f) {
+      return { std::move(gradient),
+               GradientPosition::radial(center, radius_x, radius_y, focal_center, focal_radius) };
+    }
+
+    static Brush radial(Gradient gradient, const Point& center, float radius_x, float radius_y) {
+      return radial(std::move(gradient), center, radius_x, radius_y, center);
+    }
+
+    static Brush radial(Gradient gradient, const Point& center, float radius) {
+      return radial(std::move(gradient), center, radius, radius);
+    }
+
     static Brush interpolate(const Brush& from, const Brush& to, float t) {
       return { from.gradient_.interpolateWith(to.gradient_, t),
                from.position_.interpolateWith(to.position_, t) };
@@ -429,67 +500,83 @@ namespace visage {
 
   class PackedBrush {
   public:
-    struct GradientTexturePosition {
-      float gradient_position_from_x = 0.0f;
-      float gradient_position_from_y = 0.0f;
-      float gradient_position_to_x = 0.0f;
-      float gradient_position_to_y = 0.0f;
-      float gradient_color_from_x = 0.0f;
-      float gradient_color_to_x = 0.0f;
-      float gradient_color_y = 0.0f;
-    };
-
-    static GradientTexturePosition computeVertexGradientPositions(const PackedBrush* brush, float offset_x,
-                                                                  float offset_y, float left, float top,
-                                                                  float right, float bottom) {
-      GradientTexturePosition result;
-
+    static void computeVertexGradientTexturePositions(GradientTexturePosition& result,
+                                                      const PackedBrush* brush) {
       if (brush) {
-        if (brush->position_.shape == GradientPosition::InterpolationShape::Horizontal) {
-          result.gradient_position_from_x = left + 0.5f;
-          result.gradient_position_to_x = right - 0.5f;
-        }
-        else if (brush->position_.shape == GradientPosition::InterpolationShape::Vertical) {
-          result.gradient_position_from_y = top + 0.5f;
-          result.gradient_position_to_y = bottom - 0.5f;
-        }
-        else if (brush->position_.shape == GradientPosition::InterpolationShape::PointsLinear) {
-          result.gradient_position_from_x = offset_x + brush->position_.point_from.x;
-          result.gradient_position_from_y = offset_y + brush->position_.point_from.y;
-          result.gradient_position_to_x = offset_x + brush->position_.point_to.x;
-          result.gradient_position_to_y = offset_y + brush->position_.point_to.y;
-        }
-
         float atlas_x_scale = 1.0f / brush->atlasWidth();
         float atlas_y_scale = 1.0f / brush->atlasHeight();
         int offset = brush->gradient()->gradient().repeat() ? 0 : 1;
-        result.gradient_color_from_x = (brush->gradient_.x() + offset * 0.5f) * atlas_x_scale;
+        result.from_x = (brush->gradient_.x() + offset * 0.5f) * atlas_x_scale;
         float span = (brush->gradient_.gradient().resolution() - offset) * atlas_x_scale;
         if (brush->gradient()->gradient().reflect())
           span *= 0.5f;
-        result.gradient_color_to_x = result.gradient_color_from_x + span;
-        result.gradient_color_y = (brush->gradient_.y() + 0.5f) * atlas_y_scale;
+        result.to_x = result.from_x + span;
+        result.from_y = (brush->gradient_.y() + 0.5f) * atlas_y_scale;
+        result.to_y = result.from_y;
       }
+    }
 
-      return result;
+    static void computeVertexGradientPositions(GradientVertexPosition& result, const PackedBrush* brush,
+                                               float offset_x, float offset_y, float left,
+                                               float top, float right, float bottom) {
+      result.from_x = -1.0f;
+      result.to_x = 1.0f;
+      result.from_y = -1.0f;
+      result.to_y = 1.0f;
+      result.coefficient1 = 1.0f;
+      result.coefficient2 = 1.0f;
+      result.coefficient3 = 1.0f;
+      result.cone_height = 1.0f;
+
+      if (brush == nullptr)
+        return;
+
+      if (brush->position_.shape == GradientPosition::InterpolationShape::Horizontal) {
+        result.from_x = left + 0.5f;
+        result.to_x = right - 0.5f;
+        result.from_y = 0.0f;
+        result.to_y = 0.0f;
+      }
+      else if (brush->position_.shape == GradientPosition::InterpolationShape::Vertical) {
+        result.from_x = 0.0f;
+        result.to_x = 0.0f;
+        result.from_y = top + 0.5f;
+        result.to_y = bottom - 0.5f;
+      }
+      else {
+        result.from_x = offset_x + brush->position_.point1.x;
+        result.from_y = offset_y + brush->position_.point1.y;
+        if (brush->position_.shape == GradientPosition::InterpolationShape::Radial) {
+          result.coefficient1 = brush->position_.coefficientx2;
+          result.coefficient2 = brush->position_.coefficienty2;
+          result.coefficient3 = brush->position_.coefficientxy;
+          result.cone_height = 1.0f / (1.0f - brush->position_.focal_radius);
+          auto delta = brush->position_.point2 - brush->position_.point1;
+          auto cone_xy = delta * result.cone_height;
+          result.to_x = cone_xy.x;
+          result.to_y = cone_xy.y;
+        }
+        else {
+          result.to_x = offset_x + brush->position_.point2.x;
+          result.to_y = offset_y + brush->position_.point2.y;
+        }
+      }
     }
 
     template<typename V>
     static void setVertexGradientPositions(const PackedBrush* brush, V* vertices, int num_vertices,
                                            float offset_x, float offset_y, float left, float top,
                                            float right, float bottom) {
-      GradientTexturePosition position = computeVertexGradientPositions(brush, offset_x, offset_y,
-                                                                        left, top, right, bottom);
+      if (num_vertices <= 0)
+        return;
 
-      for (int i = 0; i < num_vertices; ++i) {
-        vertices[i].gradient_color_from_x = position.gradient_color_from_x;
-        vertices[i].gradient_color_from_y = position.gradient_color_y;
-        vertices[i].gradient_color_to_x = position.gradient_color_to_x;
-        vertices[i].gradient_color_to_y = position.gradient_color_y;
-        vertices[i].gradient_position_from_x = position.gradient_position_from_x;
-        vertices[i].gradient_position_from_y = position.gradient_position_from_y;
-        vertices[i].gradient_position_to_x = position.gradient_position_to_x;
-        vertices[i].gradient_position_to_y = position.gradient_position_to_y;
+      computeVertexGradientTexturePositions(vertices[0].gradient_texture_position, brush);
+      computeVertexGradientPositions(vertices[0].gradient, brush, offset_x, offset_y, left, top,
+                                     right, bottom);
+
+      for (int i = 1; i < num_vertices; ++i) {
+        vertices[i].gradient_texture_position = vertices[0].gradient_texture_position;
+        vertices[i].gradient = vertices[0].gradient;
       }
     }
 

@@ -35,12 +35,34 @@ float sdRoundedDiamond(vec2 position, vec2 diamond, float rounding) {
   return min(max(offset.x, offset.y), 0.0) + length(max(offset, 0.0)) - rounding;
 }
 
-vec2 gradient(vec2 color_from, vec2 color_to, vec2 point_from, vec2 point_to, vec2 position) {
+float linearGradient(vec2 point_from, vec2 point_to, vec2 position) {
   vec2 delta = point_to - point_from;
-  bool should_clamp = color_from.x != 0.0;
-  float t = dot(position - point_from, delta) / dot(delta, delta);
+  return dot(position - point_from, delta) / dot(delta, delta);
+}
+
+float radialGradient(vec2 position, vec2 focal_point, vec4 coefficient) {
+  vec2 position2 = position * position;
+  float a = 1.0 - coefficient.x * focal_point.x * focal_point.x -
+                  coefficient.y * focal_point.y * focal_point.y -
+                  coefficient.z * focal_point.x * focal_point.y;
+  float b = 2.0 * (coefficient.x * focal_point.x + coefficient.y * focal_point.y - 1.0) +
+            coefficient.z * (position.x * focal_point.y + position.y * focal_point.x);
+  float c = 1.0 - coefficient.x * position2.x - coefficient.y * position2.y - coefficient.z * position.x * position.y;
+  float s = sqrt(b * b - 4.0 * a * c);
+
+  return (s - b) / (2.0 * a);
+}
+
+vec2 gradient(bool radial, vec4 texture_pos, vec4 gradient_pos1, vec4 gradient_pos2, vec2 position) {
+  float t = 0.0;
+  if (radial)
+    t = radialGradient(position - gradient_pos1.xy, gradient_pos1.zw, gradient_pos2);
+  else
+    t = linearGradient(gradient_pos1.xy, gradient_pos1.zw, position);
+
+  bool should_clamp = texture_pos.x != 0.0;
   t = should_clamp ? clamp(t, 0.0, 1.0) : t;
-  return mix(color_from, color_to, t);
+  return mix(texture_pos.xy, texture_pos.zw, t);
 }
 
 float sdSegment(vec2 position, vec2 point1, vec2 point2) {

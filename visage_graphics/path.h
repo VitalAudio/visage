@@ -301,13 +301,13 @@ namespace visage {
       return result;
     }
 
-    Path transformed(const Matrix& transform) const {
+    Path transformed(const Transform& transform) const {
       Path result = *this;
       result.transform(transform);
       return result;
     }
 
-    void transform(const Matrix& transform) {
+    void transform(const Transform& transform) {
       for (auto& path : paths_) {
         for (Point& point : path.points)
           point = transform * point;
@@ -356,17 +356,15 @@ namespace visage {
 
     float errorTolerance() const { return error_tolerance_; }
 
-    void setResolutionTransform(const Matrix& transform) {
-      resolution_transform_ = transform.withNoTranslation();
-    }
-    const Matrix& resolutionTransform() const { return resolution_transform_; }
+    void setResolutionMatrix(const Matrix& matrix) { resolution_matrix_ = matrix; }
+    const Matrix& resolutionMatrix() const { return resolution_matrix_; }
 
   private:
     void recurseBezierTo(const Point& from, const Point& control1, const Point& control2, const Point& to) {
       float error_squared = error_tolerance_ * error_tolerance_;
 
-      Point delta1 = resolution_transform_ * deltaFromLine(control1, from, to);
-      Point delta2 = resolution_transform_ * deltaFromLine(control2, from, to);
+      Point delta1 = resolution_matrix_ * deltaFromLine(control1, from, to);
+      Point delta2 = resolution_matrix_ * deltaFromLine(control2, from, to);
       if (delta1.squareMagnitude() <= error_squared && delta2.squareMagnitude() <= error_squared) {
         addPoint(to);
         return;
@@ -412,7 +410,7 @@ namespace visage {
 
     void addPoint(float x, float y) { addPoint({ x, y }); }
 
-    Matrix resolution_transform_;
+    Matrix resolution_matrix_;
     std::vector<SubPath> paths_;
     FillRule fill_rule_ = FillRule::EvenOdd;
     Point smooth_control_point_;
