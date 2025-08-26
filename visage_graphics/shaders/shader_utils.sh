@@ -40,29 +40,35 @@ float linearGradient(vec2 point_from, vec2 point_to, vec2 position) {
   return dot(position - point_from, delta) / dot(delta, delta);
 }
 
-float radialGradient(vec2 position, vec2 focal_point, vec4 coefficient) {
-  vec2 position2 = position * position;
+vec2 radialGradient(vec2 position, vec2 focal_point, vec4 coefficient) {
   float a = 1.0 - coefficient.x * focal_point.x * focal_point.x -
                   coefficient.y * focal_point.y * focal_point.y -
                   coefficient.z * focal_point.x * focal_point.y;
-  float b = 2.0 * (coefficient.x * focal_point.x + coefficient.y * focal_point.y - 1.0) +
+  float b = 2.0 * (coefficient.x * focal_point.x * position.x + coefficient.y * focal_point.y * position.y - 1.0) +
             coefficient.z * (position.x * focal_point.y + position.y * focal_point.x);
-  float c = 1.0 - coefficient.x * position2.x - coefficient.y * position2.y - coefficient.z * position.x * position.y;
-  float s = sqrt(b * b - 4.0 * a * c);
-
-  return (s - b) / (2.0 * a);
+  float c = 1.0 - coefficient.x * position.x * position.x -
+                  coefficient.y * position.y * position.y -
+                  coefficient.z * position.x * position.y;
+  float h = (sign(a) * sqrt(b * b - 4.0 * a * c) + b) / (2.0 * a);
+  return vec2(1.0 + coefficient.w * h, h > -1.0 ? 1.0 : 0.0);
 }
 
-vec2 gradient(bool radial, vec4 texture_pos, vec4 gradient_pos1, vec4 gradient_pos2, vec2 position) {
+uniform vec4 u_radial_gradient;
+
+vec4 gradient(sampler2D gradient_texture, vec4 texture_pos, vec4 gradient_pos1, vec4 gradient_pos2, vec2 position) {
   float t = 0.0;
-  if (radial)
-    t = radialGradient(position - gradient_pos1.xy, gradient_pos1.zw, gradient_pos2);
+  bool valid = true;
+  if (u_radial_gradient.x != 0.0) {
+    vec2 radial = radialGradient(position - gradient_pos1.xy, gradient_pos1.zw, gradient_pos2);
+    t = radial.x;
+    valid = radial.y != 0.0;
+  }
   else
     t = linearGradient(gradient_pos1.xy, gradient_pos1.zw, position);
 
   bool should_clamp = texture_pos.x != 0.0;
   t = should_clamp ? clamp(t, 0.0, 1.0) : t;
-  return mix(texture_pos.xy, texture_pos.zw, t);
+  return valid ? texture2D(gradient_texture, mix(texture_pos.xy, texture_pos.zw, t)) : vec4(0.0, 0.0, 0.0, 0.0);
 }
 
 float sdSegment(vec2 position, vec2 point1, vec2 point2) {
