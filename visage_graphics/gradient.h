@@ -45,6 +45,11 @@ namespace visage {
       if (a.numColors() > b.numColors())
         return 1;
 
+      if (a.repeat_ != b.repeat_)
+        return a.repeat_ ? -1 : 1;
+      if (a.reflect_ != b.reflect_)
+        return a.reflect_ ? -1 : 1;
+
       for (int i = 0; i < a.numColors(); ++i) {
         int comp = Color::compare(a.colors_[i], b.colors_[i]);
         if (comp)
@@ -352,19 +357,27 @@ namespace visage {
 
     GradientPosition transform(const Transform& transform) const {
       GradientPosition result = *this;
-      result.point1 = transform * point1;
-      result.point2 = transform * point2;
-      auto inverse = transform.matrix.inverse();
-      float a = inverse.matrix[0][0];
-      float b = inverse.matrix[1][0];
-      float c = inverse.matrix[0][1];
-      float d = inverse.matrix[1][1];
+      if (shape == InterpolationShape::Radial) {
+        result.point1 = transform * point1;
+        result.point2 = transform * point2;
+        auto inverse = transform.matrix.inverse();
+        float a = inverse.matrix[0][0];
+        float b = inverse.matrix[0][1];
+        float c = inverse.matrix[1][0];
+        float d = inverse.matrix[1][1];
 
-      // TODO double check this
-      result.coefficientx2 = coefficientx2 * a * a + coefficienty2 * c * c + coefficientxy * a * c;
-      result.coefficienty2 = coefficientx2 * b * b + coefficienty2 * d * d + coefficientxy * b * d;
-      result.coefficientxy = 2.0f * (coefficientx2 * a * b + coefficienty2 * c * d) +
-                             coefficientxy * (a * d + b * c);
+        result.coefficientx2 = coefficientx2 * a * a + coefficienty2 * c * c + coefficientxy * a * c;
+        result.coefficienty2 = coefficientx2 * b * b + coefficienty2 * d * d + coefficientxy * b * d;
+        result.coefficientxy = 2.0f * (coefficientx2 * a * b + coefficienty2 * c * d) +
+                               coefficientxy * (a * d + b * c);
+      }
+      else if (shape == InterpolationShape::PointsLinear) {
+        result.point1 = transform * point1;
+        auto delta = point2 - point1;
+        auto transformed_delta = transform * delta;
+        auto dual = transform.matrix.transpose().inverse() * delta;
+        result.point2 = result.point1 + dual * (dual.dot(transformed_delta) / dual.dot(dual));
+      }
       return result;
     }
 
@@ -384,6 +397,10 @@ namespace visage {
         result.coefficientxy *= coefficient_scale;
       }
       return result;
+    }
+
+    static GradientPosition linear(const Point& from, const Point& to) {
+      return GradientPosition(from, to);
     }
 
     static GradientPosition radial(const Point& center, float radius_x, float radius_y,
@@ -469,6 +486,9 @@ namespace visage {
 
     Brush() = default;
 
+    Brush(Gradient gradient, const GradientPosition& position) :
+        gradient_(std::move(gradient)), position_(position) { }
+
     Brush interpolateWith(const Brush& other, float t) const {
       return interpolate(*this, other, t);
     }
@@ -489,9 +509,6 @@ namespace visage {
     bool isNone() const { return gradient_.colors().empty(); }
 
   private:
-    Brush(Gradient gradient, const GradientPosition& position) :
-        gradient_(std::move(gradient)), position_(position) { }
-
     Gradient gradient_;
     GradientPosition position_;
 
