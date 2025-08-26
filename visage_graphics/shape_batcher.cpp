@@ -79,6 +79,13 @@ namespace visage {
   }
 
   template<const char* name>
+  inline void setUniform(float value) {
+    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
+    float vec[4] = { value, value, value, value };
+    bgfx::setUniform(uniform, vec);
+  }
+
+  template<const char* name>
   inline void setTexture(int stage, bgfx::TextureHandle handle) {
     static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Sampler, 1);
     bgfx::setTexture(stage, uniform, handle);
@@ -324,12 +331,14 @@ namespace visage {
   }
 
   void submitShapes(const Layer& layer, const EmbeddedFile& vertex_shader,
-                    const EmbeddedFile& fragment_shader, int submit_pass) {
+                    const EmbeddedFile& fragment_shader, bool radial_gradient, int submit_pass) {
     setTimeUniform(layer.time());
     setUniformDimensions(layer.width(), layer.height());
     setColorMult(layer.hdr());
     setOriginFlipUniform(layer.bottomLeftOrigin());
     GradientAtlas* gradient_atlas = layer.gradientAtlas();
+    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
+    setUniform<Uniforms::kRadialGradient>(radial);
     setTexture<Uniforms::kGradient>(0, gradient_atlas->colorTextureHandle());
     bgfx::submit(submit_pass, ProgramCache::programHandle(vertex_shader, fragment_shader));
   }
@@ -451,18 +460,19 @@ namespace visage {
 
     float dimensions[4] = { path_fill_wrapper.width, path_fill_wrapper.height, 1.0f, 1.0f };
     float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
-    auto pos = PackedBrush::computeVertexGradientPositions(path_fill_wrapper.brush, 0, 0, 0, 0,
-                                                           path_fill_wrapper.width,
-                                                           path_fill_wrapper.height);
-    float gradient_color_pos[] = { pos.gradient_color_from_x, pos.gradient_color_y,
-                                   pos.gradient_color_to_x, pos.gradient_color_y };
-    float gradient_pos[] = { pos.gradient_position_from_x, pos.gradient_position_from_y,
-                             pos.gradient_position_to_x, pos.gradient_position_to_y };
+    GradientTexturePosition texture_pos;
+    GradientVertexPosition gradient_pos;
+    PackedBrush::computeVertexGradientTexturePositions(texture_pos, path_fill_wrapper.brush);
+    PackedBrush::computeVertexGradientPositions(gradient_pos, path_fill_wrapper.brush, 0, 0, 0, 0,
+                                                path_fill_wrapper.width, path_fill_wrapper.height);
     float line_width[] = { 4.0f, 0.0f, 0.0f, 0.0f };
     setUniform<Uniforms::kDimensions>(dimensions);
     setUniform<Uniforms::kTime>(time);
-    setUniform<Uniforms::kGradientColorPosition>(gradient_color_pos);
-    setUniform<Uniforms::kGradientPosition>(gradient_pos);
+    setUniform<Uniforms::kGradientTexturePosition>(&texture_pos);
+    setUniform<Uniforms::kGradientPosition>(gradient_pos.position1());
+    setUniform<Uniforms::kGradientPosition2>(gradient_pos.position2());
+    float radial_gradient[] = { path_fill_wrapper.radialGradient() ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
+    setUniform<Uniforms::kRadialGradient>(radial_gradient);
     setUniform<Uniforms::kLineWidth>(line_width);
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
 
@@ -506,18 +516,19 @@ namespace visage {
     float dimensions[4] = { path_fill_wrapper.width, path_fill_wrapper.height, 1.0f, 1.0f };
     float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
 
-    auto pos = PackedBrush::computeVertexGradientPositions(path_fill_wrapper.brush, 0, 0, 0, 0,
-                                                           path_fill_wrapper.width,
-                                                           path_fill_wrapper.height);
-    float gradient_color_pos[] = { pos.gradient_color_from_x, pos.gradient_color_y,
-                                   pos.gradient_color_to_x, pos.gradient_color_y };
-    float gradient_pos[] = { pos.gradient_position_from_x, pos.gradient_position_from_y,
-                             pos.gradient_position_to_x, pos.gradient_position_to_y };
+    GradientTexturePosition texture_pos;
+    GradientVertexPosition gradient_pos;
+    PackedBrush::computeVertexGradientTexturePositions(texture_pos, path_fill_wrapper.brush);
+    PackedBrush::computeVertexGradientPositions(gradient_pos, path_fill_wrapper.brush, 0, 0, 0, 0,
+                                                path_fill_wrapper.width, path_fill_wrapper.height);
     float line_width[] = { 4.0f, 0.0f, 0.0f, 0.0f };
     setUniform<Uniforms::kDimensions>(dimensions);
     setUniform<Uniforms::kTime>(time);
-    setUniform<Uniforms::kGradientColorPosition>(gradient_color_pos);
-    setUniform<Uniforms::kGradientPosition>(gradient_pos);
+    setUniform<Uniforms::kGradientTexturePosition>(&texture_pos);
+    setUniform<Uniforms::kGradientPosition>(gradient_pos.position1());
+    setUniform<Uniforms::kGradientPosition2>(gradient_pos.position2());
+    float radial_gradient[] = { path_fill_wrapper.radialGradient() ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
+    setUniform<Uniforms::kRadialGradient>(radial_gradient);
     setUniform<Uniforms::kLineWidth>(line_width);
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
 
@@ -548,17 +559,19 @@ namespace visage {
     float dimensions[4] = { line_wrapper.width, line_wrapper.height, 1.0f, 1.0f };
     float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
 
-    auto pos = PackedBrush::computeVertexGradientPositions(line_wrapper.brush, 0, 0, 0, 0,
-                                                           line_wrapper.width, line_wrapper.height);
-    float gradient_color_pos[] = { pos.gradient_color_from_x, pos.gradient_color_y,
-                                   pos.gradient_color_to_x, pos.gradient_color_y };
-    float gradient_pos[] = { pos.gradient_position_from_x, pos.gradient_position_from_y,
-                             pos.gradient_position_to_x, pos.gradient_position_to_y };
+    GradientTexturePosition texture_pos;
+    GradientVertexPosition gradient_pos;
+    PackedBrush::computeVertexGradientTexturePositions(texture_pos, line_wrapper.brush);
+    PackedBrush::computeVertexGradientPositions(gradient_pos, line_wrapper.brush, 0, 0, 0, 0,
+                                                line_wrapper.width, line_wrapper.height);
     float line_width[] = { line_wrapper.line_width * 2.0f, 0.0f, 0.0f, 0.0f };
     setUniform<Uniforms::kDimensions>(dimensions);
     setUniform<Uniforms::kTime>(time);
-    setUniform<Uniforms::kGradientColorPosition>(gradient_color_pos);
-    setUniform<Uniforms::kGradientPosition>(gradient_pos);
+    setUniform<Uniforms::kGradientTexturePosition>(&texture_pos);
+    setUniform<Uniforms::kGradientPosition>(gradient_pos.position1());
+    setUniform<Uniforms::kGradientPosition2>(gradient_pos.position2());
+    float radial_gradient[] = { line_wrapper.radialGradient() ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
+    setUniform<Uniforms::kRadialGradient>(radial_gradient);
     setUniform<Uniforms::kLineWidth>(line_width);
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
 
@@ -623,13 +636,11 @@ namespace visage {
     float dimensions[4] = { line_fill_wrapper.width, line_fill_wrapper.height * dimension_y_scale,
                             1.0f, 1.0f };
     float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
-    auto pos = PackedBrush::computeVertexGradientPositions(line_fill_wrapper.brush, 0, 0, 0, 0,
-                                                           line_fill_wrapper.width,
-                                                           line_fill_wrapper.height);
-    float gradient_color_pos[] = { pos.gradient_color_from_x, pos.gradient_color_y,
-                                   pos.gradient_color_to_x, pos.gradient_color_y };
-    float gradient_pos[] = { pos.gradient_position_from_x, pos.gradient_position_from_y,
-                             pos.gradient_position_to_x, pos.gradient_position_to_y };
+    GradientTexturePosition texture_pos;
+    GradientVertexPosition gradient_pos;
+    PackedBrush::computeVertexGradientTexturePositions(texture_pos, line_fill_wrapper.brush);
+    PackedBrush::computeVertexGradientPositions(gradient_pos, line_fill_wrapper.brush, 0, 0, 0, 0,
+                                                line_fill_wrapper.width, line_fill_wrapper.height);
 
     float fill_location = static_cast<int>(line_fill_wrapper.fill_center);
     float center[] = { 0.0f, fill_location, 0.0f, 0.0f };
@@ -641,8 +652,11 @@ namespace visage {
     bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
     setUniform<Uniforms::kDimensions>(dimensions);
     setUniform<Uniforms::kTime>(time);
-    setUniform<Uniforms::kGradientColorPosition>(gradient_color_pos);
-    setUniform<Uniforms::kGradientPosition>(gradient_pos);
+    setUniform<Uniforms::kGradientTexturePosition>(&texture_pos);
+    setUniform<Uniforms::kGradientPosition>(gradient_pos.position1());
+    setUniform<Uniforms::kGradientPosition2>(gradient_pos.position2());
+    float radial_gradient[] = { line_fill_wrapper.radialGradient() ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
+    setUniform<Uniforms::kRadialGradient>(radial_gradient);
     setUniform<Uniforms::kCenterPosition>(center);
 
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
@@ -657,8 +671,12 @@ namespace visage {
   }
 
   void submitImages(const BatchVector<ImageWrapper>& batches, const Layer& layer, int submit_pass) {
-    if (!setupQuads(batches))
+    bool radial_gradient = false;
+    if (!setupQuads(batches, radial_gradient))
       return;
+
+    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
+    setUniform<Uniforms::kRadialGradient>(radial);
 
     const ImageAtlas* image_atlas = batches[0].shapes->front().image_atlas;
     setBlendMode(BlendMode::Alpha);
@@ -832,8 +850,12 @@ namespace visage {
   }
 
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass) {
-    if (!setupQuads(batches))
+    bool radial_gradient = false;
+    if (!setupQuads(batches, radial_gradient))
       return;
+
+    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
+    setUniform<Uniforms::kRadialGradient>(radial);
 
     setBlendMode(BlendMode::Alpha);
     setTimeUniform(layer.time());
@@ -847,8 +869,12 @@ namespace visage {
   }
 
   void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass) {
-    if (!setupQuads(batches))
+    bool radial_gradient = false;
+    if (!setupQuads(batches, radial_gradient))
       return;
+
+    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
+    setUniform<Uniforms::kRadialGradient>(radial);
 
     Layer* source_layer = batches[0].shapes->front().region->layer();
     float width_scale = 1.0f / source_layer->width();

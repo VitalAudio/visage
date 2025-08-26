@@ -84,6 +84,10 @@ namespace visage {
     float width = 0.0f;
     float height = 0.0f;
 
+    bool radialGradient() const {
+      return brush && brush->position().shape == GradientPosition::InterpolationShape::Radial;
+    }
+
     bool overlapsShape(const BaseShape& other) const {
       return x < other.x + other.width && x + width > other.x && y < other.y + other.height &&
              y + height > other.y;

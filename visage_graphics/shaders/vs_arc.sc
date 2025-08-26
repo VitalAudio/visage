@@ -1,5 +1,5 @@
 $input a_position, a_color0, a_color1, a_texcoord0, a_texcoord1, a_texcoord2
-$output v_coordinates, v_dimensions, v_shader_values, v_shader_values1, v_position, v_gradient_color_pos, v_gradient_pos
+$output v_coordinates, v_dimensions, v_shader_values, v_shader_values1, v_position, v_gradient_texture_pos, v_gradient_pos
 
 #include <shader_include.sh>
 
@@ -13,7 +13,7 @@ void main() {
   vec2 delta = clamped - (a_position.xy + a_texcoord0.xy * 0.5);
 
   v_position = clamped;
-  v_gradient_color_pos = a_color0;
+  v_gradient_texture_pos = a_color0;
   v_gradient_pos = a_color1;
   v_dimensions = a_texcoord0.zw + vec2(1.0, 1.0);
   v_coordinates = a_texcoord0.xy + (2.0 * delta) / v_dimensions;

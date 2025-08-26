@@ -102,7 +102,7 @@ namespace visage {
   }
 
   void submitShapes(const Layer& layer, const EmbeddedFile& vertex_shader,
-                    const EmbeddedFile& fragment_shader, int submit_pass);
+                    const EmbeddedFile& fragment_shader, bool radial_gradient, int submit_pass);
 
   void submitPathFill(const PathFillWrapper& path_fill_wrapper, const Layer& layer, int submit_pass);
   void submitLine(const LineWrapper& line_wrapper, const Layer& layer, int submit_pass);
@@ -113,7 +113,7 @@ namespace visage {
   void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass);
 
   template<typename T>
-  bool setupQuads(const BatchVector<T>& batches) {
+  bool setupQuads(const BatchVector<T>& batches, bool& radial_gradient) {
     int num_shapes = numShapes(batches);
     if (num_shapes == 0)
       return false;
@@ -134,6 +134,7 @@ namespace visage {
           clamp = clamp.withOffset(batch.x, batch.y);
           setQuadPositions(vertices + vertex_index, shape, clamp, batch.x, batch.y);
           shape.setVertexData(vertices + vertex_index);
+          radial_gradient = shape.radialGradient();
           vertex_index += kVerticesPerQuad;
         }
       }
@@ -146,11 +147,12 @@ namespace visage {
 
   template<typename T>
   static void submitShapes(const BatchVector<T>& batches, BlendMode state, Layer& layer, int submit_pass) {
-    if (!setupQuads(batches))
+    bool radial_gradient = false;
+    if (!setupQuads(batches, radial_gradient))
       return;
 
     setBlendMode(state);
-    submitShapes(layer, T::vertexShader(), T::fragmentShader(), submit_pass);
+    submitShapes(layer, T::vertexShader(), T::fragmentShader(), radial_gradient, submit_pass);
   }
 
   template<>
@@ -262,8 +264,13 @@ namespace visage {
     }
 
     const void* id() const { return id_; }
+    bool match(const void* id, BlendMode blend_mode, bool radial_gradient) const {
+      return id_ == id && blend_mode_ == blend_mode && radial_gradient_ == radial_gradient;
+    }
+
     void setBlendMode(BlendMode blend_mode) { blend_mode_ = blend_mode; }
     BlendMode blendMode() const { return blend_mode_; }
+    bool radialGradient() const { return radial_gradient_; }
 
     int compare(const void* other_id, BlendMode other_blend_mode) const {
       if (id_ < other_id)
@@ -283,13 +290,8 @@ namespace visage {
     void addShapeArea(const BaseShape& shape) {
       VISAGE_ASSERT(id_ == nullptr || id_ == shape.batch_id);
       id_ = shape.batch_id;
+      radial_gradient_ = shape.radialGradient();
       areas_.push_back({ shape.x, shape.y, shape.x + shape.width, shape.y + shape.height });
-    }
-
-  protected:
-    void setId(const void* id) {
-      VISAGE_ASSERT(id_ == nullptr || id_ == id);
-      id_ = id;
     }
 
   private:
@@ -300,6 +302,7 @@ namespace visage {
     const void* id_ = nullptr;
     std::vector<Area> areas_;
     BlendMode blend_mode_;
+    bool radial_gradient_ = false;
   };
 
   template<typename T>
@@ -353,7 +356,7 @@ namespace visage {
       int insert = batches_.size();
       for (int i = batches_.size() - 1; i >= 0; --i) {
         SubmitBatch* batch = batches_[i].get();
-        if (batch->id() == shape.batch_id && batch->blendMode() == blend)
+        if (batch->match(shape.batch_id, blend, shape.radialGradient()))
           match = i;
         if (batch->overlapsShape(shape))
           break;
@@ -395,8 +398,8 @@ namespace visage {
     template<typename T>
     void addShape(T shape, BlendMode blend = BlendMode::Alpha) {
       int batch_index = batchIndex(shape, blend);
-      bool match = batch_index < batches_.size() && batches_[batch_index]->id() == shape.batch_id &&
-                   batches_[batch_index]->blendMode() == blend;
+      bool match = batch_index < batches_.size() &&
+                   batches_[batch_index]->match(shape.batch_id, blend, shape.radialGradient());
       ShapeBatch<T>* batch = match ? reinterpret_cast<ShapeBatch<T>*>(batches_[batch_index].get()) :
                                      createNewBatch<T>(shape.batch_id, blend, batch_index);
 

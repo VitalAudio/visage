@@ -63,7 +63,7 @@ namespace visage {
     if (!sweep_flag)
       arc_angle = -arc_angle;
 
-    Point adjusted_radius = resolution_transform_ * Point(x_radius, y_radius);
+    Point adjusted_radius = resolution_matrix_ * Point(x_radius, y_radius);
     float max_radius = std::max(adjusted_radius.x, adjusted_radius.y);
     float max_delta_radians = 2.0f * std::acos(1.0f - error_tolerance_ / max_radius);
     int num_points = std::ceil(std::abs(arc_angle) / max_delta_radians);
@@ -318,7 +318,7 @@ namespace visage {
 
     explicit TriangulationGraph(const Path* path) {
       int num_points = path->numPoints();
-      resolution_transform_ = path->resolutionTransform();
+      resolution_transform_ = path->resolutionMatrix();
       prev_edge_.reserve(num_points);
       next_edge_.reserve(num_points);
 
@@ -1564,7 +1564,7 @@ namespace visage {
     }
 
     std::unique_ptr<ScanLine> scan_line_;
-    Matrix resolution_transform_;
+    Transform resolution_transform_;
     std::vector<DPoint> points_;
     std::vector<IndexData> sorted_indices_;
     std::vector<int> prev_edge_;
