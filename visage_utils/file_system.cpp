@@ -107,11 +107,16 @@ namespace visage {
   }
 
   std::string loadFileAsString(const File& file) {
-    std::ifstream stream(file);
+    std::ifstream stream(file, std::ios::binary);
     if (!stream)
       return {};
 
-    return { std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>() };
+    stream.seekg(0, std::ios::end);
+    std::string out;
+    out.resize(static_cast<size_t>(stream.tellg()));
+    stream.seekg(0, std::ios::beg);
+    stream.read(out.data(), out.size());
+    return out;
   }
 
   File hostExecutable() {
