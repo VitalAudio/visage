@@ -4,8 +4,6 @@ $input v_texture_uv
 
 SAMPLER2D(s_texture, 0);
 
-uniform vec4 u_color_mult;
-
 void main() {
   vec4 color = texture2D(s_texture, v_texture_uv);
   float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114)) * u_color_mult.x;
