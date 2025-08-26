@@ -20,6 +20,7 @@
  */
 
 #include "embedded/example_fonts.h"
+#include "visage_widgets/shader_editor.h"
 
 #include <complex>
 #include <random>
@@ -70,6 +71,9 @@ void printPath(const visage::Path& path) {
 }
 
 int runExample() {
+  visage::ShaderCompiler compiler;
+  compiler.watchShaderFolder("C:/Users/matth/visage/visage_graphics/shaders");
+
   visage::ApplicationWindow app;
 
   static constexpr float kPi = 3.14159265358979323846f;
@@ -210,6 +214,9 @@ int runExample() {
   // path.translate(50, 50);
 
   app.onDraw() = [&](visage::Canvas& canvas) {
+    // auto gradient = visage::Gradient(0xffff00ff, 0xffffff00);
+    // canvas.setColor(visage::Brush::radial(gradient, visage::Point(50.0f, 50.0f), 100.0f));
+    // canvas.setColor(visage::Brush::horizontal(gradient));
     canvas.setColor(0xffffffff);
     canvas.fill(0, 0, app.width(), app.height());
 
