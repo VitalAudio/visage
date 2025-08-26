@@ -512,8 +512,8 @@ namespace visage {
     return result;
   }
 
-  Matrix parseTransform(const std::string& transform_string) {
-    Matrix matrix;
+  Transform parseTransform(const std::string& transform_string) {
+    Transform matrix;
     std::istringstream ss(transform_string);
     int pos = 0;
     while (pos < transform_string.size()) {
@@ -536,45 +536,79 @@ namespace visage {
 
       if (tokens[0] == "translate") {
         float y = args.size() > 1 ? args[1] : args[0];
-        matrix = matrix * Matrix::translation(args[0], y);
+        matrix = matrix * Transform::translation(args[0], y);
       }
       else if (tokens[0] == "scale") {
         float y = args.size() > 1 ? args[1] : args[0];
-        matrix = matrix * Matrix::scale(args[0], y);
+        matrix = matrix * Transform::scale(args[0], y);
       }
       else if (tokens[0] == "rotate") {
         if (args.size() > 2)
-          matrix = matrix * Matrix::rotation(args[0], { args[1], args[2] });
+          matrix = matrix * Transform::rotation(args[0], { args[1], args[2] });
         else
-          matrix = matrix * Matrix::rotation(args[0]);
+          matrix = matrix * Transform::rotation(args[0]);
       }
       else if (tokens[0] == "skewX")
-        matrix = matrix * Matrix::skewX(args[0]);
+        matrix = matrix * Transform::skewX(args[0]);
       else if (tokens[0] == "skewY")
-        matrix = matrix * Matrix::skewY(args[0]);
+        matrix = matrix * Transform::skewY(args[0]);
       else if (tokens[0] == "matrix" && args.size() > 5)
-        matrix = matrix * Matrix(args[0], args[2], args[4], args[1], args[3], args[5]);
+        matrix = matrix * Transform(args[0], args[2], args[4], args[1], args[3], args[5]);
     }
     return matrix;
   }
 
   GradientDef parseGradient(const Svg::ViewSettings& view, Tag& tag) {
     GradientDef gradient_def;
-    if (tag.data.attributes.count("x1")) {
-      gradient_def.x1 = parseNumber(tag.data.attributes.at("x1"), 1.0f);
-      gradient_def.x1_ratio = tag.data.attributes.at("x1").find('%') != std::string::npos;
+    if (tag.data.name == "linearGradient") {
+      gradient_def.radial = false;
+      if (tag.data.attributes.count("x1")) {
+        gradient_def.x1 = parseNumber(tag.data.attributes.at("x1"), 1.0f);
+        gradient_def.x1_ratio = tag.data.attributes.at("x1").find('%') != std::string::npos;
+      }
+      if (tag.data.attributes.count("y1")) {
+        gradient_def.y1 = parseNumber(tag.data.attributes.at("y1"), 1.0f);
+        gradient_def.y1_ratio = tag.data.attributes.at("y1").find('%') != std::string::npos;
+      }
+      if (tag.data.attributes.count("x2")) {
+        gradient_def.x2 = parseNumber(tag.data.attributes.at("x2"), 1.0f);
+        gradient_def.x2_ratio = tag.data.attributes.at("x2").find('%') != std::string::npos;
+      }
+      if (tag.data.attributes.count("y2")) {
+        gradient_def.y2 = parseNumber(tag.data.attributes.at("y2"), 1.0f);
+        gradient_def.y2_ratio = tag.data.attributes.at("y2").find('%') != std::string::npos;
+      }
     }
-    if (tag.data.attributes.count("y1")) {
-      gradient_def.y1 = parseNumber(tag.data.attributes.at("y1"), 1.0f);
-      gradient_def.y1_ratio = tag.data.attributes.at("y1").find('%') != std::string::npos;
-    }
-    if (tag.data.attributes.count("x2")) {
-      gradient_def.x2 = parseNumber(tag.data.attributes.at("x2"), 1.0f);
-      gradient_def.x2_ratio = tag.data.attributes.at("x2").find('%') != std::string::npos;
-    }
-    if (tag.data.attributes.count("y2")) {
-      gradient_def.y2 = parseNumber(tag.data.attributes.at("y2"), 1.0f);
-      gradient_def.y2_ratio = tag.data.attributes.at("y2").find('%') != std::string::npos;
+    else {
+      gradient_def.radial = true;
+      if (tag.data.attributes.count("cx")) {
+        gradient_def.x1 = parseNumber(tag.data.attributes.at("cx"), 1.0f);
+        gradient_def.x1_ratio = tag.data.attributes.at("cx").find('%') != std::string::npos;
+        gradient_def.x2 = gradient_def.x1;
+        gradient_def.x2_ratio = gradient_def.x1_ratio;
+      }
+      if (tag.data.attributes.count("cy")) {
+        gradient_def.y1 = parseNumber(tag.data.attributes.at("cy"), 1.0f);
+        gradient_def.y1_ratio = tag.data.attributes.at("cy").find('%') != std::string::npos;
+        gradient_def.y2 = gradient_def.y1;
+        gradient_def.y2_ratio = gradient_def.y1_ratio;
+      }
+      if (tag.data.attributes.count("fx")) {
+        gradient_def.x2 = parseNumber(tag.data.attributes.at("fx"), 1.0f);
+        gradient_def.x2_ratio = tag.data.attributes.at("fx").find('%') != std::string::npos;
+      }
+      if (tag.data.attributes.count("fy")) {
+        gradient_def.y2 = parseNumber(tag.data.attributes.at("fy"), 1.0f);
+        gradient_def.y2_ratio = tag.data.attributes.at("fy").find('%') != std::string::npos;
+      }
+      if (tag.data.attributes.count("r")) {
+        gradient_def.radius = parseNumber(tag.data.attributes.at("r"), 1.0f);
+        gradient_def.radius_ratio = tag.data.attributes.at("r").find('%') != std::string::npos;
+      }
+      if (tag.data.attributes.count("fr")) {
+        gradient_def.focal_radius = parseNumber(tag.data.attributes.at("fr"), 1.0f);
+        gradient_def.focal_radius_ratio = tag.data.attributes.at("fr").find('%') != std::string::npos;
+      }
     }
     if (tag.data.attributes.count("spreadMethod")) {
       std::string spread_method = tag.data.attributes.at("spreadMethod");
@@ -881,13 +915,13 @@ namespace visage {
       }
     }
 
-    state.scale_transform = state.scale_transform * state.local_transform.withNoTranslation();
+    state.scale_matrix = state.scale_matrix * state.local_transform.matrix;
   }
 
   void loadDrawableState(const Tag& tag, std::vector<DrawableState>& state_stack,
                          const std::map<std::string, GradientDef>& gradients) {
     auto& state = state_stack.back();
-    state.local_transform = Matrix::identity();
+    state.local_transform = Transform::identity();
     state.tranform_origin_x = 0;
     state.tranform_origin_y = 0;
 
@@ -904,8 +938,8 @@ namespace visage {
     }
 
     if (x || y)
-      state.local_transform = state.local_transform * Matrix::translation(x, y);
-    state.scale_transform = state.scale_transform * state.local_transform.withNoTranslation();
+      state.local_transform = state.local_transform * Transform::translation(x, y);
+    state.scale_matrix = state.scale_matrix * state.local_transform.matrix;
   }
 
   std::unique_ptr<SvgDrawable> loadDrawable(const Svg::ViewSettings& view, const Tag& tag,
@@ -920,7 +954,7 @@ namespace visage {
       height = parseNumber(tag.data.attributes.at("height"), 1.0f);
 
     Path path;
-    path.setResolutionTransform(state.scale_transform);
+    path.setResolutionMatrix(state.scale_matrix);
     if (state.non_zero_fill)
       path.setFillRule(Path::FillRule::NonZero);
     else
@@ -976,7 +1010,7 @@ namespace visage {
       if (tag.data.attributes.count("ry"))
         ry = parseNumber(tag.data.attributes.at("ry"), 1.0f);
 
-      state.local_transform = state.local_transform * Matrix::translation(cx - rx, cy - ry);
+      state.local_transform = state.local_transform * Transform::translation(cx - rx, cy - ry);
       path.addEllipse(rx, ry, rx, ry);
     }
     else
@@ -986,7 +1020,7 @@ namespace visage {
     drawable->state = state;
     auto start_bounding_box = path.boundingBox();
 
-    Matrix transform;
+    Transform transform;
     for (int i = state_stack.size() - 1; i >= 0; --i) {
       if (state_stack[i].tranform_origin_x || state_stack[i].tranform_origin_y) {
         Point origin(state_stack[i].tranform_origin_x, state_stack[i].tranform_origin_y);
@@ -997,8 +1031,8 @@ namespace visage {
           if (state_stack[i].transform_ratio_y)
             origin.y *= bounding_box.height();
         }
-        transform = Matrix::translation(origin) * state_stack[i].local_transform *
-                    Matrix::translation(-origin) * transform;
+        transform = Transform::translation(origin) * state_stack[i].local_transform *
+                    Transform::translation(-origin) * transform;
       }
       else
         transform = state_stack[i].local_transform * transform;
@@ -1106,8 +1140,8 @@ namespace visage {
     return result;
   }
 
-  Matrix initialTransform(const Svg::ViewSettings& view) {
-    Matrix transform;
+  Transform initialTransform(const Svg::ViewSettings& view) {
+    Transform transform;
 
     float extra_width = 0.0f;
     float extra_height = 0.0f;
@@ -1119,27 +1153,28 @@ namespace visage {
       else if (view.scale == "slice")
         scale_x = scale_y = std::max(scale_x, scale_y);
 
-      transform = Matrix::scale(scale_x, scale_y) * Matrix::translation(-view.view_box_x, -view.view_box_y);
+      transform = Transform::scale(scale_x, scale_y) *
+                  Transform::translation(-view.view_box_x, -view.view_box_y);
       extra_width = view.width - (view.view_box_width * scale_x);
       extra_height = view.height - (view.view_box_height * scale_y);
     }
 
     if (view.align == "xMidYMid")
-      transform = Matrix::translation(extra_width / 2, extra_height / 2) * transform;
+      transform = Transform::translation(extra_width / 2, extra_height / 2) * transform;
     else if (view.align == "xMaxYMax")
-      transform = Matrix::translation(extra_width, extra_height) * transform;
+      transform = Transform::translation(extra_width, extra_height) * transform;
     else if (view.align == "xMinYMax")
-      transform = Matrix::translation(0, extra_height) * transform;
+      transform = Transform::translation(0, extra_height) * transform;
     else if (view.align == "xMaxYMin")
-      transform = Matrix::translation(extra_width, 0) * transform;
+      transform = Transform::translation(extra_width, 0) * transform;
     else if (view.align == "xMidYMin")
-      transform = Matrix::translation(extra_width / 2, 0) * transform;
+      transform = Transform::translation(extra_width / 2, 0) * transform;
     else if (view.align == "xMidYMax")
-      transform = Matrix::translation(extra_width / 2, extra_height) * transform;
+      transform = Transform::translation(extra_width / 2, extra_height) * transform;
     else if (view.align == "xMinYMid")
-      transform = Matrix::translation(0, extra_height / 2) * transform;
+      transform = Transform::translation(0, extra_height / 2) * transform;
     else if (view.align == "xMaxYMid")
-      transform = Matrix::translation(extra_width, extra_height / 2) * transform;
+      transform = Transform::translation(extra_width, extra_height / 2) * transform;
 
     return transform;
   }
@@ -1163,7 +1198,7 @@ namespace visage {
       if (tag.data.name == "svg") {
         view_ = loadSvgViewSettings(tag);
         state.local_transform = initialTransform(view_);
-        state.scale_transform = state.local_transform.withNoTranslation();
+        state.scale_matrix = state.local_transform.matrix;
       }
     }
 

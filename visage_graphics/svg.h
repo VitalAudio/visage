@@ -34,38 +34,55 @@ namespace visage {
       solid = true;
     }
 
-    Brush toBrush(float width, float height, Matrix current_transform, int x, int y) const {
+    Brush toBrush(float width, float height, Transform current_transform, int x, int y) const {
       if (solid)
         return Brush::solid(gradient.colors().front());
 
       Point from(x1_ratio ? x1 * width : x1, y1_ratio ? y1 * height : y1);
       Point to(x2_ratio ? x2 * width : x2, y2_ratio ? y2 * height : y2);
       if (user_space) {
-        auto translate = Matrix::translation(-x, -y);
+        auto translate = Transform::translation(-x, -y);
         from = translate * from;
         to = translate * to;
+      }
+      if (radial) {
+        Point radius_vector = radius_ratio ? radius * Point(width, height) : Point(radius, radius);
+        if (user_space && radius_ratio) {
+          float normalized_width = std::sqrt(0.5f * (width * width + height * height));
+          radius_vector = radius * normalized_width * Point(1.0f, 1.0f);
+        }
+
+        radius_vector = current_transform * transform * radius_vector;
+
+        return Brush::radial(gradient, current_transform * transform * from, radius_vector.x,
+                             radius_vector.y, current_transform * transform * to);
       }
       return Brush::linear(gradient, current_transform * transform * from,
                            current_transform * transform * to);
     }
 
     Gradient gradient;
-    Matrix transform;
+    Transform transform;
+    bool radial = false;
     bool solid = false;
     bool user_space = false;
-    bool x1_ratio = false;
-    bool y1_ratio = false;
+    bool x1_ratio = true;
+    bool y1_ratio = true;
     bool x2_ratio = true;
-    bool y2_ratio = false;
+    bool y2_ratio = true;
+    bool focal_radius_ratio = false;
+    bool radius_ratio = true;
     float x1 = 0.0f;
     float y1 = 0.0f;
     float x2 = 1.0f;
     float y2 = 0.0f;
+    float focal_radius = 0.0f;
+    float radius = 0.5f;
   };
 
   struct DrawableState {
-    Matrix local_transform;
-    Matrix scale_transform;
+    Transform local_transform;
+    Matrix scale_matrix;
     bool transform_ratio_x = false;
     bool transform_ratio_y = false;
     float tranform_origin_x = 0.0f;

@@ -304,8 +304,8 @@ TEST_CASE("GradientPosition", "[graphics]") {
     Point to(30.0f, 40.0f);
     GradientPosition linear(from, to);
     REQUIRE(linear.shape == GradientPosition::InterpolationShape::PointsLinear);
-    REQUIRE(linear.point_from == from);
-    REQUIRE(linear.point_to == to);
+    REQUIRE(linear.point1 == from);
+    REQUIRE(linear.point2 == to);
   }
 
   SECTION("Interpolation") {
@@ -320,10 +320,10 @@ TEST_CASE("GradientPosition", "[graphics]") {
     GradientPosition result = GradientPosition::interpolate(pos1, pos2, 0.5f);
 
     REQUIRE(result.shape == GradientPosition::InterpolationShape::PointsLinear);
-    REQUIRE(result.point_from.x == Approx(50.0f));
-    REQUIRE(result.point_from.y == Approx(0.0f));
-    REQUIRE(result.point_to.x == Approx(50.0f));
-    REQUIRE(result.point_to.y == Approx(100.0f));
+    REQUIRE(result.point1.x == Approx(50.0f));
+    REQUIRE(result.point1.y == Approx(0.0f));
+    REQUIRE(result.point2.x == Approx(50.0f));
+    REQUIRE(result.point2.y == Approx(100.0f));
   }
 
   SECTION("Serialization") {
@@ -337,10 +337,10 @@ TEST_CASE("GradientPosition", "[graphics]") {
     decoded.decode(encoded);
 
     REQUIRE(decoded.shape == original.shape);
-    REQUIRE(decoded.point_from.x == Approx(original.point_from.x));
-    REQUIRE(decoded.point_from.y == Approx(original.point_from.y));
-    REQUIRE(decoded.point_to.x == Approx(original.point_to.x));
-    REQUIRE(decoded.point_to.y == Approx(original.point_to.y));
+    REQUIRE(decoded.point1.x == Approx(original.point1.x));
+    REQUIRE(decoded.point1.y == Approx(original.point1.y));
+    REQUIRE(decoded.point2.x == Approx(original.point2.x));
+    REQUIRE(decoded.point2.y == Approx(original.point2.y));
   }
 
   SECTION("Scaling") {
@@ -351,10 +351,10 @@ TEST_CASE("GradientPosition", "[graphics]") {
     GradientPosition scaled = original * 2.0f;
 
     REQUIRE(scaled.shape == original.shape);
-    REQUIRE(scaled.point_from.x == Approx(20.0f));
-    REQUIRE(scaled.point_from.y == Approx(40.0f));
-    REQUIRE(scaled.point_to.x == Approx(60.0f));
-    REQUIRE(scaled.point_to.y == Approx(80.0f));
+    REQUIRE(scaled.point1.x == Approx(20.0f));
+    REQUIRE(scaled.point1.y == Approx(40.0f));
+    REQUIRE(scaled.point2.x == Approx(60.0f));
+    REQUIRE(scaled.point2.y == Approx(80.0f));
   }
 }
 
@@ -402,8 +402,8 @@ TEST_CASE("Brush creation", "[graphics]") {
     REQUIRE(brush.gradient().colors()[0] == red);
     REQUIRE(brush.gradient().colors()[1] == blue);
     REQUIRE(brush.position().shape == GradientPosition::InterpolationShape::PointsLinear);
-    REQUIRE(brush.position().point_from == from);
-    REQUIRE(brush.position().point_to == to);
+    REQUIRE(brush.position().point1 == from);
+    REQUIRE(brush.position().point2 == to);
   }
 }
 
@@ -452,7 +452,17 @@ TEST_CASE("Brush operations", "[graphics]") {
     REQUIRE(decoded.gradient().colors()[0] == original.gradient().colors()[0]);
     REQUIRE(decoded.gradient().colors()[1] == original.gradient().colors()[1]);
     REQUIRE(decoded.position().shape == original.position().shape);
-    REQUIRE(decoded.position().point_from.x == Approx(original.position().point_from.x));
-    REQUIRE(decoded.position().point_to.y == Approx(original.position().point_to.y));
+    REQUIRE(decoded.position().point1.x == Approx(original.position().point1.x));
+    REQUIRE(decoded.position().point2.y == Approx(original.position().point2.y));
+  }
+
+  SECTION("Radial Transform") {
+    GradientPosition position = GradientPosition::radial(Point(50.0f, 50.0f), 1.0f, 2.0f);
+    position = position.transform(Transform::rotation(90.0f));
+    REQUIRE(position.shape == GradientPosition::InterpolationShape::Radial);
+    position = position.transform(Transform::rotation(60.0f));
+    REQUIRE(position.shape == GradientPosition::InterpolationShape::Radial);
+    // REQUIRE(position.point1.x == Approx(0.0f));
+    // REQUIRE(position.point1.y == Approx(50.0f * std::sqrt(2.0f)));
   }
 }

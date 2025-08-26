@@ -225,17 +225,32 @@ namespace visage {
     static bgfx::VertexLayout& layout();
   };
 
+  struct GradientTexturePosition {
+    float from_x;
+    float from_y;
+    float to_x;
+    float to_y;
+  };
+
+  struct GradientVertexPosition {
+    float from_x;
+    float from_y;
+    float to_x;
+    float to_y;
+    float coefficient1;
+    float coefficient2;
+    float coefficient3;
+    float cone_height;
+
+    float* position1() { return &from_x; }
+    float* position2() { return &coefficient1; }
+  };
+
   struct ShapeVertex {
     float x;
     float y;
-    float gradient_color_from_x;
-    float gradient_color_from_y;
-    float gradient_color_to_x;
-    float gradient_color_to_y;
-    float gradient_position_from_x;
-    float gradient_position_from_y;
-    float gradient_position_to_x;
-    float gradient_position_to_y;
+    GradientTexturePosition gradient_texture_position;
+    GradientVertexPosition gradient;
     float coordinate_x;
     float coordinate_y;
     float dimension_x;
@@ -255,14 +270,8 @@ namespace visage {
   struct ComplexShapeVertex {
     float x;
     float y;
-    float gradient_color_from_x;
-    float gradient_color_from_y;
-    float gradient_color_to_x;
-    float gradient_color_to_y;
-    float gradient_position_from_x;
-    float gradient_position_from_y;
-    float gradient_position_to_x;
-    float gradient_position_to_y;
+    GradientTexturePosition gradient_texture_position;
+    GradientVertexPosition gradient;
     float coordinate_x;
     float coordinate_y;
     float dimension_x;
@@ -288,14 +297,8 @@ namespace visage {
     float y;
     float dimension_x;
     float dimension_y;
-    float gradient_color_from_x;
-    float gradient_color_from_y;
-    float gradient_color_to_x;
-    float gradient_color_to_y;
-    float gradient_position_from_x;
-    float gradient_position_from_y;
-    float gradient_position_to_x;
-    float gradient_position_to_y;
+    GradientTexturePosition gradient_texture_position;
+    GradientVertexPosition gradient;
     float texture_x;
     float texture_y;
     float direction_x;
@@ -313,14 +316,8 @@ namespace visage {
     float y;
     float dimension_x;
     float dimension_y;
-    float gradient_color_from_x;
-    float gradient_color_from_y;
-    float gradient_color_to_x;
-    float gradient_color_to_y;
-    float gradient_position_from_x;
-    float gradient_position_from_y;
-    float gradient_position_to_x;
-    float gradient_position_to_y;
+    GradientTexturePosition gradient_texture_position;
+    GradientVertexPosition gradient;
     float texture_x;
     float texture_y;
     float clamp_left;
