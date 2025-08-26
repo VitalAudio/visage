@@ -54,6 +54,7 @@ vec2 radialGradient(vec2 position, vec2 focal_point, vec4 coefficient) {
 }
 
 uniform vec4 u_radial_gradient;
+uniform vec4 u_color_mult;
 
 vec4 gradient(sampler2D gradient_texture, vec4 texture_pos, vec4 gradient_pos1, vec4 gradient_pos2, vec2 position) {
   float t = 0.0;
@@ -68,7 +69,7 @@ vec4 gradient(sampler2D gradient_texture, vec4 texture_pos, vec4 gradient_pos1, 
 
   bool should_clamp = texture_pos.x != 0.0;
   t = should_clamp ? clamp(t, 0.0, 1.0) : t;
-  return valid ? texture2D(gradient_texture, mix(texture_pos.xy, texture_pos.zw, t)) : vec4(0.0, 0.0, 0.0, 0.0);
+  return valid ? u_color_mult * texture2D(gradient_texture, mix(texture_pos.xy, texture_pos.zw, t)) : vec4(0.0, 0.0, 0.0, 0.0);
 }
 
 float sdSegment(vec2 position, vec2 point1, vec2 point2) {

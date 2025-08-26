@@ -18,6 +18,5 @@ void main() {
   vec4 result = min(1.0, mult) * color;
   float scale = u_line_width.x * dist_from_edge;
   result.a = min(result.a * scale * 0.5, 1.0);
-  result.rgb = result.rgb * v_shader_values.y;
   gl_FragColor = result;
 }
