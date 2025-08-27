@@ -24,7 +24,7 @@
 
 int runExample() {
   std::unique_ptr<visage::Window> window = visage::createWindow(800, 800);
-  visage::Renderer::instance().checkInitialization(window->initWindow(), window->globalDisplay());
+  visage::Renderer::instance().initialize(window->initWindow(), window->globalDisplay());
 
   visage::Canvas canvas;
   canvas.pairToWindow(window->nativeHandle(), window->clientWidth(), window->clientHeight());
