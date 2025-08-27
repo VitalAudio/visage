@@ -101,7 +101,7 @@ namespace visage {
       bgfx::renderFrame(kRenderTimeout);
   }
 
-  void Renderer::checkInitialization(void* model_window, void* display) {
+  void Renderer::initialize(void* model_window, void* display) {
     if (initialized_)
       return;
 
