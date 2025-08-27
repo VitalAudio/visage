@@ -33,6 +33,7 @@ build
 Debug
 Profile
 Release
+CLAUDE.md
 cmake_build
 CMakeLists.txt.user
 CMakeCache.txt
