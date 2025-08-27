@@ -137,6 +137,8 @@ namespace visage {
 
   template<typename T>
   struct BaseMatrix {
+    static constexpr T kPi = 3.14159265358979323846;
+
     T matrix[3][3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
 
     BaseMatrix() = default;
@@ -199,14 +201,14 @@ namespace visage {
     static BaseMatrix identity() { return { 1, 0, 0, 0, 1, 0, 0, 0, 1 }; }
 
     static BaseMatrix rotation(T angle) {
-      T cos_angle = std::cos(angle);
-      T sin_angle = std::sin(angle);
+      T cos_angle = std::cos(angle * kPi / 180.0f);
+      T sin_angle = std::sin(angle * kPi / 180.0f);
       return { cos_angle, -sin_angle, 0.0f, sin_angle, cos_angle, 0.0f };
     }
 
     static BaseMatrix rotation(T angle, const BasePoint<T>& center) {
-      T cos_angle = std::cos(angle);
-      T sin_angle = std::sin(angle);
+      T cos_angle = std::cos(angle * kPi / 180.0f);
+      T sin_angle = std::sin(angle * kPi / 180.0f);
       return { cos_angle, -sin_angle, center.x * (1 - cos_angle) + center.y * sin_angle,
                sin_angle, cos_angle,  center.y * (1 - cos_angle) - center.x * sin_angle };
     }
@@ -223,9 +225,13 @@ namespace visage {
       return translation(translate.x, translate.y);
     }
 
-    static BaseMatrix skewX(T skew) { return { 1.0f, std::tan(skew), 0.0f, 0.0f, 1.0f, 0.0f }; }
+    static BaseMatrix skewX(T skew) {
+      return { 1.0f, std::tan(skew * kPi / 180.0f), 0.0f, 0.0f, 1.0f, 0.0f };
+    }
 
-    static BaseMatrix skewY(T skew) { return { 1.0f, 0.0f, 0.0f, std::tan(skew), 1.0f, 0.0f }; }
+    static BaseMatrix skewY(T skew) {
+      return { 1.0f, 0.0f, 0.0f, std::tan(skew * kPi / 180.0f), 1.0f, 0.0f };
+    }
 
     BaseMatrix transpose() const {
       return { matrix[0][0], matrix[1][0], matrix[2][0], matrix[0][1], matrix[1][1],

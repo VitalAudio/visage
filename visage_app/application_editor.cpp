@@ -110,7 +110,7 @@ namespace visage {
     window_event_handler_ = std::make_unique<WindowEventHandler>(this, top_level_.get());
     checkFixedAspectRatio();
 
-    window->setDrawCallback([this](double time) {
+    window_->setDrawCallback([this](double time) {
       canvas_->updateTime(time);
       EventManager::instance().checkEventTimers();
       drawWindow();
