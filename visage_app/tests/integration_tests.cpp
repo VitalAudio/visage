@@ -30,14 +30,15 @@ using namespace visage;
 using namespace Catch;
 
 TEST_CASE("Screenshot solid color", "[integration]") {
-  ApplicationEditor editor;
-  editor.onDraw() = [&editor](Canvas& canvas) {
-    canvas.setColor(0xffddaa88);
-    canvas.fill(0, 0, editor.width(), editor.height());
-  };
+  Canvas canvas;
+  canvas.setWindowless(10, 5);
+  canvas.setColor(0xffddaa88);
+  canvas.fill(0, 0, canvas.width(), canvas.height());
+  canvas.submit();
 
-  editor.setWindowless(10, 5);
-  Screenshot screenshot = editor.takeScreenshot();
+  canvas.takeScreenshot();
+  const Screenshot& screenshot = canvas.screenshot();
+
   REQUIRE(screenshot.width() == 10);
   REQUIRE(screenshot.height() == 5);
   uint8_t* data = screenshot.data();

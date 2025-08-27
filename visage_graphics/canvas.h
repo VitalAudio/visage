@@ -61,7 +61,7 @@ namespace visage {
     void clearDrawnShapes();
     int submit(int submit_pass = 0);
 
-    void requestScreenshot();
+    const Screenshot& takeScreenshot();
     const Screenshot& screenshot() const;
 
     void ensureLayerExists(int layer);
@@ -81,10 +81,11 @@ namespace visage {
       setDimensions(width, height);
     }
 
-    void setWindowless(int width, int height) { composite_layer_.setHeadlessRender(width, height); }
-
+    void setWindowless(int width, int height);
     void removeFromWindow() { composite_layer_.removeFromWindow(); }
 
+    int width() const { return composite_layer_.width(); }
+    int height() const { return composite_layer_.height(); }
     void setDimensions(int width, int height);
     void setDpiScale(float scale) { dpi_scale_ = scale; }
     void setNativePixelScale() { state_.scale = 1.0f; }

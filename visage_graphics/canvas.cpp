@@ -22,6 +22,7 @@
 #include "canvas.h"
 
 #include "palette.h"
+#include "renderer.h"
 #include "theme.h"
 
 #include <bgfx/bgfx.h>
@@ -47,6 +48,12 @@ namespace visage {
     default_region_.invalidate();
     composite_layer_.clear();
     composite_layer_.addRegion(&window_region_);
+  }
+
+  void Canvas::setWindowless(int width, int height) {
+    setDimensions(width, height);
+    composite_layer_.setWindowlessRender(width, height);
+    Renderer::instance().initializeWindowless();
   }
 
   void Canvas::setDimensions(int width, int height) {
@@ -83,8 +90,11 @@ namespace visage {
     return submission;
   }
 
-  void Canvas::requestScreenshot() {
+  const Screenshot& Canvas::takeScreenshot() {
     composite_layer_.requestScreenshot();
+    default_region_.invalidate();
+    submit();
+    return composite_layer_.screenshot();
   }
 
   const Screenshot& Canvas::screenshot() const {

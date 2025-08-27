@@ -111,7 +111,7 @@ namespace visage {
       destroyFrameBuffer();
     }
 
-    void setHeadlessRender(int width, int height) {
+    void setWindowlessRender(int width, int height) {
       headless_render_ = true;
       setDimensions(width, height);
       destroyFrameBuffer();

@@ -380,6 +380,7 @@ namespace visage {
       Renderer::resetResolution(width_, height_);
       bgfx::requestScreenShot(frameBuffer(), "screenshot.png");
     }
+    invalidate();
   }
 
   const Screenshot& Layer::screenshot() const {

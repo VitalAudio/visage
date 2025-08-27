@@ -233,7 +233,6 @@ namespace visage {
                                        Window::Decoration decoration_style = Window::Decoration::Native);
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle);
-  void* headlessWindowHandle();
 
   inline std::unique_ptr<Window> createWindow(const Dimension& width, const Dimension& height,
                                               Window::Decoration decoration_style = Window::Decoration::Native) {
