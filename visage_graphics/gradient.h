@@ -374,9 +374,10 @@ namespace visage {
       else if (shape == InterpolationShape::PointsLinear) {
         result.point1 = transform * point1;
         auto delta = point2 - point1;
-        auto transformed_delta = transform * delta;
+        auto transformed_delta = transform.matrix * delta;
         auto dual = transform.matrix.transpose().inverse() * delta;
-        result.point2 = result.point1 + dual * (dual.dot(transformed_delta) / dual.dot(dual));
+        auto new_delta = dual * (dual.dot(transformed_delta) / dual.dot(dual));
+        result.point2 = result.point1 + new_delta;
       }
       return result;
     }
