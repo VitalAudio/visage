@@ -116,8 +116,12 @@ namespace visage {
 
     void addScrolledChild(Frame* frame, bool make_visible = true) {
       container_.setVisible(true);
-      container_.addChild(frame);
-      frame->setVisible(make_visible);
+      container_.addChild(frame, make_visible);
+    }
+
+    void addScrolledChild(std::unique_ptr<Frame> frame, bool make_visible = true) {
+      container_.setVisible(true);
+      container_.addChild(std::move(frame), make_visible);
     }
 
     bool scrollUp() {
