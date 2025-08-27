@@ -134,18 +134,11 @@ namespace visage {
   }
 
   void consumeTillEndTag(const std::string& str, int& i) {
-    int size = str.size();
-    while (i < size && str[i] != '>') {
-      if (str[i] == '"' || str[i] == '\'') {
-        char quote = str[i];
-        i++;
-        while (i < size && str[i] != quote)
-          i++;
-      }
-
-      i++;
-    }
-    i++;
+    auto end_pos = str.find('>', i);
+    if (end_pos == std::string::npos)
+      i = str.size();
+    else
+      i = end_pos + 1;
   }
 
   std::string consumeNonXmlTillNextTag(const std::string& str, int& i) {
@@ -279,7 +272,7 @@ namespace visage {
     }
 
     Tag child = parseTagTree(str, i);
-    while (!child.data.is_closing) {
+    while (!child.data.is_closing && i < str.size()) {
       if (child.data.ignored || !child.data.name.empty())
         tag.children.push_back(child);
 
@@ -581,6 +574,10 @@ namespace visage {
     }
     else {
       gradient_def.radial = true;
+      gradient_def.x1 = 0.5f;
+      gradient_def.y1 = 0.5f;
+      gradient_def.x2 = 0.5f;
+      gradient_def.y2 = 0.5f;
       if (tag.data.attributes.count("cx")) {
         gradient_def.x1 = parseNumber(tag.data.attributes.at("cx"), 1.0f);
         gradient_def.x1_ratio = tag.data.attributes.at("cx").find('%') != std::string::npos;
@@ -664,8 +661,8 @@ namespace visage {
         if (!target.data.attributes.count(attr.first))
           target.data.attributes[attr.first] = attr.second;
       }
-      target.children.insert(target.children.begin(), reference.children.begin(),
-                             reference.children.end());
+      if (target.children.empty())
+        target.children = reference.children;
 
       if (target.data.name.empty())
         target.data.name = reference.data.name;
@@ -881,7 +878,7 @@ namespace visage {
     else if (key == "display")
       state.visible = value != "none";
     else if (key == "transform")
-      state.local_transform = parseTransform(value);
+      state.local_transform = parseTransform(value) * state.local_transform;
     else if (key == "transform-origin") {
       auto args = splitArguments(value);
       if (!args.empty()) {
@@ -918,8 +915,7 @@ namespace visage {
     state.scale_matrix = state.scale_matrix * state.local_transform.matrix;
   }
 
-  void loadDrawableState(const Tag& tag, std::vector<DrawableState>& state_stack,
-                         const std::map<std::string, GradientDef>& gradients) {
+  void loadOffset(const Tag& tag, std::vector<DrawableState>& state_stack) {
     auto& state = state_stack.back();
     state.local_transform = Transform::identity();
     state.tranform_origin_x = 0;
@@ -931,14 +927,22 @@ namespace visage {
         tryReadFloat(x, attribute.second);
       else if (attribute.first == "y")
         tryReadFloat(y, attribute.second);
-      else if (attribute.first == "style")
-        parseStyleAttribute(state, attribute.second, gradients);
-      else
-        parseStyleDefinition(state, attribute.first, attribute.second, gradients);
     }
 
     if (x || y)
       state.local_transform = state.local_transform * Transform::translation(x, y);
+  }
+
+  void loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack,
+                         const std::map<std::string, GradientDef>& gradients) {
+    auto& state = state_stack.back();
+
+    for (auto& attribute : tag.data.attributes) {
+      if (attribute.first == "style")
+        parseStyleAttribute(state, attribute.second, gradients);
+      else
+        parseStyleDefinition(state, attribute.first, attribute.second, gradients);
+    }
     state.scale_matrix = state.scale_matrix * state.local_transform.matrix;
   }
 
@@ -987,18 +991,27 @@ namespace visage {
         path.close();
     }
     else if (tag.data.name == "rect") {
-      float rx = 0.0f, ry = 0.0f;
+      float x = 0.0f, y = 0.0f, rx = 0.0f, ry = 0.0f;
+      if (tag.data.attributes.count("x"))
+        x = parseNumber(tag.data.attributes.at("x"), 1.0f);
+      if (tag.data.attributes.count("y"))
+        y = parseNumber(tag.data.attributes.at("y"), 1.0f);
       if (tag.data.attributes.count("rx"))
         rx = parseNumber(tag.data.attributes.at("rx"), 1.0f);
       if (tag.data.attributes.count("ry"))
         ry = parseNumber(tag.data.attributes.at("ry"), 1.0f);
       if (rx > 0.0f || ry > 0.0f)
-        path.addRoundedRectangle(0, 0, width, height, rx, ry);
+        path.addRoundedRectangle(x, y, width, height, rx, ry);
       else
-        path.addRectangle(0, 0, width, height);
+        path.addRectangle(x, y, width, height);
+      state.local_transform = state.local_transform * Transform::translation(-x, -y);
     }
     else if (tag.data.name == "circle" || tag.data.name == "ellipse") {
-      float cx = 0.0f, cy = 0.0f, rx = 0.0f, ry = 0.0f;
+      float x = 0.0f, y = 0.0f, cx = 0.0f, cy = 0.0f, rx = 0.0f, ry = 0.0f;
+      if (tag.data.attributes.count("x"))
+        x = parseNumber(tag.data.attributes.at("x"), 1.0f);
+      if (tag.data.attributes.count("y"))
+        y = parseNumber(tag.data.attributes.at("y"), 1.0f);
       if (tag.data.attributes.count("cx"))
         cx = parseNumber(tag.data.attributes.at("cx"), 1.0f);
       if (tag.data.attributes.count("cy"))
@@ -1010,8 +1023,8 @@ namespace visage {
       if (tag.data.attributes.count("ry"))
         ry = parseNumber(tag.data.attributes.at("ry"), 1.0f);
 
-      state.local_transform = state.local_transform * Transform::translation(cx - rx, cy - ry);
-      path.addEllipse(rx, ry, rx, ry);
+      path.addEllipse(x + cx, y + cy, rx, ry);
+      state.local_transform = state.local_transform * Transform::translation(-x, -y);
     }
     else
       return nullptr;
@@ -1061,16 +1074,13 @@ namespace visage {
 
     width = width ? width : start_bounding_box.width();
     height = height ? height : start_bounding_box.height();
-    float x = 0.0f, y = 0.0f;
-    if (tag.data.attributes.count("x"))
-      x = parseNumber(tag.data.attributes.at("x"), 1.0f);
-    if (tag.data.attributes.count("y"))
-      y = parseNumber(tag.data.attributes.at("y"), 1.0f);
+    float x = start_bounding_box.x(), y = start_bounding_box.y();
     drawable->fill_brush = state.fill_gradient.toBrush(width, height, transform, x, y);
-    drawable->fill_brush = drawable->fill_brush.withMultipliedAlpha(state.fill_opacity * state.opacity);
+    drawable->fill_brush = drawable->fill_brush.withMultipliedAlpha(state.fill_opacity);
 
     drawable->stroke_brush = state.stroke_gradient.toBrush(width, height, transform, x, y);
-    drawable->stroke_brush = drawable->stroke_brush.withMultipliedAlpha(state.stroke_opacity * state.opacity);
+    drawable->stroke_brush = drawable->stroke_brush.withMultipliedAlpha(state.stroke_opacity);
+    drawable->opacity = state.opacity;
     return drawable;
   }
 
@@ -1089,7 +1099,8 @@ namespace visage {
         parseStyleAttribute(state_stack.back(), style.second, gradients);
     }
 
-    loadDrawableState(tag, state_stack, gradients);
+    loadOffset(tag, state_stack);
+    loadDrawableStyle(tag, state_stack, gradients);
     auto drawable = loadDrawable(view, tag, state_stack, gradients);
     if (drawable) {
       drawables.push_back(std::move(drawable));
