@@ -61,7 +61,7 @@ namespace visage {
   }
 
   bool replaceFileWithText(const File& file, const std::string& text) {
-    std::ofstream stream(file);
+    std::ofstream stream(file, std::ios::binary);
     if (!stream)
       return false;
 
@@ -82,7 +82,7 @@ namespace visage {
   }
 
   bool appendTextToFile(const File& file, const std::string& text) {
-    std::ofstream stream(file, std::ios::app);
+    std::ofstream stream(file, std::ios::binary | std::ios::app);
     if (!stream)
       return false;
 
