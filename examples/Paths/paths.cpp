@@ -195,6 +195,7 @@ int runExample() {
     std::string svg_data = visage::loadFileAsString(svgs[svg_index]);
     svg_index = (svg_index + 1) % svgs.size();
     svg = visage::Svg((unsigned char*)svg_data.c_str(), svg_data.length());
+    svg.setDimensions(app.width(), app.height());
   };
 
   app.onDraw() = [&](visage::Canvas& canvas) {

@@ -37,12 +37,15 @@ namespace visage {
     if (relative)
       to += last_point_;
 
-    auto ellipse_rotation = Matrix::rotation(x_axis_rotation * kPi / 180.0f);
+    auto ellipse_rotation = Matrix::rotation(x_axis_rotation);
     Point delta = ellipse_rotation.transpose() * (to - from);
     float radius_ratio = x_radius / y_radius;
     delta.y *= radius_ratio;
 
     float length = delta.length();
+    if (length == 0.0f)
+      return;
+
     float radius = std::max(length * 0.5f, x_radius);
     float center_offset = std::sqrt(radius * radius - length * length * 0.25f);
     Point normal = Point(delta.y, -delta.x) / length;
@@ -133,26 +136,23 @@ namespace visage {
 
   void Path::addRectangle(float x, float y, float width, float height, Matrix transform) {
     startNewPath();
-    Point top_left = transform * Point(x, y);
-    Point top_right = transform * Point(x + width, y);
-    Point bottom_right = transform * Point(x + width, y + height);
-    Point bottom_left = transform * Point(x, y + height);
-    moveTo(top_left);
-    lineTo(top_right);
-    lineTo(bottom_right);
-    lineTo(bottom_left);
+    current_transform_ = transform;
+    moveTo(x, y);
+    lineTo(x + width, y);
+    lineTo(x + width, y + height);
+    lineTo(x, y + height);
     close();
+    current_transform_ = {};
   }
 
   void Path::addEllipse(float x, float y, float rx, float ry, Matrix transform) {
     startNewPath();
+    current_transform_ = transform;
     moveTo(x + rx, y);
-    for (int i = 0; i < 4; ++i) {
-      float angle = i * kPi;
-      arcTo(rx, ry, angle * 180.0f / kPi, false, true,
-            transform * Point(x + rx * cosf(angle), y + ry * sinf(angle)), false);
-    }
+    arcTo(rx, ry, 180.0f, false, true, Point(x - rx, y), false);
+    arcTo(rx, ry, 180.0f, false, true, Point(x + rx, y), false);
     close();
+    current_transform_ = {};
   }
 
   void Path::addCircle(float x, float y, float r, Matrix transform) {
@@ -161,6 +161,7 @@ namespace visage {
 
   void Path::parseSvgPath(const std::string& path, Matrix transform) {
     startNewPath();
+    current_transform_ = transform;
 
     size_t i = 0;
     char command_char = 0;
@@ -188,32 +189,26 @@ namespace visage {
       else
         vals = parseNumbers(path, i, numbersForCommand(command_char));
 
-      Point point1;
-      if (vals.size() > 0)
-        point1.x = vals[0];
-      if (vals.size() > 1)
-        point1.y = vals[1];
-
-      point1 = transform * point1;
-
       switch (std::toupper(command_char)) {
-      case 'M': moveTo(point1, relative); break;
-      case 'L': lineTo(point1, relative); break;
-      case 'H': horizontalTo(point1.x, relative); break;
-      case 'V': verticalTo((transform * Point(0.0f, vals[0])).y, relative); break;
-      case 'Q': quadraticTo(point1, transform * Point(vals[2], vals[3]), relative); break;
-      case 'T': smoothQuadraticTo(point1, relative); break;
+      case 'M': moveTo(vals[0], vals[1], relative); break;
+      case 'L': lineTo(vals[0], vals[1], relative); break;
+      case 'H': horizontalTo(vals[0], relative); break;
+      case 'V': verticalTo(vals[0], relative); break;
+      case 'Q': quadraticTo(Point(vals[0], vals[1]), Point(vals[2], vals[3]), relative); break;
+      case 'T': smoothQuadraticTo(Point(vals[0], vals[1]), relative); break;
       case 'C':
-        bezierTo(point1, transform * Point(vals[2], vals[3]), transform * Point(vals[4], vals[5]), relative);
+        bezierTo(Point(vals[0], vals[1]), Point(vals[2], vals[3]), Point(vals[4], vals[5]), relative);
         break;
-      case 'S': smoothBezierTo(point1, transform * Point(vals[2], vals[3]), relative); break;
-      case 'A':
-        arcTo(point1.x, point1.y, vals[2], vals[3], vals[4], transform * Point(vals[5], vals[6]), relative);
-        break;
+      case 'S': smoothBezierTo(Point(vals[0], vals[1]), Point(vals[2], vals[3]), relative); break;
+      case 'A': {
+        arcTo(vals[0], vals[1], vals[2], vals[3], vals[4], Point(vals[5], vals[6]), relative);
+      } break;
       case 'Z': close(); break;
       default: VISAGE_ASSERT(false);
       }
     }
+
+    current_transform_ = {};
   }
 
   static double orientation(const DPoint& source, const DPoint& target1, const DPoint& target2) {
@@ -308,7 +303,7 @@ namespace visage {
 
     TriangulationGraph() = delete;
 
-    explicit TriangulationGraph(const Path* path) {
+    explicit TriangulationGraph(const Path* path, bool close_paths = true) {
       int num_points = path->numPoints();
       prev_edge_.reserve(num_points);
       next_edge_.reserve(num_points);
@@ -317,12 +312,25 @@ namespace visage {
       int path_start = 0;
       for (const auto& sub_path : path->subPaths()) {
         int sub_path_size = sub_path.points.size();
-        for (int i = 0; i < sub_path.points.size(); ++i) {
+        if (sub_path_size == 0)
+          continue;
+
+        for (int i = 0; i < sub_path_size; ++i)
           points_.emplace_back(sub_path.points[i]);
-          prev_edge_.push_back(path_start + ((i + sub_path_size - 1) % sub_path_size));
-          next_edge_.push_back(path_start + ((i + 1) % sub_path_size));
+
+        prev_edge_.push_back(-1);
+        for (int i = 1; i < sub_path_size; ++i) {
+          prev_edge_.push_back(path_start + i - 1);
+          next_edge_.push_back(path_start + i);
+        }
+        next_edge_.push_back(-1);
+
+        if (sub_path.points[0] == sub_path.points.back() || close_paths) {
+          next_edge_[path_start + sub_path_size - 1] = path_start;
+          prev_edge_[path_start] = path_start + sub_path_size - 1;
         }
         path_start += sub_path_size;
+        VISAGE_ASSERT(next_edge_.size() == points_.size());
       }
 
       scan_line_ = std::make_unique<ScanLine>(this);
@@ -373,11 +381,7 @@ namespace visage {
 
       ScanLine() = delete;
 
-      explicit ScanLine(TriangulationGraph* graph) :
-          graph_(graph), sorted_indices_(graph->sortedIndices()) {
-        progressToNextEvent();
-        edit_positions_.resize(sorted_indices_.size(), -1);
-      }
+      explicit ScanLine(TriangulationGraph* graph) : graph_(graph) { }
 
       bool hasNext() const { return current_index_ < sorted_indices_.size(); }
       void progressToNextEvent() {
@@ -1001,7 +1005,6 @@ namespace visage {
         scan_line_->updateBreakIntersections();
 
       simplify();
-      scan_line_->reset();
     }
 
     void fixWindings(Path::FillRule fill_rule, int minimum_cycles = 1) {
@@ -1154,7 +1157,7 @@ namespace visage {
     }
 
     template<Path::JoinType joint_type>
-    void offset(double amount, bool post_simplify, std::vector<int>& points_created) {
+    void offset(double amount, bool post_simplify, Path::EndType end_type, std::vector<int>& points_created) {
       static constexpr float kMinOffset = 0.001f;
       if (std::abs(amount) < kMinOffset)
         return;
@@ -1269,12 +1272,6 @@ namespace visage {
       }
     }
 
-    template<Path::JoinType joint_type>
-    void offset(double amount, bool post_simplify = true) {
-      std::vector<int> points_created;
-      offset<joint_type>(amount, post_simplify, points_created);
-    }
-
     void combine(const TriangulationGraph& other) {
       int offset = points_.size();
       for (int i = 0; i < other.points_.size(); ++i) {
@@ -1316,7 +1313,7 @@ namespace visage {
         if (i == next_edge_[i])
           continue;
 
-        if (points_[i] == points_[next_edge_[i]])
+        if (next_edge_[i] != -1 && points_[i] == points_[next_edge_[i]])
           removeFromCycle(i);
       }
     }
@@ -1328,7 +1325,9 @@ namespace visage {
         if (i == next_edge_[i] || visited[i])
           continue;
 
-        int index = i;
+        path.moveTo(Point(points_[i]));
+
+        int index = next_edge_[i];
         while (!visited[index]) {
           path.lineTo(Point(points_[index]));
           visited[index] = true;
@@ -1342,8 +1341,14 @@ namespace visage {
 
   private:
     PointType pointType(int index) const {
-      double compare_prev = points_[index].compare(points_[prev_edge_[index]]);
-      double compare_next = points_[index].compare(points_[next_edge_[index]]);
+      int prev_index = prev_edge_[index];
+      int next_index = next_edge_[index];
+      if (prev_index < 0)
+        prev_index = index;
+      if (next_index < 0)
+        next_index = index;
+      double compare_prev = points_[index].compare(points_[prev_index]);
+      double compare_next = points_[index].compare(points_[next_index]);
 
       if (compare_prev < 0.0 && compare_next < 0.0)
         return PointType::Begin;
@@ -1537,8 +1542,8 @@ namespace visage {
     TriangulationGraph outer(this);
     outer.simplify();
     TriangulationGraph inner = outer;
-    outer.offset<JoinType::Round>(0.5f / scale, false, outer_added_points);
-    inner.offset<JoinType::Round>(-0.5f / scale, false, inner_added_points);
+    outer.offset<JoinType::Round>(0.5f / scale, false, Path::EndType::Butt, outer_added_points);
+    inner.offset<JoinType::Round>(-0.5f / scale, false, Path::EndType::Butt, inner_added_points);
     return { inner.toPath(), outer.toPath() };
   }
 
@@ -1547,11 +1552,42 @@ namespace visage {
     graph.simplify();
     graph.breakIntersections();
     graph.fixWindings(fillRule());
+    std::vector<int> points_created;
+
     switch (joint_type) {
-    case JoinType::Bevel: graph.offset<JoinType::Bevel>(offset); break;
-    case JoinType::Miter: graph.offset<JoinType::Miter>(offset); break;
-    case JoinType::Square: graph.offset<JoinType::Square>(offset); break;
-    case JoinType::Round: graph.offset<JoinType::Round>(offset); break;
+    case JoinType::Bevel:
+      graph.offset<JoinType::Bevel>(offset, true, Path::EndType::Butt, points_created);
+      break;
+    case JoinType::Miter:
+      graph.offset<JoinType::Miter>(offset, true, Path::EndType::Butt, points_created);
+      break;
+    case JoinType::Square:
+      graph.offset<JoinType::Square>(offset, true, Path::EndType::Butt, points_created);
+      break;
+    case JoinType::Round:
+      graph.offset<JoinType::Round>(offset, true, Path::EndType::Butt, points_created);
+      break;
+    }
+    return graph.toPath();
+  }
+
+  Path Path::stroke(float stroke_width, JoinType join_type, EndType end_type) const {
+    TriangulationGraph graph(this, false);
+    graph.simplify();
+    std::vector<int> points_created;
+    switch (join_type) {
+    case JoinType::Bevel:
+      graph.offset<JoinType::Bevel>(stroke_width / 2.0f, true, end_type, points_created);
+      break;
+    case JoinType::Miter:
+      graph.offset<JoinType::Miter>(stroke_width / 2.0f, true, end_type, points_created);
+      break;
+    case JoinType::Square:
+      graph.offset<JoinType::Square>(stroke_width / 2.0f, true, end_type, points_created);
+      break;
+    case JoinType::Round:
+      graph.offset<JoinType::Round>(stroke_width / 2.0f, true, end_type, points_created);
+      break;
     }
     return graph.toPath();
   }

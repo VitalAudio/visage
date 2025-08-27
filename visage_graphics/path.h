@@ -83,6 +83,9 @@ namespace visage {
     void setPointValue(float value) { current_value_ = value; }
 
     void moveTo(Point point, bool relative = false) {
+      if (!paths_.empty() && paths_.back().points.size() > 1)
+        startNewPath();
+
       if (relative)
         point += last_point_;
 
@@ -124,8 +127,6 @@ namespace visage {
 
       if (paths_.back().points.front() != paths_.back().points.back())
         addPoint(paths_.back().points.front());
-
-      startNewPath();
     }
 
     void quadraticTo(Point control, Point end, bool relative = false) {
@@ -134,7 +135,10 @@ namespace visage {
         control += from;
         end += from;
       }
-      recurseBezierTo(from, control, control, end);
+
+      Point control1 = from + (2.0f / 3.0f) * (control - from);
+      Point control2 = end + (2.0f / 3.0f) * (control - end);
+      recurseBezierTo(from, control1, control2, end);
     }
 
     void quadraticTo(float control_x, float control_y, float end_x, float end_y, bool relative = false) {
@@ -222,6 +226,8 @@ namespace visage {
     std::pair<Path, Path> offsetAntiAlias(float scale, std::vector<int>& inner_added_points,
                                           std::vector<int>& outer_added_points) const;
     Path offset(float offset, JoinType join_type = JoinType::Square) const;
+    Path stroke(float stroke_width, JoinType join_type = JoinType::Round,
+                EndType end_type = EndType::Round) const;
     Path breakIntoSimplePolygons() const;
 
     Path scaled(float mult) const {
@@ -338,15 +344,13 @@ namespace visage {
 
     void addPoint(const Point& point) {
       last_point_ = point;
-      currentPath().points.push_back(point);
+      currentPath().points.push_back(current_transform_ * last_point_);
       currentPath().values.push_back(current_value_);
     }
 
-    void addPoint(float x, float y) {
-      currentPath().points.emplace_back(x, y);
-      currentPath().values.push_back(current_value_);
-    }
+    void addPoint(float x, float y) { addPoint({ x, y }); }
 
+    Matrix current_transform_;
     std::vector<SubPath> paths_;
     FillRule fill_rule_ = FillRule::EvenOdd;
     Point smooth_control_point_;

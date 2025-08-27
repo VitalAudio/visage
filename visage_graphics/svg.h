@@ -36,6 +36,7 @@ namespace visage {
     Brush stroke_brush;
     float stroke_opacity = 1.0f;
     float stroke_width = 1.0f;
+    Path::JoinType stroke_join = Path::JoinType::Miter;
 
     bool visible = true;
   };
@@ -81,6 +82,13 @@ namespace visage {
     void draw(Canvas& canvas, float x, float y, float width = 0.0f, float height = 0.0f) const {
       for (const auto& drawable : drawables_)
         drawable->draw(canvas, x, y, width ? width : view_.width, height ? height : view_.height);
+    }
+
+    void setDimensions(int width, int height) {
+      this->width = width;
+      this->height = height;
+      view_.width = width;
+      view_.height = height;
     }
 
     int width = 0;
