@@ -34,17 +34,13 @@ namespace visage {
       solid = true;
     }
 
-    Brush toBrush(float width, float height, Transform current_transform, int x, int y) const {
+    Brush toBrush(float width, float height, Transform current_transform, float x, float y) const {
       if (solid)
         return Brush::solid(gradient.colors().front());
 
-      Point from(x1_ratio ? x1 * width : x1, y1_ratio ? y1 * height : y1);
-      Point to(x2_ratio ? x2 * width : x2, y2_ratio ? y2 * height : y2);
-      if (user_space) {
-        auto translate = Transform::translation(-x, -y);
-        from = translate * from;
-        to = translate * to;
-      }
+      GradientPosition position;
+      Point point1(x1_ratio ? x1 * width : x1, y1_ratio ? y1 * height : y1);
+      Point point2(x2_ratio ? x2 * width : x2, y2_ratio ? y2 * height : y2);
       if (radial) {
         Point radius_vector = radius_ratio ? radius * Point(width, height) : Point(radius, radius);
         float f_radius = (focal_radius_ratio ? focal_radius * width : focal_radius) / radius_vector.x;
@@ -53,11 +49,15 @@ namespace visage {
           radius_vector = radius * normalized_width * Point(1.0f, 1.0f);
         }
 
-        GradientPosition position = GradientPosition::radial(from, radius_vector.x, radius_vector.y,
-                                                             to, f_radius);
-        return Brush(gradient, position.transform(current_transform * transform));
+        position = GradientPosition::radial(point1, radius_vector.x, radius_vector.y, point2, f_radius);
       }
-      GradientPosition position = GradientPosition::linear(from, to).transform(current_transform * transform);
+      else
+        position = GradientPosition::linear(point1, point2);
+
+      if (user_space)
+        position = position.transform(current_transform * transform);
+      else
+        position = position.transform(current_transform * Transform::translation(x, y) * transform);
       return Brush(gradient, position);
     }
 
@@ -119,6 +119,7 @@ namespace visage {
     DrawableState state;
     Brush fill_brush;
     Brush stroke_brush;
+    float opacity = 1.0f;
   };
 
   class Svg {
