@@ -617,6 +617,25 @@ namespace visage {
     if (tag.data.attributes.count("gradientUnits"))
       gradient_def.user_space = tag.data.attributes.at("gradientUnits") == "userSpaceOnUse";
 
+    if (gradient_def.user_space) {
+      if (gradient_def.x1_ratio) {
+        gradient_def.x1 *= view.view_box_width;
+        gradient_def.x1_ratio = false;
+      }
+      if (gradient_def.y1_ratio) {
+        gradient_def.y1 *= view.view_box_height;
+        gradient_def.y1_ratio = false;
+      }
+      if (gradient_def.x2_ratio) {
+        gradient_def.x2 *= view.view_box_width;
+        gradient_def.x2_ratio = false;
+      }
+      if (gradient_def.y2_ratio) {
+        gradient_def.y2 *= view.view_box_height;
+        gradient_def.y2_ratio = false;
+      }
+    }
+
     for (auto& child : tag.children) {
       if (child.data.name != "stop" || !child.data.attributes.count("offset"))
         continue;
@@ -790,7 +809,7 @@ namespace visage {
     return {};
   }
 
-  GradientDef parseGradient(DrawableState& state, const std::string& color_string,
+  GradientDef parseGradient(const std::string& color_string, DrawableState& state,
                             const std::map<std::string, GradientDef>& gradients) {
     std::string color = color_string;
     removeWhitespace(color);
@@ -843,20 +862,41 @@ namespace visage {
     return array;
   }
 
-  void parseStyleDefinition(DrawableState& state, const std::string& key, const std::string& value,
+  Path* parseClipPath(const Tag& tag, std::map<std::string, std::unique_ptr<Path>>& clip_paths) {
+    if (tag.data.attributes.count("clip-path") == 0)
+      return nullptr;
+
+    auto clip = tag.data.attributes.at("clip-path");
+    removeWhitespace(clip);
+    if (clip.substr(0, 3) == "url") {
+      int pos = 0;
+      auto tokens = parseFunctionTokens(clip, pos);
+      if (tokens[1].size() > 1 && tokens[1][0] == '#') {
+        std::string id = tokens[1].substr(1);
+        if (clip_paths.count(id) > 0)
+          return clip_paths.at(id).get();
+      }
+    }
+    else
+      VISAGE_ASSERT(false);  // TODO
+    return nullptr;
+  }
+
+  void parseStyleDefinition(const std::string& key, const std::string& value, DrawableState& state,
+                            std::map<std::string, std::unique_ptr<Path>>& clip_paths,
                             const std::map<std::string, GradientDef>& gradients) {
     if (key == "opacity")
       tryReadFloat(state.opacity, value);
     else if (key == "color")
       state.current_color = parseColor(value);
     else if (key == "fill")
-      state.fill_gradient = parseGradient(state, value, gradients);
+      state.fill_gradient = parseGradient(value, state, gradients);
     else if (key == "fill-rule")
       state.non_zero_fill = value == "nonzero";
     else if (key == "fill-opacity")
       tryReadFloat(state.fill_opacity, value);
     else if (key == "stroke")
-      state.stroke_gradient = parseGradient(state, value, gradients);
+      state.stroke_gradient = parseGradient(value, state, gradients);
     else if (key == "stroke-opacity")
       tryReadFloat(state.stroke_opacity, value);
     else if (key == "stroke-width")
@@ -897,7 +937,8 @@ namespace visage {
     }
   }
 
-  void parseStyleAttribute(DrawableState& state, const std::string& style,
+  void parseStyleAttribute(const std::string& style, DrawableState& state,
+                           std::map<std::string, std::unique_ptr<Path>>& clip_paths,
                            const std::map<std::string, GradientDef>& gradients) {
     std::stringstream stream(style);
     std::string line;
@@ -908,7 +949,7 @@ namespace visage {
         std::string key = line.substr(0, pos);
         std::string value = line.substr(pos + 1);
         removeWhitespace(key);
-        parseStyleDefinition(state, key, value, gradients);
+        parseStyleDefinition(key, value, state, clip_paths, gradients);
       }
     }
 
@@ -934,20 +975,22 @@ namespace visage {
   }
 
   void loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack,
+                         std::map<std::string, std::unique_ptr<Path>>& clip_paths,
                          const std::map<std::string, GradientDef>& gradients) {
     auto& state = state_stack.back();
 
     for (auto& attribute : tag.data.attributes) {
       if (attribute.first == "style")
-        parseStyleAttribute(state, attribute.second, gradients);
+        parseStyleAttribute(attribute.second, state, clip_paths, gradients);
       else
-        parseStyleDefinition(state, attribute.first, attribute.second, gradients);
+        parseStyleDefinition(attribute.first, attribute.second, state, clip_paths, gradients);
     }
     state.scale_matrix = state.scale_matrix * state.local_transform.matrix;
   }
 
   std::unique_ptr<SvgDrawable> loadDrawable(const Svg::ViewSettings& view, const Tag& tag,
                                             std::vector<DrawableState>& state_stack,
+                                            const std::map<std::string, std::unique_ptr<Path>>& clip_paths,
                                             const std::map<std::string, GradientDef>& gradients) {
     auto& state = state_stack.back();
     float width = 0.0f;
@@ -1068,9 +1111,9 @@ namespace visage {
     }
 
     drawable->path = path.transformed(transform);
-    drawable->stroke_path = path.stroke(state.stroke_width, state.stroke_join, state.stroke_end_cap,
-                                        dashes, dash_offset, state.stroke_miter_limit);
-    drawable->stroke_path.transform(transform);
+    auto stroke_path = path.stroke(state.stroke_width, state.stroke_join, state.stroke_end_cap,
+                                   dashes, dash_offset, state.stroke_miter_limit);
+    drawable->stroke_path = stroke_path.transformed(transform);
 
     width = width ? width : start_bounding_box.width();
     height = height ? height : start_bounding_box.height();
@@ -1084,8 +1127,20 @@ namespace visage {
     return drawable;
   }
 
+  void applyClipping(Path* clip_path, std::vector<std::unique_ptr<SvgDrawable>>& drawables, int start_index) {
+    if (clip_path == nullptr)
+      return;
+
+    for (int i = start_index; i < drawables.size(); ++i) {
+      drawables[i]->path = clip_path->combine(drawables[i]->path, Path::Operation::Intersection);
+      drawables[i]->stroke_path = clip_path->combine(drawables[i]->stroke_path,
+                                                     Path::Operation::Intersection);
+    }
+  }
+
   void computeDrawables(const Svg::ViewSettings& view, Tag& tag, std::vector<DrawableState>& state_stack,
                         std::vector<std::unique_ptr<SvgDrawable>>& drawables,
+                        std::map<std::string, std::unique_ptr<Path>>& clip_paths,
                         const std::map<std::string, Tag>& defs,
                         const std::map<std::string, GradientDef>& gradients,
                         const std::vector<std::pair<CssSelector, std::string>>& style_lookup) {
@@ -1096,12 +1151,30 @@ namespace visage {
 
     for (const auto& style : style_lookup) {
       if (style.first.matches(tag))
-        parseStyleAttribute(state_stack.back(), style.second, gradients);
+        parseStyleAttribute(style.second, state_stack.back(), clip_paths, gradients);
     }
 
     loadOffset(tag, state_stack);
-    loadDrawableStyle(tag, state_stack, gradients);
-    auto drawable = loadDrawable(view, tag, state_stack, gradients);
+    loadDrawableStyle(tag, state_stack, clip_paths, gradients);
+    Path* clip_path = parseClipPath(tag, clip_paths);
+    int drawable_index = drawables.size();
+    if (tag.data.name == "clipPath" && tag.data.attributes.count("id")) {
+      std::string id = tag.data.attributes["id"];
+      std::vector<std::unique_ptr<SvgDrawable>> clip_drawables;
+      for (auto& child : tag.children)
+        computeDrawables(view, child, state_stack, clip_drawables, clip_paths, defs, gradients, style_lookup);
+
+      applyClipping(clip_path, clip_drawables, 0);
+
+      std::unique_ptr<Path> clip_path = std::make_unique<Path>();
+      for (auto& clip_drawable : clip_drawables)
+        *clip_path = clip_path->combine(clip_drawable->path, Path::Operation::Union);
+
+      clip_paths[id] = std::move(clip_path);
+      return;
+    }
+
+    auto drawable = loadDrawable(view, tag, state_stack, clip_paths, gradients);
     if (drawable) {
       drawables.push_back(std::move(drawable));
       state_stack.pop_back();
@@ -1109,7 +1182,10 @@ namespace visage {
     }
 
     for (auto& child : tag.children)
-      computeDrawables(view, child, state_stack, drawables, defs, gradients, style_lookup);
+      computeDrawables(view, child, state_stack, drawables, clip_paths, defs, gradients, style_lookup);
+
+    if (clip_path)
+      applyClipping(clip_path, drawables, drawable_index);
 
     state_stack.pop_back();
   }
@@ -1117,9 +1193,9 @@ namespace visage {
   static Svg::ViewSettings loadSvgViewSettings(const Tag& tag) {
     Svg::ViewSettings result;
     if (tag.data.attributes.count("width"))
-      result.width = parseNumber(tag.data.attributes.at("width"), 1.0f);
+      result.view_box_width = result.width = parseNumber(tag.data.attributes.at("width"), 1.0f);
     if (tag.data.attributes.count("height"))
-      result.height = parseNumber(tag.data.attributes.at("height"), 1.0f);
+      result.view_box_height = result.height = parseNumber(tag.data.attributes.at("height"), 1.0f);
     if (tag.data.attributes.count("viewBox")) {
       std::vector<std::string> tokens = splitArguments(tag.data.attributes.at("viewBox"));
       if (tokens.size() >= 4) {
@@ -1219,11 +1295,12 @@ namespace visage {
     std::vector<std::pair<CssSelector, std::string>> style_lookup;
     loadStyleTags(tags, style_lookup);
     std::map<std::string, GradientDef> gradients;
+    std::map<std::string, std::unique_ptr<Path>> clip_paths;
     collectGradients(view_, tags, gradients);
 
     std::vector<DrawableState> state_stack;
     state_stack.push_back(state);
     for (auto& tag : tags)
-      computeDrawables(view_, tag, state_stack, drawables_, defs, gradients, style_lookup);
+      computeDrawables(view_, tag, state_stack, drawables_, clip_paths, defs, gradients, style_lookup);
   }
 }
