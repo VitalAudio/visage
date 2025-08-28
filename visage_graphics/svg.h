@@ -129,8 +129,8 @@ namespace visage {
       float height = 500.0f;
       float view_box_x = 0.0f;
       float view_box_y = 0.0f;
-      float view_box_width = 0.0f;
-      float view_box_height = 0.0f;
+      float view_box_width = 500.0f;
+      float view_box_height = 500.0f;
       std::string align;
       std::string scale;
     };

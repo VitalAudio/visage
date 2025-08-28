@@ -1611,8 +1611,8 @@ namespace visage {
     TriangulationGraph outer(this);
     outer.simplify();
     TriangulationGraph inner = outer;
-    outer.offset<Join::Round>(0.5f / scale, false, Path::EndCap::Butt, outer_added_points);
-    inner.offset<Join::Round>(-0.5f / scale, false, Path::EndCap::Butt, inner_added_points);
+    outer.offset<Join::Bevel>(0.5f / scale, false, Path::EndCap::Butt, outer_added_points);
+    inner.offset<Join::Bevel>(-0.5f / scale, false, Path::EndCap::Butt, inner_added_points);
     return { inner.toPath(), outer.toPath() };
   }
 
