@@ -148,17 +148,51 @@ namespace visage {
     close();
   }
 
+  void Path::addRoundedRectangle(float x, float y, float width, float height, float rx_top_left,
+                                 float ry_top_left, float rx_top_right, float ry_top_right,
+                                 float rx_bottom_right, float ry_bottom_right, float rx_bottom_left,
+                                 float ry_bottom_left) {
+    float scale = 1.0f;
+    scale = std::min(scale, width / (rx_top_left + rx_top_right));
+    scale = std::min(scale, width / (rx_bottom_left + rx_bottom_right));
+    scale = std::min(scale, height / (ry_top_left + ry_bottom_left));
+    scale = std::min(scale, height / (ry_top_right + ry_bottom_right));
+    rx_top_left *= scale;
+    ry_top_left *= scale;
+    rx_top_right *= scale;
+    ry_top_right *= scale;
+    rx_bottom_right *= scale;
+    ry_bottom_right *= scale;
+    rx_bottom_left *= scale;
+    ry_bottom_left *= scale;
+
+    startNewPath();
+    moveTo(x + rx_top_left, y);
+    lineTo(x + width - rx_top_right, y);
+    arcTo(rx_top_right, ry_top_right, 0.0f, false, true, Point(x + width, y + ry_top_right), false);
+    lineTo(x + width, y + height - ry_bottom_right);
+    arcTo(rx_bottom_right, ry_bottom_right, 0.0f, false, true,
+          Point(x + width - rx_bottom_right, y + height), false);
+    lineTo(x + rx_bottom_left, y + height);
+    arcTo(rx_bottom_left, ry_bottom_left, 0.0f, false, true, Point(x, y + height - ry_bottom_left), false);
+    lineTo(x, y + ry_top_left);
+    arcTo(rx_top_left, ry_top_left, 0.0f, false, true, Point(x + rx_top_left, y), false);
+    close();
+  }
+
   void Path::addRoundedRectangle(float x, float y, float width, float height, float rx, float ry) {
+    rx = std::min(rx, width * 0.5f);
+    ry = std::min(ry, height * 0.5f);
     startNewPath();
     moveTo(x + rx, y);
     lineTo(x + width - rx, y);
-    arcTo(rx, ry, 90.0f, false, true, Point(x + width, y + ry), false);
+    arcTo(rx, ry, 0.0f, false, true, Point(x + width, y + ry), false);
     lineTo(x + width, y + height - ry);
-    arcTo(rx, ry, 90.0f, false, true, Point(x + width - rx, y + height), false);
+    arcTo(rx, ry, 0.0f, false, true, Point(x + width - rx, y + height), false);
     lineTo(x + rx, y + height);
-    arcTo(rx, ry, 90.0f, false, true, Point(x, y + height - ry), false);
+    arcTo(rx, ry, 0.0f, false, true, Point(x, y + height - ry), false);
     lineTo(x, y + ry);
-    arcTo(rx, ry, 90.0f, false, true, Point(x + rx, y), false);
+    arcTo(rx, ry, 0.0f, false, true, Point(x + rx, y), false);
     close();
   }
 
