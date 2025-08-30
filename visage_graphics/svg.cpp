@@ -1222,7 +1222,7 @@ namespace visage {
       path.setFillRule(Path::FillRule::EvenOdd);
 
     if (tag.data.name == "path" && tag.data.attributes.count("d"))
-      path.parseSvgPath(tag.data.attributes.at("d"));
+      path.loadSvgPath(tag.data.attributes.at("d"));
     else if (tag.data.name == "line") {
       float x1 = 0.0f, y1 = 0.0f, x2 = 0.0f, y2 = 0.0f;
       if (tag.data.attributes.count("x1"))
