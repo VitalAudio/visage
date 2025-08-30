@@ -105,6 +105,7 @@ namespace visage {
     float stroke_dashoffset = 0.0f;
     bool stroke_dashoffset_ratio = false;
     float stroke_miter_limit = 4.0f;
+    Path* clip_path = nullptr;
 
     bool visible = true;
   };
@@ -113,6 +114,10 @@ namespace visage {
     void draw(Canvas& canvas, float x, float y, float width, float height) const;
     void fill(Canvas& canvas, float x, float y, float width, float height) const;
     void stroke(Canvas& canvas, float x, float y, float width, float height) const;
+    bool hasFill() const { return !fill_brush.isNone() && state.fill_opacity > 0.0f; }
+    bool hasStroke() const {
+      return state.stroke_opacity > 0.0f && state.stroke_width > 0.0f && !stroke_brush.isNone();
+    }
 
     Path path;
     Path stroke_path;

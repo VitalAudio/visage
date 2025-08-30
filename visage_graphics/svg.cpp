@@ -862,24 +862,238 @@ namespace visage {
     return array;
   }
 
-  Path* parseClipPath(const Tag& tag, std::map<std::string, std::unique_ptr<Path>>& clip_paths) {
+  Bounds boundingFillBox(const std::vector<std::unique_ptr<SvgDrawable>>& drawables, int start_index) {
+    Bounds bounds;
+    for (auto& drawable : drawables) {
+      if (drawable->hasFill())
+        bounds = bounds.unioned(drawable->path.boundingBox());
+    }
+
+    return bounds;
+  }
+
+  Bounds boundingStrokeBox(const std::vector<std::unique_ptr<SvgDrawable>>& drawables, int start_index) {
+    Bounds bounds;
+    for (auto& drawable : drawables) {
+      if (drawable->hasStroke())
+        bounds = bounds.unioned(drawable->stroke_path.boundingBox());
+    }
+
+    return bounds;
+  }
+
+  Bounds boundingBox(const std::vector<std::unique_ptr<SvgDrawable>>& drawables, int start_index) {
+    return boundingFillBox(drawables, start_index).unioned(boundingStrokeBox(drawables, start_index));
+  }
+
+  float parseCircleRadius(const std::string& token, Point center, float max_x, float max_y) {
+    if (token == "closest-side") {
+      float dx = std::min(center.x, max_x - center.x);
+      float dy = std::min(center.y, max_y - center.y);
+      return std::min(dx, dy);
+    }
+    if (token == "farthest-side") {
+      float dx = std::max(center.x, max_x - center.x);
+      float dy = std::max(center.y, max_y - center.y);
+      return std::max(dx, dy);
+    }
+    if (token == "closest-corner") {
+      float dx = std::min(center.x, max_x - center.x);
+      float dy = std::min(center.y, max_y - center.y);
+      return std::sqrt(dx * dx + dy * dy);
+    }
+    if (token == "farthest-corner") {
+      float dx = std::max(center.x, max_x - center.x);
+      float dy = std::max(center.y, max_y - center.y);
+      return std::sqrt(dx * dx + dy * dy);
+    }
+    if (token.find('%') != std::string::npos)
+      return parseNumber(token, 1.0f) * std::sqrt(0.5f * (max_x * max_x + max_y * max_y));
+
+    return parseNumber(token, 1.0f);
+  }
+
+  Point parseEllipseRadius(const std::string& token1, const std::string& token2, Point center,
+                           float max_x, float max_y) {
+    auto parse_ellipse_dimension = [](const std::string& token, float center, float range) {
+      if (token == "closest-side")
+        return std::min(center, range - center);
+      if (token == "farthest-side")
+        return std::max(center, range - center);
+      return parseNumber(token, range) * range;
+    };
+
+    return { parse_ellipse_dimension(token1, center.x, max_x),
+             parse_ellipse_dimension(token2, center.y, max_y) };
+  }
+
+  float parsePositionValue(const std::string& token, float range) {
+    if (token == "top" || token == "left")
+      return 0.0f;
+    if (token == "bottom" || token == "right")
+      return range;
+    return range * parseNumber(token, range);
+  }
+
+  Transform stackTransform(const std::vector<DrawableState>& state_stack, const Path& path) {
+    Transform transform;
+    for (int i = state_stack.size() - 1; i >= 0; --i) {
+      if (state_stack[i].tranform_origin_x || state_stack[i].tranform_origin_y) {
+        Point origin(state_stack[i].tranform_origin_x, state_stack[i].tranform_origin_y);
+        if (state_stack[i].transform_ratio_x || state_stack[i].transform_ratio_x) {
+          auto bounding_box = path.transformed(transform).boundingBox();
+          if (state_stack[i].transform_ratio_x)
+            origin.x *= bounding_box.width();
+          if (state_stack[i].transform_ratio_y)
+            origin.y *= bounding_box.height();
+        }
+        transform = Transform::translation(origin) * state_stack[i].local_transform *
+                    Transform::translation(-origin) * transform;
+      }
+      else
+        transform = state_stack[i].local_transform * transform;
+    }
+    return transform;
+  }
+
+  std::unique_ptr<Path> parseEllipseShape(std::vector<std::string>& tokens, const Bounds& bounding_box,
+                                          const std::vector<DrawableState>& state_stack) {
+    auto next_or_end = [&tokens](std::vector<std::string>::iterator it) {
+      return it < tokens.end() ? std::next(it) : tokens.end();
+    };
+
+    auto at_it = std::find(tokens.begin(), tokens.end(), "at");
+
+    Point center(bounding_box.width() / 2, bounding_box.height() / 2);
+    auto center_it = next_or_end(at_it);
+    if (center_it < tokens.end()) {
+      center.x = parsePositionValue(*center_it, bounding_box.width());
+      center_it++;
+      if (center_it < tokens.end())
+        center.y = parsePositionValue(*center_it, bounding_box.height());
+    }
+
+    auto radius_it = next_or_end(tokens.begin());
+    auto radius2_it = next_or_end(radius_it);
+    Point radius;
+    if (radius2_it < at_it) {
+      radius = parseEllipseRadius(*radius_it, *radius2_it, center, bounding_box.width(),
+                                  bounding_box.height());
+    }
+    else {
+      const std::string& radius_token = radius_it < at_it ? *radius_it : "closest-edge";
+      radius.x = radius.y = parseCircleRadius(radius_token, center, bounding_box.width(),
+                                              bounding_box.height());
+    }
+
+    auto path = std::make_unique<Path>();
+    path->setResolutionMatrix(state_stack.back().scale_matrix);
+    path->addEllipse(bounding_box.x() + center.x, bounding_box.y() + center.y, radius.x, radius.y);
+
+    Transform transform = stackTransform(state_stack, *path);
+    path->transform(transform);
+    return path;
+  }
+
+  bool parseBorderRadius(float* results, std::vector<std::string>& tokens, const Bounds& bounding_box) {
+    auto r_it = std::find(tokens.begin(), tokens.end(), "round");
+    if (r_it == tokens.end())
+      return false;
+    r_it++;
+    if (r_it == tokens.end())
+      return false;
+
+    auto y_it = std::find(tokens.begin(), tokens.end(), "/");
+    int x_range = std::distance(r_it, y_it);
+    int x_index = std::distance(tokens.begin(), r_it);
+    for (int i = 0; i < 4; ++i) {
+      int index = x_index + i % x_range;
+      float dim = (i % 2) ? bounding_box.height() : bounding_box.width();
+      results[4 + i] = results[i] = parseNumber(tokens[index], dim) * dim;
+    }
+
+    if (y_it != tokens.end() && std::next(y_it) != tokens.end()) {
+      y_it = std::next(y_it);
+      int y_range = std::distance(y_it, tokens.end());
+      int y_index = std::distance(tokens.begin(), y_it);
+      for (int i = 0; i < 4; ++i) {
+        int index = y_index + i % y_range;
+        float dim = (i % 2) ? bounding_box.height() : bounding_box.width();
+        results[4 + i] = parseNumber(tokens[index], dim) * dim;
+      }
+    }
+    return true;
+  }
+
+  std::unique_ptr<Path> parseRectShape(std::vector<std::string>& tokens, const Bounds& bounding_box,
+                                       const std::vector<DrawableState>& state_stack) {
+    static constexpr int kNumInsets = 4;
+    float insets[kNumInsets] {};
+    for (int i = 0; i < tokens.size() - 1 && i < kNumInsets; ++i) {
+      float dim = (i % 1) ? bounding_box.width() : bounding_box.height();
+      insets[i] = dim * parseNumber(tokens[i + 1], dim);
+    }
+
+    auto path = std::make_unique<Path>();
+    path->setResolutionMatrix(state_stack.back().scale_matrix);
+    float rs[8] {};
+    if (parseBorderRadius(rs, tokens, bounding_box)) {
+      path->addRoundedRectangle(bounding_box.x() + insets[3], bounding_box.y() + insets[0],
+                                bounding_box.width() - insets[1], bounding_box.height() - insets[2],
+                                rs[0], rs[4], rs[1], rs[5], rs[2], rs[6], rs[3], rs[7]);
+    }
+    else
+      path->addRectangle(bounding_box.x() + insets[3], bounding_box.y() + insets[0],
+                         bounding_box.width() - insets[1], bounding_box.height() - insets[2]);
+
+    Transform transform = stackTransform(state_stack, *path);
+    path->transform(transform);
+    return path;
+  }
+
+  Path* parseClipPath(const Tag& tag, const std::vector<DrawableState>& state_stack,
+                      std::map<std::string, std::unique_ptr<Path>>& clip_paths,
+                      const Svg::ViewSettings& view,
+                      const std::vector<std::unique_ptr<SvgDrawable>>& drawables, int drawable_index) {
     if (tag.data.attributes.count("clip-path") == 0)
       return nullptr;
 
     auto clip = tag.data.attributes.at("clip-path");
-    removeWhitespace(clip);
-    if (clip.substr(0, 3) == "url") {
-      int pos = 0;
-      auto tokens = parseFunctionTokens(clip, pos);
-      if (tokens[1].size() > 1 && tokens[1][0] == '#') {
+    int position = 0;
+    auto tokens = parseFunctionTokens(clip, position);
+    if (tokens.size() < 1)
+      return nullptr;
+
+    if (tokens[0] == "url") {
+      if (tokens.size() > 1 && tokens[1][0] == '#') {
         std::string id = tokens[1].substr(1);
         if (clip_paths.count(id) > 0)
           return clip_paths.at(id).get();
       }
+
+      return nullptr;
     }
+
+    std::string remaining = clip.substr(position);
+    Bounds bounding_box;
+    if (remaining == "fill-box")
+      bounding_box = boundingFillBox(drawables, drawable_index);
+    else if (remaining == "stroke-box")
+      bounding_box = boundingStrokeBox(drawables, drawable_index);
+    else if (remaining == "view-box")
+      bounding_box = Bounds(0, 0, view.view_box_width, view.view_box_height);
     else
-      VISAGE_ASSERT(false);  // TODO
-    return nullptr;
+      bounding_box = boundingBox(drawables, drawable_index);
+
+    std::unique_ptr<Path> path;
+    if (tokens[0] == "inset" || tokens[0] == "rect")
+      path = parseRectShape(tokens, bounding_box, state_stack);
+    else if (tokens[0] == "circle" || tokens[0] == "ellipse")
+      path = parseEllipseShape(tokens, bounding_box, state_stack);
+
+    std::string id = "##" + std::to_string(clip_paths.size());
+    clip_paths[id] = std::move(path);
+    return clip_paths[id].get();
   }
 
   void parseStyleDefinition(const std::string& key, const std::string& value, DrawableState& state,
@@ -1041,8 +1255,14 @@ namespace visage {
         y = parseNumber(tag.data.attributes.at("y"), 1.0f);
       if (tag.data.attributes.count("rx"))
         rx = parseNumber(tag.data.attributes.at("rx"), 1.0f);
-      if (tag.data.attributes.count("ry"))
+      if (tag.data.attributes.count("ry")) {
         ry = parseNumber(tag.data.attributes.at("ry"), 1.0f);
+        if (tag.data.attributes.count("rx") == 0)
+          rx = ry;
+      }
+      else
+        ry = rx;
+
       if (rx > 0.0f || ry > 0.0f)
         path.addRoundedRectangle(x, y, width, height, rx, ry);
       else
@@ -1076,24 +1296,7 @@ namespace visage {
     drawable->state = state;
     auto start_bounding_box = path.boundingBox();
 
-    Transform transform;
-    for (int i = state_stack.size() - 1; i >= 0; --i) {
-      if (state_stack[i].tranform_origin_x || state_stack[i].tranform_origin_y) {
-        Point origin(state_stack[i].tranform_origin_x, state_stack[i].tranform_origin_y);
-        if (state_stack[i].transform_ratio_x || state_stack[i].transform_ratio_x) {
-          auto bounding_box = path.transformed(transform).boundingBox();
-          if (state_stack[i].transform_ratio_x)
-            origin.x *= bounding_box.width();
-          if (state_stack[i].transform_ratio_y)
-            origin.y *= bounding_box.height();
-        }
-        transform = Transform::translation(origin) * state_stack[i].local_transform *
-                    Transform::translation(-origin) * transform;
-      }
-      else
-        transform = state_stack[i].local_transform * transform;
-    }
-
+    Transform transform = stackTransform(state_stack, path);
     std::vector<float> dashes;
     float view_width = view.width ? view.width : start_bounding_box.width();
     float view_height = view.height ? view.height : start_bounding_box.height();
@@ -1156,7 +1359,6 @@ namespace visage {
 
     loadOffset(tag, state_stack);
     loadDrawableStyle(tag, state_stack, clip_paths, gradients);
-    Path* clip_path = parseClipPath(tag, clip_paths);
     int drawable_index = drawables.size();
     if (tag.data.name == "clipPath" && tag.data.attributes.count("id")) {
       std::string id = tag.data.attributes["id"];
@@ -1164,13 +1366,14 @@ namespace visage {
       for (auto& child : tag.children)
         computeDrawables(view, child, state_stack, clip_drawables, clip_paths, defs, gradients, style_lookup);
 
+      Path* clip_path = parseClipPath(tag, state_stack, clip_paths, view, clip_drawables, 0);
       applyClipping(clip_path, clip_drawables, 0);
 
-      std::unique_ptr<Path> clip_path = std::make_unique<Path>();
+      std::unique_ptr<Path> clipped_path = std::make_unique<Path>();
       for (auto& clip_drawable : clip_drawables)
-        *clip_path = clip_path->combine(clip_drawable->path, Path::Operation::Union);
+        *clipped_path = clipped_path->combine(clip_drawable->path, Path::Operation::Union);
 
-      clip_paths[id] = std::move(clip_path);
+      clip_paths[id] = std::move(clipped_path);
       return;
     }
 
@@ -1184,10 +1387,11 @@ namespace visage {
     for (auto& child : tag.children)
       computeDrawables(view, child, state_stack, drawables, clip_paths, defs, gradients, style_lookup);
 
+    state_stack.pop_back();
+
+    Path* clip_path = parseClipPath(tag, state_stack, clip_paths, view, drawables, drawable_index);
     if (clip_path)
       applyClipping(clip_path, drawables, drawable_index);
-
-    state_stack.pop_back();
   }
 
   static Svg::ViewSettings loadSvgViewSettings(const Tag& tag) {
