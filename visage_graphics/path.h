@@ -38,6 +38,15 @@ namespace visage {
     static constexpr float kDefaultErrorTolerance = 0.1f;
     static constexpr float kDefaultMiterLimit = 4.0f;
 
+    struct Command {
+      static constexpr int kMaxValues = 7;
+      char type;
+      bool relative;
+      float values[kMaxValues];
+    };
+
+    typedef std::vector<Command> CommandList;
+
     enum class FillRule {
       NonZero,
       Positive,
@@ -81,6 +90,8 @@ namespace visage {
       std::vector<Point> points;
       std::vector<int> triangles;
     };
+
+    static CommandList parseSvgPath(const std::string& path);
 
     void setPointValue(float value) { current_value_ = value; }
 
@@ -236,7 +247,8 @@ namespace visage {
       last_point_ = {};
     }
 
-    void parseSvgPath(const std::string& path);
+    void loadSvgPath(const std::string& path);
+    void loadCommands(const CommandList& commands);
     void addRectangle(float x, float y, float width, float height);
     void addRoundedRectangle(float x, float y, float width, float height, float rx_top_left,
                              float ry_top_left, float rx_top_right, float ry_top_right, float rx_bottom_left,
