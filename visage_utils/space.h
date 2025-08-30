@@ -540,6 +540,19 @@ namespace visage {
       return x_ < other.right() && right() > other.x_ && y_ < other.bottom() && bottom() > other.y_;
     }
 
+    Bounds unioned(const Bounds& other) const {
+      if (width() <= 0.0f)
+        return other;
+      if (other.width() <= 0.0f)
+        return *this;
+
+      float x = std::min(x_, other.x_);
+      float y = std::min(y_, other.y_);
+      float r = std::max(right(), other.right());
+      float b = std::max(bottom(), other.bottom());
+      return { x, y, r - x, b - y };
+    }
+
     Bounds intersection(const Bounds& other) const {
       float x = std::max(x_, other.x_);
       float y = std::max(y_, other.y_);

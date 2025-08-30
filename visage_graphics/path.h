@@ -238,6 +238,9 @@ namespace visage {
 
     void parseSvgPath(const std::string& path);
     void addRectangle(float x, float y, float width, float height);
+    void addRoundedRectangle(float x, float y, float width, float height, float rx_top_left,
+                             float ry_top_left, float rx_top_right, float ry_top_right, float rx_bottom_left,
+                             float ry_bottom_left, float rx_bottom_right, float ry_bottom_right);
     void addRoundedRectangle(float x, float y, float width, float height, float rx, float ry);
     void addEllipse(float cx, float cy, float rx, float ry);
     void addCircle(float cx, float cy, float r);
