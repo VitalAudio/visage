@@ -15,6 +15,9 @@ jobs:
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
           ssh-known-hosts: ${{ secrets.KNOWN_HOSTS }}
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+
       - name: Build and Package
         run: |
           git clone https://github.com/emscripten-core/emsdk.git
