@@ -108,6 +108,9 @@ namespace visage {
       stroke(canvas, x, y, width, height);
 
     canvas.restoreState();
+
+    for (const auto& child : children)
+      child->draw(canvas, x, y, width, height);
   }
 
   void SvgDrawable::fill(Canvas& canvas, float x, float y, float width, float height) const {
@@ -862,30 +865,6 @@ namespace visage {
     return array;
   }
 
-  Bounds boundingFillBox(const std::vector<std::unique_ptr<SvgDrawable>>& drawables, int start_index) {
-    Bounds bounds;
-    for (auto& drawable : drawables) {
-      if (drawable->hasFill())
-        bounds = bounds.unioned(drawable->path.boundingBox());
-    }
-
-    return bounds;
-  }
-
-  Bounds boundingStrokeBox(const std::vector<std::unique_ptr<SvgDrawable>>& drawables, int start_index) {
-    Bounds bounds;
-    for (auto& drawable : drawables) {
-      if (drawable->hasStroke())
-        bounds = bounds.unioned(drawable->stroke_path.boundingBox());
-    }
-
-    return bounds;
-  }
-
-  Bounds boundingBox(const std::vector<std::unique_ptr<SvgDrawable>>& drawables, int start_index) {
-    return boundingFillBox(drawables, start_index).unioned(boundingStrokeBox(drawables, start_index));
-  }
-
   float parseCircleRadius(const std::string& token, Point center, float max_x, float max_y) {
     if (token == "closest-side") {
       float dx = std::min(center.x, max_x - center.x);
@@ -989,9 +968,6 @@ namespace visage {
     auto path = std::make_unique<Path>();
     path->setResolutionMatrix(state_stack.back().scale_matrix);
     path->addEllipse(bounding_box.x() + center.x, bounding_box.y() + center.y, radius.x, radius.y);
-
-    Transform transform = stackTransform(state_stack, *path);
-    path->transform(transform);
     return path;
   }
 
@@ -1045,16 +1021,12 @@ namespace visage {
     else
       path->addRectangle(bounding_box.x() + insets[3], bounding_box.y() + insets[0],
                          bounding_box.width() - insets[1], bounding_box.height() - insets[2]);
-
-    Transform transform = stackTransform(state_stack, *path);
-    path->transform(transform);
     return path;
   }
 
   Path* parseClipPath(const Tag& tag, const std::vector<DrawableState>& state_stack,
                       std::map<std::string, std::unique_ptr<Path>>& clip_paths,
-                      const Svg::ViewSettings& view,
-                      const std::vector<std::unique_ptr<SvgDrawable>>& drawables, int drawable_index) {
+                      const Svg::ViewSettings& view, SvgDrawable* current_drawable) {
     if (tag.data.attributes.count("clip-path") == 0)
       return nullptr;
 
@@ -1076,14 +1048,14 @@ namespace visage {
 
     std::string remaining = clip.substr(position);
     Bounds bounding_box;
-    if (remaining == "fill-box")
-      bounding_box = boundingFillBox(drawables, drawable_index);
-    else if (remaining == "stroke-box")
-      bounding_box = boundingStrokeBox(drawables, drawable_index);
-    else if (remaining == "view-box")
-      bounding_box = Bounds(0, 0, view.view_box_width, view.view_box_height);
-    else
-      bounding_box = boundingBox(drawables, drawable_index);
+    // if (remaining == "fill-box")
+    //   bounding_box = boundingFillBox(drawables, drawable_index);
+    // else if (remaining == "stroke-box")
+    //   bounding_box = boundingStrokeBox(drawables, drawable_index);
+    // else if (remaining == "view-box")
+    //   bounding_box = Bounds(0, 0, view.view_box_width, view.view_box_height);
+    // else
+    //   bounding_box = boundingBox(drawables, drawable_index);
 
     std::unique_ptr<Path> path;
     if (tokens[0] == "inset" || tokens[0] == "rect")
@@ -1172,6 +1144,7 @@ namespace visage {
 
   void loadOffset(const Tag& tag, std::vector<DrawableState>& state_stack) {
     auto& state = state_stack.back();
+    state.opacity = 1.0f;
     state.local_transform = Transform::identity();
     state.tranform_origin_x = 0;
     state.tranform_origin_y = 0;
@@ -1214,15 +1187,10 @@ namespace visage {
     if (tag.data.attributes.count("height"))
       height = parseNumber(tag.data.attributes.at("height"), 1.0f);
 
-    Path path;
-    path.setResolutionMatrix(state.scale_matrix);
-    if (state.non_zero_fill)
-      path.setFillRule(Path::FillRule::NonZero);
-    else
-      path.setFillRule(Path::FillRule::EvenOdd);
+    auto drawable = std::make_unique<SvgDrawable>();
 
     if (tag.data.name == "path" && tag.data.attributes.count("d"))
-      path.loadSvgPath(tag.data.attributes.at("d"));
+      drawable->command_list = Path::parseSvgPath(tag.data.attributes.at("d"));
     else if (tag.data.name == "line") {
       float x1 = 0.0f, y1 = 0.0f, x2 = 0.0f, y2 = 0.0f;
       if (tag.data.attributes.count("x1"))
@@ -1233,19 +1201,19 @@ namespace visage {
         x2 = parseNumber(tag.data.attributes.at("x2"), 1.0f);
       if (tag.data.attributes.count("y2"))
         y2 = parseNumber(tag.data.attributes.at("y2"), 1.0f);
-      path.moveTo(x1, y1);
-      path.lineTo(x2, y2);
+      drawable->command_list.moveTo(x1, y1);
+      drawable->command_list.lineTo(x2, y2);
     }
     else if (tag.data.name == "polygon" || tag.data.name == "polyline") {
       auto points = splitArguments(tag.data.attributes.at("points"));
       if (points.size() < 2)
         return nullptr;
-      path.moveTo(parseNumber(points[0], 1.0f), parseNumber(points[1], 1.0f));
+      drawable->command_list.moveTo(parseNumber(points[0], 1.0f), parseNumber(points[1], 1.0f));
       for (size_t i = 3; i < points.size(); i += 2)
-        path.lineTo(parseNumber(points[i - 1], 1.0f), parseNumber(points[i], 1.0f));
+        drawable->command_list.lineTo(parseNumber(points[i - 1], 1.0f), parseNumber(points[i], 1.0f));
 
       if (tag.data.name == "polygon")
-        path.close();
+        drawable->command_list.close();
     }
     else if (tag.data.name == "rect") {
       float x = 0.0f, y = 0.0f, rx = 0.0f, ry = 0.0f;
@@ -1264,9 +1232,9 @@ namespace visage {
         ry = rx;
 
       if (rx > 0.0f || ry > 0.0f)
-        path.addRoundedRectangle(x, y, width, height, rx, ry);
+        drawable->command_list.addRoundedRectangle(x, y, width, height, rx, ry);
       else
-        path.addRectangle(x, y, width, height);
+        drawable->command_list.addRectangle(x, y, width, height);
       state.local_transform = state.local_transform * Transform::translation(-x, -y);
     }
     else if (tag.data.name == "circle" || tag.data.name == "ellipse") {
@@ -1286,69 +1254,57 @@ namespace visage {
       if (tag.data.attributes.count("ry"))
         ry = parseNumber(tag.data.attributes.at("ry"), 1.0f);
 
-      path.addEllipse(x + cx, y + cy, rx, ry);
+      drawable->command_list.addEllipse(x + cx, y + cy, rx, ry);
       state.local_transform = state.local_transform * Transform::translation(-x, -y);
     }
     else
       return nullptr;
 
-    auto drawable = std::make_unique<SvgDrawable>();
     drawable->state = state;
-    auto start_bounding_box = path.boundingBox();
-
-    Transform transform = stackTransform(state_stack, path);
-    std::vector<float> dashes;
-    float view_width = view.width ? view.width : start_bounding_box.width();
-    float view_height = view.height ? view.height : start_bounding_box.height();
-    float dash_scale = std::sqrt(0.5f * (view_width * view_width + view_height * view_height));
-    float dash_offset = state.stroke_dashoffset;
-    if (state.stroke_dashoffset_ratio)
-      dash_offset *= dash_scale;
-
-    for (const auto& dash : state.stroke_dasharray) {
-      if (dash.second) {
-        dashes.push_back(dash.first * dash_scale);
-      }
-      else
-        dashes.push_back(dash.first);
-    }
-
-    drawable->path = path.transformed(transform);
-    auto stroke_path = path.stroke(state.stroke_width, state.stroke_join, state.stroke_end_cap,
-                                   dashes, dash_offset, state.stroke_miter_limit);
-    drawable->stroke_path = stroke_path.transformed(transform);
-
-    width = width ? width : start_bounding_box.width();
-    height = height ? height : start_bounding_box.height();
-    float x = start_bounding_box.x(), y = start_bounding_box.y();
-    drawable->fill_brush = state.fill_gradient.toBrush(width, height, transform, x, y);
-    drawable->fill_brush = drawable->fill_brush.withMultipliedAlpha(state.fill_opacity);
-
-    drawable->stroke_brush = state.stroke_gradient.toBrush(width, height, transform, x, y);
-    drawable->stroke_brush = drawable->stroke_brush.withMultipliedAlpha(state.stroke_opacity);
-    drawable->opacity = state.opacity;
     return drawable;
+
+    // auto start_bounding_box = path.boundingBox();
+    //
+    // Transform transform = stackTransform(state_stack, path);
+    // std::vector<float> dashes;
+    // float view_width = view.width ? view.width : start_bounding_box.width();
+    // float view_height = view.height ? view.height : start_bounding_box.height();
+    // float dash_scale = std::sqrt(0.5f * (view_width * view_width + view_height * view_height));
+    // float dash_offset = state.stroke_dashoffset;
+    // if (state.stroke_dashoffset_ratio)
+    //   dash_offset *= dash_scale;
+    //
+    // for (const auto& dash : state.stroke_dasharray) {
+    //   if (dash.second)
+    //     dashes.push_back(dash.first * dash_scale);
+    //   else
+    //     dashes.push_back(dash.first);
+    // }
+    //
+    // drawable->path = path.transformed(transform);
+    // auto stroke_path = path.stroke(state.stroke_width, state.stroke_join, state.stroke_end_cap,
+    //                                dashes, dash_offset, state.stroke_miter_limit);
+    // drawable->stroke_path = stroke_path.transformed(transform);
+    //
+    // width = width ? width : start_bounding_box.width();
+    // height = height ? height : start_bounding_box.height();
+    // float x = start_bounding_box.x(), y = start_bounding_box.y();
+    // drawable->fill_brush = state.fill_gradient.toBrush(width, height, transform, x, y);
+    // drawable->fill_brush = drawable->fill_brush.withMultipliedAlpha(state.fill_opacity);
+    //
+    // drawable->stroke_brush = state.stroke_gradient.toBrush(width, height, transform, x, y);
+    // drawable->stroke_brush = drawable->stroke_brush.withMultipliedAlpha(state.stroke_opacity);
+    // return drawable;
   }
 
-  void applyClipping(Path* clip_path, std::vector<std::unique_ptr<SvgDrawable>>& drawables, int start_index) {
-    if (clip_path == nullptr)
-      return;
-
-    for (int i = start_index; i < drawables.size(); ++i) {
-      drawables[i]->path = clip_path->combine(drawables[i]->path, Path::Operation::Intersection);
-      drawables[i]->stroke_path = clip_path->combine(drawables[i]->stroke_path,
-                                                     Path::Operation::Intersection);
-    }
-  }
-
-  void computeDrawables(const Svg::ViewSettings& view, Tag& tag, std::vector<DrawableState>& state_stack,
-                        std::vector<std::unique_ptr<SvgDrawable>>& drawables,
-                        std::map<std::string, std::unique_ptr<Path>>& clip_paths,
-                        const std::map<std::string, Tag>& defs,
-                        const std::map<std::string, GradientDef>& gradients,
-                        const std::vector<std::pair<CssSelector, std::string>>& style_lookup) {
+  std::unique_ptr<SvgDrawable> computeDrawables(const Svg::ViewSettings& view, Tag& tag,
+                                                std::vector<DrawableState>& state_stack,
+                                                std::map<std::string, std::unique_ptr<Path>>& clip_paths,
+                                                const std::map<std::string, Tag>& defs,
+                                                const std::map<std::string, GradientDef>& gradients,
+                                                const std::vector<std::pair<CssSelector, std::string>>& style_lookup) {
     if (tag.data.name == "defs")
-      return;
+      return nullptr;
 
     state_stack.push_back(state_stack.back());
 
@@ -1359,39 +1315,34 @@ namespace visage {
 
     loadOffset(tag, state_stack);
     loadDrawableStyle(tag, state_stack, clip_paths, gradients);
-    int drawable_index = drawables.size();
-    if (tag.data.name == "clipPath" && tag.data.attributes.count("id")) {
-      std::string id = tag.data.attributes["id"];
-      std::vector<std::unique_ptr<SvgDrawable>> clip_drawables;
-      for (auto& child : tag.children)
-        computeDrawables(view, child, state_stack, clip_drawables, clip_paths, defs, gradients, style_lookup);
-
-      Path* clip_path = parseClipPath(tag, state_stack, clip_paths, view, clip_drawables, 0);
-      applyClipping(clip_path, clip_drawables, 0);
-
-      std::unique_ptr<Path> clipped_path = std::make_unique<Path>();
-      for (auto& clip_drawable : clip_drawables)
-        *clipped_path = clipped_path->combine(clip_drawable->path, Path::Operation::Union);
-
-      clip_paths[id] = std::move(clipped_path);
-      return;
-    }
 
     auto drawable = loadDrawable(view, tag, state_stack, clip_paths, gradients);
     if (drawable) {
-      drawables.push_back(std::move(drawable));
       state_stack.pop_back();
-      return;
+      return drawable;
     }
 
-    for (auto& child : tag.children)
-      computeDrawables(view, child, state_stack, drawables, clip_paths, defs, gradients, style_lookup);
+    drawable = std::make_unique<SvgDrawable>();
+    for (auto& child_tag : tag.children) {
+      auto child = computeDrawables(view, child_tag, state_stack, clip_paths, defs, gradients, style_lookup);
+      if (child)
+        drawable->children.push_back(std::move(child));
+    }
+
+    Path* clip_path = parseClipPath(tag, state_stack, clip_paths, view, drawable.get());
+    if (clip_path)
+      drawable->applyClipping(clip_path);
+
+    if (tag.data.name == "clipPath" && tag.data.attributes.count("id")) {
+      std::string id = tag.data.attributes["id"];
+      std::unique_ptr<Path> clipped_path = std::make_unique<Path>();
+      drawable->unionPaths(clipped_path.get());
+      clip_paths[id] = std::move(clipped_path);
+      return nullptr;
+    }
 
     state_stack.pop_back();
-
-    Path* clip_path = parseClipPath(tag, state_stack, clip_paths, view, drawables, drawable_index);
-    if (clip_path)
-      applyClipping(clip_path, drawables, drawable_index);
+    return drawable;
   }
 
   static Svg::ViewSettings loadSvgViewSettings(const Tag& tag) {
@@ -1471,7 +1422,6 @@ namespace visage {
   }
 
   void Svg::parseData(const unsigned char* data, int data_size) {
-    drawables_.clear();
     std::string str(reinterpret_cast<const char*>(data), data_size);
 
     std::vector<Tag> tags;
@@ -1504,7 +1454,11 @@ namespace visage {
 
     std::vector<DrawableState> state_stack;
     state_stack.push_back(state);
-    for (auto& tag : tags)
-      computeDrawables(view_, tag, state_stack, drawables_, clip_paths, defs, gradients, style_lookup);
+    drawable_ = std::make_unique<SvgDrawable>();
+    for (auto& tag : tags) {
+      auto child = computeDrawables(view_, tag, state_stack, clip_paths, defs, gradients, style_lookup);
+      if (child)
+        drawable_->children.push_back(std::move(child));
+    }
   }
 }

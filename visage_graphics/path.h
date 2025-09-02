@@ -45,7 +45,47 @@ namespace visage {
       float values[kMaxValues];
     };
 
-    typedef std::vector<Command> CommandList;
+    struct CommandList : std::vector<Command> {
+      void moveTo(float x, float y, bool relative = false) {
+        push_back({ 'M', relative, { x, y } });
+      }
+      void moveTo(Point p, bool relative = false) { push_back({ 'M', relative, { p.x, p.y } }); }
+      void lineTo(float x, float y, bool relative = false) {
+        push_back({ 'L', relative, { x, y } });
+      }
+      void horizontalTo(float x, bool relative = false) { push_back({ 'H', relative, { x } }); }
+      void verticalTo(float y, bool relative = false) { push_back({ 'V', relative, { y } }); }
+      void quadraticTo(float cx, float cy, float x, float y, bool relative = false) {
+        push_back({ 'Q', relative, { cx, cy, x, y } });
+      }
+      void smoothQuadraticTo(float x, float y, bool relative = false) {
+        push_back({ 'T', relative, { x, y } });
+      }
+      void bezierTo(float cx1, float cy1, float cx2, float cy2, float x, float y, bool relative = false) {
+        push_back({ 'C', relative, { cx1, cy1, cx2, cy2, x, y } });
+      }
+      void smoothBezierTo(float cx2, float cy2, float x, float y, bool relative = false) {
+        push_back({ 'S', relative, { cx2, cy2, x, y } });
+      }
+      void arcTo(float rx, float ry, float rotation, bool large_arc, bool sweep, float x, float y,
+                 bool relative = false) {
+        push_back({ 'A', false, { rx, ry, rotation, large_arc ? 1.0f : 0.0f, sweep ? 1.0f : 0.0f, x, y } });
+      }
+      void arcTo(float rx, float ry, float rotation, bool large_arc, bool sweep, Point p,
+                 bool relative = false) {
+        arcTo(rx, ry, rotation, large_arc, sweep, p.x, p.y, relative);
+      }
+      void close() { push_back({ 'Z', false, {} }); }
+
+      void addRectangle(float x, float y, float width, float height);
+      void addRoundedRectangle(float x, float y, float width, float height, float rx_top_left,
+                               float ry_top_left, float rx_top_right, float ry_top_right,
+                               float rx_bottom_left, float ry_bottom_left, float rx_bottom_right,
+                               float ry_bottom_right);
+      void addRoundedRectangle(float x, float y, float width, float height, float rx, float ry);
+      void addEllipse(float cx, float cy, float rx, float ry);
+      void addCircle(float cx, float cy, float r);
+    };
 
     enum class FillRule {
       NonZero,
