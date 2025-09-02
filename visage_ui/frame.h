@@ -303,6 +303,9 @@ namespace visage {
     }
 
     void notifyRemoveFromHierarchy() {
+      for (Frame* child : children_)
+        child->notifyRemoveFromHierarchy();
+
       if (event_handler_ && event_handler_->remove_from_hierarchy)
         event_handler_->remove_from_hierarchy(this);
     }
