@@ -60,8 +60,8 @@ namespace visage {
     void handleMouseWheel(float delta_x, float delta_y, float precise_x, float precise_y, int x,
                           int y, int button_state, int modifiers, bool momentum) override;
 
-    bool handleKeyDown(const KeyEvent& e) const;
-    bool handleKeyUp(const KeyEvent& e) const;
+    bool handleKeyDown(const KeyEvent& e);
+    bool handleKeyUp(const KeyEvent& e);
     bool handleKeyDown(KeyCode key_code, int modifiers, bool repeat) override;
     bool handleKeyUp(KeyCode key_code, int modifiers) override;
 
@@ -86,6 +86,7 @@ namespace visage {
     Window* window_ = nullptr;
     Frame* content_frame_ = nullptr;
     Frame* mouse_hovered_frame_ = nullptr;
+    Frame* temporary_frame_ = nullptr;
     Frame* mouse_down_frame_ = nullptr;
     Frame* keyboard_focused_frame_ = nullptr;
     Frame* drag_drop_target_frame_ = nullptr;

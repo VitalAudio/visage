@@ -57,6 +57,8 @@ namespace visage {
 
     if (mouse_hovered_frame_ == frame)
       mouse_hovered_frame_ = nullptr;
+    if (temporary_frame_ == frame)
+      temporary_frame_ = nullptr;
     if (mouse_down_frame_ == frame)
       mouse_down_frame_ = nullptr;
     if (keyboard_focused_frame_ == frame)
@@ -90,19 +92,22 @@ namespace visage {
     content_frame_->redraw();
   }
 
-  bool WindowEventHandler::handleKeyDown(const KeyEvent& e) const {
+  bool WindowEventHandler::handleKeyDown(const KeyEvent& e) {
     if (keyboard_focused_frame_ == nullptr)
       return false;
 
-    Frame* keyboard_frame = keyboard_focused_frame_;
+    temporary_frame_ = keyboard_focused_frame_;
     bool used = false;
-    while (!used && keyboard_frame) {
-      used = keyboard_frame->processKeyPress(e);
+    while (!used && temporary_frame_) {
+      used = temporary_frame_->processKeyPress(e);
 
-      keyboard_frame = keyboard_frame->parent();
-      while (keyboard_frame && !keyboard_frame->acceptsKeystrokes())
-        keyboard_frame = keyboard_frame->parent();
+      if (temporary_frame_)
+        temporary_frame_ = temporary_frame_->parent();
+
+      while (temporary_frame_ && !temporary_frame_->acceptsKeystrokes())
+        temporary_frame_ = temporary_frame_->parent();
     }
+    temporary_frame_ = nullptr;
     return used;
   }
 
@@ -110,19 +115,22 @@ namespace visage {
     return handleKeyDown(KeyEvent(key_code, modifiers, true, repeat));
   }
 
-  bool WindowEventHandler::handleKeyUp(const KeyEvent& e) const {
+  bool WindowEventHandler::handleKeyUp(const KeyEvent& e) {
     if (keyboard_focused_frame_ == nullptr)
       return false;
 
-    Frame* keyboard_frame = keyboard_focused_frame_;
+    temporary_frame_ = keyboard_focused_frame_;
     bool used = false;
-    while (!used && keyboard_frame) {
-      used = keyboard_frame->processKeyRelease(e);
+    while (!used && temporary_frame_) {
+      used = temporary_frame_->processKeyRelease(e);
 
-      keyboard_frame = keyboard_frame->parent();
-      while (keyboard_frame && !keyboard_frame->acceptsKeystrokes())
-        keyboard_frame = keyboard_frame->parent();
+      if (temporary_frame_)
+        temporary_frame_ = temporary_frame_->parent();
+
+      while (temporary_frame_ && !temporary_frame_->acceptsKeystrokes())
+        temporary_frame_ = temporary_frame_->parent();
     }
+    temporary_frame_ = nullptr;
     return used;
   }
 
@@ -146,19 +154,22 @@ namespace visage {
     if (files.empty())
       return false;
 
-    Frame* new_drag_drop_frame = dragDropFrame(convertToLogical(IPoint(x, y)), files);
-    if (mouse_down_frame_ == new_drag_drop_frame && new_drag_drop_frame)
+    temporary_frame_ = dragDropFrame(convertToLogical(IPoint(x, y)), files);
+    if (mouse_down_frame_ == temporary_frame_ && temporary_frame_) {
+      temporary_frame_ = nullptr;
       return true;
+    }
 
-    if (new_drag_drop_frame != drag_drop_target_frame_) {
+    if (temporary_frame_ != drag_drop_target_frame_) {
       if (drag_drop_target_frame_)
         drag_drop_target_frame_->dragFilesExit();
 
-      if (new_drag_drop_frame)
-        new_drag_drop_frame->dragFilesEnter(files);
-      drag_drop_target_frame_ = new_drag_drop_frame;
+      if (temporary_frame_)
+        temporary_frame_->dragFilesEnter(files);
+      drag_drop_target_frame_ = temporary_frame_;
     }
 
+    temporary_frame_ = nullptr;
     return drag_drop_target_frame_;
   }
 
@@ -172,19 +183,21 @@ namespace visage {
     if (files.empty())
       return false;
 
-    Frame* drag_drop_frame = dragDropFrame(convertToLogical(IPoint(x, y)), files);
-    if (mouse_down_frame_ == drag_drop_frame && drag_drop_frame)
+    temporary_frame_ = dragDropFrame(convertToLogical(IPoint(x, y)), files);
+    if (mouse_down_frame_ == temporary_frame_ && temporary_frame_)
       return false;
 
     if (drag_drop_target_frame_) {
-      if (drag_drop_target_frame_ != drag_drop_frame)
+      if (drag_drop_target_frame_ != temporary_frame_)
         drag_drop_target_frame_->dragFilesExit();
       drag_drop_target_frame_ = nullptr;
     }
 
-    if (drag_drop_frame)
-      drag_drop_frame->dropFiles(files);
-    return drag_drop_frame != nullptr;
+    if (temporary_frame_)
+      temporary_frame_->dropFiles(files);
+    bool result = temporary_frame_ != nullptr;
+    temporary_frame_ = nullptr;
+    return result;
   }
 
   MouseEvent WindowEventHandler::mouseEvent(int x, int y, int button_state, int modifiers) {
@@ -234,20 +247,21 @@ namespace visage {
       return;
     }
 
-    Frame* new_hovered_frame = content_frame_->frameAtPoint(mouse_event.window_position);
-    if (new_hovered_frame != mouse_hovered_frame_) {
+    temporary_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
+    if (temporary_frame_ != mouse_hovered_frame_) {
       if (mouse_hovered_frame_) {
         mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
         mouse_event.frame = mouse_hovered_frame_;
         mouse_hovered_frame_->processMouseExit(mouse_event);
       }
 
-      if (new_hovered_frame) {
-        mouse_event.position = mouse_event.window_position - new_hovered_frame->positionInWindow();
-        mouse_event.frame = new_hovered_frame;
-        new_hovered_frame->processMouseEnter(mouse_event);
+      if (temporary_frame_) {
+        mouse_event.position = mouse_event.window_position - temporary_frame_->positionInWindow();
+        mouse_event.frame = temporary_frame_;
+        temporary_frame_->processMouseEnter(mouse_event);
       }
-      mouse_hovered_frame_ = new_hovered_frame;
+      mouse_hovered_frame_ = temporary_frame_;
+      temporary_frame_ = nullptr;
     }
     else if (mouse_hovered_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
@@ -262,14 +276,15 @@ namespace visage {
     mouse_event.repeat_click_count = repeat;
 
     mouse_down_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
-    Frame* new_keyboard_frame = mouse_down_frame_;
-    while (new_keyboard_frame && !new_keyboard_frame->acceptsKeystrokes())
-      new_keyboard_frame = new_keyboard_frame->parent();
+    temporary_frame_ = mouse_down_frame_;
+    while (temporary_frame_ && !temporary_frame_->acceptsKeystrokes())
+      temporary_frame_ = temporary_frame_->parent();
 
-    if (keyboard_focused_frame_ && new_keyboard_frame != keyboard_focused_frame_)
+    if (keyboard_focused_frame_ && temporary_frame_ != keyboard_focused_frame_)
       keyboard_focused_frame_->processFocusChanged(false, true);
 
-    keyboard_focused_frame_ = new_keyboard_frame;
+    keyboard_focused_frame_ = temporary_frame_;
+    temporary_frame_ = nullptr;
     if (keyboard_focused_frame_)
       keyboard_focused_frame_->processFocusChanged(true, true);
 
@@ -290,13 +305,12 @@ namespace visage {
 
     if (mouse_down_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
-      Frame* mouse_down_frame = mouse_down_frame_;
-      mouse_down_frame_ = nullptr;
+      mouse_event.frame = mouse_down_frame_;
+      mouse_down_frame_->processMouseUp(mouse_event);
+      if (exited && mouse_down_frame_)
+        mouse_down_frame_->processMouseExit(mouse_event);
 
-      mouse_event.frame = mouse_down_frame;
-      mouse_down_frame->processMouseUp(mouse_event);
-      if (exited)
-        mouse_down_frame->processMouseExit(mouse_event);
+      mouse_down_frame_ = nullptr;
     }
 
     mouse_event.frame = mouse_hovered_frame_;
@@ -331,20 +345,22 @@ namespace visage {
 
     mouse_hovered_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
     if (mouse_hovered_frame_) {
-      Frame* mouse_frame = mouse_hovered_frame_;
+      temporary_frame_ = mouse_hovered_frame_;
       bool used = false;
 
-      while (!used && mouse_frame) {
-        while (mouse_frame && mouse_frame->ignoresMouseEvents())
-          mouse_frame = mouse_frame->parent();
+      while (!used && temporary_frame_) {
+        while (temporary_frame_ && temporary_frame_->ignoresMouseEvents())
+          temporary_frame_ = temporary_frame_->parent();
 
-        if (mouse_frame) {
-          mouse_event.position = mouse_event.window_position - mouse_frame->positionInWindow();
-          used = mouse_frame->processMouseWheel(mouse_event);
-          mouse_frame = mouse_frame->parent();
+        if (temporary_frame_) {
+          mouse_event.position = mouse_event.window_position - temporary_frame_->positionInWindow();
+          used = temporary_frame_->processMouseWheel(mouse_event);
+          if (temporary_frame_)
+            temporary_frame_ = temporary_frame_->parent();
         }
       }
     }
+    temporary_frame_ = nullptr;
   }
 
   bool WindowEventHandler::isDragDropSource() {
