@@ -29,6 +29,54 @@
 namespace visage {
   static constexpr float kPi = 3.14159265358979323846f;
 
+  template<typename T>
+  static void roundedRectangle(T& t, float x, float y, float width, float height, float rx_top_left,
+                               float ry_top_left, float rx_top_right, float ry_top_right,
+                               float rx_bottom_right, float ry_bottom_right, float rx_bottom_left,
+                               float ry_bottom_left) {
+    float scale = 1.0f;
+    scale = std::min(scale, width / (rx_top_left + rx_top_right));
+    scale = std::min(scale, width / (rx_bottom_left + rx_bottom_right));
+    scale = std::min(scale, height / (ry_top_left + ry_bottom_left));
+    scale = std::min(scale, height / (ry_top_right + ry_bottom_right));
+    rx_top_left *= scale;
+    ry_top_left *= scale;
+    rx_top_right *= scale;
+    ry_top_right *= scale;
+    rx_bottom_right *= scale;
+    ry_bottom_right *= scale;
+    rx_bottom_left *= scale;
+    ry_bottom_left *= scale;
+
+    t.moveTo(x + rx_top_left, y);
+    t.lineTo(x + width - rx_top_right, y);
+    t.arcTo(rx_top_right, ry_top_right, 0.0f, false, true, Point(x + width, y + ry_top_right), false);
+    t.lineTo(x + width, y + height - ry_bottom_right);
+    t.arcTo(rx_bottom_right, ry_bottom_right, 0.0f, false, true,
+            Point(x + width - rx_bottom_right, y + height), false);
+    t.lineTo(x + rx_bottom_left, y + height);
+    t.arcTo(rx_bottom_left, ry_bottom_left, 0.0f, false, true, Point(x, y + height - ry_bottom_left), false);
+    t.lineTo(x, y + ry_top_left);
+    t.arcTo(rx_top_left, ry_top_left, 0.0f, false, true, Point(x + rx_top_left, y), false);
+    t.close();
+  }
+
+  template<typename T>
+  static void roundedRectangle(T& t, float x, float y, float width, float height, float rx, float ry) {
+    rx = std::min(rx, width * 0.5f);
+    ry = std::min(ry, height * 0.5f);
+    t.moveTo(x + rx, y);
+    t.lineTo(x + width - rx, y);
+    t.arcTo(rx, ry, 0.0f, false, true, Point(x + width, y + ry), false);
+    t.lineTo(x + width, y + height - ry);
+    t.arcTo(rx, ry, 0.0f, false, true, Point(x + width - rx, y + height), false);
+    t.lineTo(x + rx, y + height);
+    t.arcTo(rx, ry, 0.0f, false, true, Point(x, y + height - ry), false);
+    t.lineTo(x, y + ry);
+    t.arcTo(rx, ry, 0.0f, false, true, Point(x + rx, y), false);
+    t.close();
+  }
+
   void Path::arcTo(float x_radius, float y_radius, float x_axis_rotation, bool large_arc,
                    bool sweep_flag, Point to, bool relative) {
     if (currentPath().points.empty())
@@ -170,8 +218,41 @@ namespace visage {
     return commands;
   }
 
+  void Path::CommandList::addRectangle(float x, float y, float width, float height) {
+    moveTo(x, y);
+    lineTo(x + width, y);
+    lineTo(x + width, y + height);
+    lineTo(x, y + height);
+    close();
+  }
+
+  void Path::CommandList::addRoundedRectangle(float x, float y, float width, float height,
+                                              float rx_top_left, float ry_top_left,
+                                              float rx_top_right, float ry_top_right,
+                                              float rx_bottom_left, float ry_bottom_left,
+                                              float rx_bottom_right, float ry_bottom_right) {
+    roundedRectangle(*this, x, y, width, height, rx_top_left, ry_top_left, rx_top_right,
+                     ry_top_right, rx_bottom_right, ry_bottom_right, rx_bottom_left, ry_bottom_left);
+  }
+
+  void Path::CommandList::addRoundedRectangle(float x, float y, float width, float height, float rx,
+                                              float ry) {
+    roundedRectangle(*this, x, y, width, height, rx, ry);
+  }
+
+  void Path::CommandList::addEllipse(float cx, float cy, float rx, float ry) {
+    moveTo(cx + rx, cy);
+    arcTo(rx, ry, 180.0f, false, true, Point(cx - rx, cy), false);
+    arcTo(rx, ry, 180.0f, false, true, Point(cx + rx, cy), false);
+
+    close();
+  }
+
+  void Path::CommandList::addCircle(float cx, float cy, float r) {
+    addEllipse(cx, cy, r, r);
+  }
+
   void Path::addRectangle(float x, float y, float width, float height) {
-    startNewPath();
     moveTo(x, y);
     lineTo(x + width, y);
     lineTo(x + width, y + height);
@@ -183,61 +264,24 @@ namespace visage {
                                  float ry_top_left, float rx_top_right, float ry_top_right,
                                  float rx_bottom_right, float ry_bottom_right, float rx_bottom_left,
                                  float ry_bottom_left) {
-    float scale = 1.0f;
-    scale = std::min(scale, width / (rx_top_left + rx_top_right));
-    scale = std::min(scale, width / (rx_bottom_left + rx_bottom_right));
-    scale = std::min(scale, height / (ry_top_left + ry_bottom_left));
-    scale = std::min(scale, height / (ry_top_right + ry_bottom_right));
-    rx_top_left *= scale;
-    ry_top_left *= scale;
-    rx_top_right *= scale;
-    ry_top_right *= scale;
-    rx_bottom_right *= scale;
-    ry_bottom_right *= scale;
-    rx_bottom_left *= scale;
-    ry_bottom_left *= scale;
-
-    startNewPath();
-    moveTo(x + rx_top_left, y);
-    lineTo(x + width - rx_top_right, y);
-    arcTo(rx_top_right, ry_top_right, 0.0f, false, true, Point(x + width, y + ry_top_right), false);
-    lineTo(x + width, y + height - ry_bottom_right);
-    arcTo(rx_bottom_right, ry_bottom_right, 0.0f, false, true,
-          Point(x + width - rx_bottom_right, y + height), false);
-    lineTo(x + rx_bottom_left, y + height);
-    arcTo(rx_bottom_left, ry_bottom_left, 0.0f, false, true, Point(x, y + height - ry_bottom_left), false);
-    lineTo(x, y + ry_top_left);
-    arcTo(rx_top_left, ry_top_left, 0.0f, false, true, Point(x + rx_top_left, y), false);
-    close();
+    roundedRectangle(*this, x, y, width, height, rx_top_left, ry_top_left, rx_top_right,
+                     ry_top_right, rx_bottom_right, ry_bottom_right, rx_bottom_left, ry_bottom_left);
   }
 
   void Path::addRoundedRectangle(float x, float y, float width, float height, float rx, float ry) {
-    rx = std::min(rx, width * 0.5f);
-    ry = std::min(ry, height * 0.5f);
-    startNewPath();
-    moveTo(x + rx, y);
-    lineTo(x + width - rx, y);
-    arcTo(rx, ry, 0.0f, false, true, Point(x + width, y + ry), false);
-    lineTo(x + width, y + height - ry);
-    arcTo(rx, ry, 0.0f, false, true, Point(x + width - rx, y + height), false);
-    lineTo(x + rx, y + height);
-    arcTo(rx, ry, 0.0f, false, true, Point(x, y + height - ry), false);
-    lineTo(x, y + ry);
-    arcTo(rx, ry, 0.0f, false, true, Point(x + rx, y), false);
-    close();
+    roundedRectangle(*this, x, y, width, height, rx, ry);
   }
 
-  void Path::addEllipse(float x, float y, float rx, float ry) {
-    startNewPath();
-    moveTo(x + rx, y);
-    arcTo(rx, ry, 180.0f, false, true, Point(x - rx, y), false);
-    arcTo(rx, ry, 180.0f, false, true, Point(x + rx, y), false);
+  void Path::addEllipse(float cx, float cy, float rx, float ry) {
+    moveTo(cx + rx, cy);
+    arcTo(rx, ry, 180.0f, false, true, Point(cx - rx, cy), false);
+    arcTo(rx, ry, 180.0f, false, true, Point(cx + rx, cy), false);
 
     close();
   }
 
-  void Path::addCircle(float x, float y, float r) {
-    addEllipse(x, y, r, r);
+  void Path::addCircle(float cx, float cy, float r) {
+    addEllipse(cx, cy, r, r);
   }
 
   void Path::loadSvgPath(const std::string& path) {

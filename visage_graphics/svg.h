@@ -23,10 +23,14 @@
 
 #include "graphics_utils.h"
 #include "visage_file_embed/embedded_file.h"
+#include "visage_graphics/gradient.h"
+#include "visage_graphics/path.h"
 
 #include <memory>
 
 namespace visage {
+  class Canvas;
+
   struct GradientDef {
     GradientDef() = default;
     GradientDef(const Color& color) {
@@ -111,6 +115,19 @@ namespace visage {
   };
 
   struct SvgDrawable {
+    SvgDrawable() = default;
+    SvgDrawable(const SvgDrawable& other) {
+      state = other.state;
+      fill_brush = other.fill_brush;
+      stroke_brush = other.stroke_brush;
+      path = other.path;
+      stroke_path = other.stroke_path;
+      command_list = other.command_list;
+      children.reserve(other.children.size());
+      for (const auto& child : other.children)
+        children.emplace_back(std::make_unique<SvgDrawable>(*child));
+    }
+
     void draw(Canvas& canvas, float x, float y, float width, float height) const;
     void fill(Canvas& canvas, float x, float y, float width, float height) const;
     void stroke(Canvas& canvas, float x, float y, float width, float height) const;
@@ -119,12 +136,57 @@ namespace visage {
       return state.stroke_opacity > 0.0f && state.stroke_width > 0.0f && !stroke_brush.isNone();
     }
 
-    Path path;
-    Path stroke_path;
+    Bounds boundingFillBox() {
+      Bounds bounds;
+      if (hasFill())
+        bounds = path.boundingBox();
+
+      for (auto& child : children)
+        bounds = bounds.unioned(child->boundingFillBox());
+    }
+
+    Bounds boundingStrokeBox() {
+      Bounds bounds;
+      if (hasStroke())
+        bounds = stroke_path.boundingBox();
+
+      for (auto& child : children)
+        bounds = bounds.unioned(child->boundingStrokeBox());
+
+      return bounds;
+    }
+
+    Bounds boundingBox() { return boundingFillBox().unioned(boundingStrokeBox()); }
+
+    void applyClipping(const Path* clip_path) {
+      if (clip_path == nullptr)
+        return;
+
+      if (path.numPoints())
+        path = clip_path->combine(path, Path::Operation::Intersection);
+
+      if (stroke_path.numPoints())
+        stroke_path = clip_path->combine(stroke_path, Path::Operation::Intersection);
+
+      for (auto& child : children)
+        child->applyClipping(clip_path);
+    }
+
+    void unionPaths(Path* result) {
+      if (path.numPoints())
+        result->combine(*result, Path::Operation::Union);
+
+      for (auto& child : children)
+        child->unionPaths(result);
+    }
+
+    Path::CommandList command_list;
+    std::vector<std::unique_ptr<SvgDrawable>> children;
     DrawableState state;
     Brush fill_brush;
     Brush stroke_brush;
-    float opacity = 1.0f;
+    Path path;
+    Path stroke_path;
   };
 
   class Svg {
@@ -143,11 +205,8 @@ namespace visage {
     Svg() = default;
 
     Svg& operator=(const Svg& other) {
-      drawables_.clear();
-      drawables_.reserve(other.drawables_.size());
+      drawable_ = std::make_unique<SvgDrawable>(*other.drawable_);
       view_ = other.view_;
-      for (const auto& drawable : other.drawables_)
-        drawables_.emplace_back(std::make_unique<SvgDrawable>(*drawable));
       return *this;
     }
 
@@ -157,8 +216,8 @@ namespace visage {
     Svg(const EmbeddedFile& file) : Svg(file.data, file.size) { }
 
     void draw(Canvas& canvas, float x, float y, float width = 0.0f, float height = 0.0f) const {
-      for (const auto& drawable : drawables_)
-        drawable->draw(canvas, x, y, width ? width : view_.width, height ? height : view_.height);
+      if (drawable_)
+        drawable_->draw(canvas, x, y, width ? width : view_.width, height ? height : view_.height);
     }
 
     void setDimensions(int width, int height) {
@@ -175,7 +234,7 @@ namespace visage {
   private:
     void parseData(const unsigned char* data, int data_size);
 
-    std::vector<std::unique_ptr<SvgDrawable>> drawables_;
+    std::unique_ptr<SvgDrawable> drawable_;
     ViewSettings view_;
   };
 }
