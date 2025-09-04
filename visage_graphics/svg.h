@@ -26,10 +26,44 @@
 #include "visage_graphics/gradient.h"
 #include "visage_graphics/path.h"
 
+#include <map>
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace visage {
   class Canvas;
+
+  enum class SvgClipBox {
+    BorderBox,
+    FillBox,
+    StrokeBox,
+    ViewBox,
+  };
+
+  struct TagData {
+    std::string name;
+    std::string text;
+    std::map<std::string, std::string> attributes;
+    bool is_closing = false;
+    bool is_self_closing = false;
+    bool ignored = false;
+  };
+
+  struct Tag {
+    TagData data;
+    std::vector<Tag> children;
+  };
+
+  struct CssSelector {
+    std::string tag_name;
+    std::string id;
+    bool direct_child = false;
+    std::vector<std::string> classes;
+    std::vector<CssSelector> parents;
+
+    bool matches(const Tag& tag) const;
+  };
 
   struct GradientDef {
     GradientDef() = default;
@@ -38,30 +72,29 @@ namespace visage {
       solid = true;
     }
 
-    Brush toBrush(float width, float height, Transform current_transform, float x, float y) const {
+    Brush toBrush(Transform current_transform, Bounds box) const {
       if (solid)
         return Brush::solid(gradient.colors().front());
 
-      GradientPosition position;
-      Point point1(x1_ratio ? x1 * width : x1, y1_ratio ? y1 * height : y1);
-      Point point2(x2_ratio ? x2 * width : x2, y2_ratio ? y2 * height : y2);
-      if (radial) {
-        Point radius_vector = radius_ratio ? radius * Point(width, height) : Point(radius, radius);
-        float f_radius = (focal_radius_ratio ? focal_radius * width : focal_radius) / radius_vector.x;
-        if (user_space && radius_ratio) {
-          float normalized_width = std::sqrt(0.5f * (width * width + height * height));
-          radius_vector = radius * normalized_width * Point(1.0f, 1.0f);
-        }
+      Transform scale_transform;
+      if (!user_space) {
+        scale_transform = Transform::translation(box.x(), box.y()) *
+                          Transform::scale(box.width(), box.height());
+      }
 
-        position = GradientPosition::radial(point1, radius_vector.x, radius_vector.y, point2, f_radius);
+      GradientPosition position;
+      if (radial) {
+        float f_radius = focal_radius;
+        if (radius)
+          f_radius /= radius;
+        else
+          f_radius = radius;
+        position = GradientPosition::radial(point1, radius, radius, point2, f_radius);
       }
       else
         position = GradientPosition::linear(point1, point2);
 
-      if (user_space)
-        position = position.transform(current_transform * transform);
-      else
-        position = position.transform(current_transform * Transform::translation(x, y) * transform);
+      position = position.transform(current_transform * scale_transform * transform);
       return Brush(gradient, position);
     }
 
@@ -70,23 +103,14 @@ namespace visage {
     bool radial = false;
     bool solid = false;
     bool user_space = false;
-    bool x1_ratio = true;
-    bool y1_ratio = true;
-    bool x2_ratio = true;
-    bool y2_ratio = true;
-    bool focal_radius_ratio = false;
-    bool radius_ratio = true;
-    float x1 = 0.0f;
-    float y1 = 0.0f;
-    float x2 = 1.0f;
-    float y2 = 0.0f;
+    Point point1 = Point(0.0f, 0.0f);
+    Point point2 = Point(1.0f, 0.0f);
     float focal_radius = 0.0f;
     float radius = 0.5f;
   };
 
   struct DrawableState {
     Transform local_transform;
-    Matrix scale_matrix;
     bool transform_ratio_x = false;
     bool transform_ratio_y = false;
     float tranform_origin_x = 0.0f;
@@ -109,9 +133,16 @@ namespace visage {
     float stroke_dashoffset = 0.0f;
     bool stroke_dashoffset_ratio = false;
     float stroke_miter_limit = 4.0f;
-    Path* clip_path = nullptr;
 
     bool visible = true;
+  };
+
+  struct SvgViewSettings {
+    float width = 500.0f;
+    float height = 500.0f;
+    Bounds view_box;
+    std::string align;
+    std::string scale;
   };
 
   struct SvgDrawable {
@@ -143,6 +174,8 @@ namespace visage {
 
       for (auto& child : children)
         bounds = bounds.unioned(child->boundingFillBox());
+
+      return bounds;
     }
 
     Bounds boundingStrokeBox() {
@@ -157,6 +190,13 @@ namespace visage {
     }
 
     Bounds boundingBox() { return boundingFillBox().unioned(boundingStrokeBox()); }
+
+    void transformPaths(const Transform& transform) {
+      path = path.transformed(transform);
+      stroke_path = stroke_path.transformed(transform);
+      for (auto& child : children)
+        child->transformPaths(transform);
+    }
 
     void applyClipping(const Path* clip_path) {
       if (clip_path == nullptr)
@@ -174,12 +214,66 @@ namespace visage {
 
     void unionPaths(Path* result) {
       if (path.numPoints())
-        result->combine(*result, Path::Operation::Union);
+        *result = result->combine(path, Path::Operation::Union);
 
       for (auto& child : children)
         child->unionPaths(result);
+
+      path.clear();
+      stroke_path.clear();
     }
 
+    void checkPathClipping(const Transform& total_transform, const Bounds& view_box,
+                           std::map<std::string, SvgDrawable*>& clip_paths);
+    void adjustPaths(const Transform& transform, const Bounds& view_box,
+                     std::map<std::string, SvgDrawable*>& clip_paths);
+    void setSize(const SvgViewSettings& view) {
+      std::map<std::string, SvgDrawable*> clip_paths;
+      auto initial_transform = initialTransform(view);
+      adjustPaths(initial_transform, view.view_box, clip_paths);
+      transformPaths(initial_transform);
+    }
+
+    Transform initialTransform(const SvgViewSettings& view) {
+      Transform transform;
+
+      float extra_width = 0.0f;
+      float extra_height = 0.0f;
+      if (view.width > 0 && view.height > 0 && view.view_box.width() > 0 && view.view_box.height() > 0) {
+        float scale_x = view.width / view.view_box.width();
+        float scale_y = view.height / view.view_box.height();
+        if (view.scale == "meet")
+          scale_x = scale_y = std::min(scale_x, scale_y);
+        else if (view.scale == "slice")
+          scale_x = scale_y = std::max(scale_x, scale_y);
+
+        transform = Transform::scale(scale_x, scale_y) *
+                    Transform::translation(-view.view_box.x(), -view.view_box.y());
+        extra_width = view.width - (view.view_box.width() * scale_x);
+        extra_height = view.height - (view.view_box.height() * scale_y);
+      }
+
+      if (view.align == "xMidYMid")
+        transform = Transform::translation(extra_width / 2, extra_height / 2) * transform;
+      else if (view.align == "xMaxYMax")
+        transform = Transform::translation(extra_width, extra_height) * transform;
+      else if (view.align == "xMinYMax")
+        transform = Transform::translation(0, extra_height) * transform;
+      else if (view.align == "xMaxYMin")
+        transform = Transform::translation(extra_width, 0) * transform;
+      else if (view.align == "xMidYMin")
+        transform = Transform::translation(extra_width / 2, 0) * transform;
+      else if (view.align == "xMidYMax")
+        transform = Transform::translation(extra_width / 2, extra_height) * transform;
+      else if (view.align == "xMinYMid")
+        transform = Transform::translation(0, extra_height / 2) * transform;
+      else if (view.align == "xMaxYMid")
+        transform = Transform::translation(extra_width, extra_height / 2) * transform;
+
+      return transform;
+    }
+
+    std::string id;
     Path::CommandList command_list;
     std::vector<std::unique_ptr<SvgDrawable>> children;
     DrawableState state;
@@ -187,21 +281,15 @@ namespace visage {
     Brush stroke_brush;
     Path path;
     Path stroke_path;
+
+    bool is_clip_path = false;
+    std::string clip_path_id;
+    Path::CommandList clip_path_commands;
+    SvgClipBox clip_box = SvgClipBox::BorderBox;
   };
 
   class Svg {
   public:
-    struct ViewSettings {
-      float width = 500.0f;
-      float height = 500.0f;
-      float view_box_x = 0.0f;
-      float view_box_y = 0.0f;
-      float view_box_width = 500.0f;
-      float view_box_height = 500.0f;
-      std::string align;
-      std::string scale;
-    };
-
     Svg() = default;
 
     Svg& operator=(const Svg& other) {
@@ -234,7 +322,23 @@ namespace visage {
   private:
     void parseData(const unsigned char* data, int data_size);
 
+    std::unique_ptr<SvgDrawable> computeDrawables(Tag& tag, std::vector<DrawableState>& state_stack);
+    void parseStyleAttribute(const std::string& style, DrawableState& state);
+    void parseStyleDefinition(const std::string& key, const std::string& value, DrawableState& state);
+    void loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack);
+    GradientDef parseGradient(const std::string& color_string);
+    void parseClipPath(const Tag& tag, SvgDrawable* drawable);
+
+    void collectDefs(std::vector<Tag>& tags);
+    void collectGradients(std::vector<Tag>& tags);
+    void resolveUses(std::vector<Tag>& tags);
+    void parseCssStyle(std::string& style);
+    void loadStyleTags(std::vector<Tag>& tags);
+
     std::unique_ptr<SvgDrawable> drawable_;
-    ViewSettings view_;
+    std::map<std::string, Tag> defs_;
+    std::map<std::string, GradientDef> gradients_;
+    std::vector<std::pair<CssSelector, std::string>> style_lookup_;
+    SvgViewSettings view_;
   };
 }
