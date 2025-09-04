@@ -129,8 +129,8 @@ namespace visage {
   };
 
   struct SvgViewSettings {
-    float width = 500.0f;
-    float height = 500.0f;
+    float width = 0.0f;
+    float height = 0.0f;
     Bounds view_box;
     std::string align;
     std::string scale;
@@ -138,16 +138,33 @@ namespace visage {
 
   struct SvgDrawable {
     SvgDrawable() = default;
-    SvgDrawable(const SvgDrawable& other) {
+    SvgDrawable(const SvgDrawable& other) { *this = other; }
+
+    SvgDrawable& operator=(const SvgDrawable& other) {
+      id = other.id;
+      command_list = other.command_list;
+
+      local_transform = other.local_transform;
+      transform_origin_x = other.transform_origin_x;
+      transform_origin_y = other.transform_origin_y;
+      transform_origin_x_ratio = other.transform_origin_x_ratio;
+      transform_origin_y_ratio = other.transform_origin_y_ratio;
+
       state = other.state;
-      fill_brush = other.fill_brush;
-      stroke_brush = other.stroke_brush;
       path = other.path;
       stroke_path = other.stroke_path;
-      command_list = other.command_list;
-      children.reserve(other.children.size());
+      fill_brush = other.fill_brush;
+      stroke_brush = other.stroke_brush;
+
+      children.clear();
       for (const auto& child : other.children)
-        children.emplace_back(std::make_unique<SvgDrawable>(*child));
+        children.push_back(std::make_unique<SvgDrawable>(*child));
+
+      is_clip_path = other.is_clip_path;
+      clip_path_id = other.clip_path_id;
+      clip_path_commands = other.clip_path_commands;
+      clip_box = other.clip_box;
+      return *this;
     }
 
     void draw(Canvas& canvas, float x, float y, float width, float height) const;
@@ -280,6 +297,7 @@ namespace visage {
     bool transform_origin_y_ratio = false;
     float transform_origin_x = 0.0f;
     float transform_origin_y = 0.0f;
+
     DrawableState state;
     Brush fill_brush;
     Brush stroke_brush;
@@ -309,16 +327,16 @@ namespace visage {
 
     void draw(Canvas& canvas, float x, float y, float width = 0.0f, float height = 0.0f) const {
       if (drawable_)
-        drawable_->draw(canvas, x, y, width ? width : view_.width, height ? height : view_.height);
+        drawable_->draw(canvas, x, y, width ? width : draw_width_, height ? height : draw_height_);
     }
 
     void setDimensions(int width, int height) {
       this->width = width;
       this->height = height;
-      view_.width = width;
-      view_.height = height;
-      // if (drawable_ && view_.width == 0 && view_.height == 0)
-      //   drawable_->setSize(view_, width, height);
+      draw_width_ = view_.width ? view_.width : width;
+      draw_height_ = view_.height ? view_.height : width;
+      if (drawable_ && view_.width == 0 && view_.height == 0)
+        drawable_->setSize(view_, width, height);
     }
 
     int width = 0;
@@ -347,5 +365,7 @@ namespace visage {
     std::map<std::string, GradientDef> gradients_;
     std::vector<std::pair<CssSelector, std::string>> style_lookup_;
     SvgViewSettings view_;
+    float draw_width_ = 0.0f;
+    float draw_height_ = 0.0f;
   };
 }

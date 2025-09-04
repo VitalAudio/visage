@@ -1286,7 +1286,7 @@ namespace visage {
   }
 
   std::unique_ptr<SvgDrawable> Svg::computeDrawables(Tag& tag, std::vector<DrawableState>& state_stack) {
-    if (tag.data.name == "defs")
+    if (tag.data.name == "defs" || tag.data.ignored)
       return nullptr;
 
     state_stack.push_back(state_stack.back());
