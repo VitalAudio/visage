@@ -199,7 +199,7 @@ int runExample() {
     std::string svg_data = visage::loadFileAsString(svgs[svg_index]);
     svg_index = (svg_index + 1) % svgs.size();
     svg = visage::Svg((unsigned char*)svg_data.c_str(), svg_data.length());
-    svg.setDimensions(app.width() * 2, app.height() * 2);
+    svg.setDimensions(app.width(), app.height());
   };
 
   // path.moveTo(0.00000000, 0);
@@ -223,6 +223,11 @@ int runExample() {
     svg.draw(canvas, 0, 0);
     canvas.setColor(0xff00ff00);
     canvas.fill(&path, 0, 0, 120, 150);
+    app.redraw();
+  };
+
+  app.onResize() = [&]() {
+    svg.setDimensions(app.width(), app.height());
     app.redraw();
   };
 
