@@ -509,6 +509,8 @@ namespace visage {
     void decode(std::istringstream& stream);
     bool isNone() const { return gradient_.colors().empty(); }
 
+    void transform(const Transform& transform) { position_ = position_.transform(transform); }
+
   private:
     Gradient gradient_;
     GradientPosition position_;
