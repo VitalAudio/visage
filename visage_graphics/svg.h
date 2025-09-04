@@ -72,15 +72,9 @@ namespace visage {
       solid = true;
     }
 
-    Brush toBrush(Transform current_transform, Bounds box) const {
+    Brush toBrush(Bounds box) const {
       if (solid)
         return Brush::solid(gradient.colors().front());
-
-      Transform scale_transform;
-      if (!user_space) {
-        scale_transform = Transform::translation(box.x(), box.y()) *
-                          Transform::scale(box.width(), box.height());
-      }
 
       GradientPosition position;
       if (radial) {
@@ -94,7 +88,12 @@ namespace visage {
       else
         position = GradientPosition::linear(point1, point2);
 
-      position = position.transform(current_transform * scale_transform * transform);
+      Transform scale_transform;
+      if (!user_space) {
+        scale_transform = Transform::translation(box.x(), box.y()) *
+                          Transform::scale(box.width(), box.height());
+      }
+      position = position.transformed(scale_transform * transform);
       return Brush(gradient, position);
     }
 
@@ -110,20 +109,12 @@ namespace visage {
   };
 
   struct DrawableState {
-    Transform local_transform;
-    bool transform_ratio_x = false;
-    bool transform_ratio_y = false;
-    float tranform_origin_x = 0.0f;
-    float tranform_origin_y = 0.0f;
-
-    float opacity = 1.0f;
-
     Color current_color = Color(0xff000000);
-
     GradientDef fill_gradient = GradientDef(0xff000000);
     float fill_opacity = 1.0f;
     bool non_zero_fill = false;
 
+    float opacity = 1.0f;
     GradientDef stroke_gradient;
     float stroke_opacity = 1.0f;
     float stroke_width = 1.0f;
@@ -194,6 +185,8 @@ namespace visage {
     void transformPaths(const Transform& transform) {
       path = path.transformed(transform);
       stroke_path = stroke_path.transformed(transform);
+      fill_brush.transform(transform);
+      stroke_brush.transform(transform);
       for (auto& child : children)
         child->transformPaths(transform);
     }
@@ -223,25 +216,30 @@ namespace visage {
       stroke_path.clear();
     }
 
-    void checkPathClipping(const Transform& total_transform, const Bounds& view_box,
-                           std::map<std::string, SvgDrawable*>& clip_paths);
-    void adjustPaths(const Transform& transform, const Bounds& view_box,
-                     std::map<std::string, SvgDrawable*>& clip_paths);
-    void setSize(const SvgViewSettings& view) {
+    void checkPathClipping(const Bounds& view_box, std::map<std::string, SvgDrawable*>& clip_paths);
+    void initPaths(const Matrix& scale_matrix, const Bounds& view_box);
+    void adjustPaths(const Bounds& view_box, std::map<std::string, SvgDrawable*>& clip_paths);
+    void setSize(const SvgViewSettings& view, float width, float height) {
+      if (width == 0.0f || height == 0.0f)
+        return;
+
       std::map<std::string, SvgDrawable*> clip_paths;
-      auto initial_transform = initialTransform(view);
-      adjustPaths(initial_transform, view.view_box, clip_paths);
+      auto initial_transform = initialTransform(view, width, height);
+      initPaths(initial_transform.matrix, view.view_box);
+      adjustPaths(view.view_box, clip_paths);
       transformPaths(initial_transform);
     }
 
-    Transform initialTransform(const SvgViewSettings& view) {
+    void setSize(const SvgViewSettings& view) { setSize(view, view.width, view.height); }
+
+    Transform initialTransform(const SvgViewSettings& view, float width, float height) {
       Transform transform;
 
       float extra_width = 0.0f;
       float extra_height = 0.0f;
-      if (view.width > 0 && view.height > 0 && view.view_box.width() > 0 && view.view_box.height() > 0) {
-        float scale_x = view.width / view.view_box.width();
-        float scale_y = view.height / view.view_box.height();
+      if (width > 0 && height > 0 && view.view_box.width() > 0 && view.view_box.height() > 0) {
+        float scale_x = width / view.view_box.width();
+        float scale_y = height / view.view_box.height();
         if (view.scale == "meet")
           scale_x = scale_y = std::min(scale_x, scale_y);
         else if (view.scale == "slice")
@@ -249,8 +247,8 @@ namespace visage {
 
         transform = Transform::scale(scale_x, scale_y) *
                     Transform::translation(-view.view_box.x(), -view.view_box.y());
-        extra_width = view.width - (view.view_box.width() * scale_x);
-        extra_height = view.height - (view.view_box.height() * scale_y);
+        extra_width = width - (view.view_box.width() * scale_x);
+        extra_height = height - (view.view_box.height() * scale_y);
       }
 
       if (view.align == "xMidYMid")
@@ -276,6 +274,12 @@ namespace visage {
     std::string id;
     Path::CommandList command_list;
     std::vector<std::unique_ptr<SvgDrawable>> children;
+
+    Transform local_transform;
+    bool transform_origin_x_ratio = false;
+    bool transform_origin_y_ratio = false;
+    float transform_origin_x = 0.0f;
+    float transform_origin_y = 0.0f;
     DrawableState state;
     Brush fill_brush;
     Brush stroke_brush;
@@ -313,6 +317,8 @@ namespace visage {
       this->height = height;
       view_.width = width;
       view_.height = height;
+      // if (drawable_ && view_.width == 0 && view_.height == 0)
+      //   drawable_->setSize(view_, width, height);
     }
 
     int width = 0;
@@ -325,6 +331,7 @@ namespace visage {
     std::unique_ptr<SvgDrawable> computeDrawables(Tag& tag, std::vector<DrawableState>& state_stack);
     void parseStyleAttribute(const std::string& style, DrawableState& state);
     void parseStyleDefinition(const std::string& key, const std::string& value, DrawableState& state);
+    void loadDrawableTransform(const Tag& tag, SvgDrawable* drawable);
     void loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack);
     GradientDef parseGradient(const std::string& color_string);
     void parseClipPath(const Tag& tag, SvgDrawable* drawable);

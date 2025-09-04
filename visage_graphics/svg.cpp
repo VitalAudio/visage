@@ -103,7 +103,7 @@ namespace visage {
     canvas.fill(&stroke_path, x, y, width, height);
   }
 
-  void SvgDrawable::checkPathClipping(const Transform& transform, const Bounds& view_box,
+  void SvgDrawable::checkPathClipping(const Bounds& view_box,
                                       std::map<std::string, SvgDrawable*>& clip_paths) {
     if (is_clip_path) {
       Path p;
@@ -129,21 +129,20 @@ namespace visage {
       }
       Path clip_path;
       clip_path.setFillRule(Path::FillRule::NonZero);
-      clip_path.setResolutionMatrix(transform.matrix);
       clip_path.loadCommands(clip_path_commands);
       applyClipping(&clip_path);
     }
   }
 
-  void SvgDrawable::adjustPaths(const Transform& total_transform, const Bounds& view_box,
-                                std::map<std::string, SvgDrawable*>& clip_paths) {
-    auto transform = total_transform * state.local_transform;
+  void SvgDrawable::initPaths(const Matrix& scale_matrix, const Bounds& view_box) {
+    auto scale = scale_matrix * local_transform.matrix;
     for (auto& child : children)
-      child->adjustPaths(transform, view_box, clip_paths);
+      child->initPaths(scale, view_box);
 
     if (!command_list.empty()) {
+      path.clear();
       path.setFillRule(state.non_zero_fill ? Path::FillRule::NonZero : Path::FillRule::EvenOdd);
-      path.setResolutionMatrix(transform.matrix);
+      path.setResolutionMatrix(scale_matrix);
       path.loadCommands(command_list);
 
       std::vector<float> dashes;
@@ -165,16 +164,29 @@ namespace visage {
 
       Bounds bounding_box = path.boundingBox();
       auto fill_box = state.fill_gradient.user_space ? view_box : bounding_box;
-      fill_brush = state.fill_gradient.toBrush(transform, fill_box);
+      fill_brush = state.fill_gradient.toBrush(fill_box);
       fill_brush = fill_brush.withMultipliedAlpha(state.fill_opacity);
 
       auto stroke_box = state.stroke_gradient.user_space ? view_box : bounding_box;
-      stroke_brush = state.stroke_gradient.toBrush(transform, stroke_box);
+      stroke_brush = state.stroke_gradient.toBrush(stroke_box);
       stroke_brush = stroke_brush.withMultipliedAlpha(state.stroke_opacity);
     }
+  }
 
-    checkPathClipping(transform, view_box, clip_paths);
-    transformPaths(state.local_transform);
+  void SvgDrawable::adjustPaths(const Bounds& view_box, std::map<std::string, SvgDrawable*>& clip_paths) {
+    for (auto& child : children)
+      child->adjustPaths(view_box, clip_paths);
+
+    auto transform = local_transform;
+    if (transform_origin_x || transform_origin_y) {
+      transform = Transform::translation(-transform_origin_x, -transform_origin_y) * transform *
+                  Transform::translation(transform_origin_x, transform_origin_y);
+    }
+
+    if (!transform.isIdentity())
+      transformPaths(transform);
+
+    checkPathClipping(view_box, clip_paths);
   }
 
   inline void tryReadFloat(float& result, const std::string& string) {
@@ -540,6 +552,12 @@ namespace visage {
   void removeWhitespace(std::string& string) {
     constexpr auto is_whitespace = [](char c) { return std::isspace(c); };
     string.erase(std::remove_if(string.begin(), string.end(), is_whitespace), string.end());
+  }
+
+  void trimWhitespace(std::string& string) {
+    constexpr auto is_whitespace = [](char c) { return std::isspace(c); };
+    string.erase(string.begin(), std::find_if_not(string.begin(), string.end(), is_whitespace));
+    string.erase(std::find_if_not(string.rbegin(), string.rend(), is_whitespace).base(), string.end());
   }
 
   std::vector<std::string> parseFunctionTokens(const std::string& function_string, int& pos) {
@@ -1024,18 +1042,20 @@ namespace visage {
     return path;
   }
 
-  void loadOffset(const Tag& tag, std::vector<DrawableState>& state_stack) {
-    auto& state = state_stack.back();
-    state.tranform_origin_x = 0;
-    state.tranform_origin_y = 0;
+  void loadOffset(const Tag& tag, SvgDrawable* drawable) {
+    if (tag.data.name != "svg" && tag.data.name != "use")
+      return;
 
     float x = 0.0, y = 0.0f;
     for (auto& attribute : tag.data.attributes) {
       if (attribute.first == "x")
-        tryReadFloat(state.tranform_origin_x, attribute.second);
+        tryReadFloat(x, attribute.second);
       else if (attribute.first == "y")
-        tryReadFloat(state.tranform_origin_y, attribute.second);
+        tryReadFloat(y, attribute.second);
     }
+
+    if (x || y)
+      drawable->local_transform = drawable->local_transform * Transform::translation(x, y);
   }
 
   void Svg::collectDefs(std::vector<Tag>& tags) {
@@ -1214,24 +1234,6 @@ namespace visage {
       state.visible = value != "hidden";
     else if (key == "display")
       state.visible = value != "none";
-    else if (key == "transform")
-      state.local_transform = parseTransform(value) * state.local_transform;
-    else if (key == "transform-origin") {
-      auto args = splitArguments(value);
-      if (!args.empty()) {
-        for (auto& arg : args) {
-          if (arg == "center")
-            arg = "50%";
-        }
-
-        state.tranform_origin_x = parseNumber(args[0], 1.0f);
-        if (args.size() > 1)
-          state.tranform_origin_y = parseNumber(args[1], 1.0f);
-
-        state.transform_ratio_x = args[0].find('%') != std::string::npos;
-        state.transform_ratio_y = args.size() > 1 && args[1].find('%') != std::string::npos;
-      }
-    }
   }
 
   void Svg::parseStyleAttribute(const std::string& style, DrawableState& state) {
@@ -1244,15 +1246,36 @@ namespace visage {
         std::string key = line.substr(0, pos);
         std::string value = line.substr(pos + 1);
         removeWhitespace(key);
+        trimWhitespace(value);
         parseStyleDefinition(key, value, state);
+      }
+    }
+  }
+
+  void Svg::loadDrawableTransform(const Tag& tag, SvgDrawable* drawable) {
+    if (tag.data.attributes.count("transform"))
+      drawable->local_transform = parseTransform(tag.data.attributes.at("transform")) *
+                                  drawable->local_transform;
+    if (tag.data.attributes.count("transform-origin")) {
+      auto args = splitArguments(tag.data.attributes.at("transform-origin"));
+      if (!args.empty()) {
+        for (auto& arg : args) {
+          if (arg == "center")
+            arg = "50%";
+        }
+
+        drawable->transform_origin_x = parseNumber(args[0], 1.0f);
+        if (args.size() > 1)
+          drawable->transform_origin_y = parseNumber(args[1], 1.0f);
+
+        drawable->transform_origin_x_ratio = args[0].find('%') != std::string::npos;
+        drawable->transform_origin_y_ratio = args.size() > 1 && args[1].find('%') != std::string::npos;
       }
     }
   }
 
   void Svg::loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack) {
     auto& state = state_stack.back();
-    state.opacity = 1.0f;
-    state.local_transform = Transform::identity();
 
     for (auto& attribute : tag.data.attributes) {
       if (attribute.first == "style")
@@ -1267,23 +1290,27 @@ namespace visage {
       return nullptr;
 
     state_stack.push_back(state_stack.back());
+    state_stack.back().opacity = 1.0f;
 
     for (const auto& style : style_lookup_) {
       if (style.first.matches(tag))
         parseStyleAttribute(style.second, state_stack.back());
     }
 
-    loadOffset(tag, state_stack);
     loadDrawableStyle(tag, state_stack);
 
     auto drawable = loadDrawable(tag);
     if (drawable) {
       drawable->state = state_stack.back();
+      loadDrawableTransform(tag, drawable.get());
       state_stack.pop_back();
       return drawable;
     }
 
     drawable = std::make_unique<SvgDrawable>();
+    loadOffset(tag, drawable.get());
+    loadDrawableTransform(tag, drawable.get());
+
     drawable->state = state_stack.back();
     if (tag.data.attributes.count("id"))
       drawable->id = tag.data.attributes.at("id");
