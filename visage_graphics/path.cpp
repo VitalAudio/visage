@@ -89,7 +89,7 @@ namespace visage {
       to += last_point_;
 
     auto ellipse_rotation = Matrix::rotation(x_axis_rotation);
-    Point delta = ellipse_rotation.transpose() * (to - from);
+    Point delta = ellipse_rotation.transposed() * (to - from);
     float radius_ratio = x_radius / y_radius;
     delta.y *= radius_ratio;
 

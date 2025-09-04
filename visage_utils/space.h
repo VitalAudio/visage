@@ -186,11 +186,11 @@ namespace visage {
 
     static BaseMatrix skewY(T skew) { return { 1.0f, 0.0f, std::tan(skew * kPi / 180.0f), 1.0f }; }
 
-    BaseMatrix transpose() const {
+    BaseMatrix transposed() const {
       return { matrix[0][0], matrix[1][0], matrix[0][1], matrix[1][1] };
     }
 
-    BaseMatrix inverse() const {
+    BaseMatrix inversed() const {
       T det = matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0];
       if (det == 0)
         return { 0, 0, 0, 0 };
@@ -225,6 +225,16 @@ namespace visage {
       if (scalar == 0)
         return { 0, 0, 0, 0, 0, 0 };
       return { matrix / scalar, translate / scalar };
+    }
+
+    BaseTransform inversed() const {
+      BaseMatrix<T> inv_matrix = matrix.inversed();
+      return { inv_matrix, inv_matrix * (-translate) };
+    }
+
+    bool isIdentity() const {
+      return matrix.matrix[0][0] == 1 && matrix.matrix[0][1] == 0 && matrix.matrix[1][0] == 0 &&
+             matrix.matrix[1][1] == 1 && translate.x == 0 && translate.y == 0;
     }
 
     static BaseTransform identity() { return { BaseMatrix<T>::identity() }; }

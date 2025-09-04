@@ -355,12 +355,12 @@ namespace visage {
       return interpolate(*this, other, t);
     }
 
-    GradientPosition transform(const Transform& transform) const {
+    GradientPosition transformed(const Transform& transform) const {
       GradientPosition result = *this;
       if (shape == InterpolationShape::Radial) {
         result.point1 = transform * point1;
         result.point2 = transform * point2;
-        auto inverse = transform.matrix.inverse();
+        auto inverse = transform.matrix.inversed();
         float a = inverse.matrix[0][0];
         float b = inverse.matrix[0][1];
         float c = inverse.matrix[1][0];
@@ -375,7 +375,7 @@ namespace visage {
         result.point1 = transform * point1;
         auto delta = point2 - point1;
         auto transformed_delta = transform.matrix * delta;
-        auto dual = transform.matrix.transpose().inverse() * delta;
+        auto dual = transform.matrix.transposed().inversed() * delta;
         auto new_delta = dual * (dual.dot(transformed_delta) / dual.dot(dual));
         result.point2 = result.point1 + new_delta;
       }
@@ -509,7 +509,7 @@ namespace visage {
     void decode(std::istringstream& stream);
     bool isNone() const { return gradient_.colors().empty(); }
 
-    void transform(const Transform& transform) { position_ = position_.transform(transform); }
+    void transform(const Transform& transform) { position_ = position_.transformed(transform); }
 
   private:
     Gradient gradient_;
