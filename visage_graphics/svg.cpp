@@ -53,6 +53,41 @@ namespace visage {
     return tokens;
   }
 
+  std::string removeWhitespace(const std::string& string) {
+    constexpr auto is_whitespace = [](char c) { return std::isspace(c); };
+    std::string result = string;
+    result.erase(std::remove_if(result.begin(), result.end(), is_whitespace), result.end());
+    return result;
+  }
+
+  std::string trimWhitespace(const std::string& string) {
+    constexpr auto is_whitespace = [](char c) { return std::isspace(c); };
+    std::string result = string;
+    result.erase(result.begin(), std::find_if_not(result.begin(), result.end(), is_whitespace));
+    result.erase(std::find_if_not(result.rbegin(), result.rend(), is_whitespace).base(), result.end());
+    return result;
+  }
+
+  std::vector<std::string> parseFunctionTokens(const std::string& function_string, int& pos) {
+    size_t start = function_string.find_first_not_of(" \t\n\r", pos);
+    if (start == std::string::npos)
+      return {};
+
+    size_t end = function_string.find('(', start);
+    if (end == std::string::npos)
+      return { function_string };
+
+    std::string function_name = function_string.substr(start, end - start);
+    size_t close = function_string.find(')', end);
+    if (close == std::string::npos)
+      return {};
+
+    pos = close + 1;
+    auto result = splitArguments(function_string.substr(end + 1, close - end - 1));
+    result.insert(result.begin(), function_name);
+    return result;
+  }
+
   bool CssSelector::matches(const Tag& tag) const {
     // TODO support attributes, pseudo-classes, and chaining selectors
 
@@ -77,7 +112,7 @@ namespace visage {
   }
 
   void SvgDrawable::draw(Canvas& canvas, float x, float y, float width, float height) const {
-    if (!state.visible || state.opacity <= 0.0f)
+    if (!state.visible || opacity <= 0.0f || is_defines)
       return;
 
     canvas.saveState();
@@ -103,7 +138,161 @@ namespace visage {
     canvas.fill(&stroke_path, x, y, width, height);
   }
 
-  void SvgDrawable::checkPathClipping(const Bounds& view_box,
+  float parseNumber(const std::string& str, float max) {
+    auto percent_pos = str.find('%');
+    if (percent_pos != std::string::npos)
+      max = 100.0f;
+
+    try {
+      return std::stof(str) / max;
+    }
+    catch (...) {
+      return 0.0f;
+    }
+  }
+
+  float parsePositionValue(const std::string& token, float range) {
+    if (token == "top" || token == "left")
+      return 0.0f;
+    if (token == "bottom" || token == "right")
+      return range;
+    return range * parseNumber(token, range);
+  }
+
+  Point parseEllipseRadius(const std::string& token1, const std::string& token2, Point center,
+                           float max_x, float max_y) {
+    auto parse_ellipse_dimension = [](const std::string& token, float center, float range) {
+      if (token == "closest-side")
+        return std::min(center, range - center);
+      if (token == "farthest-side")
+        return std::max(center, range - center);
+      return parseNumber(token, range) * range;
+    };
+
+    return { parse_ellipse_dimension(token1, center.x, max_x),
+             parse_ellipse_dimension(token2, center.y, max_y) };
+  }
+
+  float parseCircleRadius(const std::string& token, Point center, float max_x, float max_y) {
+    if (token == "closest-side") {
+      float dx = std::min(center.x, max_x - center.x);
+      float dy = std::min(center.y, max_y - center.y);
+      return std::min(dx, dy);
+    }
+    if (token == "farthest-side") {
+      float dx = std::max(center.x, max_x - center.x);
+      float dy = std::max(center.y, max_y - center.y);
+      return std::max(dx, dy);
+    }
+    if (token == "closest-corner") {
+      float dx = std::min(center.x, max_x - center.x);
+      float dy = std::min(center.y, max_y - center.y);
+      return std::sqrt(dx * dx + dy * dy);
+    }
+    if (token == "farthest-corner") {
+      float dx = std::max(center.x, max_x - center.x);
+      float dy = std::max(center.y, max_y - center.y);
+      return std::sqrt(dx * dx + dy * dy);
+    }
+    if (token.find('%') != std::string::npos)
+      return parseNumber(token, 1.0f) * std::sqrt(0.5f * (max_x * max_x + max_y * max_y));
+
+    return parseNumber(token, 1.0f);
+  }
+
+  Path::CommandList parseEllipseShape(std::vector<std::string>& tokens, const Bounds& bounding_box) {
+    auto next_or_end = [&tokens](std::vector<std::string>::iterator it) {
+      return it < tokens.end() ? std::next(it) : tokens.end();
+    };
+
+    auto at_it = std::find(tokens.begin(), tokens.end(), "at");
+
+    Point center(bounding_box.width() / 2, bounding_box.height() / 2);
+    auto center_it = next_or_end(at_it);
+    if (center_it < tokens.end()) {
+      center.x = parsePositionValue(*center_it, bounding_box.width());
+      center_it++;
+      if (center_it < tokens.end())
+        center.y = parsePositionValue(*center_it, bounding_box.height());
+    }
+
+    auto radius_it = next_or_end(tokens.begin());
+    auto radius2_it = next_or_end(radius_it);
+    Point radius;
+    if (radius2_it < at_it) {
+      radius = parseEllipseRadius(*radius_it, *radius2_it, center, bounding_box.width(),
+                                  bounding_box.height());
+    }
+    else {
+      const std::string& radius_token = radius_it < at_it ? *radius_it : "closest-side";
+      radius.x = radius.y = parseCircleRadius(radius_token, center, bounding_box.width(),
+                                              bounding_box.height());
+    }
+
+    Path::CommandList path;
+    path.addEllipse(bounding_box.x() + center.x, bounding_box.y() + center.y, radius.x, radius.y);
+    return path;
+  }
+
+  Path::CommandList parsePolygonShape(std::vector<std::string>& tokens, const Bounds& bounding_box) {
+    Path::CommandList path;
+    return path;
+  }
+
+  bool parseBorderRadius(float* results, std::vector<std::string>& tokens, const Bounds& bounding_box) {
+    auto r_it = std::find(tokens.begin(), tokens.end(), "round");
+    if (r_it == tokens.end())
+      return false;
+    r_it++;
+    if (r_it == tokens.end())
+      return false;
+
+    auto y_it = std::find(tokens.begin(), tokens.end(), "/");
+    int x_range = std::distance(r_it, y_it);
+    int x_index = std::distance(tokens.begin(), r_it);
+    for (int i = 0; i < 4; ++i) {
+      int index = x_index + i % x_range;
+      float dim = (i % 2) ? bounding_box.height() : bounding_box.width();
+      results[4 + i] = results[i] = parseNumber(tokens[index], dim) * dim;
+    }
+
+    if (y_it != tokens.end() && std::next(y_it) != tokens.end()) {
+      y_it = std::next(y_it);
+      int y_range = std::distance(y_it, tokens.end());
+      int y_index = std::distance(tokens.begin(), y_it);
+      for (int i = 0; i < 4; ++i) {
+        int index = y_index + i % y_range;
+        float dim = (i % 2) ? bounding_box.height() : bounding_box.width();
+        results[4 + i] = parseNumber(tokens[index], dim) * dim;
+      }
+    }
+    return true;
+  }
+
+  Path::CommandList parseRectShape(std::vector<std::string>& tokens, const Bounds& bounding_box) {
+    static constexpr int kNumInsets = 4;
+    float insets[kNumInsets] {};
+    for (int i = 0; i < tokens.size() - 1 && i < kNumInsets; ++i) {
+      float dim = (i % 1) ? bounding_box.width() : bounding_box.height();
+      insets[i] = dim * parseNumber(tokens[i + 1], dim);
+    }
+
+    Path::CommandList path;
+    float rs[8] {};
+    float x = bounding_box.x() + insets[3];
+    float y = bounding_box.y() + insets[0];
+    float width = bounding_box.width() - insets[1] - insets[3];
+    float height = bounding_box.height() - insets[2] - insets[0];
+    if (parseBorderRadius(rs, tokens, bounding_box)) {
+      path.addRoundedRectangle(x, y, width, height, rs[0], rs[4], rs[1], rs[5], rs[2], rs[6], rs[3],
+                               rs[7]);
+    }
+    else
+      path.addRectangle(x, y, width, height);
+    return path;
+  }
+
+  void SvgDrawable::checkPathClipping(const Matrix& scale_matrix, const Bounds& view_box,
                                       std::map<std::string, SvgDrawable*>& clip_paths) {
     if (is_clip_path) {
       Path p;
@@ -112,26 +301,42 @@ namespace visage {
       clip_paths[id] = this;
     }
 
-    if (!clip_path_id.empty()) {
-      if (clip_paths.find(clip_path_id) != clip_paths.end()) {
-        auto clip_path = clip_paths.at(clip_path_id);
-        if (clip_path->path.numPoints())
-          applyClipping(&clip_path->path);
+    int position = 0;
+    auto tokens = parseFunctionTokens(clip_path_shape, position);
+    if (tokens.size() < 1)
+      return;
+
+    if (tokens[0] == "url") {
+      if (tokens.size() > 1 && tokens[1][0] == '#') {
+        auto id = tokens[1].substr(1);
+        if (clip_paths.count(id))
+          applyClipping(&clip_paths.at(id)->path);
       }
+
+      return;
     }
-    else if (!clip_path_commands.empty()) {
-      Bounds bounding_box;
-      switch (clip_box) {
-      case SvgClipBox::ViewBox: bounding_box = view_box; break;
-      case SvgClipBox::BorderBox: bounding_box = boundingBox(); break;
-      case SvgClipBox::FillBox: bounding_box = boundingFillBox(); break;
-      case SvgClipBox::StrokeBox: bounding_box = boundingStrokeBox(); break;
-      }
-      Path clip_path;
-      clip_path.setFillRule(Path::FillRule::NonZero);
-      clip_path.loadCommands(clip_path_commands);
-      applyClipping(&clip_path);
-    }
+
+    std::string remaining = clip_path_shape.substr(position);
+    Bounds bounding_box;
+    if (remaining == "fill-box")
+      bounding_box = boundingFillBox();
+    else if (remaining == "stroke-box")
+      bounding_box = boundingStrokeBox();
+    else if (remaining == "view-box")
+      bounding_box = view_box;
+    else
+      bounding_box = boundingBox();
+
+    Path clip_path;
+    clip_path.setResolutionMatrix(scale_matrix);
+    clip_path.setFillRule(Path::FillRule::NonZero);
+    if (tokens[0] == "inset" || tokens[0] == "rect")
+      clip_path.loadCommands(parseRectShape(tokens, bounding_box));
+    else if (tokens[0] == "circle" || tokens[0] == "ellipse")
+      clip_path.loadCommands(parseEllipseShape(tokens, bounding_box));
+    else if (tokens[0] == "polygon" || tokens[0] == "polyline")
+      clip_path.loadCommands(parsePolygonShape(tokens, bounding_box));
+    applyClipping(&clip_path);
   }
 
   void SvgDrawable::initPaths(const Matrix& scale_matrix, const Bounds& view_box) {
@@ -173,9 +378,10 @@ namespace visage {
     }
   }
 
-  void SvgDrawable::adjustPaths(const Bounds& view_box, std::map<std::string, SvgDrawable*>& clip_paths) {
+  void SvgDrawable::adjustPaths(const Matrix& scale_matrix, const Bounds& view_box,
+                                std::map<std::string, SvgDrawable*>& clip_paths) {
     for (auto& child : children)
-      child->adjustPaths(view_box, clip_paths);
+      child->adjustPaths(scale_matrix * local_transform.matrix, view_box, clip_paths);
 
     auto transform = local_transform;
     if (transform_origin_x || transform_origin_y) {
@@ -186,7 +392,7 @@ namespace visage {
     if (!transform.isIdentity())
       transformPaths(transform);
 
-    checkPathClipping(view_box, clip_paths);
+    checkPathClipping(scale_matrix, view_box, clip_paths);
   }
 
   inline void tryReadFloat(float& result, const std::string& string) {
@@ -222,7 +428,7 @@ namespace visage {
           i = size;
           return result;
         }
-        result += str.substr(current, end_pos - current);
+        result += str.substr(current, i - current);
         i = end_pos + 2;
         current = i;
       }
@@ -511,19 +717,6 @@ namespace visage {
     return Color::fromHexString(color);
   }
 
-  float parseNumber(const std::string& str, float max) {
-    auto percent_pos = str.find('%');
-    if (percent_pos != std::string::npos)
-      max = 100.0f;
-
-    try {
-      return std::stof(str) / max;
-    }
-    catch (...) {
-      return 0.0f;
-    }
-  }
-
   Color parseStopColor(const Tag& tag) {
     Color color;
     if (tag.data.attributes.count("stop-color"))
@@ -547,37 +740,6 @@ namespace visage {
       }
     }
     return color;
-  }
-
-  void removeWhitespace(std::string& string) {
-    constexpr auto is_whitespace = [](char c) { return std::isspace(c); };
-    string.erase(std::remove_if(string.begin(), string.end(), is_whitespace), string.end());
-  }
-
-  void trimWhitespace(std::string& string) {
-    constexpr auto is_whitespace = [](char c) { return std::isspace(c); };
-    string.erase(string.begin(), std::find_if_not(string.begin(), string.end(), is_whitespace));
-    string.erase(std::find_if_not(string.rbegin(), string.rend(), is_whitespace).base(), string.end());
-  }
-
-  std::vector<std::string> parseFunctionTokens(const std::string& function_string, int& pos) {
-    size_t start = function_string.find_first_not_of(" \t\n\r", pos);
-    if (start == std::string::npos)
-      return {};
-
-    size_t end = function_string.find('(', start);
-    if (end == std::string::npos)
-      return { function_string };
-
-    std::string function_name = function_string.substr(start, end - start);
-    size_t close = function_string.find(')', end);
-    if (close == std::string::npos)
-      return {};
-
-    pos = close + 1;
-    auto result = splitArguments(function_string.substr(end + 1, close - end - 1));
-    result.insert(result.begin(), function_name);
-    return result;
   }
 
   Transform parseTransform(const std::string& transform_string) {
@@ -687,7 +849,7 @@ namespace visage {
     std::string selector_text;
 
     while (std::getline(ss, selector_text, ' ')) {
-      removeWhitespace(selector_text);
+      selector_text = removeWhitespace(selector_text);
       if (selector_text.empty())
         continue;
       if (edited == ">") {
@@ -702,7 +864,7 @@ namespace visage {
       std::stringstream selector_stream(selector_text);
       std::string item;
       while (std::getline(selector_stream, item, ' ')) {
-        removeWhitespace(item);
+        item = removeWhitespace(item);
         if (item[0] == '#')
           selector.id = item.substr(1);
         else if (item[0] == '.')
@@ -721,8 +883,7 @@ namespace visage {
   }
 
   Color parseColor(const std::string& color_string) {
-    std::string color = color_string;
-    removeWhitespace(color);
+    std::string color = removeWhitespace(color_string);
 
     if (color == "none")
       return {};
@@ -788,17 +949,13 @@ namespace visage {
     return result;
   }
 
-  std::unique_ptr<SvgDrawable> loadDrawable(const Tag& tag) {
+  bool loadDrawable(const Tag& tag, SvgDrawable* drawable) {
     float width = 0.0f;
     float height = 0.0f;
     if (tag.data.attributes.count("width"))
       width = parseNumber(tag.data.attributes.at("width"), 1.0f);
     if (tag.data.attributes.count("height"))
       height = parseNumber(tag.data.attributes.at("height"), 1.0f);
-
-    auto drawable = std::make_unique<SvgDrawable>();
-    if (tag.data.attributes.count("id"))
-      drawable->id = tag.data.attributes.at("id");
 
     if (tag.data.name == "path" && tag.data.attributes.count("d"))
       drawable->command_list = Path::parseSvgPath(tag.data.attributes.at("d"));
@@ -818,7 +975,8 @@ namespace visage {
     else if (tag.data.name == "polygon" || tag.data.name == "polyline") {
       auto points = splitArguments(tag.data.attributes.at("points"));
       if (points.size() < 2)
-        return nullptr;
+        return false;
+
       drawable->command_list.moveTo(parseNumber(points[0], 1.0f), parseNumber(points[1], 1.0f));
       for (size_t i = 3; i < points.size(); i += 2)
         drawable->command_list.lineTo(parseNumber(points[i - 1], 1.0f), parseNumber(points[i], 1.0f));
@@ -867,9 +1025,11 @@ namespace visage {
       drawable->command_list.addEllipse(x + cx, y + cy, rx, ry);
     }
     else
-      return nullptr;
+      return false;
 
-    return drawable;
+    if (tag.data.attributes.count("id"))
+      drawable->id = tag.data.attributes.at("id");
+    return true;
   }
 
   Path::EndCap parseStrokeEndCap(const std::string& value) {
@@ -906,140 +1066,6 @@ namespace visage {
     }
 
     return array;
-  }
-
-  float parseCircleRadius(const std::string& token, Point center, float max_x, float max_y) {
-    if (token == "closest-side") {
-      float dx = std::min(center.x, max_x - center.x);
-      float dy = std::min(center.y, max_y - center.y);
-      return std::min(dx, dy);
-    }
-    if (token == "farthest-side") {
-      float dx = std::max(center.x, max_x - center.x);
-      float dy = std::max(center.y, max_y - center.y);
-      return std::max(dx, dy);
-    }
-    if (token == "closest-corner") {
-      float dx = std::min(center.x, max_x - center.x);
-      float dy = std::min(center.y, max_y - center.y);
-      return std::sqrt(dx * dx + dy * dy);
-    }
-    if (token == "farthest-corner") {
-      float dx = std::max(center.x, max_x - center.x);
-      float dy = std::max(center.y, max_y - center.y);
-      return std::sqrt(dx * dx + dy * dy);
-    }
-    if (token.find('%') != std::string::npos)
-      return parseNumber(token, 1.0f) * std::sqrt(0.5f * (max_x * max_x + max_y * max_y));
-
-    return parseNumber(token, 1.0f);
-  }
-
-  Point parseEllipseRadius(const std::string& token1, const std::string& token2, Point center,
-                           float max_x, float max_y) {
-    auto parse_ellipse_dimension = [](const std::string& token, float center, float range) {
-      if (token == "closest-side")
-        return std::min(center, range - center);
-      if (token == "farthest-side")
-        return std::max(center, range - center);
-      return parseNumber(token, range) * range;
-    };
-
-    return { parse_ellipse_dimension(token1, center.x, max_x),
-             parse_ellipse_dimension(token2, center.y, max_y) };
-  }
-
-  float parsePositionValue(const std::string& token, float range) {
-    if (token == "top" || token == "left")
-      return 0.0f;
-    if (token == "bottom" || token == "right")
-      return range;
-    return range * parseNumber(token, range);
-  }
-
-  Path::CommandList parseEllipseShape(std::vector<std::string>& tokens, const Bounds& bounding_box) {
-    auto next_or_end = [&tokens](std::vector<std::string>::iterator it) {
-      return it < tokens.end() ? std::next(it) : tokens.end();
-    };
-
-    auto at_it = std::find(tokens.begin(), tokens.end(), "at");
-
-    Point center(bounding_box.width() / 2, bounding_box.height() / 2);
-    auto center_it = next_or_end(at_it);
-    if (center_it < tokens.end()) {
-      center.x = parsePositionValue(*center_it, bounding_box.width());
-      center_it++;
-      if (center_it < tokens.end())
-        center.y = parsePositionValue(*center_it, bounding_box.height());
-    }
-
-    auto radius_it = next_or_end(tokens.begin());
-    auto radius2_it = next_or_end(radius_it);
-    Point radius;
-    if (radius2_it < at_it) {
-      radius = parseEllipseRadius(*radius_it, *radius2_it, center, bounding_box.width(),
-                                  bounding_box.height());
-    }
-    else {
-      const std::string& radius_token = radius_it < at_it ? *radius_it : "closest-edge";
-      radius.x = radius.y = parseCircleRadius(radius_token, center, bounding_box.width(),
-                                              bounding_box.height());
-    }
-
-    Path::CommandList path;
-    path.addEllipse(bounding_box.x() + center.x, bounding_box.y() + center.y, radius.x, radius.y);
-    return path;
-  }
-
-  bool parseBorderRadius(float* results, std::vector<std::string>& tokens, const Bounds& bounding_box) {
-    auto r_it = std::find(tokens.begin(), tokens.end(), "round");
-    if (r_it == tokens.end())
-      return false;
-    r_it++;
-    if (r_it == tokens.end())
-      return false;
-
-    auto y_it = std::find(tokens.begin(), tokens.end(), "/");
-    int x_range = std::distance(r_it, y_it);
-    int x_index = std::distance(tokens.begin(), r_it);
-    for (int i = 0; i < 4; ++i) {
-      int index = x_index + i % x_range;
-      float dim = (i % 2) ? bounding_box.height() : bounding_box.width();
-      results[4 + i] = results[i] = parseNumber(tokens[index], dim) * dim;
-    }
-
-    if (y_it != tokens.end() && std::next(y_it) != tokens.end()) {
-      y_it = std::next(y_it);
-      int y_range = std::distance(y_it, tokens.end());
-      int y_index = std::distance(tokens.begin(), y_it);
-      for (int i = 0; i < 4; ++i) {
-        int index = y_index + i % y_range;
-        float dim = (i % 2) ? bounding_box.height() : bounding_box.width();
-        results[4 + i] = parseNumber(tokens[index], dim) * dim;
-      }
-    }
-    return true;
-  }
-
-  Path::CommandList parseRectShape(std::vector<std::string>& tokens, const Bounds& bounding_box) {
-    static constexpr int kNumInsets = 4;
-    float insets[kNumInsets] {};
-    for (int i = 0; i < tokens.size() - 1 && i < kNumInsets; ++i) {
-      float dim = (i % 1) ? bounding_box.width() : bounding_box.height();
-      insets[i] = dim * parseNumber(tokens[i + 1], dim);
-    }
-
-    Path::CommandList path;
-    float rs[8] {};
-    if (parseBorderRadius(rs, tokens, bounding_box)) {
-      path.addRoundedRectangle(bounding_box.x() + insets[3], bounding_box.y() + insets[0],
-                               bounding_box.width() - insets[1], bounding_box.height() - insets[2],
-                               rs[0], rs[4], rs[1], rs[5], rs[2], rs[6], rs[3], rs[7]);
-    }
-    else
-      path.addRectangle(bounding_box.x() + insets[3], bounding_box.y() + insets[0],
-                        bounding_box.width() - insets[1], bounding_box.height() - insets[2]);
-    return path;
   }
 
   void loadOffset(const Tag& tag, SvgDrawable* drawable) {
@@ -1113,7 +1139,7 @@ namespace visage {
     }
   }
 
-  void Svg::parseCssStyle(std::string& style) {
+  void Svg::parseCssStyle(const std::string& style) {
     size_t pos = 0;
     while (pos < style.size()) {
       size_t brace_open = style.find('{', pos);
@@ -1124,8 +1150,7 @@ namespace visage {
       if (brace_close == std::string::npos)
         break;
 
-      std::string selectors = style.substr(pos, brace_open - pos);
-      removeWhitespace(selectors);
+      std::string selectors = removeWhitespace(style.substr(pos, brace_open - pos));
       std::stringstream ss(selectors);
 
       std::string rules = style.substr(brace_open + 1, brace_close - brace_open - 1);
@@ -1150,8 +1175,7 @@ namespace visage {
   }
 
   GradientDef Svg::parseGradient(const std::string& color_string) {
-    std::string color = color_string;
-    removeWhitespace(color);
+    std::string color = removeWhitespace(color_string);
     if (color.substr(0, 3) == "url") {
       int pos = 0;
       auto tokens = parseFunctionTokens(color, pos);
@@ -1165,45 +1189,12 @@ namespace visage {
     return parseColor(color);
   }
 
-  void Svg::parseClipPath(const Tag& tag, SvgDrawable* drawable) {
-    drawable->is_clip_path = tag.data.name == "clipPath";
-
-    if (tag.data.attributes.count("clip-path") == 0)
-      return;
-
-    auto clip = tag.data.attributes.at("clip-path");
-    int position = 0;
-    auto tokens = parseFunctionTokens(clip, position);
-    if (tokens.size() < 1)
-      return;
-
-    if (tokens[0] == "url") {
-      if (tokens.size() > 1 && tokens[1][0] == '#')
-        drawable->clip_path_id = tokens[1].substr(1);
-
-      return;
-    }
-
-    std::string remaining = clip.substr(position);
-    Bounds bounding_box;
-    if (remaining == "fill-box")
-      drawable->clip_box = SvgClipBox::FillBox;
-    else if (remaining == "stroke-box")
-      drawable->clip_box = SvgClipBox::StrokeBox;
-    else if (remaining == "view-box")
-      drawable->clip_box = SvgClipBox::ViewBox;
-
-    if (tokens[0] == "inset" || tokens[0] == "rect")
-      drawable->clip_path_commands = parseRectShape(tokens, bounding_box);
-    else if (tokens[0] == "circle" || tokens[0] == "ellipse")
-      drawable->clip_path_commands = parseEllipseShape(tokens, bounding_box);
-    else
-      VISAGE_ASSERT(false);
-  }
-
-  void Svg::parseStyleDefinition(const std::string& key, const std::string& value, DrawableState& state) {
+  void Svg::parseStyleDefinition(const std::string& key, const std::string& value,
+                                 DrawableState& state, SvgDrawable* drawable) {
     if (key == "opacity")
-      tryReadFloat(state.opacity, value);
+      tryReadFloat(drawable->opacity, value);
+    else if (key == "clip-path")
+      drawable->clip_path_shape = value;
     else if (key == "color")
       state.current_color = parseColor(value);
     else if (key == "fill")
@@ -1236,7 +1227,7 @@ namespace visage {
       state.visible = value != "none";
   }
 
-  void Svg::parseStyleAttribute(const std::string& style, DrawableState& state) {
+  void Svg::parseStyleAttribute(const std::string& style, DrawableState& state, SvgDrawable* drawable) {
     std::stringstream stream(style);
     std::string line;
 
@@ -1245,9 +1236,7 @@ namespace visage {
       if (pos != std::string::npos) {
         std::string key = line.substr(0, pos);
         std::string value = line.substr(pos + 1);
-        removeWhitespace(key);
-        trimWhitespace(value);
-        parseStyleDefinition(key, value, state);
+        parseStyleDefinition(removeWhitespace(key), trimWhitespace(value), state, drawable);
       }
     }
   }
@@ -1274,53 +1263,51 @@ namespace visage {
     }
   }
 
-  void Svg::loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack) {
+  void Svg::loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack, SvgDrawable* drawable) {
+    drawable->is_clip_path = tag.data.name == "clipPath";
     auto& state = state_stack.back();
 
     for (auto& attribute : tag.data.attributes) {
       if (attribute.first == "style")
-        parseStyleAttribute(attribute.second, state);
+        parseStyleAttribute(attribute.second, state, drawable);
       else
-        parseStyleDefinition(attribute.first, attribute.second, state);
+        parseStyleDefinition(attribute.first, attribute.second, state, drawable);
     }
   }
 
   std::unique_ptr<SvgDrawable> Svg::computeDrawables(Tag& tag, std::vector<DrawableState>& state_stack) {
-    if (tag.data.name == "defs" || tag.data.ignored)
+    if (tag.data.ignored)
       return nullptr;
 
     state_stack.push_back(state_stack.back());
-    state_stack.back().opacity = 1.0f;
+    auto drawable = std::make_unique<SvgDrawable>();
+    drawable->is_defines = tag.data.name == "defs";
 
     for (const auto& style : style_lookup_) {
       if (style.first.matches(tag))
-        parseStyleAttribute(style.second, state_stack.back());
+        parseStyleAttribute(style.second, state_stack.back(), drawable.get());
     }
 
-    loadDrawableStyle(tag, state_stack);
+    loadDrawableStyle(tag, state_stack, drawable.get());
+    drawable->state = state_stack.back();
 
-    auto drawable = loadDrawable(tag);
-    if (drawable) {
-      drawable->state = state_stack.back();
+    if (loadDrawable(tag, drawable.get())) {
       loadDrawableTransform(tag, drawable.get());
       state_stack.pop_back();
       return drawable;
     }
 
-    drawable = std::make_unique<SvgDrawable>();
-    loadOffset(tag, drawable.get());
-    loadDrawableTransform(tag, drawable.get());
-
-    drawable->state = state_stack.back();
     if (tag.data.attributes.count("id"))
       drawable->id = tag.data.attributes.at("id");
+
+    loadOffset(tag, drawable.get());
+    loadDrawableTransform(tag, drawable.get());
     for (auto& child_tag : tag.children) {
       auto child = computeDrawables(child_tag, state_stack);
       if (child)
         drawable->children.push_back(std::move(child));
     }
 
-    parseClipPath(tag, drawable.get());
     state_stack.pop_back();
     return drawable;
   }
