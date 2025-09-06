@@ -236,6 +236,18 @@ namespace visage {
 
   Path::CommandList parsePolygonShape(std::vector<std::string>& tokens, const Bounds& bounding_box) {
     Path::CommandList path;
+    if (tokens.size() > 2) {
+      float x = bounding_box.width() * parseNumber(tokens[1], bounding_box.width());
+      float y = bounding_box.height() * parseNumber(tokens[2], bounding_box.height());
+      path.moveTo(bounding_box.x() + x, bounding_box.y() + y);
+    }
+    int index = 3;
+    while (index + 1 < tokens.size()) {
+      float x = bounding_box.width() * parseNumber(tokens[index], bounding_box.width());
+      float y = bounding_box.height() * parseNumber(tokens[index + 1], bounding_box.height());
+      path.lineTo(bounding_box.x() + x, bounding_box.y() + y);
+      index += 2;
+    }
     return path;
   }
 
@@ -306,16 +318,6 @@ namespace visage {
     if (tokens.size() < 1)
       return;
 
-    if (tokens[0] == "url") {
-      if (tokens.size() > 1 && tokens[1][0] == '#') {
-        auto id = tokens[1].substr(1);
-        if (clip_paths.count(id))
-          applyClipping(&clip_paths.at(id)->path);
-      }
-
-      return;
-    }
-
     std::string remaining = clip_path_shape.substr(position);
     Bounds bounding_box;
     if (remaining == "fill-box")
@@ -326,6 +328,30 @@ namespace visage {
       bounding_box = view_box;
     else
       bounding_box = boundingBox();
+
+    if (tokens[0] == "url") {
+      if (tokens.size() > 1 && tokens[1][0] == '#') {
+        auto id = tokens[1].substr(1);
+        if (clip_paths.count(id)) {
+          auto& clip_drawable = clip_paths.at(id);
+          if (clip_drawable->is_clip_bounding_box) {
+            auto scale = scale_matrix * Matrix::scale(bounding_box.width(), bounding_box.height());
+            clip_drawable->initPaths(scale, view_box);
+            clip_drawable->adjustPaths(scale, view_box, clip_paths);
+
+            Path clip_path;
+            clip_drawable->unionPaths(&clip_path);
+            clip_path.transform(Transform::translation(bounding_box.x(), bounding_box.y()) *
+                                Transform::scale(bounding_box.width(), bounding_box.height()));
+            applyClipping(&clip_path);
+          }
+          else
+            applyClipping(&clip_drawable->path);
+        }
+      }
+
+      return;
+    }
 
     Path clip_path;
     clip_path.setResolutionMatrix(scale_matrix);
@@ -392,7 +418,7 @@ namespace visage {
     if (!transform.isIdentity())
       transformPaths(transform);
 
-    checkPathClipping(scale_matrix, view_box, clip_paths);
+    checkPathClipping(scale_matrix * local_transform.matrix, view_box, clip_paths);
   }
 
   inline void tryReadFloat(float& result, const std::string& string) {
@@ -1265,6 +1291,8 @@ namespace visage {
 
   void Svg::loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack, SvgDrawable* drawable) {
     drawable->is_clip_path = tag.data.name == "clipPath";
+    drawable->is_clip_bounding_box = tag.data.attributes.count("clipPathUnits") &&
+                                     tag.data.attributes.at("clipPathUnits") == "objectBoundingBox";
     auto& state = state_stack.back();
 
     for (auto& attribute : tag.data.attributes) {

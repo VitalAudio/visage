@@ -300,6 +300,7 @@ namespace visage {
     Path stroke_path;
 
     bool is_clip_path = false;
+    bool is_clip_bounding_box = false;
     std::string clip_path_shape;
   };
 
