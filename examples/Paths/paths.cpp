@@ -222,7 +222,7 @@ int runExample() {
 
     svg.draw(canvas, 0, 0);
     canvas.setColor(0xff00ff00);
-    canvas.fill(&path, 0, 0, 120, 150);
+    // canvas.fill(&path, 0, 0, 120, 150);
     app.redraw();
   };
 

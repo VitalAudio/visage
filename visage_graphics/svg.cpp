@@ -308,6 +308,7 @@ namespace visage {
                                       std::map<std::string, SvgDrawable*>& clip_paths) {
     if (is_clip_path) {
       Path p;
+      path.clear();
       unionPaths(&p);
       path = p;
       clip_paths[id] = this;
@@ -376,32 +377,48 @@ namespace visage {
       path.setResolutionMatrix(scale_matrix);
       path.loadCommands(command_list);
 
-      std::vector<float> dashes;
-      float dash_scale = std::sqrt(0.5f * (view_box.width() * view_box.width() +
-                                           view_box.height() * view_box.height()));
-      float dash_offset = state.stroke_dashoffset;
-      if (state.stroke_dashoffset_ratio)
-        dash_offset *= dash_scale;
-
-      for (const auto& dash : state.stroke_dasharray) {
-        if (dash.second)
-          dashes.push_back(dash.first * dash_scale);
-        else
-          dashes.push_back(dash.first);
-      }
-
-      stroke_path = path.stroke(state.stroke_width, state.stroke_join, state.stroke_end_cap, dashes,
-                                dash_offset, state.stroke_miter_limit);
-
       Bounds bounding_box = path.boundingBox();
       auto fill_box = state.fill_gradient.user_space ? view_box : bounding_box;
       fill_brush = state.fill_gradient.toBrush(fill_box);
       fill_brush = fill_brush.withMultipliedAlpha(state.fill_opacity);
 
-      auto stroke_box = state.stroke_gradient.user_space ? view_box : bounding_box;
-      stroke_brush = state.stroke_gradient.toBrush(stroke_box);
-      stroke_brush = stroke_brush.withMultipliedAlpha(state.stroke_opacity);
+      strokePath(scale_matrix, view_box);
     }
+  }
+
+  void SvgDrawable::strokePath(const Matrix& scale_matrix, const Bounds& view_box) {
+    if (state.stroke_width <= 0.0f || !state.visible || state.stroke_opacity <= 0.0f ||
+        state.stroke_gradient.isNone()) {
+      return;
+    }
+
+    std::vector<float> dashes;
+    float dash_scale = std::sqrt(0.5f * (view_box.width() * view_box.width() +
+                                         view_box.height() * view_box.height()));
+    float dash_offset = state.stroke_dashoffset;
+    if (state.stroke_dashoffset_ratio)
+      dash_offset *= dash_scale;
+
+    for (const auto& dash : state.stroke_dasharray) {
+      if (dash.second)
+        dashes.push_back(dash.first * dash_scale);
+      else
+        dashes.push_back(dash.first);
+    }
+
+    if (state.non_scaling_stroke) {
+      auto inverted = path.transformed(scale_matrix);
+      stroke_path = inverted.stroke(state.stroke_width, state.stroke_join, state.stroke_end_cap,
+                                    dashes, dash_offset, state.stroke_miter_limit);
+      stroke_path.transform(scale_matrix.inversed());
+    }
+    else {
+      stroke_path = path.stroke(state.stroke_width, state.stroke_join, state.stroke_end_cap, dashes,
+                                dash_offset, state.stroke_miter_limit);
+    }
+    auto stroke_box = state.stroke_gradient.user_space ? view_box : path.boundingBox();
+    stroke_brush = state.stroke_gradient.toBrush(stroke_box);
+    stroke_brush = stroke_brush.withMultipliedAlpha(state.stroke_opacity);
   }
 
   void SvgDrawable::adjustPaths(const Matrix& scale_matrix, const Bounds& view_box,
@@ -1245,6 +1262,8 @@ namespace visage {
       state.stroke_dashoffset = parseNumber(value, 1.0f);
       state.stroke_dashoffset_ratio = value.find('%') != std::string::npos;
     }
+    else if (key == "vector-effect")
+      state.non_scaling_stroke = value == "non-scaling-stroke";
     else if (key == "stroke-miterlimit")
       tryReadFloat(state.stroke_miter_limit, value);
     else if (key == "visibility")

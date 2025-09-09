@@ -88,6 +88,14 @@ namespace visage {
       evenlySpace();
     }
 
+    bool isNone() const {
+      for (auto& color : colors_) {
+        if (color.alpha() > 0.0f)
+          return false;
+      }
+      return true;
+    }
+
     void evenlySpace() {
       positions_.resize(colors_.size(), 0.0f);
       if (colors_.size() > 1) {
@@ -507,7 +515,7 @@ namespace visage {
     void encode(std::ostringstream& stream) const;
     void decode(const std::string& data);
     void decode(std::istringstream& stream);
-    bool isNone() const { return gradient_.colors().empty(); }
+    bool isNone() const { return gradient_.isNone(); }
 
     void transform(const Transform& transform) { position_ = position_.transformed(transform); }
 
