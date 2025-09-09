@@ -90,6 +90,8 @@ namespace visage {
       return Brush(gradient, position);
     }
 
+    bool isNone() { return gradient.isNone(); }
+
     Gradient gradient;
     Transform transform;
     bool radial = false;
@@ -115,6 +117,7 @@ namespace visage {
     std::vector<std::pair<float, bool>> stroke_dasharray;
     float stroke_dashoffset = 0.0f;
     bool stroke_dashoffset_ratio = false;
+    bool non_scaling_stroke = false;
     float stroke_miter_limit = 4.0f;
 
     bool visible = true;
@@ -154,6 +157,7 @@ namespace visage {
         children.push_back(std::make_unique<SvgDrawable>(*child));
 
       is_clip_path = other.is_clip_path;
+      is_clip_bounding_box = other.is_clip_bounding_box;
       clip_path_shape = other.clip_path_shape;
       return *this;
     }
@@ -191,10 +195,15 @@ namespace visage {
     Bounds boundingBox() { return boundingFillBox().unioned(boundingStrokeBox()); }
 
     void transformPaths(const Transform& transform) {
-      path = path.transformed(transform);
-      stroke_path = stroke_path.transformed(transform);
-      fill_brush.transform(transform);
-      stroke_brush.transform(transform);
+      if (path.numPoints()) {
+        path = path.transformed(transform);
+        fill_brush.transform(transform);
+
+        if (stroke_path.numPoints()) {
+          stroke_path = stroke_path.transformed(transform);
+          stroke_brush.transform(transform);
+        }
+      }
       for (auto& child : children)
         child->transformPaths(transform);
     }
@@ -229,6 +238,7 @@ namespace visage {
     void initPaths(const Matrix& scale_matrix, const Bounds& view_box);
     void adjustPaths(const Matrix& scale_matrix, const Bounds& view_box,
                      std::map<std::string, SvgDrawable*>& clip_paths);
+    void strokePath(const Matrix& scale_matrix, const Bounds& view_box);
     void setSize(const SvgViewSettings& view, float width, float height) {
       if (width == 0.0f || height == 0.0f)
         return;
