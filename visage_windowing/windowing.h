@@ -37,7 +37,6 @@ namespace visage {
   class Window {
   public:
     static constexpr float kDefaultDpi = 96.0f;
-    static constexpr float kDefaultMinWindowScale = 0.1f;
 
     enum class Decoration {
       Native,
@@ -73,6 +72,8 @@ namespace visage {
 
       virtual void handleFocusLost() = 0;
       virtual void handleFocusGained() = 0;
+      virtual void handleAdjustResize(int* width, int* height, bool horizontal_resize,
+                                      bool vertical_resize) { }
       virtual void handleResized(int width, int height) = 0;
 
       virtual bool handleFileDrag(int x, int y, const std::vector<std::string>& files) = 0;
@@ -84,10 +85,9 @@ namespace visage {
       virtual void cleanupDragDropSource() = 0;
     };
 
-    Window() = delete;
     Window(const Window&) = delete;
 
-    explicit Window(float aspect_ratio);
+    Window();
     Window(int width, int height);
     virtual ~Window() = default;
 
@@ -126,11 +126,6 @@ namespace visage {
         draw_callback_(time);
     }
 
-    void setMinimumWindowScale(float scale) { min_window_scale_ = scale; }
-    float minimumWindowScale() const { return min_window_scale_; }
-    virtual void setFixedAspectRatio(bool fixed) { fixed_aspect_ratio_ = fixed; }
-    bool isFixedAspectRatio() const { return fixed_aspect_ratio_; }
-    float aspectRatio() const { return aspect_ratio_; }
     bool isVisible() const { return visible_; }
 
     IPoint lastWindowMousePosition() const { return last_window_mouse_position_; }
@@ -175,6 +170,7 @@ namespace visage {
     void handleFocusLost();
     void handleFocusGained();
     void handleResized(int width, int height);
+    void handleAdjustResize(int* width, int* height, bool horizontal_resize, bool vertical_resize);
 
     bool handleKeyDown(KeyCode key_code, int modifiers, bool repeat);
     bool handleKeyUp(KeyCode key_code, int modifiers);
@@ -206,11 +202,8 @@ namespace visage {
     CallbackList<void()> on_hide_;
     CallbackList<void()> on_contents_resized_;
     float dpi_scale_ = 1.0f;
-    float min_window_scale_ = kDefaultMinWindowScale;
     bool visible_ = true;
-    bool fixed_aspect_ratio_ = false;
     bool mouse_relative_mode_ = false;
-    float aspect_ratio_ = 1.0f;
     int client_width_ = 0;
     int client_height_ = 0;
 

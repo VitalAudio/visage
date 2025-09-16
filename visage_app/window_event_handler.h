@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "application_editor.h"
 #include "visage_ui/events.h"
 #include "visage_windowing/windowing.h"
 
@@ -32,7 +33,7 @@ namespace visage {
     WindowEventHandler() = delete;
     WindowEventHandler(const WindowEventHandler&) = delete;
 
-    WindowEventHandler(Window* window, Frame* frame);
+    WindowEventHandler(ApplicationEditor* editor, Frame* frame);
     ~WindowEventHandler() override;
 
     void onFrameResize(const Frame* frame) const;
@@ -71,6 +72,7 @@ namespace visage {
     void handleFocusLost() override;
     void handleFocusGained() override;
     void handleResized(int width, int height) override;
+    void handleAdjustResize(int* width, int* height, bool horizontal_resize, bool vertical_resize) override;
 
     bool handleFileDrag(int x, int y, const std::vector<std::string>& files) override;
     void handleFileDragLeave() override;
@@ -83,6 +85,7 @@ namespace visage {
   private:
     Frame* dragDropFrame(Point point, const std::vector<std::string>& files) const;
 
+    ApplicationEditor* editor_ = nullptr;
     Window* window_ = nullptr;
     Frame* content_frame_ = nullptr;
     Frame* mouse_hovered_frame_ = nullptr;

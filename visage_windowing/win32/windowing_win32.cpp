@@ -1003,6 +1003,19 @@ namespace visage {
     return window->handleWindowProc(hwnd, msg, w_param, l_param);
   }
 
+  static IBounds windowBorderSize(HWND hwnd) {
+    WINDOWINFO info {};
+    info.cbSize = sizeof(info);
+    if (!GetWindowInfo(hwnd, &info))
+      return {};
+
+    int x = info.rcWindow.left - info.rcClient.left;
+    int y = info.rcWindow.top - info.rcClient.top;
+    int width = -x + info.rcWindow.right - info.rcClient.right;
+    int height = -y + info.rcWindow.bottom - info.rcClient.bottom;
+    return { x, y, width, height };
+  }
+
   LRESULT WindowWin32::handleWindowProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
     switch (msg) {
     case WM_VBLANK: {
@@ -1297,19 +1310,6 @@ namespace visage {
     return { bounds_x, bounds_y, bounds_width, bounds_height };
   }
 
-  static IBounds windowBorderSize(HWND hwnd) {
-    WINDOWINFO info {};
-    info.cbSize = sizeof(info);
-    if (!GetWindowInfo(hwnd, &info))
-      return {};
-
-    int x = info.rcWindow.left - info.rcClient.left;
-    int y = info.rcWindow.top - info.rcClient.top;
-    int width = -x + info.rcWindow.right - info.rcClient.right;
-    int height = -y + info.rcWindow.bottom - info.rcClient.bottom;
-    return { x, y, width, height };
-  }
-
   static void clearMessage(MSG* message) {
     *message = {};
     message->message = WM_USER;
@@ -1583,36 +1583,34 @@ namespace visage {
     SetWindowText(window_handle_, w_title.c_str());
   }
 
+  BOOL CALLBACK enumMonProc(HMONITOR monitor_handle, HDC, LPRECT, LPARAM lparam) {
+    RECT* result = reinterpret_cast<RECT*>(lparam);
+    MONITORINFO info { sizeof(info) };
+    if (GetMonitorInfo(monitor_handle, &info)) {
+      result->left = std::min(result->left, info.rcWork.left);
+      result->top = std::min(result->top, info.rcWork.top);
+      result->right = std::max(result->right, info.rcWork.right);
+      result->bottom = std::max(result->bottom, info.rcWork.bottom);
+    }
+    return TRUE;
+  }
+
+  static IPoint totalWorkArea() {
+    RECT rect = { LONG_MAX, LONG_MAX, LONG_MIN, LONG_MIN };
+    EnumDisplayMonitors(nullptr, nullptr, enumMonProc, reinterpret_cast<LPARAM>(&rect));
+    if (rect.right < rect.left || rect.bottom < rect.top)
+      return { 0, 0 };
+
+    return { rect.right - rect.left, rect.bottom - rect.top };
+  }
+
   IPoint WindowWin32::maxWindowDimensions() const {
     IBounds borders = windowBorderSize(window_handle_);
     if (borders.width() == 0 && borders.height() == 0 && parent_handle_)
       borders = windowBorderSize(parent_handle_);
 
-    MONITORINFO monitor_info {};
-    monitor_info.cbSize = sizeof(MONITORINFO);
-    GetMonitorInfo(monitor_, &monitor_info);
-
-    int display_width = monitor_info.rcWork.right - monitor_info.rcWork.left - borders.width();
-    int display_height = monitor_info.rcWork.bottom - monitor_info.rcWork.top - borders.height();
-
-    float aspect_ratio = aspectRatio();
-    int width_from_height = static_cast<int>(display_height * aspect_ratio);
-    int height_from_width = static_cast<int>(display_width / aspect_ratio);
-    return { std::min<int>(display_width, width_from_height),
-             std::min<int>(display_height, height_from_width) };
-  }
-
-  IPoint WindowWin32::minWindowDimensions() const {
-    float scale = minimumWindowScale();
-    MONITORINFO monitor_info {};
-    monitor_info.cbSize = sizeof(MONITORINFO);
-    GetMonitorInfo(monitor_, &monitor_info);
-
-    int min_width = static_cast<int>(scale * (monitor_info.rcWork.right - monitor_info.rcWork.left));
-    int min_height = static_cast<int>(scale * (monitor_info.rcWork.bottom - monitor_info.rcWork.top));
-    float aspect_ratio = aspectRatio();
-    return { std::max<int>(min_width, static_cast<int>(min_height * aspect_ratio)),
-             std::max<int>(min_height, static_cast<int>(min_width / aspect_ratio)) };
+    auto work_area = totalWorkArea();
+    return { work_area.x - borders.width(), work_area.y - borders.height() };
   }
 
   static bool is2ByteCharacter(wchar_t character) {
@@ -1672,72 +1670,56 @@ namespace visage {
     int width = rect->right - rect->left - borders.width();
     int height = rect->bottom - rect->top - borders.height();
 
-    if (!isFixedAspectRatio()) {
-      handleResized(width, height);
-      return;
-    }
-
-    float aspect_ratio = aspectRatio();
-    VISAGE_ASSERT(aspect_ratio > 0.0f);
-
-    bool horizontal_resize = w_param == WMSZ_LEFT || w_param == WMSZ_RIGHT ||
-                             w_param == WMSZ_BOTTOMLEFT || w_param == WMSZ_BOTTOMRIGHT;
-    bool vertical_resize = w_param == WMSZ_TOP || w_param == WMSZ_BOTTOM ||
-                           w_param == WMSZ_TOPLEFT || w_param == WMSZ_TOPRIGHT;
-
-    Point max_dimensions = Point(maxWindowDimensions());
-    Point min_dimensions = Point(minWindowDimensions());
-    Point adjusted_dimensions = adjustBoundsForAspectRatio({ width * 1.0f, height * 1.0f },
-                                                           min_dimensions, max_dimensions, aspect_ratio,
-                                                           horizontal_resize, vertical_resize);
+    bool diagonal = w_param == WMSZ_TOPLEFT || w_param == WMSZ_TOPRIGHT ||
+                    w_param == WMSZ_BOTTOMLEFT || w_param == WMSZ_BOTTOMRIGHT;
+    bool horizontal_resize = w_param == WMSZ_LEFT || w_param == WMSZ_RIGHT || diagonal;
+    bool vertical_resize = w_param == WMSZ_TOP || w_param == WMSZ_BOTTOM || diagonal;
+    handleAdjustResize(&width, &height, horizontal_resize, vertical_resize);
 
     switch (w_param) {
     case WMSZ_LEFT:
-      rect->bottom = rect->top + adjusted_dimensions.y + borders.height();
-      rect->left = rect->right - adjusted_dimensions.x - borders.width();
+      rect->bottom = rect->top + height + borders.height();
+      rect->left = rect->right - width - borders.width();
       break;
     case WMSZ_RIGHT:
-      rect->bottom = rect->top + adjusted_dimensions.y + borders.height();
-      rect->right = rect->left + adjusted_dimensions.x + borders.width();
+      rect->bottom = rect->top + height + borders.height();
+      rect->right = rect->left + width + borders.width();
       break;
     case WMSZ_TOP:
-      rect->right = rect->left + adjusted_dimensions.x + borders.width();
-      rect->top = rect->bottom - adjusted_dimensions.y - borders.height();
+      rect->right = rect->left + width + borders.width();
+      rect->top = rect->bottom - height - borders.height();
       break;
     case WMSZ_BOTTOM:
-      rect->right = rect->left + adjusted_dimensions.x + borders.width();
-      rect->bottom = rect->top + adjusted_dimensions.y + borders.height();
+      rect->right = rect->left + width + borders.width();
+      rect->bottom = rect->top + height + borders.height();
       break;
     case WMSZ_TOPLEFT:
-      rect->top = rect->bottom - adjusted_dimensions.y - borders.height();
-      rect->left = rect->right - adjusted_dimensions.x - borders.width();
+      rect->top = rect->bottom - height - borders.height();
+      rect->left = rect->right - width - borders.width();
       break;
     case WMSZ_TOPRIGHT:
-      rect->top = rect->bottom - adjusted_dimensions.y - borders.height();
-      rect->right = rect->left + adjusted_dimensions.x + borders.width();
+      rect->top = rect->bottom - height - borders.height();
+      rect->right = rect->left + width + borders.width();
       break;
     case WMSZ_BOTTOMLEFT:
-      rect->bottom = rect->top + adjusted_dimensions.y + borders.height();
-      rect->left = rect->right - adjusted_dimensions.x - borders.width();
+      rect->bottom = rect->top + height + borders.height();
+      rect->left = rect->right - width - borders.width();
       break;
     case WMSZ_BOTTOMRIGHT:
-      rect->bottom = rect->top + adjusted_dimensions.y + borders.height();
-      rect->right = rect->left + adjusted_dimensions.x + borders.width();
+      rect->bottom = rect->top + height + borders.height();
+      rect->right = rect->left + width + borders.width();
       break;
     default: break;
     }
   }
 
   void WindowWin32::handleResizeEnd(HWND hwnd) {
-    float aspect_ratio = aspectRatio();
-    VISAGE_ASSERT(aspect_ratio > 0.0f);
-
     IBounds borders = windowBorderSize(hwnd);
-
     RECT rect;
     GetWindowRect(hwnd, &rect);
     int width = rect.right - rect.left - borders.width();
     int height = rect.bottom - rect.top - borders.height();
+
     DpiAwareness dpi_awareness;
     setDpiScale(dpi_awareness.dpiScale(hwnd));
     handleResized(width, height);
@@ -1748,19 +1730,16 @@ namespace visage {
     Point min_dimensions = Point(minWindowDimensions());
     IBounds borders = windowBorderSize(hwnd);
     RECT* suggested = reinterpret_cast<RECT*>(l_param);
-    Point point(suggested->right - suggested->left - borders.width(),
-                suggested->bottom - suggested->top - borders.height());
-    Point adjusted_dimensions = adjustBoundsForAspectRatio(point, min_dimensions, max_dimensions,
-                                                           aspectRatio(), true, true);
+    int width = suggested->right - suggested->left - borders.width();
+    int height = suggested->bottom - suggested->top - borders.height();
 
-    int width = adjusted_dimensions.x;
-    int height = adjusted_dimensions.y;
-    SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, width + borders.width(),
-                 height + borders.height(), SWP_NOZORDER | SWP_NOACTIVATE);
+    handleAdjustResize(&width, &height, true, true);
 
     DpiAwareness dpi_awareness;
     setDpiScale(dpi_awareness.dpiScale(hwnd));
     handleResized(width, height);
+    SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, width + borders.width(),
+                 height + borders.height(), SWP_NOZORDER | SWP_NOACTIVATE);
   }
 
   void WindowWin32::updateMonitor() {

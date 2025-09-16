@@ -64,11 +64,8 @@ namespace visage {
     auto& onShow() { return on_show_; }
     auto& onHide() { return on_hide_; }
     auto& onWindowContentsResized() { return on_window_contents_resized_; }
-
-    Point minWindowDimensions();
-    Point maxWindowDimensions();
-    virtual void adjustWindowDimensions(unsigned int* width, unsigned int* height,
-                                        bool horizontal_resize, bool vertical_resize);
+    void adjustWindowDimensions(unsigned int* width, unsigned int* height, bool horizontal_resize,
+                                bool vertical_resize);
 
     void runEventLoop();
 
