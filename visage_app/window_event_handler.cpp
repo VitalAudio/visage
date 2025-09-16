@@ -94,11 +94,9 @@ namespace visage {
 
   void WindowEventHandler::handleAdjustResize(int* width, int* height, bool horizontal_resize,
                                               bool vertical_resize) {
-    editor_->adjustResizeBounds(width, height, horizontal_resize, vertical_resize);
+    editor_->adjustWindowDimensions(width, height, horizontal_resize, vertical_resize);
   }
-
-  void handleAdjustResizing(int* width, int* height) { }
-
+  
   bool WindowEventHandler::handleKeyDown(const KeyEvent& e) {
     if (keyboard_focused_frame_ == nullptr)
       return false;

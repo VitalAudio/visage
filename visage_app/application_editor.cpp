@@ -171,8 +171,8 @@ namespace visage {
     drawing_children_.clear();
   }
 
-  void ApplicationEditor::adjustResizeBounds(int* width, int* height, bool horizontal_resize,
-                                             bool vertical_resize) const {
+  void ApplicationEditor::adjustWindowDimensions(int* width, int* height, bool horizontal_resize,
+                                                 bool vertical_resize) const {
     int min_width = min_width_ * dpiScale();
     int min_height = min_height_ * dpiScale();
     Point min_dimensions(min_width, min_height);

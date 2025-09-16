@@ -94,7 +94,7 @@ namespace visage {
         fixed_aspect_ratio_ = width() * 1.0f / height();
     }
 
-    void adjustResizeBounds(int* width, int* height, bool horizontal_resize, bool vertical_resize) const;
+    void adjustWindowDimensions(int* width, int* height, bool horizontal_resize, bool vertical_resize) const;
 
     void addClientDecoration() { top_level_->addClientDecoration(); }
     HitTestResult hitTest(const Point& position) const override {
