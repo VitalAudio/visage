@@ -77,7 +77,6 @@ namespace visage {
     bool isShowing() const override;
     void setWindowTitle(const std::string& title) override;
     IPoint maxWindowDimensions() const override;
-    IPoint minWindowDimensions() const { return min_window_dimensions_; }
 
     bool isMouseTracked() const { return mouse_tracked_; }
 
@@ -107,7 +106,6 @@ namespace visage {
     std::unique_ptr<EventHooks> event_hooks_;
     DragDropTarget* drag_drop_target_ = nullptr;
     std::unique_ptr<VBlankThread> v_blank_thread_;
-    IPoint min_window_dimensions_;
 
     Window::Decoration decoration_ = Window::Decoration::Native;
     std::wstring utf16_string_entry_;
