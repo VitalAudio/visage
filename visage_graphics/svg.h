@@ -338,7 +338,7 @@ namespace visage {
       this->width = width;
       this->height = height;
       draw_width_ = view_.width ? view_.width : width;
-      draw_height_ = view_.height ? view_.height : width;
+      draw_height_ = view_.height ? view_.height : height;
       if (drawable_ && view_.width == 0 && view_.height == 0)
         drawable_->setSize(view_, width, height);
     }
