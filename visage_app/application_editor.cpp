@@ -108,6 +108,7 @@ namespace visage {
     canvas_->pairToWindow(window_->nativeHandle(), window->clientWidth(), window->clientHeight());
     top_level_->setDpiScale(window_->dpiScale());
     top_level_->setNativeBounds(0, 0, window->clientWidth(), window->clientHeight());
+    window_->setFixedAspectRatio(fixed_aspect_ratio_ != 0.0f);
 
     window_event_handler_ = std::make_unique<WindowEventHandler>(this, top_level_.get());
     checkFixedAspectRatio();
@@ -150,6 +151,12 @@ namespace visage {
 
     drawStaleChildren();
     canvas_->submit();
+  }
+
+  void ApplicationEditor::setFixedAspectRatio(bool fixed) {
+    fixed_aspect_ratio_ = fixed ? aspectRatio() : 0.0f;
+    if (window_)
+      window_->setFixedAspectRatio(fixed);
   }
 
   void ApplicationEditor::drawStaleChildren() {
