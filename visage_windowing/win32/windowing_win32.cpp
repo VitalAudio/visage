@@ -1601,7 +1601,9 @@ namespace visage {
     if (rect.right < rect.left || rect.bottom < rect.top)
       return { 0, 0 };
 
-    return { rect.right - rect.left, rect.bottom - rect.top };
+    int width = rect.right - rect.left;
+    int height = rect.bottom - rect.top;
+    return { width, height };
   }
 
   IPoint WindowWin32::maxWindowDimensions() const {

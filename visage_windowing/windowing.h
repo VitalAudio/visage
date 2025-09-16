@@ -113,8 +113,8 @@ namespace visage {
     virtual void setWindowTitle(const std::string& title) = 0;
     virtual IPoint maxWindowDimensions() const = 0;
 
-    void notifyShow() { on_show_.callback(); }
-    void notifyHide() { on_hide_.callback(); }
+    void notifyShow() const { on_show_.callback(); }
+    void notifyHide() const { on_hide_.callback(); }
 
     void setDrawCallback(std::function<void(double)> callback) {
       draw_callback_ = std::move(callback);
