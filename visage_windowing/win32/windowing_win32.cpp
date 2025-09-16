@@ -1726,8 +1726,6 @@ namespace visage {
   }
 
   void WindowWin32::handleDpiChange(HWND hwnd, LPARAM l_param, WPARAM w_param) {
-    Point max_dimensions = Point(maxWindowDimensions());
-    Point min_dimensions = Point(minWindowDimensions());
     IBounds borders = windowBorderSize(hwnd);
     RECT* suggested = reinterpret_cast<RECT*>(l_param);
     int width = suggested->right - suggested->left - borders.width();
