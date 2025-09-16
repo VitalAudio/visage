@@ -63,7 +63,7 @@ namespace visage {
     void drawWindow();
 
     bool isFixedAspectRatio() const { return fixed_aspect_ratio_ != 0.0f; }
-    void setFixedAspectRatio(bool fixed) { fixed_aspect_ratio_ = fixed ? aspectRatio() : 0.0f; }
+    void setFixedAspectRatio(bool fixed);
     float aspectRatio() const override {
       if (height() && width())
         return width() * 1.0f / height();
