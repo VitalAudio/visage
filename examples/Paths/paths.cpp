@@ -191,7 +191,7 @@ int runExample() {
   std::vector<visage::Color> colors;
 
   //loop over files in a directory and load them
-  auto svgs = visage::searchForFiles("C:\\Users\\matth\\vital\\icons", ".*\\.svg");
+  auto svgs = visage::searchForFiles("C:\\Users\\matth\\visage_files\\icons", ".*\\.svg");
   visage::Svg svg;
   int svg_index = 0;
 
