@@ -23,8 +23,6 @@
 
 int runExample() {
   visage::ApplicationWindow app;
-  app.setMinimumDimensions(200, 200);
-  app.setFixedAspectRatio(true);
 
   app.onDraw() = [&app](visage::Canvas& canvas) {
     canvas.setColor(0xff000066);

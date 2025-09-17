@@ -96,6 +96,15 @@ namespace visage {
 
     void adjustWindowDimensions(int* width, int* height, bool horizontal_resize, bool vertical_resize) const;
 
+    void adjustWindowDimensions(uint32_t* width, uint32_t* height, bool horizontal_resize,
+                                bool vertical_resize) const {
+      int w = *width;
+      int h = *height;
+      adjustWindowDimensions(&w, &h, horizontal_resize, vertical_resize);
+      *width = w;
+      *height = h;
+    }
+
     void addClientDecoration() { top_level_->addClientDecoration(); }
     HitTestResult hitTest(const Point& position) const override {
       if (position.y < kDefaultClientTitleBarHeight && top_level_->hasClientDecoration())
