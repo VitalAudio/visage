@@ -146,10 +146,10 @@ namespace visage {
     int x = iconX();
     int y = iconY();
 
-    if (shadow_.blur_radius) {
-      canvas.setColor(ButtonShadow);
-      canvas.svg(shadow_, x, y);
-    }
+    // if (shadow_.blur_radius) {
+    //   canvas.setColor(ButtonShadow);
+    //   canvas.svg(shadow_, x, y);
+    // }
 
     if (isActive())
       canvas.setBlendedColor(ToggleButton::ToggleButtonOff, ToggleButton::ToggleButtonOffHover, hover_amount);
@@ -175,10 +175,10 @@ namespace visage {
   void ToggleIconButton::draw(Canvas& canvas, float hover_amount) {
     int x = iconX();
     int y = iconY();
-    if (shadow_.blur_radius) {
-      canvas.setColor(ButtonShadow);
-      canvas.svg(shadow_, x, y);
-    }
+    // if (shadow_.blur_radius) {
+    //   canvas.setColor(ButtonShadow);
+    //   canvas.svg(shadow_, x, y);
+    // }
 
     if (toggled())
       canvas.setBlendedColor(ToggleButtonOn, ToggleButtonOnHover, hover_amount);

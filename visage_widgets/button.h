@@ -160,21 +160,21 @@ namespace visage {
 
     void setIconSizes() {
       int margin = std::min(width(), height()) * margin_ratio_;
-      icon_.width = std::min(width(), height()) - 2 * margin;
-      icon_.height = icon_.width;
-      shadow_.width = icon_.width;
-      shadow_.height = icon_.height;
-      shadow_.blur_radius = shadow_proportion_ * icon_.width;
+      // icon_.width = std::min(width(), height()) - 2 * margin;
+      // icon_.height = icon_.width;
+      // shadow_.width = icon_.width;
+      // shadow_.height = icon_.height;
+      // shadow_.blur_radius = shadow_proportion_ * icon_.width;
     }
 
     void setShadowProportion(float proportion) {
       shadow_proportion_ = proportion;
-      shadow_.blur_radius = shadow_proportion_ * shadow_.width;
+      //shadow_.blur_radius = shadow_proportion_ * shadow_.width;
     }
 
     void setMarginRatio(float ratio) {
       margin_ratio_ = ratio;
-      shadow_.blur_radius = shadow_proportion_ * shadow_.width;
+      //shadow_.blur_radius = shadow_proportion_ * shadow_.width;
       setIconSizes();
     }
 
@@ -278,21 +278,21 @@ namespace visage {
 
     void setIconSizes() {
       int margin = std::min(width(), height()) * margin_proportion_;
-      icon_.width = std::min(width(), height()) - 2 * margin;
-      icon_.height = icon_.width;
-      shadow_.width = icon_.width;
-      shadow_.height = icon_.height;
-      shadow_.blur_radius = shadow_proportion_ * icon_.width;
+      // icon_.width = std::min(width(), height()) - 2 * margin;
+      // icon_.height = icon_.width;
+      // shadow_.width = icon_.width;
+      // shadow_.height = icon_.height;
+      // shadow_.blur_radius = shadow_proportion_ * icon_.width;
     }
 
     void setShadowProportion(float proportion) {
       shadow_proportion_ = proportion;
-      shadow_.blur_radius = shadow_proportion_ * shadow_.width;
+      // shadow_.blur_radius = shadow_proportion_ * shadow_.width;
     }
 
     void setMarginProportion(float proportion) {
       margin_proportion_ = proportion;
-      shadow_.blur_radius = shadow_proportion_ * shadow_.width;
+      // shadow_.blur_radius = shadow_proportion_ * shadow_.width;
       setIconSizes();
     }
 
