@@ -33,6 +33,7 @@
 
 namespace visage {
   class Canvas;
+  struct Marker;
 
   struct TagData {
     std::string name;
@@ -59,18 +60,29 @@ namespace visage {
   };
 
   struct GradientDef {
+    enum class Type {
+      None,
+      Solid,
+      Linear,
+      Radial,
+      CurrentColor,
+      ContextFill,
+      ContextStroke
+    };
+
     GradientDef() = default;
+    GradientDef(Type t) : type(t) { }
     GradientDef(const Color& color) {
       gradient = Gradient(color);
-      solid = true;
+      type = Type::Solid;
     }
 
     Brush toBrush(Bounds box) const {
-      if (solid)
+      if (type == Type::Solid)
         return Brush::solid(gradient.colors().front());
 
       GradientPosition position;
-      if (radial) {
+      if (type == Type::Radial) {
         float f_radius = focal_radius;
         if (radius)
           f_radius /= radius;
@@ -94,8 +106,7 @@ namespace visage {
 
     Gradient gradient;
     Transform transform;
-    bool radial = false;
-    bool solid = false;
+    Type type = Type::None;
     bool user_space = false;
     Point point1 = Point(0.0f, 0.0f);
     Point point2 = Point(1.0f, 0.0f);
@@ -104,7 +115,7 @@ namespace visage {
   };
 
   struct DrawableState {
-    Color current_color = Color(0xff000000);
+    GradientDef current_color = GradientDef(0xff000000);
     GradientDef fill_gradient = GradientDef(0xff000000);
     float fill_opacity = 1.0f;
     bool non_zero_fill = false;
@@ -132,6 +143,12 @@ namespace visage {
   };
 
   struct SvgDrawable {
+    struct ColorContext {
+      const Brush* current_color = nullptr;
+      const Brush* fill_color = nullptr;
+      const Brush* stroke_color = nullptr;
+    };
+
     SvgDrawable() = default;
     SvgDrawable(const SvgDrawable& other) { *this = other; }
 
@@ -162,9 +179,11 @@ namespace visage {
       return *this;
     }
 
-    void draw(Canvas& canvas, float x, float y, float width, float height) const;
-    void fill(Canvas& canvas, float x, float y, float width, float height) const;
-    void stroke(Canvas& canvas, float x, float y, float width, float height) const;
+    void draw(Canvas& canvas, ColorContext& context, float x, float y, float width, float height) const;
+    bool setContextColor(Canvas& canvas, ColorContext& context, const GradientDef& gradient,
+                         float color_opacity) const;
+    void fill(Canvas& canvas, ColorContext& context, float x, float y, float width, float height) const;
+    void stroke(Canvas& canvas, ColorContext& context, float x, float y, float width, float height) const;
     bool hasFill() const { return !fill_brush.isNone() && state.fill_opacity > 0.0f; }
     bool hasStroke() const {
       return state.stroke_opacity > 0.0f && state.stroke_width > 0.0f && !stroke_brush.isNone();
@@ -308,10 +327,20 @@ namespace visage {
     Brush stroke_brush;
     Path path;
     Path stroke_path;
+    Marker* marker_start = nullptr;
+    Marker* marker_mid = nullptr;
+    Marker* marker_end = nullptr;
 
     bool is_clip_path = false;
     bool is_clip_bounding_box = false;
     std::string clip_path_shape;
+  };
+
+  struct Marker {
+    SvgDrawable drawable;
+    bool reverse_start_marker = false;
+    bool use_angle = false;
+    float marker_angle = 0.0f;
   };
 
   class Svg {
@@ -330,8 +359,10 @@ namespace visage {
     Svg(const EmbeddedFile& file) : Svg(file.data, file.size) { }
 
     void draw(Canvas& canvas, float x, float y, float width = 0.0f, float height = 0.0f) const {
-      if (drawable_)
-        drawable_->draw(canvas, x, y, width ? width : draw_width_, height ? height : draw_height_);
+      if (drawable_) {
+        SvgDrawable::ColorContext context;
+        drawable_->draw(canvas, context, x, y, width ? width : draw_width_, height ? height : draw_height_);
+      }
     }
 
     void setDimensions(int width, int height) {
@@ -355,11 +386,14 @@ namespace visage {
     void parseStyleDefinition(const std::string& key, const std::string& value,
                               DrawableState& state, SvgDrawable* drawable);
     void loadDrawableTransform(const Tag& tag, SvgDrawable* drawable);
+    bool loadDrawable(const Tag& tag, SvgDrawable* drawable);
+
     void loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack, SvgDrawable* drawable);
     GradientDef parseGradient(const std::string& color_string);
 
     void collectDefs(std::vector<Tag>& tags);
     void collectGradients(std::vector<Tag>& tags);
+    void collectMarkers(std::vector<Tag>& tags);
     void resolveUses(std::vector<Tag>& tags);
     void parseCssStyle(const std::string& style);
     void loadStyleTags(std::vector<Tag>& tags);
@@ -367,6 +401,7 @@ namespace visage {
     std::unique_ptr<SvgDrawable> drawable_;
     std::map<std::string, Tag> defs_;
     std::map<std::string, GradientDef> gradients_;
+    std::map<std::string, std::unique_ptr<Marker>> markers_;
     std::vector<std::pair<CssSelector, std::string>> style_lookup_;
     SvgViewSettings view_;
     float draw_width_ = 0.0f;

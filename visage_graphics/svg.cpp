@@ -88,6 +88,18 @@ namespace visage {
     return result;
   }
 
+  std::string urlId(const std::string& url) {
+    int pos = 0;
+    auto tokens = parseFunctionTokens(url, pos);
+    if (tokens.size() <= 1)
+      return "";
+
+    std::string id = unescape(unescape(tokens[1], "\'", ""), "\"", "");
+    if (!id.empty() && id[0] == '#')
+      id = id.substr(1);
+    return id;
+  }
+
   bool CssSelector::matches(const Tag& tag) const {
     // TODO support attributes, pseudo-classes, and chaining selectors
 
@@ -111,40 +123,93 @@ namespace visage {
     return true;
   }
 
-  void SvgDrawable::draw(Canvas& canvas, float x, float y, float width, float height) const {
+  void SvgDrawable::draw(Canvas& canvas, ColorContext& context, float x, float y, float width,
+                         float height) const {
     if (!state.visible || opacity <= 0.0f || is_defines)
       return;
 
     canvas.saveState();
-
-    if (state.fill_opacity > 0.0f && !fill_brush.isNone())
-      fill(canvas, x, y, width, height);
-    if (state.stroke_opacity > 0.0f && state.stroke_width > 0.0f && !stroke_brush.isNone())
-      stroke(canvas, x, y, width, height);
-
+    fill(canvas, context, x, y, width, height);
+    stroke(canvas, context, x, y, width, height);
     canvas.restoreState();
 
     for (const auto& child : children)
-      child->draw(canvas, x, y, width, height);
+      child->draw(canvas, context, x, y, width, height);
   }
 
-  void SvgDrawable::fill(Canvas& canvas, float x, float y, float width, float height) const {
-    canvas.setColor(fill_brush);
+  bool SvgDrawable::setContextColor(Canvas& canvas, ColorContext& context,
+                                    const GradientDef& gradient, float color_opacity) const {
+    const Brush* context_brush = nullptr;
+    if (gradient.type == GradientDef::Type::CurrentColor)
+      context_brush = context.current_color;
+    else if (gradient.type == GradientDef::Type::ContextFill)
+      context_brush = context.fill_color;
+    else if (gradient.type == GradientDef::Type::ContextStroke)
+      context_brush = context.stroke_color;
+
+    if (context_brush) {
+      if (color_opacity == 1.0f)
+        canvas.setColor(*context_brush);
+      else
+        canvas.setColor(context_brush->withMultipliedAlpha(color_opacity));
+      return true;
+    }
+
+    return false;
+  }
+
+  void SvgDrawable::fill(Canvas& canvas, ColorContext& context, float x, float y, float width,
+                         float height) const {
+    if (state.fill_opacity <= 0.0f)
+      return;
+
+    if (!setContextColor(canvas, context, state.fill_gradient, state.fill_opacity)) {
+      if (fill_brush.isNone())
+        return;
+
+      canvas.setColor(fill_brush);
+      context.fill_color = &fill_brush;
+    }
+
     canvas.fill(&path, x, y, width, height);
   }
 
-  void SvgDrawable::stroke(Canvas& canvas, float x, float y, float width, float height) const {
-    canvas.setColor(stroke_brush);
+  void SvgDrawable::stroke(Canvas& canvas, ColorContext& context, float x, float y, float width,
+                           float height) const {
+    if (state.stroke_opacity <= 0.0f || state.stroke_width <= 0.0f)
+      return;
+
+    if (!setContextColor(canvas, context, state.stroke_gradient, state.stroke_opacity)) {
+      if (stroke_brush.isNone())
+        return;
+
+      canvas.setColor(stroke_brush);
+      context.stroke_color = &stroke_brush;
+    }
+
     canvas.fill(&stroke_path, x, y, width, height);
   }
 
   float parseNumber(const std::string& str, float max) {
-    auto percent_pos = str.find('%');
-    if (percent_pos != std::string::npos)
-      max = 100.0f;
+    auto suffix_pos = str.find_first_not_of("0123456789+-.eE");
+    auto units = suffix_pos != std::string::npos ? trimWhitespace(str.substr(suffix_pos)) : "";
+
+    float mult = 1.0f;
+    if (units == "%")
+      mult = 0.01f * max;
+    else if (units == "in")
+      mult = 96.0f;
+    else if (units == "cm")
+      mult = 96.0f / 2.54f;
+    else if (units == "mm")
+      mult = 96.0f / 25.4f;
+    else if (units == "pt")
+      mult = 96.0f / 72.0f;
+    else if (units == "pc")
+      mult = 16.0f;
 
     try {
-      return std::stof(str) / max;
+      return std::stof(str) * mult;
     }
     catch (...) {
       return 0.0f;
@@ -156,7 +221,7 @@ namespace visage {
       return 0.0f;
     if (token == "bottom" || token == "right")
       return range;
-    return range * parseNumber(token, range);
+    return parseNumber(token, range);
   }
 
   Point parseEllipseRadius(const std::string& token1, const std::string& token2, Point center,
@@ -166,7 +231,7 @@ namespace visage {
         return std::min(center, range - center);
       if (token == "farthest-side")
         return std::max(center, range - center);
-      return parseNumber(token, range) * range;
+      return parseNumber(token, range);
     };
 
     return { parse_ellipse_dimension(token1, center.x, max_x),
@@ -195,9 +260,9 @@ namespace visage {
       return std::sqrt(dx * dx + dy * dy);
     }
     if (token.find('%') != std::string::npos)
-      return parseNumber(token, 1.0f) * std::sqrt(0.5f * (max_x * max_x + max_y * max_y));
+      return parseNumber(token, std::sqrt(0.5f * (max_x * max_x + max_y * max_y)));
 
-    return parseNumber(token, 1.0f);
+    return parseNumber(token, std::sqrt(0.5f * (max_x * max_x + max_y * max_y)));
   }
 
   Path::CommandList parseEllipseShape(std::vector<std::string>& tokens, const Bounds& bounding_box) {
@@ -234,17 +299,18 @@ namespace visage {
     return path;
   }
 
-  Path::CommandList parsePolygonShape(std::vector<std::string>& tokens, const Bounds& bounding_box) {
+  Path::CommandList parsePolygonShape(std::vector<std::string>& tokens, int start_index,
+                                      const Bounds& bounding_box) {
     Path::CommandList path;
-    if (tokens.size() > 2) {
-      float x = bounding_box.width() * parseNumber(tokens[1], bounding_box.width());
-      float y = bounding_box.height() * parseNumber(tokens[2], bounding_box.height());
+    if (tokens.size() > start_index + 1) {
+      float x = parseNumber(tokens[start_index], bounding_box.width());
+      float y = parseNumber(tokens[start_index + 1], bounding_box.height());
       path.moveTo(bounding_box.x() + x, bounding_box.y() + y);
     }
-    int index = 3;
+    int index = start_index + 2;
     while (index + 1 < tokens.size()) {
-      float x = bounding_box.width() * parseNumber(tokens[index], bounding_box.width());
-      float y = bounding_box.height() * parseNumber(tokens[index + 1], bounding_box.height());
+      float x = parseNumber(tokens[index], bounding_box.width());
+      float y = parseNumber(tokens[index + 1], bounding_box.height());
       path.lineTo(bounding_box.x() + x, bounding_box.y() + y);
       index += 2;
     }
@@ -265,7 +331,7 @@ namespace visage {
     for (int i = 0; i < 4; ++i) {
       int index = x_index + i % x_range;
       float dim = (i % 2) ? bounding_box.height() : bounding_box.width();
-      results[4 + i] = results[i] = parseNumber(tokens[index], dim) * dim;
+      results[4 + i] = results[i] = parseNumber(tokens[index], dim);
     }
 
     if (y_it != tokens.end() && std::next(y_it) != tokens.end()) {
@@ -275,7 +341,7 @@ namespace visage {
       for (int i = 0; i < 4; ++i) {
         int index = y_index + i % y_range;
         float dim = (i % 2) ? bounding_box.height() : bounding_box.width();
-        results[4 + i] = parseNumber(tokens[index], dim) * dim;
+        results[4 + i] = parseNumber(tokens[index], dim);
       }
     }
     return true;
@@ -286,7 +352,7 @@ namespace visage {
     float insets[kNumInsets] {};
     for (int i = 0; i < tokens.size() - 1 && i < kNumInsets; ++i) {
       float dim = (i % 1) ? bounding_box.width() : bounding_box.height();
-      insets[i] = dim * parseNumber(tokens[i + 1], dim);
+      insets[i] = parseNumber(tokens[i + 1], dim);
     }
 
     Path::CommandList path;
@@ -331,24 +397,22 @@ namespace visage {
       bounding_box = boundingBox();
 
     if (tokens[0] == "url") {
-      if (tokens.size() > 1 && tokens[1][0] == '#') {
-        auto id = tokens[1].substr(1);
-        if (clip_paths.count(id)) {
-          auto& clip_drawable = clip_paths.at(id);
-          if (clip_drawable->is_clip_bounding_box) {
-            auto scale = scale_matrix * Matrix::scale(bounding_box.width(), bounding_box.height());
-            clip_drawable->initPaths(scale, view_box);
-            clip_drawable->adjustPaths(scale, view_box, clip_paths);
+      auto id = urlId(clip_path_shape);
+      if (clip_paths.count(id)) {
+        auto& clip_drawable = clip_paths.at(id);
+        if (clip_drawable->is_clip_bounding_box) {
+          auto scale = scale_matrix * Matrix::scale(bounding_box.width(), bounding_box.height());
+          clip_drawable->initPaths(scale, view_box);
+          clip_drawable->adjustPaths(scale, view_box, clip_paths);
 
-            Path clip_path;
-            clip_drawable->unionPaths(&clip_path);
-            clip_path.transform(Transform::translation(bounding_box.x(), bounding_box.y()) *
-                                Transform::scale(bounding_box.width(), bounding_box.height()));
-            applyClipping(&clip_path);
-          }
-          else
-            applyClipping(&clip_drawable->path);
+          Path clip_path;
+          clip_drawable->unionPaths(&clip_path);
+          clip_path.transform(Transform::translation(bounding_box.x(), bounding_box.y()) *
+                              Transform::scale(bounding_box.width(), bounding_box.height()));
+          applyClipping(&clip_path);
         }
+        else
+          applyClipping(&clip_drawable->path);
       }
 
       return;
@@ -362,7 +426,7 @@ namespace visage {
     else if (tokens[0] == "circle" || tokens[0] == "ellipse")
       clip_path.loadCommands(parseEllipseShape(tokens, bounding_box));
     else if (tokens[0] == "polygon" || tokens[0] == "polyline")
-      clip_path.loadCommands(parsePolygonShape(tokens, bounding_box));
+      clip_path.loadCommands(parsePolygonShape(tokens, 1, bounding_box));
     applyClipping(&clip_path);
   }
 
@@ -387,10 +451,12 @@ namespace visage {
   }
 
   void SvgDrawable::strokePath(const Matrix& scale_matrix, const Bounds& view_box) {
-    if (state.stroke_width <= 0.0f || !state.visible || state.stroke_opacity <= 0.0f ||
-        state.stroke_gradient.isNone()) {
+    if (state.stroke_width <= 0.0f || !state.visible || state.stroke_opacity <= 0.0f)
       return;
-    }
+    if (state.stroke_gradient.isNone() && state.stroke_gradient.type != GradientDef::Type::CurrentColor &&
+        state.stroke_gradient.type != GradientDef::Type::ContextFill &&
+        state.stroke_gradient.type != GradientDef::Type::ContextStroke)
+      return;
 
     std::vector<float> dashes;
     float dash_scale = std::sqrt(0.5f * (view_box.width() * view_box.width() +
@@ -834,7 +900,7 @@ namespace visage {
   GradientDef parseGradientTag(Tag& tag) {
     GradientDef gradient_def;
     if (tag.data.name == "linearGradient") {
-      gradient_def.radial = false;
+      gradient_def.type = GradientDef::Type::Linear;
       if (tag.data.attributes.count("x1"))
         gradient_def.point1.x = parseNumber(tag.data.attributes.at("x1"), 1.0f);
       if (tag.data.attributes.count("y1"))
@@ -845,7 +911,7 @@ namespace visage {
         gradient_def.point2.y = parseNumber(tag.data.attributes.at("y2"), 1.0f);
     }
     else {
-      gradient_def.radial = true;
+      gradient_def.type = GradientDef::Type::Radial;
       gradient_def.point1.x = 0.5f;
       gradient_def.point1.y = 0.5f;
       gradient_def.point2.x = 0.5f;
@@ -942,13 +1008,14 @@ namespace visage {
 
     if (tokens[0].substr(0, 3) == "rgb" && tokens.size() > 3) {
       float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;
-      return Color(alpha, parseNumber(tokens[1], 255.0f), parseNumber(tokens[2], 255.0f),
-                   parseNumber(tokens[3], 255.0f));
+      return Color(alpha, parseNumber(tokens[1], 255.0f) / 255.0f,
+                   parseNumber(tokens[2], 255.0f) / 255.0f, parseNumber(tokens[3], 255.0f) / 255.0f);
     }
     if (tokens[0].substr(0, 3) == "hsl" && tokens.size() > 3) {
       float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;
-      return Color::fromAHSV(alpha, parseNumber(tokens[1], 360.0f), parseNumber(tokens[2], 100.0f),
-                             parseNumber(tokens[3], 100.0f));
+      return Color::fromAHSV(alpha, parseNumber(tokens[1], 360.0f) / 360.0f,
+                             parseNumber(tokens[2], 100.0f) * 0.01f,
+                             parseNumber(tokens[3], 100.0f) * 0.01f);
     }
     return {};
   }
@@ -992,37 +1059,35 @@ namespace visage {
     return result;
   }
 
-  bool loadDrawable(const Tag& tag, SvgDrawable* drawable) {
+  bool Svg::loadDrawable(const Tag& tag, SvgDrawable* drawable) {
+    int view_width = view_.view_box.width() > 0.0f ? view_.view_box.width() : 1.0f;
+    int view_height = view_.view_box.height() > 0.0f ? view_.view_box.height() : 1.0f;
+
     float width = 0.0f;
     float height = 0.0f;
     if (tag.data.attributes.count("width"))
-      width = parseNumber(tag.data.attributes.at("width"), 1.0f);
+      width = parseNumber(tag.data.attributes.at("width"), view_width);
     if (tag.data.attributes.count("height"))
-      height = parseNumber(tag.data.attributes.at("height"), 1.0f);
+      height = parseNumber(tag.data.attributes.at("height"), view_height);
 
     if (tag.data.name == "path" && tag.data.attributes.count("d"))
       drawable->command_list = Path::parseSvgPath(tag.data.attributes.at("d"));
     else if (tag.data.name == "line") {
       float x1 = 0.0f, y1 = 0.0f, x2 = 0.0f, y2 = 0.0f;
       if (tag.data.attributes.count("x1"))
-        x1 = parseNumber(tag.data.attributes.at("x1"), 1.0f);
+        x1 = parseNumber(tag.data.attributes.at("x1"), view_width);
       if (tag.data.attributes.count("y1"))
-        y1 = parseNumber(tag.data.attributes.at("y1"), 1.0f);
+        y1 = parseNumber(tag.data.attributes.at("y1"), view_height);
       if (tag.data.attributes.count("x2"))
-        x2 = parseNumber(tag.data.attributes.at("x2"), 1.0f);
+        x2 = parseNumber(tag.data.attributes.at("x2"), view_width);
       if (tag.data.attributes.count("y2"))
-        y2 = parseNumber(tag.data.attributes.at("y2"), 1.0f);
+        y2 = parseNumber(tag.data.attributes.at("y2"), view_height);
       drawable->command_list.moveTo(x1, y1);
       drawable->command_list.lineTo(x2, y2);
     }
     else if (tag.data.name == "polygon" || tag.data.name == "polyline") {
       auto points = splitArguments(tag.data.attributes.at("points"));
-      if (points.size() < 2)
-        return false;
-
-      drawable->command_list.moveTo(parseNumber(points[0], 1.0f), parseNumber(points[1], 1.0f));
-      for (size_t i = 3; i < points.size(); i += 2)
-        drawable->command_list.lineTo(parseNumber(points[i - 1], 1.0f), parseNumber(points[i], 1.0f));
+      drawable->command_list = parsePolygonShape(points, 0, view_.view_box);
 
       if (tag.data.name == "polygon")
         drawable->command_list.close();
@@ -1030,13 +1095,13 @@ namespace visage {
     else if (tag.data.name == "rect") {
       float x = 0.0f, y = 0.0f, rx = 0.0f, ry = 0.0f;
       if (tag.data.attributes.count("x"))
-        x = parseNumber(tag.data.attributes.at("x"), 1.0f);
+        x = parseNumber(tag.data.attributes.at("x"), view_width);
       if (tag.data.attributes.count("y"))
-        y = parseNumber(tag.data.attributes.at("y"), 1.0f);
+        y = parseNumber(tag.data.attributes.at("y"), view_height);
       if (tag.data.attributes.count("rx"))
-        rx = parseNumber(tag.data.attributes.at("rx"), 1.0f);
+        rx = parseNumber(tag.data.attributes.at("rx"), view_width);
       if (tag.data.attributes.count("ry")) {
-        ry = parseNumber(tag.data.attributes.at("ry"), 1.0f);
+        ry = parseNumber(tag.data.attributes.at("ry"), view_height);
         if (tag.data.attributes.count("rx") == 0)
           rx = ry;
       }
@@ -1051,24 +1116,59 @@ namespace visage {
     else if (tag.data.name == "circle" || tag.data.name == "ellipse") {
       float x = 0.0f, y = 0.0f, cx = 0.0f, cy = 0.0f, rx = 0.0f, ry = 0.0f;
       if (tag.data.attributes.count("x"))
-        x = parseNumber(tag.data.attributes.at("x"), 1.0f);
+        x = parseNumber(tag.data.attributes.at("x"), view_width);
       if (tag.data.attributes.count("y"))
-        y = parseNumber(tag.data.attributes.at("y"), 1.0f);
+        y = parseNumber(tag.data.attributes.at("y"), view_height);
       if (tag.data.attributes.count("cx"))
-        cx = parseNumber(tag.data.attributes.at("cx"), 1.0f);
+        cx = parseNumber(tag.data.attributes.at("cx"), view_width);
       if (tag.data.attributes.count("cy"))
-        cy = parseNumber(tag.data.attributes.at("cy"), 1.0f);
-      if (tag.data.attributes.count("r"))
-        rx = ry = parseNumber(tag.data.attributes.at("r"), 1.0f);
+        cy = parseNumber(tag.data.attributes.at("cy"), view_height);
+      if (tag.data.attributes.count("r")) {
+        float normalized = std::sqrt(0.5f * (view_width * view_width + view_height * view_height));
+        rx = ry = parseNumber(tag.data.attributes.at("r"), normalized);
+      }
       if (tag.data.attributes.count("rx"))
-        rx = parseNumber(tag.data.attributes.at("rx"), 1.0f);
+        rx = parseNumber(tag.data.attributes.at("rx"), view_width);
       if (tag.data.attributes.count("ry"))
-        ry = parseNumber(tag.data.attributes.at("ry"), 1.0f);
+        ry = parseNumber(tag.data.attributes.at("ry"), view_height);
 
       drawable->command_list.addEllipse(x + cx, y + cy, rx, ry);
     }
     else
       return false;
+
+    if (drawable->command_list.empty())
+      return false;
+
+    Marker* marker_current = drawable->marker_start;
+    int end_index = drawable->command_list.size() - 1;
+    for (int i = 0; i < drawable->command_list.size(); ++i) {
+      if (i == drawable->command_list.size() - 1)
+        marker_current = drawable->marker_end;
+
+      if (marker_current) {
+        auto point = drawable->command_list[i].end;
+        auto marker = std::make_unique<SvgDrawable>(marker_current->drawable);
+        Transform rotation;
+        if (marker_current->use_angle)
+          rotation = Transform::rotation(marker_current->marker_angle);
+        else {
+          auto direction = drawable->command_list.direction(i);
+          if (i == 0 && marker_current->reverse_start_marker)
+            direction = -direction;
+
+          rotation = Transform(direction.x, -direction.y, 0.0f, direction.y, direction.x, 0.0f);
+        }
+
+        marker->local_transform = Transform::translation(point) * rotation * marker->local_transform;
+        drawable->children.push_back(std::move(marker));
+      }
+
+      if (drawable->marker_mid)
+        marker_current = drawable->marker_mid;
+      else
+        i = std::max(end_index - 1, i);
+    }
 
     if (tag.data.attributes.count("id"))
       drawable->id = tag.data.attributes.at("id");
@@ -1140,12 +1240,59 @@ namespace visage {
 
   void Svg::collectGradients(std::vector<Tag>& tags) {
     for (auto& tag : tags) {
-      if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
-        std::string id = tag.data.attributes.at("id");
-        if (tag.data.name == "linearGradient" || tag.data.name == "radialGradient")
+      if (tag.data.name == "linearGradient" || tag.data.name == "radialGradient") {
+        if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
+          std::string id = tag.data.attributes.at("id");
           gradients_[id] = parseGradientTag(tag);
+        }
       }
       collectGradients(tag.children);
+    }
+  }
+
+  void Svg::collectMarkers(std::vector<Tag>& tags) {
+    for (auto& tag : tags) {
+      if (tag.data.name == "marker") {
+        if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
+          std::string id = tag.data.attributes.at("id");
+          auto view = loadSvgViewSettings(tag);
+
+          std::vector<DrawableState> state_stack;
+          state_stack.push_back({});
+          std::unique_ptr<Marker> marker = std::make_unique<Marker>();
+          auto& drawable = marker->drawable;
+          for (auto& child_tag : tag.children) {
+            auto child = computeDrawables(child_tag, state_stack);
+            if (child)
+              drawable.children.push_back(std::move(child));
+          }
+
+          if (tag.data.attributes.count("markerWidth"))
+            view.width = parseNumber(tag.data.attributes.at("markerWidth"), view.width);
+          if (tag.data.attributes.count("markerHeight"))
+            view.height = parseNumber(tag.data.attributes.at("markerHeight"), view.height);
+
+          float x_offset = 0.0f;
+          float y_offset = 0.0f;
+          if (tag.data.attributes.count("refX"))
+            x_offset = parseNumber(tag.data.attributes.at("refX"), view.width);
+          if (tag.data.attributes.count("refY"))
+            y_offset = parseNumber(tag.data.attributes.at("refY"), view.height);
+
+          if (tag.data.attributes.count("orient")) {
+            std::string orient = tag.data.attributes.at("orient");
+            marker->reverse_start_marker = orient == "auto-start-reverse";
+            marker->use_angle = orient != "auto" && orient != "auto-start-reverse";
+            if (marker->use_angle)
+              tryReadFloat(marker->marker_angle, orient);
+          }
+
+          drawable.local_transform = drawable.initialTransform(view, view.width, view.height) *
+                                     Transform::translation(-x_offset, -y_offset);
+          markers_[id] = std::move(marker);
+        }
+      }
+      collectMarkers(tag.children);
     }
   }
 
@@ -1220,14 +1367,17 @@ namespace visage {
   GradientDef Svg::parseGradient(const std::string& color_string) {
     std::string color = removeWhitespace(color_string);
     if (color.substr(0, 3) == "url") {
-      int pos = 0;
-      auto tokens = parseFunctionTokens(color, pos);
-      if (tokens[1].size() > 1 && tokens[1][0] == '#') {
-        std::string id = tokens[1].substr(1);
-        if (gradients_.count(id) > 0)
-          return gradients_.at(id);
-      }
+      auto id = urlId(color_string);
+      if (gradients_.count(id) > 0)
+        return gradients_.at(id);
     }
+
+    if (color == "current-color")
+      return GradientDef::Type::CurrentColor;
+    if (color == "context-fill")
+      return GradientDef::Type::ContextFill;
+    if (color == "context-stroke")
+      return GradientDef::Type::ContextStroke;
 
     return parseColor(color);
   }
@@ -1239,7 +1389,7 @@ namespace visage {
     else if (key == "clip-path")
       drawable->clip_path_shape = value;
     else if (key == "color")
-      state.current_color = parseColor(value);
+      state.current_color = parseGradient(value);
     else if (key == "fill")
       state.fill_gradient = parseGradient(value);
     else if (key == "fill-rule")
@@ -1270,6 +1420,24 @@ namespace visage {
       state.visible = value != "hidden";
     else if (key == "display")
       state.visible = value != "none";
+    else if (key == "marker-start") {
+      auto id = urlId(value);
+      drawable->marker_start = markers_.count(id) ? markers_.at(id).get() : nullptr;
+    }
+    else if (key == "marker-mid") {
+      auto id = urlId(value);
+      drawable->marker_mid = markers_.count(id) ? markers_.at(id).get() : nullptr;
+    }
+    else if (key == "marker-end") {
+      auto id = urlId(value);
+      drawable->marker_end = markers_.count(id) ? markers_.at(id).get() : nullptr;
+    }
+    else if (key == "marker") {
+      auto id = urlId(value);
+      drawable->marker_start = markers_.count(id) ? markers_.at(id).get() : nullptr;
+      drawable->marker_mid = drawable->marker_start;
+      drawable->marker_end = drawable->marker_start;
+    }
   }
 
   void Svg::parseStyleAttribute(const std::string& style, DrawableState& state, SvgDrawable* drawable) {
@@ -1323,7 +1491,7 @@ namespace visage {
   }
 
   std::unique_ptr<SvgDrawable> Svg::computeDrawables(Tag& tag, std::vector<DrawableState>& state_stack) {
-    if (tag.data.ignored)
+    if (tag.data.ignored || tag.data.name == "marker")
       return nullptr;
 
     state_stack.push_back(state_stack.back());
@@ -1382,6 +1550,7 @@ namespace visage {
     resolveUses(tags);
     loadStyleTags(tags);
     collectGradients(tags);
+    collectMarkers(tags);
 
     std::vector<DrawableState> state_stack;
     state_stack.push_back(state);

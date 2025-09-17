@@ -41,41 +41,76 @@ namespace visage {
     struct Command {
       static constexpr int kMaxValues = 7;
       char type;
-      bool relative;
-      float values[kMaxValues];
+      Point end;
+      Point control1 { FLT_MAX, FLT_MAX };
+      Point control2 { FLT_MAX, FLT_MAX };
+      int flags = 0;
     };
 
     struct CommandList : std::vector<Command> {
+      enum Flags {
+        kLargeArc = 1,
+        kSweep = 1 << 1
+      };
+
+      Point adjustPoint(const Point& p, bool relative) const { return relative ? current + p : p; }
+      Point adjustPoint(float x, float y, bool relative) const {
+        return adjustPoint({ x, y }, relative);
+      }
+
+      void addCommand(Command command) {
+        current = command.end;
+        push_back(std::move(command));
+      }
+
       void moveTo(float x, float y, bool relative = false) {
-        push_back({ 'M', relative, { x, y } });
+        addCommand({ 'M', adjustPoint(x, y, relative) });
+        start = current;
       }
-      void moveTo(Point p, bool relative = false) { push_back({ 'M', relative, { p.x, p.y } }); }
+
+      void moveTo(Point p, bool relative = false) { moveTo(p.x, p.y, relative); }
+
       void lineTo(float x, float y, bool relative = false) {
-        push_back({ 'L', relative, { x, y } });
+        addCommand({ 'L', adjustPoint(x, y, relative) });
       }
-      void horizontalTo(float x, bool relative = false) { push_back({ 'H', relative, { x } }); }
-      void verticalTo(float y, bool relative = false) { push_back({ 'V', relative, { y } }); }
+
+      void horizontalTo(float x, bool relative = false) {
+        addCommand({ 'L', { relative ? x + current.x : x, current.y } });
+      }
+
+      void verticalTo(float y, bool relative = false) {
+        addCommand({ 'L', { current.x, relative ? y + current.y : y } });
+      }
+
       void quadraticTo(float cx, float cy, float x, float y, bool relative = false) {
-        push_back({ 'Q', relative, { cx, cy, x, y } });
+        addCommand({ 'Q', adjustPoint(x, y, relative), adjustPoint(cx, cy, relative) });
       }
+
       void smoothQuadraticTo(float x, float y, bool relative = false) {
-        push_back({ 'T', relative, { x, y } });
+        addCommand({ 'T', adjustPoint(x, y, relative) });
       }
+
       void bezierTo(float cx1, float cy1, float cx2, float cy2, float x, float y, bool relative = false) {
-        push_back({ 'C', relative, { cx1, cy1, cx2, cy2, x, y } });
+        addCommand({ 'C', adjustPoint(x, y, relative), adjustPoint(cx1, cy1, relative),
+                     adjustPoint(cx2, cy2, relative) });
       }
-      void smoothBezierTo(float cx2, float cy2, float x, float y, bool relative = false) {
-        push_back({ 'S', relative, { cx2, cy2, x, y } });
+
+      void smoothBezierTo(float cx, float cy, float x, float y, bool relative = false) {
+        addCommand({ 'S', adjustPoint(x, y, relative), adjustPoint(cx, cy, relative) });
       }
+
       void arcTo(float rx, float ry, float rotation, bool large_arc, bool sweep, float x, float y,
                  bool relative = false) {
-        push_back({ 'A', false, { rx, ry, rotation, large_arc ? 1.0f : 0.0f, sweep ? 1.0f : 0.0f, x, y } });
+        int flags = (large_arc ? kLargeArc : 0) | (sweep ? kSweep : 0);
+        addCommand({ 'A', adjustPoint(x, y, relative), { rx, ry }, { rotation, rotation }, flags });
       }
+
       void arcTo(float rx, float ry, float rotation, bool large_arc, bool sweep, Point p,
                  bool relative = false) {
         arcTo(rx, ry, rotation, large_arc, sweep, p.x, p.y, relative);
       }
-      void close() { push_back({ 'Z', false, {} }); }
+
+      void close() { addCommand({ 'Z', start }); }
 
       void addRectangle(float x, float y, float width, float height);
       void addRoundedRectangle(float x, float y, float width, float height, float rx_top_left,
@@ -85,6 +120,47 @@ namespace visage {
       void addRoundedRectangle(float x, float y, float width, float height, float rx, float ry);
       void addEllipse(float cx, float cy, float rx, float ry);
       void addCircle(float cx, float cy, float r);
+
+      Point direction(int index) {
+        auto check_delta = [](const Point& current, const Point& check) {
+          return check != Point(FLT_MAX, FLT_MAX) && check != current;
+        };
+
+        index = std::clamp(index, 0, (int)size() - 1);
+        Point current = at(index).end;
+        Point prev_point = current;
+        for (int i = index; i >= 0 && prev_point == current; --i) {
+          const auto& prev = at(i);
+          if (check_delta(current, prev.end))
+            prev_point = prev.end;
+          else if (check_delta(current, prev.control2))
+            prev_point = prev.control2;
+          else if (check_delta(current, prev.control1))
+            prev_point = prev.control1;
+        }
+
+        Point next_point = current;
+        for (int i = index + 1; i < size() && next_point == current; ++i) {
+          const auto& next = at(i);
+          if (check_delta(current, next.control1))
+            next_point = next.control1;
+          else if (check_delta(current, next.control2))
+            next_point = next.control2;
+          else if (check_delta(current, next.end))
+            next_point = next.end;
+        }
+
+        Point prev_direction = (current - prev_point).normalized();
+        Point next_direction = (next_point - current).normalized();
+        Point direction = prev_direction + next_direction;
+        if (direction == Point(0.0f, 0.0f))
+          return Point(-prev_direction.y, prev_direction.x);
+
+        return (prev_direction + next_direction).normalized();
+      }
+
+      Point start;
+      Point current;
     };
 
     enum class FillRule {

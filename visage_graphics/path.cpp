@@ -112,7 +112,7 @@ namespace visage {
       arc_angle = -arc_angle;
 
     Point adjusted_radius = resolution_matrix_ * Point(x_radius, y_radius);
-    float max_radius = std::max(adjusted_radius.x, adjusted_radius.y);
+    float max_radius = std::max(std::abs(adjusted_radius.x), std::abs(adjusted_radius.y));
     float max_delta_radians = 2.0f * std::acos(1.0f - error_tolerance_ / max_radius);
     int num_points = std::ceil(std::abs(arc_angle) / max_delta_radians);
 
@@ -129,28 +129,21 @@ namespace visage {
     }
   }
 
-  static void parseNumbers(float* numbers, int num, const std::string& str, size_t& i,
-                           bool bit_flags = false) {
+  static float parseNumber(const std::string& str, size_t& i, bool bit_flags = false) {
     std::string number;
-    int index = 0;
-    while (i < str.size() && index < num) {
+    while (i < str.size()) {
       bool sign = str[i] == '-' || str[i] == '+';
       if (std::isdigit(str[i]) || (number.empty() && sign) || str[i] == '.' || str[i] == 'e' ||
           str[i] == 'E') {
         if (str[i] == '.') {
-          if (number.find('.') != std::string::npos) {
-            numbers[index++] = std::stof(number);
-            number.clear();
-          }
+          if (number.find('.') != std::string::npos)
+            return std::stof(number);
         }
-        if (index < num)
-          number += str[i++];
+        number += str[i++];
       }
       else if (str[i] == ',' || std::isspace(str[i]) || sign) {
-        if (!number.empty()) {
-          numbers[index++] = std::stof(number);
-          number.clear();
-        }
+        if (!number.empty())
+          return std::stof(number);
         if (!sign)
           ++i;
       }
@@ -159,31 +152,14 @@ namespace visage {
       else
         ++i;
 
-      if (bit_flags && !number.empty()) {
-        numbers[index++] = std::stof(number);
-        number.clear();
-      }
+      if (bit_flags && !number.empty())
+        return std::stof(number);
     }
-    if (!number.empty())
-      numbers[index++] = std::stof(number);
-
-    VISAGE_ASSERT(num == index);
-  }
-
-  static int numbersForCommand(char command) {
-    switch (std::toupper(command)) {
-    case 'M':
-    case 'L':
-    case 'T': return 2;
-    case 'H':
-    case 'V': return 1;
-    case 'Q':
-    case 'S': return 4;
-    case 'C': return 6;
-    case 'A': return 7;
-    case 'Z': return 0;
-    default: VISAGE_ASSERT(false); return 0;
+    if (number.empty()) {
+      VISAGE_ASSERT(false);
+      return 0.0f;
     }
+    return std::stof(number);
   }
 
   Path::CommandList Path::parseSvgPath(const std::string& path) {
@@ -202,18 +178,63 @@ namespace visage {
         ++i;
       }
 
-      Command command;
-      if (std::toupper(command_char) == 'A') {
-        parseNumbers(command.values, 3, path, i);
-        parseNumbers(command.values + 3, 2, path, i, true);
-        parseNumbers(command.values + 5, 2, path, i);
-      }
-      else
-        parseNumbers(command.values, numbersForCommand(command_char), path, i);
+      char type = std::toupper(command_char);
+      bool relative = std::islower(command_char);
 
-      command.relative = std::islower(command_char);
-      command.type = std::toupper(command_char);
-      commands.push_back(command);
+      if (type == 'M') {
+        float x = parseNumber(path, i);
+        float y = parseNumber(path, i);
+        commands.moveTo(x, y, relative);
+      }
+      else if (type == 'L') {
+        float x = parseNumber(path, i);
+        float y = parseNumber(path, i);
+        commands.lineTo(x, y, relative);
+      }
+      else if (type == 'H')
+        commands.horizontalTo(parseNumber(path, i), relative);
+      else if (type == 'V')
+        commands.verticalTo(parseNumber(path, i), relative);
+      else if (type == 'Z')
+        commands.close();
+      else if (type == 'C') {
+        float cx1 = parseNumber(path, i);
+        float cy1 = parseNumber(path, i);
+        float cx2 = parseNumber(path, i);
+        float cy2 = parseNumber(path, i);
+        float x = parseNumber(path, i);
+        float y = parseNumber(path, i);
+        commands.bezierTo(cx1, cy1, cx2, cy2, x, y, relative);
+      }
+      else if (type == 'S') {
+        float cx = parseNumber(path, i);
+        float cy = parseNumber(path, i);
+        float x = parseNumber(path, i);
+        float y = parseNumber(path, i);
+        commands.smoothBezierTo(cx, cy, x, y, relative);
+      }
+      else if (type == 'Q') {
+        float cx = parseNumber(path, i);
+        float cy = parseNumber(path, i);
+        float x = parseNumber(path, i);
+        float y = parseNumber(path, i);
+        commands.quadraticTo(cx, cy, x, y, relative);
+      }
+      else if (type == 'T') {
+        float x = parseNumber(path, i);
+        float y = parseNumber(path, i);
+        commands.smoothQuadraticTo(x, y, relative);
+      }
+      else if (type == 'A') {
+        float rx = parseNumber(path, i);
+        float ry = parseNumber(path, i);
+        float rotation = parseNumber(path, i);
+        bool large_arc = parseNumber(path, i, true);
+        bool sweep = parseNumber(path, i, true);
+        float x = parseNumber(path, i);
+        float y = parseNumber(path, i);
+        commands.arcTo(rx, ry, rotation, large_arc, sweep, x, y, relative);
+      }
     }
     return commands;
   }
@@ -291,25 +312,18 @@ namespace visage {
   void Path::loadCommands(const CommandList& commands) {
     startNewPath();
     for (const auto& command : commands) {
-      const auto* vals = command.values;
       switch (command.type) {
-      case 'M': moveTo(vals[0], vals[1], command.relative); break;
-      case 'L': lineTo(vals[0], vals[1], command.relative); break;
-      case 'H': horizontalTo(vals[0], command.relative); break;
-      case 'V': verticalTo(vals[0], command.relative); break;
-      case 'Q':
-        quadraticTo(Point(vals[0], vals[1]), Point(vals[2], vals[3]), command.relative);
-        break;
-      case 'T': smoothQuadraticTo(Point(vals[0], vals[1]), command.relative); break;
-      case 'C':
-        bezierTo(Point(vals[0], vals[1]), Point(vals[2], vals[3]), Point(vals[4], vals[5]), command.relative);
-        break;
-      case 'S':
-        smoothBezierTo(Point(vals[0], vals[1]), Point(vals[2], vals[3]), command.relative);
-        break;
+      case 'M': moveTo(command.end); break;
+      case 'L': lineTo(command.end); break;
+      case 'H': horizontalTo(command.end.x); break;
+      case 'V': verticalTo(command.end.y); break;
+      case 'Q': quadraticTo(command.control1, command.end); break;
+      case 'T': smoothQuadraticTo(command.end); break;
+      case 'C': bezierTo(command.control1, command.control2, command.end); break;
+      case 'S': smoothBezierTo(command.control1, command.end); break;
       case 'A':
-        arcTo(vals[0], vals[1], vals[2], vals[3] != 0.0f, vals[4] != 0.0f, Point(vals[5], vals[6]),
-              command.relative);
+        arcTo(command.control1.x, command.control1.y, command.control2.x,
+              command.flags & CommandList::kLargeArc, command.flags & CommandList::kSweep, command.end);
         break;
       case 'Z': close(); break;
       default: VISAGE_ASSERT(false); break;
