@@ -1059,7 +1059,7 @@ namespace visage {
     return result;
   }
 
-  bool Svg::loadDrawable(const Tag& tag, SvgDrawable* drawable) {
+  bool SvgParser::loadDrawable(const Tag& tag, SvgDrawable* drawable) {
     int view_width = view_.view_box.width() > 0.0f ? view_.view_box.width() : 1.0f;
     int view_height = view_.view_box.height() > 0.0f ? view_.view_box.height() : 1.0f;
 
@@ -1227,7 +1227,7 @@ namespace visage {
       drawable->local_transform = drawable->local_transform * Transform::translation(x, y);
   }
 
-  void Svg::collectDefs(std::vector<Tag>& tags) {
+  void SvgParser::collectDefs(std::vector<Tag>& tags) {
     for (auto& tag : tags) {
       if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
         std::string id = "#" + tag.data.attributes.at("id");
@@ -1238,7 +1238,7 @@ namespace visage {
     }
   }
 
-  void Svg::collectGradients(std::vector<Tag>& tags) {
+  void SvgParser::collectGradients(std::vector<Tag>& tags) {
     for (auto& tag : tags) {
       if (tag.data.name == "linearGradient" || tag.data.name == "radialGradient") {
         if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
@@ -1250,7 +1250,7 @@ namespace visage {
     }
   }
 
-  void Svg::collectMarkers(std::vector<Tag>& tags) {
+  void SvgParser::collectMarkers(std::vector<Tag>& tags) {
     for (auto& tag : tags) {
       if (tag.data.name == "marker") {
         if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
@@ -1296,7 +1296,7 @@ namespace visage {
     }
   }
 
-  void Svg::resolveUses(std::vector<Tag>& tags) {
+  void SvgParser::resolveUses(std::vector<Tag>& tags) {
     auto use_tag = [this](Tag& target, const std::string& reference_id) {
       if (defs_.count(reference_id) == 0)
         return;
@@ -1329,7 +1329,7 @@ namespace visage {
     }
   }
 
-  void Svg::parseCssStyle(const std::string& style) {
+  void SvgParser::parseCssStyle(const std::string& style) {
     size_t pos = 0;
     while (pos < style.size()) {
       size_t brace_open = style.find('{', pos);
@@ -1355,7 +1355,7 @@ namespace visage {
     }
   }
 
-  void Svg::loadStyleTags(std::vector<Tag>& tags) {
+  void SvgParser::loadStyleTags(std::vector<Tag>& tags) {
     for (auto& tag : tags) {
       if (tag.data.name == "style")
         parseCssStyle(tag.data.text);
@@ -1364,7 +1364,7 @@ namespace visage {
     }
   }
 
-  GradientDef Svg::parseGradient(const std::string& color_string) {
+  GradientDef SvgParser::parseGradient(const std::string& color_string) {
     std::string color = removeWhitespace(color_string);
     if (color.substr(0, 3) == "url") {
       auto id = urlId(color_string);
@@ -1382,8 +1382,8 @@ namespace visage {
     return parseColor(color);
   }
 
-  void Svg::parseStyleDefinition(const std::string& key, const std::string& value,
-                                 DrawableState& state, SvgDrawable* drawable) {
+  void SvgParser::parseStyleDefinition(const std::string& key, const std::string& value,
+                                       DrawableState& state, SvgDrawable* drawable) {
     if (key == "opacity")
       tryReadFloat(drawable->opacity, value);
     else if (key == "clip-path")
@@ -1440,7 +1440,7 @@ namespace visage {
     }
   }
 
-  void Svg::parseStyleAttribute(const std::string& style, DrawableState& state, SvgDrawable* drawable) {
+  void SvgParser::parseStyleAttribute(const std::string& style, DrawableState& state, SvgDrawable* drawable) {
     std::stringstream stream(style);
     std::string line;
 
@@ -1454,7 +1454,7 @@ namespace visage {
     }
   }
 
-  void Svg::loadDrawableTransform(const Tag& tag, SvgDrawable* drawable) {
+  void SvgParser::loadDrawableTransform(const Tag& tag, SvgDrawable* drawable) {
     if (tag.data.attributes.count("transform"))
       drawable->local_transform = parseTransform(tag.data.attributes.at("transform")) *
                                   drawable->local_transform;
@@ -1476,7 +1476,8 @@ namespace visage {
     }
   }
 
-  void Svg::loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack, SvgDrawable* drawable) {
+  void SvgParser::loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack,
+                                    SvgDrawable* drawable) {
     drawable->is_clip_path = tag.data.name == "clipPath";
     drawable->is_clip_bounding_box = tag.data.attributes.count("clipPathUnits") &&
                                      tag.data.attributes.at("clipPathUnits") == "objectBoundingBox";
@@ -1490,7 +1491,7 @@ namespace visage {
     }
   }
 
-  std::unique_ptr<SvgDrawable> Svg::computeDrawables(Tag& tag, std::vector<DrawableState>& state_stack) {
+  std::unique_ptr<SvgDrawable> SvgParser::computeDrawables(Tag& tag, std::vector<DrawableState>& state_stack) {
     if (tag.data.ignored || tag.data.name == "marker")
       return nullptr;
 
@@ -1527,7 +1528,7 @@ namespace visage {
     return drawable;
   }
 
-  void Svg::parseData(const unsigned char* data, int data_size) {
+  void SvgParser::parseData(const unsigned char* data, int data_size) {
     std::string str(reinterpret_cast<const char*>(data), data_size);
 
     std::vector<Tag> tags;

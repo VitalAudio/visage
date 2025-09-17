@@ -343,42 +343,21 @@ namespace visage {
     float marker_angle = 0.0f;
   };
 
-  class Svg {
+  class SvgParser {
   public:
-    Svg() = default;
-
-    Svg& operator=(const Svg& other) {
-      drawable_ = std::make_unique<SvgDrawable>(*other.drawable_);
-      view_ = other.view_;
-      return *this;
+    static std::unique_ptr<SvgDrawable> loadDrawable(const unsigned char* data, int data_size,
+                                                     SvgViewSettings& view) {
+      SvgParser parser(data, data_size);
+      view = parser.view_;
+      return std::move(parser.drawable_);
     }
-
-    Svg(const Svg& other) { *this = other; }
-
-    Svg(const unsigned char* data, int data_size) { parseData(data, data_size); }
-    Svg(const EmbeddedFile& file) : Svg(file.data, file.size) { }
-
-    void draw(Canvas& canvas, float x, float y, float width = 0.0f, float height = 0.0f) const {
-      if (drawable_) {
-        SvgDrawable::ColorContext context;
-        drawable_->draw(canvas, context, x, y, width ? width : draw_width_, height ? height : draw_height_);
-      }
-    }
-
-    void setDimensions(int width, int height) {
-      this->width = width;
-      this->height = height;
-      draw_width_ = view_.width ? view_.width : width;
-      draw_height_ = view_.height ? view_.height : height;
-      if (drawable_ && view_.width == 0 && view_.height == 0)
-        drawable_->setSize(view_, width, height);
-    }
-
-    int width = 0;
-    int height = 0;
-    int blur_radius = 0;
 
   private:
+    SvgParser() = default;
+
+    SvgParser(const unsigned char* data, int data_size) { parseData(data, data_size); }
+    SvgParser(const EmbeddedFile& file) : SvgParser(file.data, file.size) { }
+
     void parseData(const unsigned char* data, int data_size);
 
     std::unique_ptr<SvgDrawable> computeDrawables(Tag& tag, std::vector<DrawableState>& state_stack);
@@ -404,6 +383,45 @@ namespace visage {
     std::map<std::string, std::unique_ptr<Marker>> markers_;
     std::vector<std::pair<CssSelector, std::string>> style_lookup_;
     SvgViewSettings view_;
+    float draw_width_ = 0.0f;
+    float draw_height_ = 0.0f;
+  };
+
+  class Svg {
+  public:
+    Svg() = default;
+
+    Svg& operator=(const Svg& other) {
+      drawable_ = std::make_unique<SvgDrawable>(*other.drawable_);
+      view_ = other.view_;
+      return *this;
+    }
+
+    Svg(const Svg& other) { *this = other; }
+
+    Svg(const unsigned char* data, int data_size) {
+      drawable_ = SvgParser::loadDrawable(data, data_size, view_);
+    }
+
+    Svg(const EmbeddedFile& file) : Svg(file.data, file.size) { }
+
+    void draw(Canvas& canvas, float x, float y) const {
+      if (drawable_) {
+        SvgDrawable::ColorContext context;
+        drawable_->draw(canvas, context, x, y, draw_width_, draw_height_);
+      }
+    }
+
+    void setDimensions(int width, int height) {
+      draw_width_ = view_.width ? view_.width : width;
+      draw_height_ = view_.height ? view_.height : height;
+      if (drawable_ && view_.width == 0 && view_.height == 0)
+        drawable_->setSize(view_, width, height);
+    }
+
+  private:
+    SvgViewSettings view_;
+    std::unique_ptr<SvgDrawable> drawable_;
     float draw_width_ = 0.0f;
     float draw_height_ = 0.0f;
   };
