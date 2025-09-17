@@ -709,25 +709,18 @@ namespace visage {
 }
 
 - (NSSize)windowWillResize:(NSWindow*)sender toSize:(NSSize)frame_size {
-  if (!self.visage_window->isFixedAspectRatio())
-    return frame_size;
-
   NSSize current_frame = [self.window_handle frame].size;
   if (current_frame.width != frame_size.width)
     self.resizing_horizontal = true;
   if (current_frame.height != frame_size.height)
     self.resizing_vertical = true;
 
-  visage::Point max_dimensions = visage::Point(self.visage_window->maxWindowDimensions());
-  visage::Point min_dimensions = visage::Point(self.visage_window->minWindowDimensions());
   visage::Point borders = visage::windowBorderSize(self.window_handle);
-  visage::Point dimensions(static_cast<float>(frame_size.width - borders.x),
-                           static_cast<float>(frame_size.height - borders.y));
-  float aspect_ratio = self.visage_window->aspectRatio();
-  dimensions = adjustBoundsForAspectRatio(dimensions, min_dimensions, max_dimensions, aspect_ratio,
-                                          self.resizing_horizontal, self.resizing_vertical);
-
-  return NSMakeSize(dimensions.x + borders.x, dimensions.y + borders.y);
+  float scale = self.visage_window->dpiScale();
+  int width = scale * (frame_size.width - borders.x);
+  int height = scale * (frame_size.height - borders.y);
+  self.visage_window->handleAdjustResize(&width, &height, self.resizing_horizontal, self.resizing_vertical);
+  return NSMakeSize(width / scale + borders.x, height / scale + borders.y);
 }
 
 @end
@@ -1020,25 +1013,9 @@ namespace visage {
     NSScreen* screen = [window_handle_ screen];
     NSRect visible_frame = [screen visibleFrame];
 
-    int display_width = visible_frame.size.width - borders.x;
-    int display_height = visible_frame.size.height - borders.y;
-    float aspect_ratio = aspectRatio();
-
-    return { std::min<int>(display_width, display_height * aspect_ratio),
-             std::min<int>(display_height, display_width / aspect_ratio) };
-  }
-
-  IPoint WindowMac::minWindowDimensions() const {
-    float minimum_scale = minimumWindowScale();
-    NSScreen* screen = [window_handle_ screen];
-    NSRect visible_frame = [screen visibleFrame];
-
-    int min_display_width = minimum_scale * visible_frame.size.width;
-    int min_display_height = minimum_scale * visible_frame.size.height;
-    float aspect_ratio = aspectRatio();
-
-    return { std::max<int>(min_display_width, min_display_height * aspect_ratio),
-             std::max<int>(min_display_height, min_display_width / aspect_ratio) };
+    int display_width = dpiScale() * (visible_frame.size.width - borders.x);
+    int display_height = dpiScale() * (visible_frame.size.height - borders.y);
+    return { display_width, display_height };
   }
 
   void WindowMac::handleNativeResize(int width, int height) {

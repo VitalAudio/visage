@@ -225,18 +225,16 @@ namespace visage {
     void* globalDisplay() const override { return X11Connection::globalInstance()->display(); }
     int posixFd() const override { return x11_->fd(); }
 
-    void setFixedAspectRatio(bool fixed) override;
-
     void windowContentsResized(int width, int height) override;
     void show() override;
     void showMaximized() override;
     void hide() override;
     void close() override;
     bool isShowing() const override;
+    void setFixedAspectRatio(bool fixed) override;
 
     void setWindowTitle(const std::string& title) override;
     IPoint maxWindowDimensions() const override;
-    IPoint minWindowDimensions() const override;
     MonitorInfo monitorInfo() { return monitor_info_; }
     X11Connection* x11Connection() { return x11_; }
     bool timerThreadRunning() { return timer_thread_running_.load(); }

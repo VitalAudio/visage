@@ -1490,12 +1490,27 @@ namespace visage {
   }
 
   void WindowX11::windowContentsResized(int width, int height) {
-    setFixedAspectRatio(isFixedAspectRatio());
     XResizeWindow(x11_->display(), window_handle_, width, height);
   }
 
   void WindowX11::show() {
     X11Connection::DisplayLock lock(x11_);
+
+    XSizeHints* size_hints = XAllocSizeHints();
+    ::Window handle = parent_handle_ ? parent_handle_ : window_handle_;
+    long supplied_return;
+    XGetWMNormalHints(x11_->display(), handle, size_hints, &supplied_return);
+    int min_width = kMinWidth;
+    int min_height = kMinHeight;
+    handleAdjustResize(&min_width, &min_height, true, true);
+    size_hints->min_width = min_width;
+    size_hints->min_height = min_height;
+    auto max_dimension = maxWindowDimensions();
+    size_hints->max_width = max_dimension.x;
+    size_hints->max_height = max_dimension.y;
+    XSetWMNormalHints(x11_->display(), handle, size_hints);
+    XFree(size_hints);
+
     XMapWindow(x11_->display(), window_handle_);
     XSetWMProtocols(x11_->display(), window_handle_, x11_->deleteMessageRef(), 1);
     XFlush(x11_->display());
@@ -1576,21 +1591,9 @@ namespace visage {
 
     int display_width = monitor_info.bounds.width();
     int display_height = monitor_info.bounds.height();
-    float aspect_ratio = aspectRatio();
+    float aspect_ratio = clientWidth() * 1.0f / clientHeight();
     return { std::min<int>(display_width, display_height * aspect_ratio),
              std::min<int>(display_height, display_width / aspect_ratio) };
-  }
-
-  IPoint WindowX11::minWindowDimensions() const {
-    MonitorInfo monitor_info = activeMonitorInfo();
-    float minimum_scale = minimumWindowScale();
-
-    int min_display_width = minimum_scale * monitor_info.bounds.width();
-    int min_display_height = minimum_scale * monitor_info.bounds.height();
-    float aspect_ratio = aspectRatio();
-
-    return { std::max<int>(min_display_width, min_display_height * aspect_ratio),
-             std::max<int>(min_display_height, min_display_width / aspect_ratio) };
   }
 }
 #endif

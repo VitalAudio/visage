@@ -27,9 +27,9 @@
 #include <regex>
 
 namespace visage {
-  WindowEventHandler::WindowEventHandler(Window* window, Frame* frame) :
-      window_(window), content_frame_(frame) {
-    window->setEventHandler(this);
+  WindowEventHandler::WindowEventHandler(ApplicationEditor* editor, Frame* frame) :
+      editor_(editor), window_(editor->window()), content_frame_(frame) {
+    window_->setEventHandler(this);
     content_frame_->onResize() += resize_callback_;
   }
 
@@ -90,6 +90,11 @@ namespace visage {
     VISAGE_ASSERT(width >= 0 && height >= 0);
     content_frame_->setNativeBounds(0, 0, width, height);
     content_frame_->redraw();
+  }
+
+  void WindowEventHandler::handleAdjustResize(int* width, int* height, bool horizontal_resize,
+                                              bool vertical_resize) {
+    editor_->adjustWindowDimensions(width, height, horizontal_resize, vertical_resize);
   }
 
   bool WindowEventHandler::handleKeyDown(const KeyEvent& e) {

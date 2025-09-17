@@ -114,31 +114,6 @@ namespace visage {
     return window_ && window_->isShowing();
   }
 
-  Point ApplicationWindow::minWindowDimensions() {
-    if (window_)
-      return Point(window_->minWindowDimensions()) * (1.0f / window_->dpiScale());
-    return { 0, 0 };
-  }
-
-  Point ApplicationWindow::maxWindowDimensions() {
-    if (window_)
-      return Point(window_->maxWindowDimensions()) * (1.0f / window_->dpiScale());
-    return { FLT_MAX, FLT_MAX };
-  }
-
-  void ApplicationWindow::adjustWindowDimensions(unsigned int* width, unsigned int* height,
-                                                 bool horizontal_resize, bool vertical_resize) {
-    if (!isFixedAspectRatio() || *width == 0 || *height == 0)
-      return;
-
-    visage::Point point(static_cast<int>(*width), static_cast<int>(*height));
-    visage::Point dimensions = visage::adjustBoundsForAspectRatio(point, minWindowDimensions(),
-                                                                  maxWindowDimensions(), aspectRatio(),
-                                                                  horizontal_resize, vertical_resize);
-    *width = dimensions.x;
-    *height = dimensions.y;
-  }
-
   void ApplicationWindow::runEventLoop() {
     window_->runEventLoop();
   }

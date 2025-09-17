@@ -103,14 +103,15 @@ namespace visage {
 
   void ApplicationEditor::addToWindow(Window* window) {
     window_ = window;
-    window_->setFixedAspectRatio(fixed_aspect_ratio_);
 
     Renderer::instance().checkInitialization(window_->initWindow(), window->globalDisplay());
     canvas_->pairToWindow(window_->nativeHandle(), window->clientWidth(), window->clientHeight());
     top_level_->setDpiScale(window_->dpiScale());
     top_level_->setNativeBounds(0, 0, window->clientWidth(), window->clientHeight());
+    window_->setFixedAspectRatio(fixed_aspect_ratio_ != 0.0f);
 
-    window_event_handler_ = std::make_unique<WindowEventHandler>(window, top_level_.get());
+    window_event_handler_ = std::make_unique<WindowEventHandler>(this, top_level_.get());
+    checkFixedAspectRatio();
 
     window->setDrawCallback([this](double time) {
       canvas_->updateTime(time);
@@ -153,7 +154,7 @@ namespace visage {
   }
 
   void ApplicationEditor::setFixedAspectRatio(bool fixed) {
-    fixed_aspect_ratio_ = fixed;
+    fixed_aspect_ratio_ = fixed ? aspectRatio() : 0.0f;
     if (window_)
       window_->setFixedAspectRatio(fixed);
   }
@@ -175,5 +176,24 @@ namespace visage {
         ++it;
     }
     drawing_children_.clear();
+  }
+
+  void ApplicationEditor::adjustWindowDimensions(int* width, int* height, bool horizontal_resize,
+                                                 bool vertical_resize) const {
+    int min_width = min_width_ * dpiScale();
+    int min_height = min_height_ * dpiScale();
+    Point min_dimensions(min_width, min_height);
+    if (isFixedAspectRatio()) {
+      auto max_dimensions = window_ ? Point(window_->maxWindowDimensions()) : Point(FLT_MAX, FLT_MAX);
+      auto adjusted = adjustBoundsForAspectRatio({ *width * 1.0f, *height * 1.0f }, min_dimensions,
+                                                 max_dimensions, fixed_aspect_ratio_,
+                                                 horizontal_resize, vertical_resize);
+      *width = adjusted.x;
+      *height = adjusted.y;
+    }
+    else {
+      *width = std::max(min_width, *width);
+      *height = std::max(min_height, *height);
+    }
   }
 }

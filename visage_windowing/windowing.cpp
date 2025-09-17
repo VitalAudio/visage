@@ -25,12 +25,11 @@
 #include "visage_utils/time_utils.h"
 
 namespace visage {
-  Window::Window(float aspect_ratio) : aspect_ratio_(aspect_ratio) {
+  Window::Window() {
     Thread::setAsMainThread();
   }
 
-  Window::Window(int width, int height) :
-      aspect_ratio_(width * 1.0f / height), client_width_(width), client_height_(height) {
+  Window::Window(int width, int height) : client_width_(width), client_height_(height) {
     Thread::setAsMainThread();
   }
 
@@ -51,6 +50,11 @@ namespace visage {
     client_height_ = height;
     if (event_handler_)
       event_handler_->handleResized(width, height);
+  }
+
+  void Window::handleAdjustResize(int* width, int* height, bool horizontal_resize, bool vertical_resize) {
+    if (event_handler_)
+      event_handler_->handleAdjustResize(width, height, horizontal_resize, vertical_resize);
   }
 
   bool Window::handleKeyDown(KeyCode key_code, int modifiers, bool repeat) {
@@ -89,8 +93,6 @@ namespace visage {
 
     client_width_ = width;
     client_height_ = height;
-    if (fixed_aspect_ratio_)
-      aspect_ratio_ = width * 1.0f / height;
     windowContentsResized(client_width_, client_height_);
     on_contents_resized_.callback();
   }

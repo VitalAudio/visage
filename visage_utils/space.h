@@ -406,11 +406,16 @@ namespace visage {
   static Point adjustBoundsForAspectRatio(Point current, Point min_bounds, Point max_bounds,
                                           float aspect_ratio, bool horizontal_resize,
                                           bool vertical_resize) {
-    float width = std::max(min_bounds.x, std::min(max_bounds.x, current.x));
-    float height = std::max(min_bounds.y, std::min(max_bounds.y, current.y));
+    float min_x = std::max(min_bounds.x, min_bounds.y * aspect_ratio);
+    float min_y = std::max(min_bounds.y, min_bounds.x / aspect_ratio);
+    float max_x = std::min(max_bounds.x, max_bounds.y * aspect_ratio);
+    float max_y = std::min(max_bounds.y, max_bounds.x / aspect_ratio);
 
-    float width_from_height = std::max(min_bounds.x, std::min(max_bounds.x, height * aspect_ratio));
-    float height_from_width = std::max(min_bounds.y, std::min(max_bounds.y, width / aspect_ratio));
+    float width = std::max(min_x, std::min(max_x, current.x));
+    float height = std::max(min_y, std::min(max_y, current.y));
+
+    float width_from_height = std::max(min_x, std::min(max_x, height * aspect_ratio));
+    float height_from_width = std::max(min_y, std::min(max_y, width / aspect_ratio));
 
     if (horizontal_resize && !vertical_resize)
       return { width, height_from_width };

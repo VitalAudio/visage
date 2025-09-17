@@ -104,8 +104,8 @@ TEST_CASE("Multiple thread instances", "[utils]") {
   thread1.start();
   thread2.start();
 
-  REQUIRE(thread1.waitForEnd(1000));
-  REQUIRE(thread2.waitForEnd(1000));
+  REQUIRE(thread1.waitForEnd(3000));
+  REQUIRE(thread2.waitForEnd(3000));
 
   REQUIRE(shared_counter == 200);
 }

@@ -62,7 +62,7 @@ namespace visage {
     void removeFromWindow();
     void drawWindow();
 
-    bool isFixedAspectRatio() const { return fixed_aspect_ratio_; }
+    bool isFixedAspectRatio() const { return fixed_aspect_ratio_ != 0.0f; }
     void setFixedAspectRatio(bool fixed);
     float aspectRatio() const override {
       if (height() && width())
@@ -74,9 +74,35 @@ namespace visage {
 
     void drawStaleChildren();
 
-    void setDimensions(float width, float height) { setBounds(x(), y(), width, height); }
+    void setMinimumDimensions(float width, float height) {
+      min_width_ = std::max(0.0f, width);
+      min_height_ = std::max(0.0f, height);
+    }
+
+    void setDimensions(float width, float height) {
+      setBounds(x(), y(), width, height);
+      checkFixedAspectRatio();
+    }
+
     void setNativeDimensions(int width, int height) {
       setNativeBounds(nativeX(), nativeY(), width, height);
+      checkFixedAspectRatio();
+    }
+
+    void checkFixedAspectRatio() {
+      if (fixed_aspect_ratio_)
+        fixed_aspect_ratio_ = width() * 1.0f / height();
+    }
+
+    void adjustWindowDimensions(int* width, int* height, bool horizontal_resize, bool vertical_resize) const;
+
+    void adjustWindowDimensions(uint32_t* width, uint32_t* height, bool horizontal_resize,
+                                bool vertical_resize) const {
+      int w = *width;
+      int h = *height;
+      adjustWindowDimensions(&w, &h, horizontal_resize, vertical_resize);
+      *width = w;
+      *height = h;
     }
 
     void addClientDecoration() { top_level_->addClientDecoration(); }
@@ -93,8 +119,10 @@ namespace visage {
     std::unique_ptr<Canvas> canvas_;
     std::unique_ptr<TopLevelFrame> top_level_;
     std::unique_ptr<WindowEventHandler> window_event_handler_;
-    bool fixed_aspect_ratio_ = false;
+    float fixed_aspect_ratio_ = 0.0f;
 
+    float min_width_ = 0.0f;
+    float min_height_ = 0.0f;
     std::set<Frame*> stale_children_;
     std::set<Frame*> drawing_children_;
 
