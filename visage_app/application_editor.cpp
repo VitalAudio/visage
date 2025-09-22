@@ -59,7 +59,10 @@ namespace visage {
     canvas_->addRegion(top_level_->region());
     top_level_->addChild(this);
 
-    event_handler_.request_redraw = [this](Frame* frame) { stale_children_.insert(frame); };
+    event_handler_.request_redraw = [this](Frame* frame) {
+      if (std::find(stale_children_.begin(), stale_children_.end(), frame) == stale_children_.end())
+        stale_children_.push_back(frame);
+    };
     event_handler_.request_keyboard_focus = [this](Frame* frame) {
       if (window_event_handler_)
         window_event_handler_->setKeyboardFocus(frame);
@@ -70,7 +73,9 @@ namespace visage {
 
       if (window_event_handler_)
         window_event_handler_->giveUpFocus(frame);
-      stale_children_.erase(frame);
+      auto pos = std::find(stale_children_.begin(), stale_children_.end(), frame);
+      if (pos != stale_children_.end())
+        stale_children_.erase(pos);
     };
     event_handler_.set_mouse_relative_mode = [this](bool relative) {
       window_->setMouseRelativeMode(relative);
@@ -164,7 +169,7 @@ namespace visage {
     }
     for (auto it = stale_children_.begin(); it != stale_children_.end();) {
       Frame* child = *it;
-      if (drawing_children_.count(child) == 0) {
+      if (std::find(drawing_children_.begin(), drawing_children_.end(), child) == drawing_children_.end()) {
         child->drawToRegion(*canvas_);
         it = stale_children_.erase(it);
       }

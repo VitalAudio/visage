@@ -149,14 +149,14 @@ namespace visage {
     void removePostEffect();
 
     void setAlphaTransparency(float alpha) {
+      if (alpha_transparency_ == alpha)
+        return;
+
       alpha_transparency_ = alpha;
       redraw();
     }
 
-    void removeAlphaTransparency() {
-      alpha_transparency_ = 1.0f;
-      redraw();
-    }
+    void removeAlphaTransparency() { setAlphaTransparency(1.0f); }
 
     void setCached(bool cached) {
       cached_ = cached;

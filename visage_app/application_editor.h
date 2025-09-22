@@ -113,8 +113,8 @@ namespace visage {
 
     float min_width_ = 0.0f;
     float min_height_ = 0.0f;
-    std::set<Frame*> stale_children_;
-    std::set<Frame*> drawing_children_;
+    std::vector<Frame*> stale_children_;
+    std::vector<Frame*> drawing_children_;
 
     VISAGE_LEAK_CHECKER(ApplicationEditor)
   };
