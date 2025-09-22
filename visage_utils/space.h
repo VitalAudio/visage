@@ -86,34 +86,30 @@ namespace visage {
       return { point.x / scalar, point.y / scalar };
     }
 
-    bool operator==(const BasePoint& other) const { return x == other.x && y == other.y; }
-    bool operator!=(const BasePoint& other) const { return !(*this == other); }
-    bool operator<(const BasePoint& other) const {
+    bool operator==(const BasePoint& other) const noexcept { return x == other.x && y == other.y; }
+    bool operator!=(const BasePoint& other) const noexcept { return !(*this == other); }
+    bool operator<(const BasePoint& other) const noexcept {
       return x < other.x || (x == other.x && y < other.y);
     }
-    bool operator>(const BasePoint& other) const {
+    bool operator>(const BasePoint& other) const noexcept {
       return x > other.x || (x == other.x && y > other.y);
     }
-    bool operator<=(const BasePoint& other) const {
+    bool operator<=(const BasePoint& other) const noexcept {
       return x < other.x || (x == other.x && y <= other.y);
     }
-    bool operator>=(const BasePoint& other) const {
+    bool operator>=(const BasePoint& other) const noexcept {
       return x > other.x || (x == other.x && y >= other.y);
     }
-    T compare(const BasePoint& other) const {
-      if (x < other.x)
-        return -1;
-      if (x > other.x)
-        return 1;
-      if (y < other.y)
-        return -1;
-      if (y > other.y)
-        return 1;
+    T compare(const BasePoint& other) const noexcept {
+      if (x != other.x)
+        return x < other.x ? -1 : 1;
+      if (y != other.y)
+        return y < other.y ? -1 : 1;
       return 0;
     }
 
-    T squareMagnitude() const { return x * x + y * y; }
-    double length() const { return sqrt(squareMagnitude()); }
+    T squareMagnitude() const noexcept { return x * x + y * y; }
+    double length() const noexcept { return sqrt(squareMagnitude()); }
 
     BasePoint normalized() const {
       T magnitude = length();
@@ -123,7 +119,7 @@ namespace visage {
     }
     void normalize() { *this = normalized(); }
 
-    T cross(const BasePoint& other) const { return x * other.y - y * other.x; }
+    T cross(const BasePoint& other) const noexcept { return x * other.y - y * other.x; }
 
     auto round() const {
       if constexpr (std::is_integral_v<T>)

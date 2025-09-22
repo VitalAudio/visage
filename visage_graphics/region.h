@@ -53,22 +53,8 @@ namespace visage {
       region->setLayerIndex(layer_index_);
     }
 
-    void removeRegion(Region* region) {
-      region->clear();
-      region->setNeedsLayer(false);
-      region->parent_ = nullptr;
-      region->setCanvas(nullptr);
-      sub_regions_.erase(std::find(sub_regions_.begin(), sub_regions_.end(), region));
-    }
-
-    void setCanvas(Canvas* canvas) {
-      if (canvas_ == canvas)
-        return;
-
-      canvas_ = canvas;
-      for (auto& sub_region : sub_regions_)
-        sub_region->setCanvas(canvas);
-    }
+    void removeRegion(Region* region);
+    void setCanvas(Canvas* canvas);
 
     void setBounds(int x, int y, int width, int height) {
       invalidate();

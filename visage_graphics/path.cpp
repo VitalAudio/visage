@@ -397,6 +397,7 @@ namespace visage {
   class TriangulationGraph {
   public:
     enum class PointType {
+      None,
       Begin,
       Continue,
       End
@@ -407,9 +408,18 @@ namespace visage {
       DPoint point;
       PointType type;
 
+      IndexData() : index(0), point(), type(PointType::None) { }
+
       IndexData(int i, const DPoint& p, PointType t) : index(i), point(p), type(t) { }
 
       bool operator<(const IndexData& other) const {
+        if (type != other.type) {
+          if (type == PointType::None)
+            return false;
+          if (other.type == PointType::None)
+            return true;
+        }
+
         double compare = point.compare(other.point);
         if (compare)
           return compare < 0.0;
@@ -494,12 +504,14 @@ namespace visage {
 
       ScanLine() = delete;
 
-      explicit ScanLine(TriangulationGraph* graph) : graph_(graph) { }
+      explicit ScanLine(TriangulationGraph* graph) : graph_(graph) {
+        sorted_indices_ = graph_->sortedIndices();
+      }
 
-      bool hasNext() const { return current_index_ < sorted_indices_.size(); }
+      bool hasNext() const { return current_index_ < sorted_indices_->size(); }
       void progressToNextEvent() {
-        while (current_index_ < sorted_indices_.size()) {
-          int index = sorted_indices_[current_index_].index;
+        while (current_index_ < sorted_indices_->size()) {
+          int index = sorted_indices_->at(current_index_).index;
           if (graph_->next_edge_[index] != index)
             break;
           current_index_++;
@@ -520,15 +532,15 @@ namespace visage {
       }
 
       Event nextEvent() const {
-        auto current = sorted_indices_[current_index_];
+        auto current = sorted_indices_->at(current_index_);
         int prev_index = resolveAlias(graph_->prev_edge_[current.index]);
         int next_index = resolveAlias(graph_->next_edge_[current.index]);
         auto prev = graph_->points_[prev_index];
         auto next = graph_->points_[next_index];
-        bool degeneracy = current_index_ + 1 < sorted_indices_.size() &&
-                          sorted_indices_[current_index_ + 1].point == current.point;
+        bool degeneracy = current_index_ + 1 < sorted_indices_->size() &&
+                          sorted_indices_->at(current_index_ + 1).point == current.point;
         degeneracy = degeneracy || (current_index_ - 1 >= 0 &&
-                                    sorted_indices_[current_index_ - 1].point == current.point);
+                                    sorted_indices_->at(current_index_ - 1).point == current.point);
         return { current.type, current.index, current.point, prev_index,
                  prev,         next_index,    next,          degeneracy };
       }
@@ -628,11 +640,15 @@ namespace visage {
         if (next == areas_.end())
           return IntersectionType::None;
 
-        const auto& area1 = *it;
-        const auto& area2 = *next;
+        if (it->from.y < next->from.y && it->to.y < next->from.y && it->from.y < next->to.y &&
+            it->to.y < next->to.y)
+          return IntersectionType::None;
 
         if (it->from == next->to || next->from == it->to || it->to_index == next->to_index)
           return IntersectionType::None;
+
+        const auto& area1 = *it;
+        const auto& area2 = *next;
 
         double cross = (area1.to - area1.from).cross(area2.to - area2.from);
         double compare1 = stableOrientation(area1.from, area1.to, area2.to);
@@ -1069,7 +1085,7 @@ namespace visage {
 
       void reset() {
         sorted_indices_ = graph_->sortedIndices();
-        edit_positions_.resize(sorted_indices_.size(), -1);
+        edit_positions_.resize(sorted_indices_->size(), -1);
         areas_.clear();
         last_position1_ = areas_.end();
         last_position2_ = areas_.end();
@@ -1081,7 +1097,7 @@ namespace visage {
 
     private:
       TriangulationGraph* graph_ = nullptr;
-      std::vector<IndexData> sorted_indices_;
+      const std::vector<IndexData>* sorted_indices_ = nullptr;
       int current_index_ = 0;
       int next_intersection_ = -1;
 
@@ -1109,7 +1125,8 @@ namespace visage {
         scan_line_->reset();
         while (scan_line_->hasNext()) {
           if (scan_line_->updateSplitIntersections())
-            intersection_added = true;
+            ;
+          //intersection_added = true;
         }
       }
 
@@ -1262,7 +1279,7 @@ namespace visage {
       auto sorted_indices = sortedIndices();
       std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(points_.size());
 
-      for (const auto& index : sorted_indices) {
+      for (const auto& index : *sorted_indices) {
         touched[index.index] = true;
         cutEars(index.index, triangles, touched);
       }
@@ -1353,24 +1370,6 @@ namespace visage {
             insertPointBetween(index, next_index, point + offset);
             points_created.push_back(2);
           }
-          else if (type == Path::Join::Miter) {
-            auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
-                                                       point + offset, next + offset);
-            if (intersection.has_value() &&
-                (intersection.value() - point).squareMagnitude() / (amount * amount) < square_miter_limit) {
-              points_[index] = intersection.value();
-              points_created.push_back(1);
-            }
-            else {
-              points_[index] += prev_offset;
-              if (point + offset == points_[index])
-                points_created.push_back(1);
-              else {
-                insertPointBetween(index, next_index, point + offset);
-                points_created.push_back(2);
-              }
-            }
-          }
           else if (type == Path::Join::Square) {
             DPoint square_offset = (prev_direction - direction).normalized() * amount;
             DPoint square_center = point + square_offset;
@@ -1391,9 +1390,9 @@ namespace visage {
               double acos_param = std::clamp(prev_offset.dot(offset) / (amount * amount), -1.0, 1.0);
               double arc_angle = std::acos(acos_param);
               points_[index] += prev_offset;
-              int num_points = std::ceil(arc_angle / max_delta_radians - 0.1);
+              int num_points = std::max(0.0, std::ceil(arc_angle / max_delta_radians - 0.1));
               std::complex<double> position(prev_offset.x, prev_offset.y);
-              double angle_delta = arc_angle / num_points;
+              double angle_delta = arc_angle / (num_points + 1);
               std::complex<double> rotation = std::polar(1.0, (amount < 0.0) ? angle_delta : -angle_delta);
               int current_index = index;
 
@@ -1404,27 +1403,24 @@ namespace visage {
               }
               points_created.push_back(num_points + 1);
             }
+            else
+              type = Path::Join::Miter;
+          }
+          if (type == Path::Join::Miter) {
+            auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
+                                                       point + offset, next + offset);
+            if (intersection.has_value() &&
+                (intersection.value() - point).squareMagnitude() / (amount * amount) < square_miter_limit) {
+              points_[index] = intersection.value();
+              points_created.push_back(1);
+            }
             else {
-              if (amount < 0.0) {
-                DPoint result = point + offset;
-                if (std::abs(direction.dot(prev_direction)) < 0.99) {
-                  auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
-                                                             point + offset, next + offset);
-                  VISAGE_ASSERT(intersection.has_value());
-                  result = intersection.value();
-                }
-                points_[index] = result;
+              points_[index] += prev_offset;
+              if (point + offset == points_[index])
                 points_created.push_back(1);
-              }
               else {
-                points_[index] += prev_offset;
-                DPoint insert = point + offset;
-                if (insert != points_[index] && insert != next) {
-                  insertPointBetween(index, next_index, insert);
-                  points_created.push_back(2);
-                }
-                else
-                  points_created.push_back(1);
+                insertPointBetween(index, next_index, point + offset);
+                points_created.push_back(2);
               }
             }
           }
@@ -1517,6 +1513,9 @@ namespace visage {
   private:
     PointType pointType(int index) const {
       int prev_index = prev_edge_[index];
+      if (prev_index == index)
+        return PointType::None;
+
       int next_index = next_edge_[index];
       if (prev_index < 0)
         prev_index = index;
@@ -1580,18 +1579,31 @@ namespace visage {
       return true;
     }
 
-    std::vector<IndexData> sortedIndices() {
+    const std::vector<IndexData>* sortedIndices() {
       sorted_indices_.reserve(prev_edge_.size());
-      for (auto& point : sorted_indices_) {
-        point.type = pointType(point.index);
-        point.point = points_[point.index];
-      }
+      auto unchanged = [this](IndexData& data) {
+        const auto& point = points_[data.index];
+        auto type = pointType(data.index);
+        if (data.point == point && data.type == type)
+          return true;
+
+        data.point = point;
+        data.type = type;
+        return false;
+      };
+
+      int updated_index = std::stable_partition(sorted_indices_.begin(), sorted_indices_.end(), unchanged) -
+                          sorted_indices_.begin();
 
       for (int i = sorted_indices_.size(); i < prev_edge_.size(); ++i)
         sorted_indices_.emplace_back(i, points_[i], pointType(i));
 
-      std::sort(sorted_indices_.begin(), sorted_indices_.end());
-      return sorted_indices_;
+      std::sort(sorted_indices_.begin() + updated_index, sorted_indices_.end());
+      std::inplace_merge(sorted_indices_.begin(), sorted_indices_.begin() + updated_index,
+                         sorted_indices_.end());
+
+      VISAGE_LOG(sorted_indices_.size());
+      return &sorted_indices_;
     }
 
     void removeCycle(int start_index) {

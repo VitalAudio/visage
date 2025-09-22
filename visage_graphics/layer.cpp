@@ -99,7 +99,7 @@ namespace visage {
 
       if (overlaps) {
         RegionPosition overlap(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
-        overlapping.insert(overlapping.begin(), overlap);
+        overlapping.push_back(overlap);
       }
       else if (sub_region->isEmpty())
         addSubRegions(positions, overlapping,
