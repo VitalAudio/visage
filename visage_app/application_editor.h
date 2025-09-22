@@ -95,8 +95,8 @@ namespace visage {
     std::unique_ptr<WindowEventHandler> window_event_handler_;
     bool fixed_aspect_ratio_ = false;
 
-    std::set<Frame*> stale_children_;
-    std::set<Frame*> drawing_children_;
+    std::vector<Frame*> stale_children_;
+    std::vector<Frame*> drawing_children_;
 
     VISAGE_LEAK_CHECKER(ApplicationEditor)
   };

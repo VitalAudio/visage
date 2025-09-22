@@ -163,11 +163,15 @@ namespace visage {
       transform_origin_x_ratio = other.transform_origin_x_ratio;
       transform_origin_y_ratio = other.transform_origin_y_ratio;
 
+      opacity = other.opacity;
       state = other.state;
       path = other.path;
       stroke_path = other.stroke_path;
       fill_brush = other.fill_brush;
       stroke_brush = other.stroke_brush;
+      marker_start = other.marker_start;
+      marker_mid = other.marker_mid;
+      marker_end = other.marker_end;
 
       children.clear();
       for (const auto& child : other.children)
@@ -179,11 +183,11 @@ namespace visage {
       return *this;
     }
 
-    void draw(Canvas& canvas, ColorContext& context, float x, float y, float width, float height) const;
-    bool setContextColor(Canvas& canvas, ColorContext& context, const GradientDef& gradient,
+    void draw(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
+    bool setContextColor(Canvas& canvas, ColorContext* context, const GradientDef& gradient,
                          float color_opacity) const;
-    void fill(Canvas& canvas, ColorContext& context, float x, float y, float width, float height) const;
-    void stroke(Canvas& canvas, ColorContext& context, float x, float y, float width, float height) const;
+    void fill(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
+    void stroke(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
     bool hasFill() const { return !fill_brush.isNone() && state.fill_opacity > 0.0f; }
     bool hasStroke() const {
       return state.stroke_opacity > 0.0f && state.stroke_width > 0.0f && !stroke_brush.isNone();
@@ -405,19 +409,14 @@ namespace visage {
 
     Svg(const EmbeddedFile& file) : Svg(file.data, file.size) { }
 
-    void draw(Canvas& canvas, float x, float y) const {
-      if (drawable_) {
-        SvgDrawable::ColorContext context;
-        drawable_->draw(canvas, context, x, y, draw_width_, draw_height_);
-      }
-    }
-
     void setDimensions(int width, int height) {
       draw_width_ = view_.width ? view_.width : width;
       draw_height_ = view_.height ? view_.height : height;
       if (drawable_ && view_.width == 0 && view_.height == 0)
         drawable_->setSize(view_, width, height);
     }
+
+    SvgDrawable* drawable() const { return drawable_.get(); }
 
   private:
     SvgViewSettings view_;

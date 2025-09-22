@@ -123,29 +123,27 @@ namespace visage {
     return true;
   }
 
-  void SvgDrawable::draw(Canvas& canvas, ColorContext& context, float x, float y, float width,
+  void SvgDrawable::draw(Canvas& canvas, ColorContext* context, float x, float y, float width,
                          float height) const {
     if (!state.visible || opacity <= 0.0f || is_defines)
       return;
 
-    canvas.saveState();
+    if (opacity < 1.0f)
+      canvas.setBlendMode(BlendMode::Composite);
+
     fill(canvas, context, x, y, width, height);
     stroke(canvas, context, x, y, width, height);
-    canvas.restoreState();
-
-    for (const auto& child : children)
-      child->draw(canvas, context, x, y, width, height);
   }
 
-  bool SvgDrawable::setContextColor(Canvas& canvas, ColorContext& context,
+  bool SvgDrawable::setContextColor(Canvas& canvas, ColorContext* context,
                                     const GradientDef& gradient, float color_opacity) const {
     const Brush* context_brush = nullptr;
     if (gradient.type == GradientDef::Type::CurrentColor)
-      context_brush = context.current_color;
+      context_brush = context->current_color;
     else if (gradient.type == GradientDef::Type::ContextFill)
-      context_brush = context.fill_color;
+      context_brush = context->fill_color;
     else if (gradient.type == GradientDef::Type::ContextStroke)
-      context_brush = context.stroke_color;
+      context_brush = context->stroke_color;
 
     if (context_brush) {
       if (color_opacity == 1.0f)
@@ -158,7 +156,7 @@ namespace visage {
     return false;
   }
 
-  void SvgDrawable::fill(Canvas& canvas, ColorContext& context, float x, float y, float width,
+  void SvgDrawable::fill(Canvas& canvas, ColorContext* context, float x, float y, float width,
                          float height) const {
     if (state.fill_opacity <= 0.0f)
       return;
@@ -168,13 +166,13 @@ namespace visage {
         return;
 
       canvas.setColor(fill_brush);
-      context.fill_color = &fill_brush;
+      context->fill_color = &fill_brush;
     }
 
     canvas.fill(&path, x, y, width, height);
   }
 
-  void SvgDrawable::stroke(Canvas& canvas, ColorContext& context, float x, float y, float width,
+  void SvgDrawable::stroke(Canvas& canvas, ColorContext* context, float x, float y, float width,
                            float height) const {
     if (state.stroke_opacity <= 0.0f || state.stroke_width <= 0.0f)
       return;
@@ -184,7 +182,7 @@ namespace visage {
         return;
 
       canvas.setColor(stroke_brush);
-      context.stroke_color = &stroke_brush;
+      context->stroke_color = &stroke_brush;
     }
 
     canvas.fill(&stroke_path, x, y, width, height);
@@ -1492,7 +1490,7 @@ namespace visage {
   }
 
   std::unique_ptr<SvgDrawable> SvgParser::computeDrawables(Tag& tag, std::vector<DrawableState>& state_stack) {
-    if (tag.data.ignored || tag.data.name == "marker")
+    if (tag.data.ignored || tag.data.name == "marker" || tag.data.name == "mask")
       return nullptr;
 
     state_stack.push_back(state_stack.back());

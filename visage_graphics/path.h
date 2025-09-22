@@ -39,7 +39,6 @@ namespace visage {
     static constexpr float kDefaultMiterLimit = 4.0f;
 
     struct Command {
-      static constexpr int kMaxValues = 7;
       char type;
       Point end;
       Point control1 { FLT_MAX, FLT_MAX };
