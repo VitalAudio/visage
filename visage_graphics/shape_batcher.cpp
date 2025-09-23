@@ -26,6 +26,7 @@
 #include "graphics_caches.h"
 #include "layer.h"
 #include "path.h"
+#include "region.h"
 #include "shader.h"
 #include "uniforms.h"
 #include "visage_utils/space.h"
