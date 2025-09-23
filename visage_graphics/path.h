@@ -25,6 +25,7 @@
 
 #include <cfloat>
 #include <complex>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
