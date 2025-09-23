@@ -21,6 +21,8 @@
 
 #include "svg.h"
 
+#include "canvas.h"
+
 #include <unordered_map>
 
 namespace visage {
@@ -1006,8 +1008,8 @@ namespace visage {
 
     if (tokens[0].substr(0, 3) == "rgb" && tokens.size() > 3) {
       float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;
-      return Color(alpha, parseNumber(tokens[1], 255.0f) / 255.0f,
-                   parseNumber(tokens[2], 255.0f) / 255.0f, parseNumber(tokens[3], 255.0f) / 255.0f);
+      return { alpha, parseNumber(tokens[1], 255.0f) / 255.0f,
+               parseNumber(tokens[2], 255.0f) / 255.0f, parseNumber(tokens[3], 255.0f) / 255.0f };
     }
     if (tokens[0].substr(0, 3) == "hsl" && tokens.size() > 3) {
       float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;

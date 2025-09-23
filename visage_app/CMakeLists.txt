@@ -1,8 +1,8 @@
 file(GLOB HEADERS *.h)
 file(GLOB SOURCE_FILES *.cpp)
 if (VISAGE_AMALGAMATED_BUILD)
-  amalgamate_sources(${CMAKE_CURRENT_BINARY_DIR}/visage_app_amalgamated.cpp "${SOURCE_FILES}")
-  list(APPEND SOURCE_FILES ${CMAKE_CURRENT_BINARY_DIR}/visage_app_amalgamated.cpp)
+  amalgamate_sources(AMALGAMATED ${CMAKE_CURRENT_BINARY_DIR}/visage_app_amalgamated "${SOURCE_FILES}")
+  list(APPEND SOURCE_FILES ${AMALGAMATED})
 endif ()
 
 amalgamate_headers(${VISAGE_INCLUDE}/visage/app.h "${HEADERS}")
