@@ -10,8 +10,8 @@ file(GLOB HEADERS *.h ${PLATFORM_HEADER_FILES})
 file(GLOB SOURCE_FILES *.cpp ${PLATFORM_SOURCE_FILES})
 
 if (VISAGE_AMALGAMATED_BUILD)
-  amalgamate_sources(${CMAKE_CURRENT_BINARY_DIR}/visage_utils_amalgamated.cpp "${SOURCE_FILES}")
-  list(APPEND SOURCE_FILES ${CMAKE_CURRENT_BINARY_DIR}/visage_utils_amalgamated.cpp)
+  amalgamate_sources(AMALGAMATED ${CMAKE_CURRENT_BINARY_DIR}/visage_utils_amalgamated "${SOURCE_FILES}")
+  list(APPEND SOURCE_FILES ${AMALGAMATED})
 endif ()
 
 amalgamate_headers(${VISAGE_INCLUDE}/visage/utils.h "${HEADERS}")

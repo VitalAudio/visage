@@ -51,13 +51,34 @@ function(amalgamate_headers AMALGAMATED_HEADER_NAME FILE_HEADERS)
   file(CONFIGURE OUTPUT "${AMALGAMATED_HEADER_NAME}" CONTENT "${FILE_CONTENTS}")
 endfunction()
 
-function(amalgamate_sources AMALGAMATED_SOURCE FILE_SOURCES)
-  set(FILE_CONTENTS "// Auto generated amalgamated source.\n")
+function(amalgamate_sources GENERATED_FILES AMALGAMATED_SOURCE_BASE FILE_SOURCES)
+  set(IDX 0)
+  set(PART 0)
+  set(GENERATED "")
+
   foreach (FILE ${FILE_SOURCES})
     set_source_files_properties("${FILE}" PROPERTIES HEADER_FILE_ONLY TRUE)
+    set(_generatedi "")
+    if (IDX EQUAL 0)
+      if (PART GREATER 0)
+        file(CONFIGURE OUTPUT "${AMALGAMATED_SOURCE_BASE}${PART}.cpp" CONTENT "${FILE_CONTENTS}")
+      endif ()
+
+      math(EXPR PART "${PART} + 1")
+      list(APPEND GENERATED "${AMALGAMATED_SOURCE_BASE}${PART}.cpp")
+      set(FILE_CONTENTS "// Auto generated amalgamated source.\n")
+    endif ()
     set(FILE_CONTENTS "${FILE_CONTENTS}#include \"${FILE}\"\n")
+
+    math(EXPR IDX "${IDX} + 1")
+    if (IDX GREATER 6)
+      set(IDX 0)
+    endif ()
+
+    set(${GENERATED_FILES} "${GENERATED}" PARENT_SCOPE)
   endforeach ()
-  file(CONFIGURE OUTPUT "${AMALGAMATED_SOURCE}" CONTENT "${FILE_CONTENTS}")
+
+  file(CONFIGURE OUTPUT "${AMALGAMATED_SOURCE_BASE}${PART}.cpp" CONTENT "${FILE_CONTENTS}")
 endfunction()
 
 add_subdirectory(visage_file_embed)

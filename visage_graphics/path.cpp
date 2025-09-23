@@ -329,7 +329,7 @@ namespace visage {
     }
   }
 
-  TriangulationGraph::TriangulationGraph(const Path* path) {
+  Path::TriangulationGraph::TriangulationGraph(const Path* path) {
     int num_points = path->numPoints();
     resolution_transform_ = path->resolutionMatrix();
     prev_edge_.reserve(num_points);
@@ -355,31 +355,31 @@ namespace visage {
     scan_line_ = std::make_unique<ScanLine>(this);
   }
 
-  Path::Triangulation TriangulationGraph::triangulate(Path::FillRule fill_rule, int minimum_cycles) {
+  Path::Triangulation Path::TriangulationGraph::triangulate(Path::FillRule fill_rule, int minimum_cycles) {
     removeLinearPoints();
     breakIntersections();
     fixWindings(fill_rule, minimum_cycles);
     breakSimpleIntoMonotonicPolygons();
-    Path::Triangulation result;
+    Triangulation result;
     result.triangles = breakIntoTriangles();
     for (const auto& point : points_)
       result.points.emplace_back(point);
     return result;
   }
 
-  auto TriangulationGraph::ScanLine::safePrev(const std::vector<ScanLineArea>::iterator it) {
+  auto Path::TriangulationGraph::ScanLine::safePrev(const std::vector<ScanLineArea>::iterator& it) {
     if (it != areas_.begin())
       return std::prev(it);
     return areas_.end();
   }
 
-  auto TriangulationGraph::ScanLine::safePrev(const std::vector<ScanLineArea>::const_iterator it) const {
+  auto Path::TriangulationGraph::ScanLine::safePrev(const std::vector<ScanLineArea>::const_iterator& it) const {
     if (it != areas_.begin())
       return std::prev(it);
     return areas_.end();
   }
 
-  bool TriangulationGraph::ScanLine::splitIntersection() {
+  bool Path::TriangulationGraph::ScanLine::splitIntersection() {
     auto it = intersection_events_.begin() + next_intersection_;
     IntersectionEvent ev = *it;
     intersection_events_.erase(it);
@@ -414,7 +414,8 @@ namespace visage {
     return added;
   }
 
-  TriangulationGraph::ScanLine::IntersectionType TriangulationGraph::ScanLine::intersectionType(std::vector<ScanLineArea>::iterator it) {
+  Path::TriangulationGraph::ScanLine::IntersectionType Path::TriangulationGraph::ScanLine::
+      intersectionType(std::vector<ScanLineArea>::iterator it) {
     if (it == areas_.end())
       return IntersectionType::None;
     auto next = std::next(it);
@@ -470,7 +471,7 @@ namespace visage {
     return IntersectionType::None;
   }
 
-  void TriangulationGraph::ScanLine::checkAddIntersection(std::vector<ScanLineArea>::iterator it) {
+  void Path::TriangulationGraph::ScanLine::checkAddIntersection(const std::vector<ScanLineArea>::iterator& it) {
     double kEpsilon = 1.0e-8;
 
     auto intersection_type = intersectionType(it);
@@ -526,7 +527,7 @@ namespace visage {
                                                        next->from_index, next->to_index });
   }
 
-  void TriangulationGraph::ScanLine::checkRemoveIntersection(const std::vector<ScanLineArea>::iterator it) {
+  void Path::TriangulationGraph::ScanLine::checkRemoveIntersection(const std::vector<ScanLineArea>::iterator& it) {
     if (intersectionType(it) == IntersectionType::None)
       return;
 
@@ -545,7 +546,7 @@ namespace visage {
     VISAGE_ASSERT(false);
   }
 
-  void TriangulationGraph::ScanLine::processPointEvents(Event ev) {
+  void Path::TriangulationGraph::ScanLine::processPointEvents(Event ev) {
     bool found_position = false;
     for (auto it = areas_.begin(); it != areas_.end();) {
       if (it->to == ev.point) {
@@ -587,7 +588,7 @@ namespace visage {
     }
   }
 
-  void TriangulationGraph::ScanLine::updateNormalEvent(const Event& ev) {
+  void Path::TriangulationGraph::ScanLine::updateNormalEvent(const Event& ev) {
     if (ev.type == PointType::Continue) {
       last_position1_ = findAreaByToIndex(ev.index);
       last_position2_ = last_position1_;
@@ -633,7 +634,7 @@ namespace visage {
     VISAGE_ASSERT(areas_.size() % 2 == 0);
   }
 
-  void TriangulationGraph::ScanLine::updateDegeneracy(const Event& ev) {
+  void Path::TriangulationGraph::ScanLine::updateDegeneracy(const Event& ev) {
     last_position1_ = areas_.end();
     processPointEvents(ev);
 
@@ -716,7 +717,7 @@ namespace visage {
     new_areas_.clear();
   }
 
-  bool TriangulationGraph::ScanLine::updateSplitIntersections() {
+  bool Path::TriangulationGraph::ScanLine::updateSplitIntersections() {
     Event ev = nextEvent();
 
     if (next_intersection_ >= 0 && intersection_events_[next_intersection_].point <= ev.point)
@@ -796,7 +797,7 @@ namespace visage {
     return false;
   }
 
-  void TriangulationGraph::ScanLine::updateBreakIntersections() {
+  void Path::TriangulationGraph::ScanLine::updateBreakIntersections() {
     Event ev = nextEvent();
     if (ev.degeneracy)
       updateDegeneracy(ev);
@@ -804,7 +805,7 @@ namespace visage {
       updateNormalEvent(ev);
   }
 
-  void TriangulationGraph::breakIntersections() {
+  void Path::TriangulationGraph::breakIntersections() {
     VISAGE_ASSERT(checkValidPolygons());
     removeLinearPoints();
 
@@ -827,7 +828,7 @@ namespace visage {
     simplify();
   }
 
-  void TriangulationGraph::fixWindings(Path::FillRule fill_rule, int minimum_cycles) {
+  void Path::TriangulationGraph::fixWindings(Path::FillRule fill_rule, int minimum_cycles) {
     scan_line_->reset();
 
     auto windings = std::make_unique<int[]>(points_.size());
@@ -894,12 +895,12 @@ namespace visage {
     }
   }
 
-  void TriangulationGraph::reverse() {
+  void Path::TriangulationGraph::reverse() {
     for (int i = 0; i < points_.size(); ++i)
       std::swap(prev_edge_[i], next_edge_[i]);
   }
 
-  void TriangulationGraph::breakSimpleIntoMonotonicPolygons() {
+  void Path::TriangulationGraph::breakSimpleIntoMonotonicPolygons() {
     scan_line_->reset();
     std::set<int> merge_vertices;
 
@@ -962,7 +963,7 @@ namespace visage {
     simplify();
   }
 
-  std::vector<int> TriangulationGraph::breakIntoTriangles() {
+  std::vector<int> Path::TriangulationGraph::breakIntoTriangles() {
     // TODO switch to Delaunay triangulation
     std::vector<int> triangles;
     auto sorted_indices = sortedIndices();
@@ -976,8 +977,8 @@ namespace visage {
     return triangles;
   }
 
-  void TriangulationGraph::singlePointOffset(double amount, int index, Path::EndCap end_cap,
-                                             std::vector<int>& points_created) {
+  void Path::TriangulationGraph::singlePointOffset(double amount, int index, Path::EndCap end_cap,
+                                                   std::vector<int>& points_created) {
     if (amount < 0.0)
       return;
 
@@ -1010,8 +1011,9 @@ namespace visage {
     }
   }
 
-  void TriangulationGraph::offset(double amount, bool post_simplify, Path::Join join, Path::EndCap end_cap,
-                                  std::vector<int>& points_created, float miter_limit) {
+  void Path::TriangulationGraph::offset(double amount, bool post_simplify, Path::Join join,
+                                        Path::EndCap end_cap, std::vector<int>& points_created,
+                                        float miter_limit) {
     static constexpr double kMinOffset = 0.001;
     if (std::abs(amount) < kMinOffset)
       return;
@@ -1132,7 +1134,7 @@ namespace visage {
     }
   }
 
-  void TriangulationGraph::combine(const TriangulationGraph& other) {
+  void Path::TriangulationGraph::combine(const TriangulationGraph& other) {
     int offset = points_.size();
     for (int i = 0; i < other.points_.size(); ++i) {
       points_.push_back(other.points_[i]);
@@ -1143,7 +1145,7 @@ namespace visage {
     VISAGE_ASSERT(checkValidPolygons());
   }
 
-  void TriangulationGraph::removeLinearPoints() {
+  void Path::TriangulationGraph::removeLinearPoints() {
     bool removed = true;
     while (removed) {
       removed = false;
@@ -1168,7 +1170,7 @@ namespace visage {
     }
   }
 
-  void TriangulationGraph::simplify() {
+  void Path::TriangulationGraph::simplify() {
     for (int i = 0; i < points_.size(); ++i) {
       if (i == next_edge_[i])
         continue;
@@ -1178,7 +1180,7 @@ namespace visage {
     }
   }
 
-  Path TriangulationGraph::toPath() const {
+  Path Path::TriangulationGraph::toPath() const {
     std::unique_ptr<bool[]> visited = std::make_unique<bool[]>(points_.size());
     Path path;
     for (int i = 0; i < points_.size(); ++i) {
@@ -1199,7 +1201,7 @@ namespace visage {
     return path;
   }
 
-  TriangulationGraph::PointType TriangulationGraph::pointType(int index) const {
+  Path::TriangulationGraph::PointType Path::TriangulationGraph::pointType(int index) const {
     int prev_index = prev_edge_[index];
     if (prev_index == index)
       return PointType::None;
@@ -1219,7 +1221,7 @@ namespace visage {
     return PointType::Continue;
   }
 
-  int TriangulationGraph::addAdditionalPoint(const DPoint& point) {
+  int Path::TriangulationGraph::addAdditionalPoint(const DPoint& point) {
     points_.push_back(point);
     int new_index = points_.size() - 1;
     prev_edge_.push_back(new_index);
@@ -1227,7 +1229,7 @@ namespace visage {
     return new_index;
   }
 
-  int TriangulationGraph::insertPointBetween(int start_index, int end_index, const DPoint& point) {
+  int Path::TriangulationGraph::insertPointBetween(int start_index, int end_index, const DPoint& point) {
     if (next_edge_[start_index] != end_index)
       std::swap(start_index, end_index);
 
@@ -1242,16 +1244,16 @@ namespace visage {
     return new_index;
   }
 
-  bool TriangulationGraph::connected(int a_index, int b_index) const {
+  bool Path::TriangulationGraph::connected(int a_index, int b_index) const {
     return prev_edge_[a_index] == b_index || next_edge_[a_index] == b_index;
   }
 
-  void TriangulationGraph::connect(int from, int to) {
+  void Path::TriangulationGraph::connect(int from, int to) {
     next_edge_[from] = to;
     prev_edge_[to] = from;
   }
 
-  void TriangulationGraph::removeFromCycle(int index) {
+  void Path::TriangulationGraph::removeFromCycle(int index) {
     int prev = prev_edge_[index];
     int next = next_edge_[index];
     prev_edge_[index] = index;
@@ -1259,7 +1261,7 @@ namespace visage {
     connect(prev, next);
   }
 
-  bool TriangulationGraph::checkValidPolygons() const {
+  bool Path::TriangulationGraph::checkValidPolygons() const {
     for (int i = 0; i < points_.size(); ++i) {
       if (prev_edge_[next_edge_[i]] != i || next_edge_[prev_edge_[i]] != i)
         return false;
@@ -1267,7 +1269,7 @@ namespace visage {
     return true;
   }
 
-  const std::vector<TriangulationGraph::IndexData>* TriangulationGraph::sortedIndices() {
+  const std::vector<Path::TriangulationGraph::IndexData>* Path::TriangulationGraph::sortedIndices() {
     sorted_indices_.reserve(prev_edge_.size());
     auto unchanged = [this](IndexData& data) {
       const auto& point = points_[data.index];
@@ -1294,7 +1296,7 @@ namespace visage {
     return &sorted_indices_;
   }
 
-  void TriangulationGraph::removeCycle(int start_index) {
+  void Path::TriangulationGraph::removeCycle(int start_index) {
     for (int i = start_index; next_edge_[i] != i;) {
       int next = next_edge_[i];
       prev_edge_[i] = i;
@@ -1303,13 +1305,13 @@ namespace visage {
     }
   }
 
-  void TriangulationGraph::reverseCycle(int start_index) {
+  void Path::TriangulationGraph::reverseCycle(int start_index) {
     std::swap(prev_edge_[start_index], next_edge_[start_index]);
     for (int i = next_edge_[start_index]; i != start_index; i = next_edge_[i])
       std::swap(prev_edge_[i], next_edge_[i]);
   }
 
-  int TriangulationGraph::addDiagonal(int index, int target) {
+  int Path::TriangulationGraph::addDiagonal(int index, int target) {
     int new_index = prev_edge_.size();
     int new_diagonal_index = new_index + 1;
     scan_line_->addAlias(new_index, index);
@@ -1330,8 +1332,8 @@ namespace visage {
     return new_index;
   }
 
-  bool TriangulationGraph::tryCutEar(int index, bool forward, std::vector<int>& triangles,
-                                     const std::unique_ptr<bool[]>& touched) {
+  bool Path::TriangulationGraph::tryCutEar(int index, bool forward, std::vector<int>& triangles,
+                                           const std::unique_ptr<bool[]>& touched) {
     auto& direction = forward ? next_edge_ : prev_edge_;
     auto& reverse = forward ? prev_edge_ : next_edge_;
 
@@ -1363,8 +1365,8 @@ namespace visage {
     return true;
   }
 
-  void TriangulationGraph::cutEars(int index, std::vector<int>& triangles,
-                                   const std::unique_ptr<bool[]>& touched) {
+  void Path::TriangulationGraph::cutEars(int index, std::vector<int>& triangles,
+                                         const std::unique_ptr<bool[]>& touched) {
     while (tryCutEar(index, true, triangles, touched))
       ;
     while (tryCutEar(index, false, triangles, touched))
