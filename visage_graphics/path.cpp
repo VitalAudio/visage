@@ -353,6 +353,7 @@ namespace visage {
     }
 
     scan_line_ = std::make_unique<ScanLine>(this);
+    simplify();
   }
 
   Path::Triangulation Path::TriangulationGraph::triangulate(Path::FillRule fill_rule, int minimum_cycles) {
@@ -706,11 +707,7 @@ namespace visage {
         area.from_index = graph_->next_edge_[area.to_index];
     }
 
-    VISAGE_ASSERT(graph_->checkValidPolygons());
-
     areas_.insert(last_position1_, next_areas_.begin(), next_areas_.end());
-
-    VISAGE_ASSERT(graph_->checkValidPolygons());
     VISAGE_ASSERT(areas_.size() % 2 == 0);
 
     old_areas_.clear();
@@ -806,6 +803,10 @@ namespace visage {
   }
 
   void Path::TriangulationGraph::breakIntersections() {
+    if (intersections_broken_)
+      return;
+    intersections_broken_ = true;
+
     VISAGE_ASSERT(checkValidPolygons());
     removeLinearPoints();
 
@@ -1018,8 +1019,9 @@ namespace visage {
     if (std::abs(amount) < kMinOffset)
       return;
 
-    float square_miter_limit = miter_limit * miter_limit;
+    intersections_broken_ = false;
 
+    float square_miter_limit = miter_limit * miter_limit;
     float adjusted_radius = (resolution_transform_ * Point(amount, 0.0f)).length();
     double max_delta_radians = 2.0 * std::acos(1.0 - Path::kDefaultErrorTolerance / adjusted_radius);
     int start_points = points_.size();
@@ -1141,6 +1143,7 @@ namespace visage {
       prev_edge_.push_back(other.prev_edge_[i] + offset);
       next_edge_.push_back(other.next_edge_[i] + offset);
     }
+    intersections_broken_ = false;
 
     VISAGE_ASSERT(checkValidPolygons());
   }
@@ -1292,7 +1295,6 @@ namespace visage {
     std::inplace_merge(sorted_indices_.begin(), sorted_indices_.begin() + updated_index,
                        sorted_indices_.end());
 
-    VISAGE_LOG(sorted_indices_.size());
     return &sorted_indices_;
   }
 
@@ -1373,12 +1375,11 @@ namespace visage {
       ;
   }
 
-  Path::Triangulation Path::triangulate() const {
-    TriangulationGraph graph(this);
-    return graph.triangulate(fillRule());
+  Path::Triangulation Path::triangulate() {
+    return triangulationGraph()->triangulate(fillRule());
   }
 
-  Path Path::combine(const Path& other, Operation operation) const {
+  Path Path::combine(Path& other, Operation operation) {
     switch (operation) {
     case Operation::Union: return combine(other, Path::FillRule::NonZero, 1, false);
     case Operation::Intersection: return combine(other, Path::FillRule::NonZero, 2, false);
@@ -1388,16 +1389,13 @@ namespace visage {
     }
   }
 
-  Path Path::combine(const Path& other, Path::FillRule fill_rule, int num_cycles_needed,
-                     bool reverse_other) const {
-    TriangulationGraph graph(this);
-    TriangulationGraph other_graph(&other);
-    graph.simplify();
-    graph.breakIntersections();
-    graph.fixWindings(fillRule());
+  Path Path::combine(Path& other, Path::FillRule fill_rule, int num_cycles_needed, bool reverse_other) {
+    triangulationGraph()->breakIntersections();
+    other.triangulationGraph()->breakIntersections();
 
-    other_graph.simplify();
-    other_graph.breakIntersections();
+    TriangulationGraph graph = *triangulationGraph();
+    TriangulationGraph other_graph = *other.triangulationGraph();
+    graph.fixWindings(fillRule());
     other_graph.fixWindings(other.fillRule());
     if (reverse_other)
       other_graph.reverse();
@@ -1409,7 +1407,7 @@ namespace visage {
   }
 
   std::pair<Path, Path> Path::offsetAntiAlias(float scale, std::vector<int>& inner_added_points,
-                                              std::vector<int>& outer_added_points) const {
+                                              std::vector<int>& outer_added_points) {
     TriangulationGraph outer(this);
     outer.simplify();
     TriangulationGraph inner = outer;
@@ -1418,18 +1416,15 @@ namespace visage {
     return { inner.toPath(), outer.toPath() };
   }
 
-  Path Path::offset(float offset, Join join_type, float miter_limit) const {
-    TriangulationGraph graph(this);
-    graph.simplify();
-    graph.breakIntersections();
-    graph.fixWindings(fillRule());
+  Path Path::offset(float offset, Join join_type, float miter_limit) {
+    TriangulationGraph graph = *triangulationGraph();
     std::vector<int> points_created;
     graph.offset(offset, true, join_type, EndCap::Butt, points_created, miter_limit);
     return graph.toPath();
   }
 
   Path Path::stroke(float stroke_width, Join join, EndCap end_cap, std::vector<float> dash_array,
-                    float dash_offset, float miter_limit) const {
+                    float dash_offset, float miter_limit) {
     float dash_total = 0.0f;
     for (auto& dash : dash_array)
       dash_total += dash;
@@ -1510,11 +1505,9 @@ namespace visage {
     return graph.toPath();
   }
 
-  Path Path::breakIntoSimplePolygons() const {
-    TriangulationGraph graph(this);
-    graph.removeLinearPoints();
-    graph.simplify();
-    graph.breakIntersections();
+  Path Path::breakIntoSimplePolygons() {
+    triangulationGraph()->breakIntersections();
+    TriangulationGraph graph = *triangulationGraph();
     graph.fixWindings(fillRule());
     return graph.toPath();
   }

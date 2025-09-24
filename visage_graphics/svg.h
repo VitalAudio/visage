@@ -231,7 +231,7 @@ namespace visage {
         child->transformPaths(transform);
     }
 
-    void applyClipping(const Path* clip_path) {
+    void applyClipping(Path* clip_path) {
       if (clip_path == nullptr || clip_path->numPoints() == 0)
         return;
 
