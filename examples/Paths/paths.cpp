@@ -35,7 +35,7 @@ inline float randomFloat(float min, float max) {
   return distribution(generator);
 }
 
-void drawTriangles(visage::Canvas& canvas, const visage::Path& path) {
+void drawTriangles(visage::Canvas& canvas, visage::Path& path) {
   static std::vector<visage::Color> colors;
   auto triangulation = path.triangulate();
   for (int i = 0; i * 3 < triangulation.triangles.size(); ++i) {
@@ -218,31 +218,30 @@ int runExample() {
   visage::Path line3;
 
   app.onDraw() = [&](visage::Canvas& canvas) {
-    VISAGE_LOG("DRAW");
     // auto gradient = visage::Gradient(0xffff00ff, 0xffffff00);
     // canvas.setColor(visage::Brush::radial(gradient, visage::Point(50.0f, 50.0f), 100.0f));
     // canvas.setColor(visage::Brush::horizontal(gradient));
     canvas.setColor(0xffffffff);
     canvas.fill(0, 0, app.width(), app.height());
 
-    line1.clear();
-    line2.clear();
-    line3.clear();
+    // line1.clear();
+    // line2.clear();
+    // line3.clear();
+    //
+    // for (int i = 0; i < 1000; ++i) {
+    //   float x = i * app.width() / 1000.0f;
+    //   line1.lineTo(x, 0.3f * app.height() + 20.0f * std::sin((i * 0.05f) + canvas.time()));
+    //   line2.lineTo(x, 0.5f * app.height() + 20.0f * std::sin((i * 0.05f) + canvas.time()));
+    //   line3.lineTo(x, 0.7f * app.height() + 20.0f * std::sin((i * 0.02f) + canvas.time()));
+    // }
 
-    for (int i = 0; i < 1000; ++i) {
-      float x = i * app.width() / 1000.0f;
-      line1.lineTo(x, 0.3f * app.height() + 20.0f * std::sin((i * 0.05f) + canvas.time()));
-      line2.lineTo(x, 0.5f * app.height() + 20.0f * std::sin((i * 0.05f) + canvas.time()));
-      line3.lineTo(x, 0.7f * app.height() + 20.0f * std::sin((i * 0.02f) + canvas.time()));
-    }
-
-    canvas.setColor(0xff00ff00);
-    line1 = line1.stroke(3.0f);
-    line2 = line2.stroke(3.0f);
-    line3 = line3.stroke(3.0f);
-    canvas.fill(&line1, 0, 0, app.width(), app.height());
-    canvas.fill(&line2, 0, 0, app.width(), app.height());
-    canvas.fill(&line3, 0, 0, app.width(), app.height());
+    // canvas.setColor(0xff00ff00);
+    // line1 = line1.stroke(3.0f);
+    // line2 = line2.stroke(3.0f);
+    // line3 = line3.stroke(3.0f);
+    // canvas.fill(&line1, 0, 0, app.width(), app.height());
+    // canvas.fill(&line2, 0, 0, app.width(), app.height());
+    // canvas.fill(&line3, 0, 0, app.width(), app.height());
     app.redrawAll();
     // canvas.fill(&path, 0, 0, 120, 150);
   };

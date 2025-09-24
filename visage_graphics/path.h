@@ -31,12 +31,6 @@
 #include <string>
 
 namespace visage {
-  struct SubPath {
-    std::vector<Point> points;
-    std::vector<float> values;
-    bool closed = false;
-  };
-
   static double orientation(const DPoint& source, const DPoint& target1, const DPoint& target2) {
     static constexpr double kEpsilon = 1.0e-10;
     DPoint delta1 = target1 - source;
@@ -60,50 +54,16 @@ namespace visage {
     return orientation(target1, target2, source);
   }
 
-  struct ScanLineArea {
-    ScanLineArea(int from_index, const DPoint& from, int to_index, const DPoint& to, bool forward) :
-        from_index(from_index), from(from), to_index(to_index), to(to), forward(forward) { }
-
-    bool operator==(const ScanLineArea& other) const {
-      return from_index == other.from_index && to_index == other.to_index && from == other.from &&
-             to == other.to;
-    }
-
-    bool operator<(const ScanLineArea& other) const {
-      double orientation = 0.0;
-      if (other.from < from)
-        orientation = stableOrientation(other.from, other.to, from);
-      else if (from < other.from)
-        orientation = -stableOrientation(from, to, other.from);
-
-      if (orientation)
-        return orientation < 0.0;
-
-      if (to == other.from && from != other.to)
-        return true;
-      if (from == other.to && to != other.from)
-        return false;
-
-      if (other.to < to)
-        return stableOrientation(other.from, other.to, to) < 0.0;
-      if (to < other.to)
-        return stableOrientation(from, to, other.to) > 0.0;
-
-      return false;
-    }
-
-    int from_index = 0;
-    DPoint from;
-    int to_index = 0;
-    DPoint to;
-    bool forward = true;
-    int data = 0;
-  };
-
   class Path {
   public:
     static constexpr float kDefaultErrorTolerance = 0.1f;
     static constexpr float kDefaultMiterLimit = 4.0f;
+
+    struct SubPath {
+      std::vector<Point> points;
+      std::vector<float> values;
+      bool closed = false;
+    };
 
     struct Command {
       char type;
@@ -254,6 +214,27 @@ namespace visage {
       Square,
       Butt
     };
+
+    Path() = default;
+
+    Path& operator=(const Path& other) {
+      if (this != &other) {
+        resolution_matrix_ = other.resolution_matrix_;
+        paths_ = other.paths_;
+        if (other.triangulation_graph_)
+          triangulation_graph_ = std::make_unique<TriangulationGraph>(*other.triangulation_graph_);
+        else
+          triangulation_graph_.reset();
+        fill_rule_ = other.fill_rule_;
+        smooth_control_point_ = other.smooth_control_point_;
+        last_point_ = other.last_point_;
+        current_value_ = other.current_value_;
+        error_tolerance_ = other.error_tolerance_;
+      }
+      return *this;
+    }
+
+    Path(const Path& other) { *this = other; }
 
     template<typename T>
     static std::optional<T> findIntersection(T start1, T end1, T start2, T end2) {
@@ -415,6 +396,7 @@ namespace visage {
     void clear() {
       paths_.clear();
       last_point_ = {};
+      triangulation_graph_ = nullptr;
     }
 
     void loadSvgPath(const std::string& path);
@@ -427,15 +409,15 @@ namespace visage {
     void addEllipse(float cx, float cy, float rx, float ry);
     void addCircle(float cx, float cy, float r);
 
-    Triangulation triangulate() const;
-    Path combine(const Path& other, Operation operation = Operation::Union) const;
+    Triangulation triangulate();
+    Path combine(Path& other, Operation operation = Operation::Union);
     std::pair<Path, Path> offsetAntiAlias(float scale, std::vector<int>& inner_added_points,
-                                          std::vector<int>& outer_added_points) const;
-    Path offset(float offset, Join join = Join::Square, float miter_limit = kDefaultMiterLimit) const;
+                                          std::vector<int>& outer_added_points);
+    Path offset(float offset, Join join = Join::Square, float miter_limit = kDefaultMiterLimit);
     Path stroke(float stroke_width, Join join = Join::Round, EndCap end_cap = EndCap::Round,
                 std::vector<float> dash_array = {}, float dash_offset = 0.0f,
-                float miter_limit = kDefaultMiterLimit) const;
-    Path breakIntoSimplePolygons() const;
+                float miter_limit = kDefaultMiterLimit);
+    Path breakIntoSimplePolygons();
 
     Path scaled(float mult) const {
       Path result = *this;
@@ -545,6 +527,46 @@ namespace visage {
     const Matrix& resolutionMatrix() const { return resolution_matrix_; }
 
   private:
+    struct ScanLineArea {
+      ScanLineArea(int from_index, const DPoint& from, int to_index, const DPoint& to, bool forward) :
+          from_index(from_index), from(from), to_index(to_index), to(to), forward(forward) { }
+
+      bool operator==(const ScanLineArea& other) const {
+        return from_index == other.from_index && to_index == other.to_index && from == other.from &&
+               to == other.to;
+      }
+
+      bool operator<(const ScanLineArea& other) const {
+        double orientation = 0.0;
+        if (other.from < from)
+          orientation = stableOrientation(other.from, other.to, from);
+        else if (from < other.from)
+          orientation = -stableOrientation(from, to, other.from);
+
+        if (orientation)
+          return orientation < 0.0;
+
+        if (to == other.from && from != other.to)
+          return true;
+        if (from == other.to && to != other.from)
+          return false;
+
+        if (other.to < to)
+          return stableOrientation(other.from, other.to, to) < 0.0;
+        if (to < other.to)
+          return stableOrientation(from, to, other.to) > 0.0;
+
+        return false;
+      }
+
+      int from_index = 0;
+      DPoint from;
+      int to_index = 0;
+      DPoint to;
+      bool forward = true;
+      int data = 0;
+    };
+
     class TriangulationGraph {
     public:
       static constexpr float kPi = 3.14159265358979323846f;
@@ -585,14 +607,21 @@ namespace visage {
       };
 
       TriangulationGraph() = delete;
-
       explicit TriangulationGraph(const Path* path);
+      TriangulationGraph(const TriangulationGraph& other) { *this = other; }
 
-      TriangulationGraph(const TriangulationGraph& other) {
-        points_ = other.points_;
-        prev_edge_ = other.prev_edge_;
-        next_edge_ = other.next_edge_;
-        scan_line_ = std::make_unique<ScanLine>(this);
+      TriangulationGraph& operator=(const TriangulationGraph& other) {
+        if (this != &other) {
+          resolution_transform_ = other.resolution_transform_;
+          intersections_broken_ = other.intersections_broken_;
+          points_ = other.points_;
+          sorted_indices_ = other.sorted_indices_;
+          prev_edge_ = other.prev_edge_;
+          next_edge_ = other.next_edge_;
+          scan_line_ = std::make_unique<ScanLine>(*other.scan_line_);
+          scan_line_->setGraph(this);
+        }
+        return *this;
       }
 
       Triangulation triangulate(FillRule fill_rule, int minimum_cycles = 1);
@@ -631,9 +660,9 @@ namespace visage {
 
         ScanLine() = delete;
 
-        explicit ScanLine(TriangulationGraph* graph) : graph_(graph) {
-          sorted_indices_ = graph_->sortedIndices();
-        }
+        explicit ScanLine(TriangulationGraph* graph) { setGraph(graph); }
+
+        void setGraph(TriangulationGraph* graph) { graph_ = graph; }
 
         bool hasNext() const { return current_index_ < sorted_indices_->size(); }
         void progressToNextEvent() {
@@ -844,6 +873,7 @@ namespace visage {
       void cutEars(int index, std::vector<int>& triangles, const std::unique_ptr<bool[]>& touched);
 
       Transform resolution_transform_;
+      bool intersections_broken_ = false;
       std::vector<DPoint> points_;
       std::vector<IndexData> sorted_indices_;
       std::vector<int> prev_edge_;
@@ -886,7 +916,7 @@ namespace visage {
       recurseBezierTo(break_point, midmid2, mid3, to);
     }
 
-    Path combine(const Path& other, Path::FillRule fill_rule, int num_cycles_needed, bool reverse_other) const;
+    Path combine(Path& other, Path::FillRule fill_rule, int num_cycles_needed, bool reverse_other);
 
     void startNewPath() {
       if (paths_.empty() || !paths_.back().points.empty())
@@ -906,15 +936,23 @@ namespace visage {
       if (!currentPath().points.empty() && point == currentPath().points.back())
         return;
 
+      triangulation_graph_ = nullptr;
       last_point_ = point;
       currentPath().points.push_back(point);
       currentPath().values.push_back(current_value_);
+    }
+
+    TriangulationGraph* triangulationGraph() {
+      if (triangulation_graph_ == nullptr)
+        triangulation_graph_ = std::make_unique<TriangulationGraph>(this);
+      return triangulation_graph_.get();
     }
 
     void addPoint(float x, float y) { addPoint({ x, y }); }
 
     Matrix resolution_matrix_;
     std::vector<SubPath> paths_;
+    std::unique_ptr<TriangulationGraph> triangulation_graph_;
     FillRule fill_rule_ = FillRule::EvenOdd;
     Point smooth_control_point_;
     Point last_point_;
