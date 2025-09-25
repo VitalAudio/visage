@@ -816,8 +816,7 @@ namespace visage {
       scan_line_->reset();
       while (scan_line_->hasNext()) {
         if (scan_line_->updateSplitIntersections())
-          ;
-        //intersection_added = true;
+          intersection_added = true;
       }
     }
 
