@@ -1019,7 +1019,7 @@ namespace visage {
   }
 
   void WindowMac::setAlwaysOnTop(bool on_top) {
-    if (on_top_)
+    if (on_top)
       [window_handle_ setLevel:NSFloatingWindowLevel];
     else
       [window_handle_ setLevel:NSNormalWindowLevel];
