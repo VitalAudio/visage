@@ -36,7 +36,7 @@ namespace visage {
     void setTitle(std::string title);
 
     bool isAlwaysOnTop() const { return always_on_top_; }
-    void setAlwaysOnTop(bool on_top);
+    void setWindowOnTop(bool on_top);
 
     void setWindowDecoration(Window::Decoration decoration) {
       decoration_ = decoration;

@@ -59,7 +59,7 @@ namespace visage {
       window_->setWindowTitle(title_);
   }
 
-  void ApplicationWindow::setAlwaysOnTop(bool on_top) {
+  void ApplicationWindow::setWindowOnTop(bool on_top) {
     always_on_top_ = on_top;
     if (window_)
       window_->setAlwaysOnTop(on_top);
