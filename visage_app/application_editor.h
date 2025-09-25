@@ -79,19 +79,9 @@ namespace visage {
       min_height_ = std::max(0.0f, height);
     }
 
-    void setDimensions(float width, float height) {
-      setBounds(x(), y(), width, height);
-      checkFixedAspectRatio();
-    }
-
-    void setNativeDimensions(int width, int height) {
-      setNativeBounds(nativeX(), nativeY(), width, height);
-      checkFixedAspectRatio();
-    }
-
     void checkFixedAspectRatio() {
-      if (fixed_aspect_ratio_)
-        fixed_aspect_ratio_ = width() * 1.0f / height();
+      if (fixed_aspect_ratio_ && width() && height())
+        fixed_aspect_ratio_ = aspectRatio();
     }
 
     void adjustWindowDimensions(int* width, int* height, bool horizontal_resize, bool vertical_resize) const;
