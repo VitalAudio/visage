@@ -88,6 +88,7 @@ namespace visage {
 
     void setWindowTitle(const std::string& title) override;
     IPoint maxWindowDimensions() const override;
+    void setAlwaysOnTop(bool on_top) override;
 
     void handleNativeResize(int width, int height);
     bool isPopup() const { return decoration_ == Decoration::Popup; }

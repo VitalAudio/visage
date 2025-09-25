@@ -1018,6 +1018,13 @@ namespace visage {
     return { display_width, display_height };
   }
 
+  void WindowMac::setAlwaysOnTop(bool on_top) {
+    if (on_top_)
+      [window_handle_ setLevel:NSFloatingWindowLevel];
+    else
+      [window_handle_ setLevel:NSNormalWindowLevel];
+  }
+
   void WindowMac::handleNativeResize(int width, int height) {
     handleResized(width, height);
   }

@@ -1583,6 +1583,10 @@ namespace visage {
     SetWindowText(window_handle_, w_title.c_str());
   }
 
+  void WindowWin32::setAlwaysOnTop(bool on_top) {
+    SetWindowPos(window_handle_, on_top ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+  }
+
   BOOL CALLBACK enumMonProc(HMONITOR monitor_handle, HDC, LPRECT, LPARAM lparam) {
     RECT* result = reinterpret_cast<RECT*>(lparam);
     MONITORINFO info { sizeof(info) };

@@ -35,6 +35,9 @@ namespace visage {
     const std::string& title() const { return title_; }
     void setTitle(std::string title);
 
+    bool isAlwaysOnTop() const { return always_on_top_; }
+    void setAlwaysOnTop(bool on_top);
+
     void setWindowDecoration(Window::Decoration decoration) {
       decoration_ = decoration;
       if (decoration_ == Window::Decoration::Client)
@@ -77,6 +80,7 @@ namespace visage {
     CallbackList<void()> on_hide_;
     CallbackList<void()> on_window_contents_resized_;
     std::string title_;
+    bool always_on_top_ = false;
     std::unique_ptr<Window> window_;
   };
 }

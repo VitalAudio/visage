@@ -113,6 +113,7 @@ namespace visage {
     virtual void setWindowTitle(const std::string& title) = 0;
     virtual void setFixedAspectRatio(bool fixed) { }
     virtual IPoint maxWindowDimensions() const = 0;
+    virtual void setAlwaysOnTop(bool on_top) { }
 
     void notifyShow() const { on_show_.callback(); }
     void notifyHide() const { on_hide_.callback(); }
