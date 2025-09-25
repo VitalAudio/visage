@@ -39,7 +39,7 @@ namespace visage {
       setDpiScale(defaultDpiScale());
 
     IBounds bounds = computeWindowBounds(width, height);
-    setNativeBounds({ 0, 0, bounds.width(), bounds.height() });
+    setNativeBounds({ nativeX(), nativeY(), bounds.width(), bounds.height() });
     initial_position_ = bounds.topLeft();
   }
 
@@ -49,7 +49,7 @@ namespace visage {
       setDpiScale(defaultDpiScale());
 
     IBounds bounds = computeWindowBounds(x, y, width, height);
-    setNativeBounds({ 0, 0, bounds.width(), bounds.height() });
+    setNativeBounds({ nativeX(), nativeY(), bounds.width(), bounds.height() });
     initial_position_ = bounds.topLeft();
   }
 

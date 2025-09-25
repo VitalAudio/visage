@@ -42,7 +42,7 @@ namespace visage {
     }
 
     void setNativeWindowDimensions(int width, int height) {
-      setNativeDimensions(width, height);
+      setNativeBounds(nativeX(), nativeY(), width, height);
       if (window_)
         window_->setNativeWindowSize(width, height);
     }
