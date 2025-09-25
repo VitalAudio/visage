@@ -77,6 +77,7 @@ namespace visage {
     bool isShowing() const override;
     void setWindowTitle(const std::string& title) override;
     IPoint maxWindowDimensions() const override;
+    void setAlwaysOnTop(bool on_top) override;
 
     bool isMouseTracked() const { return mouse_tracked_; }
 
