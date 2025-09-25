@@ -172,6 +172,8 @@ namespace visage {
     bool isVisible() const { return visible_; }
     void setDrawing(bool drawing);
     bool isDrawing() const { return drawing_; }
+    void setOnTop(bool on_top);
+    bool isOnTop() const { return on_top_; }
 
     void addChild(Frame* child, bool make_visible = true);
     void addChild(Frame& child, bool make_visible = true) { addChild(&child, make_visible); }
@@ -227,8 +229,6 @@ namespace visage {
     const Bounds& bounds() const { return bounds_; }
     void setTopLeft(float x, float y) { setBounds(x, y, width(), height()); }
     Point topLeft() const { return { bounds_.x(), bounds_.y() }; }
-    void setOnTop(bool on_top) { on_top_ = on_top; }
-    bool isOnTop() const { return on_top_; }
 
     Layout& layout() {
       if (layout_ == nullptr)

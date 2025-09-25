@@ -58,17 +58,32 @@ namespace visage {
                             const RegionPosition& done_position) {
     auto begin = done_position.region->subRegions().cbegin();
     auto end = done_position.region->subRegions().cend();
-    for (auto it = begin; it != end; ++it) {
+    if (begin == end)
+      return;
+
+    bool on_top = false;
+    for (auto it = begin; it != end || !on_top; ++it) {
+      if (it == end) {
+        on_top = true;
+        it = begin;
+      }
+
       Region* sub_region = *it;
-      if (!sub_region->isVisible())
+      if (!sub_region->isVisible() || sub_region->isOnTop() != on_top)
         continue;
 
       if (sub_region->needsLayer())
         sub_region = sub_region->intermediateRegion();
 
-      bool overlaps = std::any_of(begin, it, [sub_region](const Region* other) {
-        return other->isVisible() && sub_region->overlaps(other);
-      });
+      bool overlaps = false;
+      int index = std::distance(begin, it);
+      for (int i = 0; i < done_position.region->subRegions().size() && !overlaps; ++i) {
+        const auto& other = *(begin + i);
+        if (other->isVisible() && sub_region->overlaps(other)) {
+          overlaps = (i < index && sub_region->isOnTop() == other->isOnTop()) ||
+                     (!other->isOnTop() && sub_region->isOnTop());
+        }
+      }
 
       IBounds bounds(done_position.x + sub_region->x(), done_position.y + sub_region->y(),
                      sub_region->width(), sub_region->height());

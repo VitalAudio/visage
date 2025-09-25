@@ -55,6 +55,12 @@ namespace visage {
     }
   }
 
+  void Frame::setOnTop(bool on_top) {
+    on_top_ = on_top;
+    region_.setOnTop(on_top);
+    redraw();
+  }
+
   void Frame::addChild(Frame* child, bool make_visible) {
     VISAGE_ASSERT(child && child != this);
     if (child == nullptr)

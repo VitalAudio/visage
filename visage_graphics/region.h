@@ -80,8 +80,16 @@ namespace visage {
       invalidate();
     }
 
-    void setVisible(bool visible) { visible_ = visible; }
+    void setVisible(bool visible) {
+      visible_ = visible;
+      invalidate();
+    }
     bool isVisible() const { return visible_; }
+    void setOnTop(bool on_top) {
+      on_top_ = on_top;
+      invalidate();
+    }
+    bool isOnTop() const { return on_top_; }
     bool overlaps(const Region* other) const {
       return x_ < other->x_ + other->width_ && x_ + width_ > other->x_ &&
              y_ < other->y_ + other->height_ && y_ + height_ > other->y_;
@@ -150,6 +158,7 @@ namespace visage {
     int height_ = 0;
     int palette_override_ = 0;
     bool visible_ = true;
+    bool on_top_ = false;
     int layer_index_ = 0;
 
     Canvas* canvas_ = nullptr;
