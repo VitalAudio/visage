@@ -63,6 +63,11 @@ public:
       else
         sub_window_.show(10_vw, 10_vh, 400_px, 300_px);
     };
+
+    onHide() += [this] {
+      if (sub_window_.isShowing())
+        sub_window_.hide();
+    };
   }
 
   void draw(visage::Canvas& canvas) override {
