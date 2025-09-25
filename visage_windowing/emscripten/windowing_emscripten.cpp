@@ -635,26 +635,12 @@ namespace visage {
   IPoint WindowEmscripten::maxWindowDimensions() const {
     int display_width = EM_ASM_INT({ return screen.width; });
     int display_height = EM_ASM_INT({ return screen.height; });
-
-    float aspect_ratio = aspectRatio();
-    return { std::min<int>(display_width, display_height * aspect_ratio),
-             std::min<int>(display_height, display_width / aspect_ratio) };
-  }
-
-  IPoint WindowEmscripten::minWindowDimensions() const {
-    return { 0, 0 };
+    return { display_width, display_height };
   }
 
   void WindowEmscripten::handleWindowResize(int window_width, int window_height) {
-    int width = window_width;
-    int height = window_height;
-    if (!maximized_) {
-      float aspect_ratio = aspectRatio();
-      int width = std::min<int>(window_width, window_height * aspect_ratio);
-      int height = std::min<int>(window_height, window_width / aspect_ratio);
-    }
-    handleResized(width * dpiScale(), height * dpiScale());
-    emscripten_set_element_css_size("canvas", width, height);
+    handleResized(window_width * dpiScale(), window_height * dpiScale());
+    emscripten_set_element_css_size("canvas", window_width, window_height);
     emscripten_set_canvas_element_size("canvas", clientWidth(), clientHeight());
   }
 }
