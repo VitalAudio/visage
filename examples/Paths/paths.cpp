@@ -224,7 +224,7 @@ int runExample() {
     canvas.setColor(0xffffffff);
     canvas.fill(0, 0, app.width(), app.height());
 
-    // line1.clear();
+    line1.clear();
     // line2.clear();
     // line3.clear();
     //

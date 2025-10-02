@@ -40,14 +40,14 @@ namespace visage {
 
   GraphLine::~GraphLine() = default;
 
-  int GraphLine::fillLocation() const {
+  float GraphLine::fillLocation() const {
     if (fill_center_ == kBottom)
-      return height();
+      return 0.0f;
     if (fill_center_ == kTop)
-      return 0;
+      return 1.9f;
     if (fill_center_ == kCustom)
       return custom_fill_center_;
-    return height() / 2;
+    return 0.5f;
   }
 
   void GraphLine::draw(Canvas& canvas) {
@@ -61,15 +61,17 @@ namespace visage {
 
   void GraphLine::drawLine(Canvas& canvas, theme::ColorId color_id) {
     canvas.setColor(color_id);
-    float line_width = line_width_.compute(canvas.dpiScale(), width(), height(), paletteValue(LineWidth));
-    canvas.graphLine(data_, 0.0f, 0.0f, width(), height(), line_width);
+    float line_width = line_width_.compute(canvas.dpiScale(), width(), height(),
+                                           canvas.dpiScale() * paletteValue(LineWidth));
+    canvas.graphLine(data_, 0.0f, 0.0f, width(), height(), Dimension::nativePixels(line_width));
   }
 
   void GraphLine::drawFill(Canvas& canvas, theme::ColorId color_id) {
-    Brush color = canvas.color(color_id);
-    // TODO
-    // line_.fill_value_scale = canvas.value(LineFillBoost);
-    // canvas.setColor(color.withMultipliedAlpha(fill_alpha_mult_));
-    // canvas.lineFill(&path_, 0.0f, 0.0f, width(), height(), fillLocation());
+    if (fill_alpha_mult_ != 1.0f)
+      canvas.setColor(canvas.color(color_id).withMultipliedAlpha(fill_alpha_mult_));
+    else
+      canvas.setColor(canvas.color(color_id));
+
+    canvas.graphFill(data_, 0.0f, 0.0f, width(), height(), fillLocation());
   }
 }

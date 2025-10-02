@@ -476,6 +476,37 @@ namespace visage {
     ImageAtlas::PackedImage packed_data;
   };
 
+  struct GraphFillWrapper : Primitive<> {
+    static const EmbeddedFile& vertexShader();
+    static const EmbeddedFile& fragmentShader();
+
+    static void* taggedPointer(void* pointer, int tag) {
+      uintptr_t int_value = reinterpret_cast<uintptr_t>(pointer);
+      return reinterpret_cast<void*>(int_value | uintptr_t(tag) & 3);
+    }
+
+    GraphFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
+                     float height, float center, const GraphData& graph_data, ImageAtlas* data_atlas) :
+        Primitive(taggedPointer(data_atlas, 1), clamp, brush, x, y, width, height),
+        data_atlas(data_atlas), data(graph_data),
+        packed_data(data_atlas->addData(data.data(), data.numPoints())) {
+      thickness = center;
+      pixel_width = packed_data.w() - 1;
+    }
+
+    void setVertexData(Vertex* vertices) const {
+      setPrimitiveData(vertices);
+      for (int v = 0; v < kVerticesPerQuad; ++v) {
+        vertices[v].value1 = packed_data.x() + 0.5f;
+        vertices[v].value2 = packed_data.y() + 0.5f;
+      }
+    }
+
+    ImageAtlas* data_atlas = nullptr;
+    GraphData data;
+    ImageAtlas::PackedImage packed_data;
+  };
+
   struct PathFillWrapper : Shape<> {
     VISAGE_CREATE_BATCH_ID
     static constexpr int kLineVerticesPerPoint = 6;

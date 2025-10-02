@@ -419,6 +419,12 @@ namespace visage {
       addGraphLine(data, pixels(x), pixels(y), pixels(width), pixels(height), pixels(thickness));
     }
 
+    template<typename T1, typename T2, typename T3, typename T4>
+    void graphFill(const GraphData& data, const T1& x, const T2& y, const T3& width,
+                   const T4& height, float fill_center) {
+      addGraphFill(data, pixels(x), pixels(y), pixels(width), pixels(height), fill_center);
+    }
+
     template<typename T1, typename T2>
     void image(const Image& image, const T1& x, const T2& y) {
       int radius = std::round(pixels(image.blur_radius));
@@ -742,6 +748,11 @@ namespace visage {
     void addGraphLine(const GraphData& data, float x, float y, float width, float height, float thickness) {
       addShape(GraphLineWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
                                 height, thickness, data, dataAtlas()));
+    }
+
+    void addGraphFill(const GraphData& data, float x, float y, float width, float height, float center) {
+      addShape(GraphFillWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
+                                height, center, data, dataAtlas()));
     }
 
     Palette* palette_ = nullptr;

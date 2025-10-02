@@ -70,7 +70,7 @@ namespace visage {
       fill_center_ = kCustom;
       redraw();
     }
-    int fillLocation() const;
+    float fillLocation() const;
 
     int numPoints() const { return data_.numPoints(); }
 
