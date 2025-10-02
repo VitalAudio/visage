@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.17)
 project(visage VERSION 0.1.0)
 
+set(CMAKE_POLICY_DEFAULT_CMP0177 NEW)
+
 if (NOT DEFINED CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)
 endif ()
