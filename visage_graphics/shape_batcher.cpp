@@ -425,6 +425,16 @@ namespace visage {
     setUniform<Uniforms::kAtlasScale>(atlas_scale);
   }
 
+  void setGraphDataUniform(const BatchVector<GraphFillWrapper>& batches) {
+    if (batches.empty() || batches[0].shapes->empty())
+      return;
+
+    const ImageAtlas* data_atlas = batches[0].shapes->front().data_atlas;
+    setTexture<Uniforms::kTexture>(1, data_atlas->textureHandle());
+    float atlas_scale[] = { 1.0f / data_atlas->width(), 1.0f / data_atlas->height(), 0.0f, 0.0f };
+    setUniform<Uniforms::kAtlasScale>(atlas_scale);
+  }
+
   inline int numTextPieces(const TextBlock& text, int x, int y, const std::vector<IBounds>& invalid_rects) {
     auto count_pieces = [x, y, &text](int sum, IBounds invalid_rect) {
       ClampBounds clamp = text.clamp.clamp(invalid_rect.x() - x, invalid_rect.y() - y,
