@@ -106,6 +106,7 @@ namespace visage {
 
   void setImageAtlasUniform(const BatchVector<ImageWrapper>& batches);
   void setGraphDataUniform(const BatchVector<GraphLineWrapper>& batches);
+  void setGraphDataUniform(const BatchVector<GraphFillWrapper>& batches);
 
   void submitPathFill(const PathFillWrapper& path_fill_wrapper, const Layer& layer, int submit_pass);
   void submitText(const BatchVector<TextBlock>& batches, const Layer& layer, int submit_pass);
@@ -184,6 +185,14 @@ namespace visage {
 
   template<>
   inline void submitShapes<GraphLineWrapper>(const BatchVector<GraphLineWrapper>& batches,
+                                             BlendMode state, Layer& layer, int submit_pass) {
+    setBlendMode(state);
+    setGraphDataUniform(batches);
+    submitBaseShapes(batches, state, layer, submit_pass);
+  }
+
+  template<>
+  inline void submitShapes<GraphFillWrapper>(const BatchVector<GraphFillWrapper>& batches,
                                              BlendMode state, Layer& layer, int submit_pass) {
     setBlendMode(state);
     setGraphDataUniform(batches);
