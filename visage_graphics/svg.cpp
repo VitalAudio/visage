@@ -137,6 +137,13 @@ namespace visage {
     stroke(canvas, context, x, y, width, height);
   }
 
+  void SvgDrawable::drawAll(Canvas& canvas, ColorContext* context, float x, float y, float width,
+                            float height) const {
+    draw(canvas, context, x, y, width, height);
+    for (const auto& child : children)
+      child->drawAll(canvas, context, x, y, width, height);
+  }
+
   bool SvgDrawable::setContextColor(Canvas& canvas, ColorContext* context,
                                     const GradientDef& gradient, float color_opacity) const {
     const Brush* context_brush = nullptr;
