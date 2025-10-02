@@ -104,10 +104,10 @@ namespace visage {
   void submitShapes(const Layer& layer, const EmbeddedFile& vertex_shader,
                     const EmbeddedFile& fragment_shader, bool radial_gradient, int submit_pass);
 
+  void setImageAtlasUniform(const BatchVector<ImageWrapper>& batches);
+  void setGraphDataUniform(const BatchVector<GraphLineWrapper>& batches);
+
   void submitPathFill(const PathFillWrapper& path_fill_wrapper, const Layer& layer, int submit_pass);
-  void submitLine(const LineWrapper& line_wrapper, const Layer& layer, int submit_pass);
-  void submitLineFill(const LineFillWrapper& line_fill_wrapper, const Layer& layer, int submit_pass);
-  void submitImages(const BatchVector<ImageWrapper>& batches, const Layer& layer, int submit_pass);
   void submitText(const BatchVector<TextBlock>& batches, const Layer& layer, int submit_pass);
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass);
   void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass);
@@ -146,13 +146,18 @@ namespace visage {
   }
 
   template<typename T>
-  static void submitShapes(const BatchVector<T>& batches, BlendMode state, Layer& layer, int submit_pass) {
+  static void submitBaseShapes(const BatchVector<T>& batches, BlendMode state, Layer& layer, int submit_pass) {
     bool radial_gradient = false;
     if (!setupQuads(batches, radial_gradient))
       return;
 
     setBlendMode(state);
     submitShapes(layer, T::vertexShader(), T::fragmentShader(), radial_gradient, submit_pass);
+  }
+
+  template<typename T>
+  static void submitShapes(const BatchVector<T>& batches, BlendMode state, Layer& layer, int submit_pass) {
+    submitBaseShapes(batches, state, layer, submit_pass);
   }
 
   template<>
@@ -170,38 +175,19 @@ namespace visage {
   }
 
   template<>
-  inline void submitShapes<LineWrapper>(const BatchVector<LineWrapper>& batches, BlendMode state,
-                                        Layer& layer, int submit_pass) {
-    for (const auto& batch : batches) {
-      for (const LineWrapper& line_wrapper : *batch.shapes) {
-        LineWrapper line = line_wrapper;
-        line.x = batch.x + line_wrapper.x;
-        line.y = batch.y + line_wrapper.y;
-        setBlendMode(state);
-        submitLine(line, layer, submit_pass);
-      }
-    }
-  }
-
-  template<>
-  inline void submitShapes<LineFillWrapper>(const BatchVector<LineFillWrapper>& batches,
-                                            BlendMode state, Layer& layer, int submit_pass) {
-    for (const auto& batch : batches) {
-      for (const LineFillWrapper& line_fill_wrapper : *batch.shapes) {
-        LineFillWrapper line_fill = line_fill_wrapper;
-        line_fill.x = batch.x + line_fill.x;
-        line_fill.y = batch.y + line_fill.y;
-        setBlendMode(state);
-        submitLineFill(line_fill, layer, submit_pass);
-      }
-    }
-  }
-
-  template<>
   inline void submitShapes<ImageWrapper>(const BatchVector<ImageWrapper>& batches, BlendMode state,
                                          Layer& layer, int submit_pass) {
     setBlendMode(state);
-    submitImages(batches, layer, submit_pass);
+    setImageAtlasUniform(batches);
+    submitBaseShapes(batches, state, layer, submit_pass);
+  }
+
+  template<>
+  inline void submitShapes<GraphLineWrapper>(const BatchVector<GraphLineWrapper>& batches,
+                                             BlendMode state, Layer& layer, int submit_pass) {
+    setBlendMode(state);
+    setGraphDataUniform(batches);
+    submitBaseShapes(batches, state, layer, submit_pass);
   }
 
   template<>

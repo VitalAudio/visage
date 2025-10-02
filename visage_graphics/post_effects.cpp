@@ -394,18 +394,18 @@ namespace visage {
 
     setQuadPositions(vertices, source, source.clamp.withOffset(x, y), x, y);
     source.region->layer()->setTexturePositionsForRegion(source.region, vertices);
-    vertices[0].shader_value1 = 0.0f;
-    vertices[0].shader_value2 = 0.0f;
-    vertices[1].shader_value1 = widths_[0];
-    vertices[1].shader_value2 = 0.0f;
-    vertices[2].shader_value1 = 0.0f;
-    vertices[2].shader_value2 = heights_[0];
-    vertices[3].shader_value1 = widths_[0];
-    vertices[3].shader_value2 = heights_[0];
+    vertices[0].value1 = 0.0f;
+    vertices[0].value2 = 0.0f;
+    vertices[1].value1 = widths_[0];
+    vertices[1].value2 = 0.0f;
+    vertices[2].value1 = 0.0f;
+    vertices[2].value2 = heights_[0];
+    vertices[3].value1 = widths_[0];
+    vertices[3].value2 = heights_[0];
 
     if (destination.bottomLeftOrigin()) {
       for (int i = 0; i < kVerticesPerQuad; ++i)
-        vertices[i].shader_value2 = heights_[0] - vertices[i].shader_value2;
+        vertices[i].value2 = heights_[0] - vertices[i].value2;
     }
 
     setBlendMode(BlendMode::Composite);
