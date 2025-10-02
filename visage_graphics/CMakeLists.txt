@@ -70,7 +70,7 @@ FetchContent_MakeAvailable(bgfx)
 
 FetchContent_Declare(freetype GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
   GIT_SHALLOW TRUE
-  GIT_TAG VER-2-13-3
+  GIT_TAG VER-2-14-1
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(freetype)
