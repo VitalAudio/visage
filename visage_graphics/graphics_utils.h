@@ -261,8 +261,8 @@ namespace visage {
     float clamp_bottom;
     float thickness;
     float fade;
-    float value_1;
-    float value_2;
+    float value1;
+    float value2;
 
     static bgfx::VertexLayout& layout();
   };
@@ -282,12 +282,12 @@ namespace visage {
     float clamp_bottom;
     float thickness;
     float fade;
-    float value_1;
-    float value_2;
-    float value_3;
-    float value_4;
-    float value_5;
-    float value_6;
+    float value1;
+    float value2;
+    float value3;
+    float value4;
+    float value5;
+    float value6;
 
     static bgfx::VertexLayout& layout();
   };
@@ -324,8 +324,8 @@ namespace visage {
     float clamp_top;
     float clamp_right;
     float clamp_bottom;
-    float shader_value1;
-    float shader_value2;
+    float value1;
+    float value2;
 
     static bgfx::VertexLayout& layout();
   };

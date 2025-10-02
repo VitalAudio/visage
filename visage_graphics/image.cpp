@@ -35,38 +35,10 @@ namespace visage {
     return &allocator;
   }
 
-  static void boxBlur(unsigned char* dest, unsigned char* cache, int width, int blur_radius, int stride) {
-    for (int i = 0; i < blur_radius; ++i)
-      cache[i] = 0;
-
-    int value = 0;
-    int sample_index = 0;
-    int write_index = 0;
-    for (; sample_index < blur_radius / 2; ++sample_index) {
-      cache[sample_index] = dest[sample_index * stride];
-      value += cache[sample_index];
-    }
-
-    for (; sample_index < width - blur_radius / 2; ++sample_index) {
-      int cache_index = sample_index % blur_radius;
-      int cached = cache[cache_index];
-      int sample = dest[sample_index * stride];
-      cache[cache_index] = sample;
-      value += sample - cached;
-      dest[write_index * stride] = value / blur_radius;
-      write_index++;
-    }
-
-    for (; sample_index < width; ++sample_index) {
-      value -= cache[sample_index % blur_radius];
-      dest[write_index * stride] = value / blur_radius;
-      write_index++;
-    }
-  }
-
   class ImageAtlasTexture {
   public:
-    explicit ImageAtlasTexture(int width, int height) : width_(width), height_(height) { }
+    explicit ImageAtlasTexture(int width, int height, ImageAtlas::DataType data_type) :
+        width_(width), height_(height), data_type_(data_type) { }
 
     ~ImageAtlasTexture() { destroyHandle(); }
 
@@ -82,57 +54,40 @@ namespace visage {
     bgfx::TextureHandle& handle() { return texture_handle_; }
 
     void checkHandle() {
-      if (!bgfx::isValid(texture_handle_))
-        texture_handle_ = bgfx::createTexture2D(width_, height_, false, 1, bgfx::TextureFormat::RGBA8);
+      if (!bgfx::isValid(texture_handle_)) {
+        if (data_type_ == ImageAtlas::DataType::Float32)
+          texture_handle_ = bgfx::createTexture2D(width_, height_, false, 1, bgfx::TextureFormat::R32F);
+        else
+          texture_handle_ = bgfx::createTexture2D(width_, height_, false, 1, bgfx::TextureFormat::RGBA8);
+      }
     }
 
     void updateTexture(const unsigned char* data, int x, int y, int width, int height) {
       VISAGE_ASSERT(bgfx::isValid(texture_handle_));
       bgfx::updateTexture2D(texture_handle_, 0, 0, x, y, width, height,
-                            bgfx::copy(data, width * height * ImageAtlas::kChannels));
+                            bgfx::copy(data, width * height * 4));
     }
 
   private:
     int width_ = 0;
     int height_ = 0;
+    ImageAtlas::DataType data_type_ = ImageAtlas::DataType::RGBA8;
     bgfx::TextureHandle texture_handle_ = BGFX_INVALID_HANDLE;
   };
-
-  void ImageAtlas::blurImage(unsigned char* location, int width, int height, int blur_radius) {
-    static constexpr int kBoxBlurIterations = 3;
-
-    int radius = std::min(blur_radius, width - 1);
-    radius = radius + ((radius + 1) % 2);
-
-    std::unique_ptr<unsigned char[]> cache = std::make_unique<unsigned char[]>(radius);
-
-    for (int r = 0; r < height; ++r) {
-      for (int channel = 0; channel < ImageAtlas::kChannels; ++channel) {
-        for (int i = 0; i < kBoxBlurIterations; ++i)
-          boxBlur(location + r * width * ImageAtlas::kChannels + channel, cache.get(), width,
-                  radius, ImageAtlas::kChannels);
-      }
-    }
-
-    for (int c = 0; c < width * ImageAtlas::kChannels; ++c) {
-      for (int i = 0; i < kBoxBlurIterations; ++i)
-        boxBlur(location + c, cache.get(), height, radius, width * ImageAtlas::kChannels);
-    }
-  }
 
   ImageAtlas::PackedImageReference::~PackedImageReference() {
     if (auto atlas_pointer = atlas.lock())
       (*atlas_pointer)->removeImage(packed_image_rect);
   }
 
-  ImageAtlas::ImageAtlas() {
+  ImageAtlas::ImageAtlas(DataType data_type) : data_type_(data_type) {
     reference_ = std::make_shared<ImageAtlas*>(this);
     atlas_map_.setPadding(kImageBuffer);
   }
 
   ImageAtlas::~ImageAtlas() = default;
 
-  ImageAtlas::PackedImage ImageAtlas::addImage(const Image& image) {
+  ImageAtlas::PackedImage ImageAtlas::addImage(const Image& image, bool force_update) {
     if (images_.count(image) == 0) {
       int width = image.width;
       int height = image.height;
@@ -153,6 +108,9 @@ namespace visage {
       updateImage(packed_image_rect.get());
       images_[image] = std::move(packed_image_rect);
     }
+    else if (force_update)
+      updateImage(images_[image].get());
+
     stale_images_.erase(image);
 
     if (auto reference = references_[image].lock())
@@ -163,11 +121,17 @@ namespace visage {
     return PackedImage(reference);
   }
 
+  ImageAtlas::PackedImage ImageAtlas::addData(const unsigned char* data, int data_size) {
+    Image image(data, data_size * 4, data_size, 1);
+    image.raw = true;
+    return addImage(image, true);
+  }
+
   void ImageAtlas::resize() {
     clearStaleImages();
 
     atlas_map_.pack();
-    texture_ = std::make_unique<ImageAtlasTexture>(atlas_map_.width(), atlas_map_.height());
+    texture_ = std::make_unique<ImageAtlasTexture>(atlas_map_.width(), atlas_map_.height(), data_type_);
     for (auto& image : images_)
       loadImageRect(image.second.get());
   }
@@ -185,25 +149,31 @@ namespace visage {
       return;
 
     PackedRect packed_rect = atlas_map_.rectForId(image);
+    if (image->image.raw) {
+      texture_->updateTexture(image->image.data, packed_rect.x, packed_rect.y, packed_rect.w,
+                              packed_rect.h);
+      return;
+    }
     bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image->image.data,
                                                              image->image.data_size,
                                                              bimg::TextureFormat::RGBA8);
     if (image_container) {
       unsigned char* image_data = static_cast<unsigned char*>(image_container->m_data);
-      if (image_container->m_width == packed_rect.w && image_container->m_height == packed_rect.h) {
+      if (image_container->m_width == packed_rect.w && image_container->m_height == packed_rect.h)
         texture_->updateTexture(image_data, packed_rect.x, packed_rect.y, packed_rect.w, packed_rect.h);
-      }
       else {
-        int size = packed_rect.w * packed_rect.h * kChannels;
+        int size = packed_rect.w * packed_rect.h * numChannels();
         std::unique_ptr<unsigned char[]> resampled = std::make_unique<unsigned char[]>(size);
         stbir_resize_uint8_srgb(image_data, image_container->m_width, image_container->m_height,
-                                image_container->m_width * kChannels, resampled.get(),
-                                packed_rect.w, packed_rect.h, packed_rect.w * kChannels, STBIR_BGRA);
+                                image_container->m_width * numChannels(), resampled.get(),
+                                packed_rect.w, packed_rect.h, packed_rect.w * numChannels(), STBIR_BGRA);
         texture_->updateTexture(resampled.get(), packed_rect.x, packed_rect.y, packed_rect.w,
                                 packed_rect.h);
       }
       bimg::imageFree(image_container);
     }
+    else
+      VISAGE_ASSERT(false);
   }
 
   const bgfx::TextureHandle& ImageAtlas::textureHandle() const {

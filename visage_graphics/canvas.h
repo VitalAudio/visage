@@ -376,6 +376,7 @@ namespace visage {
 
     template<typename T1, typename T2>
     void svg(const Svg& svg, const T1& x, const T2& y) {
+      // TODO
       // int radius = std::round(pixels(svg.blur_radius));
       // int w = std::round(pixels(svg.width));
       // int h = std::round(pixels(svg.height));
@@ -385,6 +386,7 @@ namespace visage {
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
     void svg(const unsigned char* svg_data, int svg_size, const T1& x, const T2& y, const T3& width,
              const T4& height, const T5& blur_radius) {
+      // TODO
       // int w = std::round(pixels(width));
       // int h = std::round(pixels(height));
       // int radius = std::round(pixels(blur_radius));
@@ -394,6 +396,7 @@ namespace visage {
     template<typename T1, typename T2, typename T3, typename T4>
     void svg(const unsigned char* svg_data, int svg_size, const T1& x, const T2& y, const T3& width,
              const T4& height) {
+      // TODO
       // int w = std::round(pixels(width));
       // int h = std::round(pixels(height));
       // addSvg({ svg_data, svg_size, w, h, 0 }, pixels(x), pixels(y));
@@ -408,6 +411,12 @@ namespace visage {
     template<typename T1, typename T2, typename T3, typename T4>
     void svg(const EmbeddedFile& file, const T1& x, const T2& y, const T3& width, const T4& height) {
       svg(file.data, file.size, x, y, width, height);
+    }
+
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void graphLine(const GraphData& data, const T1& x, const T2& y, const T3& width,
+                   const T4& height, const T5& thickness) {
+      addGraphLine(data, pixels(x), pixels(y), pixels(width), pixels(height), pixels(thickness));
     }
 
     template<typename T1, typename T2>
@@ -444,20 +453,6 @@ namespace visage {
 
       addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
                                pixels(width), pixels(height), path, state_.scale));
-    }
-
-    template<typename T1, typename T2, typename T3, typename T4, typename T5>
-    void line(const Path* line, const T1& x, const T2& y, const T3& width, const T4& height,
-              const T5& line_width) {
-      addShape(LineWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
-                           pixels(width), pixels(height), line, pixels(line_width) + 0.5f, state_.scale));
-    }
-
-    template<typename T1, typename T2, typename T3, typename T4, typename T5>
-    void lineFill(const Path* line, const T1& x, const T2& y, const T3& width, const T4& height,
-                  const T5& fill_position) {
-      addShape(LineFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
-                               pixels(width), pixels(height), line, pixels(fill_position), state_.scale));
     }
 
     void saveState() { state_memory_.push_back(state_); }
@@ -524,6 +519,7 @@ namespace visage {
     std::vector<std::string> debugInfo() const;
 
     ImageAtlas* imageAtlas() { return &image_atlas_; }
+    ImageAtlas* dataAtlas() { return &data_atlas_; }
     GradientAtlas* gradientAtlas() { return &gradient_atlas_; }
 
     State* state() { return &state_; }
@@ -733,6 +729,7 @@ namespace visage {
     }
 
     void addSvg(const Svg& svg, float x, float y) {
+      // TODO
       // addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, svg.width,
       //                       svg.height, svg, imageAtlas()));
     }
@@ -740,6 +737,11 @@ namespace visage {
     void addImage(const Image& image, float x, float y) {
       addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, image.width,
                             image.height, image, imageAtlas()));
+    }
+
+    void addGraphLine(const GraphData& data, float x, float y, float width, float height, float thickness) {
+      addShape(GraphLineWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
+                                height, thickness, data, dataAtlas()));
     }
 
     Palette* palette_ = nullptr;
@@ -754,6 +756,7 @@ namespace visage {
 
     GradientAtlas gradient_atlas_;
     ImageAtlas image_atlas_;
+    ImageAtlas data_atlas_;
 
     Region window_region_;
     Region default_region_;

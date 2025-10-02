@@ -42,9 +42,6 @@ namespace visage {
     VISAGE_THEME_DEFINE_COLOR(DragColor);
 
     VISAGE_THEME_DEFINE_VALUE(LineWidth);
-    VISAGE_THEME_DEFINE_VALUE(LineSizeBoost);
-    VISAGE_THEME_DEFINE_VALUE(LineColorBoost);
-    VISAGE_THEME_DEFINE_VALUE(LineFillBoost);
 
     enum FillCenter {
       kCenter,
@@ -58,36 +55,15 @@ namespace visage {
 
     void draw(Canvas& canvas) override;
 
-    // float boostAt(int index) const { return line_.values[index]; }
-    // void setBoostAt(int index, float val) {
-    //   VISAGE_ASSERT(index < line_.num_points && index >= 0);
-    //   line_.values[index] = val;
-    //   redraw();
-    // }
-    //
-    float yAt(int index) const { return path_.subPaths()[0].points[index].y; }
-    void setYAt(int index, float val) {
-      VISAGE_ASSERT(index < path_.numPoints() && index >= 0);
-      path_.subPaths()[0].points[index].y = val;
+    float at(int index) const { return data_[index]; }
+    void set(int index, float val) {
+      VISAGE_ASSERT(index < data_.numPoints() && index >= 0);
+      data_[index] = val;
       redraw();
     }
 
-    float xAt(int index) const { return path_.subPaths()[0].points[index].x; }
-    void setXAt(int index, float val) {
-      VISAGE_ASSERT(index < path_.numPoints() && index >= 0);
-      path_.subPaths()[0].points[index].x = val;
-      redraw();
-    }
-
-    void setAt(int index, Point point) {
-      VISAGE_ASSERT(index < path_.numPoints() && index >= 0);
-      path_.subPaths()[0].points[index] = point;
-      redraw();
-    }
-
-    bool fill() const { return fill_; }
-
-    void setFill(bool fill) { fill_ = fill; }
+    bool isFilled() const { return filled_; }
+    void setFilled(bool fill) { filled_ = fill; }
     void setFillCenter(FillCenter fill_center) { fill_center_ = fill_center; }
     void setFillCenter(float center) {
       custom_fill_center_ = center;
@@ -96,7 +72,7 @@ namespace visage {
     }
     int fillLocation() const;
 
-    int numPoints() const { return path_.numPoints(); }
+    int numPoints() const { return data_.numPoints(); }
 
     bool active() const { return active_; }
     void setActive(bool active) { active_ = active; }
@@ -106,10 +82,10 @@ namespace visage {
     void drawLine(Canvas& canvas, theme::ColorId color_id);
     void drawFill(Canvas& canvas, theme::ColorId color_id);
 
-    Path path_;
+    GraphData data_;
     Dimension line_width_;
 
-    bool fill_ = false;
+    bool filled_ = false;
     FillCenter fill_center_ = kCenter;
     float custom_fill_center_ = 0.0f;
     float fill_alpha_mult_ = 1.0f;

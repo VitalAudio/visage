@@ -178,6 +178,11 @@ namespace visage {
       return result;
     }
 
+    Gradient operator*(const Gradient& other) const {
+      auto sample_function = [&](float s) { return sample(s) * other.sample(s); };
+      return fromSampleFunction(std::max(resolution(), other.resolution()), sample_function);
+    }
+
     std::string encode() const;
     void encode(std::ostringstream& stream) const;
     void decode(const std::string& data);

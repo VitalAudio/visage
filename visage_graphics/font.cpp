@@ -112,6 +112,8 @@ namespace visage {
 
   class PackedFont {
   public:
+    static constexpr int kChannels = 4;
+
     PackedFont(const std::string& id, int size, const unsigned char* data, int data_size) :
         id_(id), size_(size), data_size_(data_size) {
       data_ = std::make_unique<unsigned char[]>(data_size);
@@ -167,7 +169,7 @@ namespace visage {
 
       bgfx::updateTexture2D(texture_handle_, 0, 0, packed_glyph->atlas_left,
                             packed_glyph->atlas_top, packed_glyph->width, packed_glyph->height,
-                            bgfx::copy(texture.get(), size * ImageAtlas::kChannels));
+                            bgfx::copy(texture.get(), size * kChannels));
     }
 
     PackedGlyph* packCharacterGlyph(PackedGlyph* packed_glyph, const TypeFace* type_face, char32_t character) {
@@ -216,7 +218,7 @@ namespace visage {
         int height = atlas_map_.height();
         std::unique_ptr<unsigned int[]> clear = std::make_unique<unsigned int[]>(width * height);
         bgfx::updateTexture2D(texture_handle_, 0, 0, 0, 0, width, height,
-                              bgfx::copy(clear.get(), width * height * ImageAtlas::kChannels));
+                              bgfx::copy(clear.get(), width * height * kChannels));
 
         for (auto& glyph : packed_glyphs_)
           rasterizeGlyph(glyph.first, &glyph.second);

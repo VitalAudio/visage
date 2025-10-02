@@ -135,147 +135,6 @@ namespace visage {
     return point * inverseMagnitude(point);
   }
 
-  static void setLineVertices(const LineWrapper& line_wrapper, bgfx::TransientVertexBuffer vertex_buffer) {
-    LineVertex* line_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
-    int num_vertices = line_wrapper.numVertices();
-
-    for (int i = 0; i < num_vertices; i += 2) {
-      line_data[i].fill = 0.0f;
-      line_data[i + 1].fill = 1.0f;
-    }
-
-    const auto& sub_paths = line_wrapper.path->subPaths();
-    float radius = line_wrapper.line_width * 0.5f + 0.5f;
-    float prev_magnitude = radius;
-    float scale = line_wrapper.scale;
-    int path_offset = 1;
-
-    for (const auto& path : sub_paths) {
-      Point prev_normalized_delta;
-      int sub_path_points = path.points.size();
-      for (int i = 0; i < sub_path_points - 1; ++i) {
-        if (path.points[i] != path.points[i + 1]) {
-          prev_normalized_delta = normalize(path.points[i + 1] - path.points[i]);
-          break;
-        }
-      }
-
-      Point prev_delta_normal(-prev_normalized_delta.y, prev_normalized_delta.x);
-
-      for (int i = 0; i < sub_path_points; ++i) {
-        Point point = path.points[i] * scale;
-        int next_index = i + 1;
-        int clamped_next_index = std::min(next_index, sub_path_points - 1);
-
-        Point next_point = path.points[clamped_next_index] * scale;
-        Point delta = next_point - point;
-        if (point == next_point)
-          delta = prev_normalized_delta;
-
-        float inverse_magnitude = inverseMagnitude(delta);
-        float magnitude = 1.0f / std::max(0.00001f, inverse_magnitude);
-        Point normalized_delta(delta.x * inverse_magnitude, delta.y * inverse_magnitude);
-        Point delta_normal(-normalized_delta.y, normalized_delta.x);
-
-        Point angle_bisect_delta = normalized_delta - prev_normalized_delta;
-        Point bisect_line;
-        bool straight = angle_bisect_delta.x < 0.001f && angle_bisect_delta.x > -0.001f &&
-                        angle_bisect_delta.y < 0.001f && angle_bisect_delta.y > -0.001f;
-        if (straight)
-          bisect_line = delta_normal;
-        else
-          bisect_line = normalize(angle_bisect_delta);
-
-        float x1, x2, x3, x4, x5, x6;
-        float y1, y2, y3, y4, y5, y6;
-
-        float max_inner_radius = std::max(radius, 0.5f * (magnitude + prev_magnitude));
-        prev_magnitude = magnitude;
-
-        float bisect_normal_dot_product = bisect_line * delta_normal;
-        float inner_mult = 1.0f / std::max(0.1f, std::fabs(bisect_normal_dot_product));
-        Point inner_point = point + bisect_line * std::min(inner_mult * radius, max_inner_radius);
-        Point outer_point = point - bisect_line * radius;
-
-        if (bisect_normal_dot_product < 0.0f) {
-          Point outer_point_start = outer_point;
-          Point outer_point_end = outer_point;
-          if (!straight) {
-            outer_point_start = point + prev_delta_normal * radius;
-            outer_point_end = point + delta_normal * radius;
-          }
-          x1 = outer_point_start.x;
-          y1 = outer_point_start.y;
-          x3 = outer_point.x;
-          y3 = outer_point.y;
-          x5 = outer_point_end.x;
-          y5 = outer_point_end.y;
-          x2 = x4 = x6 = inner_point.x;
-          y2 = y4 = y6 = inner_point.y;
-        }
-        else {
-          Point outer_point_start = outer_point;
-          Point outer_point_end = outer_point;
-          if (!straight) {
-            outer_point_start = point - prev_delta_normal * radius;
-            outer_point_end = point - delta_normal * radius;
-          }
-          x2 = outer_point_start.x;
-          y2 = outer_point_start.y;
-          x4 = outer_point.x;
-          y4 = outer_point.y;
-          x6 = outer_point_end.x;
-          y6 = outer_point_end.y;
-          x1 = x3 = x5 = inner_point.x;
-          y1 = y3 = y5 = inner_point.y;
-        }
-
-        int index = path_offset + i * LineWrapper::kLineVerticesPerPoint;
-
-        float value = path.values[i] * line_wrapper.line_value_mult;
-        line_data[index].x = x1;
-        line_data[index].y = y1;
-        line_data[index].value = value;
-
-        line_data[index + 1].x = x2;
-        line_data[index + 1].y = y2;
-        line_data[index + 1].value = value;
-
-        line_data[index + 2].x = x3;
-        line_data[index + 2].y = y3;
-        line_data[index + 2].value = value;
-
-        line_data[index + 3].x = x4;
-        line_data[index + 3].y = y4;
-        line_data[index + 3].value = value;
-
-        line_data[index + 4].x = x5;
-        line_data[index + 4].y = y5;
-        line_data[index + 4].value = value;
-
-        line_data[index + 5].x = x6;
-        line_data[index + 5].y = y6;
-        line_data[index + 5].value = value;
-
-        prev_delta_normal = delta_normal;
-        prev_normalized_delta = normalized_delta;
-      }
-
-      if (sub_path_points)
-        line_data[path_offset - 1] = line_data[path_offset];
-      else
-        line_data[path_offset - 1] = LineVertex { 0.0f, 0.0f, 0.0f, 0.0f };
-
-      path_offset += sub_path_points * LineWrapper::kLineVerticesPerPoint;
-      if (sub_path_points)
-        line_data[path_offset] = line_data[path_offset - 1];
-      else
-        line_data[path_offset] = LineVertex { 0.0f, 0.0f, 0.0f, 0.0f };
-
-      path_offset += 2;
-    }
-  }
-
   static inline void setTimeUniform(float time) {
     float time_values[] = { time, time, time, time };
     setUniform<Uniforms::kTime>(time_values);
@@ -481,7 +340,8 @@ namespace visage {
     bgfx::setVertexBuffer(0, &vertex_buffer);
     setUniformBounds(path_fill_wrapper.x, path_fill_wrapper.y, layer.width(), layer.height());
     setColorMult(layer.hdr());
-    auto program = ProgramCache::programHandle(LineWrapper::vertexShader(), LineWrapper::fragmentShader());
+    auto program = ProgramCache::programHandle(PathFillWrapper::vertexShader(),
+                                               PathFillWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
   }
 
@@ -538,160 +398,31 @@ namespace visage {
     bgfx::setIndexBuffer(&index_buffer);
     setUniformBounds(path_fill_wrapper.x, path_fill_wrapper.y, layer.width(), layer.height());
     setColorMult(layer.hdr());
-    auto program = ProgramCache::programHandle(LineWrapper::vertexShader(), LineWrapper::fragmentShader());
+    auto program = ProgramCache::programHandle(PathFillWrapper::vertexShader(),
+                                               PathFillWrapper::fragmentShader());
     bgfx::submit(submit_pass, program);
 
     submitPathAntiAliasStrip(path_fill_wrapper, layer, submit_pass);
   }
 
-  void submitLine(const LineWrapper& line_wrapper, const Layer& layer, int submit_pass) {
-    int num_vertices = line_wrapper.numVertices();
-    if (num_vertices == 0)
+  void setImageAtlasUniform(const BatchVector<ImageWrapper>& batches) {
+    if (batches.empty() || batches[0].shapes->empty())
       return;
-
-    if (bgfx::getAvailTransientVertexBuffer(num_vertices, LineVertex::layout()) != num_vertices)
-      return;
-
-    bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::allocTransientVertexBuffer(&vertex_buffer, num_vertices, LineVertex::layout());
-    setLineVertices(line_wrapper, vertex_buffer);
-
-    bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
-
-    float dimensions[4] = { line_wrapper.width, line_wrapper.height, 1.0f, 1.0f };
-    float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
-
-    GradientTexturePosition texture_pos;
-    GradientVertexPosition gradient_pos;
-    PackedBrush::computeVertexGradientTexturePositions(texture_pos, line_wrapper.brush);
-    PackedBrush::computeVertexGradientPositions(gradient_pos, line_wrapper.brush, 0, 0, 0, 0,
-                                                line_wrapper.width, line_wrapper.height);
-    float line_width[] = { line_wrapper.line_width * 2.0f, 0.0f, 0.0f, 0.0f };
-    setUniform<Uniforms::kDimensions>(dimensions);
-    setUniform<Uniforms::kTime>(time);
-    setUniform<Uniforms::kGradientTexturePosition>(&texture_pos);
-    setUniform<Uniforms::kGradientPosition>(gradient_pos.position1());
-    setUniform<Uniforms::kGradientPosition2>(gradient_pos.position2());
-    float radial_gradient[] = { line_wrapper.radialGradient() ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
-    setUniform<Uniforms::kRadialGradient>(radial_gradient);
-    setUniform<Uniforms::kLineWidth>(line_width);
-    setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
-
-    bgfx::setVertexBuffer(0, &vertex_buffer);
-    setUniformBounds(line_wrapper.x, line_wrapper.y, layer.width(), layer.height());
-    setColorMult(layer.hdr());
-    setScissor(line_wrapper, layer.width(), layer.height());
-    auto program = ProgramCache::programHandle(LineWrapper::vertexShader(), LineWrapper::fragmentShader());
-    bgfx::submit(submit_pass, program);
-  }
-
-  static void setFillVertices(const LineFillWrapper& line_fill_wrapper,
-                              const bgfx::TransientVertexBuffer& vertex_buffer) {
-    LineVertex* fill_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
-    const Path* path = line_fill_wrapper.path;
-    const auto& sub_paths = path->subPaths();
-
-    float scale = line_fill_wrapper.scale;
-    int fill_location = line_fill_wrapper.fill_center;
-    int path_offset = 1;
-
-    for (const auto& sub_path : sub_paths) {
-      int sub_path_points = sub_path.points.size();
-      for (int i = 0; i < sub_path_points; ++i) {
-        int index_top = path_offset + i * LineFillWrapper::kFillVerticesPerPoint;
-        int index_bottom = index_top + 1;
-        Point point = sub_path.points[i] * scale;
-
-        float value = sub_path.values[i] * line_fill_wrapper.fill_value_mult;
-        fill_data[index_top].x = point.x;
-        fill_data[index_top].y = point.y;
-        fill_data[index_top].value = value;
-        fill_data[index_bottom].x = point.x;
-        fill_data[index_bottom].y = fill_location;
-        fill_data[index_bottom].value = value;
-      }
-
-      if (sub_path_points)
-        fill_data[path_offset - 1] = fill_data[path_offset];
-      else
-        fill_data[path_offset - 1] = LineVertex { 0.0f, 0.0f, 0.0f, 0.0f };
-
-      path_offset += sub_path_points * LineFillWrapper::kFillVerticesPerPoint;
-      if (sub_path_points)
-        fill_data[path_offset] = fill_data[path_offset - 1];
-      else
-        fill_data[path_offset] = LineVertex { 0.0f, 0.0f, 0.0f, 0.0f };
-
-      path_offset += 2;
-    }
-  }
-
-  void submitLineFill(const LineFillWrapper& line_fill_wrapper, const Layer& layer, int submit_pass) {
-    int num_vertices = line_fill_wrapper.numVertices();
-    if (num_vertices == 0)
-      return;
-
-    if (bgfx::getAvailTransientVertexBuffer(num_vertices, LineVertex::layout()) != num_vertices)
-      return;
-
-    float dimension_y_scale = line_fill_wrapper.fill_center / line_fill_wrapper.height;
-    float dimensions[4] = { line_fill_wrapper.width, line_fill_wrapper.height * dimension_y_scale,
-                            1.0f, 1.0f };
-    float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
-    GradientTexturePosition texture_pos;
-    GradientVertexPosition gradient_pos;
-    PackedBrush::computeVertexGradientTexturePositions(texture_pos, line_fill_wrapper.brush);
-    PackedBrush::computeVertexGradientPositions(gradient_pos, line_fill_wrapper.brush, 0, 0, 0, 0,
-                                                line_fill_wrapper.width, line_fill_wrapper.height);
-
-    float fill_location = static_cast<int>(line_fill_wrapper.fill_center);
-    float center[] = { 0.0f, fill_location, 0.0f, 0.0f };
-
-    bgfx::TransientVertexBuffer fill_vertex_buffer {};
-    bgfx::allocTransientVertexBuffer(&fill_vertex_buffer, num_vertices, LineVertex::layout());
-    setFillVertices(line_fill_wrapper, fill_vertex_buffer);
-
-    bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
-    setUniform<Uniforms::kDimensions>(dimensions);
-    setUniform<Uniforms::kTime>(time);
-    setUniform<Uniforms::kGradientTexturePosition>(&texture_pos);
-    setUniform<Uniforms::kGradientPosition>(gradient_pos.position1());
-    setUniform<Uniforms::kGradientPosition2>(gradient_pos.position2());
-    float radial_gradient[] = { line_fill_wrapper.radialGradient() ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
-    setUniform<Uniforms::kRadialGradient>(radial_gradient);
-    setUniform<Uniforms::kCenterPosition>(center);
-
-    setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
-
-    bgfx::setVertexBuffer(0, &fill_vertex_buffer);
-    setUniformBounds(line_fill_wrapper.x, line_fill_wrapper.y, layer.width(), layer.height());
-    setScissor(line_fill_wrapper, layer.width(), layer.height());
-    setColorMult(layer.hdr());
-    auto program = ProgramCache::programHandle(LineFillWrapper::vertexShader(),
-                                               LineFillWrapper::fragmentShader());
-    bgfx::submit(submit_pass, program);
-  }
-
-  void submitImages(const BatchVector<ImageWrapper>& batches, const Layer& layer, int submit_pass) {
-    bool radial_gradient = false;
-    if (!setupQuads(batches, radial_gradient))
-      return;
-
-    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
-    setUniform<Uniforms::kRadialGradient>(radial);
 
     const ImageAtlas* image_atlas = batches[0].shapes->front().image_atlas;
-    setBlendMode(BlendMode::Alpha);
+    setTexture<Uniforms::kTexture>(1, image_atlas->textureHandle());
     float atlas_scale[] = { 1.0f / image_atlas->width(), 1.0f / image_atlas->height(), 0.0f, 0.0f };
     setUniform<Uniforms::kAtlasScale>(atlas_scale);
-    setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
-    setTexture<Uniforms::kTexture>(1, image_atlas->textureHandle());
-    setUniformDimensions(layer.width(), layer.height());
-    setColorMult(layer.hdr());
+  }
 
-    auto program = ProgramCache::programHandle(ImageWrapper::vertexShader(),
-                                               ImageWrapper::fragmentShader());
-    bgfx::submit(submit_pass, program);
+  void setGraphDataUniform(const BatchVector<GraphLineWrapper>& batches) {
+    if (batches.empty() || batches[0].shapes->empty())
+      return;
+
+    const ImageAtlas* data_atlas = batches[0].shapes->front().data_atlas;
+    setTexture<Uniforms::kTexture>(1, data_atlas->textureHandle());
+    float atlas_scale[] = { 1.0f / data_atlas->width(), 1.0f / data_atlas->height(), 0.0f, 0.0f };
+    setUniform<Uniforms::kAtlasScale>(atlas_scale);
   }
 
   inline int numTextPieces(const TextBlock& text, int x, int y, const std::vector<IBounds>& invalid_rects) {

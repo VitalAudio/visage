@@ -28,19 +28,3 @@
 
 using namespace visage;
 using namespace Catch;
-
-TEST_CASE("Image blur", "[graphics]") {
-  static constexpr int kWidth = 128;
-  static constexpr int kHeight = 64;
-  auto image = std::make_unique<unsigned char[]>((kWidth * kHeight + 2) * ImageAtlas::kChannels);
-  auto start_image = image.get() + ImageAtlas::kChannels;
-  for (int i = 0; i < kWidth * kHeight * ImageAtlas::kChannels; i++) {
-    start_image[i] = 255;
-  }
-
-  ImageAtlas::blurImage(start_image, kWidth, kHeight, 48);
-  for (int i = 0; i < ImageAtlas::kChannels; i++) {
-    REQUIRE(image[i] == 0);
-    REQUIRE(image[(kWidth * kHeight + 1) * ImageAtlas::kChannels + i] == 0);
-  }
-}

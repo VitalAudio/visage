@@ -202,7 +202,7 @@ namespace visage {
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
       for (int v = 0; v < kVerticesPerQuad; ++v)
-        vertices[v].value_1 = rounding;
+        vertices[v].value1 = rounding;
     }
 
     float rounding = 0.0f;
@@ -231,7 +231,7 @@ namespace visage {
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
       for (int v = 0; v < kVerticesPerQuad; ++v)
-        vertices[v].value_1 = power;
+        vertices[v].value1 = power;
     }
 
     float power = 1.0f;
@@ -252,8 +252,8 @@ namespace visage {
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
       for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = center_radians;
-        vertices[v].value_2 = radians;
+        vertices[v].value1 = center_radians;
+        vertices[v].value2 = radians;
       }
     }
 
@@ -276,8 +276,8 @@ namespace visage {
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
       for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = center_radians;
-        vertices[v].value_2 = radians;
+        vertices[v].value1 = center_radians;
+        vertices[v].value2 = radians;
       }
     }
 
@@ -301,10 +301,10 @@ namespace visage {
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
       for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = a_x;
-        vertices[v].value_2 = a_y;
-        vertices[v].value_3 = b_x;
-        vertices[v].value_4 = b_y;
+        vertices[v].value1 = a_x;
+        vertices[v].value2 = a_y;
+        vertices[v].value3 = b_x;
+        vertices[v].value4 = b_y;
       }
     }
 
@@ -330,10 +330,10 @@ namespace visage {
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
       for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = a_x;
-        vertices[v].value_2 = a_y;
-        vertices[v].value_3 = b_x;
-        vertices[v].value_4 = b_y;
+        vertices[v].value1 = a_x;
+        vertices[v].value2 = a_y;
+        vertices[v].value3 = b_x;
+        vertices[v].value4 = b_y;
       }
     }
 
@@ -360,12 +360,12 @@ namespace visage {
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
       for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = a_x;
-        vertices[v].value_2 = a_y;
-        vertices[v].value_3 = b_x;
-        vertices[v].value_4 = b_y;
-        vertices[v].value_5 = c_x;
-        vertices[v].value_6 = c_y;
+        vertices[v].value1 = a_x;
+        vertices[v].value2 = a_y;
+        vertices[v].value3 = b_x;
+        vertices[v].value4 = b_y;
+        vertices[v].value5 = c_x;
+        vertices[v].value6 = c_y;
       }
     }
 
@@ -394,12 +394,12 @@ namespace visage {
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
       for (int v = 0; v < kVerticesPerQuad; ++v) {
-        vertices[v].value_1 = a_x;
-        vertices[v].value_2 = a_y;
-        vertices[v].value_3 = b_x;
-        vertices[v].value_4 = b_y;
-        vertices[v].value_5 = c_x;
-        vertices[v].value_6 = c_y;
+        vertices[v].value1 = a_x;
+        vertices[v].value2 = a_y;
+        vertices[v].value3 = b_x;
+        vertices[v].value4 = b_y;
+        vertices[v].value5 = c_x;
+        vertices[v].value6 = c_y;
       }
     }
 
@@ -423,7 +423,7 @@ namespace visage {
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
       for (int v = 0; v < kVerticesPerQuad; ++v)
-        vertices[v].value_1 = rounding;
+        vertices[v].value1 = rounding;
     }
 
     float rounding = 0.0f;
@@ -449,6 +449,31 @@ namespace visage {
 
     ImageAtlas::PackedImage packed_image;
     ImageAtlas* image_atlas = nullptr;
+  };
+
+  struct GraphLineWrapper : Primitive<> {
+    static const EmbeddedFile& vertexShader();
+    static const EmbeddedFile& fragmentShader();
+
+    GraphLineWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
+                     float height, float thick, const GraphData& graph_data, ImageAtlas* data_atlas) :
+        Primitive(data_atlas, clamp, brush, x, y, width, height), data_atlas(data_atlas),
+        data(graph_data), packed_data(data_atlas->addData(data.data(), data.numPoints())) {
+      thickness = thick;
+      pixel_width = packed_data.w() - 1;
+    }
+
+    void setVertexData(Vertex* vertices) const {
+      setPrimitiveData(vertices);
+      for (int v = 0; v < kVerticesPerQuad; ++v) {
+        vertices[v].value1 = packed_data.x() + 0.5f;
+        vertices[v].value2 = packed_data.y() + 0.5f;
+      }
+    }
+
+    ImageAtlas* data_atlas = nullptr;
+    GraphData data;
+    ImageAtlas::PackedImage packed_data;
   };
 
   struct PathFillWrapper : Shape<> {
@@ -486,48 +511,6 @@ namespace visage {
           total += 6;
       }
       return total - 2;
-    }
-  };
-
-  struct LineWrapper : Shape<> {
-    VISAGE_CREATE_BATCH_ID
-    static constexpr int kLineVerticesPerPoint = 6;
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    LineWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-                float height, const Path* path, float line_width, float scale) :
-        Shape(batchId(), clamp, brush, x, y, width, height), path(path), line_width(line_width),
-        scale(scale) { }
-
-    const Path* path = nullptr;
-    float line_width = 0.0f;
-    float scale = 1.0f;
-    float line_value_mult = 1.0f;
-
-    int numVertices() const {
-      return path->numPoints() * kLineVerticesPerPoint + path->subPaths().size() * 2;
-    }
-  };
-
-  struct LineFillWrapper : Shape<> {
-    VISAGE_CREATE_BATCH_ID
-    static constexpr int kFillVerticesPerPoint = 2;
-    static const EmbeddedFile& vertexShader();
-    static const EmbeddedFile& fragmentShader();
-
-    LineFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
-                    float width, float height, const Path* path, float fill_center, float scale) :
-        Shape(batchId(), clamp, brush, x, y, width, height), path(path), fill_center(fill_center),
-        scale(scale) { }
-
-    const Path* path = nullptr;
-    float fill_center = 0.0f;
-    float scale = 1.0f;
-    float fill_value_mult = 1.0f;
-
-    int numVertices() const {
-      return path->numPoints() * kFillVerticesPerPoint + path->subPaths().size() * 2;
     }
   };
 
@@ -595,9 +578,8 @@ namespace visage {
       float h = height;
       if (direction == Direction::Left || direction == Direction::Right)
         std::swap(w, h);
-      if (text->multiLine()) {
+      if (text->multiLine())
         font.setMultiLineVertexPositions(quads.data(), c_str, length, 0, 0, w, h, text->justification());
-      }
       else {
         font.setVertexPositions(quads.data(), c_str, length, 0, 0, w, h, text->justification(),
                                 text->characterOverride());

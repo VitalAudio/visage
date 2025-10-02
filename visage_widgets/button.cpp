@@ -146,6 +146,7 @@ namespace visage {
     int x = iconX();
     int y = iconY();
 
+    // TODO
     // if (shadow_.blur_radius) {
     //   canvas.setColor(ButtonShadow);
     //   canvas.svg(shadow_, x, y);
@@ -175,6 +176,7 @@ namespace visage {
   void ToggleIconButton::draw(Canvas& canvas, float hover_amount) {
     int x = iconX();
     int y = iconY();
+    // TODO
     // if (shadow_.blur_radius) {
     //   canvas.setColor(ButtonShadow);
     //   canvas.svg(shadow_, x, y);
