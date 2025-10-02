@@ -47,9 +47,8 @@ namespace visage {
   VISAGE_SET_PROGRAM(QuadraticBezier, shaders::vs_complex_shape, shaders::fs_quadratic_bezier)
   VISAGE_SET_PROGRAM(Diamond, shaders::vs_shape, shaders::fs_diamond)
   VISAGE_SET_PROGRAM(ImageWrapper, shaders::vs_tinted_texture, shaders::fs_tinted_texture)
-  VISAGE_SET_PROGRAM(LineWrapper, shaders::vs_line, shaders::fs_line)
   VISAGE_SET_PROGRAM(PathFillWrapper, shaders::vs_line, shaders::fs_line)
-  VISAGE_SET_PROGRAM(LineFillWrapper, shaders::vs_line_fill, shaders::fs_line_fill)
+  VISAGE_SET_PROGRAM(GraphLineWrapper, shaders::vs_shape, shaders::fs_graph_line)
   VISAGE_SET_PROGRAM(SampleRegion, shaders::vs_post_effect, shaders::fs_post_effect)
 
   SampleRegion::SampleRegion(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,

@@ -295,10 +295,6 @@ namespace visage {
       loadARGB(argb);
       return *this;
     }
-    Color operator*(float mult) const {
-      return { values_[kAlpha] * mult, values_[kRed] * mult, values_[kGreen] * mult,
-               values_[kBlue] * mult, hdr_ };
-    }
     Color operator-(const Color& other) const {
       return { values_[kAlpha] - other.values_[kAlpha], values_[kRed] - other.values_[kRed],
                values_[kGreen] - other.values_[kGreen], values_[kBlue] - other.values_[kBlue], hdr_ };
@@ -306,6 +302,15 @@ namespace visage {
     Color operator+(const Color& other) const {
       return { values_[kAlpha] + other.values_[kAlpha], values_[kRed] + other.values_[kRed],
                values_[kGreen] + other.values_[kGreen], values_[kBlue] + other.values_[kBlue], hdr_ };
+    }
+    Color operator*(float mult) const {
+      return { values_[kAlpha] * mult, values_[kRed] * mult, values_[kGreen] * mult,
+               values_[kBlue] * mult, hdr_ };
+    }
+    Color operator*(const Color& other) const {
+      return { values_[kAlpha] * other.values_[kAlpha], values_[kRed] * other.values_[kRed],
+               values_[kGreen] * other.values_[kGreen], values_[kBlue] * other.values_[kBlue],
+               hdr_ * other.hdr_ };
     }
     bool operator==(const Color& other) const {
       return values_[kAlpha] == other.values_[kAlpha] && values_[kRed] == other.values_[kRed] &&

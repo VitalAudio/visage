@@ -462,6 +462,7 @@ TEST_CASE("Brush operations", "[graphics]") {
     REQUIRE(position.shape == GradientPosition::InterpolationShape::Radial);
     position = position.transform(Transform::rotation(60.0f));
     REQUIRE(position.shape == GradientPosition::InterpolationShape::Radial);
+    // TODO
     // REQUIRE(position.point1.x == Approx(0.0f));
     // REQUIRE(position.point1.y == Approx(50.0f * std::sqrt(2.0f)));
   }

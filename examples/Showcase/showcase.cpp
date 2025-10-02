@@ -186,7 +186,7 @@ bool Showcase::keyPress(const visage::KeyEvent& key) {
 
 int runExample() {
   visage::ShaderCompiler compiler;
-  compiler.watchShaderFolder(SHADERS_FOLDER);
+  compiler.watchShaderFolder("C:/Users/matth/visage/visage_graphics/shaders/");
 
   visage::ApplicationWindow editor;
 

@@ -25,17 +25,7 @@
 class AnimatedLine : public visage::Frame {
 public:
   static constexpr int kNumPoints = 1200;
-  static constexpr float kDotRadius = 4.0f;
-
-  static inline float quickSin1(float phase) {
-    phase = 0.5f - phase;
-    return phase * (8.0f - 16.0f * fabsf(phase));
-  }
-
-  static inline float sin1(float phase) {
-    float approx = quickSin1(phase - floorf(phase));
-    return approx * (0.776f + 0.224f * fabsf(approx));
-  }
+  static constexpr float kDotRadius = 5.0f;
 
   AnimatedLine() : graph_line_(kNumPoints) {
     addChild(&graph_line_);
@@ -44,40 +34,49 @@ public:
 
   void resized() override { graph_line_.setBounds(0, 0, width(), height()); }
 
-  void draw(visage::Canvas& canvas) override {
-    static constexpr int kNumDots = 10;
-
-    double render_time = canvas.time();
-    int render_height = graph_line_.height();
-    int render_width = graph_line_.width();
-    int line_height = render_height * 0.3f;
-    int offset = render_height * 0.5f;
-
+  void setLinePositions(double render_time) {
+    static constexpr float kPi = 3.14159265358979323846f;
     float position = 0.0f;
-    float boost_time = render_time * 0.2f;
-    double phase = render_time * 0.5;
-    float boost_phase = (boost_time - floor(boost_time)) * 1.5f - 0.25f;
-
-    auto compute_boost = [](float dist) { return std::max(0.0f, 1.0f - 8.0f * std::abs(dist)); };
-
+    double line_phase = render_time * 0.5;
     for (int i = 0; i < kNumPoints; ++i) {
       float t = 1.1f * i / (kNumPoints - 1.0f) - 0.05f;
       float delta = std::min(t, 1.0f - t);
       position += 0.02f * delta * delta + 0.003f;
-      graph_line_.setXAt(i, t * render_width);
-      graph_line_.setYAt(i, offset + sin1(phase + position) * 0.5f * line_height);
-      // TODO
-      // graph_line_.setBoostAt(i, compute_boost(boost_phase - t));
+      graph_line_.set(i, 0.5f + std::sin((line_phase + position) * 2.0f * kPi) * 0.25f);
     }
+  }
 
-    float center_y = (render_height - line_height) * 0.25f;
-    visage::Color color = 0xffaa88ff;
+  visage::Brush computeBrush(double render_time) {
+    visage::Gradient rainbow(0xffff6666, 0xffffff66, 0xff66ff66, 0xff66ffff, 0xff6666ff, 0xffff66ff,
+                             0xffff6666);
+
+    float boost_time = render_time * 0.2f;
+    float boost_phase = (boost_time - floor(boost_time)) * 1.5f - 0.25f;
+    visage::Gradient boost = visage::Gradient::fromSampleFunction(256, [boost_phase](float t) {
+      return visage::Color(1.0f, 1.0f, 1.0f, 1.0f,
+                           1.0f + std::max(0.0f, 0.4f - 3.0f * std::abs(boost_phase - t)));
+    });
+
+    return visage::Brush::linear(rainbow * boost, visage::Point(0, 0), visage::Point(width(), 0));
+  }
+
+  void draw(visage::Canvas& canvas) override {
+    static constexpr int kNumDots = 10;
+
+    double render_time = canvas.time();
+    setLinePositions(render_time);
+    visage::Brush brush = computeBrush(render_time);
+    palette()->setColor(visage::GraphLine::LineColor, brush);
+    canvas.setColor(brush);
+
+    int render_height = height();
+    int render_width = width();
+
+    float center_y = render_height * 0.125f;
     for (int i = 0; i < kNumDots; ++i) {
       float t = (i + 1) / (kNumDots + 1.0f);
       float center_x = t * render_width;
 
-      color.setHdr(1.0f + compute_boost(boost_phase - t));
-      canvas.setColor(color);
       canvas.circle(center_x - kDotRadius, center_y - kDotRadius, kDotRadius * 2.0f);
       canvas.circle(center_x - kDotRadius, render_height - center_y - kDotRadius, kDotRadius * 2.0f);
     }
@@ -104,12 +103,7 @@ public:
     };
 
     setPalette(&palette_);
-    visage::Brush rainbow = visage::Brush::horizontal(visage::Gradient(0xffff6666, 0xffffff66,
-                                                                       0xff66ff66, 0xff66ffff, 0xff6666ff,
-                                                                       0xffff66ff, 0xffff6666));
-    palette_.setColor(visage::GraphLine::LineColor, rainbow);
-    palette_.setValue(visage::GraphLine::LineWidth, 3.0f);
-    palette_.setValue(visage::GraphLine::LineColorBoost, 0.8f);
+    palette_.setValue(visage::GraphLine::LineWidth, 2.5f);
   }
 
 private:

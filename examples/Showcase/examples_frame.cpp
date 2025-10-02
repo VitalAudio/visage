@@ -69,26 +69,21 @@ public:
     int line_offset = height() / kNumLines;
     for (int i = 0; i < kNumLines; ++i) {
       graph_lines_[i]->setBounds(0, line_offset * i, width(), line_offset);
-      graph_lines_[i]->setFill(true);
+      graph_lines_[i]->setFilled(true);
     }
   }
 
   void draw(visage::Canvas& canvas) override {
     double render_time = canvas.time();
     for (int r = 0; r < kNumLines; ++r) {
-      int render_height = graph_lines_[r]->height();
-      int render_width = graph_lines_[r]->width();
-      int line_height = render_height * 0.9f;
-      int offset = render_height * 0.05f;
-
       float position = 0.0f;
       for (int i = 0; i < kNumPoints; ++i) {
         float t = i / (kNumPoints - 1.0f);
         float delta = std::min(t, 1.0f - t);
         position += 0.1f * delta * delta + 0.003f;
         double phase = (render_time + r) * 0.5;
-        float y = offset + (sin1(phase + position) * 0.5f + 0.5f) * line_height;
-        graph_lines_[r]->setAt(i, { t * render_width, y });
+        float y = sin1(phase + position) * 0.4f + 0.5f;
+        graph_lines_[r]->set(i, y);
       }
     }
 
@@ -244,8 +239,8 @@ ExamplesFrame::ExamplesFrame() {
   image_container_.onDraw() = [this](visage::Canvas& canvas) {
     canvas.setColor(0xffffffff);
     int offset = (image_container_.width() - image_container_.height()) / 2;
-    canvas.image(resources::images::test_png.data, resources::images::test_png.size, offset, 0,
-                 image_container_.height(), image_container_.height());
+    canvas.image(resources::images::test_png, offset, 0, image_container_.height(),
+                 image_container_.height());
     canvas.setBlendMode(visage::BlendMode::Mult);
     canvas.squircle(offset, 0, image_container_.height());
   };
