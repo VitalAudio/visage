@@ -1438,7 +1438,6 @@ namespace visage {
     static constexpr int kPopupFlags = WS_POPUP;
 
     DpiAwareness dpi_awareness;
-    setDpiScale(dpi_awareness.dpiScale());
 
     registerWindowClass();
     window_class_.lpfnWndProc = standaloneWindowProcedure;
@@ -1452,6 +1451,7 @@ namespace visage {
     window_handle_ = CreateWindow(window_class_.lpszClassName,
                                   String::convertToWide(app_name).c_str(), flags, x, y, width,
                                   height, nullptr, nullptr, window_class_.hInstance, nullptr);
+    setDpiScale(dpi_awareness.dpiScale(window_handle_));
 
     if (window_handle_ == nullptr) {
       VISAGE_LOG("Error creating window");
