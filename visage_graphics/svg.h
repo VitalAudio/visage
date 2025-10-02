@@ -184,6 +184,7 @@ namespace visage {
     }
 
     void draw(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
+    void drawAll(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
     bool setContextColor(Canvas& canvas, ColorContext* context, const GradientDef& gradient,
                          float color_opacity) const;
     void fill(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
