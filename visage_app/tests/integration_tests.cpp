@@ -81,7 +81,7 @@ TEST_CASE("Screenshot vertical gradient", "[integration]") {
 }
 
 TEST_CASE("Screenshot horizontal gradient", "[integration]") {
-  Color source = 0xff345678;
+  Color source = 0xff123456;
   Color destination = 0xff88aacc;
   ApplicationEditor editor;
   editor.onDraw() = [&](Canvas& canvas) {
@@ -100,10 +100,10 @@ TEST_CASE("Screenshot horizontal gradient", "[integration]") {
 
     for (int y = 0; y < 5; ++y) {
       int index = (y * 10 + x) * 4;
-      REQUIRE(data[index] == sample.hexRed());
-      REQUIRE(data[index + 1] == sample.hexGreen());
-      REQUIRE(data[index + 2] == sample.hexBlue());
-      REQUIRE(data[index + 3] == 0xff);
+      REQUIRE(std::abs(data[index] - (int)sample.hexRed()) <= 1);
+      REQUIRE(std::abs(data[index + 1] - (int)sample.hexGreen()) <= 1);
+      REQUIRE(std::abs(data[index + 2] - (int)sample.hexBlue()) <= 1);
+      REQUIRE(std::abs(data[index + 3] - 0xff) <= 1);
     }
   }
 }

@@ -282,10 +282,10 @@ namespace visage {
       return 4.0f * color_range + color_range * (values_[kRed] - min) / range;
     }
 
-    float hexAlpha() const { return floatToHex(values_[kAlpha]); }
-    float hexRed() const { return floatToHex(values_[kRed]); }
-    float hexGreen() const { return floatToHex(values_[kGreen]); }
-    float hexBlue() const { return floatToHex(values_[kBlue]); }
+    unsigned int hexAlpha() const { return floatToHex(values_[kAlpha]); }
+    unsigned int hexRed() const { return floatToHex(values_[kRed]); }
+    unsigned int hexGreen() const { return floatToHex(values_[kGreen]); }
+    unsigned int hexBlue() const { return floatToHex(values_[kBlue]); }
 
     Color& operator=(const Color&) = default;
     Color& operator=(unsigned int argb) {
