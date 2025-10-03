@@ -60,6 +60,9 @@ namespace visage {
 
     auto& onDraw() { return on_draw_; }
     auto& onResize() { return on_resize_; }
+    auto& onChildBoundsChanged() { return on_child_bounds_changed_; }
+    auto& onChildAdded() { return on_child_added_; }
+    auto& onChildRemoved() { return on_child_removed_; }
     auto& onDpiChange() { return on_dpi_change_; }
     auto& onVisibilityChange() { return on_visibility_change_; }
     auto& onHierarchyChange() { return on_hierarchy_change_; }
@@ -224,6 +227,7 @@ namespace visage {
     void setNativeBounds(int x, int y, int width, int height) {
       setNativeBounds({ x, y, width, height });
     }
+    IBounds computeLayoutBoundingBox(IBounds bounds) const;
     void computeLayout();
     void computeLayout(Frame* child);
     const Bounds& bounds() const { return bounds_; }
@@ -383,6 +387,9 @@ namespace visage {
 
     CallbackList<void(Canvas&)> on_draw_ { [this](Canvas& e) -> void { draw(e); } };
     CallbackList<void()> on_resize_ { [this] { resized(); } };
+    CallbackList<void(const Frame*)> on_child_bounds_changed_;
+    CallbackList<void(const Frame*)> on_child_added_;
+    CallbackList<void(const Frame*)> on_child_removed_;
     CallbackList<void()> on_dpi_change_ { [this] { dpiChanged(); } };
     CallbackList<void()> on_visibility_change_ { [this] { visibilityChanged(); } };
     CallbackList<void()> on_hierarchy_change_ { [this] { hierarchyChanged(); } };

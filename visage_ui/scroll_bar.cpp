@@ -86,22 +86,60 @@ namespace visage {
     redraw();
   }
 
+  float ScrollableFrame::bottomPadding() {
+    if (container_.hasLayout())
+      return container_.layout().paddingBottom().compute(dpiScale(), width(), height()) / dpiScale();
+    return 0;
+  }
+
+  std::pair<const Frame*, float> ScrollableFrame::findBottomMostChild() {
+    Frame* bottom_most = nullptr;
+    float bottom = 0;
+    for (const auto& child : container_.children()) {
+      float margin_bottom = 0.0f;
+      if (child->hasLayout())
+        margin_bottom = child->layout().marginBottom().compute(dpiScale(), width(), height()) / dpiScale();
+      if (child->bottom() + margin_bottom > bottom) {
+        bottom = child->bottom() + margin_bottom;
+        bottom_most = child;
+      }
+    }
+
+    return { bottom_most, bottom };
+  }
+
+  void ScrollableFrame::updateScrollableHeight(const Frame* changed) {
+    float padding = bottomPadding();
+    float changed_bottom = changed->bottom() + padding;
+    if (changed_bottom > container_.height() + 1.0f) {
+      bottom_most_child_ = changed;
+      setScrollableHeight(changed_bottom);
+    }
+    else if (changed_bottom < container_.height() - 1.0f && changed == bottom_most_child_)
+      updateScrollableHeight();
+  }
+
+  void ScrollableFrame::updateScrollableHeight() {
+    auto bottom_most = findBottomMostChild();
+    bottom_most_child_ = bottom_most.first;
+    setScrollableHeight(bottom_most.second + bottomPadding());
+  }
+
   void ScrollableFrame::resized() {
     int scroll_bar_width = paletteValue(ScrollBarWidth);
     int x = scroll_bar_left_ ? 0 : width() - scroll_bar_width;
     smooth_position_ = y_position_;
     scroll_bar_.setBounds(x, 0, scroll_bar_width, height());
-    float h = std::max<float>(height(), std::max(scroll_bar_.viewRange(), scroll_bar_.viewHeight()));
-    container_.setBounds(0, -y_position_, width(), h);
 
-    int padding = 0;
-    if (container_.hasLayout())
-      padding = container_.layout().paddingBottom().compute(dpiScale(), width(), height()) / dpiScale();
-
-    float bottom = height() - padding;
-    for (const auto& child : container_.children())
-      bottom = std::max(bottom, child->bottom());
-
-    setScrollableHeight(bottom + padding);
+    if (container_.hasLayout()) {
+      IBounds bounding_box = container_.computeLayoutBoundingBox({ 0, 0, nativeWidth(), nativeHeight() });
+      setScrollableHeight(bounding_box.height() / dpiScale());
+      bottom_most_child_ = findBottomMostChild().first;
+    }
+    else {
+      auto bottom_most = findBottomMostChild();
+      bottom_most_child_ = bottom_most.first;
+      setScrollableHeight(bottom_most.second + bottomPadding());
+    }
   }
 }

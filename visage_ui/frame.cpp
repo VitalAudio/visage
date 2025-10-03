@@ -81,6 +81,7 @@ namespace visage {
     if (initialized_)
       child->init();
 
+    on_child_added_.callback(child);
     computeLayout();
     computeLayout(child);
     child->redrawAll();
@@ -100,6 +101,8 @@ namespace visage {
     child->notifyRemoveFromHierarchy();
     eraseChild(child);
     child->notifyHierarchyChanged();
+    on_child_removed_.callback(child);
+
     if (owned_children_.count(child))
       owned_children_.erase(child);
 
@@ -170,6 +173,8 @@ namespace visage {
     }
 
     on_resize_.callback();
+    if (parent_)
+      parent_->on_child_bounds_changed_.callback(this);
     redraw();
   }
 
@@ -177,19 +182,33 @@ namespace visage {
     setBounds(Bounds(native_bounds) * (1.0f / dpi_scale_));
   }
 
+  IBounds Frame::computeLayoutBoundingBox(IBounds bounds) const {
+    if (bounds.width() == 0 || bounds.height() == 0 || layout_ == nullptr || !layout_->flex())
+      return {};
+
+    std::vector<const Layout*> children_layouts;
+    for (Frame* child : children_) {
+      if (child->layout_)
+        children_layouts.push_back(child->layout_.get());
+    }
+    layout_->flexPositions(children_layouts, bounds, dpi_scale_);
+    return layout_->boundingBox();
+  }
+
   void Frame::computeLayout() {
-    if (nativeWidth() && nativeHeight() && layout_.get() && layout().flex()) {
+    if (nativeWidth() && nativeHeight() && layout_.get() && layout_->flex()) {
       std::vector<const Layout*> children_layouts;
       for (Frame* child : children_) {
         if (child->layout_)
           children_layouts.push_back(child->layout_.get());
       }
 
-      std::vector<IBounds> children_bounds = layout().flexPositions(children_layouts,
+      std::vector<IBounds> children_bounds = layout_->flexPositions(children_layouts,
                                                                     nativeLocalBounds(), dpi_scale_);
-      for (int i = 0; i < children_.size(); ++i) {
-        if (children_[i]->layout_)
-          children_[i]->setNativeBounds(children_bounds[i]);
+      int index = 0;
+      for (Frame* child : children_) {
+        if (child->layout_)
+          child->setNativeBounds(children_bounds[index++]);
       }
     }
   }

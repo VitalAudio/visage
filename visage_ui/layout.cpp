@@ -22,8 +22,8 @@
 #include "layout.h"
 
 namespace visage {
-  std::vector<IBounds> Layout::flexChildGroup(const std::vector<const Layout*>& children,
-                                              IBounds bounds, float dpi_scale) const {
+  std::vector<IBounds> Layout::flexChildGroup(const std::vector<const Layout*>& children, IBounds bounds,
+                                              float dpi_scale, IBounds& bounding_box) const {
     int width = bounds.width();
     int height = bounds.height();
     int dim = flex_rows_ ? 1 : 0;
@@ -34,6 +34,7 @@ namespace visage {
     flex_area -= flex_gap * (children.size() - 1);
     float total_flex_grow = 0.0f;
     float total_flex_shrink = 0.0f;
+    IBounds current_bounding_box;
 
     std::vector<int> dimensions, margins_before, margins_after;
     dimensions.reserve(children.size());
@@ -102,6 +103,11 @@ namespace visage {
       int cross_offset = cross_alignment_mult * (cross_area - cross_before - cross_size - cross_after);
       position += margins_before[i];
       results.emplace_back(position, cross_before + cross_offset, dimensions[i], cross_size);
+      IBounds outer_box(position - margins_before[i], cross_offset,
+                        dimensions[i] + margins_before[i] + margins_after[i],
+                        cross_size + cross_before + cross_after);
+      current_bounding_box = current_bounding_box.unioned(outer_box);
+
       position += dimensions[i] + margins_after[i] + flex_gap;
     }
 
@@ -114,12 +120,14 @@ namespace visage {
     if (flex_rows_) {
       for (IBounds& result : results)
         result.flipDimensions();
+      current_bounding_box.flipDimensions();
     }
 
     IPoint offset(bounds.x(), bounds.y());
     for (IBounds& result : results)
       result = result + offset;
 
+    bounding_box = bounding_box.unioned(current_bounding_box + offset);
     return results;
   }
 
@@ -179,8 +187,8 @@ namespace visage {
     return cross_positions;
   }
 
-  std::vector<IBounds> Layout::flexChildWrap(const std::vector<const Layout*>& children,
-                                             IBounds bounds, float dpi_scale) const {
+  std::vector<IBounds> Layout::flexChildWrap(const std::vector<const Layout*>& children, IBounds bounds,
+                                             float dpi_scale, IBounds& bounding_box) const {
     int width = bounds.width();
     int height = bounds.height();
     int dim = flex_rows_ ? 1 : 0;
@@ -235,7 +243,7 @@ namespace visage {
       auto group = std::vector<const Layout*>(children.begin() + group_index,
                                               children.begin() + breaks[i]);
       group_index = breaks[i];
-      std::vector<IBounds> children_bounds = flexChildGroup(group, group_bounds, dpi_scale);
+      std::vector<IBounds> children_bounds = flexChildGroup(group, group_bounds, dpi_scale, bounding_box);
       results.insert(results.end(), children_bounds.begin(), children_bounds.end());
     }
 

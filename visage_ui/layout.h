@@ -58,10 +58,18 @@ namespace visage {
                               bounds.width() - pad_left - pad_right,
                               bounds.height() - pad_top - pad_bottom };
 
+      bounding_box_ = {};
+      std::vector<IBounds> results;
       if (flex_wrap_)
-        return flexChildWrap(children, flex_bounds, dpi_scale);
+        results = flexChildWrap(children, flex_bounds, dpi_scale, bounding_box_);
+      else
+        results = flexChildGroup(children, flex_bounds, dpi_scale, bounding_box_);
 
-      return flexChildGroup(children, flex_bounds, dpi_scale);
+      bounding_box_.setX(bounding_box_.x() - pad_left);
+      bounding_box_.setY(bounding_box_.y() - pad_top);
+      bounding_box_.setWidth(bounding_box_.width() + pad_left + pad_right);
+      bounding_box_.setHeight(bounding_box_.height() + pad_top + pad_bottom);
+      return results;
     }
 
     void setFlex(bool flex) { flex_ = flex; }
@@ -119,17 +127,19 @@ namespace visage {
     void setFlexWrapAlignment(WrapAlignment alignment) { wrap_alignment_ = alignment; }
     void setFlexWrapReverse(bool wrap) { flex_wrap_ = wrap ? -1 : 0; }
     void setFlexGap(Dimension gap) { flex_gap_ = std::move(gap); }
+    IBounds boundingBox() const { return bounding_box_; }
 
   private:
     std::vector<IBounds> flexChildGroup(const std::vector<const Layout*>& children, IBounds bounds,
-                                        float dpi_scale) const;
+                                        float dpi_scale, IBounds& bounding_box) const;
 
     std::vector<int> alignCrossPositions(std::vector<int>& cross_sizes, int cross_area, int gap) const;
 
     std::vector<IBounds> flexChildWrap(const std::vector<const Layout*>& children, IBounds bounds,
-                                       float dpi_scale) const;
+                                       float dpi_scale, IBounds& bounding_box) const;
 
     bool flex_ = false;
+    IBounds bounding_box_;
     Dimension margin_before_[2];
     Dimension margin_after_[2];
     Dimension padding_before_[2];

@@ -103,6 +103,14 @@ namespace visage {
       addChild(&container_);
       container_.setIgnoresMouseEvents(true, true);
       container_.setVisible(false);
+      container_.onChildBoundsChanged() = [this](const Frame* child) {
+        updateScrollableHeight(child);
+      };
+      container_.onChildAdded() = [this](const Frame* child) { updateScrollableHeight(child); };
+      container_.onChildRemoved() = [this](const Frame* child) {
+        if (child == bottom_most_child_)
+          updateScrollableHeight();
+      };
 
       addChild(&scroll_bar_);
       scroll_bar_.addScrollCallback([this](float position) {
@@ -119,10 +127,14 @@ namespace visage {
       container_.addChild(frame, make_visible);
     }
 
+    void addScrolledChild(Frame& frame, bool make_visible = true) { addScrolledChild(&frame); }
+
     void addScrolledChild(std::unique_ptr<Frame> frame, bool make_visible = true) {
       container_.setVisible(true);
       container_.addChild(std::move(frame), make_visible);
     }
+
+    void removeScrolledChild(Frame* frame) { container_.removeChild(frame); }
 
     bool scrollUp() {
       setYPosition(std::max(0.0f, y_position_ - height() / 8.0f));
@@ -185,6 +197,10 @@ namespace visage {
     void setSmoothTime(float seconds) { smooth_time_ = seconds; }
 
   private:
+    float bottomPadding();
+    std::pair<const Frame*, float> findBottomMostChild();
+    void updateScrollableHeight(const Frame* changed);
+    void updateScrollableHeight();
     float maxScroll() const { return scroll_bar_.viewRange() - scroll_bar_.viewHeight(); }
 
     void scrollPositionChanged(float position) {
@@ -236,6 +252,7 @@ namespace visage {
     float y_position_ = 0;
     bool scroll_bar_left_ = false;
     Frame container_;
+    const Frame* bottom_most_child_ = nullptr;
     ScrollBar scroll_bar_;
     float sensitivity_ = kDefaultWheelSensitivity;
     float smooth_time_ = kDefaultSmoothTime;
