@@ -61,7 +61,7 @@ message(STATUS "Downloading graphics dependencies")
 set(CMAKE_MESSAGE_LOG_LEVEL "ERROR")
 FetchContent_Declare(bgfx GIT_REPOSITORY https://github.com/bkaradzic/bgfx.cmake.git
   GIT_SHALLOW TRUE
-  GIT_TAG v1.129.8863-490
+  GIT_TAG v1.129.8940-496
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(bgfx)
@@ -69,7 +69,7 @@ FetchContent_MakeAvailable(bgfx)
 
 FetchContent_Declare(freetype GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
   GIT_SHALLOW TRUE
-  GIT_TAG VER-2-13-3
+  GIT_TAG VER-2-14-1
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(freetype)
@@ -88,6 +88,7 @@ target_compile_options(nanosvg PRIVATE ${DISABLE_WARNINGS})
 target_compile_options(nanosvgrast PRIVATE ${DISABLE_WARNINGS})
 target_compile_options(bgfx PRIVATE ${DISABLE_WARNINGS})
 target_compile_options(bx PRIVATE ${DISABLE_WARNINGS})
+target_compile_definitions(bx PRIVATE BX_CONFIG_EXCEPTION_HANDLING_USE_WINDOWS_SEH=0)
 target_compile_options(bimg_decode PRIVATE ${DISABLE_WARNINGS})
 target_compile_options(bimg_encode PRIVATE ${DISABLE_WARNINGS})
 target_compile_options(bimg PRIVATE ${DISABLE_WARNINGS})
