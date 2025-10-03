@@ -116,8 +116,9 @@ namespace visage {
         result.flipDimensions();
     }
 
+    IPoint offset(bounds.x(), bounds.y());
     for (IBounds& result : results)
-      result = result + IPoint(bounds.x(), bounds.y());
+      result = result + offset;
 
     return results;
   }

@@ -271,6 +271,7 @@ ExamplesFrame::ExamplesFrame() {
   scrollableLayout().setFlex(true);
   scrollableLayout().setPaddingLeft(20_px);
   scrollableLayout().setPaddingRight(20_px);
+  scrollableLayout().setPaddingBottom(8_px);
   scrollableLayout().setFlexRows(false);
   scrollableLayout().setFlexWrap(true);
 
@@ -279,11 +280,6 @@ ExamplesFrame::ExamplesFrame() {
 }
 
 ExamplesFrame::~ExamplesFrame() = default;
-
-void ExamplesFrame::resized() {
-  ScrollableFrame::resized();
-  setScrollableHeight(sections_.back()->bottom() + 8.0f);
-}
 
 void ExamplesFrame::setupBars() {
   bar_list_ = std::make_unique<visage::BarList>(kNumBars);

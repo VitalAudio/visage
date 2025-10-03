@@ -58,7 +58,6 @@ public:
   ExamplesFrame();
   ~ExamplesFrame() override;
 
-  void resized() override;
   void setupBars();
   void setupButtons();
   void setupShapes();

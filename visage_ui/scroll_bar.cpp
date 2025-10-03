@@ -93,5 +93,15 @@ namespace visage {
     scroll_bar_.setBounds(x, 0, scroll_bar_width, height());
     float h = std::max<float>(height(), std::max(scroll_bar_.viewRange(), scroll_bar_.viewHeight()));
     container_.setBounds(0, -y_position_, width(), h);
+
+    int padding = 0;
+    if (container_.hasLayout())
+      padding = container_.layout().paddingBottom().compute(dpiScale(), width(), height()) / dpiScale();
+
+    float bottom = height() - padding;
+    for (const auto& child : container_.children())
+      bottom = std::max(bottom, child->bottom());
+
+    setScrollableHeight(bottom + padding);
   }
 }

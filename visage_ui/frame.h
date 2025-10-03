@@ -230,6 +230,7 @@ namespace visage {
     void setTopLeft(float x, float y) { setBounds(x, y, width(), height()); }
     Point topLeft() const { return { bounds_.x(), bounds_.y() }; }
 
+    bool hasLayout() const { return layout_ != nullptr; }
     Layout& layout() {
       if (layout_ == nullptr)
         layout_ = std::make_unique<Layout>();
