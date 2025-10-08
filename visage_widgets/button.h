@@ -80,6 +80,16 @@ namespace visage {
 
   class UiButton : public Button {
   public:
+    VISAGE_THEME_DEFINE_COLOR(UiButtonBackground);
+    VISAGE_THEME_DEFINE_COLOR(UiButtonBackgroundHover);
+    VISAGE_THEME_DEFINE_COLOR(UiButtonText);
+    VISAGE_THEME_DEFINE_COLOR(UiButtonTextHover);
+
+    VISAGE_THEME_DEFINE_COLOR(UiActionButtonBackground);
+    VISAGE_THEME_DEFINE_COLOR(UiActionButtonBackgroundHover);
+    VISAGE_THEME_DEFINE_COLOR(UiActionButtonText);
+    VISAGE_THEME_DEFINE_COLOR(UiActionButtonTextHover);
+
     explicit UiButton(const std::string& text);
     UiButton() : UiButton("") { }
     explicit UiButton(const std::string& text, const Font& font);

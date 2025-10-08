@@ -43,15 +43,15 @@ namespace visage {
   VISAGE_THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOn, 0xffaa88ff);
   VISAGE_THEME_IMPLEMENT_COLOR(ToggleButton, ToggleButtonOnHover, 0xffbb99ff);
 
-  VISAGE_THEME_COLOR(UiButtonBackground, 0xff4c4f52);
-  VISAGE_THEME_COLOR(UiButtonBackgroundHover, 0xff606265);
-  VISAGE_THEME_COLOR(UiButtonText, 0xffdddddd);
-  VISAGE_THEME_COLOR(UiButtonTextHover, 0xffffffff);
+  VISAGE_THEME_IMPLEMENT_COLOR(UiButton, UiButtonBackground, 0xff4c4f52);
+  VISAGE_THEME_IMPLEMENT_COLOR(UiButton, UiButtonBackgroundHover, 0xff606265);
+  VISAGE_THEME_IMPLEMENT_COLOR(UiButton, UiButtonText, 0xffdddddd);
+  VISAGE_THEME_IMPLEMENT_COLOR(UiButton, UiButtonTextHover, 0xffffffff);
 
-  VISAGE_THEME_COLOR(UiActionButtonBackground, 0xff9977ee);
-  VISAGE_THEME_COLOR(UiActionButtonBackgroundHover, 0xffaa88ff);
-  VISAGE_THEME_COLOR(UiActionButtonText, 0xffdddddd);
-  VISAGE_THEME_COLOR(UiActionButtonTextHover, 0xffffffff);
+  VISAGE_THEME_IMPLEMENT_COLOR(UiButton, UiActionButtonBackground, 0xff9977ee);
+  VISAGE_THEME_IMPLEMENT_COLOR(UiButton, UiActionButtonBackgroundHover, 0xffaa88ff);
+  VISAGE_THEME_IMPLEMENT_COLOR(UiButton, UiActionButtonText, 0xffdddddd);
+  VISAGE_THEME_IMPLEMENT_COLOR(UiButton, UiActionButtonTextHover, 0xffffffff);
 
   VISAGE_THEME_VALUE(TextButtonRounding, 9.0f);
   VISAGE_THEME_VALUE(UiButtonRounding, 9.0f);
