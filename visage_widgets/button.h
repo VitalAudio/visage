@@ -160,9 +160,8 @@ namespace visage {
 
     void setIconSizes() {
       int margin = std::min(width(), height()) * margin_ratio_;
+      icon_.setDimensions(width() - 2 * margin, height() - 2 * margin);
       // TODO
-      // icon_.width = std::min(width(), height()) - 2 * margin;
-      // icon_.height = icon_.width;
       // shadow_.width = icon_.width;
       // shadow_.height = icon_.height;
       // shadow_.blur_radius = shadow_proportion_ * icon_.width;
@@ -276,11 +275,12 @@ namespace visage {
     }
 
     float margin() const { return std::min(width(), height()) * margin_proportion_; }
-    float iconX() const { return margin() + std::max(0.0f, width() - height()) / 2.0f; }
-    float iconY() const { return margin() + std::max(0.0f, height() - width()) / 2.0f; }
 
+    float margin() { return std::min(width(), height()) * margin_proportion_; }
     void setIconSizes() {
-      int margin = std::min(width(), height()) * margin_proportion_;
+      float m = margin();
+      icon_.setDimensions(width() - 2 * m, height() - 2 * m);
+
       // icon_.width = std::min(width(), height()) - 2 * margin;
       // icon_.height = icon_.width;
       // shadow_.width = icon_.width;

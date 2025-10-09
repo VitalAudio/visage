@@ -194,6 +194,18 @@ namespace visage {
       return state.stroke_opacity > 0.0f && state.stroke_width > 0.0f && !stroke_brush.isNone();
     }
 
+    void setAllFillBrush(const Brush& brush) {
+      fill_brush = brush;
+      for (auto& child : children)
+        child->setAllFillBrush(brush);
+    }
+
+    void setAllStrokeBrush(const Brush& brush) {
+      stroke_brush = brush;
+      for (auto& child : children)
+        child->setAllStrokeBrush(brush);
+    }
+
     Bounds boundingFillBox() {
       Bounds bounds;
       if (hasFill())
@@ -418,6 +430,19 @@ namespace visage {
     }
 
     SvgDrawable* drawable() const { return drawable_.get(); }
+
+    float width() const { return draw_width_; }
+    float height() const { return draw_height_; }
+
+    void setFillBrush(const Brush& brush) {
+      if (drawable_)
+        drawable_->setAllFillBrush(brush);
+    }
+
+    void setStrokeBrush(const Brush& brush) {
+      if (drawable_)
+        drawable_->setAllStrokeBrush(brush);
+    }
 
   private:
     SvgViewSettings view_;

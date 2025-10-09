@@ -624,6 +624,8 @@ namespace visage {
     int atlasWidth() const { return atlas_->width(); }
     int atlasHeight() const { return atlas_->height(); }
 
+    Brush originalBrush() const { return Brush(gradient_.gradient(), position_); }
+
   private:
     GradientAtlas* atlas_ = nullptr;
     GradientPosition position_;

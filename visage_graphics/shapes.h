@@ -514,11 +514,11 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     PathFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
-                    float width, float height, const Path* original, float scale) :
+                    float width, float height, const Path& original, float scale) :
         Shape(batchId(), clamp, brush, x, y, width, height), scale(scale) {
       Path border;
       border.addRectangle(0, 0, width / scale, height / scale);
-      path = *original;
+      path = original;
       path = path.combine(border, Path::Operation::Intersection).breakIntoSimplePolygons();
       anti_alias = path.offsetAntiAlias(scale, inner_added_points, outer_added_points);
       VISAGE_ASSERT(inner_added_points.size() == outer_added_points.size());
