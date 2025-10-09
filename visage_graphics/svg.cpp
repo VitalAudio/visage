@@ -178,7 +178,7 @@ namespace visage {
       context->fill_color = &fill_brush;
     }
 
-    canvas.fill(&path, x, y, width, height);
+    canvas.fill(path, x, y, width, height);
   }
 
   void SvgDrawable::stroke(Canvas& canvas, ColorContext* context, float x, float y, float width,
@@ -194,7 +194,7 @@ namespace visage {
       context->stroke_color = &stroke_brush;
     }
 
-    canvas.fill(&stroke_path, x, y, width, height);
+    canvas.fill(stroke_path, x, y, width, height);
   }
 
   float parseNumber(const std::string& str, float max) {

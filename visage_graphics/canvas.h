@@ -374,43 +374,26 @@ namespace visage {
       }
     }
 
+    // TODO blur radius
     template<typename T1, typename T2>
     void svg(const Svg& svg, const T1& x, const T2& y) {
-      // TODO
-      // int radius = std::round(pixels(svg.blur_radius));
-      // int w = std::round(pixels(svg.width));
-      // int h = std::round(pixels(svg.height));
-      // addSvg({ svg.data, svg.data_size, w, h, radius }, pixels(x), pixels(y));
-    }
-
-    template<typename T1, typename T2, typename T3, typename T4, typename T5>
-    void svg(const unsigned char* svg_data, int svg_size, const T1& x, const T2& y, const T3& width,
-             const T4& height, const T5& blur_radius) {
-      // TODO
-      // int w = std::round(pixels(width));
-      // int h = std::round(pixels(height));
-      // int radius = std::round(pixels(blur_radius));
-      // addSvg({ svg_data, svg_size, w, h, radius }, pixels(x), pixels(y));
+      addSvg(svg, pixels(x), pixels(y), dpi_scale_ * svg.width(), dpi_scale_ * svg.height());
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
+    void svg(const Svg& svg, const T1& x, const T2& y, const T3& width, const T4& height) {
+      addSvg(svg, pixels(x), pixels(y), pixels(width), pixels(height));
+    }
+
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
     void svg(const unsigned char* svg_data, int svg_size, const T1& x, const T2& y, const T3& width,
              const T4& height) {
-      // TODO
-      // int w = std::round(pixels(width));
-      // int h = std::round(pixels(height));
-      // addSvg({ svg_data, svg_size, w, h, 0 }, pixels(x), pixels(y));
+      svg(Svg(svg_data, svg_size), x, y, width, height);
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
-    void svg(const EmbeddedFile& file, const T1& x, const T2& y, const T3& width, const T4& height,
-             const T5& blur_radius) {
-      svg(file.data, file.size, x, y, width, height, blur_radius);
-    }
-
-    template<typename T1, typename T2, typename T3, typename T4>
     void svg(const EmbeddedFile& file, const T1& x, const T2& y, const T3& width, const T4& height) {
-      svg(file.data, file.size, x, y, width, height);
+      svg(Svg(file.data, file.size), x, y, width, height);
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
@@ -453,12 +436,27 @@ namespace visage {
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
-    void fill(const Path* path, const T1& x, const T2& y, const T3& width, const T4& height) {
-      if (path->numPoints() == 0)
+    void fill(const Path& path, const T1& x, const T2& y, const T3& width, const T4& height) {
+      if (path.numPoints() == 0)
         return;
 
       addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
                                pixels(width), pixels(height), path, state_.scale));
+    }
+
+    template<typename T1, typename T2, typename T3, typename T4, typename T5>
+    void stroke(const Path& path, const T1& x, const T2& y, const T3& width, const T4& height,
+                const T5& stroke_width, Path::Join join = Path::Join::Round,
+                Path::EndCap end_cap = Path::EndCap::Round, std::vector<float> dash_array = {},
+                float dash_offset = 0.0f, float miter_limit = kDefaultMiterLimit) {
+      if (path->numPoints() == 0)
+        return;
+
+      addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x),
+                               state_.y + pixels(y), pixels(width), pixels(height),
+                               path.stroke(pixels(stroke_width), join, end_cap, dash_array,
+                                           dash_offset, miter_limit),
+                               state_.scale));
     }
 
     void saveState() { state_memory_.push_back(state_); }
@@ -734,10 +732,13 @@ namespace visage {
       return true;
     }
 
-    void addSvg(const Svg& svg, float x, float y) {
-      // TODO
-      // addShape(ImageWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, svg.width,
-      //                       svg.height, svg, imageAtlas()));
+    void addSvg(const Svg& svg, float x, float y, float width, float height) {
+      SvgDrawable::ColorContext context;
+      if (state_.brush) {
+        Brush current = state_.brush->originalBrush();
+        context.current_color = &current;
+      }
+      svg.drawable()->drawAll(*this, &context, x, y, width, height);
     }
 
     void addImage(const Image& image, float x, float y) {

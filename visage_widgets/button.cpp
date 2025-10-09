@@ -157,7 +157,7 @@ namespace visage {
     else
       canvas.setColor(ToggleButton::ToggleButtonDisabled);
 
-    canvas.svg(icon_, x, y);
+    canvas.svg(icon_, 0, 0, width(), height());
   }
 
   bool ToggleButton::toggle() {
@@ -174,8 +174,7 @@ namespace visage {
   }
 
   void ToggleIconButton::draw(Canvas& canvas, float hover_amount) {
-    int x = iconX();
-    int y = iconY();
+    float m = margin();
     // TODO
     // if (shadow_.blur_radius) {
     //   canvas.setColor(ButtonShadow);
@@ -183,10 +182,10 @@ namespace visage {
     // }
 
     if (toggled())
-      canvas.setBlendedColor(ToggleButtonOn, ToggleButtonOnHover, hover_amount);
+      icon_.setFillBrush(canvas.blendedColor(ToggleButtonOn, ToggleButtonOnHover, hover_amount));
     else
-      canvas.setBlendedColor(ToggleButtonOff, ToggleButtonOffHover, hover_amount);
-    canvas.svg(icon_, x, y);
+      icon_.setFillBrush(canvas.blendedColor(ToggleButtonOff, ToggleButtonOffHover, hover_amount));
+    canvas.svg(icon_, m, m, width() - 2.0f * m, height() - 2.0f * m);
   }
 
   ToggleTextButton::ToggleTextButton(const std::string& name) :
