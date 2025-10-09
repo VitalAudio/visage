@@ -56,19 +56,19 @@ struct PathTriangle {
 };
 
 std::set<PathTriangle> createTriangles(const Path::Triangulation& triangulation) {
-  std::set<PathTriangle> PathTriangles;
+  std::set<PathTriangle> triangles;
   for (size_t i = 0; i < triangulation.triangles.size(); i += 3) {
     Point a = triangulation.points[triangulation.triangles[i]];
     Point b = triangulation.points[triangulation.triangles[i + 1]];
     Point c = triangulation.points[triangulation.triangles[i + 2]];
-    PathTriangles.insert(PathTriangle(a, b, c));
+    triangles.insert(PathTriangle(a, b, c));
   }
-  return PathTriangles;
+  return triangles;
 }
 
-bool matchPathTriangles(const Path& path, const std::set<PathTriangle>& expected) {
-  std::set<PathTriangle> PathTriangles = createTriangles(path.triangulate());
-  return PathTriangles == expected;
+bool matchPathTriangles(Path& path, const std::set<PathTriangle>& expected) {
+  std::set<PathTriangle> triangles = createTriangles(path.triangulate());
+  return triangles == expected;
 }
 
 TEST_CASE("Path triangulate nothing", "[graphics]") {
@@ -198,7 +198,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, canvas.width(), canvas.height());
     canvas.setColor(0xffff0000);
-    canvas.fill(&path, 0, 0, kWidth, kWidth);
+    canvas.fill(path, 0, 0, kWidth, kWidth);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
@@ -231,7 +231,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, canvas.width(), canvas.height());
     canvas.setColor(0xffff0000);
-    canvas.fill(&path, 0, 0, kWidth, kWidth);
+    canvas.fill(path, 0, 0, kWidth, kWidth);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
@@ -265,7 +265,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, canvas.width(), canvas.height());
     canvas.setColor(0xffff0000);
-    canvas.fill(&path, 0, 0, kWidth, kWidth);
+    canvas.fill(path, 0, 0, kWidth, kWidth);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
@@ -293,7 +293,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, canvas.width(), canvas.height());
     canvas.setColor(0xffff0000);
-    canvas.fill(&path, 0, 0, kWidth, kWidth);
+    canvas.fill(path, 0, 0, kWidth, kWidth);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
@@ -321,7 +321,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, canvas.width(), canvas.height());
     canvas.setColor(0xffff0000);
-    canvas.fill(&path, 0, 0, kWidth, kWidth);
+    canvas.fill(path, 0, 0, kWidth, kWidth);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
@@ -357,7 +357,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, canvas.width(), canvas.height());
     canvas.setColor(0xffff0000);
-    canvas.fill(&path, 0, 0, kWidth, kWidth);
+    canvas.fill(path, 0, 0, kWidth, kWidth);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
@@ -388,7 +388,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, canvas.width(), canvas.height());
     canvas.setColor(0xffff0000);
-    canvas.fill(&path, 0, 0, kWidth, kWidth);
+    canvas.fill(path, 0, 0, kWidth, kWidth);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
@@ -425,7 +425,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, canvas.width(), canvas.height());
     canvas.setColor(0xffff0000);
-    canvas.fill(&star, 0, 0, kWidth, kWidth);
+    canvas.fill(star, 0, 0, kWidth, kWidth);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
@@ -466,10 +466,10 @@ TEST_CASE("Degeneracies", "[graphics]") {
       canvas.setColor(0xffff0000);
     }
 
-    canvases[0].fill(&path, 0, 0, canvases[0].width(), canvases[0].height());
+    canvases[0].fill(path, 0, 0, canvases[0].width(), canvases[0].height());
     canvases[0].submit();
     path.reverse();
-    canvases[1].fill(&path, 0, 0, canvases[1].width(), canvases[1].height());
+    canvases[1].fill(path, 0, 0, canvases[1].width(), canvases[1].height());
     canvases[1].submit();
     Screenshot screenshots[] = { canvases[0].takeScreenshot(), canvases[1].takeScreenshot() };
 
@@ -644,7 +644,7 @@ TEST_CASE("Path difference", "[graphics]") {
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, canvas.width(), canvas.height());
     canvas.setColor(0xffffffff);
-    canvas.fill(&difference, 0, 0, 5, 5);
+    canvas.fill(difference, 0, 0, 5, 5);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
     for (int r = 0; r < 5; ++r) {
@@ -675,7 +675,7 @@ TEST_CASE("Path difference", "[graphics]") {
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, canvas.width(), canvas.height());
     canvas.setColor(0xffffffff);
-    canvas.fill(&difference, 0, 0, 5, 5);
+    canvas.fill(difference, 0, 0, 5, 5);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
     for (int r = 0; r < 5; ++r) {
@@ -703,7 +703,7 @@ TEST_CASE("Path interesection", "[graphics]") {
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, canvas.width(), canvas.height());
     canvas.setColor(0xffffffff);
-    canvas.fill(&intersection, 0, 0, 10, 10);
+    canvas.fill(intersection, 0, 0, 10, 10);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
     for (int r = 0; r < 10; ++r) {
