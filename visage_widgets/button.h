@@ -162,8 +162,6 @@ namespace visage {
       int margin = std::min(width(), height()) * margin_ratio_;
       icon_.setDimensions(width() - 2 * margin, height() - 2 * margin);
       // TODO
-      // shadow_.width = icon_.width;
-      // shadow_.height = icon_.height;
       // shadow_.blur_radius = shadow_proportion_ * icon_.width;
     }
 

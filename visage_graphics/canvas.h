@@ -374,7 +374,6 @@ namespace visage {
       }
     }
 
-    // TODO blur radius
     template<typename T1, typename T2>
     void svg(const Svg& svg, const T1& x, const T2& y) {
       addSvg(svg, pixels(x), pixels(y), dpi_scale_ * svg.width(), dpi_scale_ * svg.height());

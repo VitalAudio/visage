@@ -30,13 +30,11 @@ using namespace visage;
 using namespace Catch;
 
 TEST_CASE("Font embedded test", "[graphics]") {
-  // TODO
-
-  // Font font(16, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data));
-  // Canvas canvas;
-  // canvas.setWindowless(100, 50);
-  // canvas.text("Test", font, Font::Justification::kCenter, 0, 0, 100, 50);
-  // canvas.submit();
-  // canvas.requestScreenshot();
-  // canvas.submit();
+  Font font(16, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data));
+  Canvas canvas;
+  canvas.setWindowless(100, 50);
+  canvas.text("Test", font, Font::Justification::kCenter, 0, 0, 100, 50);
+  canvas.submit();
+  canvas.takeScreenshot();
+  canvas.submit();
 }

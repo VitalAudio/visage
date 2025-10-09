@@ -460,9 +460,9 @@ TEST_CASE("Brush operations", "[graphics]") {
     GradientPosition position = GradientPosition::radial(Point(50.0f, 50.0f), 1.0f, 2.0f);
     position = position.transformed(Transform::rotation(90.0f));
     REQUIRE(position.shape == GradientPosition::InterpolationShape::Radial);
-    position = position.transformed(Transform::rotation(60.0f));
+    position = position.transformed(Transform::rotation(45.0f));
     REQUIRE(position.shape == GradientPosition::InterpolationShape::Radial);
-    REQUIRE(position.point1.x == Approx(0.0f));
-    REQUIRE(position.point1.y == Approx(50.0f * std::sqrt(2.0f)));
+    REQUIRE(position.point1.x == Approx(-50.0f * std::sqrt(2.0f)));
+    REQUIRE(position.point1.y == Approx(0.0f).margin(0.001f));
   }
 }
