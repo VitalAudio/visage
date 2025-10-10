@@ -85,6 +85,7 @@ namespace visage {
     int y() const { return y_; }
     int width() const { return width_; }
     int height() const { return height_; }
+    float dpiScale() const;
 
     void invalidateRect(IBounds rect);
 

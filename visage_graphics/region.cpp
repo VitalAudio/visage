@@ -44,6 +44,10 @@ namespace visage {
       sub_region->setCanvas(canvas);
   }
 
+  float Region::dpiScale() const {
+    return canvas_ ? canvas_->dpiScale() : 1.0f;
+  }
+
   void Region::invalidateRect(IBounds rect) {
     if (canvas_ == nullptr)
       return;
