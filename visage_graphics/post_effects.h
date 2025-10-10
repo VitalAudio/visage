@@ -49,13 +49,13 @@ namespace visage {
 
   protected:
     void setInitialVertices(Region* region);
-    void checkBuffers(const Region* region);
+    void checkBuffers(const Region* region, bool full_resoltion);
     void setScreenVertexBuffer(bool inverted);
 
     int full_width_ = 0;
     int full_height_ = 0;
-    int widths_[kMaxDownsamples] {};
-    int heights_[kMaxDownsamples] {};
+    int widths_[kMaxDownsamples + 1] {};
+    int heights_[kMaxDownsamples + 1] {};
     std::unique_ptr<DownsampleHandles> handles_;
     UvVertex screen_vertices_[4] {};
     UvVertex inv_screen_vertices_[4] {};
@@ -64,23 +64,23 @@ namespace visage {
 
   class BlurPostEffect : public DownsamplePostEffect {
   public:
+    static constexpr float kMinSigma = 0.01f;
+
     BlurPostEffect();
     ~BlurPostEffect() override;
 
     int preprocess(Region* region, int submit_pass) override;
-    int preprocessBlend(Region* region, int submit_pass);
     void submitPassthrough(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y);
-    void blendPassthrough(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y);
-    void submitBlurred(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y);
     void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y) override;
 
-    void setBlurSize(float size) { blur_size_ = std::log2(size); }
-    void setBlurAmount(float amount) { blur_amount_ = amount; }
+    void setBlurSize(float size) { blur_size_ = std::max(0.0f, size); }
+    void setBlurAmount(float amount) { blur_amount_ = std::clamp(amount, 0.0f, 1.0f); }
 
   private:
     float blur_size_ = 0.0f;
     float blur_amount_ = 0.0f;
-    float stages_ = 0.0f;
+    float sigma_ = 0.0f;
+    int downsample_stages_ = 0;
 
     VISAGE_LEAK_CHECKER(BlurPostEffect)
   };
