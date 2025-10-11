@@ -148,6 +148,24 @@ namespace visage {
     PostEffect* postEffect() const { return post_effect_; }
     void removePostEffect();
 
+    void setBlurRadius(float blur_radius) {
+      if (blur_radius <= 0.0f) {
+        if (blur_effect_ && post_effect_ == blur_effect_.get())
+          removePostEffect();
+
+        blur_effect_ = nullptr;
+        return;
+      }
+
+      if (blur_effect_ == nullptr) {
+        blur_effect_ = std::make_unique<BlurPostEffect>();
+        setPostEffect(blur_effect_.get());
+      }
+
+      blur_effect_->setBlurRadius(blur_radius);
+      redraw();
+    }
+
     void setAlphaTransparency(float alpha) {
       if (alpha_transparency_ == alpha)
         return;
@@ -425,6 +443,7 @@ namespace visage {
     bool initialized_ = false;
 
     PostEffect* post_effect_ = nullptr;
+    std::unique_ptr<BlurPostEffect> blur_effect_;
     bool cached_ = false;
     bool masked_ = false;
     float alpha_transparency_ = 1.0f;

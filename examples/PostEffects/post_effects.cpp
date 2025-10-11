@@ -116,8 +116,7 @@ public:
                                                          resources::shaders::fs_glitch);
 
     blur_ = std::make_unique<visage::BlurPostEffect>();
-    blur_->setBlurSize(40.0f);
-    blur_->setBlurAmount(1.0f);
+    blur_->setBlurRadius(40.0f);
 
     addChild(&shapes_);
     addChild(&selector_);

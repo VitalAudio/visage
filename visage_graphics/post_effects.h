@@ -73,12 +73,11 @@ namespace visage {
     void submitPassthrough(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y);
     void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y) override;
 
-    void setBlurSize(float size) { blur_size_ = std::max(0.0f, size); }
-    void setBlurAmount(float amount) { blur_amount_ = std::clamp(amount, 0.0f, 1.0f); }
+    float blurRadius() const { return blur_radius_; }
+    void setBlurRadius(float size) { blur_radius_ = std::max(0.0f, size); }
 
   private:
-    float blur_size_ = 0.0f;
-    float blur_amount_ = 0.0f;
+    float blur_radius_ = 0.0f;
     float sigma_ = 0.0f;
     int downsample_stages_ = 0;
 

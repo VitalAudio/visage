@@ -22,6 +22,15 @@
 #include "svg_frame.h"
 
 namespace visage {
+  void SvgFrame::setDimensions() {
+    if (sub_frame_ == nullptr)
+      return;
+
+    int m = margin_.compute(dpiScale(), nativeWidth(), nativeHeight(), 0.0f);
+    svg_.setDimensions(width() - 2 * m / dpiScale(), height() - 2 * m / dpiScale());
+    sub_frame_->setNativeBounds(m, m, nativeWidth() - 2 * m, nativeHeight() - 2 * m);
+  }
+
   void SvgFrame::loadSubFrames(SubFrame* frame, SvgDrawable* drawable) {
     for (auto& child : drawable->children) {
       auto sub_frame = std::make_unique<SubFrame>(child.get(), &context_);
@@ -31,10 +40,9 @@ namespace visage {
   }
 
   void SvgFrame::loadSubFrames() {
-    svg_.setDimensions(width(), height());
     sub_frame_ = std::make_unique<SubFrame>(svg_.drawable(), &context_);
     loadSubFrames(sub_frame_.get(), svg_.drawable());
     addChild(sub_frame_.get());
-    sub_frame_->setBounds(localBounds());
+    setDimensions();
   }
 }
