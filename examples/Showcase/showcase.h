@@ -89,7 +89,6 @@ public:
   bool keyPress(const visage::KeyEvent& key) override;
 
 private:
-  std::unique_ptr<visage::BlurPostEffect> blur_;
   std::unique_ptr<visage::ShaderPostEffect> overlay_zoom_;
   std::unique_ptr<ExamplesFrame> examples_;
   std::unique_ptr<DebugInfo> debug_info_;

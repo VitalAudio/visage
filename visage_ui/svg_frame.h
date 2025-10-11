@@ -32,6 +32,11 @@ namespace visage {
     SvgFrame(const EmbeddedFile& file) { load(file); }
     SvgFrame(const uint8_t* data, size_t size) { load(data, size); }
 
+    void load(const Svg& svg) {
+      svg_ = svg;
+      loadSubFrames();
+    }
+
     void load(const EmbeddedFile& file) {
       svg_ = Svg(file);
       loadSubFrames();
@@ -40,6 +45,21 @@ namespace visage {
     void load(const uint8_t* data, size_t size) {
       svg_ = Svg(data, size);
       loadSubFrames();
+    }
+
+    void setMargin(const Dimension& margin) {
+      margin_ = margin;
+      setDimensions();
+    }
+
+    void setFillBrush(const Brush& brush) {
+      svg_.setFillBrush(brush);
+      redrawAll();
+    }
+
+    void setStrokeBrush(const Brush& brush) {
+      svg_.setStrokeBrush(brush);
+      redrawAll();
     }
 
   private:
@@ -65,18 +85,18 @@ namespace visage {
       SvgDrawable::ColorContext* context_ = nullptr;
     };
 
+    void setDimensions();
     void loadSubFrames(SubFrame* frame, SvgDrawable* drawable);
     void loadSubFrames();
 
     void resized() override {
       context_ = {};
-      svg_.setDimensions(width(), height());
-      if (sub_frame_)
-        sub_frame_->setBounds(localBounds());
+      setDimensions();
     }
 
     Svg svg_;
     SvgDrawable::ColorContext context_;
     std::unique_ptr<SubFrame> sub_frame_;
+    Dimension margin_;
   };
 }

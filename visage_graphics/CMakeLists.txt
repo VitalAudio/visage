@@ -76,8 +76,6 @@ FetchContent_Declare(freetype GIT_REPOSITORY https://gitlab.freedesktop.org/free
 FetchContent_MakeAvailable(freetype)
 set(CMAKE_MESSAGE_LOG_LEVEL "NOTICE")
 
-add_subdirectory(third_party/nanosvg EXCLUDE_FROM_ALL)
-
 if (MSVC)
   set(DISABLE_WARNINGS /W0)
 else ()
@@ -85,8 +83,6 @@ else ()
 endif ()
 
 target_compile_options(freetype PRIVATE ${DISABLE_WARNINGS})
-target_compile_options(nanosvg PRIVATE ${DISABLE_WARNINGS})
-target_compile_options(nanosvgrast PRIVATE ${DISABLE_WARNINGS})
 target_compile_options(bgfx PRIVATE ${DISABLE_WARNINGS})
 target_compile_options(bx PRIVATE ${DISABLE_WARNINGS})
 target_compile_definitions(bx PRIVATE BX_CONFIG_EXCEPTION_HANDLING_USE_WINDOWS_SEH=0)
@@ -103,8 +99,6 @@ target_link_libraries(
   bimg_decode
   bimg_encode
   freetype
-  nanosvg
-  nanosvgrast
   ${WIN_LIBS}
   ${METAL_LIBS}
   ${FONTCONFIG_LIBRARIES}
@@ -142,8 +136,6 @@ target_include_directories(VisageGraphics
 )
 
 set_target_properties(VisageGraphics PROPERTIES FOLDER "visage")
-set_target_properties(nanosvg PROPERTIES FOLDER "visage/third_party/nanosvg")
-set_target_properties(nanosvgrast PROPERTIES FOLDER "visage/third_party/nanosvg")
 set_target_properties(bgfx PROPERTIES FOLDER "visage/third_party/bgfx")
 set_target_properties(bx PROPERTIES FOLDER "visage/third_party/bgfx")
 set_target_properties(bimg PROPERTIES FOLDER "visage/third_party/bgfx")

@@ -376,11 +376,14 @@ namespace visage {
     region_.setPostEffect(post_effect);
     if (parent_)
       parent_->redraw();
+    redrawAll();
   }
 
   void Frame::removePostEffect() {
     VISAGE_ASSERT(post_effect_);
     post_effect_ = nullptr;
+    region_.setPostEffect(nullptr);
+    redrawAll();
   }
 
   float Frame::paletteValue(theme::ValueId value_id) const {

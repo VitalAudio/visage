@@ -197,7 +197,7 @@ namespace visage {
     static constexpr float kMaxSigma = 4.0f;
     checkBuffers(region, true);
 
-    sigma_ = blur_size_ * blur_amount_;
+    sigma_ = blur_radius_;
     if (sigma_ < kMinSigma)
       return submit_pass;
 
@@ -244,19 +244,30 @@ namespace visage {
       source = destination;
     }
 
-    if (downsample_stages_ == 0)
+    if (downsample_stages_ == 0) {
+      bgfx::FrameBufferHandle destination = handles_->downsample_buffers1[0];
+      setBlendMode(BlendMode::Opaque);
+      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source));
+      bgfx::setIndexBuffer(handles_->screen_index_buffer);
       setInitialVertices(region);
-    else
-      setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
+      setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
+
+      bgfx::setViewFrameBuffer(submit_pass, destination);
+      bgfx::setViewRect(submit_pass, 0, 0, last_width, last_height);
+      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_resample,
+                                                                    visage::shaders::fs_sample));
+      source = destination;
+      submit_pass++;
+    }
 
     setBlendMode(BlendMode::Opaque);
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source));
+    setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
 
     bgfx::setIndexBuffer(handles_->screen_index_buffer);
     bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers2[downsample_stages_]);
     bgfx::setViewRect(submit_pass, 0, 0, last_width, last_height);
     setPostEffectUniform<Uniforms::kPixelSize>(transition / last_width, 0.0f);
-
     bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_full_screen_texture,
                                                                   visage::shaders::fs_blur));
     submit_pass++;
@@ -264,6 +275,7 @@ namespace visage {
     setBlendMode(BlendMode::Opaque);
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers2[downsample_stages_]));
     setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
+
     bgfx::setIndexBuffer(handles_->screen_index_buffer);
     bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers1[downsample_stages_]);
     bgfx::setViewRect(submit_pass, 0, 0, last_width, last_height);

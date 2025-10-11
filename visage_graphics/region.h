@@ -109,6 +109,7 @@ namespace visage {
       post_effect_ = post_effect;
       setupIntermediateRegion();
     }
+
     PostEffect* postEffect() const { return post_effect_; }
     bool needsLayer() const { return intermediate_region_.get(); }
     Region* intermediateRegion() const { return intermediate_region_.get(); }
