@@ -214,7 +214,7 @@ namespace visage {
     int last_height = full_height_;
 
     bgfx::FrameBufferHandle source = region->layer()->frameBuffer();
-    for (int i = 1; i <= downsample_stages_; ++i) {
+    for (int i = 0; i <= downsample_stages_; ++i) {
       int downsample_width = widths_[i];
       int downsample_height = heights_[i];
       float x_downsample_scale = downsample_width * 2.0f / last_width;
@@ -225,39 +225,27 @@ namespace visage {
       bgfx::FrameBufferHandle destination = handles_->downsample_buffers1[i];
       setBlendMode(BlendMode::Opaque);
       setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source));
+      setPostEffectUniform<Uniforms::kPixelSize>(1.0f / last_width, 1.0f / last_height);
       bgfx::setIndexBuffer(handles_->screen_index_buffer);
-      if (i == 1) {
+
+      bgfx::setViewFrameBuffer(submit_pass, destination);
+      bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
+
+      if (i == 0) {
         setInitialVertices(region);
         setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
+        bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
+                                                                      visage::shaders::fs_sample));
       }
       else {
         setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
         setPostEffectUniform<Uniforms::kResampleValues>(x_downsample_scale, y_downsample_scale);
+        bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
+                                                                      visage::shaders::fs_blur_sample));
       }
 
-      bgfx::setViewFrameBuffer(submit_pass, destination);
-      bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
-      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
-                                                                    visage::shaders::fs_sample));
-
       submit_pass++;
       source = destination;
-    }
-
-    if (downsample_stages_ == 0) {
-      bgfx::FrameBufferHandle destination = handles_->downsample_buffers1[0];
-      setBlendMode(BlendMode::Opaque);
-      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source));
-      bgfx::setIndexBuffer(handles_->screen_index_buffer);
-      setInitialVertices(region);
-      setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
-
-      bgfx::setViewFrameBuffer(submit_pass, destination);
-      bgfx::setViewRect(submit_pass, 0, 0, last_width, last_height);
-      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
-                                                                    visage::shaders::fs_sample));
-      source = destination;
-      submit_pass++;
     }
 
     setBlendMode(BlendMode::Opaque);
