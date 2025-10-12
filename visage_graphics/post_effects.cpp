@@ -237,7 +237,7 @@ namespace visage {
 
       bgfx::setViewFrameBuffer(submit_pass, destination);
       bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
-      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_resample,
+      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
                                                                     visage::shaders::fs_sample));
 
       submit_pass++;
@@ -254,7 +254,7 @@ namespace visage {
 
       bgfx::setViewFrameBuffer(submit_pass, destination);
       bgfx::setViewRect(submit_pass, 0, 0, last_width, last_height);
-      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_resample,
+      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
                                                                     visage::shaders::fs_sample));
       source = destination;
       submit_pass++;
@@ -297,7 +297,7 @@ namespace visage {
       bgfx::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
 
       setBlendMode(BlendMode::Opaque);
-      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_resample,
+      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
                                                                     visage::shaders::fs_sample));
       submit_pass++;
     }
@@ -395,7 +395,7 @@ namespace visage {
     float hdr_mult = hdr() ? visage::kHdrColorMultiplier : 1.0f;
     setPostEffectUniform<Uniforms::kThreshold>(hdr_mult);
 
-    bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_resample,
+    bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
                                                                   visage::shaders::fs_mult_threshold));
     submit_pass++;
 
@@ -416,7 +416,7 @@ namespace visage {
       bgfx::setViewFrameBuffer(submit_pass, destination);
       bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
 
-      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_resample,
+      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
                                                                     visage::shaders::fs_sample));
       submit_pass++;
 
@@ -462,7 +462,7 @@ namespace visage {
       bgfx::setViewFrameBuffer(submit_pass, destination);
       bgfx::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
 
-      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_resample,
+      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
                                                                     visage::shaders::fs_mult));
       submit_pass++;
     }
