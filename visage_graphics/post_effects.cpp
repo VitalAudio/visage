@@ -83,6 +83,34 @@ namespace visage {
     }
   };
 
+  void PostEffect::submitPassthrough(const BatchVector<SampleRegion>& batches,
+                                     const Layer& destination, int submit_pass) const {
+    bool radial_gradient = false;
+    int num_shapes = 0;
+    auto vertices = setupQuads(batches, radial_gradient, num_shapes);
+    if (vertices == nullptr)
+      return;
+
+    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
+    setPostEffectUniform<Uniforms::kRadialGradient>(radial);
+
+    setBlendMode(BlendMode::Composite);
+    setPostEffectUniform<Uniforms::kTime>(destination.time());
+
+    Layer* source_layer = batches[0].shapes->front().region->layer();
+    float width_scale = 1.0f / source_layer->width();
+    float height_scale = 1.0f / source_layer->height();
+    setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
+    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
+    setUniformDimensions(destination.width(), destination.height());
+    float value = hdr() ? 1.0f / kHdrColorMultiplier : 1.0f;
+    float color_mult[] = { value, value, value, 1.0f };
+    setPostEffectUniform<Uniforms::kColorMult>(color_mult);
+    setOriginFlipUniform(destination.bottomLeftOrigin());
+    bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
+                                                          SampleRegion::fragmentShader()));
+  }
+
   DownsamplePostEffect::DownsamplePostEffect(bool hdr) : PostEffect(hdr) {
     handles_ = std::make_unique<DownsampleHandles>();
 
@@ -293,69 +321,48 @@ namespace visage {
     return submit_pass;
   }
 
-  void BlurPostEffect::submitPassthrough(const SampleRegion& source, Layer& destination,
-                                         int submit_pass, int x, int y) {
-    auto vertices = initQuadVertices<PostEffectVertex>(1);
-    if (vertices == nullptr)
-      return;
-
-    setQuadPositions(vertices, source, source.clamp.withOffset(x, y), x, y);
-    source.region->layer()->setTexturePositionsForRegion(source.region, vertices);
-
-    setBlendMode(BlendMode::Composite);
-    setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
-    setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(source.region->layer()->frameBuffer()));
-    setPostEffectUniform<Uniforms::kColorMult>(Color::kGradientNormalization, Color::kGradientNormalization,
-                                               Color::kGradientNormalization, 1.0f);
-    setUniformDimensions(destination.width(), destination.height());
-    float width_scale = 1.0f / source.region->layer()->width();
-    float height_scale = 1.0f / source.region->layer()->height();
-    setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
-    bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_tinted_texture,
-                                                                  visage::shaders::fs_tinted_texture));
-  }
-
-  void BlurPostEffect::submit(const SampleRegion& source, Layer& destination, int submit_pass,
-                              int x, int y) {
+  void BlurPostEffect::submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) {
     if (sigma_ < kMinSigma) {
-      submitPassthrough(source, destination, submit_pass, x, y);
+      submitPassthrough(batches, destination, submit_pass);
       return;
     }
 
-    auto vertices = initQuadVertices<PostEffectVertex>(1);
+    bool radial_gradient = false;
+    int num_shapes = 0;
+    auto vertices = setupQuads(batches, radial_gradient, num_shapes);
     if (vertices == nullptr)
       return;
+
+    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
+    setPostEffectUniform<Uniforms::kRadialGradient>(radial);
+
+    setBlendMode(BlendMode::Composite);
+    setPostEffectUniform<Uniforms::kTime>(destination.time());
+
+    float width_scale = 1.0f / widths_[0];
+    float height_scale = 1.0f / heights_[0];
+    setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
 
     int source_index = downsample_stages_ ? 1 : 0;
+    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[source_index]));
 
-    setQuadPositions(vertices, source, source.clamp.withOffset(x, y), x, y);
-    vertices[0].texture_x = 0.0f;
-    vertices[0].texture_y = 0.0f;
-    vertices[1].texture_x = widths_[source_index];
-    vertices[1].texture_y = 0.0f;
-    vertices[2].texture_x = 0.0f;
-    vertices[2].texture_y = heights_[source_index];
-    vertices[3].texture_x = widths_[source_index];
-    vertices[3].texture_y = heights_[source_index];
-
-    if (destination.bottomLeftOrigin()) {
-      for (int i = 0; i < kVerticesPerQuad; ++i)
-        vertices[i].texture_y = heights_[source_index] - vertices[i].texture_y;
+    for (int i = 0; i < num_shapes; ++i) {
+      vertices[i * kVerticesPerQuad].texture_x = 0.0f;
+      vertices[i * kVerticesPerQuad].texture_y = 0.0f;
+      vertices[i * kVerticesPerQuad + 1].texture_x = widths_[0];
+      vertices[i * kVerticesPerQuad + 1].texture_y = 0.0f;
+      vertices[i * kVerticesPerQuad + 2].texture_x = 0.0f;
+      vertices[i * kVerticesPerQuad + 2].texture_y = heights_[0];
+      vertices[i * kVerticesPerQuad + 3].texture_x = widths_[0];
+      vertices[i * kVerticesPerQuad + 3].texture_y = heights_[0];
     }
-
-    setBlendMode(BlendMode::Composite);
-
-    float width_scale = 1.0f / widths_[source_index];
-    float height_scale = 1.0f / heights_[source_index];
-    setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
-    setPostEffectUniform<Uniforms::kColorMult>(Color::kGradientNormalization, Color::kGradientNormalization,
-                                               Color::kGradientNormalization, 1.0f);
-    setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
-
-    setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(handles_->downsample_buffers1[source_index]));
     setUniformDimensions(destination.width(), destination.height());
-    bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_tinted_texture,
-                                                                  visage::shaders::fs_tinted_texture));
+    float value = destination.hdr() ? kHdrColorMultiplier : 1.0f;
+    float color_mult[] = { value, value, value, 1.0f };
+    setPostEffectUniform<Uniforms::kColorMult>(color_mult);
+    setOriginFlipUniform(destination.bottomLeftOrigin());
+    bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
+                                                          SampleRegion::fragmentShader()));
   }
 
   BloomPostEffect::BloomPostEffect() : DownsamplePostEffect(true) { }
@@ -458,49 +465,29 @@ namespace visage {
     return submit_pass;
   }
 
-  void BloomPostEffect::submit(const SampleRegion& source, Layer& destination, int submit_pass,
-                               int x, int y) {
-    submitPassthrough(source, destination, submit_pass, x, y);
-    submitBloom(source, destination, submit_pass, x, y);
+  void BloomPostEffect::submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) {
+    submitPassthrough(batches, destination, submit_pass);
+    submitBloom(batches, destination, submit_pass);
   }
 
-  void BloomPostEffect::submitPassthrough(const SampleRegion& source, const Layer& destination,
-                                          int submit_pass, int x, int y) const {
-    auto vertices = initQuadVertices<PostEffectVertex>(1);
+  void BloomPostEffect::submitBloom(const BatchVector<SampleRegion>& batches,
+                                    const Layer& destination, int submit_pass) const {
+    bool radial_gradient = false;
+    int num_shapes = 0;
+    auto vertices = setupQuads(batches, radial_gradient, num_shapes);
     if (vertices == nullptr)
       return;
 
-    setQuadPositions(vertices, source, source.clamp.withOffset(x, y), x, y);
-    source.region->layer()->setTexturePositionsForRegion(source.region, vertices);
-
-    float hdr_range = (hdr() ? visage::kHdrColorRange : 1.0f) * Color::kGradientNormalization;
-    setBlendMode(BlendMode::Composite);
-    setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
-    setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(source.region->layer()->frameBuffer()));
-    setPostEffectUniform<Uniforms::kColorMult>(hdr_range, hdr_range, hdr_range, 1.0f);
-    setUniformDimensions(destination.width(), destination.height());
-    float width_scale = 1.0f / source.region->layer()->width();
-    float height_scale = 1.0f / source.region->layer()->height();
-    setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
-    bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_tinted_texture,
-                                                                  visage::shaders::fs_tinted_texture));
-  }
-
-  void BloomPostEffect::submitBloom(const SampleRegion& source, const Layer& destination,
-                                    int submit_pass, int x, int y) const {
-    auto vertices = initQuadVertices<PostEffectVertex>(1);
-    if (vertices == nullptr)
-      return;
-
-    setQuadPositions(vertices, source, source.clamp.withOffset(x, y), x, y);
-    vertices[0].texture_x = 0.0f;
-    vertices[0].texture_y = 0.0f;
-    vertices[1].texture_x = widths_[1];
-    vertices[1].texture_y = 0.0f;
-    vertices[2].texture_x = 0.0f;
-    vertices[2].texture_y = heights_[1];
-    vertices[3].texture_x = widths_[1];
-    vertices[3].texture_y = heights_[1];
+    for (int i = 0; i < num_shapes; ++i) {
+      vertices[i * kVerticesPerQuad].texture_x = 0.0f;
+      vertices[i * kVerticesPerQuad].texture_y = 0.0f;
+      vertices[i * kVerticesPerQuad + 1].texture_x = widths_[1];
+      vertices[i * kVerticesPerQuad + 1].texture_y = 0.0f;
+      vertices[i * kVerticesPerQuad + 2].texture_x = 0.0f;
+      vertices[i * kVerticesPerQuad + 2].texture_y = heights_[1];
+      vertices[i * kVerticesPerQuad + 3].texture_x = widths_[1];
+      vertices[i * kVerticesPerQuad + 3].texture_y = heights_[1];
+    }
 
     if (destination.bottomLeftOrigin()) {
       for (int i = 0; i < kVerticesPerQuad; ++i)
@@ -521,34 +508,39 @@ namespace visage {
                                                                   visage::shaders::fs_tinted_texture));
   }
 
-  void ShaderPostEffect::submit(const SampleRegion& source, Layer& destination, int submit_pass,
-                                int x, int y) {
-    auto vertices = initQuadVertices<PostEffectVertex>(1);
+  void ShaderPostEffect::submit(const BatchVector<SampleRegion>& batches, Layer& destination,
+                                int submit_pass) {
+    bool radial_gradient = false;
+    int num_shapes = 0;
+    auto vertices = setupQuads(batches, radial_gradient, num_shapes);
     if (vertices == nullptr)
       return;
 
-    float hdr_range = source.region->layer()->hdr() ? visage::kHdrColorRange : 1.0f;
-    setPostEffectUniform<Uniforms::kColorMult>(hdr_range, hdr_range, hdr_range, 1.0f);
+    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
+    setPostEffectUniform<Uniforms::kRadialGradient>(radial);
 
-    setQuadPositions(vertices, source, source.clamp.withOffset(x, y), x, y);
-    source.setVertexData(vertices);
+    setBlendMode(BlendMode::Composite);
+    setPostEffectUniform<Uniforms::kTime>(destination.time());
 
-    Layer* source_layer = source.region->layer();
+    Layer* source_layer = batches[0].shapes->front().region->layer();
     float width_scale = 1.0f / source_layer->width();
     float height_scale = 1.0f / source_layer->height();
-
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
-    setPostEffectUniform<Uniforms::kTextureClamp>(vertices[0].texture_x, vertices[0].texture_y,
-                                                  vertices[3].texture_x, vertices[3].texture_y);
+    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
+    float value = hdr() ? 1.0f / kHdrColorMultiplier : 1.0f;
+    setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
+    setOriginFlipUniform(destination.bottomLeftOrigin());
+
+    setPostEffectUniform<Uniforms::kTextureClamp>((vertices[0].texture_x + 0.5f) * width_scale,
+                                                  (vertices[0].texture_y + 0.5f) * height_scale,
+                                                  (vertices[3].texture_x - 0.5f) * width_scale,
+                                                  (vertices[3].texture_y - 0.5f) * height_scale);
     float center_x = (vertices[0].texture_x + vertices[3].texture_x) * 0.5f;
     float center_y = (vertices[0].texture_y + vertices[3].texture_y) * 0.5f;
     setPostEffectUniform<Uniforms::kCenterPosition>(center_x, center_y);
     float width = std::abs(vertices[3].texture_x - vertices[0].texture_x);
     float height = std::abs(vertices[3].texture_y - vertices[0].texture_y);
     setPostEffectUniform<Uniforms::kDimensions>(width, height);
-
-    bgfx::TextureHandle texture = bgfx::getTexture(source_layer->frameBuffer());
-    setPostEffectTexture<Uniforms::kTexture>(0, texture);
     setUniformDimensions(destination.width(), destination.height());
 
     for (const auto& uniform : uniforms_)

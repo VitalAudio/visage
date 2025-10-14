@@ -91,8 +91,8 @@ private:
 class ExampleEditor : public visage::ApplicationWindow {
 public:
   ExampleEditor() {
-    bloom_.setBloomSize(40.0f);
-    bloom_.setBloomIntensity(1.0f);
+    bloom_.setBloomSize(30.0f);
+    bloom_.setBloomIntensity(2.0f);
     setPostEffect(&bloom_);
     addChild(&animated_line_);
     animated_line_.layout().setMargin(0);

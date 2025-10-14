@@ -32,7 +32,9 @@ namespace visage {
 
     virtual ~PostEffect() = default;
     virtual int preprocess(Region* region, int submit_pass) { return submit_pass; }
-    virtual void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y) { }
+    virtual void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) { }
+    void submitPassthrough(const BatchVector<SampleRegion>& batches, const Layer& destination,
+                           int submit_pass) const;
     bool hdr() const { return hdr_; }
 
   private:
@@ -70,8 +72,7 @@ namespace visage {
     ~BlurPostEffect() override;
 
     int preprocess(Region* region, int submit_pass) override;
-    void submitPassthrough(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y);
-    void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y) override;
+    void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) override;
 
     float blurRadius() const { return blur_radius_; }
     void setBlurRadius(float size) { blur_radius_ = std::max(0.0f, size); }
@@ -90,11 +91,9 @@ namespace visage {
     ~BloomPostEffect() override;
 
     int preprocess(Region* region, int submit_pass) override;
-    void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y) override;
-    void submitPassthrough(const SampleRegion& source, const Layer& destination, int submit_pass,
-                           int x, int y) const;
-    void submitBloom(const SampleRegion& source, const Layer& destination, int submit_pass, int x,
-                     int y) const;
+    void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) override;
+    void submitBloom(const BatchVector<SampleRegion>& batches, const Layer& destination,
+                     int submit_pass) const;
 
     void setBloomSize(float size) { bloom_size_ = std::log2(size); }
     void setBloomIntensity(float intensity) { bloom_intensity_ = intensity; }
@@ -117,7 +116,7 @@ namespace visage {
     ShaderPostEffect(const EmbeddedFile& vertex_shader, const EmbeddedFile& fragment_shader) :
         vertex_shader_(vertex_shader), fragment_shader_(fragment_shader) { }
 
-    void submit(const SampleRegion& source, Layer& destination, int submit_pass, int x, int y) override;
+    void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) override;
 
     BlendMode state() const { return state_; }
     void setState(BlendMode state) { state_ = state; }

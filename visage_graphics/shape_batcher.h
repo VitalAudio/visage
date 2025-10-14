@@ -53,20 +53,6 @@ static void debugVertices(T* vertices, int num_random, int spacing) {
 namespace visage {
   class Shader;
 
-  template<typename T>
-  struct DrawBatch {
-    DrawBatch(const std::vector<T>* shapes, std::vector<IBounds>* invalid_rects, int x, int y) :
-        shapes(shapes), invalid_rects(invalid_rects), x(x), y(y) { }
-
-    const std::vector<T>* shapes;
-    std::vector<IBounds>* invalid_rects;
-    int x = 0;
-    int y = 0;
-  };
-
-  template<typename T>
-  using BatchVector = std::vector<DrawBatch<T>>;
-
   inline int numShapePieces(const BaseShape& shape, int x, int y, const std::vector<IBounds>& invalid_rects) {
     auto check_overlap = [x, y, &shape](IBounds invalid_rect) {
       ClampBounds clamp = shape.clamp.clamp(invalid_rect.x() - x, invalid_rect.y() - y,
@@ -114,14 +100,14 @@ namespace visage {
   void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass);
 
   template<typename T>
-  bool setupQuads(const BatchVector<T>& batches, bool& radial_gradient) {
-    int num_shapes = numShapes(batches);
+  typename T::Vertex* setupQuads(const BatchVector<T>& batches, bool& radial_gradient, int& num_shapes) {
+    num_shapes = numShapes(batches);
     if (num_shapes == 0)
-      return false;
+      return nullptr;
 
     auto vertices = initQuadVertices<typename T::Vertex>(num_shapes);
     if (vertices == nullptr)
-      return false;
+      return nullptr;
     int vertex_index = 0;
 
     for (const auto& batch : batches) {
@@ -143,7 +129,13 @@ namespace visage {
 
     // debugVertices(vertices, num_shapes, kVerticesPerQuad);
     VISAGE_ASSERT(vertex_index == num_shapes * kVerticesPerQuad);
-    return true;
+    return vertices;
+  }
+
+  template<typename T>
+  typename T::Vertex* setupQuads(const BatchVector<T>& batches, bool& radial_gradient) {
+    int num_shapes = 0;
+    return setupQuads(batches, radial_gradient, num_shapes);
   }
 
   template<typename T>
@@ -219,12 +211,7 @@ namespace visage {
     PostEffect* post_effect = batches[0].shapes->front().post_effect;
 
     if (post_effect) {
-      for (const auto& batch : batches) {
-        for (const SampleRegion& sample_layer : *batch.shapes) {
-          setBlendMode(state);
-          sample_layer.post_effect->submit(sample_layer, layer, submit_pass, batch.x, batch.y);
-        }
-      }
+      post_effect->submit(batches, layer, submit_pass);
     }
     else {
       setBlendMode(state);

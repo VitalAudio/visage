@@ -224,6 +224,9 @@ namespace visage {
     bgfx::TransientVertexBuffer vertex_buffer {};
     bgfx::allocTransientVertexBuffer(&vertex_buffer, num_vertices, LineVertex::layout());
     LineVertex* line_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
+    if (line_data == nullptr)
+      return;
+
     int outer_index = 0;
     int inner_index = 0;
     int path_index = next_path_index(-1);
@@ -361,6 +364,8 @@ namespace visage {
                                 num_indices);
     LineVertex* line_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
     uint16_t* indices = reinterpret_cast<uint16_t*>(index_buffer.data);
+    if (line_data == nullptr || indices == nullptr)
+      return;
 
     float scale = path_fill_wrapper.scale;
     for (int i = 0; i < num_vertices; ++i) {
