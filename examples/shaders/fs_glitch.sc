@@ -6,6 +6,7 @@ SAMPLER2D(s_texture, 0);
 
 uniform vec4 u_time;
 uniform vec4 u_atlas_scale;
+uniform vec4 u_texture_clamp;
 uniform vec4 u_dimensions;
 
 float random(vec2 uv) {
@@ -44,9 +45,9 @@ vec3 glitch2(vec2 value, float time) {
 
 void main() {
   vec3 g = glitch1(vec2(v_texture_uv.y, u_time.x + 150.9)) + glitch2(v_texture_uv, u_time.x);
-  gl_FragColor.r = texture2D(s_texture, v_texture_uv + vec2(g.r, 0.0)).r;
-  gl_FragColor.g = texture2D(s_texture, v_texture_uv + vec2(g.b, 0.0)).g;
-  gl_FragColor.b = texture2D(s_texture, v_texture_uv + vec2(g.g, 0.0)).b;
+  gl_FragColor.r = texture2D(s_texture, clamp(v_texture_uv + vec2(g.r, 0.0), u_texture_clamp.xy, u_texture_clamp.zw)).r;
+  gl_FragColor.g = texture2D(s_texture, clamp(v_texture_uv + vec2(g.b, 0.0), u_texture_clamp.xy, u_texture_clamp.zw)).g;
+  gl_FragColor.b = texture2D(s_texture, clamp(v_texture_uv + vec2(g.g, 0.0), u_texture_clamp.xy, u_texture_clamp.zw)).b;
   gl_FragColor.rgb = gl_FragColor.rgb * u_color_mult.rgb;
   gl_FragColor.a = 1.0;
 }

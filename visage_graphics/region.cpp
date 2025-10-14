@@ -74,6 +74,13 @@ namespace visage {
     return canvas_->layer(layer_index_);
   }
 
+  void Region::clear() {
+    shape_batcher_.clear();
+    text_store_.clear();
+    old_brushes_.clear();
+    old_brushes_ = std::move(brushes_);
+  }
+
   void Region::setupIntermediateRegion() {
     if (intermediate_region_) {
       intermediate_region_->setBounds(x_, y_, width_, height_);

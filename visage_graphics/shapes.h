@@ -71,6 +71,20 @@ namespace visage {
     }
   };
 
+  template<typename T>
+  struct DrawBatch {
+    DrawBatch(const std::vector<T>* shapes, std::vector<IBounds>* invalid_rects, int x, int y) :
+        shapes(shapes), invalid_rects(invalid_rects), x(x), y(y) { }
+
+    const std::vector<T>* shapes;
+    std::vector<IBounds>* invalid_rects;
+    int x = 0;
+    int y = 0;
+  };
+
+  template<typename T>
+  using BatchVector = std::vector<DrawBatch<T>>;
+
   struct BaseShape {
     BaseShape(const void* batch_id, const ClampBounds& clamp, const PackedBrush* brush, float x,
               float y, float width, float height) :

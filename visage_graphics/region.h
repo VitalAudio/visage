@@ -95,33 +95,32 @@ namespace visage {
     }
 
     Layer* layer() const;
-
-    void clear() {
-      shape_batcher_.clear();
-      text_store_.clear();
-      old_brushes_.clear();
-      old_brushes_ = std::move(brushes_);
-    }
+    void clear();
 
     void setupIntermediateRegion();
     void setNeedsLayer(bool needs_layer);
+
     void setPostEffect(PostEffect* post_effect) {
       post_effect_ = post_effect;
       setupIntermediateRegion();
     }
-
     PostEffect* postEffect() const { return post_effect_; }
+
     bool needsLayer() const { return intermediate_region_.get(); }
     Region* intermediateRegion() const { return intermediate_region_.get(); }
+
     const PackedBrush* addBrush(GradientAtlas* atlas, const Brush& brush) {
       brushes_.push_back(std::make_unique<PackedBrush>(atlas, brush));
       return brushes_.back().get();
     }
+
     const PackedBrush* addBrush(GradientAtlas* atlas, const Gradient& gradient,
                                 const GradientPosition& position) {
       brushes_.push_back(std::make_unique<PackedBrush>(atlas, gradient, position));
       return brushes_.back().get();
     }
+
+    Region* parent() const { return parent_; }
 
   private:
     void setLayerIndex(int layer_index);
