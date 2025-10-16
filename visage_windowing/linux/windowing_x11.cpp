@@ -295,8 +295,9 @@ namespace visage {
     X11Connection::DisplayLock lock(x11);
     Display* display = x11->display();
 
-    IBounds default_bounds(0, 0, DisplayWidth(display, DefaultScreen(display)),
-                           DisplayWidth(display, DefaultScreen(display)));
+    int default_screen = DefaultScreen(display);
+    IBounds default_bounds(0, 0, DisplayWidth(display, default_screen),
+                           DisplayWidth(display, default_screen));
     MonitorInfo result;
     result.bounds = default_bounds;
 
@@ -316,8 +317,8 @@ namespace visage {
         IBounds bounds(info->x, info->y, info->width, info->height);
         if (result.bounds.width() == 0 || bounds.contains(point)) {
           result.bounds = bounds;
-          if (output_info->mm_height && bounds.height())
-            result.dpi = std::max(Window::kDefaultDpi, bounds.height() * kInchToMm / output_info->mm_height);
+          result.dpi = DisplayWidth(display, default_screen) * kInchToMm /
+                       DisplayWidthMM(display, default_screen);
           result.refresh_rate = refreshRate(screen_resources, info);
         }
         XRRFreeCrtcInfo(info);
