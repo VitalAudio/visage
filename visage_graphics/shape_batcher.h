@@ -210,9 +210,8 @@ namespace visage {
                                          Layer& layer, int submit_pass) {
     PostEffect* post_effect = batches[0].shapes->front().post_effect;
 
-    if (post_effect) {
+    if (post_effect)
       post_effect->submit(batches, layer, submit_pass);
-    }
     else {
       setBlendMode(state);
       submitSampleRegions(batches, layer, submit_pass);

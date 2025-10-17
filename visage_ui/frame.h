@@ -148,6 +148,10 @@ namespace visage {
     PostEffect* postEffect() const { return post_effect_; }
     void removePostEffect();
 
+    void setBackdropEffect(PostEffect* backdrop_effect);
+    PostEffect* backdropEffect() const { return backdrop_effect_; }
+    void removeBackdropEffect();
+
     void setBlurRadius(float blur_radius) {
       if (blur_radius <= 0.0f) {
         if (blur_effect_ && post_effect_ == blur_effect_.get())
@@ -396,7 +400,7 @@ namespace visage {
     void eraseChild(Frame* child);
 
     bool requiresLayer() const {
-      return post_effect_ || cached_ || masked_ || alpha_transparency_ != 1.0f;
+      return post_effect_ || backdrop_effect_ || cached_ || masked_ || alpha_transparency_ != 1.0f;
     }
 
     std::string name_;
@@ -444,6 +448,7 @@ namespace visage {
 
     PostEffect* post_effect_ = nullptr;
     std::unique_ptr<BlurPostEffect> blur_effect_;
+    PostEffect* backdrop_effect_ = nullptr;
     bool cached_ = false;
     bool masked_ = false;
     float alpha_transparency_ = 1.0f;

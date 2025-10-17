@@ -51,6 +51,7 @@ namespace visage {
         region->setCanvas(canvas_);
 
       region->setLayerIndex(layer_index_);
+      region->setBackdropDepth(backdrop_depth_);
     }
 
     void removeRegion(Region* region);
@@ -86,6 +87,7 @@ namespace visage {
     int width() const { return width_; }
     int height() const { return height_; }
     float dpiScale() const;
+    int backdropDepth() const { return backdrop_depth_; }
 
     void invalidateRect(IBounds rect);
 
@@ -105,6 +107,9 @@ namespace visage {
       setupIntermediateRegion();
     }
     PostEffect* postEffect() const { return post_effect_; }
+
+    void setBackdropEffect(PostEffect* backdrop_effect);
+    PostEffect* backdropEffect() const { return backdrop_effect_; }
 
     bool needsLayer() const { return intermediate_region_.get(); }
     Region* intermediateRegion() const { return intermediate_region_.get(); }
@@ -127,6 +132,10 @@ namespace visage {
     void incrementLayer() { setLayerIndex(layer_index_ + 1); }
     void decrementLayer() { setLayerIndex(layer_index_ - 1); }
 
+    void setBackdropDepth(int depth);
+    void incrementBackdropDepth() { setBackdropDepth(backdrop_depth_ + 1); }
+    void decrementBackdropDepth() { setBackdropDepth(backdrop_depth_ - 1); }
+
     Text* addText(const String& string, const Font& font, Font::Justification justification) {
       text_store_.push_back(std::make_unique<Text>(string, font, justification));
       return text_store_.back().get();
@@ -147,10 +156,12 @@ namespace visage {
     bool visible_ = true;
     bool on_top_ = false;
     int layer_index_ = 0;
+    int backdrop_depth_ = 0;
 
     Canvas* canvas_ = nullptr;
     Region* parent_ = nullptr;
     PostEffect* post_effect_ = nullptr;
+    PostEffect* backdrop_effect_ = nullptr;
     ShapeBatcher shape_batcher_;
     std::vector<std::unique_ptr<PackedBrush>> brushes_;
     std::vector<std::unique_ptr<PackedBrush>> old_brushes_;

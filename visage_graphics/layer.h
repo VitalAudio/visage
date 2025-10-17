@@ -46,7 +46,7 @@ namespace visage {
     GradientAtlas* gradientAtlas() const { return gradient_atlas_; }
 
     void clearInvalidRectAreas(int submit_pass);
-    int submit(int submit_pass);
+    int submit(int submit_pass, int backdrop_depth);
 
     void setIntermediateLayer(bool intermediate_layer) { intermediate_layer_ = intermediate_layer; }
     void addRegion(Region* region);

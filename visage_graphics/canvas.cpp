@@ -70,12 +70,16 @@ namespace visage {
 
   int Canvas::submit(int submit_pass) {
     int submission = submit_pass;
-    for (int i = layers_.size() - 1; i > 0; --i)
-      submission = layers_[i]->submit(submission);
+    int last_submission = submission - 1;
+    for (int backdrop = 0; last_submission != submission; backdrop++) {
+      last_submission = submission;
+      for (int i = layers_.size() - 1; i > 0; --i)
+        submission = layers_[i]->submit(submission, backdrop);
+    }
 
     if (submission > submit_pass) {
       composite_layer_.invalidate();
-      submission = composite_layer_.submit(submission);
+      submission = composite_layer_.submit(submission, 0);
       bgfx::frame();
       if (render_frame_ == 0)
         bgfx::frame();

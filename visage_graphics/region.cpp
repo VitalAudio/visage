@@ -83,10 +83,17 @@ namespace visage {
 
   void Region::setupIntermediateRegion() {
     if (intermediate_region_) {
+      intermediate_region_->backdrop_depth_ = backdrop_depth_;
       intermediate_region_->setBounds(x_, y_, width_, height_);
       intermediate_region_->clearAll();
       const PackedBrush* brush = intermediate_region_->addBrush(canvas_->gradientAtlas(),
                                                                 Brush::solid(0xffffffff));
+      if (backdrop_effect_) {
+        SampleRegion parent_region({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, brush, 0, 0,
+                                   width_, height_, this, backdrop_effect_);
+        intermediate_region_->shape_batcher_.addShape(parent_region);
+      }
+
       SampleRegion sample_region({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, brush, 0, 0, width_,
                                  height_, this, post_effect_);
       intermediate_region_->shape_batcher_.addShape(sample_region);
@@ -113,6 +120,15 @@ namespace visage {
     invalidate();
   }
 
+  void Region::setBackdropEffect(PostEffect* backdrop_effect) {
+    if (backdrop_effect_ == nullptr && backdrop_effect)
+      incrementBackdropDepth();
+    else if (backdrop_effect_ && backdrop_effect == nullptr)
+      decrementBackdropDepth();
+
+    backdrop_effect_ = backdrop_effect;
+  }
+
   void Region::setLayerIndex(int layer_index) {
     if (needsLayer())
       canvas_->changePackedLayer(this, layer_index_, layer_index);
@@ -123,6 +139,16 @@ namespace visage {
         sub_region->setLayerIndex(layer_index + 1);
       else
         sub_region->setLayerIndex(layer_index);
+    }
+  }
+
+  void Region::setBackdropDepth(int depth) {
+    backdrop_depth_ = depth;
+    for (auto& sub_region : sub_regions_) {
+      if (sub_region->backdrop_effect_)
+        sub_region->setBackdropDepth(backdrop_depth_ + 1);
+      else
+        sub_region->setBackdropDepth(backdrop_depth_);
     }
   }
 }

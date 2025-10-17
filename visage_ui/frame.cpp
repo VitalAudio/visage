@@ -386,6 +386,21 @@ namespace visage {
     redrawAll();
   }
 
+  void Frame::setBackdropEffect(PostEffect* backdrop_effect) {
+    backdrop_effect_ = backdrop_effect;
+    region_.setBackdropEffect(backdrop_effect);
+    if (parent_)
+      parent_->redraw();
+    redrawAll();
+  }
+
+  void Frame::removeBackdropEffect() {
+    VISAGE_ASSERT(backdrop_effect_);
+    backdrop_effect_ = nullptr;
+    region_.setBackdropEffect(nullptr);
+    redrawAll();
+  }
+
   float Frame::paletteValue(theme::ValueId value_id) const {
     if (palette_) {
       const Frame* frame = this;

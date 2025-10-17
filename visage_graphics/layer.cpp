@@ -55,7 +55,7 @@ namespace visage {
   }
 
   static void addSubRegions(std::vector<RegionPosition>& positions, std::vector<RegionPosition>& overlapping,
-                            const RegionPosition& done_position) {
+                            const RegionPosition& done_position, int backdrop_depth) {
     auto begin = done_position.region->subRegions().cbegin();
     auto end = done_position.region->subRegions().cend();
     if (begin == end)
@@ -101,16 +101,16 @@ namespace visage {
         RegionPosition overlap(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
         overlapping.push_back(overlap);
       }
-      else if (sub_region->isEmpty())
+      else if (sub_region->isEmpty() || sub_region->backdropDepth() < backdrop_depth)
         addSubRegions(positions, overlapping,
-                      { sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y() });
+                      { sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y() }, backdrop_depth);
       else
         positions.emplace_back(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
     }
   }
 
   static void checkOverlappingRegions(std::vector<RegionPosition>& positions,
-                                      std::vector<RegionPosition>& overlapping) {
+                                      std::vector<RegionPosition>& overlapping, int backdrop_depth) {
     std::vector<RegionPosition> new_overlapping;
 
     for (auto it = overlapping.begin(); it != overlapping.end();) {
@@ -121,7 +121,7 @@ namespace visage {
 
       if (!overlaps) {
         if (it->isDone())
-          addSubRegions(positions, new_overlapping, *it);
+          addSubRegions(positions, new_overlapping, *it, backdrop_depth);
         else
           positions.push_back(*it);
         it = overlapping.erase(it);
@@ -252,11 +252,12 @@ namespace visage {
     clear_batch.submit(*this, submit_pass, { positioned_clear });
   }
 
-  int Layer::submit(int submit_pass) {
+  int Layer::submit(int submit_pass, int backdrop_depth) {
     if (!anyInvalidRects())
       return submit_pass;
 
     checkFrameBuffer();
+
     bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
     bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
 
@@ -269,14 +270,27 @@ namespace visage {
     std::vector<RegionPosition> region_positions;
     std::vector<RegionPosition> overlapping_regions;
     for (Region* region : regions_) {
+      if (region->backdropDepth() > backdrop_depth)
+        continue;
+
+      if (region->backdropEffect() && region->backdropDepth() == backdrop_depth) {
+        auto backdrop_region = region->parent();
+        while (backdrop_region->parent() && backdrop_region->parent()->parent())
+          backdrop_region = backdrop_region->parent();
+        if (backdrop_region)
+          submit_pass = region->backdropEffect()->preprocess(backdrop_region, submit_pass);
+      }
+
       IPoint point = coordinatesForRegion(region);
       if (region->isEmpty()) {
         addSubRegions(region_positions, overlapping_regions,
-                      { region, invalid_rects_[region], 0, point.x, point.y });
+                      { region, invalid_rects_[region], 0, point.x, point.y }, backdrop_depth);
       }
       else
         region_positions.emplace_back(region, invalid_rects_[region], 0, point.x, point.y);
     }
+    if (region_positions.empty())
+      return submit_pass;
 
     invalid_rects_.clear();
 
@@ -307,10 +321,10 @@ namespace visage {
       region_positions.erase(region_positions.begin(), done_it);
 
       for (auto& region_position : done_regions)
-        addSubRegions(region_positions, overlapping_regions, region_position);
+        addSubRegions(region_positions, overlapping_regions, region_position, backdrop_depth);
 
       if (!done_regions.empty())
-        checkOverlappingRegions(region_positions, overlapping_regions);
+        checkOverlappingRegions(region_positions, overlapping_regions, backdrop_depth);
 
       done_regions.clear();
       current_batch_id = next_batch->id();
