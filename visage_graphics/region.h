@@ -51,7 +51,6 @@ namespace visage {
         region->setCanvas(canvas_);
 
       region->setLayerIndex(layer_index_);
-      region->setBackdropDepth(backdrop_depth_);
     }
 
     void removeRegion(Region* region);
@@ -87,7 +86,10 @@ namespace visage {
     int width() const { return width_; }
     int height() const { return height_; }
     float dpiScale() const;
-    int backdropDepth() const { return backdrop_depth_; }
+
+    int backdropCount() const { return backdrop_count_; }
+    int backdropCountChildren() const { return backdrop_count_children_; }
+    int computeBackdropCount(int current);
 
     void invalidateRect(IBounds rect);
 
@@ -132,10 +134,6 @@ namespace visage {
     void incrementLayer() { setLayerIndex(layer_index_ + 1); }
     void decrementLayer() { setLayerIndex(layer_index_ - 1); }
 
-    void setBackdropDepth(int depth);
-    void incrementBackdropDepth() { setBackdropDepth(backdrop_depth_ + 1); }
-    void decrementBackdropDepth() { setBackdropDepth(backdrop_depth_ - 1); }
-
     Text* addText(const String& string, const Font& font, Font::Justification justification) {
       text_store_.push_back(std::make_unique<Text>(string, font, justification));
       return text_store_.back().get();
@@ -156,7 +154,9 @@ namespace visage {
     bool visible_ = true;
     bool on_top_ = false;
     int layer_index_ = 0;
-    int backdrop_depth_ = 0;
+    int backdrop_count_ = 0;
+    int backdrop_count_children_ = 0;
+    int intermediate_backdrop_count_ = 0;
 
     Canvas* canvas_ = nullptr;
     Region* parent_ = nullptr;
@@ -168,5 +168,6 @@ namespace visage {
     std::vector<std::unique_ptr<Text>> text_store_;
     std::vector<Region*> sub_regions_;
     std::unique_ptr<Region> intermediate_region_;
+    Region* intermediate_parent_ = nullptr;
   };
 }

@@ -46,7 +46,7 @@ namespace visage {
     GradientAtlas* gradientAtlas() const { return gradient_atlas_; }
 
     void clearInvalidRectAreas(int submit_pass);
-    int submit(int submit_pass, int backdrop_depth);
+    int submit(int submit_pass, int backdrop_count);
 
     void setIntermediateLayer(bool intermediate_layer) { intermediate_layer_ = intermediate_layer; }
     void addRegion(Region* region);
@@ -80,6 +80,7 @@ namespace visage {
 
     void invalidateRectInRegion(IBounds rect, const Region* region);
     bool anyInvalidRects() const { return !invalid_rects_.empty(); }
+    void clearInvalidRects() { invalid_rects_.clear(); }
 
     void setDimensions(int width, int height) {
       if (width == width_ && height == height_)

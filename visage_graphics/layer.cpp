@@ -55,7 +55,7 @@ namespace visage {
   }
 
   static void addSubRegions(std::vector<RegionPosition>& positions, std::vector<RegionPosition>& overlapping,
-                            const RegionPosition& done_position, int backdrop_depth) {
+                            const RegionPosition& done_position, int backdrop_count) {
     auto begin = done_position.region->subRegions().cbegin();
     auto end = done_position.region->subRegions().cend();
     if (begin == end)
@@ -70,6 +70,9 @@ namespace visage {
 
       Region* sub_region = *it;
       if (!sub_region->isVisible() || sub_region->isOnTop() != on_top)
+        continue;
+
+      if (sub_region->backdropCount() > backdrop_count || sub_region->backdropCountChildren() < backdrop_count)
         continue;
 
       if (sub_region->needsLayer())
@@ -101,16 +104,17 @@ namespace visage {
         RegionPosition overlap(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
         overlapping.push_back(overlap);
       }
-      else if (sub_region->isEmpty() || sub_region->backdropDepth() < backdrop_depth)
+      else if (sub_region->isEmpty() || sub_region->backdropCount() != backdrop_count) {
         addSubRegions(positions, overlapping,
-                      { sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y() }, backdrop_depth);
+                      { sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y() }, backdrop_count);
+      }
       else
         positions.emplace_back(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
     }
   }
 
   static void checkOverlappingRegions(std::vector<RegionPosition>& positions,
-                                      std::vector<RegionPosition>& overlapping, int backdrop_depth) {
+                                      std::vector<RegionPosition>& overlapping, int backdrop_count) {
     std::vector<RegionPosition> new_overlapping;
 
     for (auto it = overlapping.begin(); it != overlapping.end();) {
@@ -121,7 +125,7 @@ namespace visage {
 
       if (!overlaps) {
         if (it->isDone())
-          addSubRegions(positions, new_overlapping, *it, backdrop_depth);
+          addSubRegions(positions, new_overlapping, *it, backdrop_count);
         else
           positions.push_back(*it);
         it = overlapping.erase(it);
@@ -252,7 +256,7 @@ namespace visage {
     clear_batch.submit(*this, submit_pass, { positioned_clear });
   }
 
-  int Layer::submit(int submit_pass, int backdrop_depth) {
+  int Layer::submit(int submit_pass, int backdrop_count) {
     if (!anyInvalidRects())
       return submit_pass;
 
@@ -270,11 +274,12 @@ namespace visage {
     std::vector<RegionPosition> region_positions;
     std::vector<RegionPosition> overlapping_regions;
     for (Region* region : regions_) {
-      if (region->backdropDepth() > backdrop_depth)
+      if (region->backdropCount() > backdrop_count || region->backdropCountChildren() < backdrop_count)
         continue;
 
-      if (region->backdropEffect() && region->backdropDepth() == backdrop_depth) {
+      if (region->backdropEffect() && region->backdropCount() == backdrop_count) {
         auto backdrop_region = region->parent();
+        // TODO improve
         while (backdrop_region->parent() && backdrop_region->parent()->parent())
           backdrop_region = backdrop_region->parent();
         if (backdrop_region)
@@ -282,17 +287,15 @@ namespace visage {
       }
 
       IPoint point = coordinatesForRegion(region);
-      if (region->isEmpty()) {
+      if (region->isEmpty() || region->backdropCount() != backdrop_count) {
         addSubRegions(region_positions, overlapping_regions,
-                      { region, invalid_rects_[region], 0, point.x, point.y }, backdrop_depth);
+                      { region, invalid_rects_[region], 0, point.x, point.y }, backdrop_count);
       }
       else
         region_positions.emplace_back(region, invalid_rects_[region], 0, point.x, point.y);
     }
     if (region_positions.empty())
       return submit_pass;
-
-    invalid_rects_.clear();
 
     const void* current_batch_id = nullptr;
     BlendMode current_blend_mode = BlendMode::Opaque;
@@ -321,10 +324,10 @@ namespace visage {
       region_positions.erase(region_positions.begin(), done_it);
 
       for (auto& region_position : done_regions)
-        addSubRegions(region_positions, overlapping_regions, region_position, backdrop_depth);
+        addSubRegions(region_positions, overlapping_regions, region_position, backdrop_count);
 
       if (!done_regions.empty())
-        checkOverlappingRegions(region_positions, overlapping_regions, backdrop_depth);
+        checkOverlappingRegions(region_positions, overlapping_regions, backdrop_count);
 
       done_regions.clear();
       current_batch_id = next_batch->id();
