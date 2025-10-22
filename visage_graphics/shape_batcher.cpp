@@ -21,6 +21,7 @@
 
 #include "shape_batcher.h"
 
+#include "canvas.h"
 #include "embedded/shaders.h"
 #include "font.h"
 #include "graphics_caches.h"
@@ -625,6 +626,7 @@ namespace visage {
     setUniform<Uniforms::kRadialGradient>(radial);
 
     Layer* source_layer = batches[0].shapes->front().region->layer();
+    Canvas* canvas = batches[0].shapes->front().region->canvas();
     float width_scale = 1.0f / source_layer->width();
     float height_scale = 1.0f / source_layer->height();
 

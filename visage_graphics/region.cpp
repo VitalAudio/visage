@@ -55,9 +55,12 @@ namespace visage {
     backdrop_count_ = current;
     for (auto& sub_region : sub_regions_)
       current = sub_region->computeBackdropCount(current);
-    if (intermediate_parent_)
-      current = intermediate_parent_->computeBackdropCount(current);
     backdrop_count_children_ = current;
+
+    if (intermediate_region_) {
+      intermediate_region_->backdrop_count_ = backdrop_count_;
+      intermediate_region_->backdrop_count_children_ = backdrop_count_children_;
+    }
 
     return current;
   }
@@ -95,10 +98,10 @@ namespace visage {
     old_brushes_ = std::move(brushes_);
 
     if (backdrop_effect_) {
-      // const PackedBrush* brush = addBrush(canvas_->gradientAtlas(), Brush::solid(0xffffffff));
-      // SampleRegion parent_region({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, brush, 0, 0, width_,
-      //                            height_, this, backdrop_effect_);
-      // shape_batcher_.addShape(parent_region);
+      const PackedBrush* brush = addBrush(canvas_->gradientAtlas(), Brush::solid(0xffffffff));
+      SampleRegion parent_region({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, brush, 0, 0, width_,
+                                 height_, this, backdrop_effect_);
+      shape_batcher_.addShape(parent_region);
     }
   }
 
@@ -123,7 +126,6 @@ namespace visage {
     if (needs_layer) {
       incrementLayer();
       intermediate_region_ = std::make_unique<Region>();
-      intermediate_region_->intermediate_parent_ = this;
       canvas_->addToPackedLayer(this, layer_index_);
       setupIntermediateRegion();
     }

@@ -90,6 +90,13 @@ namespace visage {
     int backdropCount() const { return backdrop_count_; }
     int backdropCountChildren() const { return backdrop_count_children_; }
     int computeBackdropCount(int current);
+    bool shouldDraw(int backdrop_count) {
+      if (backdrop_count_ == backdrop_count)
+        return true;
+      if (intermediate_region_)
+        return backdrop_count_ < backdrop_count && backdrop_count_children_ >= backdrop_count;
+      return false;
+    }
 
     void invalidateRect(IBounds rect);
 
@@ -168,6 +175,5 @@ namespace visage {
     std::vector<std::unique_ptr<Text>> text_store_;
     std::vector<Region*> sub_regions_;
     std::unique_ptr<Region> intermediate_region_;
-    Region* intermediate_parent_ = nullptr;
   };
 }

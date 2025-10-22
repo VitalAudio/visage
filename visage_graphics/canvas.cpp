@@ -72,14 +72,14 @@ namespace visage {
     default_region_.computeBackdropCount(0);
     int submission = submit_pass;
     int last_submission = submission - 1;
-    for (int backdrop = 0; backdrop < 3; backdrop++) {
+    for (int backdrop = 0; submission != last_submission; backdrop++) {
       last_submission = submission;
       for (int i = layers_.size() - 1; i > 0; --i)
         submission = layers_[i]->submit(submission, backdrop);
     }
 
-    for (auto& layer : layers_)
-      layer->clearInvalidRects();
+    for (int i = 1; i < layers_.size(); ++i)
+      layers_[i]->clearInvalidRects();
 
     if (submission > submit_pass) {
       composite_layer_.invalidate();

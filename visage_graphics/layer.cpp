@@ -75,6 +75,7 @@ namespace visage {
       if (sub_region->backdropCount() > backdrop_count || sub_region->backdropCountChildren() < backdrop_count)
         continue;
 
+      bool should_draw = sub_region->shouldDraw(backdrop_count);
       if (sub_region->needsLayer())
         sub_region = sub_region->intermediateRegion();
 
@@ -104,7 +105,7 @@ namespace visage {
         RegionPosition overlap(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
         overlapping.push_back(overlap);
       }
-      else if (sub_region->isEmpty() || sub_region->backdropCount() != backdrop_count) {
+      else if (sub_region->isEmpty() || !should_draw) {
         addSubRegions(positions, overlapping,
                       { sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y() }, backdrop_count);
       }
@@ -262,13 +263,7 @@ namespace visage {
 
     checkFrameBuffer();
 
-    bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
-    bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
-
-    if (bgfx::isValid(frame_buffer_data_->handle))
-      bgfx::setViewFrameBuffer(submit_pass, frame_buffer_data_->handle);
-
-    if (intermediate_layer_)
+    if (intermediate_layer_ && backdrop_count == 0)
       clearInvalidRectAreas(submit_pass);
 
     std::vector<RegionPosition> region_positions;
@@ -287,7 +282,7 @@ namespace visage {
       }
 
       IPoint point = coordinatesForRegion(region);
-      if (region->isEmpty() || region->backdropCount() != backdrop_count) {
+      if (region->isEmpty() || !region->shouldDraw(backdrop_count)) {
         addSubRegions(region_positions, overlapping_regions,
                       { region, invalid_rects_[region], 0, point.x, point.y }, backdrop_count);
       }
@@ -301,6 +296,12 @@ namespace visage {
     BlendMode current_blend_mode = BlendMode::Opaque;
     std::vector<PositionedBatch> batches;
     std::vector<RegionPosition> done_regions;
+
+    bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
+    bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
+
+    if (bgfx::isValid(frame_buffer_data_->handle))
+      bgfx::setViewFrameBuffer(submit_pass, frame_buffer_data_->handle);
 
     while (!region_positions.empty()) {
       const SubmitBatch* next_batch = nextBatch(region_positions, current_batch_id, current_blend_mode);
@@ -395,7 +396,7 @@ namespace visage {
       screenshot_requested_ = true;
     else {
       Renderer::resetResolution(width_, height_);
-      bgfx::requestScreenShot(frameBuffer(), "screenshot.png");
+      bgfx::requestScreenShot(frame_buffer_data_->handle, "screenshot.png");
     }
     invalidate();
   }
