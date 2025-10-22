@@ -45,6 +45,7 @@ namespace visage {
 
     GradientAtlas* gradientAtlas() const { return gradient_atlas_; }
 
+    bool hasBackdropEffect() const;
     void clearInvalidRectAreas(int submit_pass);
     int submit(int submit_pass, int backdrop_count);
 

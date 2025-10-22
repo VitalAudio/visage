@@ -239,6 +239,14 @@ namespace visage {
     moveToVector(invalid_rects, invalid_rect_pieces_);
   }
 
+  bool Layer::hasBackdropEffect() const {
+    for (Region* region : regions_) {
+      if (region->backdropEffect())
+        return true;
+    }
+    return false;
+  }
+
   void Layer::clearInvalidRectAreas(int submit_pass) {
     ShapeBatch<Fill> clear_batch(BlendMode::Opaque);
     std::vector<IBounds> invalid_rects;
@@ -258,7 +266,7 @@ namespace visage {
   }
 
   int Layer::submit(int submit_pass, int backdrop_count) {
-    if (!anyInvalidRects())
+    if (!anyInvalidRects() && !(hasBackdropEffect() && backdrop_count > 0))
       return submit_pass;
 
     checkFrameBuffer();
@@ -278,8 +286,10 @@ namespace visage {
             backdrop_region = parent;
         }
 
-        if (backdrop_region && backdrop_region->needsLayer())
+        if (backdrop_region && backdrop_region->needsLayer()) {
+          region->invalidate();
           submit_pass = region->backdropEffect()->preprocess(backdrop_region, submit_pass);
+        }
       }
 
       IPoint point = coordinatesForRegion(region);
