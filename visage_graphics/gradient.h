@@ -136,7 +136,7 @@ namespace visage {
     bool reflect() const { return reflect_; }
 
     int resolution() const {
-      if (custom_stops_ || repeat_)
+      if (custom_stops_ || repeat_ || reflect_)
         return kMaxGradientResolution;
       return std::min<int>(kMaxGradientResolution, colors_.size());
     }
@@ -538,10 +538,12 @@ namespace visage {
       if (brush) {
         float atlas_x_scale = 1.0f / brush->atlasWidth();
         float atlas_y_scale = 1.0f / brush->atlasHeight();
-        int offset = brush->gradient()->gradient().repeat() ? 0 : 1;
+        const auto& gradient = brush->gradient()->gradient();
+        bool repeating = gradient.repeat() || gradient.reflect();
+        int offset = repeating ? 0 : 1;
         result.from_x = (brush->gradient_.x() + offset * 0.5f) * atlas_x_scale;
-        float span = (brush->gradient_.gradient().resolution() - offset) * atlas_x_scale;
-        if (brush->gradient()->gradient().reflect())
+        float span = (gradient.resolution() - offset) * atlas_x_scale;
+        if (gradient.reflect())
           span *= 0.5f;
         result.to_x = result.from_x + span;
         result.from_y = (brush->gradient_.y() + 0.5f) * atlas_y_scale;

@@ -226,24 +226,30 @@ namespace visage {
     bool match(const void* id, BlendMode blend_mode, bool radial_gradient) const {
       return id_ == id && blend_mode_ == blend_mode && radial_gradient_ == radial_gradient;
     }
+    bool match(const SubmitBatch* other) const { return compare(other) == 0; }
 
     void setBlendMode(BlendMode blend_mode) { blend_mode_ = blend_mode; }
     BlendMode blendMode() const { return blend_mode_; }
     bool radialGradient() const { return radial_gradient_; }
 
-    int compare(const void* other_id, BlendMode other_blend_mode) const {
-      if (id_ < other_id)
-        return -1;
-      if (id_ > other_id)
+    int compare(const SubmitBatch* other) const {
+      if (other == nullptr)
         return 1;
-      if (blend_mode_ < other_blend_mode)
+
+      if (id_ < other->id_)
         return -1;
-      if (blend_mode_ > other_blend_mode)
+      if (id_ > other->id_)
+        return 1;
+      if (blend_mode_ < other->blend_mode_)
+        return -1;
+      if (blend_mode_ > other->blend_mode_)
+        return 1;
+      if (radial_gradient_ < other->radial_gradient_)
+        return -1;
+      if (radial_gradient_ > other->radial_gradient_)
         return 1;
       return 0;
     }
-
-    int compare(const SubmitBatch* other) const { return compare(other->id_, other->blend_mode_); }
 
     void clearAreas() { areas_.clear(); }
     void addShapeArea(const BaseShape& shape) {

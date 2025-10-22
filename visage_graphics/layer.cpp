@@ -139,20 +139,16 @@ namespace visage {
   }
 
   static const SubmitBatch* nextBatch(const std::vector<RegionPosition>& positions,
-                                      const void* current_batch_id, BlendMode current_blend_mode) {
+                                      const SubmitBatch* current) {
     const SubmitBatch* next_batch = positions[0].currentBatch();
     for (auto& position : positions) {
       const SubmitBatch* batch = position.currentBatch();
       if (next_batch->compare(batch) > 0) {
-        if (batch->compare(current_batch_id, current_blend_mode) > 0 ||
-            next_batch->compare(current_batch_id, current_blend_mode) < 0) {
+        if (batch->compare(current) > 0 || next_batch->compare(current) < 0)
           next_batch = position.currentBatch();
-        }
       }
-      else if (next_batch->compare(current_batch_id, current_blend_mode) < 0 &&
-               batch->compare(current_batch_id, current_blend_mode) > 0) {
+      else if (next_batch->compare(current) < 0 && batch->compare(current) > 0)
         next_batch = position.currentBatch();
-      }
     }
 
     return next_batch;
@@ -303,8 +299,7 @@ namespace visage {
     if (region_positions.empty())
       return submit_pass;
 
-    const void* current_batch_id = nullptr;
-    BlendMode current_blend_mode = BlendMode::Opaque;
+    const SubmitBatch* current_batch = nullptr;
     std::vector<PositionedBatch> batches;
     std::vector<RegionPosition> done_regions;
 
@@ -318,10 +313,10 @@ namespace visage {
       clearInvalidRectAreas(submit_pass);
 
     while (!region_positions.empty()) {
-      const SubmitBatch* next_batch = nextBatch(region_positions, current_batch_id, current_blend_mode);
+      const SubmitBatch* next_batch = nextBatch(region_positions, current_batch);
       for (auto& region_position : region_positions) {
         SubmitBatch* batch = region_position.currentBatch();
-        if (batch->id() != next_batch->id() || batch->blendMode() != next_batch->blendMode())
+        if (!batch->match(next_batch))
           continue;
 
         batches.push_back({ batch, &region_position.invalid_rects, region_position.x,
@@ -345,8 +340,7 @@ namespace visage {
         checkOverlappingRegions(region_positions, overlapping_regions, backdrop_count);
 
       done_regions.clear();
-      current_batch_id = next_batch->id();
-      current_blend_mode = next_batch->blendMode();
+      current_batch = next_batch;
     }
 
     if (screenshot_requested_ && bgfx::isValid(frame_buffer_data_->read_back_handle)) {

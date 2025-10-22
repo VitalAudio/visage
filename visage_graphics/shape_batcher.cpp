@@ -336,8 +336,7 @@ namespace visage {
     setUniform<Uniforms::kGradientTexturePosition>(&texture_pos);
     setUniform<Uniforms::kGradientPosition>(gradient_pos.position1());
     setUniform<Uniforms::kGradientPosition2>(gradient_pos.position2());
-    float radial_gradient[] = { path_fill_wrapper.radialGradient() ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
-    setUniform<Uniforms::kRadialGradient>(radial_gradient);
+    setUniform<Uniforms::kRadialGradient>(path_fill_wrapper.radialGradient() ? 1.0f : 0.0f);
     setUniform<Uniforms::kLineWidth>(line_width);
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
 
@@ -395,8 +394,7 @@ namespace visage {
     setUniform<Uniforms::kGradientTexturePosition>(&texture_pos);
     setUniform<Uniforms::kGradientPosition>(gradient_pos.position1());
     setUniform<Uniforms::kGradientPosition2>(gradient_pos.position2());
-    float radial_gradient[] = { path_fill_wrapper.radialGradient() ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
-    setUniform<Uniforms::kRadialGradient>(radial_gradient);
+    setUniform<Uniforms::kRadialGradient>(path_fill_wrapper.radialGradient() ? 1.0f : 0.0f);
     setUniform<Uniforms::kLineWidth>(line_width);
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
 
@@ -594,6 +592,7 @@ namespace visage {
     setTexture<Uniforms::kTexture>(1, font.textureHandle());
     setUniformDimensions(layer.width(), layer.height());
     setColorMult(layer.hdr());
+    setUniform<Uniforms::kRadialGradient>(batches[0].shapes->front().radialGradient() ? 1.0f : 0.0f);
     bgfx::submit(submit_pass,
                  ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_tinted_texture));
   }
@@ -603,9 +602,7 @@ namespace visage {
     if (!setupQuads(batches, radial_gradient))
       return;
 
-    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
-    setUniform<Uniforms::kRadialGradient>(radial);
-
+    setUniform<Uniforms::kRadialGradient>(radial_gradient ? 1.0f : 0.0f);
     setBlendMode(BlendMode::Alpha);
     setTimeUniform(layer.time());
     setUniformDimensions(layer.width(), layer.height());
@@ -622,8 +619,7 @@ namespace visage {
     if (!setupQuads(batches, radial_gradient))
       return;
 
-    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
-    setUniform<Uniforms::kRadialGradient>(radial);
+    setUniform<Uniforms::kRadialGradient>(radial_gradient ? 1.0f : 0.0f);
 
     Layer* source_layer = batches[0].shapes->front().region->layer();
     float width_scale = 1.0f / source_layer->width();
