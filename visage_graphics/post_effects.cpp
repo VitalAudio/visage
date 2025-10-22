@@ -359,7 +359,7 @@ namespace visage {
     setUniformDimensions(destination.width(), destination.height());
 
     float value = destination.hdr() ? kHdrColorMultiplier : 1.0f;
-    float color_mult[] = { 5.0, value, value, 1.0f };
+    float color_mult[] = { value, value, value, 1.0f };
     setPostEffectUniform<Uniforms::kColorMult>(color_mult);
     setOriginFlipUniform(destination.bottomLeftOrigin());
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
