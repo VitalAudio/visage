@@ -29,27 +29,6 @@
 #include <algorithm>
 #include <numeric>
 
-#ifndef NDEBUG
-#include <random>
-
-inline int randomInt(int min, int max) {
-  static std::random_device random_device;
-  static std::mt19937 generator(random_device());
-  std::uniform_int_distribution distribution(min, max);
-  return distribution(generator);
-}
-
-template<typename T>
-static void debugVertices(T* vertices, int num_random, int spacing) {
-  for (int r = 0; r < num_random; ++r) {
-    int rand = randomInt(0, 0xff);
-    for (int s = 0; s < spacing; ++s)
-      vertices[r * spacing + s].color = (vertices[r * spacing + s].color & ~0xff) | rand;
-  }
-}
-
-#endif
-
 namespace visage {
   class Shader;
 
@@ -127,7 +106,6 @@ namespace visage {
       }
     }
 
-    // debugVertices(vertices, num_shapes, kVerticesPerQuad);
     VISAGE_ASSERT(vertex_index == num_shapes * kVerticesPerQuad);
     return vertices;
   }

@@ -99,8 +99,15 @@ namespace visage {
 
     if (backdrop_effect_) {
       const PackedBrush* brush = addBrush(canvas_->gradientAtlas(), Brush::solid(0xffffffff));
-      SampleRegion parent_region({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, brush, 0, 0, width_,
-                                 height_, this, backdrop_effect_);
+      Point point;
+      Region* parent = this;
+      while (parent->parent_) {
+        point += Point(parent->x_, parent->y_);
+        parent = parent->parent_;
+      }
+
+      SampleRegion parent_region({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, brush, -point.x,
+                                 -point.y, parent->width_, parent->height_, this, backdrop_effect_);
       shape_batcher_.addShape(parent_region);
     }
   }

@@ -263,9 +263,6 @@ namespace visage {
 
     checkFrameBuffer();
 
-    if (intermediate_layer_ && backdrop_count == 0)
-      clearInvalidRectAreas(submit_pass);
-
     std::vector<RegionPosition> region_positions;
     std::vector<RegionPosition> overlapping_regions;
     for (Region* region : regions_) {
@@ -273,11 +270,15 @@ namespace visage {
         continue;
 
       if (region->backdropEffect() && region->backdropCount() == backdrop_count) {
-        auto backdrop_region = region->parent();
-        // TODO improve
-        while (backdrop_region->parent() && backdrop_region->parent()->parent())
-          backdrop_region = backdrop_region->parent();
-        if (backdrop_region)
+        auto parent = region->parent();
+        auto backdrop_region = parent;
+        while (parent->parent()) {
+          parent = parent->parent();
+          if (parent->needsLayer())
+            backdrop_region = parent;
+        }
+
+        if (backdrop_region && backdrop_region->needsLayer())
           submit_pass = region->backdropEffect()->preprocess(backdrop_region, submit_pass);
       }
 
@@ -302,6 +303,9 @@ namespace visage {
 
     if (bgfx::isValid(frame_buffer_data_->handle))
       bgfx::setViewFrameBuffer(submit_pass, frame_buffer_data_->handle);
+
+    if (intermediate_layer_ && backdrop_count == 0)
+      clearInvalidRectAreas(submit_pass);
 
     while (!region_positions.empty()) {
       const SubmitBatch* next_batch = nextBatch(region_positions, current_batch_id, current_blend_mode);

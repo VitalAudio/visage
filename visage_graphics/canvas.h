@@ -642,6 +642,11 @@ namespace visage {
 
     void addRoundedRectangleBorder(float x, float y, float width, float height, float rounding,
                                    float thickness) {
+      if (rounding > width * 0.5f - 1.0f || rounding > height * 0.5f - 1.0f) {
+        fullRoundedRectangleBorder(x, y, width, height, rounding, thickness);
+        return;
+      }
+
       saveState();
       float left = state_.clamp.left;
       float right = state_.clamp.right;
