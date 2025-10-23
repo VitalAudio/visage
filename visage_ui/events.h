@@ -116,7 +116,7 @@ namespace visage {
       return isRightButton() || (isLeftButton() && isMacCtrlDown());
     }
 
-    const Frame* frame = nullptr;
+    const Frame* event_frame = nullptr;
     Point position;
     Point relative_position;
     Point window_position;

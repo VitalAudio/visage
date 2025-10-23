@@ -180,6 +180,7 @@ namespace visage {
     case MouseCursor::Pointing: cursor = pointing_cursor; break;
     case MouseCursor::HorizontalResize: cursor = horizontal_resize_cursor; break;
     case MouseCursor::VerticalResize: cursor = vertical_resize_cursor; break;
+    case MouseCursor::Dragging:
     case MouseCursor::MultiDirectionalResize: cursor = multi_directional_resize_cursor; break;
     default: cursor = arrow_cursor; break;
     }

@@ -96,7 +96,7 @@ public:
   static constexpr float kBackdropWidth = 400.0f;
 
   ExampleEditor() {
-    shapes_.setIgnoresMouseEvents(true, false);
+    setReceiveChildMouseEvents(true);
     shapes_.onDraw() = [this](visage::Canvas& canvas) {
       float width = shapes_.width();
       float height = shapes_.height();
@@ -140,7 +140,6 @@ public:
 
     blur_glass_.setBackdropEffect(&blur_backdrop_);
     blur_backdrop_.setBlurRadius(40.0f);
-    blur_glass_.setIgnoresMouseEvents(true, false);
 
     blur_glass_.onDraw() = [&](visage::Canvas& canvas) {
       canvas.setColor(0x22ffffff);
@@ -161,10 +160,21 @@ public:
                                     0.5f * std::min(blur_glass_.width(), blur_glass_.height()), 2.0f);
     };
 
-    onMouseMove() = [&](const visage::MouseEvent& e) {
-      float x = e.position.x - kBackdropWidth * 0.5f;
-      float y = e.position.y - kBackdropWidth * 0.5f;
+    onMouseDrag() = [&](const visage::MouseEvent& e) {
+      if (e.event_frame != &blur_glass_)
+        return;
+
+      float x = e.windowPosition().x - kBackdropWidth * 0.5f;
+      float y = e.windowPosition().y - kBackdropWidth * 0.5f;
       blur_glass_.setBounds(x, y, kBackdropWidth, kBackdropWidth);
+    };
+
+    blur_glass_.onMouseEnter() = [&](const visage::MouseEvent& e) {
+      setCursorStyle(visage::MouseCursor::MultiDirectionalResize);
+    };
+
+    blur_glass_.onMouseExit() = [&](const visage::MouseEvent& e) {
+      setCursorStyle(visage::MouseCursor::Arrow);
     };
   }
 

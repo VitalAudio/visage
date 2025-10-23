@@ -91,7 +91,7 @@ namespace visage {
   MouseEvent MouseEvent::relativeTo(const Frame* new_frame) const {
     MouseEvent copy = *this;
     copy.position = copy.window_position - new_frame->positionInWindow();
-    copy.frame = new_frame;
+    copy.event_frame = new_frame;
     return copy;
   }
 }

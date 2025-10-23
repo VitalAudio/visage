@@ -288,6 +288,8 @@ namespace visage {
     bool acceptsKeystrokes() const { return accepts_keystrokes_; }
     void setAcceptsKeystrokes(bool accepts_keystrokes) { accepts_keystrokes_ = accepts_keystrokes; }
 
+    bool receiveChildMouseEvents() const { return receive_child_mouse_events_; }
+    void setReceiveChildMouseEvents(bool receive) { receive_child_mouse_events_ = receive; }
     bool ignoresMouseEvents() const { return ignores_mouse_events_; }
     void setIgnoresMouseEvents(bool ignore, bool pass_to_children) {
       ignores_mouse_events_ = ignore;
@@ -363,12 +365,12 @@ namespace visage {
         event_handler_->set_clipboard_text(text);
     }
 
-    void processMouseEnter(const MouseEvent& e) { on_mouse_enter_.callback(e); }
-    void processMouseExit(const MouseEvent& e) { on_mouse_exit_.callback(e); }
-    void processMouseDown(const MouseEvent& e) { on_mouse_down_.callback(e); }
-    void processMouseUp(const MouseEvent& e) { on_mouse_up_.callback(e); }
-    void processMouseMove(const MouseEvent& e) { on_mouse_move_.callback(e); }
-    void processMouseDrag(const MouseEvent& e) { on_mouse_drag_.callback(e); }
+    void processMouseEnter(const MouseEvent& e) { propagateMouseEvent(e, &Frame::onMouseEnter); }
+    void processMouseExit(const MouseEvent& e) { propagateMouseEvent(e, &Frame::onMouseExit); }
+    void processMouseDown(const MouseEvent& e) { propagateMouseEvent(e, &Frame::onMouseDown); }
+    void processMouseUp(const MouseEvent& e) { propagateMouseEvent(e, &Frame::onMouseUp); }
+    void processMouseMove(const MouseEvent& e) { propagateMouseEvent(e, &Frame::onMouseMove); }
+    void processMouseDrag(const MouseEvent& e) { propagateMouseEvent(e, &Frame::onMouseDrag); }
     bool processMouseWheel(const MouseEvent& e) { return on_mouse_wheel_.callback(e); }
     void processFocusChanged(bool is_focused, bool was_clicked) {
       keyboard_focus_ = is_focused && accepts_keystrokes_;
@@ -389,6 +391,23 @@ namespace visage {
     bool canRedo() const;
 
   private:
+    void propagateMouseEvent(const MouseEvent& e, void (Frame::*handler)(const MouseEvent&)) {
+      (this->*handler)(e);
+      auto frame = parent_;
+      while (frame) {
+        if (frame->receiveChildMouseEvents())
+          (frame->*handler)(e);
+        frame = frame->parent_;
+      }
+    }
+
+    void onMouseEnter(const MouseEvent& e) { on_mouse_enter_.callback(e); }
+    void onMouseExit(const MouseEvent& e) { on_mouse_exit_.callback(e); }
+    void onMouseDown(const MouseEvent& e) { on_mouse_down_.callback(e); }
+    void onMouseUp(const MouseEvent& e) { on_mouse_up_.callback(e); }
+    void onMouseMove(const MouseEvent& e) { on_mouse_move_.callback(e); }
+    void onMouseDrag(const MouseEvent& e) { on_mouse_drag_.callback(e); }
+
     void notifyHierarchyChanged() {
       for (Frame* child : children_)
         child->notifyHierarchyChanged();
@@ -434,6 +453,7 @@ namespace visage {
     bool keyboard_focus_ = false;
     bool accepts_keystrokes_ = false;
     bool ignores_mouse_events_ = false;
+    bool receive_child_mouse_events_ = false;
     bool pass_mouse_events_to_children_ = true;
 
     std::vector<Frame*> children_;

@@ -248,7 +248,7 @@ namespace visage {
 
     if (mouse_down_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
-      mouse_event.frame = mouse_down_frame_;
+      mouse_event.event_frame = mouse_down_frame_;
       mouse_down_frame_->processMouseDrag(mouse_event);
       return;
     }
@@ -257,13 +257,13 @@ namespace visage {
     if (temporary_frame_ != mouse_hovered_frame_) {
       if (mouse_hovered_frame_) {
         mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
-        mouse_event.frame = mouse_hovered_frame_;
+        mouse_event.event_frame = mouse_hovered_frame_;
         mouse_hovered_frame_->processMouseExit(mouse_event);
       }
 
       if (temporary_frame_) {
         mouse_event.position = mouse_event.window_position - temporary_frame_->positionInWindow();
-        mouse_event.frame = temporary_frame_;
+        mouse_event.event_frame = temporary_frame_;
         temporary_frame_->processMouseEnter(mouse_event);
       }
       mouse_hovered_frame_ = temporary_frame_;
@@ -271,7 +271,7 @@ namespace visage {
     }
     else if (mouse_hovered_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
-      mouse_event.frame = mouse_hovered_frame_;
+      mouse_event.event_frame = mouse_hovered_frame_;
       mouse_hovered_frame_->processMouseMove(mouse_event);
     }
   }
@@ -296,7 +296,7 @@ namespace visage {
 
     if (mouse_down_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
-      mouse_event.frame = mouse_down_frame_;
+      mouse_event.event_frame = mouse_down_frame_;
       mouse_down_frame_->processMouseDown(mouse_event);
     }
   }
@@ -311,7 +311,7 @@ namespace visage {
 
     if (mouse_down_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
-      mouse_event.frame = mouse_down_frame_;
+      mouse_event.event_frame = mouse_down_frame_;
       mouse_down_frame_->processMouseUp(mouse_event);
       if (exited && mouse_down_frame_)
         mouse_down_frame_->processMouseExit(mouse_event);
@@ -319,7 +319,7 @@ namespace visage {
       mouse_down_frame_ = nullptr;
     }
 
-    mouse_event.frame = mouse_hovered_frame_;
+    mouse_event.event_frame = mouse_hovered_frame_;
     if (exited && mouse_hovered_frame_)
       mouse_hovered_frame_->processMouseEnter(mouse_event);
   }
@@ -333,7 +333,7 @@ namespace visage {
       MouseEvent mouse_event = mouseEvent(last_mouse_position_.x, last_mouse_position_.y,
                                           button_state, modifiers);
       mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
-      mouse_event.frame = mouse_hovered_frame_;
+      mouse_event.event_frame = mouse_hovered_frame_;
       mouse_hovered_frame_->processMouseExit(mouse_event);
       mouse_hovered_frame_ = nullptr;
     }
