@@ -72,6 +72,12 @@ namespace visage {
     default_region_.computeBackdropCount(0);
     int submission = submit_pass;
     int last_submission = submission - 1;
+
+    for (int i = 2; i < layers_.size(); ++i) {
+      if (!layers_[1]->invalidRects().empty())
+        layers_[i]->checkBackdropInvalidation(layers_[1]->invalidRects().begin()->second);
+    }
+
     for (int backdrop = 0; submission != last_submission; backdrop++) {
       last_submission = submission;
       for (int i = layers_.size() - 1; i > 0; --i)

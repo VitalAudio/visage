@@ -80,12 +80,10 @@ namespace visage {
         sub_region = sub_region->intermediateRegion();
 
       bool overlaps = false;
-      int index = std::distance(begin, it);
-      for (int i = 0; i < done_position.region->subRegions().size() && !overlaps; ++i) {
-        const auto& other = *(begin + i);
-        if (other->isVisible() && sub_region->overlaps(other)) {
-          overlaps = (i < index && sub_region->isOnTop() == other->isOnTop()) ||
-                     (!other->isOnTop() && sub_region->isOnTop());
+      for (const auto& other : positions) {
+        if (sub_region->overlaps(other.region)) {
+          overlaps = true;
+          break;
         }
       }
 
@@ -235,6 +233,26 @@ namespace visage {
     moveToVector(invalid_rects, invalid_rect_pieces_);
   }
 
+  void Layer::checkBackdropInvalidation(const std::vector<IBounds>& top_level_invalid_rects) {
+    for (Region* region : regions_) {
+      if (region->backdropEffect()) {
+        IBounds bounds(0, 0, region->width(), region->height());
+        Region* parent = region;
+        while (parent) {
+          bounds = bounds + IPoint(parent->x(), parent->y());
+          parent = parent->parent();
+        }
+
+        for (const IBounds& invalid_rect : top_level_invalid_rects) {
+          if (bounds.overlaps(invalid_rect)) {
+            region->invalidate();
+            return;
+          }
+        }
+      }
+    }
+  }
+
   bool Layer::hasBackdropEffect() const {
     for (Region* region : regions_) {
       if (region->backdropEffect())
@@ -282,10 +300,8 @@ namespace visage {
             backdrop_region = parent;
         }
 
-        if (backdrop_region && backdrop_region->needsLayer()) {
-          region->invalidate();
+        if (backdrop_region && backdrop_region->needsLayer())
           submit_pass = region->backdropEffect()->preprocess(backdrop_region, submit_pass);
-        }
       }
 
       IPoint point = coordinatesForRegion(region);
