@@ -406,6 +406,10 @@ namespace visage {
                              float ry_top_left, float rx_top_right, float ry_top_right, float rx_bottom_left,
                              float ry_bottom_left, float rx_bottom_right, float ry_bottom_right);
     void addRoundedRectangle(float x, float y, float width, float height, float rx, float ry);
+    void addRoundedRectangle(float x, float y, float width, float height, float r) {
+      addRoundedRectangle(x, y, width, height, r, r);
+    }
+
     void addEllipse(float cx, float cy, float rx, float ry);
     void addCircle(float cx, float cy, float r);
 
@@ -522,6 +526,16 @@ namespace visage {
     }
 
     float errorTolerance() const { return error_tolerance_; }
+    float length() const {
+      float total_length = 0.0f;
+      for (const auto& path : paths_) {
+        for (size_t i = 1; i < path.points.size(); ++i)
+          total_length += (path.points[i] - path.points[i - 1]).length();
+        if (path.closed && path.points.size() > 2)
+          total_length += (path.points.front() - path.points.back()).length();
+      }
+      return total_length;
+    }
 
     void setResolutionMatrix(const Matrix& matrix) { resolution_matrix_ = matrix; }
     const Matrix& resolutionMatrix() const { return resolution_matrix_; }

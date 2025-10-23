@@ -1431,6 +1431,9 @@ namespace visage {
     if (dash_total <= 0.0f)
       dash_array.clear();
 
+    if (dash_array.size() % 2 != 0)
+      dash_total *= 2.0f;
+
     Path stroke_path;
     if (!dash_array.empty()) {
       if (dash_offset < 0.0f)
@@ -1439,16 +1442,17 @@ namespace visage {
         dash_offset = std::fmod(dash_offset, dash_total);
 
       int dash_index = 0;
+      bool fill = true;
       float dash_length = dash_array[0];
       while (dash_offset > dash_length) {
         dash_offset -= dash_length;
         dash_index = (dash_index + 1) % dash_array.size();
         dash_length = dash_array[dash_index];
+        fill = !fill;
       }
 
       dash_length -= dash_offset;
 
-      bool fill = true;
       for (auto& path : paths_) {
         auto prev = path.points[0];
         stroke_path.moveTo(prev);
