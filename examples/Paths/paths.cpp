@@ -25,6 +25,24 @@
 #include <visage/graphics.h>
 #include <visage/ui.h>
 
+visage::Path starPath(float center_x, float center_y, float radius) {
+  static constexpr float kPi = 3.14159265f;
+  visage::Path path;
+  int num_points = 10;
+  for (int i = 0; i < num_points; ++i) {
+    float angle = (float)i / (float)num_points * 2.0f * kPi;
+    float r = (i % 2) ? radius : radius * 0.4f;
+    auto point = visage::Point { center_x, center_y } +
+                 r * visage::Point(std::sin(angle), std::cos(angle));
+    if (i == 0)
+      path.moveTo(point);
+    else
+      path.lineTo(point);
+  }
+  path.close();
+  return path;
+}
+
 int runExample() {
   visage::ApplicationWindow app;
 
@@ -34,31 +52,16 @@ int runExample() {
 
     canvas.setColor(0xffff44ff);
 
-    visage::Path path;
     float w = app.width() / 3.0f;
     float h = app.height();
-    visage::Point center { w / 2.0f, h / 2.0f };
-    float outer_radius = std::min(w, h) * 0.4f;
-    float inner_radius = std::min(w, h) * 0.162f;
-    int num_points = 10;
-    for (int i = 0; i < num_points; ++i) {
-      float angle = (float)i / (float)num_points * 2.f * 3.14159265f;
-      float radius = (i % 2) ? outer_radius : inner_radius;
-      auto point = center + radius * visage::Point(std::sin(angle), std::cos(angle));
-      if (i == 0)
-        path.moveTo(point);
-      else
-        path.lineTo(point);
-    }
-    path.close();
+    visage::Path star = starPath(w * 0.5f, h * 0.5f, std::min(w, h) * 0.4f);
+    auto stroked = star.stroke(2);
+    float segment = star.length() / 20.0f;
+    auto dashed = star.stroke(2, visage::Path::Join::Miter, visage::Path::EndCap::Butt, { segment },
+                              canvas.time() * segment);
+    canvas.fill(star, 0, 0, w, h);
 
-    canvas.fill(path, 0, 0, w, h);
-
-    auto stroked = path.stroke(2);
     canvas.fill(stroked, w, 0, w, h);
-
-    auto dashed = path.stroke(2, visage::Path::Join::Miter, visage::Path::EndCap::Butt,
-                              { path.length() / 20.0f }, canvas.time() * 50.0f);
     canvas.fill(dashed, 2.0f * w, 0, w, h);
     app.redraw();
   };
