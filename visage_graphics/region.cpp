@@ -98,7 +98,6 @@ namespace visage {
     old_brushes_ = std::move(brushes_);
 
     if (backdrop_effect_) {
-      const PackedBrush* brush = addBrush(canvas_->gradientAtlas(), Brush::solid(0xffffffff));
       Point point;
       Region* parent = this;
       while (parent->parent_) {
@@ -106,6 +105,7 @@ namespace visage {
         parent = parent->parent_;
       }
 
+      const PackedBrush* brush = addBrush(canvas_->gradientAtlas(), Brush::solid(0xffffffff));
       SampleRegion parent_region({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, brush, -point.x,
                                  -point.y, parent->width_, parent->height_, this, backdrop_effect_);
       shape_batcher_.addShape(parent_region);
