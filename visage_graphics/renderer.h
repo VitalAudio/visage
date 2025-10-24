@@ -22,8 +22,8 @@
 #pragma once
 
 #include "screenshot.h"
-#include "windowless_context.h"
 #include "visage_utils/thread_utils.h"
+#include "windowless_context.h"
 
 namespace visage {
   class GraphicsCallbackHandler;
