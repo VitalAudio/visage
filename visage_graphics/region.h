@@ -163,7 +163,6 @@ namespace visage {
     int layer_index_ = 0;
     int backdrop_count_ = 0;
     int backdrop_count_children_ = 0;
-    int intermediate_backdrop_count_ = 0;
 
     Canvas* canvas_ = nullptr;
     Region* parent_ = nullptr;
