@@ -240,7 +240,7 @@ namespace visage {
         }
 
         if (std::any_of(top_level_invalid_rects.begin(), top_level_invalid_rects.end(),
-                        [&bounds](const auto& region) { return bounds.overlaps(invalid_rect); })) {
+                        [&bounds](const auto& invalid_rect) { return bounds.overlaps(invalid_rect); })) {
           region->invalidate();
         }
       }
