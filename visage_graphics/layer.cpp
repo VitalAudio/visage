@@ -239,11 +239,9 @@ namespace visage {
           parent = parent->parent();
         }
 
-        for (const IBounds& invalid_rect : top_level_invalid_rects) {
-          if (bounds.overlaps(invalid_rect)) {
-            region->invalidate();
-            return;
-          }
+        if (std::any_of(top_level_invalid_rects.begin(), top_level_invalid_rects.end(),
+                        [&bounds](const auto& region) { return bounds.overlaps(invalid_rect); })) {
+          region->invalidate();
         }
       }
     }
