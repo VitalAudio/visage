@@ -68,7 +68,7 @@ namespace visage {
 
     void addTimer(EventTimer* timer);
     void removeTimer(const EventTimer* timer);
-    void addCallback(std::function<void()> function);
+    void addCallback(std::function<void()> callback);
     void checkEventTimers();
 
   private:

@@ -23,7 +23,6 @@
 
 #include <visage_widgets/bar_list.h>
 #include <visage_widgets/button.h>
-#include <visage_widgets/graph_line.h>
 #include <visage_widgets/shader_quad.h>
 #include <visage_widgets/text_editor.h>
 
@@ -32,7 +31,7 @@ class AnimatedLines;
 
 class TitleBar : public visage::Frame {
 public:
-  TitleBar(const std::string& title) : title_(title) { setIgnoresMouseEvents(true, true); }
+  explicit TitleBar(const std::string& title) : title_(title) { setIgnoresMouseEvents(true, true); }
 
   void draw(visage::Canvas& canvas) override;
 
@@ -42,7 +41,7 @@ private:
 
 class ExampleSection : public visage::Frame {
 public:
-  ExampleSection(const std::string& title, visage::Frame* example);
+  ExampleSection(const std::string& title, Frame* example);
 
 private:
   std::string title_;

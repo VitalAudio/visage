@@ -104,7 +104,7 @@ namespace visage {
   }
 
   std::vector<ProgramCache::ShaderPair> ProgramCache::listPrograms() const {
-    std::vector<ProgramCache::ShaderPair> results;
+    std::vector<ShaderPair> results;
     for (const auto& vertex : cache_->shader_lookup) {
       for (const auto& fragment : vertex.second)
         results.push_back(fragment.second);

@@ -147,19 +147,17 @@ namespace visage::theme {
       return ValueId(id->next_id_++);
     }
 
-    static inline float defaultValue(ValueId value_id) {
+    static float defaultValue(ValueId value_id) {
       return Map::instance()->info_map_[value_id].default_value;
     }
 
-    static inline ValueIdInfo info(ValueId value_id) {
-      return Map::instance()->info_map_[value_id];
-    }
+    static ValueIdInfo info(ValueId value_id) { return Map::instance()->info_map_[value_id]; }
 
-    static inline const std::string& groupName(ValueId value_id) {
+    static const std::string& groupName(ValueId value_id) {
       return Map::instance()->info_map_[value_id].group;
     }
 
-    static inline const std::string& name(ValueId value_id) {
+    static const std::string& name(ValueId value_id) {
       return Map::instance()->info_map_[value_id].name;
     }
 
@@ -207,11 +205,11 @@ namespace visage::theme {
       return OverrideId(id->next_id_++);
     }
 
-    static inline const std::string& name(OverrideId value_id) {
+    static const std::string& name(OverrideId value_id) {
       return Map::instance()->name_map_[value_id];
     }
 
-    static inline OverrideId idFromName(const std::string& name) {
+    static OverrideId idFromName(const std::string& name) {
       Map* id = Map::instance();
       for (const auto& assignment : id->name_map_) {
         if (assignment.second == name)

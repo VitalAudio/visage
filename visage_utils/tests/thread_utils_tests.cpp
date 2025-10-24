@@ -38,7 +38,7 @@ TEST_CASE("Thread basic lifecycle", "[utils]") {
   REQUIRE(thread.shouldRun());
 
   std::atomic<bool> task_executed { false };
-  thread.setThreadTask([&task_executed]() { task_executed = true; });
+  thread.setThreadTask([&task_executed] { task_executed = true; });
 
   thread.start();
   REQUIRE(thread.waitForEnd(1000));
@@ -64,7 +64,7 @@ TEST_CASE("Thread stop before completion", "[utils]") {
   std::atomic<bool> should_continue { true };
   std::atomic<int> counter { 0 };
 
-  thread.setThreadTask([&should_continue, &counter, &thread]() {
+  thread.setThreadTask([&should_continue, &counter, &thread] {
     while (thread.shouldRun() && should_continue) {
       counter++;
       Thread::sleep(10);
@@ -87,14 +87,14 @@ TEST_CASE("Multiple thread instances", "[utils]") {
 
   std::atomic<int> shared_counter { 0 };
 
-  thread1.setThreadTask([&shared_counter]() {
+  thread1.setThreadTask([&shared_counter] {
     for (int i = 0; i < 100; ++i) {
       shared_counter++;
       Thread::yield();
     }
   });
 
-  thread2.setThreadTask([&shared_counter]() {
+  thread2.setThreadTask([&shared_counter] {
     for (int i = 0; i < 100; ++i) {
       shared_counter++;
       Thread::yield();
@@ -114,7 +114,7 @@ TEST_CASE("Thread restart after completion", "[utils]") {
   Thread thread;
   std::atomic<int> execution_count { 0 };
 
-  thread.setThreadTask([&execution_count]() { execution_count++; });
+  thread.setThreadTask([&execution_count] { execution_count++; });
 
   thread.start();
   REQUIRE(thread.waitForEnd(1000));
@@ -130,14 +130,14 @@ TEST_CASE("Thread task modification", "[utils]") {
   std::atomic<bool> first_task_executed { false };
   std::atomic<bool> second_task_executed { false };
 
-  thread.setThreadTask([&first_task_executed]() { first_task_executed = true; });
+  thread.setThreadTask([&first_task_executed] { first_task_executed = true; });
 
   thread.start();
   REQUIRE(thread.waitForEnd(1000));
   REQUIRE(first_task_executed);
   REQUIRE_FALSE(second_task_executed);
 
-  thread.setThreadTask([&second_task_executed]() { second_task_executed = true; });
+  thread.setThreadTask([&second_task_executed] { second_task_executed = true; });
 
   thread.start();
   REQUIRE(thread.waitForEnd(1000));
@@ -157,7 +157,7 @@ TEST_CASE("Main thread detection", "[utils]") {
   Thread thread;
   std::atomic<bool> is_main_in_thread { true };
 
-  thread.setThreadTask([&is_main_in_thread]() { is_main_in_thread = Thread::isMainThread(); });
+  thread.setThreadTask([&is_main_in_thread] { is_main_in_thread = Thread::isMainThread(); });
 
   thread.start();
   thread.waitForEnd(1000);

@@ -23,8 +23,6 @@
 
 #include "visage_ui/frame.h"
 
-#include <set>
-
 namespace visage {
   class ApplicationEditor;
   class Canvas;
@@ -57,7 +55,7 @@ namespace visage {
 
     void setCanvasDetails();
 
-    void addToWindow(Window* handle);
+    void addToWindow(Window* window);
     void setWindowless(int width, int height);
     void removeFromWindow();
     void drawWindow();

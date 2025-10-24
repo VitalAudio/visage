@@ -139,7 +139,7 @@ namespace visage {
       return fromARGB(std::stoul(hex, nullptr, 16));
     }
 
-    Color() : values_() { }
+    Color() = default;
     Color(float alpha, float red, float green, float blue, float hdr = 1.0f) {
       values_[kAlpha] = alpha;
       values_[kRed] = red;
@@ -324,7 +324,7 @@ namespace visage {
     std::string encode() const;
     void encode(std::ostringstream& stream) const;
     void decode(const std::string& data);
-    void decode(std::istringstream& data);
+    void decode(std::istringstream& stream);
 
     Color interpolateWith(const Color& other, float t) const {
       Color result;

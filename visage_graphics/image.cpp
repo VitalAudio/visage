@@ -136,12 +136,12 @@ namespace visage {
       loadImageRect(image.second.get());
   }
 
-  void ImageAtlas::loadImageRect(PackedImageRect* packed_image_rect) const {
-    const PackedRect& rect = atlas_map_.rectForId(packed_image_rect);
-    packed_image_rect->x = rect.x;
-    packed_image_rect->y = rect.y;
-    packed_image_rect->w = rect.w;
-    packed_image_rect->h = rect.h;
+  void ImageAtlas::loadImageRect(PackedImageRect* image) const {
+    const PackedRect& rect = atlas_map_.rectForId(image);
+    image->x = rect.x;
+    image->y = rect.y;
+    image->w = rect.w;
+    image->h = rect.h;
   }
 
   void ImageAtlas::updateImage(const PackedImageRect* image) const {

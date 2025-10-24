@@ -178,7 +178,7 @@ namespace visage {
     redraw();
   }
 
-  void Frame::setNativeBounds(visage::IBounds native_bounds) {
+  void Frame::setNativeBounds(IBounds native_bounds) {
     setBounds(Bounds(native_bounds) * (1.0f / dpi_scale_));
   }
 

@@ -46,7 +46,7 @@ include(cmake/testing_framework.cmake)
 set(VISAGE_INCLUDE ${CMAKE_CURRENT_BINARY_DIR}/include)
 
 function(amalgamate_headers AMALGAMATED_HEADER_NAME FILE_HEADERS)
-  set(FILE_CONTENTS "// Auto generated amalgamated header.\n")
+  set(FILE_CONTENTS "// Auto generated amalgamated header.\n#pragma once\n")
   foreach (FILE ${FILE_HEADERS})
     set(FILE_CONTENTS "${FILE_CONTENTS}#include \"${FILE}\"\n")
   endforeach ()

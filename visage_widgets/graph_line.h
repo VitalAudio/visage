@@ -21,7 +21,6 @@
 
 #pragma once
 
-#include "visage_graphics/path.h"
 #include "visage_graphics/theme.h"
 #include "visage_ui/frame.h"
 

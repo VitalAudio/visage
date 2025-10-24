@@ -54,7 +54,7 @@ static constexpr unsigned int kViridisMap[kViridisMapResolution] = {
 
 visage::Color sampleViridis(float t) {
   int index = std::round((1.0f - t) * (kViridisMapResolution - 1));
-  return visage::Color(kViridisMap[static_cast<int>(index)]);
+  return visage::Color(kViridisMap[index]);
 }
 
 visage::Color sampleOkLab(float t) {
@@ -92,7 +92,7 @@ void setPattern(visage::Gradient& gradient, const std::string& pattern) {
     gradient.setRepeat(false);
     gradient.setReflect(true);
   }
-};
+}
 
 class PointsFrame : public visage::Frame {
 public:

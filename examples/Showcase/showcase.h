@@ -56,7 +56,7 @@ private:
 
 class PaletteColorWindow : public visage::ApplicationWindow {
 public:
-  PaletteColorWindow(visage::Palette* palette) : editor_(palette) {
+  explicit PaletteColorWindow(visage::Palette* palette) : editor_(palette) {
     addChild(&editor_);
     editor_.layout().setMargin(0);
   }
@@ -67,7 +67,7 @@ private:
 
 class PaletteValueWindow : public visage::ApplicationWindow {
 public:
-  PaletteValueWindow(visage::Palette* palette) : editor_(palette) {
+  explicit PaletteValueWindow(visage::Palette* palette) : editor_(palette) {
     addChild(&editor_);
     editor_.layout().setMargin(0);
   }

@@ -80,7 +80,7 @@ TEST_CASE("UndoableAction base functionality", "[ui]") {
 
   SECTION("Setup function") {
     bool setup_called = false;
-    action.setSetupFunction([&setup_called]() { setup_called = true; });
+    action.setSetupFunction([&setup_called] { setup_called = true; });
 
     action.setup();
     REQUIRE(setup_called);
@@ -96,11 +96,11 @@ TEST_CASE("LambdaAction functionality", "[ui]") {
   bool undo_called = false;
   bool redo_called = false;
 
-  auto undo_func = [&]() {
+  auto undo_func = [&] {
     value = 10;
     undo_called = true;
   };
-  auto redo_func = [&]() {
+  auto redo_func = [&] {
     value = 20;
     redo_called = true;
   };
@@ -345,7 +345,7 @@ TEST_CASE("UndoHistory setup function integration", "[ui]") {
   bool setup_called = false;
 
   auto action = std::make_unique<TestAction>(value, 10, 20);
-  action->setSetupFunction([&setup_called]() { setup_called = true; });
+  action->setSetupFunction([&setup_called] { setup_called = true; });
 
   history.push(std::move(action));
 

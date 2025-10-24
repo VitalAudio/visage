@@ -226,7 +226,7 @@ TEST_CASE("Child process concurrent execution", "[utils]") {
   std::atomic<int> failure_count { 0 };
 
   for (int i = 0; i < 5; ++i) {
-    threads.emplace_back([&success_count, &failure_count, i]() {
+    threads.emplace_back([&success_count, &failure_count, i] {
 #if VISAGE_WINDOWS
       std::string command = "cmd.exe";
       std::string argument = "/C echo test" + std::to_string(i);

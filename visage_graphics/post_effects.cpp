@@ -30,23 +30,26 @@
 
 namespace visage {
   template<const char* name>
-  inline void setPostEffectUniform(const void* values) {
+  void setPostEffectUniform(const void* values) {
     static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
     bgfx::setUniform(uniform, values);
   }
 
   template<const char* name>
-  inline void setPostEffectUniform(float value0, float value1 = 0.0f, float value2 = 0.0f,
-                                   float value3 = 0.0f) {
+  void setPostEffectUniform(float value0, float value1 = 0.0f, float value2 = 0.0f, float value3 = 0.0f) {
     float values[4] = { value0, value1, value2, value3 };
     static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
     bgfx::setUniform(uniform, values);
   }
 
   template<const char* name>
-  inline void setPostEffectTexture(int stage, bgfx::TextureHandle handle) {
+  void setPostEffectTexture(int stage, bgfx::TextureHandle handle) {
     static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Sampler, 1);
     bgfx::setTexture(stage, uniform, handle);
+  }
+
+  inline void setFlipUniform(bool origin_flip) {
+    setPostEffectUniform<Uniforms::kOriginFlip>(origin_flip ? -1.0 : 1.0, origin_flip ? 1.0 : 0.0);
   }
 
   struct DownsampleHandles {
@@ -106,7 +109,7 @@ namespace visage {
     float value = hdr() ? 1.0f / kHdrColorMultiplier : 1.0f;
     float color_mult[] = { value, value, value, 1.0f };
     setPostEffectUniform<Uniforms::kColorMult>(color_mult);
-    setOriginFlipUniform(destination.bottomLeftOrigin());
+    setFlipUniform(destination.bottomLeftOrigin());
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                           SampleRegion::fragmentShader()));
   }
@@ -361,7 +364,7 @@ namespace visage {
     float value = destination.hdr() ? kHdrColorMultiplier : 1.0f;
     float color_mult[] = { value, value, value, 1.0f };
     setPostEffectUniform<Uniforms::kColorMult>(color_mult);
-    setOriginFlipUniform(destination.bottomLeftOrigin());
+    setFlipUniform(destination.bottomLeftOrigin());
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                           SampleRegion::fragmentShader()));
   }
@@ -530,7 +533,7 @@ namespace visage {
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
     float value = hdr() ? 1.0f / kHdrColorMultiplier : 1.0f;
     setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
-    setOriginFlipUniform(destination.bottomLeftOrigin());
+    setFlipUniform(destination.bottomLeftOrigin());
 
     setPostEffectUniform<Uniforms::kTextureClamp>((vertices[0].texture_x + 0.5f) * width_scale,
                                                   (vertices[0].texture_y + 0.5f) * height_scale,

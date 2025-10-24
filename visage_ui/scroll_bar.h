@@ -231,7 +231,7 @@ namespace visage {
       smooth_position_ = std::max(0.0f, smooth_position_);
 
       smooth_start_time_ = time::milliseconds();
-      runOnEventThread([this]() { smoothScrollUpdate(); });
+      runOnEventThread([this] { smoothScrollUpdate(); });
       return true;
     }
 
@@ -241,7 +241,7 @@ namespace visage {
       if (t >= 1.0f)
         position = smooth_position_;
       else if (t >= 0.0f)
-        runOnEventThread([this]() { smoothScrollUpdate(); });
+        runOnEventThread([this] { smoothScrollUpdate(); });
 
       scrollPositionChanged(position);
       scroll_bar_.setViewPosition(scroll_bar_.viewRange(), scroll_bar_.viewHeight(), position);

@@ -62,7 +62,7 @@ namespace visage {
   }
 
   int PopupList::yForIndex(int index) const {
-    return (paletteValue(PopupSelectionPadding) + index * paletteValue(PopupOptionHeight));
+    return paletteValue(PopupSelectionPadding) + index * paletteValue(PopupOptionHeight);
   }
 
   void PopupList::selectHoveredIndex() {

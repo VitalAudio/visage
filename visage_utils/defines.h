@@ -29,7 +29,7 @@ namespace visage {
   void debugLogArgs(const char* file, unsigned int line, const char* format, va_list arg_list);
 
   template<typename T>
-  inline void debugLog(const char* file, unsigned int line, T message, ...) {
+  void debugLog(const char* file, unsigned int line, T message, ...) {
     debugLogString(file, line, message);
   }
 
@@ -58,8 +58,8 @@ namespace visage {
   template<typename T>
   class InstanceCounter {
   public:
-    static InstanceCounter<T>& instance() {
-      static InstanceCounter<T> instance;
+    static InstanceCounter& instance() {
+      static InstanceCounter instance;
       return instance;
     }
 

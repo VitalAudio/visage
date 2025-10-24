@@ -134,7 +134,7 @@ TEST_CASE("Breaking rectangles", "[utils]") {
   std::vector<IBounds> pieces;
   IBounds::breakIntoNonOverlapping(bounds1, bounds2, pieces);
   REQUIRE(!bounds1.overlaps(bounds2));
-  REQUIRE(pieces.size() == 0);
+  REQUIRE(pieces.empty());
 }
 
 TEST_CASE("Bounds copy constructor", "[utils]") {

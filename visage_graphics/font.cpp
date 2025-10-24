@@ -22,7 +22,6 @@
 #include "font.h"
 
 #include "emoji.h"
-#include "image.h"
 #include "visage_utils/thread_utils.h"
 
 #include <bgfx/bgfx.h>
@@ -158,7 +157,7 @@ namespace visage {
         for (int y = 0; y < packed_glyph->height; ++y) {
           for (int x = 0; x < packed_glyph->width; ++x) {
             int i = y * packed_glyph->width + x;
-            texture[i] = ((glyph->bitmap.buffer[y * packed_glyph->width + x]) << 24) + 0xffffff;
+            texture[i] = (glyph->bitmap.buffer[y * packed_glyph->width + x] << 24) + 0xffffff;
           }
         }
       }
@@ -266,10 +265,10 @@ namespace visage {
     return false;
   }
 
-  Font::Font(float size, const unsigned char* data, int data_size, float dpi_scale) :
+  Font::Font(float size, const unsigned char* font_data, int data_size, float dpi_scale) :
       size_(size), dpi_scale_(dpi_scale) {
     native_size_ = std::round(size * (dpi_scale ? dpi_scale : 1.0f));
-    packed_font_ = FontCache::loadPackedFont(native_size_, data, data_size);
+    packed_font_ = FontCache::loadPackedFont(native_size_, font_data, data_size);
   }
 
   Font::Font(float size, const EmbeddedFile& file, float dpi_scale) :
@@ -470,7 +469,7 @@ namespace visage {
 
   float Font::nativeLowerDipHeight() const {
     const PackedGlyph* glyph = packed_font_->packedGlyph('y');
-    return (glyph->y_offset + glyph->height);
+    return glyph->y_offset + glyph->height;
   }
 
   int Font::atlasWidth() const {

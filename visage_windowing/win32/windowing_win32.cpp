@@ -477,7 +477,7 @@ namespace visage {
 
   class DragDropSourceObject : public IDataObject {
   public:
-    static HDROP createHDrop(const visage::File& file) {
+    static HDROP createHDrop(const File& file) {
       std::wstring file_path = file.wstring();
       size_t file_bytes = (file_path.size() + 1) * sizeof(WCHAR);
       HDROP drop = static_cast<HDROP>(GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT,
@@ -504,8 +504,7 @@ namespace visage {
       return drop;
     }
 
-    explicit DragDropSourceObject(const File& file) :
-        drop_(DragDropSourceObject::createHDrop(file)) { }
+    explicit DragDropSourceObject(const File& file) : drop_(createHDrop(file)) { }
 
     virtual ~DragDropSourceObject() = default;
 
@@ -1096,7 +1095,7 @@ namespace visage {
                       mouseButtonState(w_param), keyboardModifiers());
 
       if (isDragDropSource()) {
-        visage::File file = startDragDropSource();
+        File file = startDragDropSource();
         DragDropSource* drop_source = new DragDropSource();
         DragDropSourceObject* data_object = new DragDropSourceObject(file);
 
@@ -1122,11 +1121,11 @@ namespace visage {
         PostMessage(hwnd, WM_CLOSE, 0, 0);
         return 0;
       }
-      else if (w_param == HTMAXBUTTON) {
+      if (w_param == HTMAXBUTTON) {
         ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE);
         return 0;
       }
-      else if (w_param == HTMINBUTTON) {
+      if (w_param == HTMINBUTTON) {
         ShowWindow(hwnd, SW_MINIMIZE);
         return 0;
       }
@@ -1432,7 +1431,7 @@ namespace visage {
     return std::make_unique<WindowWin32>(bounds.width(), bounds.height(), parent_handle);
   }
 
-  WindowWin32::WindowWin32(int x, int y, int width, int height, Window::Decoration decoration) :
+  WindowWin32::WindowWin32(int x, int y, int width, int height, Decoration decoration) :
       Window(width, height), decoration_(decoration) {
     static constexpr int kWindowFlags = WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX |
                                         WS_MAXIMIZEBOX;
@@ -1445,7 +1444,7 @@ namespace visage {
     RegisterClassEx(&window_class_);
 
     int flags = kWindowFlags;
-    if (decoration_ == Window::Decoration::Popup)
+    if (decoration_ == Decoration::Popup)
       flags = kPopupFlags;
 
     std::string app_name = VISAGE_APPLICATION_NAME;
@@ -1461,7 +1460,7 @@ namespace visage {
 
     IBounds borders = windowBorderSize(window_handle_);
     int window_height = height + borders.height();
-    if (decoration_ == Window::Decoration::Client)
+    if (decoration_ == Decoration::Client)
       window_height = height + borders.bottom() + 2;
 
     SetWindowPos(window_handle_, nullptr, x - borders.width() / 2, y, width + borders.width(),

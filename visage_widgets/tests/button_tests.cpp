@@ -194,7 +194,7 @@ TEST_CASE("Button undo setup function", "[widgets]") {
   Button button;
   bool undo_setup_called = false;
 
-  button.setUndoSetupFunction([&]() { undo_setup_called = true; });
+  button.setUndoSetupFunction([&] { undo_setup_called = true; });
 
   auto undo_func = button.undoSetupFunction();
   REQUIRE(undo_func != nullptr);

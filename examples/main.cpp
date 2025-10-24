@@ -23,12 +23,11 @@ int runExample();
 
 #if VISAGE_WINDOWS
 #include <windows.h>
-int WINAPI WinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev_instance, _In_ LPSTR cmd_line,
-                   _In_ int show_cmd) {
+int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
   return runExample();
 }
 #else
-int main(int argc, char** argv) {
+int main(int, char**) {
   return runExample();
 }
 #endif

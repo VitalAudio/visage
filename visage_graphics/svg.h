@@ -21,7 +21,6 @@
 
 #pragma once
 
-#include "graphics_utils.h"
 #include "visage_file_embed/embedded_file.h"
 #include "visage_graphics/gradient.h"
 #include "visage_graphics/path.h"
@@ -303,8 +302,8 @@ namespace visage {
 
         transform = Transform::scale(scale_x, scale_y) *
                     Transform::translation(-view.view_box.x(), -view.view_box.y());
-        extra_width = width - (view.view_box.width() * scale_x);
-        extra_height = height - (view.view_box.height() * scale_y);
+        extra_width = width - view.view_box.width() * scale_x;
+        extra_height = height - view.view_box.height() * scale_y;
       }
 
       if (view.align == "xMidYMid")

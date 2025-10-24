@@ -42,13 +42,13 @@ namespace visage {
 
     PopupMenu() = default;
     PopupMenu(const String& name, int id = -1, std::vector<PopupMenu> options = {}, bool is_break = false) :
-        name_(name), id_(id), options_(std::move(options)), is_break_(is_break) { }
+        name_(name), id_(id), is_break_(is_break), options_(std::move(options)) { }
 
     void show(Frame* source, Point position = { kNotSet, kNotSet });
     void setAsNativeMenuBar() { setNativeMenuBar(*this); }
 
     PopupMenu& addOption(int option_id, const String& option_name) {
-      options_.push_back({ option_name, option_id });
+      options_.emplace_back(option_name, option_id);
       return options_.back();
     }
 

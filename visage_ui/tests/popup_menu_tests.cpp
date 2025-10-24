@@ -167,16 +167,10 @@ TEST_CASE("PopupMenu callbacks", "[ui]") {
 
   SECTION("Cancel callback") {
     bool cancel_called = false;
-    menu.onCancel().add([&]() { cancel_called = true; });
+    menu.onCancel().add([&] { cancel_called = true; });
 
     menu.onCancel().callback();
     REQUIRE(cancel_called);
-  }
-
-  SECTION("Const callback access") {
-    const PopupMenu const_menu("Const Menu", 1);
-    const auto& selection_callbacks = const_menu.onSelection();
-    const auto& cancel_callbacks = const_menu.onCancel();
   }
 }
 

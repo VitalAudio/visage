@@ -21,7 +21,6 @@
 
 #pragma once
 
-#include "visage_graphics/color.h"
 #include "visage_graphics/font.h"
 #include "visage_ui/frame.h"
 #include "visage_ui/scroll_bar.h"

@@ -113,7 +113,7 @@ namespace visage {
 
     stream.seekg(0, std::ios::end);
     std::string out;
-    out.resize(static_cast<size_t>(stream.tellg()));
+    out.resize(stream.tellg());
     stream.seekg(0, std::ios::beg);
     stream.read(out.data(), out.size());
     return out;
@@ -154,8 +154,8 @@ namespace visage {
     static File path;
     if (path.empty()) {
       char buffer[MAX_PATH];
-      SHGetFolderPathA(nullptr, CSIDL_APPDATA, nullptr, 0, buffer);
-      path = buffer;
+      if (SUCCEEDED(SHGetFolderPathA(nullptr, CSIDL_APPDATA, nullptr, 0, buffer)))
+        path = buffer;
     }
     return path;
 #elif VISAGE_MAC
@@ -172,8 +172,8 @@ namespace visage {
     static File path;
     if (path.empty()) {
       char buffer[MAX_PATH];
-      SHGetFolderPathA(nullptr, CSIDL_PERSONAL, nullptr, 0, buffer);
-      path = buffer;
+      if (SUCCEEDED(SHGetFolderPathA(nullptr, CSIDL_PERSONAL, nullptr, 0, buffer)))
+        path = buffer;
     }
     return path;
 #elif VISAGE_MAC

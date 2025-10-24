@@ -92,8 +92,10 @@ namespace visage {
       if (FAILED(hr))
         return;
 
-      text_layout->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-      text_layout->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+      if (FAILED(text_layout->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER)))
+        return;
+      if (FAILED(text_layout->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER)))
+        return;
 
       render_target->BeginDraw();
       render_target->Clear(D2D1::ColorF(D2D1::ColorF::White, 0.0f));

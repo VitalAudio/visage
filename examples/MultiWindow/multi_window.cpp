@@ -29,8 +29,6 @@ using namespace visage::dimension;
 class SubWindow : public visage::ApplicationWindow {
 public:
   void draw(visage::Canvas& canvas) override {
-    static constexpr int kColumns = 12;
-
     canvas.setColor(0xff222026);
     canvas.fill(0, 0, width(), height());
 
@@ -71,8 +69,6 @@ public:
   }
 
   void draw(visage::Canvas& canvas) override {
-    static constexpr int kColumns = 12;
-
     canvas.setColor(0xff222026);
     canvas.fill(0, 0, width(), height());
   }

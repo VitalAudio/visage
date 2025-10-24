@@ -22,7 +22,6 @@
 #include "path.h"
 
 #include <complex>
-#include <map>
 #include <memory>
 #include <set>
 
@@ -75,8 +74,8 @@ namespace visage {
     t.close();
   }
 
-  void Path::arcTo(float x_radius, float y_radius, float x_axis_rotation, bool large_arc,
-                   bool sweep_flag, Point to, bool relative) {
+  void Path::arcTo(float rx, float ry, float x_axis_rotation, bool large_arc, bool sweep_flag,
+                   Point point, bool relative) {
     if (currentPath().points.empty())
       addPoint(last_point_);
 
@@ -84,18 +83,18 @@ namespace visage {
 
     Point from = last_point_;
     if (relative)
-      to += last_point_;
+      point += last_point_;
 
     auto ellipse_rotation = Matrix::rotation(x_axis_rotation);
-    Point delta = ellipse_rotation.transposed() * (to - from);
-    float radius_ratio = x_radius / y_radius;
+    Point delta = ellipse_rotation.transposed() * (point - from);
+    float radius_ratio = rx / ry;
     delta.y *= radius_ratio;
 
     float length = delta.length();
     if (length == 0.0f)
       return;
 
-    float radius = std::max(length * 0.5f, x_radius);
+    float radius = std::max(length * 0.5f, rx);
     float center_offset = std::sqrt(radius * radius - length * length * 0.25f);
     Point normal = Point(delta.y, -delta.x) / length;
     if (large_arc != sweep_flag)
@@ -109,7 +108,7 @@ namespace visage {
     if (!sweep_flag)
       arc_angle = -arc_angle;
 
-    Point adjusted_radius = resolution_matrix_ * Point(x_radius, y_radius);
+    Point adjusted_radius = resolution_matrix_ * Point(rx, ry);
     float max_radius = std::max(std::abs(adjusted_radius.x), std::abs(adjusted_radius.y));
     float max_delta_radians = 2.0f * std::acos(1.0f - error_tolerance_ / max_radius);
     int num_points = std::ceil(std::abs(arc_angle) / max_delta_radians);
@@ -356,7 +355,7 @@ namespace visage {
     simplify();
   }
 
-  Path::Triangulation Path::TriangulationGraph::triangulate(Path::FillRule fill_rule, int minimum_cycles) {
+  Path::Triangulation Path::TriangulationGraph::triangulate(FillRule fill_rule, int minimum_cycles) {
     removeLinearPoints();
     breakIntersections();
     fixWindings(fill_rule, minimum_cycles);
@@ -489,7 +488,7 @@ namespace visage {
         intersection = it->to < next->to ? it->to : next->to;
     }
     else {
-      auto intersection_option = Path::findIntersection(it->from, it->to, next->from, next->to);
+      auto intersection_option = findIntersection(it->from, it->to, next->from, next->to);
       VISAGE_ASSERT(intersection_option.has_value());
       intersection = intersection_option.value();
 
@@ -828,7 +827,7 @@ namespace visage {
     simplify();
   }
 
-  void Path::TriangulationGraph::fixWindings(Path::FillRule fill_rule, int minimum_cycles) {
+  void Path::TriangulationGraph::fixWindings(FillRule fill_rule, int minimum_cycles) {
     scan_line_->reset();
 
     auto windings = std::make_unique<int[]>(points_.size());
@@ -850,18 +849,18 @@ namespace visage {
 
           bool inside_polygon = area.forward == fill;
           if (inside_polygon) {
-            if (reversed[area.from_index] && fill_rule != Path::FillRule::EvenOdd)
+            if (reversed[area.from_index] && fill_rule != FillRule::EvenOdd)
               reverse = true;
           }
           else
             current_winding -= winding_directions[area.from_index];
         }
 
-        if (fill_rule == Path::FillRule::EvenOdd) {
+        if (fill_rule == FillRule::EvenOdd) {
           bool fill = (current_winding % 2) == 0;
           reverse = convex != fill;
         }
-        else if (fill_rule == Path::FillRule::NonZero && current_winding == 0)
+        else if (fill_rule == FillRule::NonZero && current_winding == 0)
           reverse = reverse || !convex;
 
         if (reverse) {
@@ -881,7 +880,7 @@ namespace visage {
       scan_line_->update();
     }
 
-    if (fill_rule != Path::FillRule::EvenOdd) {
+    if (fill_rule != FillRule::EvenOdd) {
       for (int i = 0; i < points_.size(); ++i) {
         if (next_edge_[i] == i)
           continue;
@@ -977,14 +976,14 @@ namespace visage {
     return triangles;
   }
 
-  void Path::TriangulationGraph::singlePointOffset(double amount, int index, Path::EndCap end_cap,
+  void Path::TriangulationGraph::singlePointOffset(double amount, int index, EndCap end_cap,
                                                    std::vector<int>& points_created) {
     if (amount < 0.0)
       return;
 
     auto point = points_[index];
     auto next_index = next_edge_[index];
-    if (end_cap == Path::EndCap::Square) {
+    if (end_cap == EndCap::Square) {
       points_[index] += DPoint(amount, amount);
       int current_index = index;
       current_index = insertPointBetween(current_index, next_index, point + DPoint(amount, -amount));
@@ -992,9 +991,9 @@ namespace visage {
       current_index = insertPointBetween(current_index, next_index, point + DPoint(-amount, amount));
       points_created.push_back(4);
     }
-    else if (end_cap == Path::EndCap::Round) {
+    else if (end_cap == EndCap::Round) {
       float adjusted_radius = (resolution_transform_ * Point(amount, 0.0f)).length();
-      double max_delta_radians = 2.0 * std::acos(1.0 - Path::kDefaultErrorTolerance / adjusted_radius);
+      double max_delta_radians = 2.0 * std::acos(1.0 - kDefaultErrorTolerance / adjusted_radius);
       int num_points = std::ceil(2.0 * kPi / max_delta_radians - 0.1);
       std::complex<double> position(amount, 0.0);
       double angle_delta = 2.0 * kPi / num_points;
@@ -1011,9 +1010,8 @@ namespace visage {
     }
   }
 
-  void Path::TriangulationGraph::offset(double amount, bool post_simplify, Path::Join join,
-                                        Path::EndCap end_cap, std::vector<int>& points_created,
-                                        float miter_limit) {
+  void Path::TriangulationGraph::offset(double amount, bool post_simplify, Join join, EndCap end_cap,
+                                        std::vector<int>& points_created, float miter_limit) {
     static constexpr double kMinOffset = 0.001;
     if (std::abs(amount) < kMinOffset)
       return;
@@ -1022,7 +1020,7 @@ namespace visage {
 
     float square_miter_limit = miter_limit * miter_limit;
     float adjusted_radius = (resolution_transform_ * Point(amount, 0.0f)).length();
-    double max_delta_radians = 2.0 * std::acos(1.0 - Path::kDefaultErrorTolerance / adjusted_radius);
+    double max_delta_radians = 2.0 * std::acos(1.0 - kDefaultErrorTolerance / adjusted_radius);
     int start_points = points_.size();
     std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(start_points);
     for (int i = 0; i < start_points; ++i) {
@@ -1050,33 +1048,33 @@ namespace visage {
 
         auto type = join;
         if (prev == next) {
-          if (end_cap == Path::EndCap::Butt)
-            type = Path::Join::Bevel;
-          else if (end_cap == Path::EndCap::Square)
-            type = Path::Join::Square;
-          else if (end_cap == Path::EndCap::Round)
-            type = Path::Join::Round;
+          if (end_cap == EndCap::Butt)
+            type = Join::Bevel;
+          else if (end_cap == EndCap::Square)
+            type = Join::Square;
+          else if (end_cap == EndCap::Round)
+            type = Join::Round;
         }
-        if (type == Path::Join::Bevel) {
+        if (type == Join::Bevel) {
           points_[index] += prev_offset;
           insertPointBetween(index, next_index, point + offset);
           points_created.push_back(2);
         }
-        else if (type == Path::Join::Square) {
+        else if (type == Join::Square) {
           DPoint square_offset = (prev_direction - direction).normalized() * amount;
           DPoint square_center = point + square_offset;
           DPoint square_tangent = DPoint(-square_offset.y, square_offset.x);
-          auto intersection_prev = Path::findIntersection(square_center, square_center + square_tangent,
-                                                          prev + prev_offset, point + prev_offset);
-          auto intersection = Path::findIntersection(square_center, square_center + square_tangent,
-                                                     point + offset, next + offset);
+          auto intersection_prev = findIntersection(square_center, square_center + square_tangent,
+                                                    prev + prev_offset, point + prev_offset);
+          auto intersection = findIntersection(square_center, square_center + square_tangent,
+                                               point + offset, next + offset);
           VISAGE_ASSERT(intersection_prev.has_value());
           VISAGE_ASSERT(intersection.has_value());
           points_[index] = intersection_prev.value();
           insertPointBetween(index, next_index, intersection.value());
           points_created.push_back(2);
         }
-        else if (type == Path::Join::Round) {
+        else if (type == Join::Round) {
           bool convex = stableOrientation(prev, point, next) <= 0.0;
           if (convex == (amount > 0.0)) {
             double acos_param = std::clamp(prev_offset.dot(offset) / (amount * amount), -1.0, 1.0);
@@ -1096,11 +1094,11 @@ namespace visage {
             points_created.push_back(num_points + 1);
           }
           else
-            type = Path::Join::Miter;
+            type = Join::Miter;
         }
-        if (type == Path::Join::Miter) {
-          auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
-                                                     point + offset, next + offset);
+        if (type == Join::Miter) {
+          auto intersection = findIntersection(prev + prev_offset, point + prev_offset,
+                                               point + offset, next + offset);
           if (intersection.has_value() &&
               (intersection.value() - point).squareMagnitude() / (amount * amount) < square_miter_limit) {
             points_[index] = intersection.value();
@@ -1131,7 +1129,7 @@ namespace visage {
     if (post_simplify) {
       simplify();
       breakIntersections();
-      fixWindings(Path::FillRule::Positive);
+      fixWindings(FillRule::Positive);
     }
   }
 
@@ -1380,15 +1378,15 @@ namespace visage {
 
   Path Path::combine(Path& other, Operation operation) {
     switch (operation) {
-    case Operation::Union: return combine(other, Path::FillRule::NonZero, 1, false);
-    case Operation::Intersection: return combine(other, Path::FillRule::NonZero, 2, false);
-    case Operation::Difference: return combine(other, Path::FillRule::Positive, 1, true);
-    case Operation::Xor: return combine(other, Path::FillRule::EvenOdd, 1, false);
+    case Operation::Union: return combine(other, FillRule::NonZero, 1, false);
+    case Operation::Intersection: return combine(other, FillRule::NonZero, 2, false);
+    case Operation::Difference: return combine(other, FillRule::Positive, 1, true);
+    case Operation::Xor: return combine(other, FillRule::EvenOdd, 1, false);
     default: return *this;
     }
   }
 
-  Path Path::combine(Path& other, Path::FillRule fill_rule, int num_cycles_needed, bool reverse_other) {
+  Path Path::combine(Path& other, FillRule fill_rule, int num_cycles_needed, bool reverse_other) {
     triangulationGraph()->breakIntersections();
     other.triangulationGraph()->breakIntersections();
 
@@ -1415,10 +1413,10 @@ namespace visage {
     return { inner.toPath(), outer.toPath() };
   }
 
-  Path Path::offset(float offset, Join join_type, float miter_limit) {
+  Path Path::offset(float offset, Join join, float miter_limit) {
     TriangulationGraph graph = *triangulationGraph();
     std::vector<int> points_created;
-    graph.offset(offset, true, join_type, EndCap::Butt, points_created, miter_limit);
+    graph.offset(offset, true, join, EndCap::Butt, points_created, miter_limit);
     return graph.toPath();
   }
 

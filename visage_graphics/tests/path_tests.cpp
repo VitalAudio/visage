@@ -43,7 +43,7 @@ struct PathTriangle {
   bool operator<(const PathTriangle& other) const { return points < other.points; }
   bool operator==(const PathTriangle& other) const {
     static constexpr float kEpsilon = 1e-5f;
-    return (points.size() == other.points.size()) &&
+    return points.size() == other.points.size() &&
            std::equal(points.begin(), points.end(), other.points.begin(),
                       [](const Point& p1, const Point& p2) {
                         if ((p1 - p2).squareMagnitude() < kEpsilon)
@@ -110,8 +110,8 @@ TEST_CASE("Path triangulate intersection", "[graphics]") {
   path0.lineTo(0, 1);
   path0.lineTo(1, 0);
   path0.lineTo(1, 1);
-  std::set<PathTriangle> expected = { PathTriangle(Point(0, 0), Point(0, 1), Point(0.5f, 0.5f)),
-                                      PathTriangle(Point(1, 0), Point(1, 1), Point(0.5f, 0.5f)) };
+  std::set expected = { PathTriangle(Point(0, 0), Point(0, 1), Point(0.5f, 0.5f)),
+                        PathTriangle(Point(1, 0), Point(1, 1), Point(0.5f, 0.5f)) };
   REQUIRE(matchPathTriangles(path0, expected));
 
   Path path1;

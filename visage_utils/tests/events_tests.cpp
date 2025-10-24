@@ -61,8 +61,8 @@ TEST_CASE("CallbackList basic functionality", "[utils]") {
   bool callback1_called = false;
   bool callback2_called = false;
 
-  callbacks.add([&callback1_called]() { callback1_called = true; });
-  callbacks.add([&callback2_called]() { callback2_called = true; });
+  callbacks.add([&callback1_called] { callback1_called = true; });
+  callbacks.add([&callback2_called] { callback2_called = true; });
 
   callbacks.callback();
 
@@ -73,9 +73,9 @@ TEST_CASE("CallbackList basic functionality", "[utils]") {
 TEST_CASE("CallbackList with return values", "[utils]") {
   CallbackList<int()> callbacks;
 
-  callbacks.add([]() { return 1; });
-  callbacks.add([]() { return 2; });
-  callbacks.add([]() { return 3; });
+  callbacks.add([] { return 1; });
+  callbacks.add([] { return 2; });
+  callbacks.add([] { return 3; });
 
   int result = callbacks.callback();
   REQUIRE(result == 3);
@@ -97,12 +97,12 @@ TEST_CASE("CallbackList operator overloads", "[utils]") {
   CallbackList<void()> callbacks;
   bool called = false;
 
-  callbacks += [&called]() { called = true; };
+  callbacks += [&called] { called = true; };
   callbacks.callback();
   REQUIRE(called);
 
   called = false;
-  auto new_callback = [&called]() { called = true; };
+  auto new_callback = [&called] { called = true; };
   callbacks = new_callback;
   callbacks.callback();
   REQUIRE(called);
@@ -111,13 +111,13 @@ TEST_CASE("CallbackList operator overloads", "[utils]") {
 TEST_CASE("CallbackList set and clear", "[utils]") {
   CallbackList<int()> callbacks;
 
-  callbacks.add([]() { return 1; });
-  callbacks.add([]() { return 2; });
+  callbacks.add([] { return 1; });
+  callbacks.add([] { return 2; });
 
   int result = callbacks.callback();
   REQUIRE(result == 2);
 
-  callbacks.set([]() { return 42; });
+  callbacks.set([] { return 42; });
   result = callbacks.callback();
   REQUIRE(result == 42);
 
@@ -128,29 +128,28 @@ TEST_CASE("CallbackList set and clear", "[utils]") {
 
 TEST_CASE("CallbackList copy constructor", "[utils]") {
   CallbackList<int()> original;
-  original.add([]() { return 123; });
+  original.add([] { return 123; });
 
-  CallbackList<int()> copy(original);
+  CallbackList copy(original);
   int result = copy.callback();
   REQUIRE(result == 123);
 }
 
 TEST_CASE("CallbackList assignment operator", "[utils]") {
   CallbackList<int()> original;
-  original.add([]() { return 456; });
+  original.add([] { return 456; });
 
-  CallbackList<int()> assigned;
-  assigned = original;
+  CallbackList<int()> assigned = original;
 
   int result = assigned.callback();
   REQUIRE(result == 456);
 }
 
 TEST_CASE("CallbackList reset functionality", "[utils]") {
-  auto original_callback = []() { return 100; };
+  auto original_callback = [] { return 100; };
   CallbackList<int()> callbacks(original_callback);
 
-  callbacks.add([]() { return 200; });
+  callbacks.add([] { return 200; });
   int result = callbacks.callback();
   REQUIRE(result == 200);
 
@@ -171,9 +170,9 @@ TEST_CASE("CallbackList empty behavior", "[utils]") {
 TEST_CASE("CallbackList with complex return types", "[utils]") {
   CallbackList<std::string()> callbacks;
 
-  callbacks.add([]() { return std::string("first"); });
-  callbacks.add([]() { return std::string("second"); });
-  callbacks.add([]() { return std::string("third"); });
+  callbacks.add([] { return std::string("first"); });
+  callbacks.add([] { return std::string("second"); });
+  callbacks.add([] { return std::string("third"); });
 
   std::string result = callbacks.callback();
   REQUIRE(result == "third");

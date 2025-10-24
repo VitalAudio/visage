@@ -109,7 +109,7 @@ Showcase::Showcase() : palette_color_window_(&palette_), palette_value_window_(&
 
   examples_ = std::make_unique<ExamplesFrame>();
   examples_->onShowOverlay() = [this] { overlay_.setVisible(true); };
-  examples_->onToggleDebug() = [this]() { toggleDebug(); };
+  examples_->onToggleDebug() = [this] { toggleDebug(); };
 
   examples_->onScreenshot() = [this](const std::string& file_path) {
     visage::ApplicationEditor* parent = findParent<visage::ApplicationEditor>();
@@ -156,28 +156,19 @@ void Showcase::toggleDebug() {
 }
 
 bool Showcase::keyPress(const visage::KeyEvent& key) {
-  static constexpr int kPaletteWidth = 200;
-  static constexpr int kShaderEditorWidth = 600;
-
   bool modifier = key.isMainModifier();
-  if (key.keyCode() == visage::KeyCode::D && modifier && key.isShiftDown()) {
+  if (key.keyCode() == visage::KeyCode::D && modifier && key.isShiftDown())
     toggleDebug();
-    return true;
-  }
-  else if (key.keyCode() == visage::KeyCode::Z && modifier) {
+  else if (key.keyCode() == visage::KeyCode::Z && modifier)
     undo();
-    return true;
-  }
-  else if (key.keyCode() == visage::KeyCode::Y && modifier) {
+  else if (key.keyCode() == visage::KeyCode::Y && modifier)
     redo();
-    return true;
-  }
-  else if (key.keyCode() == visage::KeyCode::Number1 && modifier) {
+  else if (key.keyCode() == visage::KeyCode::Number1 && modifier)
     palette_color_window_.show(300_px, 800_px);
-    return true;
-  }
+  else
+    return false;
 
-  return false;
+  return true;
 }
 
 int runExample() {

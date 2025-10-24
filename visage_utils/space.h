@@ -127,7 +127,7 @@ namespace visage {
       else if constexpr (std::is_same_v<T, float>)
         return BasePoint<int>(std::round(x), std::round(y));
       else
-        return BasePoint<int64_t>((std::round(x)), std::round(y));
+        return BasePoint<int64_t>(std::round(x), std::round(y));
     }
   };
 
@@ -225,7 +225,7 @@ namespace visage {
 
     BaseTransform inversed() const {
       BaseMatrix<T> inv_matrix = matrix.inversed();
-      return { inv_matrix, inv_matrix * (-translate) };
+      return { inv_matrix, inv_matrix * -translate };
     }
 
     bool isIdentity() const {

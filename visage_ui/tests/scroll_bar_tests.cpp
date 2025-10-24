@@ -68,40 +68,6 @@ TEST_CASE("ScrollBar position and view management", "[ui]") {
   }
 }
 
-TEST_CASE("ScrollBar callbacks", "[ui]") {
-  ScrollBar scroll_bar;
-  float last_callback_value = -1.0f;
-  bool callback_called = false;
-
-  scroll_bar.addScrollCallback([&](float value) {
-    last_callback_value = value;
-    callback_called = true;
-  });
-
-  SECTION("Multiple callbacks") {
-    float second_callback_value = -1.0f;
-    bool second_callback_called = false;
-
-    scroll_bar.addScrollCallback([&](float value) {
-      second_callback_value = value;
-      second_callback_called = true;
-    });
-  }
-}
-
-TEST_CASE("ScrollBar appearance properties", "[ui]") {
-  ScrollBar scroll_bar;
-
-  SECTION("Setting rounding") {
-    scroll_bar.setRounding(5.0f);
-  }
-
-  SECTION("Setting left side") {
-    scroll_bar.setLeftSide(true);
-    scroll_bar.setLeftSide(false);
-  }
-}
-
 TEST_CASE("ScrollBar mouse events", "[ui]") {
   ScrollBar scroll_bar;
   scroll_bar.setBounds(0, 0, 20, 100);

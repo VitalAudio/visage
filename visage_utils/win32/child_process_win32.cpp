@@ -80,7 +80,7 @@ namespace visage {
     DWORD bytes_available = 0;
     size_t total_output_size = 0;
 
-    auto read_available_output = [&]() {
+    auto read_available_output = [&] {
       if (total_output_size >= kMaxOutputSize)
         return false;
 

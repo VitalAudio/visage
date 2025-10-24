@@ -23,8 +23,6 @@
 
 #include "visage_graphics/theme.h"
 
-#include <utility>
-
 namespace visage {
   VISAGE_THEME_COLOR(ShaderQuadColor, 0xffffffff);
 

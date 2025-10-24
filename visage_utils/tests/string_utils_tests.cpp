@@ -49,7 +49,7 @@ TEST_CASE("Base 64 conversion", "[utils]") {
   REQUIRE(decoded_size == size);
   bool equal = true;
   for (int i = 0; i < size; ++i)
-    equal = equal && (random_data[i] == decoded[i]);
+    equal = equal && random_data[i] == decoded[i];
 
   REQUIRE(equal);
 }

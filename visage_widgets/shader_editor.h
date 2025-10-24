@@ -25,7 +25,6 @@
 #include "visage_graphics/graphics_caches.h"
 #include "visage_ui/frame.h"
 #include "visage_utils/thread_utils.h"
-#include "visage_widgets/button.h"
 
 #include <mutex>
 #include <string>

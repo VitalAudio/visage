@@ -24,7 +24,7 @@
 
 #include <complex>
 #include <visage/app.h>
-#include <visage_widgets/shader_editor.h>
+#include <visage/widgets.h>
 
 using namespace visage::dimension;
 
@@ -72,7 +72,7 @@ public:
             on_effect_change_(static_cast<PostEffect>(i));
         }
       };
-    };
+    }
   }
 
   void resized() override {
@@ -199,7 +199,7 @@ public:
   }
 
 private:
-  visage::Frame blur_glass_;
+  Frame blur_glass_;
   visage::BlurPostEffect blur_backdrop_;
 
   PostEffectSelector selector_;

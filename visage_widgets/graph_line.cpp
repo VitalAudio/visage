@@ -35,8 +35,7 @@ namespace visage {
   VISAGE_THEME_IMPLEMENT_VALUE(GraphLine, LineWidth, 2.0f);
   VISAGE_THEME_VALUE(PositionBulbWidth, 4.0f);
 
-  GraphLine::GraphLine(int num_points, bool loop) :
-      data_(num_points), fill_center_(kCenter), loop_(loop) { }
+  GraphLine::GraphLine(int num_points, bool loop) : data_(num_points), loop_(loop) { }
 
   GraphLine::~GraphLine() = default;
 

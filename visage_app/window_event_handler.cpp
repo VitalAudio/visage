@@ -22,7 +22,6 @@
 #include "window_event_handler.h"
 
 #include "visage_ui/frame.h"
-#include "visage_utils/time_utils.h"
 
 #include <regex>
 

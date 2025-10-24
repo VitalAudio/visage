@@ -47,7 +47,7 @@ namespace plugin_entry {
       plugin_entry::getPluginDescriptor,
       plugin_entry::createPlugin,
     };
-    return (!strcmp(factory_id, CLAP_PLUGIN_FACTORY_ID)) ? &va_clap_plugin_factory : nullptr;
+    return !strcmp(factory_id, CLAP_PLUGIN_FACTORY_ID) ? &va_clap_plugin_factory : nullptr;
   }
 
   bool clap_init(const char* p) {

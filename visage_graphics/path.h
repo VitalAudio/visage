@@ -403,8 +403,8 @@ namespace visage {
     void loadCommands(const CommandList& commands);
     void addRectangle(float x, float y, float width, float height);
     void addRoundedRectangle(float x, float y, float width, float height, float rx_top_left,
-                             float ry_top_left, float rx_top_right, float ry_top_right, float rx_bottom_left,
-                             float ry_bottom_left, float rx_bottom_right, float ry_bottom_right);
+                             float ry_top_left, float rx_top_right, float ry_top_right, float rx_bottom_right,
+                             float ry_bottom_right, float rx_bottom_left, float ry_bottom_left);
     void addRoundedRectangle(float x, float y, float width, float height, float rx, float ry);
     void addRoundedRectangle(float x, float y, float width, float height, float r) {
       addRoundedRectangle(x, y, width, height, r, r);
@@ -855,15 +855,14 @@ namespace visage {
       };
 
       void breakIntersections();
-      void fixWindings(Path::FillRule fill_rule, int minimum_cycles = 1);
+      void fixWindings(FillRule fill_rule, int minimum_cycles = 1);
       void reverse();
 
       void breakSimpleIntoMonotonicPolygons();
       std::vector<int> breakIntoTriangles();
-      void singlePointOffset(double amount, int index, Path::EndCap end_cap,
-                             std::vector<int>& points_created);
-      void offset(double amount, bool post_simplify, Path::Join join, Path::EndCap end_cap,
-                  std::vector<int>& points_created, float miter_limit = Path::kDefaultMiterLimit);
+      void singlePointOffset(double amount, int index, EndCap end_cap, std::vector<int>& points_created);
+      void offset(double amount, bool post_simplify, Join join, EndCap end_cap,
+                  std::vector<int>& points_created, float miter_limit = kDefaultMiterLimit);
 
       void combine(const TriangulationGraph& other);
       void removeLinearPoints();
@@ -930,7 +929,7 @@ namespace visage {
       recurseBezierTo(break_point, midmid2, mid3, to);
     }
 
-    Path combine(Path& other, Path::FillRule fill_rule, int num_cycles_needed, bool reverse_other);
+    Path combine(Path& other, FillRule fill_rule, int num_cycles_needed, bool reverse_other);
 
     void startNewPath() {
       if (paths_.empty() || !paths_.back().points.empty())

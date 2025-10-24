@@ -120,13 +120,13 @@ namespace visage {
     int size() const { return size_; }
     const bgfx::TextureHandle& textureHandle() const;
 
-    void setVertexPositions(FontAtlasQuad* quads, const char32_t* string, int length, float x, float y,
-                            float width, float height, Justification justification = Justification::kCenter,
-                            int character_override = 0) const;
+    void setVertexPositions(FontAtlasQuad* quads, const char32_t* text, int length, float x,
+                            float y, float width, float height,
+                            Justification justification = kCenter, int character_override = 0) const;
 
-    void setMultiLineVertexPositions(FontAtlasQuad* quads, const char32_t* string, int length,
+    void setMultiLineVertexPositions(FontAtlasQuad* quads, const char32_t* text, int length,
                                      float x, float y, float width, float height,
-                                     Justification justification = Justification::kCenter) const;
+                                     Justification justification = kCenter) const;
 
     const PackedFont* packedFont() const { return packed_font_; }
 
@@ -159,8 +159,8 @@ namespace visage {
   private:
     struct TypeFaceData {
       TypeFaceData(const unsigned char* data, int data_size) : data(data), data_size(data_size) { }
-      int data_size = 0;
       const unsigned char* data = nullptr;
+      int data_size = 0;
 
       bool operator<(const TypeFaceData& other) const {
         if (data_size != other.data_size)
@@ -189,7 +189,7 @@ namespace visage {
       return instance()->createOrLoadPackedFont(id, size, data.get(), file_size);
     }
 
-    static PackedFont* loadPackedFont(const PackedFont* packed_font_);
+    static PackedFont* loadPackedFont(const PackedFont* packed_font);
     static PackedFont* loadPackedFont(int size, const unsigned char* font_data, int data_size);
 
     static void returnPackedFont(PackedFont* packed_font) {

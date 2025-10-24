@@ -114,7 +114,7 @@ namespace visage {
   };
 
   template<typename T>
-  inline void setCornerCoordinates(T* vertices) {
+  void setCornerCoordinates(T* vertices) {
     vertices[0].coordinate_x = -1.0f;
     vertices[0].coordinate_y = -1.0f;
     vertices[1].coordinate_x = 1.0f;
@@ -126,8 +126,8 @@ namespace visage {
   }
 
   template<typename T>
-  inline void setQuadPositions(T* vertices, const BaseShape& shape, ClampBounds clamp,
-                               float x_offset = 0.0f, float y_offset = 0.0f) {
+  void setQuadPositions(T* vertices, const BaseShape& shape, ClampBounds clamp,
+                        float x_offset = 0.0f, float y_offset = 0.0f) {
     float left = shape.x + x_offset;
     float top = shape.y + y_offset;
     float right = left + shape.width;
@@ -155,7 +155,7 @@ namespace visage {
   }
 
   template<typename VertexType = ShapeVertex>
-  struct Shape : public BaseShape {
+  struct Shape : BaseShape {
     typedef VertexType Vertex;
 
     Shape(const void* batch_id, const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
@@ -163,7 +163,7 @@ namespace visage {
   };
 
   template<typename VertexType = ShapeVertex>
-  struct Primitive : public Shape<VertexType> {
+  struct Primitive : Shape<VertexType> {
     Primitive(const void* batch_id, const ClampBounds& clamp, const PackedBrush* brush, float x,
               float y, float width, float height) :
         Shape<VertexType>(batch_id, clamp, brush, x, y, width, height) { }
@@ -562,7 +562,7 @@ namespace visage {
   template<typename T>
   class VectorPool {
   public:
-    static VectorPool<T>& instance() {
+    static VectorPool& instance() {
       static VectorPool instance;
       return instance;
     }

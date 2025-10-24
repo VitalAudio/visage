@@ -30,6 +30,7 @@
 #include <visage_graphics/theme.h>
 #include <visage_ui/popup_menu.h>
 #include <visage_utils/file_system.h>
+#include <visage_widgets/graph_line.h>
 #include <visage_windowing/windowing.h>
 
 using namespace visage::dimension;
@@ -95,6 +96,7 @@ private:
 };
 
 class DragDropSource : public visage::Frame {
+public:
   void draw(visage::Canvas& canvas) override {
     canvas.setColor(DarkBackgroundColor);
     canvas.roundedRectangle(0, 0, width(), height(), height() / 16);
@@ -131,6 +133,7 @@ private:
 };
 
 class DragDropTarget : public visage::Frame {
+public:
   void draw(visage::Canvas& canvas) override {
     canvas.setColor(DarkBackgroundColor);
     canvas.roundedRectangle(0, 0, width(), height(), height() / 16);
@@ -221,8 +224,6 @@ ExampleSection::ExampleSection(const std::string& title, visage::Frame* example)
 }
 
 ExamplesFrame::ExamplesFrame() {
-  static constexpr int kBars = kNumBars;
-
   animated_lines_ = std::make_unique<AnimatedLines>();
   sections_.push_back(std::make_unique<ExampleSection>("Line Rendering", animated_lines_.get()));
 

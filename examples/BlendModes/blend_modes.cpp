@@ -81,7 +81,7 @@ public:
       int color1 = 0xffff00ff;
       int color2 = 0xffffffff;
       for (int i = 0; i < kColumns; ++i) {
-        int x = (w * (i + 1)) / kColumns;
+        int x = w * (i + 1) / kColumns;
         canvas.setColor(color1);
         std::swap(color1, color2);
         canvas.fill(last_x, 0, x - last_x, h);
@@ -122,13 +122,13 @@ public:
     int color1 = 0xff666666;
     int color2 = 0xff888888;
     for (int i = 0; i < kColumns; ++i) {
-      int x = transparent_frame_.x() + (w * (i + 1)) / kColumns;
+      int x = transparent_frame_.x() + w * (i + 1) / kColumns;
       canvas.setColor(color1);
       std::swap(color1, color2);
       canvas.fill(last_x, y, x - last_x, h);
       last_x = x;
     }
-  };
+  }
 
   void resized() override {
     int center_x = width() / 2;

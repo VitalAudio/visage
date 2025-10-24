@@ -23,7 +23,6 @@
 
 #include "color.h"
 #include "graphics_utils.h"
-#include "visage_utils/dimension.h"
 
 #include <functional>
 #include <iosfwd>
@@ -125,7 +124,7 @@ namespace visage {
       int index = std::distance(positions_.begin(), it);
       float t0 = positions_[index - 1];
       float t1 = positions_[index];
-      float local_t = (t - t0) / std::max(0.000001f, (t1 - t0));
+      float local_t = (t - t0) / std::max(0.000001f, t1 - t0);
       return colors_[index - 1].interpolateWith(colors_[index], local_t);
     }
 
@@ -425,7 +424,7 @@ namespace visage {
       GradientPosition position;
       position.point1 = center;
       position.point2 = focal_center;
-      position.shape = GradientPosition::InterpolationShape::Radial;
+      position.shape = InterpolationShape::Radial;
       position.coefficientxy = 0.0f;
       position.coefficientx2 = 1.0f / (radius_x * radius_x);
       position.coefficienty2 = 1.0f / (radius_y * radius_y);
