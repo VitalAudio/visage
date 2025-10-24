@@ -447,8 +447,8 @@ namespace visage {
     void stroke(const Path& path, const T1& x, const T2& y, const T3& width, const T4& height,
                 const T5& stroke_width, Path::Join join = Path::Join::Round,
                 Path::EndCap end_cap = Path::EndCap::Round, std::vector<float> dash_array = {},
-                float dash_offset = 0.0f, float miter_limit = kDefaultMiterLimit) {
-      if (path->numPoints() == 0)
+                float dash_offset = 0.0f, float miter_limit = Path::kDefaultMiterLimit) {
+      if (path.numPoints() == 0)
         return;
 
       addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x),
