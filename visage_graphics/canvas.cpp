@@ -69,7 +69,7 @@ namespace visage {
   }
 
   int Canvas::submit(int submit_pass) {
-    default_region_.computeBackdropCount(0);
+    default_region_.computeBackdropCount();
     int submission = submit_pass;
     int last_submission = submission - 1;
 

@@ -89,7 +89,7 @@ namespace visage {
 
     int backdropCount() const { return backdrop_count_; }
     int backdropCountChildren() const { return backdrop_count_children_; }
-    int computeBackdropCount(int current);
+    int computeBackdropCount(int current = 0);
     bool shouldDraw(int backdrop_count) {
       if (backdrop_count_ == backdrop_count)
         return true;
