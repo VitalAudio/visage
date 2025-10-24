@@ -79,13 +79,9 @@ namespace visage {
       if (sub_region->needsLayer())
         sub_region = sub_region->intermediateRegion();
 
-      bool overlaps = false;
-      for (const auto& other : positions) {
-        if (sub_region->overlaps(other.region)) {
-          overlaps = true;
-          break;
-        }
-      }
+      bool overlaps = std::any_of(positions.begin(), positions.end(), [&sub_region](const auto& other) {
+        return sub_region->overlaps(other.region);
+      });
 
       IBounds bounds(done_position.x + sub_region->x(), done_position.y + sub_region->y(),
                      sub_region->width(), sub_region->height());
@@ -254,11 +250,8 @@ namespace visage {
   }
 
   bool Layer::hasBackdropEffect() const {
-    for (Region* region : regions_) {
-      if (region->backdropEffect())
-        return true;
-    }
-    return false;
+    return std::any_of(regions_.begin(), regions_.end(),
+                       [](const auto& region) { return region->backdropEffect(); });
   }
 
   void Layer::clearInvalidRectAreas(int submit_pass) {

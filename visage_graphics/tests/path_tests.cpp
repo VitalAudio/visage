@@ -558,7 +558,6 @@ TEST_CASE("Random path triangulation with integer position degeneracies", "[grap
   static constexpr int kNumPaths = 50;
 
   for (int p = 0; p < kNumPaths; ++p) {
-    VISAGE_LOG(p);
     Path path;
     int x = static_cast<int>(randomFloat(0.0f, kWidth));
     int y = static_cast<int>(randomFloat(0.0f, kHeight));
