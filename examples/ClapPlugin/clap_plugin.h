@@ -75,7 +75,7 @@ private:
 #endif
   }
 
-  void setPluginDimensions(int width, int height) {
+  void setPluginDimensions(int width, int height) const {
     if (app_ == nullptr)
       return;
 #if __APPLE__

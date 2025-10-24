@@ -59,10 +59,9 @@ int runExample() {
     float segment = star.length() / 20.0f;
     auto dashed = star.stroke(2, visage::Path::Join::Miter, visage::Path::EndCap::Butt, { segment },
                               canvas.time() * segment);
-    canvas.fill(star, 0, 0, w, h);
-
-    canvas.fill(stroked, w, 0, w, h);
-    canvas.fill(dashed, 2.0f * w, 0, w, h);
+    canvas.fill(star);
+    canvas.fill(stroked, w, 0);
+    canvas.fill(dashed, 2.0f * w, 0);
     app.redraw();
   };
 

@@ -42,7 +42,7 @@ public:
       frame.layout().setWidth(100 + i * 10);
       frame.layout().setFlexGrow(1.0f);
 
-      frame.onDraw() = [this, &frame](visage::Canvas& canvas) {
+      frame.onDraw() = [&frame](visage::Canvas& canvas) {
         canvas.setColor(0xff888888);
         canvas.roundedRectangle(0, 0, frame.width(), frame.height(), 16);
       };
@@ -51,8 +51,6 @@ public:
   }
 
   void draw(visage::Canvas& canvas) override {
-    static constexpr int kColumns = 12;
-
     canvas.setColor(0xff222026);
     canvas.fill(0, 0, width(), height());
   }

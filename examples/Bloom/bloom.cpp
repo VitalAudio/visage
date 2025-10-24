@@ -46,7 +46,7 @@ public:
     }
   }
 
-  visage::Brush computeBrush(double render_time) {
+  visage::Brush computeBrush(double render_time) const {
     visage::Gradient rainbow(0xffff6666, 0xffffff66, 0xff66ff66, 0xff66ffff, 0xff6666ff, 0xffff66ff,
                              0xffff6666);
 

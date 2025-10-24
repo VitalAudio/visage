@@ -112,6 +112,11 @@ namespace visage {
       setBrush(blendedColor(color_from, color_to, t));
     }
 
+    void fill() {
+      addShape(Fill(state_.clamp, state_.brush, state_.x, state_.y,
+                    state_.clamp.right - state_.clamp.left, state_.clamp.bottom - state_.clamp.top));
+    }
+
     template<typename T1, typename T2, typename T3, typename T4>
     void fill(const T1& x, const T2& y, const T3& width, const T4& height) {
       float fill_x = pixels(x);
@@ -442,6 +447,19 @@ namespace visage {
       addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
                                pixels(width), pixels(height), path, state_.scale));
     }
+
+    template<typename T1, typename T2>
+    void fill(const Path& path, const T1& x, const T2& y) {
+      if (path.numPoints() == 0)
+        return;
+
+      auto bounding_box = path.boundingBox();
+      addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x),
+                               state_.y + pixels(y), bounding_box.right() * state_.scale + 1.0f,
+                               bounding_box.bottom() * state_.scale + 1.0f, path, state_.scale));
+    }
+
+    void fill(const Path& path) { fill(path, 0, 0); }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
     void stroke(const Path& path, const T1& x, const T2& y, const T3& width, const T4& height,

@@ -79,7 +79,7 @@ visage::Color sampleOkLab(float t) {
            -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s };
 }
 
-void setPattern(visage::Gradient& gradient, std::string pattern) {
+void setPattern(visage::Gradient& gradient, const std::string& pattern) {
   if (pattern == "Single") {
     gradient.setRepeat(false);
     gradient.setReflect(false);
@@ -104,7 +104,7 @@ public:
     kTo
   };
 
-  void draw(visage::Canvas& canvas) {
+  void draw(visage::Canvas& canvas) override {
     visage::Brush points = visage::Brush::linear(visage::Gradient(0xffffff00, 0xff00ffff), point1_, point2_);
     canvas.setColor(points);
     canvas.roundedRectangle(0, 0, width(), height(), 18.0f);
@@ -133,7 +133,7 @@ public:
     redraw();
   }
 
-  void mouseMove(const visage::MouseEvent& e) {
+  void mouseMove(const visage::MouseEvent& e) override {
     visage::Point point = e.position;
     visage::Point delta_from = point - point1_;
     visage::Point delta_to = point - point2_;
@@ -147,7 +147,7 @@ public:
       setActivePoint(kNone);
   }
 
-  void mouseDown(const visage::MouseEvent& e) {
+  void mouseDown(const visage::MouseEvent& e) override {
     if (active_point_ == kNone)
       return;
 
@@ -155,7 +155,7 @@ public:
     redraw();
   }
 
-  void mouseUp(const visage::MouseEvent& e) {
+  void mouseUp(const visage::MouseEvent& e) override {
     if (active_point_ == kNone)
       return;
 
@@ -163,7 +163,7 @@ public:
     redraw();
   }
 
-  void mouseDrag(const visage::MouseEvent& e) {
+  void mouseDrag(const visage::MouseEvent& e) override {
     if (active_point_ == kNone)
       return;
 
@@ -195,7 +195,7 @@ protected:
 
 class LinearPointsFrame : public PointsFrame {
 public:
-  void draw(visage::Canvas& canvas) {
+  void draw(visage::Canvas& canvas) override {
     visage::Brush points = visage::Brush::linear(gradient_, point1_, point2_);
     canvas.setColor(points);
     canvas.roundedRectangle(0, 0, width(), height(), 18.0f);
@@ -219,7 +219,7 @@ public:
 
 class RadialPointsFrame : public PointsFrame {
 public:
-  void draw(visage::Canvas& canvas) {
+  void draw(visage::Canvas& canvas) override {
     auto radius = (point2_ - point1_).length();
     visage::Brush radial = visage::Brush::radial(gradient_, point1_, radius);
     canvas.setColor(radial);
