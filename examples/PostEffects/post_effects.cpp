@@ -93,7 +93,7 @@ private:
 
 class ExampleEditor : public visage::ApplicationWindow {
 public:
-  static constexpr float kBackdropWidth = 400.0f;
+  static constexpr float kBackdropWidth = 300.0f;
 
   ExampleEditor() {
     setReceiveChildMouseEvents(true);
@@ -158,6 +158,10 @@ public:
       canvas.setColor(visage::Brush::vertical(0x44ffffff, 0x44000000));
       canvas.roundedRectangleBorder(0, 0, blur_glass_.width(), blur_glass_.height(),
                                     0.5f * std::min(blur_glass_.width(), blur_glass_.height()), 2.0f);
+      canvas.setColor(0xffffffff);
+      visage::Font font(16.0f, resources::fonts::Lato_Regular_ttf);
+      canvas.text("Drag me", font, visage::Font::Justification::kCenter, 0, 0, blur_glass_.width(),
+                  blur_glass_.height());
     };
 
     onMouseDrag() = [&](const visage::MouseEvent& e) {
