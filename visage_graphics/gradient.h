@@ -484,12 +484,27 @@ namespace visage {
                GradientPosition::radial(center, radius_x, radius_y, focal_center, focal_radius) };
     }
 
+    static Brush radial(const Color& from_color, const Color& to_color, const Point& center,
+                        float radius_x, float radius_y, Point focal_center, float focal_radius = 0.0f) {
+      return { Gradient(from_color, to_color),
+               GradientPosition::radial(center, radius_x, radius_y, focal_center, focal_radius) };
+    }
+
     static Brush radial(Gradient gradient, const Point& center, float radius_x, float radius_y) {
       return radial(std::move(gradient), center, radius_x, radius_y, center);
     }
 
+    static Brush radial(const Color& from_color, const Color& to_color, const Point& center,
+                        float radius_x, float radius_y) {
+      return radial(Gradient(from_color, to_color), center, radius_x, radius_y, center);
+    }
+
     static Brush radial(Gradient gradient, const Point& center, float radius) {
       return radial(std::move(gradient), center, radius, radius);
+    }
+
+    static Brush radial(const Color& from_color, const Color& to_color, const Point& center, float radius) {
+      return radial(Gradient(from_color, to_color), center, radius, radius);
     }
 
     static Brush interpolate(const Brush& from, const Brush& to, float t) {

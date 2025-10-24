@@ -454,6 +454,20 @@ TEST_CASE("Brush operations", "[graphics]") {
     REQUIRE(decoded.position().shape == original.position().shape);
     REQUIRE(decoded.position().point1.x == Approx(original.position().point1.x));
     REQUIRE(decoded.position().point2.y == Approx(original.position().point2.y));
+
+    original = Brush::radial(visage::Gradient(red, blue), from, 100.0f, 200.0f, to);
+    encoded = original.encode();
+    decoded.decode(encoded);
+
+    REQUIRE(decoded.gradient().resolution() == original.gradient().resolution());
+    REQUIRE(decoded.gradient().colors()[0] == original.gradient().colors()[0]);
+    REQUIRE(decoded.gradient().colors()[1] == original.gradient().colors()[1]);
+    REQUIRE(decoded.position().shape == original.position().shape);
+    REQUIRE(decoded.position().point1.x == Approx(original.position().point1.x));
+    REQUIRE(decoded.position().point2.y == Approx(original.position().point2.y));
+    REQUIRE(decoded.position().coefficientx2 == Approx(original.position().coefficientx2).margin(0.0001f));
+    REQUIRE(decoded.position().coefficienty2 == Approx(original.position().coefficienty2).margin(0.0001f));
+    REQUIRE(decoded.position().coefficientxy == Approx(original.position().coefficientxy).margin(0.0001f));
   }
 
   SECTION("Radial Transform") {
@@ -464,5 +478,17 @@ TEST_CASE("Brush operations", "[graphics]") {
     REQUIRE(position.shape == GradientPosition::InterpolationShape::Radial);
     REQUIRE(position.point1.x == Approx(-50.0f * std::sqrt(2.0f)));
     REQUIRE(position.point1.y == Approx(0.0f).margin(0.001f));
+
+    position = position.transformed(Transform::rotation(45.0f));
+    position = position.transformed(Transform::scale(4.0f, 3.0f));
+
+    GradientPosition end_position = GradientPosition::radial(Point(-200.0f, -150.0f), 4.0f, 6.0f);
+    REQUIRE(position.point1.x == Approx(end_position.point1.x).margin(0.01f));
+    REQUIRE(position.point1.y == Approx(end_position.point1.y).margin(0.01f));
+    REQUIRE(position.point2.x == Approx(end_position.point2.x).margin(0.01f));
+    REQUIRE(position.point2.y == Approx(end_position.point2.y).margin(0.01f));
+    REQUIRE(position.coefficientx2 == Approx(end_position.coefficientx2).margin(0.01f));
+    REQUIRE(position.coefficienty2 == Approx(end_position.coefficienty2).margin(0.01f));
+    REQUIRE(position.coefficientxy == Approx(end_position.coefficientxy).margin(0.01f));
   }
 }
