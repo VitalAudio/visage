@@ -112,15 +112,11 @@ namespace visage {
 
   inline void setColorMult(bool hdr) {
     float value = (hdr ? kHdrColorMultiplier : 1.0f) * Color::kGradientNormalization;
-    float color_mult[] = { value, value, value, 1.0f };
-    setUniform<Uniforms::kColorMult>(color_mult);
+    setUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
   }
 
   void setOriginFlipUniform(bool origin_flip) {
-    float flip_value = origin_flip ? -1.0 : 1.0;
-    float true_value = origin_flip ? 1.0 : 0.0;
-    float flip[4] = { flip_value, true_value, 0.0f, 0.0f };
-    setUniform<Uniforms::kOriginFlip>(flip);
+    setUniform<Uniforms::kOriginFlip>(origin_flip ? -1.0 : 1.0, origin_flip ? 1.0 : 0.0);
   }
 
   bool initTransientQuadBuffers(int num_quads, const bgfx::VertexLayout& layout,
@@ -291,7 +287,7 @@ namespace visage {
     PackedBrush::computeVertexGradientPositions(gradient_pos, path_fill_wrapper.brush, 0, 0, 0, 0,
                                                 path_fill_wrapper.width, path_fill_wrapper.height);
     setUniform<Uniforms::kDimensions>(path_fill_wrapper.width, path_fill_wrapper.height, 1.0f, 1.0f);
-    setUniform<Uniforms::kTime>(static_cast<float>(layer.time()));
+    setTimeUniform(layer.time());
     setUniform<Uniforms::kGradientTexturePosition>(&texture_pos);
     setUniform<Uniforms::kGradientPosition>(gradient_pos.position1());
     setUniform<Uniforms::kGradientPosition2>(gradient_pos.position2());
@@ -345,7 +341,7 @@ namespace visage {
     PackedBrush::computeVertexGradientPositions(gradient_pos, path_fill_wrapper.brush, 0, 0, 0, 0,
                                                 path_fill_wrapper.width, path_fill_wrapper.height);
     setUniform<Uniforms::kDimensions>(path_fill_wrapper.width, path_fill_wrapper.height, 1.0f, 1.0f);
-    setUniform<Uniforms::kTime>(static_cast<float>(layer.time()));
+    setTimeUniform(layer.time());
     setUniform<Uniforms::kGradientTexturePosition>(&texture_pos);
     setUniform<Uniforms::kGradientPosition>(gradient_pos.position1());
     setUniform<Uniforms::kGradientPosition2>(gradient_pos.position2());
