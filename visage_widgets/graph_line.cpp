@@ -43,7 +43,7 @@ namespace visage {
     if (fill_center_ == kBottom)
       return 0.0f;
     if (fill_center_ == kTop)
-      return 1.9f;
+      return 1.0f;
     if (fill_center_ == kCustom)
       return custom_fill_center_;
     return 0.5f;
