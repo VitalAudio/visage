@@ -142,7 +142,7 @@ namespace visage {
     }
   }
 
-  void DownsamplePostEffect::checkBuffers(const Region* region, bool full_resoltion) {
+  void DownsamplePostEffect::checkBuffers(const Region* region, bool full_resolution) {
     static constexpr uint64_t kFrameBufferFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP |
                                                   BGFX_SAMPLER_V_CLAMP;
 
@@ -168,7 +168,7 @@ namespace visage {
     }
 
     if (!bgfx::isValid(handles_->downsample_buffers1[1])) {
-      int start_index = full_resoltion ? 0 : 1;
+      int start_index = full_resolution ? 0 : 1;
       for (int i = start_index; i <= kMaxDownsamples; ++i) {
         int scale = 1 << i;
         widths_[i] = std::max(1, (full_width + scale - 1) / scale);
