@@ -30,12 +30,6 @@
 
 namespace visage {
   template<const char* name>
-  void setPostEffectUniform(const void* values) {
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
-    bgfx::setUniform(uniform, values);
-  }
-
-  template<const char* name>
   void setPostEffectUniform(float value0, float value1 = 0.0f, float value2 = 0.0f, float value3 = 0.0f) {
     float values[4] = { value0, value1, value2, value3 };
     static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
@@ -347,8 +341,7 @@ namespace visage {
     setUniformDimensions(destination.width(), destination.height());
 
     float value = destination.hdr() ? kHdrColorMultiplier : 1.0f;
-    float color_mult[] = { value, value, value, 1.0f };
-    setPostEffectUniform<Uniforms::kColorMult>(color_mult);
+    setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(destination.bottomLeftOrigin());
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                           SampleRegion::fragmentShader()));

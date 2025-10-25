@@ -81,9 +81,9 @@ namespace visage {
   }
 
   template<const char* name>
-  void setUniform(float value) {
+  void setUniform(float value0, float value1 = 0.0f, float value2 = 0.0f, float value3 = 0.0f) {
     static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
-    float vec[4] = { value, value, value, value };
+    float vec[4] = { value0, value1, value2, value3 };
     bgfx::setUniform(uniform, vec);
   }
 
@@ -162,8 +162,7 @@ namespace visage {
     setColorMult(layer.hdr());
     setOriginFlipUniform(layer.bottomLeftOrigin());
     GradientAtlas* gradient_atlas = layer.gradientAtlas();
-    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
-    setUniform<Uniforms::kRadialGradient>(radial);
+    setUniform<Uniforms::kRadialGradient>(radial_gradient ? 1.0f : 0.0f);
     setTexture<Uniforms::kGradient>(0, gradient_atlas->colorTextureHandle());
     bgfx::submit(submit_pass, ProgramCache::programHandle(vertex_shader, fragment_shader));
   }
@@ -286,21 +285,18 @@ namespace visage {
 
     bgfx::setState(blendModeValue(BlendMode::Alpha) | BGFX_STATE_PT_TRISTRIP);
 
-    float dimensions[4] = { path_fill_wrapper.width, path_fill_wrapper.height, 1.0f, 1.0f };
-    float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
     GradientTexturePosition texture_pos {};
     GradientVertexPosition gradient_pos {};
     PackedBrush::computeVertexGradientTexturePositions(texture_pos, path_fill_wrapper.brush);
     PackedBrush::computeVertexGradientPositions(gradient_pos, path_fill_wrapper.brush, 0, 0, 0, 0,
                                                 path_fill_wrapper.width, path_fill_wrapper.height);
-    float line_width[] = { 4.0f, 0.0f, 0.0f, 0.0f };
-    setUniform<Uniforms::kDimensions>(dimensions);
-    setUniform<Uniforms::kTime>(time);
+    setUniform<Uniforms::kDimensions>(path_fill_wrapper.width, path_fill_wrapper.height, 1.0f, 1.0f);
+    setUniform<Uniforms::kTime>(static_cast<float>(layer.time()));
     setUniform<Uniforms::kGradientTexturePosition>(&texture_pos);
     setUniform<Uniforms::kGradientPosition>(gradient_pos.position1());
     setUniform<Uniforms::kGradientPosition2>(gradient_pos.position2());
     setUniform<Uniforms::kRadialGradient>(path_fill_wrapper.radialGradient() ? 1.0f : 0.0f);
-    setUniform<Uniforms::kLineWidth>(line_width);
+    setUniform<Uniforms::kLineWidth>(4.0f);
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
 
     bgfx::setVertexBuffer(0, &vertex_buffer);
@@ -343,22 +339,18 @@ namespace visage {
       indices[i] = static_cast<uint16_t>(index);
     }
 
-    float dimensions[4] = { path_fill_wrapper.width, path_fill_wrapper.height, 1.0f, 1.0f };
-    float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
-
     GradientTexturePosition texture_pos {};
     GradientVertexPosition gradient_pos {};
     PackedBrush::computeVertexGradientTexturePositions(texture_pos, path_fill_wrapper.brush);
     PackedBrush::computeVertexGradientPositions(gradient_pos, path_fill_wrapper.brush, 0, 0, 0, 0,
                                                 path_fill_wrapper.width, path_fill_wrapper.height);
-    float line_width[] = { 4.0f, 0.0f, 0.0f, 0.0f };
-    setUniform<Uniforms::kDimensions>(dimensions);
-    setUniform<Uniforms::kTime>(time);
+    setUniform<Uniforms::kDimensions>(path_fill_wrapper.width, path_fill_wrapper.height, 1.0f, 1.0f);
+    setUniform<Uniforms::kTime>(static_cast<float>(layer.time()));
     setUniform<Uniforms::kGradientTexturePosition>(&texture_pos);
     setUniform<Uniforms::kGradientPosition>(gradient_pos.position1());
     setUniform<Uniforms::kGradientPosition2>(gradient_pos.position2());
     setUniform<Uniforms::kRadialGradient>(path_fill_wrapper.radialGradient() ? 1.0f : 0.0f);
-    setUniform<Uniforms::kLineWidth>(line_width);
+    setUniform<Uniforms::kLineWidth>(4.0f);
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
 
     bgfx::setVertexBuffer(0, &vertex_buffer);
@@ -372,34 +364,24 @@ namespace visage {
     submitPathAntiAliasStrip(path_fill_wrapper, layer, submit_pass);
   }
 
-  void setImageAtlasUniform(const BatchVector<ImageWrapper>& batches) {
-    if (batches.empty() || batches[0].shapes->empty())
-      return;
+  void setImageAtlasUniform(const ImageAtlas* atlas) {
+    setTexture<Uniforms::kTexture>(1, atlas->textureHandle());
+    setUniform<Uniforms::kAtlasScale>(1.0f / atlas->width(), 1.0f / atlas->height());
+  }
 
-    const ImageAtlas* image_atlas = batches[0].shapes->front().image_atlas;
-    setTexture<Uniforms::kTexture>(1, image_atlas->textureHandle());
-    float atlas_scale[] = { 1.0f / image_atlas->width(), 1.0f / image_atlas->height(), 0.0f, 0.0f };
-    setUniform<Uniforms::kAtlasScale>(atlas_scale);
+  void setImageAtlasUniform(const BatchVector<ImageWrapper>& batches) {
+    if (!batches.empty() && !batches[0].shapes->empty())
+      setImageAtlasUniform(batches[0].shapes->front().image_atlas);
   }
 
   void setGraphDataUniform(const BatchVector<GraphLineWrapper>& batches) {
-    if (batches.empty() || batches[0].shapes->empty())
-      return;
-
-    const ImageAtlas* data_atlas = batches[0].shapes->front().data_atlas;
-    setTexture<Uniforms::kTexture>(1, data_atlas->textureHandle());
-    float atlas_scale[] = { 1.0f / data_atlas->width(), 1.0f / data_atlas->height(), 0.0f, 0.0f };
-    setUniform<Uniforms::kAtlasScale>(atlas_scale);
+    if (!batches.empty() && !batches[0].shapes->empty())
+      setImageAtlasUniform(batches[0].shapes->front().data_atlas);
   }
 
   void setGraphDataUniform(const BatchVector<GraphFillWrapper>& batches) {
-    if (batches.empty() || batches[0].shapes->empty())
-      return;
-
-    const ImageAtlas* data_atlas = batches[0].shapes->front().data_atlas;
-    setTexture<Uniforms::kTexture>(1, data_atlas->textureHandle());
-    float atlas_scale[] = { 1.0f / data_atlas->width(), 1.0f / data_atlas->height(), 0.0f, 0.0f };
-    setUniform<Uniforms::kAtlasScale>(atlas_scale);
+    if (!batches.empty() && !batches[0].shapes->empty())
+      setImageAtlasUniform(batches[0].shapes->front().data_atlas);
   }
 
   inline int numTextPieces(const TextBlock& text, int x, int y, const std::vector<IBounds>& invalid_rects) {
@@ -549,8 +531,7 @@ namespace visage {
 
     VISAGE_ASSERT(vertex_index == total_length * kVerticesPerQuad);
 
-    float atlas_scale_uniform[] = { 1.0f / font.atlasWidth(), 1.0f / font.atlasHeight(), 0.0f, 0.0f };
-    setUniform<Uniforms::kAtlasScale>(atlas_scale_uniform);
+    setUniform<Uniforms::kAtlasScale>(1.0f / font.atlasWidth(), 1.0f / font.atlasHeight());
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
     setTexture<Uniforms::kTexture>(1, font.textureHandle());
     setUniformDimensions(layer.width(), layer.height());
@@ -584,20 +565,15 @@ namespace visage {
 
     setUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
-    Layer* source_layer = batches[0].shapes->front().region->layer();
-    float width_scale = 1.0f / source_layer->width();
-    float height_scale = 1.0f / source_layer->height();
-
     setBlendMode(BlendMode::Alpha);
     setTimeUniform(layer.time());
-    float atlas_scale[] = { width_scale, height_scale, 0.0f, 0.0f };
-    setUniform<Uniforms::kAtlasScale>(atlas_scale);
+    Layer* source_layer = batches[0].shapes->front().region->layer();
+    setUniform<Uniforms::kAtlasScale>(1.0f / source_layer->width(), 1.0f / source_layer->height());
 
     setTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
     setUniformDimensions(layer.width(), layer.height());
     float value = layer.hdr() ? kHdrColorMultiplier : 1.0f;
-    float color_mult[] = { value, value, value, 1.0f };
-    setUniform<Uniforms::kColorMult>(color_mult);
+    setUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(layer.bottomLeftOrigin());
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                           SampleRegion::fragmentShader()));
