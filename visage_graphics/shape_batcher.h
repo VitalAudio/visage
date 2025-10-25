@@ -78,15 +78,23 @@ namespace visage {
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass);
   void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass);
 
-  template<typename T>
-  typename T::Vertex* setupQuads(const BatchVector<T>& batches, bool& radial_gradient, int& num_shapes) {
-    num_shapes = numShapes(batches);
-    if (num_shapes == 0)
-      return nullptr;
+  template<typename V>
+  struct QuadVertices {
+    V* vertices = nullptr;
+    int num_shapes = 0;
+    bool radial_gradient = false;
+  };
 
-    auto vertices = initQuadVertices<typename T::Vertex>(num_shapes);
-    if (vertices == nullptr)
-      return nullptr;
+  template<typename T>
+  QuadVertices<typename T::Vertex> setupQuads(const BatchVector<T>& batches) {
+    QuadVertices<typename T::Vertex> results;
+    results.num_shapes = numShapes(batches);
+    if (results.num_shapes == 0)
+      return results;
+
+    results.vertices = initQuadVertices<typename T::Vertex>(results.num_shapes);
+    if (results.vertices == nullptr)
+      return results;
     int vertex_index = 0;
 
     for (const auto& batch : batches) {
@@ -98,32 +106,26 @@ namespace visage {
             continue;
 
           clamp = clamp.withOffset(batch.x, batch.y);
-          setQuadPositions(vertices + vertex_index, shape, clamp, batch.x, batch.y);
-          shape.setVertexData(vertices + vertex_index);
-          radial_gradient = shape.radialGradient();
+          setQuadPositions(results.vertices + vertex_index, shape, clamp, batch.x, batch.y);
+          shape.setVertexData(results.vertices + vertex_index);
+          results.radial_gradient = shape.radialGradient();
           vertex_index += kVerticesPerQuad;
         }
       }
     }
 
-    VISAGE_ASSERT(vertex_index == num_shapes * kVerticesPerQuad);
-    return vertices;
-  }
-
-  template<typename T>
-  typename T::Vertex* setupQuads(const BatchVector<T>& batches, bool& radial_gradient) {
-    int num_shapes = 0;
-    return setupQuads(batches, radial_gradient, num_shapes);
+    VISAGE_ASSERT(vertex_index == results.num_shapes * kVerticesPerQuad);
+    return results;
   }
 
   template<typename T>
   static void submitBaseShapes(const BatchVector<T>& batches, BlendMode state, Layer& layer, int submit_pass) {
-    bool radial_gradient = false;
-    if (!setupQuads(batches, radial_gradient))
+    auto quads = setupQuads(batches);
+    if (quads.vertices == nullptr)
       return;
 
     setBlendMode(state);
-    submitShapes(layer, T::vertexShader(), T::fragmentShader(), radial_gradient, submit_pass);
+    submitShapes(layer, T::vertexShader(), T::fragmentShader(), quads.radial_gradient, submit_pass);
   }
 
   template<typename T>

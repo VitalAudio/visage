@@ -75,20 +75,20 @@ namespace visage {
   }
 
   template<const char* name>
-  inline void setUniform(const void* value) {
+  void setUniform(const void* value) {
     static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
     bgfx::setUniform(uniform, value);
   }
 
   template<const char* name>
-  inline void setUniform(float value) {
+  void setUniform(float value) {
     static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
     float vec[4] = { value, value, value, value };
     bgfx::setUniform(uniform, vec);
   }
 
   template<const char* name>
-  inline void setTexture(int stage, bgfx::TextureHandle handle) {
+  void setTexture(int stage, bgfx::TextureHandle handle) {
     static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Sampler, 1);
     bgfx::setTexture(stage, uniform, handle);
   }
@@ -100,43 +100,7 @@ namespace visage {
     setUniform<Uniforms::kBounds>(view_bounds);
   }
 
-  inline void setScissor(const BaseShape& shape, int full_width, int full_height) {
-    const ClampBounds& clamp = shape.clamp;
-    int width = std::min<int>(shape.width, clamp.right - clamp.left);
-    int height = std::min<int>(shape.height, clamp.bottom - clamp.top);
-    int x = std::max<int>(shape.x, clamp.left);
-    int y = std::max<int>(shape.y, clamp.top);
-
-    int scissor_x = std::min(full_width, std::max<int>(0, x));
-    int scissor_y = std::min(full_height, std::max<int>(0, y));
-    int scissor_right = std::min(full_width, std::max<int>(0, x + width));
-    int scissor_bottom = std::min(full_height, std::max<int>(0, y + height));
-    if (scissor_x < scissor_right && scissor_y < scissor_bottom)
-      bgfx::setScissor(scissor_x, scissor_y, scissor_right - scissor_x, scissor_bottom - scissor_y);
-  }
-
-  inline float inverseSqrt(float value) {
-    static constexpr float kThreeHalves = 1.5f;
-
-    float x2 = value * 0.5f;
-    float y = value;
-    int i = *reinterpret_cast<int*>(&y);
-    i = 0x5f3759df - (i >> 1);
-    y = *reinterpret_cast<float*>(&i);
-    y = y * (kThreeHalves - (x2 * y * y));
-    y = y * (kThreeHalves - (x2 * y * y));
-    return y;
-  }
-
-  inline float inverseMagnitude(Point point) {
-    return inverseSqrt(point.squareMagnitude());
-  }
-
-  inline Point normalize(Point point) {
-    return point * inverseMagnitude(point);
-  }
-
-  static inline void setTimeUniform(float time) {
+  inline void setTimeUniform(float time) {
     float time_values[] = { time, time, time, time };
     setUniform<Uniforms::kTime>(time_values);
   }
@@ -152,7 +116,7 @@ namespace visage {
     setUniform<Uniforms::kColorMult>(color_mult);
   }
 
-  inline void setOriginFlipUniform(bool origin_flip) {
+  void setOriginFlipUniform(bool origin_flip) {
     float flip_value = origin_flip ? -1.0 : 1.0;
     float true_value = origin_flip ? 1.0 : 0.0;
     float flip[4] = { flip_value, true_value, 0.0f, 0.0f };
@@ -204,8 +168,8 @@ namespace visage {
     bgfx::submit(submit_pass, ProgramCache::programHandle(vertex_shader, fragment_shader));
   }
 
-  void submitPathAntiAliasStrip(const PathFillWrapper& path_fill_wrapper, const Layer& layer,
-                                int submit_pass) {
+  static void submitPathAntiAliasStrip(const PathFillWrapper& path_fill_wrapper, const Layer& layer,
+                                       int submit_pass) {
     int num_vertices = path_fill_wrapper.antiAliasStripLength();
     if (num_vertices == 0)
       return;
@@ -215,8 +179,8 @@ namespace visage {
 
     auto next_path_index = [&path_fill_wrapper](int path_index) {
       path_index++;
-      while (path_index < path_fill_wrapper.path.subPaths().size() &&
-             path_fill_wrapper.path.subPaths()[path_index].points.empty())
+      const auto& sub_paths = path_fill_wrapper.path.subPaths();
+      while (path_index < sub_paths.size() && sub_paths[path_index].points.empty())
         path_index++;
 
       return path_index;
@@ -310,9 +274,8 @@ namespace visage {
     line_data[vertex_index].y = inner.y * scale;
     line_data[vertex_index + 1].x = outer.x * scale;
     line_data[vertex_index + 1].y = outer.y * scale;
-    vertex_index += 2;
 
-    VISAGE_ASSERT(vertex_index == num_vertices);
+    VISAGE_ASSERT(vertex_index + 2 == num_vertices);
 
     for (int i = 0; i < num_vertices; i += 2) {
       line_data[i].fill = 0.5f;
@@ -325,8 +288,8 @@ namespace visage {
 
     float dimensions[4] = { path_fill_wrapper.width, path_fill_wrapper.height, 1.0f, 1.0f };
     float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
-    GradientTexturePosition texture_pos;
-    GradientVertexPosition gradient_pos;
+    GradientTexturePosition texture_pos {};
+    GradientVertexPosition gradient_pos {};
     PackedBrush::computeVertexGradientTexturePositions(texture_pos, path_fill_wrapper.brush);
     PackedBrush::computeVertexGradientPositions(gradient_pos, path_fill_wrapper.brush, 0, 0, 0, 0,
                                                 path_fill_wrapper.width, path_fill_wrapper.height);
@@ -383,8 +346,8 @@ namespace visage {
     float dimensions[4] = { path_fill_wrapper.width, path_fill_wrapper.height, 1.0f, 1.0f };
     float time[] = { static_cast<float>(layer.time()), 0.0f, 0.0f, 0.0f };
 
-    GradientTexturePosition texture_pos;
-    GradientVertexPosition gradient_pos;
+    GradientTexturePosition texture_pos {};
+    GradientVertexPosition gradient_pos {};
     PackedBrush::computeVertexGradientTexturePositions(texture_pos, path_fill_wrapper.brush);
     PackedBrush::computeVertexGradientPositions(gradient_pos, path_fill_wrapper.brush, 0, 0, 0, 0,
                                                 path_fill_wrapper.width, path_fill_wrapper.height);
@@ -598,11 +561,11 @@ namespace visage {
   }
 
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass) {
-    bool radial_gradient = false;
-    if (!setupQuads(batches, radial_gradient))
+    auto quads = setupQuads(batches);
+    if (quads.vertices == nullptr)
       return;
 
-    setUniform<Uniforms::kRadialGradient>(radial_gradient ? 1.0f : 0.0f);
+    setUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
     setBlendMode(BlendMode::Alpha);
     setTimeUniform(layer.time());
     setUniformDimensions(layer.width(), layer.height());
@@ -615,11 +578,11 @@ namespace visage {
   }
 
   void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass) {
-    bool radial_gradient = false;
-    if (!setupQuads(batches, radial_gradient))
+    auto quads = setupQuads(batches);
+    if (quads.vertices == nullptr)
       return;
 
-    setUniform<Uniforms::kRadialGradient>(radial_gradient ? 1.0f : 0.0f);
+    setUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
     Layer* source_layer = batches[0].shapes->front().region->layer();
     float width_scale = 1.0f / source_layer->width();

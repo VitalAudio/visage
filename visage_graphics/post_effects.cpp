@@ -48,10 +48,6 @@ namespace visage {
     bgfx::setTexture(stage, uniform, handle);
   }
 
-  inline void setFlipUniform(bool origin_flip) {
-    setPostEffectUniform<Uniforms::kOriginFlip>(origin_flip ? -1.0 : 1.0, origin_flip ? 1.0 : 0.0);
-  }
-
   struct DownsampleHandles {
     bgfx::IndexBufferHandle screen_index_buffer = BGFX_INVALID_HANDLE;
     bgfx::VertexBufferHandle screen_vertex_buffer = BGFX_INVALID_HANDLE;
@@ -88,14 +84,11 @@ namespace visage {
 
   void PostEffect::submitPassthrough(const BatchVector<SampleRegion>& batches,
                                      const Layer& destination, int submit_pass) const {
-    bool radial_gradient = false;
-    int num_shapes = 0;
-    auto vertices = setupQuads(batches, radial_gradient, num_shapes);
-    if (vertices == nullptr)
+    auto quads = setupQuads(batches);
+    if (quads.vertices == nullptr)
       return;
 
-    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
-    setPostEffectUniform<Uniforms::kRadialGradient>(radial);
+    setPostEffectUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
     setBlendMode(BlendMode::Composite);
     setPostEffectUniform<Uniforms::kTime>(destination.time());
@@ -107,9 +100,8 @@ namespace visage {
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
     setUniformDimensions(destination.width(), destination.height());
     float value = hdr() ? 1.0f / kHdrColorMultiplier : 1.0f;
-    float color_mult[] = { value, value, value, 1.0f };
-    setPostEffectUniform<Uniforms::kColorMult>(color_mult);
-    setFlipUniform(destination.bottomLeftOrigin());
+    setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
+    setOriginFlipUniform(destination.bottomLeftOrigin());
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                           SampleRegion::fragmentShader()));
   }
@@ -265,14 +257,12 @@ namespace visage {
       if (i == 0) {
         setInitialVertices(region);
         setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
-        bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
-                                                                      visage::shaders::fs_sample));
+        bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
       }
       else {
         setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
         setPostEffectUniform<Uniforms::kResampleValues>(x_downsample_scale, y_downsample_scale);
-        bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
-                                                                      visage::shaders::fs_blur_sample));
+        bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_blur_sample));
       }
 
       submit_pass++;
@@ -287,8 +277,8 @@ namespace visage {
     bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers2[downsample_stages_]);
     bgfx::setViewRect(submit_pass, 0, 0, last_width, last_height);
     setPostEffectUniform<Uniforms::kPixelSize>(transition / last_width, 0.0f);
-    bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_full_screen_texture,
-                                                                  visage::shaders::fs_blur));
+    bgfx::submit(submit_pass,
+                 ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
     submit_pass++;
 
     setBlendMode(BlendMode::Opaque);
@@ -299,8 +289,8 @@ namespace visage {
     bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers1[downsample_stages_]);
     bgfx::setViewRect(submit_pass, 0, 0, last_width, last_height);
     setPostEffectUniform<Uniforms::kPixelSize>(0.0f, transition / last_height);
-    bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_full_screen_texture,
-                                                                  visage::shaders::fs_blur));
+    bgfx::submit(submit_pass,
+                 ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
     submit_pass++;
 
     for (int i = downsample_stages_; i > 1; --i) {
@@ -316,8 +306,7 @@ namespace visage {
       bgfx::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
 
       setBlendMode(BlendMode::Opaque);
-      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
-                                                                    visage::shaders::fs_sample));
+      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
       submit_pass++;
     }
 
@@ -329,15 +318,11 @@ namespace visage {
       submitPassthrough(batches, destination, submit_pass);
       return;
     }
-
-    bool radial_gradient = false;
-    int num_shapes = 0;
-    auto vertices = setupQuads(batches, radial_gradient, num_shapes);
-    if (vertices == nullptr)
+    auto quads = setupQuads(batches);
+    if (quads.vertices == nullptr)
       return;
 
-    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
-    setPostEffectUniform<Uniforms::kRadialGradient>(radial);
+    setPostEffectUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
     setBlendMode(BlendMode::Composite);
     setPostEffectUniform<Uniforms::kTime>(destination.time());
@@ -349,22 +334,22 @@ namespace visage {
     int source_index = downsample_stages_ ? 1 : 0;
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[source_index]));
 
-    for (int i = 0; i < num_shapes; ++i) {
-      vertices[i * kVerticesPerQuad].texture_x = 0.0f;
-      vertices[i * kVerticesPerQuad].texture_y = 0.0f;
-      vertices[i * kVerticesPerQuad + 1].texture_x = widths_[0];
-      vertices[i * kVerticesPerQuad + 1].texture_y = 0.0f;
-      vertices[i * kVerticesPerQuad + 2].texture_x = 0.0f;
-      vertices[i * kVerticesPerQuad + 2].texture_y = heights_[0];
-      vertices[i * kVerticesPerQuad + 3].texture_x = widths_[0];
-      vertices[i * kVerticesPerQuad + 3].texture_y = heights_[0];
+    for (int i = 0; i < quads.num_shapes; ++i) {
+      quads.vertices[i * kVerticesPerQuad].texture_x = 0.0f;
+      quads.vertices[i * kVerticesPerQuad].texture_y = 0.0f;
+      quads.vertices[i * kVerticesPerQuad + 1].texture_x = widths_[0];
+      quads.vertices[i * kVerticesPerQuad + 1].texture_y = 0.0f;
+      quads.vertices[i * kVerticesPerQuad + 2].texture_x = 0.0f;
+      quads.vertices[i * kVerticesPerQuad + 2].texture_y = heights_[0];
+      quads.vertices[i * kVerticesPerQuad + 3].texture_x = widths_[0];
+      quads.vertices[i * kVerticesPerQuad + 3].texture_y = heights_[0];
     }
     setUniformDimensions(destination.width(), destination.height());
 
     float value = destination.hdr() ? kHdrColorMultiplier : 1.0f;
     float color_mult[] = { value, value, value, 1.0f };
     setPostEffectUniform<Uniforms::kColorMult>(color_mult);
-    setFlipUniform(destination.bottomLeftOrigin());
+    setOriginFlipUniform(destination.bottomLeftOrigin());
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                           SampleRegion::fragmentShader()));
   }
@@ -391,11 +376,10 @@ namespace visage {
     bgfx::setViewRect(submit_pass, 0, 0, widths_[1], heights_[1]);
     float mult_val = hdr_range * bloom_intensity_;
     setPostEffectUniform<Uniforms::kMult>(mult_val, mult_val, mult_val, 1.0f);
-    float hdr_mult = hdr() ? visage::kHdrColorMultiplier : 1.0f;
+    float hdr_mult = hdr() ? kHdrColorMultiplier : 1.0f;
     setPostEffectUniform<Uniforms::kThreshold>(hdr_mult);
 
-    bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
-                                                                  visage::shaders::fs_mult_threshold));
+    bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_mult_threshold));
     submit_pass++;
 
     bgfx::FrameBufferHandle source = handles_->downsample_buffers1[1];
@@ -476,26 +460,24 @@ namespace visage {
 
   void BloomPostEffect::submitBloom(const BatchVector<SampleRegion>& batches,
                                     const Layer& destination, int submit_pass) const {
-    bool radial_gradient = false;
-    int num_shapes = 0;
-    auto vertices = setupQuads(batches, radial_gradient, num_shapes);
-    if (vertices == nullptr)
+    auto quads = setupQuads(batches);
+    if (quads.vertices == nullptr)
       return;
 
-    for (int i = 0; i < num_shapes; ++i) {
-      vertices[i * kVerticesPerQuad].texture_x = 0.0f;
-      vertices[i * kVerticesPerQuad].texture_y = 0.0f;
-      vertices[i * kVerticesPerQuad + 1].texture_x = widths_[1];
-      vertices[i * kVerticesPerQuad + 1].texture_y = 0.0f;
-      vertices[i * kVerticesPerQuad + 2].texture_x = 0.0f;
-      vertices[i * kVerticesPerQuad + 2].texture_y = heights_[1];
-      vertices[i * kVerticesPerQuad + 3].texture_x = widths_[1];
-      vertices[i * kVerticesPerQuad + 3].texture_y = heights_[1];
+    for (int i = 0; i < quads.num_shapes; ++i) {
+      quads.vertices[i * kVerticesPerQuad].texture_x = 0.0f;
+      quads.vertices[i * kVerticesPerQuad].texture_y = 0.0f;
+      quads.vertices[i * kVerticesPerQuad + 1].texture_x = widths_[1];
+      quads.vertices[i * kVerticesPerQuad + 1].texture_y = 0.0f;
+      quads.vertices[i * kVerticesPerQuad + 2].texture_x = 0.0f;
+      quads.vertices[i * kVerticesPerQuad + 2].texture_y = heights_[1];
+      quads.vertices[i * kVerticesPerQuad + 3].texture_x = widths_[1];
+      quads.vertices[i * kVerticesPerQuad + 3].texture_y = heights_[1];
     }
 
     if (destination.bottomLeftOrigin()) {
       for (int i = 0; i < kVerticesPerQuad; ++i)
-        vertices[i].texture_y = heights_[1] - vertices[i].texture_y;
+        quads.vertices[i].texture_y = heights_[1] - quads.vertices[i].texture_y;
     }
 
     setBlendMode(BlendMode::Add);
@@ -508,20 +490,17 @@ namespace visage {
     setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
     setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(handles_->downsample_buffers1[1]));
     setUniformDimensions(destination.width(), destination.height());
-    bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_tinted_texture,
-                                                                  visage::shaders::fs_tinted_texture));
+    bgfx::submit(submit_pass,
+                 ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_tinted_texture));
   }
 
   void ShaderPostEffect::submit(const BatchVector<SampleRegion>& batches, Layer& destination,
                                 int submit_pass) {
-    bool radial_gradient = false;
-    int num_shapes = 0;
-    auto vertices = setupQuads(batches, radial_gradient, num_shapes);
-    if (vertices == nullptr)
+    auto quads = setupQuads(batches);
+    if (quads.vertices == nullptr)
       return;
 
-    float radial[] = { radial_gradient ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f };
-    setPostEffectUniform<Uniforms::kRadialGradient>(radial);
+    setPostEffectUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
     setBlendMode(BlendMode::Composite);
     setPostEffectUniform<Uniforms::kTime>(destination.time());
@@ -533,22 +512,22 @@ namespace visage {
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
     float value = hdr() ? 1.0f / kHdrColorMultiplier : 1.0f;
     setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
-    setFlipUniform(destination.bottomLeftOrigin());
+    setOriginFlipUniform(destination.bottomLeftOrigin());
 
-    setPostEffectUniform<Uniforms::kTextureClamp>((vertices[0].texture_x + 0.5f) * width_scale,
-                                                  (vertices[0].texture_y + 0.5f) * height_scale,
-                                                  (vertices[3].texture_x - 0.5f) * width_scale,
-                                                  (vertices[3].texture_y - 0.5f) * height_scale);
-    float center_x = (vertices[0].texture_x + vertices[3].texture_x) * 0.5f;
-    float center_y = (vertices[0].texture_y + vertices[3].texture_y) * 0.5f;
+    setPostEffectUniform<Uniforms::kTextureClamp>((quads.vertices[0].texture_x + 0.5f) * width_scale,
+                                                  (quads.vertices[0].texture_y + 0.5f) * height_scale,
+                                                  (quads.vertices[3].texture_x - 0.5f) * width_scale,
+                                                  (quads.vertices[3].texture_y - 0.5f) * height_scale);
+    float center_x = (quads.vertices[0].texture_x + quads.vertices[3].texture_x) * 0.5f;
+    float center_y = (quads.vertices[0].texture_y + quads.vertices[3].texture_y) * 0.5f;
     setPostEffectUniform<Uniforms::kCenterPosition>(center_x, center_y);
-    float width = std::abs(vertices[3].texture_x - vertices[0].texture_x);
-    float height = std::abs(vertices[3].texture_y - vertices[0].texture_y);
+    float width = std::abs(quads.vertices[3].texture_x - quads.vertices[0].texture_x);
+    float height = std::abs(quads.vertices[3].texture_y - quads.vertices[0].texture_y);
     setPostEffectUniform<Uniforms::kDimensions>(width, height);
     setUniformDimensions(destination.width(), destination.height());
 
     for (const auto& uniform : uniforms_)
-      bgfx::setUniform(visage::UniformCache::uniformHandle(uniform.first.c_str()), uniform.second.data);
+      bgfx::setUniform(UniformCache::uniformHandle(uniform.first.c_str()), uniform.second.data);
 
     bgfx::ProgramHandle program = ProgramCache::programHandle(vertexShader(), fragmentShader());
     bgfx::submit(submit_pass, program);
