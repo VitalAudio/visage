@@ -34,6 +34,7 @@ void main() {
   float last_y = v_dimensions.y * texture2D(s_texture, start_data + vec2(clamp(u_atlas_scale.x * range_start, 0.0, data_width), 0.0)).r;
 
   float distance = (thickness + 1.0) * (thickness + 1.0);
+  // TODO: Could define the range at compile time
   float span = min(20.0, max(1.0, range_end - range_start));
   for (float i = 0.0; i <= span; ++i) {
     float sample_index = range_start + i;
