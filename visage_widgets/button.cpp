@@ -179,6 +179,7 @@ namespace visage {
       icon_.setFillBrush(paletteColor(ToggleButtonOn));
     else
       icon_.setFillBrush(paletteColor(ToggleButtonOff));
+    computeShadowRadius();
   }
 
   ToggleTextButton::ToggleTextButton(const std::string& name) :

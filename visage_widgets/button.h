@@ -165,11 +165,11 @@ namespace visage {
     void initSettings(bool shadow) {
       addChild(shadow_, shadow);
       shadow_.setIgnoresMouseEvents(true, false);
-      if (shadow)
-        setShadowRadius(3.0f);
 
       addChild(icon_);
       icon_.setIgnoresMouseEvents(true, false);
+      if (shadow)
+        setShadowRadius(kDefaultShadowRadius);
     }
 
     void computeShadowRadius() {
