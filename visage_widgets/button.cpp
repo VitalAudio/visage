@@ -174,11 +174,6 @@ namespace visage {
     ToggleButton::resized();
     icon_.setBounds(localBounds());
     shadow_.setBounds(localBounds());
-    shadow_.setFillBrush(paletteColor(ButtonShadow));
-    if (toggled())
-      icon_.setFillBrush(paletteColor(ToggleButtonOn));
-    else
-      icon_.setFillBrush(paletteColor(ToggleButtonOff));
     computeShadowRadius();
   }
 

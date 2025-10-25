@@ -421,12 +421,7 @@ namespace visage {
 
     Svg(const EmbeddedFile& file) : Svg(file.data, file.size) { }
 
-    void setDimensions(int width, int height) {
-      draw_width_ = view_.width ? view_.width : width;
-      draw_height_ = view_.height ? view_.height : height;
-      if (drawable_ && view_.width == 0 && view_.height == 0)
-        drawable_->setSize(view_, width, height);
-    }
+    void setDimensions(int width, int height) { setDrawableDimensions(width, height); }
 
     SvgDrawable* drawable() const { return drawable_.get(); }
 
@@ -434,19 +429,51 @@ namespace visage {
     float height() const { return draw_height_; }
 
     void setFillBrush(const Brush& brush) {
+      fill_brush_ = brush;
       if (drawable_)
         drawable_->setAllFillBrush(brush);
     }
 
+    void resetFillBrush() {
+      fill_brush_ = Brush::none();
+      resetDrawable();
+    }
+
     void setStrokeBrush(const Brush& brush) {
+      stroke_brush_ = brush;
       if (drawable_)
         drawable_->setAllStrokeBrush(brush);
     }
 
+    void resetStrokeBrush() {
+      stroke_brush_ = Brush::none();
+      resetDrawable();
+    }
+
   private:
+    void setDrawableDimensions(int width, int height) {
+      if (width != draw_width_ || height != draw_height_) {
+        draw_width_ = width;
+        draw_height_ = height;
+      }
+
+      resetDrawable();
+    }
+
+    void resetDrawable() {
+      drawable_->setSize(view_, draw_width_, draw_height_);
+      if (!fill_brush_.isNone())
+        drawable_->setAllFillBrush(fill_brush_);
+      if (!stroke_brush_.isNone())
+        drawable_->setAllStrokeBrush(stroke_brush_);
+    }
+
     SvgViewSettings view_;
     std::unique_ptr<SvgDrawable> drawable_;
     float draw_width_ = 0.0f;
     float draw_height_ = 0.0f;
+
+    Brush fill_brush_;
+    Brush stroke_brush_;
   };
 }

@@ -57,8 +57,18 @@ namespace visage {
       redrawAll();
     }
 
+    void resetFillBrush() {
+      svg_.resetFillBrush();
+      redrawAll();
+    }
+
     void setStrokeBrush(const Brush& brush) {
       svg_.setStrokeBrush(brush);
+      redrawAll();
+    }
+
+    void resetStrokeBrush() {
+      svg_.resetStrokeBrush();
       redrawAll();
     }
 
