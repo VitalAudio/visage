@@ -70,7 +70,6 @@ namespace visage {
     CallbackList<void(Button*, bool)> on_toggle_;
     Animation<float> hover_amount_;
     std::function<void()> undo_setup_function_ = nullptr;
-    Frame shadow_;
 
     bool active_ = true;
     bool toggle_on_mouse_down_ = false;
