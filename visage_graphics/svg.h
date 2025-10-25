@@ -455,9 +455,8 @@ namespace visage {
       if (width != draw_width_ || height != draw_height_) {
         draw_width_ = width;
         draw_height_ = height;
+        resetDrawable();
       }
-
-      resetDrawable();
     }
 
     void resetDrawable() {
