@@ -47,11 +47,11 @@ namespace visage {
   public:
     static constexpr int kMaxDownsamples = 6;
 
-    DownsamplePostEffect(bool hdr = false);
+    explicit DownsamplePostEffect(bool hdr = false);
 
   protected:
     void setInitialVertices(Region* region);
-    void checkBuffers(const Region* region, bool full_resoltion);
+    void checkBuffers(const Region* region, bool full_resolution);
     void setScreenVertexBuffer(bool inverted);
 
     int full_width_ = 0;
@@ -95,7 +95,7 @@ namespace visage {
     void submitBloom(const BatchVector<SampleRegion>& batches, const Layer& destination,
                      int submit_pass) const;
 
-    void setBloomSize(float size) { bloom_size_ = std::log2(size); }
+    void setBloomSize(float size) { bloom_size_ = std::log2(std::max(1.0f, size)); }
     void setBloomIntensity(float intensity) { bloom_intensity_ = intensity; }
 
   private:

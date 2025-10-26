@@ -96,8 +96,8 @@ namespace visage {
         if (image_container) {
           width = image_container->m_width;
           height = image_container->m_height;
+          bimg::imageFree(image_container);
         }
-        bimg::imageFree(image_container);
       }
 
       std::unique_ptr<PackedImageRect> packed_image_rect = std::make_unique<PackedImageRect>(image);

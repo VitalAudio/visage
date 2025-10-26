@@ -60,7 +60,6 @@ function(amalgamate_sources GENERATED_FILES AMALGAMATED_SOURCE_BASE FILE_SOURCES
 
   foreach (FILE ${FILE_SOURCES})
     set_source_files_properties("${FILE}" PROPERTIES HEADER_FILE_ONLY TRUE)
-    set(_generatedi "")
     if (IDX EQUAL 0)
       if (PART GREATER 0)
         file(CONFIGURE OUTPUT "${AMALGAMATED_SOURCE_BASE}${PART}.cpp" CONTENT "${FILE_CONTENTS}")
@@ -76,10 +75,9 @@ function(amalgamate_sources GENERATED_FILES AMALGAMATED_SOURCE_BASE FILE_SOURCES
     if (IDX GREATER 6)
       set(IDX 0)
     endif ()
-
-    set(${GENERATED_FILES} "${GENERATED}" PARENT_SCOPE)
   endforeach ()
 
+  set(${GENERATED_FILES} "${GENERATED}" PARENT_SCOPE)
   file(CONFIGURE OUTPUT "${AMALGAMATED_SOURCE_BASE}${PART}.cpp" CONTENT "${FILE_CONTENTS}")
 endfunction()
 

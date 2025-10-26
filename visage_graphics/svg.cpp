@@ -144,7 +144,7 @@ namespace visage {
       child->drawAll(canvas, context, x, y, width, height);
   }
 
-  bool SvgDrawable::setContextColor(Canvas& canvas, ColorContext* context,
+  bool SvgDrawable::setContextColor(Canvas& canvas, const ColorContext* context,
                                     const GradientDef& gradient, float color_opacity) const {
     const Brush* context_brush = nullptr;
     if (gradient.type == GradientDef::Type::CurrentColor)
@@ -231,8 +231,8 @@ namespace visage {
     return parseNumber(token, range);
   }
 
-  Point parseEllipseRadius(const std::string& token1, const std::string& token2, Point center,
-                           float max_x, float max_y) {
+  Point parseEllipseRadius(const std::string& token1, const std::string& token2,
+                           const Point& center, float max_x, float max_y) {
     auto parse_ellipse_dimension = [](const std::string& token, float center, float range) {
       if (token == "closest-side")
         return std::min(center, range - center);
@@ -273,7 +273,7 @@ namespace visage {
   }
 
   Path::CommandList parseEllipseShape(std::vector<std::string>& tokens, const Bounds& bounding_box) {
-    auto next_or_end = [&tokens](std::vector<std::string>::iterator it) {
+    auto next_or_end = [&tokens](const std::vector<std::string>::iterator& it) {
       return it < tokens.end() ? std::next(it) : tokens.end();
     };
 
@@ -358,7 +358,7 @@ namespace visage {
     static constexpr int kNumInsets = 4;
     float insets[kNumInsets] {};
     for (int i = 0; i < tokens.size() - 1 && i < kNumInsets; ++i) {
-      float dim = (i % 1) ? bounding_box.width() : bounding_box.height();
+      float dim = (i % 2) ? bounding_box.width() : bounding_box.height();
       insets[i] = parseNumber(tokens[i + 1], dim);
     }
 
@@ -389,7 +389,7 @@ namespace visage {
 
     int position = 0;
     auto tokens = parseFunctionTokens(clip_path_shape, position);
-    if (tokens.size() < 1)
+    if (tokens.empty())
       return;
 
     std::string remaining = clip_path_shape.substr(position);
@@ -404,9 +404,9 @@ namespace visage {
       bounding_box = boundingBox();
 
     if (tokens[0] == "url") {
-      auto id = urlId(clip_path_shape);
-      if (clip_paths.count(id)) {
-        auto& clip_drawable = clip_paths.at(id);
+      auto url_id = urlId(clip_path_shape);
+      if (clip_paths.count(url_id)) {
+        auto& clip_drawable = clip_paths.at(url_id);
         if (clip_drawable->is_clip_bounding_box) {
           auto scale = scale_matrix * Matrix::scale(bounding_box.width(), bounding_box.height());
           clip_drawable->initPaths(scale, view_box);
@@ -904,7 +904,7 @@ namespace visage {
     return matrix;
   }
 
-  GradientDef parseGradientTag(Tag& tag) {
+  GradientDef parseGradientTag(const Tag& tag) {
     GradientDef gradient_def;
     if (tag.data.name == "linearGradient") {
       gradient_def.type = GradientDef::Type::Linear;
@@ -1066,7 +1066,7 @@ namespace visage {
     return result;
   }
 
-  bool SvgParser::loadDrawable(const Tag& tag, SvgDrawable* drawable) {
+  bool SvgParser::loadDrawable(const Tag& tag, SvgDrawable* drawable) const {
     int view_width = view_.view_box.width() > 0.0f ? view_.view_box.width() : 1.0f;
     int view_height = view_.view_box.height() > 0.0f ? view_.view_box.height() : 1.0f;
 

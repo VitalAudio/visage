@@ -156,6 +156,7 @@ namespace visage {
         children.clear();
         for (const auto& child : other.children)
           children.push_back(std::make_unique<SvgDrawable>(*child));
+        return *this;
       }
 
       std::vector<std::unique_ptr<SvgDrawable>> children;
@@ -166,7 +167,7 @@ namespace visage {
 
     void draw(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
     void drawAll(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
-    bool setContextColor(Canvas& canvas, ColorContext* context, const GradientDef& gradient,
+    bool setContextColor(Canvas& canvas, const ColorContext* context, const GradientDef& gradient,
                          float color_opacity) const;
     void fill(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
     void stroke(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
@@ -365,7 +366,7 @@ namespace visage {
     void parseStyleDefinition(const std::string& key, const std::string& value,
                               DrawableState& state, SvgDrawable* drawable);
     void loadDrawableTransform(const Tag& tag, SvgDrawable* drawable);
-    bool loadDrawable(const Tag& tag, SvgDrawable* drawable);
+    bool loadDrawable(const Tag& tag, SvgDrawable* drawable) const;
 
     void loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack, SvgDrawable* drawable);
     GradientDef parseGradient(const std::string& color_string);

@@ -32,10 +32,15 @@ namespace visage {
                                float rx_bottom_right, float ry_bottom_right, float rx_bottom_left,
                                float ry_bottom_left) {
     float scale = 1.0f;
-    scale = std::min(scale, width / (rx_top_left + rx_top_right));
-    scale = std::min(scale, width / (rx_bottom_left + rx_bottom_right));
-    scale = std::min(scale, height / (ry_top_left + ry_bottom_left));
-    scale = std::min(scale, height / (ry_top_right + ry_bottom_right));
+    if (rx_top_left + rx_top_right)
+      scale = std::min(scale, width / (rx_top_left + rx_top_right));
+    if (rx_bottom_left + rx_bottom_right)
+      scale = std::min(scale, width / (rx_bottom_left + rx_bottom_right));
+    if (ry_top_left + ry_bottom_left)
+      scale = std::min(scale, height / (ry_top_left + ry_bottom_left));
+    if (ry_top_right + ry_bottom_right)
+      scale = std::min(scale, height / (ry_top_right + ry_bottom_right));
+
     rx_top_left *= scale;
     ry_top_left *= scale;
     rx_top_right *= scale;
@@ -76,6 +81,13 @@ namespace visage {
 
   void Path::arcTo(float rx, float ry, float x_axis_rotation, bool large_arc, bool sweep_flag,
                    Point point, bool relative) {
+    rx = std::abs(rx);
+    ry = std::abs(ry);
+    if (rx == 0.0f || ry == 0.0f) {
+      lineTo(point);
+      return;
+    }
+
     if (currentPath().points.empty())
       addPoint(last_point_);
 
@@ -119,10 +131,10 @@ namespace visage {
 
     for (int i = 0; i < num_points; ++i) {
       position *= rotation;
-      Point point = center + Point(position.real(), position.imag());
-      point.y /= radius_ratio;
-      point = ellipse_rotation * point + from;
-      addPoint(point);
+      Point p = center + Point(position.real(), position.imag());
+      p.y /= radius_ratio;
+      p = ellipse_rotation * p + from;
+      addPoint(p);
     }
   }
 
@@ -1020,7 +1032,8 @@ namespace visage {
 
     float square_miter_limit = miter_limit * miter_limit;
     float adjusted_radius = (resolution_transform_ * Point(amount, 0.0f)).length();
-    double max_delta_radians = 2.0 * std::acos(1.0 - kDefaultErrorTolerance / adjusted_radius);
+    double max_delta_radians = 2.0 * std::acos(std::clamp(1.0 - kDefaultErrorTolerance / adjusted_radius,
+                                                          0.0, 1.0));
     int start_points = points_.size();
     std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(start_points);
     for (int i = 0; i < start_points; ++i) {
