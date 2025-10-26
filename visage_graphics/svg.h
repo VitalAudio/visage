@@ -98,10 +98,10 @@ namespace visage {
                           Transform::scale(box.width(), box.height());
       }
       position = position.transformed(scale_transform * transform);
-      return Brush(gradient, position);
+      return { gradient, position };
     }
 
-    bool isNone() { return gradient.isNone(); }
+    bool isNone() const { return gradient.isNone(); }
 
     Gradient gradient;
     Transform transform;
@@ -152,6 +152,9 @@ namespace visage {
     SvgDrawable(const SvgDrawable& other) { *this = other; }
 
     SvgDrawable& operator=(const SvgDrawable& other) {
+      if (this == &other)
+        return *this;
+
       id = other.id;
       is_defines = other.is_defines;
       command_list = other.command_list;
@@ -205,7 +208,7 @@ namespace visage {
         child->setAllStrokeBrush(brush);
     }
 
-    Bounds boundingFillBox() {
+    Bounds boundingFillBox() const {
       Bounds bounds;
       if (hasFill())
         bounds = path.boundingBox();
@@ -216,7 +219,7 @@ namespace visage {
       return bounds;
     }
 
-    Bounds boundingStrokeBox() {
+    Bounds boundingStrokeBox() const {
       Bounds bounds;
       if (hasStroke())
         bounds = stroke_path.boundingBox();
@@ -227,7 +230,7 @@ namespace visage {
       return bounds;
     }
 
-    Bounds boundingBox() { return boundingFillBox().unioned(boundingStrokeBox()); }
+    Bounds boundingBox() const { return boundingFillBox().unioned(boundingStrokeBox()); }
 
     void transformPaths(const Transform& transform) {
       if (path.numPoints()) {
@@ -372,7 +375,7 @@ namespace visage {
     SvgParser() = default;
 
     SvgParser(const unsigned char* data, int data_size) { parseData(data, data_size); }
-    SvgParser(const EmbeddedFile& file) : SvgParser(file.data, file.size) { }
+    explicit SvgParser(const EmbeddedFile& file) : SvgParser(file.data, file.size) { }
 
     void parseData(const unsigned char* data, int data_size);
 
@@ -408,6 +411,9 @@ namespace visage {
     Svg() = default;
 
     Svg& operator=(const Svg& other) {
+      if (this == &other)
+        return *this;
+
       drawable_ = std::make_unique<SvgDrawable>(*other.drawable_);
       view_ = other.view_;
       return *this;
@@ -419,7 +425,7 @@ namespace visage {
       drawable_ = SvgParser::loadDrawable(data, data_size, view_);
     }
 
-    Svg(const EmbeddedFile& file) : Svg(file.data, file.size) { }
+    explicit Svg(const EmbeddedFile& file) : Svg(file.data, file.size) { }
 
     void setDimensions(int width, int height) { setDrawableDimensions(width, height); }
 
