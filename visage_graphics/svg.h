@@ -82,11 +82,7 @@ namespace visage {
 
       GradientPosition position;
       if (type == Type::Radial) {
-        float f_radius = focal_radius;
-        if (radius)
-          f_radius /= radius;
-        else
-          f_radius = radius;
+        float f_radius = radius ? focal_radius / radius : 0.0f;
         position = GradientPosition::radial(point1, radius, radius, point2, f_radius);
       }
       else
@@ -148,42 +144,25 @@ namespace visage {
       const Brush* stroke_color = nullptr;
     };
 
+    class DrawableHierarchy {
+    public:
+      DrawableHierarchy() = default;
+      DrawableHierarchy(const DrawableHierarchy& other) { *this = other; }
+
+      DrawableHierarchy& operator=(const DrawableHierarchy& other) {
+        if (this == &other)
+          return *this;
+
+        children.clear();
+        for (const auto& child : other.children)
+          children.push_back(std::make_unique<SvgDrawable>(*child));
+      }
+
+      std::vector<std::unique_ptr<SvgDrawable>> children;
+    };
+
     SvgDrawable() = default;
     SvgDrawable(const SvgDrawable& other) { *this = other; }
-
-    SvgDrawable& operator=(const SvgDrawable& other) {
-      if (this == &other)
-        return *this;
-
-      id = other.id;
-      is_defines = other.is_defines;
-      command_list = other.command_list;
-
-      local_transform = other.local_transform;
-      transform_origin_x = other.transform_origin_x;
-      transform_origin_y = other.transform_origin_y;
-      transform_origin_x_ratio = other.transform_origin_x_ratio;
-      transform_origin_y_ratio = other.transform_origin_y_ratio;
-
-      opacity = other.opacity;
-      state = other.state;
-      path = other.path;
-      stroke_path = other.stroke_path;
-      fill_brush = other.fill_brush;
-      stroke_brush = other.stroke_brush;
-      marker_start = other.marker_start;
-      marker_mid = other.marker_mid;
-      marker_end = other.marker_end;
-
-      children.clear();
-      for (const auto& child : other.children)
-        children.push_back(std::make_unique<SvgDrawable>(*child));
-
-      is_clip_path = other.is_clip_path;
-      is_clip_bounding_box = other.is_clip_bounding_box;
-      clip_path_shape = other.clip_path_shape;
-      return *this;
-    }
 
     void draw(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
     void drawAll(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
@@ -196,15 +175,17 @@ namespace visage {
       return state.stroke_opacity > 0.0f && state.stroke_width > 0.0f && !stroke_brush.isNone();
     }
 
+    auto& children() const { return hierarchy.children; }
+
     void setAllFillBrush(const Brush& brush) {
       fill_brush = brush;
-      for (auto& child : children)
+      for (auto& child : children())
         child->setAllFillBrush(brush);
     }
 
     void setAllStrokeBrush(const Brush& brush) {
       stroke_brush = brush;
-      for (auto& child : children)
+      for (auto& child : children())
         child->setAllStrokeBrush(brush);
     }
 
@@ -213,7 +194,7 @@ namespace visage {
       if (hasFill())
         bounds = path.boundingBox();
 
-      for (auto& child : children)
+      for (auto& child : children())
         bounds = bounds.unioned(child->boundingFillBox());
 
       return bounds;
@@ -224,7 +205,7 @@ namespace visage {
       if (hasStroke())
         bounds = stroke_path.boundingBox();
 
-      for (auto& child : children)
+      for (auto& child : children())
         bounds = bounds.unioned(child->boundingStrokeBox());
 
       return bounds;
@@ -242,7 +223,7 @@ namespace visage {
           stroke_brush.transform(transform);
         }
       }
-      for (auto& child : children)
+      for (auto& child : children())
         child->transformPaths(transform);
     }
 
@@ -256,7 +237,7 @@ namespace visage {
       if (stroke_path.numPoints())
         stroke_path = clip_path->combine(stroke_path, Path::Operation::Intersection);
 
-      for (auto& child : children)
+      for (auto& child : children())
         child->applyClipping(clip_path);
     }
 
@@ -264,7 +245,7 @@ namespace visage {
       if (path.numPoints())
         *result = result->combine(path, Path::Operation::Union);
 
-      for (auto& child : children)
+      for (auto& child : children())
         child->unionPaths(result);
 
       path.clear();
@@ -332,7 +313,7 @@ namespace visage {
     std::string id;
     bool is_defines = false;
     Path::CommandList command_list;
-    std::vector<std::unique_ptr<SvgDrawable>> children;
+    DrawableHierarchy hierarchy;
 
     Transform local_transform;
     bool transform_origin_x_ratio = false;
