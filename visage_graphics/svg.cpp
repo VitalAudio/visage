@@ -26,8 +26,7 @@
 #include <unordered_map>
 
 namespace visage {
-
-  std::string unescape(std::string input, const std::string& from, const std::string& to) {
+  static std::string unescape(std::string input, const std::string& from, const std::string& to) {
     size_t pos = 0;
 
     while ((pos = input.find(from, pos)) != std::string::npos) {
@@ -38,7 +37,7 @@ namespace visage {
     return input;
   }
 
-  std::vector<std::string> splitArguments(const std::string& str) {
+  static std::vector<std::string> splitArguments(const std::string& str) {
     std::string with_spaces = unescape(str, ",", " ");
 
     std::vector<std::string> tokens;
@@ -55,14 +54,14 @@ namespace visage {
     return tokens;
   }
 
-  std::string removeWhitespace(const std::string& string) {
+  static std::string removeWhitespace(const std::string& string) {
     constexpr auto is_whitespace = [](char c) { return std::isspace(c); };
     std::string result = string;
     result.erase(std::remove_if(result.begin(), result.end(), is_whitespace), result.end());
     return result;
   }
 
-  std::string trimWhitespace(const std::string& string) {
+  static std::string trimWhitespace(const std::string& string) {
     constexpr auto is_whitespace = [](char c) { return std::isspace(c); };
     std::string result = string;
     result.erase(result.begin(), std::find_if_not(result.begin(), result.end(), is_whitespace));
@@ -70,7 +69,7 @@ namespace visage {
     return result;
   }
 
-  std::vector<std::string> parseFunctionTokens(const std::string& function_string, int& pos) {
+  static std::vector<std::string> parseFunctionTokens(const std::string& function_string, int& pos) {
     size_t start = function_string.find_first_not_of(" \t\n\r", pos);
     if (start == std::string::npos)
       return {};
@@ -90,7 +89,7 @@ namespace visage {
     return result;
   }
 
-  std::string urlId(const std::string& url) {
+  static std::string urlId(const std::string& url) {
     int pos = 0;
     auto tokens = parseFunctionTokens(url, pos);
     if (tokens.size() <= 1)
@@ -215,12 +214,9 @@ namespace visage {
     else if (units == "pc")
       mult = 16.0f;
 
-    try {
-      return std::stof(str) * mult;
-    }
-    catch (...) {
-      return 0.0f;
-    }
+    float result = 0.0f;
+    tryReadFloat(result, str);
+    return result * mult;
   }
 
   float parsePositionValue(const std::string& token, float range) {

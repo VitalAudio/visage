@@ -448,6 +448,9 @@ namespace visage {
     }
 
     void resetDrawable() {
+      if (drawable_ == nullptr)
+        return;
+
       drawable_->setSize(view_, draw_width_, draw_height_);
       if (!fill_brush_.isNone())
         drawable_->setAllFillBrush(fill_brush_);

@@ -28,6 +28,15 @@
 #include <sstream>
 
 namespace visage {
+  inline float toFloat(const std::string& str) {
+    try {
+      return std::stof(str);
+    }
+    catch (const std::exception&) {
+      return 0.0f;
+    }
+  }
+
   void Palette::initWithDefaults() {
     value_map_.clear();
     int num_value_ids = theme::ValueId::numValueIds();
@@ -195,7 +204,7 @@ namespace visage {
         std::size_t split_position = value_mapping.find(kEncodingSeparator);
         if (split_position != std::string::npos) {
           std::string key = value_mapping.substr(0, split_position);
-          int value = std::stof(value_mapping.substr(split_position + 1));
+          int value = toFloat(value_mapping.substr(split_position + 1));
           value_map_[override_id][value_name_map[key]] = value;
         }
 

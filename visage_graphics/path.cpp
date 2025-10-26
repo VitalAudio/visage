@@ -26,6 +26,15 @@
 #include <set>
 
 namespace visage {
+  static float toFloat(const std ::string& str) {
+    try {
+      return std::stof(str);
+    }
+    catch (const std::exception&) {
+      return 0.0f;
+    }
+  }
+
   template<typename T>
   static void roundedRectangle(T& t, float x, float y, float width, float height, float rx_top_left,
                                float ry_top_left, float rx_top_right, float ry_top_right,
@@ -146,13 +155,13 @@ namespace visage {
           str[i] == 'E') {
         if (str[i] == '.') {
           if (number.find('.') != std::string::npos)
-            return std::stof(number);
+            return toFloat(number);
         }
         number += str[i++];
       }
       else if (str[i] == ',' || std::isspace(str[i]) || sign) {
         if (!number.empty())
-          return std::stof(number);
+          return toFloat(number);
         if (!sign)
           ++i;
       }
@@ -162,13 +171,13 @@ namespace visage {
         ++i;
 
       if (bit_flags && !number.empty())
-        return std::stof(number);
+        return toFloat(number);
     }
     if (number.empty()) {
       VISAGE_ASSERT(false);
       return 0.0f;
     }
-    return std::stof(number);
+    return toFloat(number);
   }
 
   Path::CommandList Path::parseSvgPath(const std::string& path) {
