@@ -139,7 +139,7 @@ namespace visage {
   void SvgDrawable::drawAll(Canvas& canvas, ColorContext* context, float x, float y, float width,
                             float height) const {
     draw(canvas, context, x, y, width, height);
-    for (const auto& child : children())
+    for (const auto& child : children)
       child->drawAll(canvas, context, x, y, width, height);
   }
 
@@ -443,7 +443,7 @@ namespace visage {
 
   void SvgDrawable::initPaths(const Matrix& scale_matrix, const Bounds& view_box) {
     auto scale = scale_matrix * local_transform.matrix;
-    for (auto& child : children())
+    for (auto& child : children)
       child->initPaths(scale, view_box);
 
     if (!command_list.empty()) {
@@ -500,7 +500,7 @@ namespace visage {
 
   void SvgDrawable::adjustPaths(const Matrix& scale_matrix, const Bounds& view_box,
                                 std::map<std::string, SvgDrawable*>& clip_paths) {
-    for (auto& child : children())
+    for (auto& child : children)
       child->adjustPaths(scale_matrix * local_transform.matrix, view_box, clip_paths);
 
     auto transform = local_transform;
@@ -562,7 +562,7 @@ namespace visage {
            str[i] != '/')
       key += str[i++];
 
-    if (key.empty() || i >= str.size() || str[i] != '=')
+    if (key.empty() || i >= str.size() - 1 || str[i] != '=')
       return { "", "" };
 
     i++;
@@ -964,7 +964,7 @@ namespace visage {
       selector_text = removeWhitespace(selector_text);
       if (selector_text.empty())
         continue;
-      if (edited == ">") {
+      if (selector_text == ">") {
         direct_child = true;
         continue;
       }
@@ -1164,7 +1164,7 @@ namespace visage {
         }
 
         marker->local_transform = Transform::translation(point) * rotation * marker->local_transform;
-        drawable->hierarchy.children.push_back(std::move(marker));
+        drawable->children.push_back(std::move(marker));
       }
 
       if (drawable->marker_mid)
@@ -1267,7 +1267,7 @@ namespace visage {
           for (auto& child_tag : tag.children) {
             auto child = computeDrawables(child_tag, state_stack);
             if (child)
-              drawable.hierarchy.children.push_back(std::move(child));
+              drawable.children.push_back(std::move(child));
           }
 
           if (tag.data.attributes.count("markerWidth"))
@@ -1524,7 +1524,7 @@ namespace visage {
     for (auto& child_tag : tag.children) {
       auto child = computeDrawables(child_tag, state_stack);
       if (child)
-        drawable->hierarchy.children.push_back(std::move(child));
+        drawable->children.push_back(std::move(child));
     }
 
     state_stack.pop_back();
@@ -1562,7 +1562,7 @@ namespace visage {
     for (auto& tag : tags) {
       auto child = computeDrawables(tag, state_stack);
       if (child)
-        drawable_->hierarchy.children.push_back(std::move(child));
+        drawable_->children.push_back(std::move(child));
     }
 
     drawable_->setSize(view_);

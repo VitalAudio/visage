@@ -32,7 +32,7 @@ namespace visage {
   }
 
   void SvgFrame::loadSubFrames(SubFrame* frame, SvgDrawable* drawable) {
-    for (auto& child : drawable->children()) {
+    for (auto& child : drawable->children) {
       auto sub_frame = std::make_unique<SubFrame>(child.get(), &context_);
       loadSubFrames(sub_frame.get(), child.get());
       frame->addChild(std::move(sub_frame));

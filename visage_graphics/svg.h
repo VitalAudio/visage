@@ -34,6 +34,32 @@ namespace visage {
   class Canvas;
   struct Marker;
 
+  template<class T>
+  class clone_ptr {
+  public:
+    clone_ptr() = default;
+    clone_ptr(std::unique_ptr<T> p) : p_(std::move(p)) { }
+
+    clone_ptr(const clone_ptr& other) : p_(other.p_ ? std::make_unique<T>(*other.p_) : nullptr) { }
+
+    clone_ptr& operator=(const clone_ptr& other) {
+      if (this != &other)
+        p_ = other.p_ ? std::make_unique<T>(*other.p_) : nullptr;
+      return *this;
+    }
+
+    clone_ptr(clone_ptr&&) noexcept = default;
+    clone_ptr& operator=(clone_ptr&&) noexcept = default;
+
+    T* get() const { return p_.get(); }
+    T& operator*() const { return p_.operator*(); }
+    T* operator->() const { return p_.operator->(); }
+    explicit operator bool() const { return static_cast<bool>(p_); }
+
+  private:
+    std::unique_ptr<T> p_;
+  };
+
   struct TagData {
     std::string name;
     std::string text;
@@ -144,26 +170,9 @@ namespace visage {
       const Brush* stroke_color = nullptr;
     };
 
-    class DrawableHierarchy {
-    public:
-      DrawableHierarchy() = default;
-      DrawableHierarchy(const DrawableHierarchy& other) { *this = other; }
-
-      DrawableHierarchy& operator=(const DrawableHierarchy& other) {
-        if (this == &other)
-          return *this;
-
-        children.clear();
-        for (const auto& child : other.children)
-          children.push_back(std::make_unique<SvgDrawable>(*child));
-        return *this;
-      }
-
-      std::vector<std::unique_ptr<SvgDrawable>> children;
-    };
-
     SvgDrawable() = default;
-    SvgDrawable(const SvgDrawable& other) { *this = other; }
+    SvgDrawable(const SvgDrawable& other) = default;
+    SvgDrawable& operator=(const SvgDrawable& other) = default;
 
     void draw(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
     void drawAll(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
@@ -176,17 +185,15 @@ namespace visage {
       return state.stroke_opacity > 0.0f && state.stroke_width > 0.0f && !stroke_brush.isNone();
     }
 
-    auto& children() const { return hierarchy.children; }
-
     void setAllFillBrush(const Brush& brush) {
       fill_brush = brush;
-      for (auto& child : children())
+      for (auto& child : children)
         child->setAllFillBrush(brush);
     }
 
     void setAllStrokeBrush(const Brush& brush) {
       stroke_brush = brush;
-      for (auto& child : children())
+      for (auto& child : children)
         child->setAllStrokeBrush(brush);
     }
 
@@ -195,7 +202,7 @@ namespace visage {
       if (hasFill())
         bounds = path.boundingBox();
 
-      for (auto& child : children())
+      for (auto& child : children)
         bounds = bounds.unioned(child->boundingFillBox());
 
       return bounds;
@@ -206,7 +213,7 @@ namespace visage {
       if (hasStroke())
         bounds = stroke_path.boundingBox();
 
-      for (auto& child : children())
+      for (auto& child : children)
         bounds = bounds.unioned(child->boundingStrokeBox());
 
       return bounds;
@@ -224,7 +231,7 @@ namespace visage {
           stroke_brush.transform(transform);
         }
       }
-      for (auto& child : children())
+      for (auto& child : children)
         child->transformPaths(transform);
     }
 
@@ -238,7 +245,7 @@ namespace visage {
       if (stroke_path.numPoints())
         stroke_path = clip_path->combine(stroke_path, Path::Operation::Intersection);
 
-      for (auto& child : children())
+      for (auto& child : children)
         child->applyClipping(clip_path);
     }
 
@@ -246,7 +253,7 @@ namespace visage {
       if (path.numPoints())
         *result = result->combine(path, Path::Operation::Union);
 
-      for (auto& child : children())
+      for (auto& child : children)
         child->unionPaths(result);
 
       path.clear();
@@ -314,7 +321,7 @@ namespace visage {
     std::string id;
     bool is_defines = false;
     Path::CommandList command_list;
-    DrawableHierarchy hierarchy;
+    std::vector<clone_ptr<SvgDrawable>> children;
 
     Transform local_transform;
     bool transform_origin_x_ratio = false;
@@ -391,20 +398,11 @@ namespace visage {
   class Svg {
   public:
     Svg() = default;
-
-    Svg& operator=(const Svg& other) {
-      if (this == &other)
-        return *this;
-
-      drawable_ = std::make_unique<SvgDrawable>(*other.drawable_);
-      view_ = other.view_;
-      return *this;
-    }
-
-    Svg(const Svg& other) { *this = other; }
+    Svg(const Svg& other) = default;
+    Svg& operator=(const Svg& other) = default;
 
     Svg(const unsigned char* data, int data_size) {
-      drawable_ = SvgParser::loadDrawable(data, data_size, view_);
+      drawable_ = clone_ptr(SvgParser::loadDrawable(data, data_size, view_));
     }
 
     explicit Svg(const EmbeddedFile& file) : Svg(file.data, file.size) { }
@@ -448,7 +446,7 @@ namespace visage {
     }
 
     void resetDrawable() {
-      if (drawable_ == nullptr)
+      if (!drawable_)
         return;
 
       drawable_->setSize(view_, draw_width_, draw_height_);
@@ -459,7 +457,7 @@ namespace visage {
     }
 
     SvgViewSettings view_;
-    std::unique_ptr<SvgDrawable> drawable_;
+    clone_ptr<SvgDrawable> drawable_;
     float draw_width_ = 0.0f;
     float draw_height_ = 0.0f;
 
