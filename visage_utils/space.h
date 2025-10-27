@@ -42,11 +42,7 @@ namespace visage {
       y = other.y;
     }
 
-    BasePoint& operator=(const BasePoint& other) {
-      x = other.x;
-      y = other.y;
-      return *this;
-    }
+    BasePoint& operator=(const BasePoint& other) = default;
 
     BasePoint operator+(const BasePoint& other) const { return { x + other.x, y + other.y }; }
     BasePoint operator+=(const BasePoint& other) {

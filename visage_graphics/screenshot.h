@@ -28,41 +28,31 @@ namespace visage {
   public:
     Screenshot() = default;
     Screenshot(const uint8_t* data, int width, int height, bool blue_red = false) :
-        width_(width), height_(height), data_(std::make_unique<uint8_t[]>(width * height * 4)) {
-      std::copy_n(data, width * height * 4, data_.get());
+        width_(width), height_(height) {
+      data_.resize(width * height * 4);
+      std::copy_n(data, width * height * 4, data_.data());
       if (blue_red)
         flipBlueRed();
     }
 
     Screenshot(const uint8_t* data, int width, int height, int pitch, bool blue_red = false) :
-        width_(width), height_(height), data_(std::make_unique<uint8_t[]>(width * height * 4)) {
+        width_(width), height_(height) {
       VISAGE_ASSERT(pitch >= width * 4);
 
+      data_.resize(width * height * 4);
       if (pitch == width * 4)
-        std::copy_n(data, width * height * 4, data_.get());
+        std::copy_n(data, width * height * 4, data_.data());
       else {
         for (int y = 0; y < height; ++y)
-          std::copy_n(data + y * pitch, width * 4, data_.get() + y * width * 4);
+          std::copy_n(data + y * pitch, width * 4, data_.data() + y * width * 4);
       }
 
       if (blue_red)
         flipBlueRed();
     }
 
-    Screenshot(const Screenshot& other) : width_(other.width_), height_(other.height_) {
-      data_ = std::make_unique<uint8_t[]>(width_ * height_ * 4);
-      std::copy_n(other.data_.get(), width_ * height_ * 4, data_.get());
-    }
-
-    Screenshot& operator=(const Screenshot& other) {
-      if (this != &other) {
-        width_ = other.width_;
-        height_ = other.height_;
-        data_ = std::make_unique<uint8_t[]>(width_ * height_ * 4);
-        std::copy_n(other.data_.get(), width_ * height_ * 4, data_.get());
-      }
-      return *this;
-    }
+    Screenshot(const Screenshot& other) = default;
+    Screenshot& operator=(const Screenshot& other) = default;
 
     void save(const char* path) const;
     void save(const std::string& path) const;
@@ -71,10 +61,11 @@ namespace visage {
     void setDimensions(int width, int height) {
       width_ = width;
       height_ = height;
-      data_ = std::make_unique<uint8_t[]>(width * height * 4);
+      data_.clear();
+      data_.resize(width * height * 4, 0);
     }
 
-    uint8_t* data() const { return data_.get(); }
+    uint8_t* data() { return data_.data(); }
     int width() const { return width_; }
     int height() const { return height_; }
     Color sample(int x, int y) const {
@@ -99,6 +90,6 @@ namespace visage {
 
     int width_ = 0;
     int height_ = 0;
-    std::unique_ptr<uint8_t[]> data_;
+    std::vector<uint8_t> data_;
   };
 }

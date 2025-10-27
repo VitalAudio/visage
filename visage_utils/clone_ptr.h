@@ -19,27 +19,35 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include "screenshot.h"
+#pragma once
 
-#include <bimg/bimg.h>
-#include <bx/file.h>
+#include <memory>
 
 namespace visage {
-  void Screenshot::save(const char* path) const {
-    bx::FileWriter writer;
-    bx::Error error;
-    if (bx::open(&writer, path, false, &error)) {
-      bimg::imageWritePng(&writer, width_, height_, width_ * 4, data_.data(),
-                          bimg::TextureFormat::RGBA8, false, &error);
-      bx::close(&writer);
+  template<class T>
+  class clone_ptr {
+  public:
+    clone_ptr() = default;
+    clone_ptr(std::unique_ptr<T> p) : p_(std::move(p)) { }
+
+    clone_ptr(const clone_ptr& other) : p_(other.p_ ? std::make_unique<T>(*other.p_) : nullptr) { }
+
+    clone_ptr& operator=(const clone_ptr& other) {
+      if (this != &other)
+        p_ = other.p_ ? std::make_unique<T>(*other.p_) : nullptr;
+      return *this;
     }
-  }
 
-  void Screenshot::save(const std::string& path) const {
-    save(path.c_str());
-  }
+    clone_ptr(clone_ptr&&) noexcept = default;
+    clone_ptr& operator=(clone_ptr&&) noexcept = default;
 
-  void Screenshot::save(const File& file) const {
-    save(file.string());
-  }
+    void reset() { p_.reset(); }
+    T* get() const { return p_.get(); }
+    T& operator*() const { return p_.operator*(); }
+    T* operator->() const { return p_.operator->(); }
+    explicit operator bool() const { return static_cast<bool>(p_); }
+
+  private:
+    std::unique_ptr<T> p_;
+  };
 }

@@ -291,16 +291,7 @@ namespace visage {
   }
 
   Font& Font::operator=(const Font& other) {
-    if (this == &other)
-      return *this;
-
-    if (packed_font_)
-      FontCache::returnPackedFont(packed_font_);
-
-    size_ = other.size_;
-    native_size_ = other.native_size_;
-    dpi_scale_ = other.dpi_scale_;
-    packed_font_ = FontCache::loadPackedFont(other.packed_font_);
+    std::swap(*this, Font(other));
     return *this;
   }
 

@@ -21,6 +21,8 @@
 
 #pragma once
 
+#include "clone_ptr.h"
+
 #include <algorithm>
 #include <functional>
 #include <memory>
@@ -342,23 +344,8 @@ namespace visage {
       add(callback);
     }
 
-    CallbackList(const CallbackList& other) {
-      if (other.original_)
-        original_ = std::make_unique<std::function<T>>(*other.original_);
-      callbacks_ = other.callbacks_;
-    }
-
-    CallbackList& operator=(const CallbackList& other) {
-      if (this != &other) {
-        if (other.original_)
-          original_ = std::make_unique<std::function<T>>(*other.original_);
-        else
-          original_.reset();
-
-        callbacks_ = other.callbacks_;
-      }
-      return *this;
-    }
+    CallbackList(const CallbackList& other) = default;
+    CallbackList& operator=(const CallbackList& other) = default;
 
     void add(std::function<T> callback) { callbacks_.push_back(std::move(callback)); }
 
@@ -411,7 +398,7 @@ namespace visage {
     }
 
   private:
-    std::unique_ptr<std::function<T>> original_;
+    clone_ptr<std::function<T>> original_;
     std::vector<std::function<T>> callbacks_;
   };
 }

@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "visage_utils/clone_ptr.h"
 #include "visage_utils/space.h"
 
 #include <cfloat>
@@ -216,25 +217,8 @@ namespace visage {
     };
 
     Path() = default;
-
-    Path& operator=(const Path& other) {
-      if (this != &other) {
-        resolution_matrix_ = other.resolution_matrix_;
-        paths_ = other.paths_;
-        if (other.triangulation_graph_)
-          triangulation_graph_ = std::make_unique<TriangulationGraph>(*other.triangulation_graph_);
-        else
-          triangulation_graph_.reset();
-        fill_rule_ = other.fill_rule_;
-        smooth_control_point_ = other.smooth_control_point_;
-        last_point_ = other.last_point_;
-        current_value_ = other.current_value_;
-        error_tolerance_ = other.error_tolerance_;
-      }
-      return *this;
-    }
-
-    Path(const Path& other) { *this = other; }
+    Path(const Path& other) = default;
+    Path& operator=(const Path& other) = default;
 
     template<typename T>
     static std::optional<T> findIntersection(T start1, T end1, T start2, T end2) {
@@ -396,7 +380,7 @@ namespace visage {
     void clear() {
       paths_.clear();
       last_point_ = {};
-      triangulation_graph_ = nullptr;
+      triangulation_graph_.reset();
     }
 
     void loadSvgPath(const std::string& path);
@@ -622,19 +606,16 @@ namespace visage {
 
       TriangulationGraph() = delete;
       explicit TriangulationGraph(const Path* path);
-      TriangulationGraph(const TriangulationGraph& other) { *this = other; }
+      TriangulationGraph(const TriangulationGraph& other) :
+          resolution_transform_(other.resolution_transform_),
+          intersections_broken_(other.intersections_broken_), points_(other.points_),
+          sorted_indices_(other.sorted_indices_), prev_edge_(other.prev_edge_),
+          next_edge_(other.next_edge_), scan_line_(std::make_unique<ScanLine>(*other.scan_line_)) {
+        scan_line_->setGraph(this);
+      }
 
       TriangulationGraph& operator=(const TriangulationGraph& other) {
-        if (this != &other) {
-          resolution_transform_ = other.resolution_transform_;
-          intersections_broken_ = other.intersections_broken_;
-          points_ = other.points_;
-          sorted_indices_ = other.sorted_indices_;
-          prev_edge_ = other.prev_edge_;
-          next_edge_ = other.next_edge_;
-          scan_line_ = std::make_unique<ScanLine>(*other.scan_line_);
-          scan_line_->setGraph(this);
-        }
+        std::swap(*this, TriangulationGraph(other));
         return *this;
       }
 
@@ -673,7 +654,6 @@ namespace visage {
         };
 
         ScanLine() = delete;
-
         explicit ScanLine(TriangulationGraph* graph) { setGraph(graph); }
 
         void setGraph(TriangulationGraph* graph) { graph_ = graph; }
@@ -949,14 +929,14 @@ namespace visage {
       if (!currentPath().points.empty() && point == currentPath().points.back())
         return;
 
-      triangulation_graph_ = nullptr;
+      triangulation_graph_.reset();
       last_point_ = point;
       currentPath().points.push_back(point);
       currentPath().values.push_back(current_value_);
     }
 
     TriangulationGraph* triangulationGraph() {
-      if (triangulation_graph_ == nullptr)
+      if (!triangulation_graph_)
         triangulation_graph_ = std::make_unique<TriangulationGraph>(this);
       return triangulation_graph_.get();
     }
@@ -965,7 +945,7 @@ namespace visage {
 
     Matrix resolution_matrix_;
     std::vector<SubPath> paths_;
-    std::unique_ptr<TriangulationGraph> triangulation_graph_;
+    clone_ptr<TriangulationGraph> triangulation_graph_;
     FillRule fill_rule_ = FillRule::EvenOdd;
     Point smooth_control_point_;
     Point last_point_;
