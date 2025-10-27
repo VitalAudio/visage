@@ -105,6 +105,11 @@ public:
     kTo
   };
 
+  void resized() override {
+    point1_ = visage::Point(width() * 0.33f, height() * 0.33f);
+    point2_ = visage::Point(width() * 0.66f, height() * 0.66f);
+  }
+
   void draw(visage::Canvas& canvas) override {
     visage::Brush points = visage::Brush::linear(visage::Gradient(0xffffff00, 0xff00ffff), point1_, point2_);
     canvas.setColor(points);
@@ -330,11 +335,6 @@ int runExample() {
 
   app.setTitle("Visage Gradient Example");
   app.show(80_vmin, 60_vmin);
-
-  visage::Point from(linear_points_frame->width() * 0.33f, linear_points_frame->height() * 0.33f);
-  visage::Point to(linear_points_frame->width() * 0.66f, linear_points_frame->height() * 0.66f);
-  linear_points_frame->setPoints(from, to);
-  radial_points_frame->setPoints(from, to);
   app.runEventLoop();
   return 0;
 }
