@@ -53,7 +53,8 @@ static constexpr unsigned int kViridisMap[kViridisMapResolution] = {
 };
 
 visage::Color sampleViridis(float t) {
-  int index = std::round((1.0f - t) * (kViridisMapResolution - 1));
+  int index = std::clamp<int>(std::round((1.0f - t) * (kViridisMapResolution - 1)), 0,
+                              kViridisMapResolution - 1);
   return visage::Color(kViridisMap[index]);
 }
 
