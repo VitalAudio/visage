@@ -614,12 +614,6 @@ namespace visage {
         scan_line_->setGraph(this);
       }
 
-      TriangulationGraph& operator=(const TriangulationGraph& other) {
-        TriangulationGraph copy(other);
-        std::swap(*this, copy);
-        return *this;
-      }
-
       Triangulation triangulate(FillRule fill_rule, int minimum_cycles = 1);
 
       class ScanLine {

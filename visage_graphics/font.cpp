@@ -292,7 +292,10 @@ namespace visage {
 
   Font& Font::operator=(const Font& other) {
     Font copy(other);
-    std::swap(*this, copy);
+    std::swap(size_, copy.size_);
+    std::swap(native_size_, copy.native_size_);
+    std::swap(dpi_scale_, copy.dpi_scale_);
+    std::swap(packed_font_, copy.packed_font_);
     return *this;
   }
 
