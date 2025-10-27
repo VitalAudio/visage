@@ -65,6 +65,7 @@ namespace visage {
       data_.resize(width * height * 4, 0);
     }
 
+    const uint8_t* data() const { return data_.data(); }
     uint8_t* data() { return data_.data(); }
     int width() const { return width_; }
     int height() const { return height_; }

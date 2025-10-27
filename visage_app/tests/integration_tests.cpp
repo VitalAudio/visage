@@ -41,7 +41,7 @@ TEST_CASE("Screenshot solid color", "[integration]") {
 
   REQUIRE(screenshot.width() == 10);
   REQUIRE(screenshot.height() == 5);
-  uint8_t* data = screenshot.data();
+  const uint8_t* data = screenshot.data();
   int i = 0;
   for (int y = 0; y < 5; ++y) {
     for (int x = 0; x < 10; ++x) {
