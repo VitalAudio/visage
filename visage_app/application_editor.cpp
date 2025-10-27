@@ -78,7 +78,8 @@ namespace visage {
         stale_children_.erase(pos);
     };
     event_handler_.set_mouse_relative_mode = [this](bool relative) {
-      window_->setMouseRelativeMode(relative);
+      if (window_)
+        window_->setMouseRelativeMode(relative);
     };
     event_handler_.set_cursor_style = visage::setCursorStyle;
     event_handler_.set_cursor_visible = visage::setCursorVisible;

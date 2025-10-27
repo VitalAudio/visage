@@ -35,6 +35,14 @@ namespace visage {
     }
   }
 
+  static float clampedACos(float value) {
+    if (value <= -1.0f)
+      return 3.14159265358979323846f;
+    if (value >= 1.0f)
+      return 0.0f;
+    return std::acos(value);
+  }
+
   template<typename T>
   static void roundedRectangle(T& t, float x, float y, float width, float height, float rx_top_left,
                                float ry_top_left, float rx_top_right, float ry_top_right,
@@ -131,7 +139,7 @@ namespace visage {
 
     Point adjusted_radius = resolution_matrix_ * Point(rx, ry);
     float max_radius = std::max(std::abs(adjusted_radius.x), std::abs(adjusted_radius.y));
-    float max_delta_radians = 2.0f * std::acos(1.0f - error_tolerance_ / max_radius);
+    float max_delta_radians = 2.0f * clampedACos(1.0f - error_tolerance_ / max_radius);
     int num_points = std::ceil(std::abs(arc_angle) / max_delta_radians);
 
     std::complex<double> position(-center.x, -center.y);
@@ -1014,8 +1022,8 @@ namespace visage {
     }
     else if (end_cap == EndCap::Round) {
       float adjusted_radius = (resolution_transform_ * Point(amount, 0.0f)).length();
-      double max_delta_radians = 2.0 * std::acos(1.0 - kDefaultErrorTolerance / adjusted_radius);
-      int num_points = std::ceil(2.0 * kPi / max_delta_radians - 0.1);
+      double max_delta_radians = 2.0 * clampedACos(1.0 - kDefaultErrorTolerance / adjusted_radius);
+      int num_points = std::max<int>(1, std::ceil(2.0 * kPi / max_delta_radians - 0.1));
       std::complex<double> position(amount, 0.0);
       double angle_delta = 2.0 * kPi / num_points;
       std::complex<double> rotation = std::polar(1.0, -angle_delta);
@@ -1041,8 +1049,7 @@ namespace visage {
 
     float square_miter_limit = miter_limit * miter_limit;
     float adjusted_radius = (resolution_transform_ * Point(amount, 0.0f)).length();
-    double max_delta_radians = 2.0 * std::acos(std::clamp(1.0 - kDefaultErrorTolerance / adjusted_radius,
-                                                          0.0, 1.0));
+    double max_delta_radians = 2.0 * clampedACos(1.0 - kDefaultErrorTolerance / adjusted_radius);
     int start_points = points_.size();
     std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(start_points);
     for (int i = 0; i < start_points; ++i) {
@@ -1099,8 +1106,7 @@ namespace visage {
         else if (type == Join::Round) {
           bool convex = stableOrientation(prev, point, next) <= 0.0;
           if (convex == (amount > 0.0)) {
-            double acos_param = std::clamp(prev_offset.dot(offset) / (amount * amount), -1.0, 1.0);
-            double arc_angle = std::acos(acos_param);
+            double arc_angle = clampedACos(prev_offset.dot(offset) / (amount * amount));
             points_[index] += prev_offset;
             int num_points = std::max(0.0, std::ceil(arc_angle / max_delta_radians - 0.1));
             std::complex<double> position(prev_offset.x, prev_offset.y);
@@ -1474,6 +1480,9 @@ namespace visage {
       dash_length -= dash_offset;
 
       for (auto& path : paths_) {
+        if (path.points.empty())
+          continue;
+
         auto prev = path.points[0];
         stroke_path.moveTo(prev);
         for (int i = 1; i < path.points.size(); ++i) {

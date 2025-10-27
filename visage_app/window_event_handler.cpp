@@ -47,7 +47,8 @@ namespace visage {
       keyboard_focused_frame_->processFocusChanged(false, false);
 
     keyboard_focused_frame_ = frame;
-    keyboard_focused_frame_->processFocusChanged(true, false);
+    if (keyboard_focused_frame_)
+      keyboard_focused_frame_->processFocusChanged(true, false);
   }
 
   void WindowEventHandler::giveUpFocus(Frame* frame) {

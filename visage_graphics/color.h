@@ -136,7 +136,12 @@ namespace visage {
         hex = "ff" + hex;
       else if (hex.size() != 8)
         return Color();
-      return fromARGB(std::stoul(hex, nullptr, 16));
+      try {
+        return fromARGB(std::stoul(hex, nullptr, 16));
+      }
+      catch (...) {
+        return Color();
+      }
     }
 
     Color() = default;
