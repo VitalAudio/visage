@@ -291,7 +291,8 @@ namespace visage {
   }
 
   Font& Font::operator=(const Font& other) {
-    std::swap(*this, Font(other));
+    Font copy(other);
+    std::swap(*this, copy);
     return *this;
   }
 

@@ -615,7 +615,8 @@ namespace visage {
       }
 
       TriangulationGraph& operator=(const TriangulationGraph& other) {
-        std::swap(*this, TriangulationGraph(other));
+        TriangulationGraph copy(other);
+        std::swap(*this, copy);
         return *this;
       }
 

@@ -26,7 +26,7 @@
 #include <set>
 
 namespace visage {
-  static float toFloat(const std ::string& str) {
+  static float toFloat(const std::string& str) {
     try {
       return std::stof(str);
     }
@@ -124,7 +124,7 @@ namespace visage {
       return;
 
     float radius = std::max(length * 0.5f, rx);
-    float center_offset = std::sqrt(radius * radius - length * length * 0.25f);
+    float center_offset = std::sqrt(std::max(0.0f, radius * radius - length * length * 0.25f));
     Point normal = Point(delta.y, -delta.x) / length;
     if (large_arc != sweep_flag)
       normal = -normal;
