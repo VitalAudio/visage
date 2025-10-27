@@ -196,7 +196,15 @@ namespace visage {
     canvas.fill(stroke_path, x, y, width, height);
   }
 
-  float parseNumber(const std::string& str, float max) {
+  inline void tryReadFloat(float& result, const std::string& string) {
+    try {
+      result = std::stof(string);
+    }
+    catch (...) {
+    }
+  }
+
+  inline float parseNumber(const std::string& str, float max) {
     auto suffix_pos = str.find_first_not_of("0123456789+-.eE");
     auto units = suffix_pos != std::string::npos ? trimWhitespace(str.substr(suffix_pos)) : "";
 
@@ -219,7 +227,7 @@ namespace visage {
     return result * mult;
   }
 
-  float parsePositionValue(const std::string& token, float range) {
+  inline float parsePositionValue(const std::string& token, float range) {
     if (token == "top" || token == "left")
       return 0.0f;
     if (token == "bottom" || token == "right")
@@ -227,8 +235,8 @@ namespace visage {
     return parseNumber(token, range);
   }
 
-  Point parseEllipseRadius(const std::string& token1, const std::string& token2,
-                           const Point& center, float max_x, float max_y) {
+  static Point parseEllipseRadius(const std::string& token1, const std::string& token2,
+                                  const Point& center, float max_x, float max_y) {
     auto parse_ellipse_dimension = [](const std::string& token, float center, float range) {
       if (token == "closest-side")
         return std::min(center, range - center);
@@ -241,7 +249,7 @@ namespace visage {
              parse_ellipse_dimension(token2, center.y, max_y) };
   }
 
-  float parseCircleRadius(const std::string& token, Point center, float max_x, float max_y) {
+  inline float parseCircleRadius(const std::string& token, Point center, float max_x, float max_y) {
     if (token == "closest-side") {
       float dx = std::min(center.x, max_x - center.x);
       float dy = std::min(center.y, max_y - center.y);
@@ -505,14 +513,6 @@ namespace visage {
       transformPaths(transform);
 
     checkPathClipping(scale_matrix * local_transform.matrix, view_box, clip_paths);
-  }
-
-  inline void tryReadFloat(float& result, const std::string& string) {
-    try {
-      result = std::stof(string);
-    }
-    catch (...) {
-    }
   }
 
   void consumeWhiteSpace(const std::string& str, int& i) {
