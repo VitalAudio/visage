@@ -1218,7 +1218,7 @@ namespace visage {
     if (tag.data.name != "svg" && tag.data.name != "use")
       return;
 
-    float x = 0.0, y = 0.0f;
+    float x = 0.0f, y = 0.0f;
     for (auto& attribute : tag.data.attributes) {
       if (attribute.first == "x")
         tryReadFloat(x, attribute.second);
