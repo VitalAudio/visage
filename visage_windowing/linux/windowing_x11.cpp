@@ -289,7 +289,8 @@ namespace visage {
   }
 
   static MonitorInfo monitorInfoForPosition(IPoint point) {
-    static constexpr float kInchToMm = 25.4;
+    static constexpr float kInchToMm = 25.4f;
+    static constexpr float kDpiAdjustment = 4.0f / Window::kDefaultDpi;
 
     X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
@@ -297,7 +298,7 @@ namespace visage {
 
     int default_screen = DefaultScreen(display);
     IBounds default_bounds(0, 0, DisplayWidth(display, default_screen),
-                           DisplayWidth(display, default_screen));
+                           DisplayHeight(display, default_screen));
     MonitorInfo result;
     result.bounds = default_bounds;
 
@@ -317,8 +318,13 @@ namespace visage {
         IBounds bounds(info->x, info->y, info->width, info->height);
         if (result.bounds.width() == 0 || bounds.contains(point)) {
           result.bounds = bounds;
-          result.dpi = DisplayWidth(display, default_screen) * kInchToMm /
-                       DisplayWidthMM(display, default_screen);
+          if (output_info->mm_width > 0 && output_info->mm_height > 0)
+            result.dpi = info->width * kInchToMm / output_info->mm_width;
+          else
+            result.dpi = DisplayWidth(display, default_screen) * kInchToMm /
+                         DisplayWidthMM(display, default_screen);
+
+          result.dpi = std::round(result.dpi * kDpiAdjustment) / kDpiAdjustment;
           result.refresh_rate = refreshRate(screen_resources, info);
         }
         XRRFreeCrtcInfo(info);
@@ -362,9 +368,6 @@ namespace visage {
   }
 
   void showMessageBox(std::string title, std::string message) {
-    constexpr float kAspectRatio = 1.5f;
-    constexpr float kDisplayScale = 0.2f;
-
     IBounds bounds = computeWindowBounds(Dimension::viewMinPercent(30.0f),
                                          Dimension::viewMinPercent(20.0f));
     X11Connection* x11 = X11Connection::globalInstance();
@@ -514,9 +517,20 @@ namespace visage {
 
     ::Display* display = x11_->display();
     int screen = DefaultScreen(display);
-    window_handle_ = XCreateSimpleWindow(display, x11_->rootWindow(), bounds.x(), bounds.y(),
-                                         bounds.width(), bounds.height(), 0,
-                                         BlackPixel(display, screen), BlackPixel(display, screen));
+
+    XSetWindowAttributes window_attributes;
+    window_attributes.background_pixmap = None;
+    window_attributes.background_pixel = None;
+    window_attributes.border_pixel = BlackPixel(display, screen);
+    window_attributes.backing_store = WhenMapped;
+    window_attributes.bit_gravity = NorthWestGravity;
+    window_attributes.win_gravity = NorthWestGravity;
+
+    unsigned long attribute_mask = CWBackPixmap | CWBackingPixel | CWBorderPixel | CWBackingStore |
+                                   CWBitGravity | CWWinGravity;
+    window_handle_ = XCreateWindow(display, x11_->rootWindow(), bounds.x(), bounds.y(),
+                                   bounds.width(), bounds.height(), 0, CopyFromParent, InputOutput,
+                                   CopyFromParent, attribute_mask, &window_attributes);
     XStoreName(display, window_handle_, VISAGE_APPLICATION_NAME);
 
     unsigned char blank = 0;
@@ -692,7 +706,7 @@ namespace visage {
     XFree(size_hints);
   }
 
-  visage::IPoint WindowX11::retrieveWindowDimensions() {
+  IPoint WindowX11::retrieveWindowDimensions() {
     X11Connection::DisplayLock lock(x11_);
     XWindowAttributes attributes;
     XGetWindowAttributes(x11_->display(), window_handle_, &attributes);
@@ -970,8 +984,11 @@ namespace visage {
     unsigned char* proxy_data = nullptr;
     XGetWindowProperty(x11_->display(), window, x11_->dndProxy(), 0, ~0, False, AnyPropertyType,
                        &actual_type, &actual_format, &num_items, &bytes_after, &proxy_data);
-    if (proxy_data && num_items * actual_format == 32)
-      return ((long*)proxy_data)[0];
+    if (proxy_data && num_items * actual_format == 32) {
+      ::Window result = reinterpret_cast<long*>(proxy_data)[0];
+      XFree(proxy_data);
+      return result;
+    }
     return 0;
   }
 
@@ -1029,7 +1046,7 @@ namespace visage {
     if (request->target == x11_->targets()) {
       Atom supported_types[] = { x11_->dndUriList() };
       XChangeProperty(request->display, request->requestor, request->property, XA_ATOM, 32,
-                      PropModeReplace, (unsigned char*)supported_types, 2);
+                      PropModeReplace, (unsigned char*)supported_types, 1);
       result.property = request->property;
     }
     else if (request->target == x11_->dndUriList()) {
@@ -1114,7 +1131,7 @@ namespace visage {
       if (request->target == x11->targets()) {
         Atom supported_types[] = { x11->utf8String(), XA_STRING };
         XChangeProperty(request->display, request->requestor, request->property, XA_ATOM, 32,
-                        PropModeReplace, (unsigned char*)supported_types, 2);
+                        PropModeReplace, (unsigned char*)supported_types, 1);
         result.property = request->property;
       }
       else if (request->target == x11->utf8String() || request->target == XA_STRING) {
@@ -1243,7 +1260,6 @@ namespace visage {
         else if (window_operation_ & kResizeBottom)
           window_bottom = std::max(window_y + kMinHeight, event.xmotion.y_root);
 
-        handleResized(window_right - window_x, window_bottom - window_y);
         XMoveResizeWindow(x11_->display(), window_handle_, window_x, window_y,
                           window_right - window_x, window_bottom - window_y);
       }
@@ -1420,7 +1436,7 @@ namespace visage {
       break;
     }
     case ConfigureNotify: {
-      visage::IPoint dimensions = retrieveWindowDimensions();
+      IPoint dimensions = retrieveWindowDimensions();
       handleResized(dimensions.x, dimensions.y);
       long long us_time = time::microseconds() - start_microseconds_;
       drawCallback(us_time / 1000000.0);
@@ -1467,12 +1483,6 @@ namespace visage {
           WindowX11* window = NativeWindowLookup::instance().findWindow(event.xany.window);
           if (window == nullptr)
             continue;
-
-          if (event.type == Expose) {
-            int height = clientHeight();
-            window->handleResized(clientWidth(), height + 1);
-            window->handleResized(clientWidth(), height);
-          }
 
           if (event.type == DestroyNotify ||
               (event.type == ClientMessage && event.xclient.data.l[0] == x11_->deleteMessage())) {
