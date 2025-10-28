@@ -1472,6 +1472,7 @@ namespace visage {
         timeout.tv_usec = us_to_timer;
         result = select(fd + 1, &read_fds, nullptr, nullptr, &timeout);
       }
+
       if (result == -1)
         running = false;
       else if (result == 0) {
@@ -1479,25 +1480,23 @@ namespace visage {
         long long us_time = last_timer_microseconds - start_microseconds_;
         drawCallback(us_time / 1000000.0);
       }
-      else if (FD_ISSET(fd, &read_fds)) {
-        while (running && XPending(x11_->display())) {
-          XNextEvent(x11_->display(), &event);
-          WindowX11* window = NativeWindowLookup::instance().findWindow(event.xany.window);
-          if (window == nullptr)
-            continue;
+      while (running && XPending(x11_->display())) {
+        XNextEvent(x11_->display(), &event);
+        WindowX11* window = NativeWindowLookup::instance().findWindow(event.xany.window);
+        if (window == nullptr)
+          continue;
 
-          if (event.type == DestroyNotify ||
-              (event.type == ClientMessage && event.xclient.data.l[0] == x11_->deleteMessage())) {
-            if (window->closeRequested()) {
-              NativeWindowLookup::instance().removeWindow(window);
-              window->hide();
-              if (!NativeWindowLookup::instance().anyWindowOpen())
-                running = false;
-            }
+        if (event.type == DestroyNotify ||
+            (event.type == ClientMessage && event.xclient.data.l[0] == x11_->deleteMessage())) {
+          if (window->closeRequested()) {
+            NativeWindowLookup::instance().removeWindow(window);
+            window->hide();
+            if (!NativeWindowLookup::instance().anyWindowOpen())
+              running = false;
           }
-          else
-            window->processEvent(event);
         }
+        else
+          window->processEvent(event);
       }
     }
   }
