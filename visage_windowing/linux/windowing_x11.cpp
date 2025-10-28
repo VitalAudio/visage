@@ -1437,9 +1437,11 @@ namespace visage {
     }
     case ConfigureNotify: {
       IPoint dimensions = retrieveWindowDimensions();
-      handleResized(dimensions.x, dimensions.y);
-      long long us_time = time::microseconds() - start_microseconds_;
-      drawCallback(us_time / 1000000.0);
+      if (dimensions.x != clientWidth() || dimensions.y != clientHeight()) {
+        handleResized(dimensions.x, dimensions.y);
+        long long us_time = time::microseconds() - start_microseconds_;
+        drawCallback(us_time / 1000000.0);
+      }
       break;
     }
     }
