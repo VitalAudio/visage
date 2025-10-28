@@ -1486,6 +1486,12 @@ namespace visage {
         if (window == nullptr)
           continue;
 
+        if (event.type == Expose && decoration_ != Decoration::Native) {
+          int height = clientHeight();
+          window->handleResized(clientWidth(), height + 1);
+          window->handleResized(clientWidth(), height);
+        }
+
         if (event.type == DestroyNotify ||
             (event.type == ClientMessage && event.xclient.data.l[0] == x11_->deleteMessage())) {
           if (window->closeRequested()) {
