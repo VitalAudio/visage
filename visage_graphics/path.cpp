@@ -35,11 +35,12 @@ namespace visage {
     }
   }
 
-  static float clampedACos(float value) {
-    if (value <= -1.0f)
-      return 3.14159265358979323846f;
-    if (value >= 1.0f)
-      return 0.0f;
+  template<typename T>
+  static T clampedACos(T value) {
+    if (value <= T(-1.0))
+      return T(3.14159265358979323846);
+    if (value >= T(1.0))
+      return T(0.0);
     return std::acos(value);
   }
 
@@ -991,9 +992,9 @@ namespace visage {
     simplify();
   }
 
-  std::vector<int> Path::TriangulationGraph::breakIntoTriangles() {
+  std::vector<uint16_t> Path::TriangulationGraph::breakIntoTriangles() {
     // TODO switch to Delaunay triangulation
-    std::vector<int> triangles;
+    std::vector<uint16_t> triangles;
     auto sorted_indices = sortedIndices();
     std::unique_ptr<bool[]> touched = std::make_unique<bool[]>(points_.size());
 
@@ -1005,8 +1006,7 @@ namespace visage {
     return triangles;
   }
 
-  void Path::TriangulationGraph::singlePointOffset(double amount, int index, EndCap end_cap,
-                                                   std::vector<int>& points_created) {
+  void Path::TriangulationGraph::singlePointOffset(double amount, int index, EndCap end_cap) {
     if (amount < 0.0)
       return;
 
@@ -1018,7 +1018,6 @@ namespace visage {
       current_index = insertPointBetween(current_index, next_index, point + DPoint(amount, -amount));
       current_index = insertPointBetween(current_index, next_index, point + DPoint(-amount, -amount));
       current_index = insertPointBetween(current_index, next_index, point + DPoint(-amount, amount));
-      points_created.push_back(4);
     }
     else if (end_cap == EndCap::Round) {
       float adjusted_radius = (resolution_transform_ * Point(amount, 0.0f)).length();
@@ -1035,12 +1034,10 @@ namespace visage {
         DPoint insert = point + DPoint(position.real(), position.imag());
         current_index = insertPointBetween(current_index, next_index, insert);
       }
-      points_created.push_back(num_points);
     }
   }
 
-  void Path::TriangulationGraph::offset(double amount, bool post_simplify, Join join, EndCap end_cap,
-                                        std::vector<int>& points_created, float miter_limit) {
+  void Path::TriangulationGraph::offset(double amount, Join join, EndCap end_cap, float miter_limit) {
     static constexpr double kMinOffset = 0.001;
     if (std::abs(amount) < kMinOffset)
       return;
@@ -1057,7 +1054,7 @@ namespace visage {
         continue;
 
       if (next_edge_[i] == i) {
-        singlePointOffset(amount, i, end_cap, points_created);
+        singlePointOffset(amount, i, end_cap);
         continue;
       }
 
@@ -1087,7 +1084,6 @@ namespace visage {
         if (type == Join::Bevel) {
           points_[index] += prev_offset;
           insertPointBetween(index, next_index, point + offset);
-          points_created.push_back(2);
         }
         else if (type == Join::Square) {
           DPoint square_offset = (prev_direction - direction).normalized() * amount;
@@ -1101,7 +1097,6 @@ namespace visage {
           VISAGE_ASSERT(intersection.has_value());
           points_[index] = intersection_prev.value();
           insertPointBetween(index, next_index, intersection.value());
-          points_created.push_back(2);
         }
         else if (type == Join::Round) {
           bool convex = stableOrientation(prev, point, next) <= 0.0;
@@ -1119,7 +1114,6 @@ namespace visage {
               DPoint insert = point + DPoint(position.real(), position.imag());
               current_index = insertPointBetween(current_index, next_index, insert);
             }
-            points_created.push_back(num_points + 1);
           }
           else
             type = Join::Miter;
@@ -1130,16 +1124,11 @@ namespace visage {
           if (intersection.has_value() &&
               (intersection.value() - point).squareMagnitude() / (amount * amount) < square_miter_limit) {
             points_[index] = intersection.value();
-            points_created.push_back(1);
           }
           else {
             points_[index] += prev_offset;
-            if (point + offset == points_[index])
-              points_created.push_back(1);
-            else {
+            if (point + offset != points_[index])
               insertPointBetween(index, next_index, point + offset);
-              points_created.push_back(2);
-            }
           }
         }
 
@@ -1154,11 +1143,9 @@ namespace visage {
       }
     }
 
-    if (post_simplify) {
-      simplify();
-      breakIntersections();
-      fixWindings(FillRule::Positive);
-    }
+    simplify();
+    breakIntersections();
+    fixWindings(FillRule::Positive);
   }
 
   void Path::TriangulationGraph::combine(const TriangulationGraph& other) {
@@ -1359,7 +1346,7 @@ namespace visage {
     return new_index;
   }
 
-  bool Path::TriangulationGraph::tryCutEar(int index, bool forward, std::vector<int>& triangles,
+  bool Path::TriangulationGraph::tryCutEar(int index, bool forward, std::vector<uint16_t>& triangles,
                                            const std::unique_ptr<bool[]>& touched) {
     auto& direction = forward ? next_edge_ : prev_edge_;
     auto& reverse = forward ? prev_edge_ : next_edge_;
@@ -1392,7 +1379,7 @@ namespace visage {
     return true;
   }
 
-  void Path::TriangulationGraph::cutEars(int index, std::vector<int>& triangles,
+  void Path::TriangulationGraph::cutEars(int index, std::vector<uint16_t>& triangles,
                                          const std::unique_ptr<bool[]>& touched) {
     while (tryCutEar(index, true, triangles, touched))
       ;
@@ -1431,20 +1418,133 @@ namespace visage {
     return graph.toPath();
   }
 
-  std::pair<Path, Path> Path::offsetAntiAlias(float scale, std::vector<int>& inner_added_points,
-                                              std::vector<int>& outer_added_points) {
-    TriangulationGraph outer(this);
-    outer.simplify();
-    TriangulationGraph inner = outer;
-    outer.offset(0.5f / scale, false, Join::Round, EndCap::Butt, outer_added_points);
-    inner.offset(-0.5f / scale, false, Join::Round, EndCap::Butt, inner_added_points);
-    return { inner.toPath(), outer.toPath() };
+  struct AntiAliasPathPoints {
+    std::vector<Point> inner_points;
+    std::vector<Point> outer_points;
+    std::vector<bool> new_outer;
+  };
+
+  AntiAliasPathPoints antiAliasOffsetSubPath(const Path::SubPath& sub_path, float amount,
+                                             float max_delta_radians) {
+    AntiAliasPathPoints results;
+    int num_points = sub_path.points.size();
+    Point point = sub_path.points[num_points - 2];
+    Point prev = sub_path.points[num_points - 3];
+    Point prev_direction = (point - prev).normalized();
+    Point prev_offset = Point(-prev_direction.y, prev_direction.x) * amount;
+    for (int i = 0; i < num_points; i++) {
+      Point next = sub_path.points[i];
+      Point direction = (next - point).normalized();
+      auto offset = Point(-direction.y, direction.x) * amount;
+
+      float mult = 1.0f;
+      auto* round_points = &results.outer_points;
+      auto* miter_points = &results.inner_points;
+      if (stableOrientation(prev, point, next) > 0.0) {
+        mult = -1.0f;
+        std::swap(round_points, miter_points);
+      }
+      results.new_outer.push_back(true);
+      results.new_outer.push_back(false);
+
+      auto intersection = Path::findIntersection(prev - mult * prev_offset, point - mult * prev_offset,
+                                                 point - mult * offset, next - mult * offset);
+      if (intersection.has_value())
+        miter_points->push_back(intersection.value());
+      else
+        miter_points->push_back(point - mult * prev_offset);
+
+      float arc_angle = clampedACos(prev_offset.dot(offset) / (amount * amount));
+      int curve_points = std::max(0.0, std::ceil(arc_angle / max_delta_radians - 0.1));
+      std::complex<float> position(mult * prev_offset.x, mult * prev_offset.y);
+      float angle_delta = arc_angle / (curve_points + 1);
+      std::complex<float> rotation = std::polar(1.0f, -angle_delta * mult);
+
+      round_points->push_back(point + prev_offset);
+      for (int p = 0; p <= curve_points; ++p) {
+        position *= rotation;
+        round_points->push_back(point + Point(position.real(), position.imag()));
+        results.new_outer.push_back(round_points == &results.outer_points);
+      }
+
+      prev = point;
+      point = next;
+      prev_offset = offset;
+    }
+    return results;
+  }
+
+  void addAntiAliasOffsetToTriangulation(AntiAliasPathPoints& offset,
+                                         Path::AntiAliasTriangulation& triangulation) {
+    offset.inner_points.push_back(offset.inner_points[0]);
+    offset.outer_points.push_back(offset.outer_points[0]);
+    triangulation.alphas.reserve(triangulation.points.size() + offset.inner_points.size() +
+                                 offset.outer_points.size());
+
+    int inner_offset = triangulation.points.size();
+    triangulation.points.insert(triangulation.points.end(), offset.inner_points.begin(),
+                                offset.inner_points.end());
+    for (int i = inner_offset; i < triangulation.points.size(); ++i)
+      triangulation.alphas.push_back(1.0f);
+
+    int outer_offset = triangulation.points.size();
+    triangulation.points.insert(triangulation.points.end(), offset.outer_points.begin(),
+                                offset.outer_points.end());
+    for (int i = outer_offset; i < triangulation.points.size(); ++i)
+      triangulation.alphas.push_back(0.0f);
+
+    int inner_index = 0;
+    int outer_index = 0;
+    triangulation.triangles.reserve(triangulation.triangles.size() + offset.new_outer.size());
+    for (bool new_out : offset.new_outer) {
+      triangulation.triangles.push_back(outer_offset + outer_index);
+      triangulation.triangles.push_back(inner_offset + inner_index);
+      if (new_out) {
+        ++outer_index;
+        triangulation.triangles.push_back(outer_offset + outer_index);
+      }
+      else {
+        ++inner_index;
+        triangulation.triangles.push_back(inner_offset + inner_index);
+      }
+    }
+  }
+
+  Path::AntiAliasTriangulation Path::offsetAntiAlias(float scale) {
+    Path inner_path;
+    AntiAliasTriangulation triangulation;
+    float amount = 0.5f / scale;
+    float max_delta_radians = 2.0f * clampedACos(1.0f - error_tolerance_ / amount);
+
+    for (const auto& sub_path : paths_) {
+      if (sub_path.points.size() < 4)
+        continue;
+
+      auto aa_sub_path = antiAliasOffsetSubPath(sub_path, amount, max_delta_radians);
+      addAntiAliasOffsetToTriangulation(aa_sub_path, triangulation);
+
+      inner_path.moveTo(aa_sub_path.inner_points[0]);
+      for (const auto& p : aa_sub_path.inner_points)
+        inner_path.lineTo(p);
+    }
+
+    auto inner_triangulation = inner_path.triangulate();
+    int inner_point_offset = triangulation.points.size();
+    triangulation.points.insert(triangulation.points.end(), inner_triangulation.points.begin(),
+                                inner_triangulation.points.end());
+    for (int i = inner_point_offset; i < triangulation.points.size(); ++i)
+      triangulation.alphas.push_back(1.0f);
+
+    triangulation.triangles.reserve(triangulation.triangles.size() + inner_triangulation.triangles.size());
+    for (int index : inner_triangulation.triangles)
+      triangulation.triangles.push_back(index + inner_point_offset);
+
+    return triangulation;
   }
 
   Path Path::offset(float offset, Join join, float miter_limit) {
     TriangulationGraph graph = *triangulationGraph();
-    std::vector<int> points_created;
-    graph.offset(offset, true, join, EndCap::Butt, points_created, miter_limit);
+    graph.offset(offset, join, EndCap::Butt, miter_limit);
     return graph.toPath();
   }
 
@@ -1532,8 +1632,7 @@ namespace visage {
 
     TriangulationGraph graph(&stroke_path);
     graph.simplify();
-    std::vector<int> points_created;
-    graph.offset(stroke_width / 2.0f, true, join, end_cap, points_created, miter_limit);
+    graph.offset(stroke_width / 2.0f, join, end_cap, miter_limit);
     return graph.toPath();
   }
 

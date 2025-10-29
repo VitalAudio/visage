@@ -32,19 +32,22 @@
 #include <string>
 
 namespace visage {
-  static double orientation(const DPoint& source, const DPoint& target1, const DPoint& target2) {
-    static constexpr double kEpsilon = 1.0e-10;
-    DPoint delta1 = target1 - source;
-    DPoint delta2 = target2 - source;
-    double l = delta2.y * delta1.x;
-    double r = delta2.x * delta1.y;
-    double sum = std::abs(l + r);
-    double diff = l - r;
+  template<typename T>
+  static T orientation(const BasePoint<T>& source, const BasePoint<T>& target1, const BasePoint<T>& target2) {
+    static constexpr T kEpsilon = 1.0e-10;
+    BasePoint<T> delta1 = target1 - source;
+    BasePoint<T> delta2 = target2 - source;
+    T l = delta2.y * delta1.x;
+    T r = delta2.x * delta1.y;
+    T sum = std::abs(l + r);
+    T diff = l - r;
     return std::abs(diff) >= kEpsilon * sum ? diff : 0.0;
   }
 
-  static double stableOrientation(const DPoint& source, const DPoint& target1, const DPoint& target2) {
-    double result = orientation(source, target1, target2);
+  template<typename T>
+  static T stableOrientation(const BasePoint<T>& source, const BasePoint<T>& target1,
+                             const BasePoint<T>& target2) {
+    T result = orientation(source, target1, target2);
     if (result != 0.0)
       return result;
 
@@ -235,7 +238,11 @@ namespace visage {
 
     struct Triangulation {
       std::vector<Point> points;
-      std::vector<int> triangles;
+      std::vector<uint16_t> triangles;
+    };
+
+    struct AntiAliasTriangulation : Triangulation {
+      std::vector<float> alphas;
     };
 
     static CommandList parseSvgPath(const std::string& path);
@@ -399,8 +406,7 @@ namespace visage {
 
     Triangulation triangulate();
     Path combine(Path& other, Operation operation = Operation::Union);
-    std::pair<Path, Path> offsetAntiAlias(float scale, std::vector<int>& inner_added_points,
-                                          std::vector<int>& outer_added_points);
+    AntiAliasTriangulation offsetAntiAlias(float scale);
     Path offset(float offset, Join join = Join::Square, float miter_limit = kDefaultMiterLimit);
     Path stroke(float stroke_width, Join join = Join::Round, EndCap end_cap = EndCap::Round,
                 std::vector<float> dash_array = {}, float dash_offset = 0.0f,
@@ -834,10 +840,9 @@ namespace visage {
       void reverse();
 
       void breakSimpleIntoMonotonicPolygons();
-      std::vector<int> breakIntoTriangles();
-      void singlePointOffset(double amount, int index, EndCap end_cap, std::vector<int>& points_created);
-      void offset(double amount, bool post_simplify, Join join, EndCap end_cap,
-                  std::vector<int>& points_created, float miter_limit = kDefaultMiterLimit);
+      std::vector<uint16_t> breakIntoTriangles();
+      void singlePointOffset(double amount, int index, EndCap end_cap);
+      void offset(double amount, Join join, EndCap end_cap, float miter_limit = kDefaultMiterLimit);
 
       void combine(const TriangulationGraph& other);
       void removeLinearPoints();
@@ -856,9 +861,9 @@ namespace visage {
       void removeCycle(int start_index);
       void reverseCycle(int start_index);
       int addDiagonal(int index, int target);
-      bool tryCutEar(int index, bool forward, std::vector<int>& triangles,
+      bool tryCutEar(int index, bool forward, std::vector<uint16_t>& triangles,
                      const std::unique_ptr<bool[]>& touched);
-      void cutEars(int index, std::vector<int>& triangles, const std::unique_ptr<bool[]>& touched);
+      void cutEars(int index, std::vector<uint16_t>& triangles, const std::unique_ptr<bool[]>& touched);
 
       Transform resolution_transform_;
       bool intersections_broken_ = false;

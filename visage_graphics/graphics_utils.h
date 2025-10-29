@@ -220,7 +220,7 @@ namespace visage {
     float x;
     float y;
     float fill;
-    float value;
+    float data;
 
     static bgfx::VertexLayout& layout();
   };

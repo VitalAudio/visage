@@ -8,9 +8,6 @@ uniform vec4 u_dimensions;
 
 void main() {
   v_position = a_position.xy;
-  vec2 adjusted_position = a_position.xy * u_bounds.xy + u_bounds.zw;
   v_shader_values.x = a_texcoord0.x;
-  v_shader_values.y = (a_texcoord0.y + 1.0) * u_color_mult.x;
-  v_shader_values.zw = abs(a_position.xy) / u_dimensions.xy;
-  gl_Position = vec4(adjusted_position, 0.5, 1.0);
+  gl_Position = vec4(v_position * u_bounds.xy + u_bounds.zw, 0.5, 1.0);
 }
