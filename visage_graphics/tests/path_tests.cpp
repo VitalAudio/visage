@@ -429,7 +429,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
-    for (int i = 0; i < star.subPaths()[0].points.size() - 2; i += 3) {
+    for (int i = 0; i < star.subPaths()[0].points.size() - 3; i += 3) {
       Point p0 = star.subPaths()[0].points[i];
       Point p1 = star.subPaths()[0].points[i + 1];
       Point p2 = star.subPaths()[0].points[i + 2];
@@ -438,7 +438,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
       REQUIRE(sample.hexRed() == 0xff);
     }
 
-    for (int i = 2; i < star.subPaths()[0].points.size() - 2; i += 3) {
+    for (int i = 2; i < star.subPaths()[0].points.size() - 3; i += 3) {
       Point p0 = star.subPaths()[0].points[i];
       Point p1 = star.subPaths()[0].points[i + 1];
       Point p2 = star.subPaths()[0].points[i + 2];
