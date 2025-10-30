@@ -430,6 +430,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
     Color sample = screenshot.sample({ 10, 10 });
+    REQUIRE(sample.hexRed() == 0x22);
 
     // for (int i = 0; i < star.subPaths()[0].points.size() - 2; i += 3) {
     //   Point p0 = star.subPaths()[0].points[i];
