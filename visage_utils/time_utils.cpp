@@ -25,16 +25,19 @@ namespace visage::time {
   std::string formatTime(const Time& time, const char* format_string) {
     static constexpr int kMaxLength = 100;
 
-    auto time_t = std::chrono::system_clock::to_time_t(time);
+    auto time = std::chrono::system_clock::to_time_t(time);
     tm time_info {};
 #if VISAGE_WINDOWS
-    localtime_s(&time_info, &time_t);
+    localtime_s(&time_info, &time);
 #else
-    localtime_r(&time_t, &time_info);
+    localtime_r(&time, &time_info);
 #endif
 
     char buffer[kMaxLength];
     std::strftime(buffer, kMaxLength, format_string, &time_info);
+    if (std::strftime(buffer, kMaxLength, format_string, &time_info) == 0)
+      return "";
+
     return buffer;
   }
 }
