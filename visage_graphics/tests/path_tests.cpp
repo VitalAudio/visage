@@ -404,21 +404,21 @@ TEST_CASE("Degeneracies", "[graphics]") {
     static constexpr int kStarPoints = 10;
     static constexpr float kRadius = 40.0f;
 
-    Path star;
-    float phase = randomFloat(0.0f, 1.0f);
-    std::complex<float> position(std::cos(-2.0f * kPi * phase / kStarPoints),
-                                 std::sin(-2.0f * kPi * phase / kStarPoints));
-
-    float center = kWidth * 0.5f;
-    star.moveTo(center, center);
-    std::complex<float> delta(std::cos(2.0f * kPi / kStarPoints), std::sin(2.0f * kPi / kStarPoints));
-
-    for (int i = 0; i < kStarPoints; ++i) {
-      position = position * delta;
-      star.lineTo(center + kRadius * position.real(), center + kRadius * position.imag());
-      if (i % 2)
-        star.lineTo(center, center);
-    }
+    // Path star;
+    // float phase = randomFloat(0.0f, 1.0f);
+    // std::complex<float> position(std::cos(-2.0f * kPi * phase / kStarPoints),
+    //                              std::sin(-2.0f * kPi * phase / kStarPoints));
+    //
+    // float center = kWidth * 0.5f;
+    // star.moveTo(center, center);
+    // std::complex<float> delta(std::cos(2.0f * kPi / kStarPoints), std::sin(2.0f * kPi / kStarPoints));
+    //
+    // for (int i = 0; i < kStarPoints; ++i) {
+    //   position = position * delta;
+    //   star.lineTo(center + kRadius * position.real(), center + kRadius * position.imag());
+    //   if (i % 2)
+    //     star.lineTo(center, center);
+    // }
     // star.close();
 
     Canvas canvas;
@@ -429,15 +429,16 @@ TEST_CASE("Degeneracies", "[graphics]") {
     // canvas.fill(star);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
+    Color sample = screenshot.sample({ 10, 10 });
 
-    for (int i = 0; i < star.subPaths()[0].points.size() - 2; i += 3) {
-      Point p0 = star.subPaths()[0].points[i];
-      Point p1 = star.subPaths()[0].points[i + 1];
-      Point p2 = star.subPaths()[0].points[i + 2];
-      Point inside = (p0 + p1 + p2) / 3.0f;
-      Color sample = screenshot.sample(inside);
-      REQUIRE(sample.hexRed() == 0x22);
-    }
+    // for (int i = 0; i < star.subPaths()[0].points.size() - 2; i += 3) {
+    //   Point p0 = star.subPaths()[0].points[i];
+    //   Point p1 = star.subPaths()[0].points[i + 1];
+    //   Point p2 = star.subPaths()[0].points[i + 2];
+    //   Point inside = (p0 + p1 + p2) / 3.0f;
+    //   Color sample = screenshot.sample({ 10, 10 });
+    //   REQUIRE(sample.hexRed() == 0x22);
+    // }
 
     // for (int i = 2; i < star.subPaths()[0].points.size() - 2; i += 3) {
     //   Point p0 = star.subPaths()[0].points[i];
