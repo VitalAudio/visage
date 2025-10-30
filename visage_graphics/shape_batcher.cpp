@@ -195,7 +195,7 @@ namespace visage {
     }
 
     for (int i = 0; i < num_indices; ++i) {
-      VISAGE_ASSERT(triangulation.triangles[i] < num_vertices);
+      VISAGE_ASSERT(triangulation.triangles[i] < (uint16_t)num_vertices);
       indices[i] = triangulation.triangles[i];
     }
 
