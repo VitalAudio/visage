@@ -424,7 +424,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.setWindowless(kWidth, kWidth);
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, kWidth, kWidth);
-    canvas.setColor(0xffff8888);
+    canvas.setColor(0xffff0000);
     canvas.fill(star);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
