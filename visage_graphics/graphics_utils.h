@@ -249,6 +249,8 @@ namespace visage {
   struct ShapeVertex {
     float x;
     float y;
+    float garbage1;
+    float garbage2;
     GradientTexturePosition gradient_texture_position;
     GradientVertexPosition gradient;
     float coordinate_x;
@@ -270,6 +272,8 @@ namespace visage {
   struct ComplexShapeVertex {
     float x;
     float y;
+    float garbage1;
+    float garbage2;
     GradientTexturePosition gradient_texture_position;
     GradientVertexPosition gradient;
     float coordinate_x;
@@ -320,12 +324,12 @@ namespace visage {
     GradientVertexPosition gradient;
     float texture_x;
     float texture_y;
+    float value1;
+    float value2;
     float clamp_left;
     float clamp_top;
     float clamp_right;
     float clamp_bottom;
-    float value1;
-    float value2;
 
     static bgfx::VertexLayout& layout();
   };

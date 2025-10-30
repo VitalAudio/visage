@@ -392,8 +392,7 @@ namespace visage {
       bgfx::setViewFrameBuffer(submit_pass, destination);
       bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
 
-      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
-                                                                    visage::shaders::fs_sample));
+      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
       submit_pass++;
 
       setBlendMode(BlendMode::Opaque);
@@ -404,8 +403,8 @@ namespace visage {
       bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
       setPostEffectUniform<Uniforms::kPixelSize>(1.0f / downsample_width);
 
-      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_full_screen_texture,
-                                                                    visage::shaders::fs_small_blur));
+      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_full_screen_texture,
+                                                            shaders::fs_small_blur));
       submit_pass++;
 
       setBlendMode(BlendMode::Opaque);
@@ -415,8 +414,8 @@ namespace visage {
       bgfx::setViewFrameBuffer(submit_pass, destination);
       bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
       setPostEffectUniform<Uniforms::kPixelSize>(0.0f, 1.0f / downsample_height);
-      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_full_screen_texture,
-                                                                    visage::shaders::fs_small_blur));
+      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_full_screen_texture,
+                                                            shaders::fs_small_blur));
       submit_pass++;
 
       source = destination;
@@ -438,8 +437,7 @@ namespace visage {
       bgfx::setViewFrameBuffer(submit_pass, destination);
       bgfx::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
 
-      bgfx::submit(submit_pass, visage::ProgramCache::programHandle(visage::shaders::vs_sample,
-                                                                    visage::shaders::fs_mult));
+      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_mult));
       submit_pass++;
     }
 

@@ -314,10 +314,7 @@ namespace visage {
 
     if (!initialized) {
       initialized = true;
-      layout.begin()
-          .add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
-          .end();
+      layout.begin().add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float).end();
     }
 
     return layout;
@@ -329,10 +326,7 @@ namespace visage {
 
     if (!initialized) {
       initialized = true;
-      layout.begin()
-          .add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
-          .end();
+      layout.begin().add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float).end();
     }
 
     return layout;
@@ -345,7 +339,7 @@ namespace visage {
     if (!initialized) {
       initialized = true;
       layout.begin()
-          .add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::Color1, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::Color2, 4, bgfx::AttribType::Float)
@@ -365,7 +359,7 @@ namespace visage {
     if (!initialized) {
       initialized = true;
       layout.begin()
-          .add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::Color1, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::Color2, 4, bgfx::AttribType::Float)
@@ -409,9 +403,8 @@ namespace visage {
           .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::Color1, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::Color2, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
           .add(bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord2, 2, bgfx::AttribType::Float)
           .end();
     }
 
