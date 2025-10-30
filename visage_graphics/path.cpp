@@ -1437,32 +1437,29 @@ namespace visage {
       Point direction = (next - point).normalized();
       auto offset = Point(-direction.y, direction.x) * amount;
 
-      float mult = 1.0f;
-      auto* round_points = &results.outer_points;
-      auto* miter_points = &results.inner_points;
-      if (stableOrientation(prev, point, next) > 0.0) {
-        mult = -1.0f;
-        std::swap(round_points, miter_points);
+      if (stableOrientation(prev, point, next) <= 0.0f) {
+        results.inner_points.push_back(point);
+        float arc_angle = clampedACos(prev_offset.dot(offset) / (amount * amount));
+        int curve_points = std::max(0.0, std::ceil(arc_angle / max_delta_radians - 0.1));
+        std::complex<float> position(prev_offset.x, prev_offset.y);
+        float angle_delta = arc_angle / (curve_points + 1);
+        std::complex<float> rotation = std::polar(1.0f, -angle_delta);
+
+        results.outer_points.push_back(point + prev_offset);
+        for (int p = 0; p <= curve_points; ++p) {
+          position *= rotation;
+          results.outer_points.push_back(point + Point(position.real(), position.imag()));
+          results.new_outer.push_back(true);
+        }
       }
-
-      auto intersection = Path::findIntersection(prev - mult * prev_offset, point - mult * prev_offset,
-                                                 point - mult * offset, next - mult * offset);
-      if (intersection.has_value())
-        miter_points->push_back(intersection.value());
-      else
-        miter_points->push_back(point - mult * prev_offset);
-
-      float arc_angle = clampedACos(prev_offset.dot(offset) / (amount * amount));
-      int curve_points = std::max(0.0, std::ceil(arc_angle / max_delta_radians - 0.1));
-      std::complex<float> position(mult * prev_offset.x, mult * prev_offset.y);
-      float angle_delta = arc_angle / (curve_points + 1);
-      std::complex<float> rotation = std::polar(1.0f, -angle_delta * mult);
-
-      round_points->push_back(point + mult * prev_offset);
-      for (int p = 0; p <= curve_points; ++p) {
-        position *= rotation;
-        round_points->push_back(point + Point(position.real(), position.imag()));
-        results.new_outer.push_back(round_points == &results.outer_points);
+      else {
+        results.inner_points.push_back(point);
+        auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
+                                                   point + offset, next + offset);
+        if (intersection.has_value())
+          results.outer_points.push_back(intersection.value());
+        else
+          results.outer_points.push_back(point + prev_offset);
       }
 
       prev = point;
@@ -1512,9 +1509,9 @@ namespace visage {
   }
 
   Path::AntiAliasTriangulation Path::offsetAntiAlias(float scale) {
-    Path inner_path;
+    auto inner_triangulation = triangulate();
     AntiAliasTriangulation triangulation;
-    float amount = 0.5f / scale;
+    float amount = 1.0f / scale;
     float max_delta_radians = 2.0f * clampedACos(1.0f - error_tolerance_ / amount);
 
     for (const auto& sub_path : paths_) {
@@ -1523,13 +1520,8 @@ namespace visage {
 
       auto aa_sub_path = antiAliasOffsetSubPath(sub_path, amount, max_delta_radians);
       addAntiAliasOffsetToTriangulation(aa_sub_path, triangulation);
-
-      inner_path.moveTo(aa_sub_path.inner_points[0]);
-      for (const auto& p : aa_sub_path.inner_points)
-        inner_path.lineTo(p);
     }
 
-    auto inner_triangulation = inner_path.triangulate();
     int inner_point_offset = triangulation.points.size();
     triangulation.points.insert(triangulation.points.end(), inner_triangulation.points.begin(),
                                 inner_triangulation.points.end());

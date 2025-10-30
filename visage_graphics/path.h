@@ -920,7 +920,7 @@ namespace visage {
     }
 
     SubPath& currentPath() {
-      if (paths_.empty())
+      if (paths_.empty() || paths_.back().closed)
         paths_.emplace_back();
       return paths_.back();
     }

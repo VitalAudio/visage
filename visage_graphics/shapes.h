@@ -534,7 +534,7 @@ namespace visage {
       border.addRectangle(0, 0, width / scale, height / scale);
       path = original;
       path = path.combine(border, Path::Operation::Intersection);
-      triangulation = path.offsetAntiAlias(scale);
+      triangulation = path.offset(-0.5f / scale, Path::Join::Miter).offsetAntiAlias(scale);
     }
 
     Path path;
