@@ -67,7 +67,7 @@ namespace visage {
       return 65;
     };
 
-    for (int i = 0; i < string.length(); i += 4) {
+    for (size_t i = 0; i + 3 < string.length(); i += 4) {
       unsigned char value0 = base64_value(string[i]);
       unsigned char value1 = base64_value(string[i + 1]);
       unsigned char value2 = base64_value(string[i + 2]);
@@ -91,19 +91,21 @@ namespace visage {
 
   String String::toLower() const {
     std::u32string result = string_;
-    std::transform(result.begin(), result.end(), result.begin(), ::tolower);
+    auto to_lower = [](char32_t c) { return (c >= U'A' && c <= U'Z') ? c + 32 : c; };
+    std::transform(result.begin(), result.end(), result.begin(), to_lower);
     return result;
   }
 
   String String::toUpper() const {
     std::u32string result = string_;
-    std::transform(result.begin(), result.end(), result.begin(), ::toupper);
+    auto to_upper = [](char32_t c) { return (c >= U'a' && c <= U'z') ? c - 32 : c; };
+    std::transform(result.begin(), result.end(), result.begin(), to_upper);
     return result;
   }
 
-  String String::removeCharacters(const std::string& characters) const {
+  String String::removeCharacters(const String& characters) const {
     std::u32string result = string_;
-    auto filter = [&characters](char32_t c) { return characters.find(c) != std::string::npos; };
+    auto filter = [&characters](char32_t c) { return characters.find(c) != std::u32string::npos; };
     result.erase(std::remove_if(result.begin(), result.end(), filter), result.end());
     return result;
   }

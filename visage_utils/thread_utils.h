@@ -93,7 +93,7 @@ namespace visage {
         if (time::milliseconds() - ms_start > ms_timeout)
           return false;
 
-        yield();
+        sleep(5);
       }
       stop();
       return true;

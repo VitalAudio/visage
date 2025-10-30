@@ -69,9 +69,9 @@ TEST_CASE("String remove characters", "[utils]") {
 }
 
 TEST_CASE("String upper/lower case conversion", "[utils]") {
-  String test = "Hello World 123!";
-  REQUIRE(test.toUpper().toUtf8() == "HELLO WORLD 123!");
-  REQUIRE(test.toLower().toUtf8() == "hello world 123!");
+  String test = "Hello World 123! 中文";
+  REQUIRE(test.toUpper().toUtf8() == "HELLO WORLD 123! 中文");
+  REQUIRE(test.toLower().toUtf8() == "hello world 123! 中文");
 }
 
 TEST_CASE("String comparison operators", "[utils]") {

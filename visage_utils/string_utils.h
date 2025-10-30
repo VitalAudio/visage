@@ -193,7 +193,7 @@ namespace visage {
     String(const wchar_t* string) : string_(convertToUtf32(string)) { }
     String(const char* string) : string_(convertToUtf32(string)) { }
 
-    String(const visage::String& other) = default;
+    String(const String& other) = default;
 
     explicit String(bool value) : String(value ? U"true" : U"false") { }
     String(char32_t character) { string_.push_back(character); }
@@ -222,7 +222,7 @@ namespace visage {
     String withPrecision(int precision) const {
       size_t pos = find('.');
 
-      if (pos == std::string::npos)
+      if (pos == std::u32string::npos)
         return string_;
 
       pos += precision + 1;
@@ -254,7 +254,7 @@ namespace visage {
     void removeTrailingZeros() {
       size_t pos = find('.');
 
-      if (pos != std::string::npos) {
+      if (pos != std::u32string::npos) {
         while (string_.back() == '0')
           string_.pop_back();
 
@@ -265,7 +265,7 @@ namespace visage {
 
     String toLower() const;
     String toUpper() const;
-    String removeCharacters(const std::string& characters) const;
+    String removeCharacters(const String& characters) const;
     String removeEmojiVariations() const;
 
     float toFloat() const {
@@ -295,7 +295,7 @@ namespace visage {
     bool endsWith(char suffix) const { return !string_.empty() && string_.back() == suffix; }
 
     bool contains(const std::u32string& substring) const {
-      return string_.find(substring) != std::string::npos;
+      return string_.find(substring) != std::u32string::npos;
     }
 
     bool contains(const std::string& substring) const {
@@ -303,71 +303,73 @@ namespace visage {
     }
 
     std::u32string::iterator begin() { return string_.begin(); }
+    std::u32string::iterator end() { return string_.end(); }
+    std::u32string::const_iterator begin() const { return string_.begin(); }
+    std::u32string::const_iterator end() const { return string_.end(); }
 
-    visage::String operator+(const visage::String& other) const { return string_ + other.string_; }
-    visage::String operator+(const std::u32string& other) const { return string_ + other; }
-    visage::String operator+(const std::string& other) const {
-      return string_ + convertToUtf32(other);
-    }
-    visage::String operator+(const char32_t* other) const { return string_ + other; }
-    visage::String operator+(const char* other) const { return string_ + convertToUtf32(other); }
-    visage::String& operator+=(const visage::String& other) {
+    String operator+(const String& other) const { return string_ + other.string_; }
+    String operator+(const std::u32string& other) const { return string_ + other; }
+    String operator+(const std::string& other) const { return string_ + convertToUtf32(other); }
+    String operator+(const char32_t* other) const { return string_ + other; }
+    String operator+(const char* other) const { return string_ + convertToUtf32(other); }
+
+    String& operator+=(const String& other) {
       string_ += other.string_;
       return *this;
     }
 
-    visage::String& operator+=(const std::u32string& other) {
+    String& operator+=(const std::u32string& other) {
       string_ += other;
       return *this;
     }
 
-    visage::String& operator+=(const std::string& other) {
+    String& operator+=(const std::string& other) {
       string_ += convertToUtf32(other);
       return *this;
     }
 
-    visage::String& operator+=(const char32_t* other) {
+    String& operator+=(const char32_t* other) {
       string_ += other;
       return *this;
     }
 
-    visage::String& operator+=(const char* other) {
+    String& operator+=(const char* other) {
       string_ += convertToUtf32(other);
       return *this;
     }
 
-    bool operator==(const visage::String& other) const { return string_ == other.string_; }
+    bool operator==(const String& other) const { return string_ == other.string_; }
     bool operator==(const std::u32string& other) const { return string_ == other; }
     bool operator==(const std::string& other) const { return string_ == convertToUtf32(other); }
     bool operator==(const char32_t* other) const { return string_ == other; }
     bool operator==(const char* other) const { return string_ == convertToUtf32(other); }
-    bool operator!=(const visage::String& other) const { return string_ != other.string_; }
+    bool operator!=(const String& other) const { return string_ != other.string_; }
     bool operator!=(const std::u32string& other) const { return string_ != other; }
     bool operator!=(const std::string& other) const { return string_ != convertToUtf32(other); }
     bool operator!=(const char32_t* other) const { return string_ != other; }
     bool operator!=(const char* other) const { return string_ != convertToUtf32(other); }
-    bool operator<(const visage::String& other) const { return string_ < other.string_; }
+    bool operator<(const String& other) const { return string_ < other.string_; }
     bool operator<(const std::u32string& other) const { return string_ < other; }
     bool operator<(const std::string& other) const { return string_ < convertToUtf32(other); }
     bool operator<(const char32_t* other) const { return string_ < other; }
     bool operator<(const char* other) const { return string_ < convertToUtf32(other); }
-    bool operator<=(const visage::String& other) const { return string_ <= other.string_; }
+    bool operator<=(const String& other) const { return string_ <= other.string_; }
     bool operator<=(const std::u32string& other) const { return string_ <= other; }
     bool operator<=(const std::string& other) const { return string_ <= convertToUtf32(other); }
     bool operator<=(const char32_t* other) const { return string_ <= other; }
     bool operator<=(const char* other) const { return string_ <= convertToUtf32(other); }
-    bool operator>(const visage::String& other) const { return string_ > other.string_; }
+    bool operator>(const String& other) const { return string_ > other.string_; }
     bool operator>(const std::u32string& other) const { return string_ > other; }
     bool operator>(const std::string& other) const { return string_ > convertToUtf32(other); }
     bool operator>(const char32_t* other) const { return string_ > other; }
     bool operator>(const char* other) const { return string_ > convertToUtf32(other); }
-    bool operator>=(const visage::String& other) const { return string_ >= other.string_; }
+    bool operator>=(const String& other) const { return string_ >= other.string_; }
     bool operator>=(const std::u32string& other) const { return string_ >= other; }
     bool operator>=(const std::string& other) const { return string_ >= convertToUtf32(other); }
     bool operator>=(const char32_t* other) const { return string_ >= other; }
     bool operator>=(const char* other) const { return string_ >= convertToUtf32(other); }
 
-    int find(char32_t character) const { return string_.find(character); }
+    size_t find(char32_t character) const { return string_.find(character); }
     char32_t operator[](size_t index) const { return string_[index]; }
     const char32_t* c_str() const { return string_.c_str(); }
     size_t length() const { return string_.length(); }
@@ -375,15 +377,15 @@ namespace visage {
     void clear() { string_.clear(); }
     bool isEmpty() const { return string_.empty(); }
 
-    visage::String substring(size_t position = 0, size_t count = std::string::npos) const {
+    String substring(size_t position = 0, size_t count = std::u32string::npos) const {
       return string_.substr(position, count);
     }
 
-    visage::String trim() const {
+    String trim() const {
       size_t start = string_.find_first_not_of(U" \t\n\r");
       size_t end = string_.find_last_not_of(U" \t\n\r");
 
-      if (start == std::string::npos || end == std::string::npos)
+      if (start == std::u32string::npos || end == std::u32string::npos)
         return "";
 
       return string_.substr(start, end - start + 1);
