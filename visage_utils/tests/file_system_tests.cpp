@@ -63,9 +63,9 @@ TEST_CASE("Replace file with binary data", "[utils]") {
   REQUIRE(replaceFileWithData(temp_file, test_data, data_size));
   REQUIRE(fileExists(temp_file));
 
-  int loaded_size = 0;
+  size_t loaded_size = 0;
   auto loaded_data = loadFileData(temp_file, loaded_size);
-  REQUIRE(loaded_size == static_cast<int>(data_size));
+  REQUIRE(loaded_size == data_size);
 
   bool data_matches = true;
   for (int i = 0; i < loaded_size; ++i) {
@@ -100,10 +100,10 @@ TEST_CASE("Load non-existent file", "[utils]") {
   std::string content = loadFileAsString(non_existent);
   REQUIRE(content.empty());
 
-  int size = -1;
+  size_t size = 10;
   auto data = loadFileData(non_existent, size);
   REQUIRE(data == nullptr);
-  REQUIRE(size == -1);
+  REQUIRE(size == 10);
 }
 
 TEST_CASE("Empty file operations", "[utils]") {
@@ -115,7 +115,7 @@ TEST_CASE("Empty file operations", "[utils]") {
   std::string content = loadFileAsString(temp_file);
   REQUIRE(content.empty());
 
-  int size = -1;
+  size_t size = 10;
   auto data = loadFileData(temp_file, size);
   REQUIRE(size == 0);
   REQUIRE(data != nullptr);

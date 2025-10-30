@@ -45,13 +45,13 @@ namespace visage {
     BasePoint& operator=(const BasePoint& other) = default;
 
     BasePoint operator+(const BasePoint& other) const { return { x + other.x, y + other.y }; }
-    BasePoint operator+=(const BasePoint& other) {
+    BasePoint& operator+=(const BasePoint& other) {
       x += other.x;
       y += other.y;
       return *this;
     }
     BasePoint operator-(const BasePoint& other) const { return { x - other.x, y - other.y }; }
-    BasePoint operator-=(const BasePoint& other) {
+    BasePoint& operator-=(const BasePoint& other) {
       x -= other.x;
       y -= other.y;
       return *this;
@@ -63,7 +63,7 @@ namespace visage {
     T operator*(const BasePoint& other) const { return dot(other); }
 
     BasePoint operator*(T scalar) const { return { x * scalar, y * scalar }; }
-    BasePoint operator*=(T scalar) {
+    BasePoint& operator*=(T scalar) {
       x *= scalar;
       y *= scalar;
       return *this;
@@ -73,7 +73,7 @@ namespace visage {
     }
 
     BasePoint operator/(T scalar) const { return { x / scalar, y / scalar }; }
-    BasePoint operator/=(T scalar) {
+    BasePoint& operator/=(T scalar) {
       x /= scalar;
       y /= scalar;
       return *this;
@@ -105,7 +105,12 @@ namespace visage {
     }
 
     T squareMagnitude() const noexcept { return x * x + y * y; }
-    double length() const noexcept { return sqrt(squareMagnitude()); }
+    auto length() const noexcept {
+      if constexpr (std::is_same_v<T, float>)
+        return sqrtf(squareMagnitude());
+      else
+        return sqrt(squareMagnitude());
+    }
 
     BasePoint normalized() const {
       T magnitude = length();
@@ -129,7 +134,7 @@ namespace visage {
 
   template<typename T>
   struct BaseMatrix {
-    static constexpr T kPi = 3.14159265358979323846;
+    static constexpr auto kPi = std::is_same_v<T, float> ? 3.14159265358979323846f : 3.14159265358979323846;
 
     T matrix[2][2] = { { 1, 0 }, { 0, 1 } };
 
@@ -167,16 +172,16 @@ namespace visage {
     static BaseMatrix identity() { return { 1, 0, 0, 1 }; }
 
     static BaseMatrix rotation(T angle) {
-      T cos_angle = std::cos(angle * kPi / 180.0f);
-      T sin_angle = std::sin(angle * kPi / 180.0f);
+      T cos_angle = std::cos(angle * T(kPi) / T(180));
+      T sin_angle = std::sin(angle * T(kPi) / T(180));
       return { cos_angle, -sin_angle, sin_angle, cos_angle };
     }
 
-    static BaseMatrix scale(T scale_x, T scale_y) { return { scale_x, 0.0f, 0.0f, scale_y }; }
+    static BaseMatrix scale(T scale_x, T scale_y) { return { scale_x, T(0), T(0), scale_y }; }
 
-    static BaseMatrix skewX(T skew) { return { 1.0f, std::tan(skew * kPi / 180.0f), 0.0f, 1.0f }; }
+    static BaseMatrix skewX(T skew) { return { T(1), T(std::tan(skew * T(kPi) / T(180))), T(0), T(1) }; }
 
-    static BaseMatrix skewY(T skew) { return { 1.0f, 0.0f, std::tan(skew * kPi / 180.0f), 1.0f }; }
+    static BaseMatrix skewY(T skew) { return { T(1), T(0), T(std::tan(skew * T(kPi) / T(180))), T(1) }; }
 
     BaseMatrix transposed() const {
       return { matrix[0][0], matrix[1][0], matrix[0][1], matrix[1][1] };

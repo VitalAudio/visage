@@ -93,7 +93,7 @@ namespace visage {
     return true;
   }
 
-  std::unique_ptr<unsigned char[]> loadFileData(const File& file, int& size) {
+  std::unique_ptr<unsigned char[]> loadFileData(const File& file, size_t& size) {
     std::ifstream stream(file, std::ios::binary | std::ios::ate);
     if (!stream)
       return {};

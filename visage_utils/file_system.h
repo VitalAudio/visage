@@ -32,7 +32,7 @@ namespace visage {
   bool hasWriteAccess(const File& file);
   bool fileExists(const File& file);
   bool appendTextToFile(const File& file, const std::string& text);
-  std::unique_ptr<unsigned char[]> loadFileData(const File& file, int& size);
+  std::unique_ptr<unsigned char[]> loadFileData(const File& file, size_t& size);
   std::string loadFileAsString(const File& file);
 
   File hostExecutable();
