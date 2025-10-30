@@ -179,9 +179,13 @@ namespace visage {
 
     static BaseMatrix scale(T scale_x, T scale_y) { return { scale_x, T(0), T(0), scale_y }; }
 
-    static BaseMatrix skewX(T skew) { return { T(1), T(std::tan(skew * T(kPi) / T(180))), T(0), T(1) }; }
+    static BaseMatrix skewX(T skew) {
+      return { T(1), T(std::tan(skew * T(kPi) / T(180))), T(0), T(1) };
+    }
 
-    static BaseMatrix skewY(T skew) { return { T(1), T(0), T(std::tan(skew * T(kPi) / T(180))), T(1) }; }
+    static BaseMatrix skewY(T skew) {
+      return { T(1), T(0), T(std::tan(skew * T(kPi) / T(180))), T(1) };
+    }
 
     BaseMatrix transposed() const {
       return { matrix[0][0], matrix[1][0], matrix[0][1], matrix[1][1] };

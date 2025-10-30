@@ -27,8 +27,7 @@ namespace visage {
   template<class T>
   class clone_ptr {
   public:
-    static_assert(std::is_copy_constructible_v<T>,
-                  "T must be copy constructible for clone_ptr");
+    static_assert(std::is_copy_constructible_v<T>, "T must be copy constructible for clone_ptr");
 
     clone_ptr() = default;
     clone_ptr(std::unique_ptr<T> p) : p_(std::move(p)) { }
