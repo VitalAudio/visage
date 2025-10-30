@@ -420,7 +420,6 @@ TEST_CASE("Degeneracies", "[graphics]") {
     //     star.lineTo(center, center);
     // }
     // star.close();
-
     Canvas canvas;
     canvas.setWindowless(kWidth, kWidth);
     canvas.setColor(0xff222222);

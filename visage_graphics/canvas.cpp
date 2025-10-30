@@ -56,6 +56,7 @@ namespace visage {
     setDimensions(width, height);
     composite_layer_.setWindowlessRender(width, height);
     Renderer::instance().initializeWindowless();
+    bgfx::reset(0, 0, BGFX_RESET_NONE);
   }
 
   void Canvas::setDimensions(int width, int height) {
