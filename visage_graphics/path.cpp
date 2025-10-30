@@ -1432,7 +1432,7 @@ namespace visage {
     Point prev = sub_path.points[num_points - 3];
     Point prev_direction = (point - prev).normalized();
     Point prev_offset = Point(-prev_direction.y, prev_direction.x) * amount;
-    for (int i = 0; i < num_points; i++) {
+    for (int i = 0; i < num_points - 1; i++) {
       Point next = sub_path.points[i];
       Point direction = (next - point).normalized();
       auto offset = Point(-direction.y, direction.x) * amount;
@@ -1444,8 +1444,6 @@ namespace visage {
         mult = -1.0f;
         std::swap(round_points, miter_points);
       }
-      results.new_outer.push_back(true);
-      results.new_outer.push_back(false);
 
       auto intersection = Path::findIntersection(prev - mult * prev_offset, point - mult * prev_offset,
                                                  point - mult * offset, next - mult * offset);
@@ -1460,7 +1458,7 @@ namespace visage {
       float angle_delta = arc_angle / (curve_points + 1);
       std::complex<float> rotation = std::polar(1.0f, -angle_delta * mult);
 
-      round_points->push_back(point + prev_offset);
+      round_points->push_back(point + mult * prev_offset);
       for (int p = 0; p <= curve_points; ++p) {
         position *= rotation;
         round_points->push_back(point + Point(position.real(), position.imag()));
@@ -1470,6 +1468,9 @@ namespace visage {
       prev = point;
       point = next;
       prev_offset = offset;
+
+      results.new_outer.push_back(true);
+      results.new_outer.push_back(false);
     }
     return results;
   }
