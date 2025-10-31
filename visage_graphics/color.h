@@ -64,6 +64,9 @@ namespace visage {
       Color result;
 
       hue = std::fmod(hue, kHueRange);
+      if (hue < 0.0f)
+        hue += kHueRange;
+
       result.values_[kAlpha] = alpha;
       float range = value * saturation;
       float minimum = value - range;

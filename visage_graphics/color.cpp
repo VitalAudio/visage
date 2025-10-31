@@ -37,7 +37,7 @@ namespace visage {
     for (auto value : values_)
       stream << value << " ";
 
-    stream << std::to_string(hdr_) << std::endl;
+    stream << hdr_ << std::endl;
   }
 
   void Color::decode(const std::string& data) {
