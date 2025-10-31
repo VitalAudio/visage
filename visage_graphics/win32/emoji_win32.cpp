@@ -100,12 +100,12 @@ namespace visage {
       render_target->BeginDraw();
       render_target->Clear(D2D1::ColorF(D2D1::ColorF::White, 0.0f));
 
-      ID2D1SolidColorBrush* brush = nullptr;
+      ComPtr<ID2D1SolidColorBrush> brush = nullptr;
       hr = render_target->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &brush);
       if (FAILED(hr) || brush == nullptr)
         return;
 
-      render_target->DrawTextLayout(D2D1::Point2F(0, 0), text_layout.Get(), brush,
+      render_target->DrawTextLayout(D2D1::Point2F(0, 0), text_layout.Get(), brush.Get(),
                                     (D2D1_DRAW_TEXT_OPTIONS)(D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT |
                                                              D2D1_DRAW_TEXT_OPTIONS_CLIP));
       hr = render_target->EndDraw();

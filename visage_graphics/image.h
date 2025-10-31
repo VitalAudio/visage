@@ -47,9 +47,7 @@ namespace visage {
       return data < other.data || (data == other.data && data_size < other.data_size) ||
              (data == other.data && data_size == other.data_size && width < other.width) ||
              (data == other.data && data_size == other.data_size && width == other.width &&
-              height < other.height) ||
-             (data == other.data && data_size == other.data_size && width == other.width &&
-              height == other.height);
+              height < other.height);
     }
   };
 
