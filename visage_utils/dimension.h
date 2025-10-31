@@ -84,6 +84,11 @@ namespace visage {
     }
 
     static Dimension min(const Dimension& a, const Dimension& b) {
+      if (a.compute_function == nullptr)
+        return b;
+      if (b.compute_function == nullptr)
+        return a;
+
       auto amount1 = a.amount;
       auto amount2 = b.amount;
       auto compute1 = a.compute_function;
@@ -96,6 +101,11 @@ namespace visage {
     }
 
     static Dimension max(const Dimension& a, const Dimension& b) {
+      if (a.compute_function == nullptr)
+        return b;
+      if (b.compute_function == nullptr)
+        return a;
+
       auto amount1 = a.amount;
       auto amount2 = b.amount;
       auto compute1 = a.compute_function;
@@ -108,6 +118,11 @@ namespace visage {
     }
 
     Dimension operator+(const Dimension& other) const {
+      if (compute_function == nullptr)
+        return other;
+      if (other.compute_function == nullptr)
+        return *this;
+
       auto amount1 = amount;
       auto amount2 = other.amount;
       auto compute1 = compute_function;
@@ -125,6 +140,11 @@ namespace visage {
     }
 
     Dimension operator-(const Dimension& other) const {
+      if (compute_function == nullptr)
+        return other;
+      if (other.compute_function == nullptr)
+        return *this;
+
       auto amount1 = amount;
       auto amount2 = other.amount;
       auto compute1 = compute_function;
@@ -142,6 +162,9 @@ namespace visage {
     }
 
     Dimension operator*(float scalar) const {
+      if (compute_function == nullptr)
+        return *this;
+
       auto amount1 = amount;
       auto compute1 = compute_function;
       return Dimension(amount1, [compute1, scalar](float amount, float dpi_scale,

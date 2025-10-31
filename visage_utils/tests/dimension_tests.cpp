@@ -50,6 +50,15 @@ TEST_CASE("Dimension logical pixels", "[utils]") {
   REQUIRE(dim2.compute(2, 100, 100) == 0.0f);
 }
 
+TEST_CASE("Combine with default", "[utils]") {
+  Dimension def;
+  Dimension dim2 = 10_px;
+  REQUIRE(Dimension::min(def, dim2).compute(1, 100, 100) == 10.0f);
+  REQUIRE(Dimension::max(def, dim2).compute(1, 100, 100) == 10.0f);
+  REQUIRE((def + dim2).compute(1, 100, 100) == 10.0f);
+  REQUIRE((def - dim2).compute(1, 100, 100) == 10.0f);
+}
+
 TEST_CASE("Dimension width/height percentages", "[utils]") {
   Dimension dim1 = 0_vw;
   REQUIRE(dim1.compute(1, 198, 100) == 0.0f);
