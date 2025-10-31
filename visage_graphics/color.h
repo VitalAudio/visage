@@ -159,10 +159,10 @@ namespace visage {
       hdr_ = hdr;
     }
 
-    void loadARGB16(uint64_t abgr) {
+    void loadARGB16(uint64_t argb) {
       for (int i = 0; i < kNumChannels; ++i) {
         int shift = kBitsPerColor * i * 2;
-        values_[i] = ((abgr >> shift) & 0xffff) * kFloatScale16;
+        values_[i] = ((argb >> shift) & 0xffff) * kFloatScale16;
       }
     }
 
@@ -171,10 +171,10 @@ namespace visage {
       std::swap(values_[kBlue], values_[kRed]);
     }
 
-    void loadARGB(unsigned int abgr) {
+    void loadARGB(unsigned int argb) {
       for (int i = 0; i < kNumChannels; ++i) {
         int shift = kBitsPerColor * i;
-        values_[i] = ((abgr >> shift) & 0xff) * kFloatScale;
+        values_[i] = ((argb >> shift) & 0xff) * kFloatScale;
       }
     }
 
