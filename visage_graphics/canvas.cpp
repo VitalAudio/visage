@@ -222,7 +222,7 @@ namespace visage {
     const bgfx::Caps* caps = bgfx::getCaps();
     std::vector<std::string> result;
     result.push_back(std::string("Graphics API: ") + bgfx::getRendererName(caps->rendererType));
-    float hz = 1.0f / std::max(0.001f, refresh_rate_);
+    float hz = 1.0f / std::max(0.001f, refresh_time_);
     result.push_back("Refresh Rate : " + std::to_string(hz) + " Hz");
 
     const bgfx::Stats* stats = bgfx::getStats();
@@ -245,7 +245,7 @@ namespace visage {
     static constexpr float kRefreshRateSlew = 0.3f;
     delta_time_ = std::max(0.0, time - render_time_);
     render_time_ = time;
-    refresh_rate_ = (std::min(delta_time_, 1.0) - refresh_rate_) * kRefreshRateSlew + refresh_rate_;
+    refresh_time_ = (std::min(delta_time_, 1.0) - refresh_time_) * kRefreshRateSlew + refresh_time_;
 
     for (Layer* layer : layers_)
       layer->setTime(time);

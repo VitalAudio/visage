@@ -34,6 +34,8 @@
 #include "visage_utils/space.h"
 #include "visage_utils/time_utils.h"
 
+#include <limits>
+
 namespace visage {
   class Palette;
   class Shader;
@@ -527,9 +529,7 @@ namespace visage {
       state_.clamp.bottom = state_.clamp.top + height * state_.scale;
     }
 
-    void setClampBounds(const ClampBounds& bounds) { state_.clamp = bounds; }
-
-    void trimClampBounds(int x, int y, int width, int height) {
+    void trimClampBounds(float x, float y, float width, float height) {
       state_.clamp = state_.clamp.clamp(state_.x + x * state_.scale, state_.y + y * state_.scale,
                                         width * state_.scale, height * state_.scale);
     }
@@ -552,6 +552,8 @@ namespace visage {
     State* state() { return &state_; }
 
   private:
+    void setClampBounds(const ClampBounds& bounds) { state_.clamp = bounds; }
+
     template<typename T>
     constexpr float pixels(T&& value) {
       if constexpr (std::is_same_v<std::decay_t<T>, Dimension>)
@@ -568,6 +570,9 @@ namespace visage {
 
     void addSegment(float a_x, float a_y, float b_x, float b_y, float thickness,
                     bool rounded = false, float pixel_width = 1.0f) {
+      if (thickness <= 0.0f)
+        return;
+
       float x = std::min(a_x, b_x) - thickness;
       float width = std::max(a_x, b_x) + thickness - x;
       float y = std::min(a_y, b_y) - thickness;
@@ -590,6 +595,9 @@ namespace visage {
 
     void addQuadratic(float a_x, float a_y, float b_x, float b_y, float c_x, float c_y,
                       float thickness, float pixel_width = 1.0f) {
+      if (thickness <= 0.0f)
+        return;
+
       if (tryDrawCollinearQuadratic(a_x, a_y, b_x, b_y, c_x, c_y, thickness, pixel_width))
         return;
 
@@ -676,6 +684,9 @@ namespace visage {
       float d_bc = sqrtf((b_x - c_x) * (b_x - c_x) + (b_y - c_y) * (b_y - c_y));
       float d_ca = sqrtf((c_x - a_x) * (c_x - a_x) + (c_y - a_y) * (c_y - a_y));
       float perimeter = d_ab + d_bc + d_ca;
+      if (perimeter < std::numeric_limits<float>::epsilon())
+        return;
+
       float inscribed_circle_x = (d_bc * a_x + d_ca * b_x + d_ab * c_x) / perimeter;
       float inscribed_circle_y = (d_bc * a_y + d_ca * b_y + d_ab * c_y) / perimeter;
       float s = perimeter * 0.5f;
@@ -703,11 +714,15 @@ namespace visage {
                                     float c_y, float rounding, float thickness = -1.0f) {
       if (thickness < 0.0f)
         thickness = std::abs(a_x - b_x) + std::abs(a_y - b_y) + std::abs(a_x - c_x) + std::abs(a_y - c_y);
+
       float pad = rounding;
       float x = std::min(std::min(a_x, b_x), c_x) - pad;
       float width = std::max(std::max(a_x, b_x), c_x) - x + 2.0f * pad;
       float y = std::min(std::min(a_y, b_y), c_y) - pad;
       float height = std::max(std::max(a_y, b_y), c_y) - y + 2.0f * pad;
+
+      if (width < std::numeric_limits<float>::epsilon() || height < std::numeric_limits<float>::epsilon())
+        return;
 
       float x1 = 2.0f * (a_x - x) / width - 1.0f;
       float y1 = 2.0f * (a_y - y) / height - 1.0f;
@@ -779,7 +794,7 @@ namespace visage {
     std::vector<std::unique_ptr<Layer>> intermediate_layers_;
     std::vector<Layer*> layers_;
 
-    float refresh_rate_ = 0.0f;
+    float refresh_time_ = 0.0f;
 
     VISAGE_LEAK_CHECKER(Canvas)
   };
