@@ -23,6 +23,9 @@
 
 #include "visage_utils/time_utils.h"
 
+#include <algorithm>
+#include <limits>
+
 namespace visage {
   template<typename T>
   class Animation {
@@ -67,33 +70,23 @@ namespace visage {
         source_(), target_(), time_(milliseconds), forward_easing_(forward_easing),
         backward_easing_(backward_easing) { }
 
-    Animation(T* value, int milliseconds, EasingFunction forward_easing = kLinear,
-              EasingFunction backward_easing = kLinear) :
-        value_(value), source_(), target_(), time_(milliseconds), forward_easing_(forward_easing),
-        backward_easing_(backward_easing) { }
-
-    Animation(T* value, T source, T target, int milliseconds,
-              EasingFunction forward_easing = kLinear, EasingFunction backward_easing = kLinear) :
-        value_(value), source_(source), target_(target), time_(milliseconds),
-        forward_easing_(forward_easing), backward_easing_(backward_easing) { }
-
-    void target(bool target, bool jump = false) {
+    void target(bool targeting, bool jump = false) {
       last_ms_ = time::milliseconds();
 
-      targeting_ = target;
+      targeting_ = targeting;
       if (jump)
-        t_ = target ? 1.0f : 0.0f;
+        t_ = targeting ? 1.0f : 0.0f;
     }
     bool isTargeting() const { return targeting_; }
     bool isAnimating() const { return targeting_ ? t_ < 1.0f : t_ > 0.0f; }
     void setSourceValue(T value) { source_ = value; }
     void setTargetValue(T value) { target_ = value; }
-    T setSourceValue() const { return source_; }
-    T setTargetValue() const { return target_; }
+    T sourceValue() const { return source_; }
+    T targetValue() const { return target_; }
     void setAnimationTime(int milliseconds) { time_ = milliseconds; }
 
     T value() const {
-      if (t_ == 0.0f)
+      if (t_ <= 0.0f)
         return source_;
 
       float t = t_;
@@ -108,14 +101,14 @@ namespace visage {
         t = 1.0f - t_;
       }
 
-      if (value_)
-        return *value_ = ease(*from, *to, t, easing);
       return ease(*from, *to, t, easing);
     }
 
     T update() {
       long long ms = time::milliseconds();
-      float delta = (ms - last_ms_) / time_;
+      float delta = 1.0f;
+      if (time_ > std::numeric_limits<float>::epsilon())
+        delta = (ms - last_ms_) / time_;
       last_ms_ = ms;
 
       if (targeting_)
@@ -127,10 +120,9 @@ namespace visage {
     }
 
   private:
-    T* value_ = nullptr;
     T source_;
     T target_;
-    float time_ = kRegularTime;
+    T time_ = kRegularTime;
     long long last_ms_ = 0;
 
     EasingFunction forward_easing_ = kLinear;

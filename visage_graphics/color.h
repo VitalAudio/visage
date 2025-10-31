@@ -135,12 +135,12 @@ namespace visage {
       else if (hex.size() == 6)
         hex = "ff" + hex;
       else if (hex.size() != 8)
-        return Color();
+        return {};
       try {
         return fromARGB(std::stoul(hex, nullptr, 16));
       }
       catch (...) {
-        return Color();
+        return {};
       }
     }
 
@@ -193,7 +193,6 @@ namespace visage {
     }
 
     uint64_t toABGR16() const {
-      float mult = hdr_ / kGradientNormalization;
       uint64_t value = floatToHex16(values_[kAlpha]) << (6 * kBitsPerColor);
       value += floatToHex16(values_[kBlue]) << (4 * kBitsPerColor);
       value += floatToHex16(values_[kGreen]) << (2 * kBitsPerColor);
@@ -201,7 +200,6 @@ namespace visage {
     }
 
     uint64_t toARGB16() const {
-      float mult = hdr_ / kGradientNormalization;
       uint64_t value = floatToHex16(values_[kAlpha]) << (6 * kBitsPerColor);
       value += floatToHex16(values_[kRed]) << (4 * kBitsPerColor);
       value += floatToHex16(values_[kGreen]) << (2 * kBitsPerColor);

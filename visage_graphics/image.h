@@ -29,19 +29,18 @@
 namespace visage {
   struct Image {
     Image() = default;
-    Image(const unsigned char* data, int data_size, int width = 0, int height = 0, int blur_radius = 0) :
-        data(data), data_size(data_size), width(width), height(height), blur_radius(blur_radius) { }
+    Image(const unsigned char* data, int data_size, int width = 0, int height = 0) :
+        data(data), data_size(data_size), width(width), height(height) { }
 
     const unsigned char* data = nullptr;
     int data_size = 0;
     int width = 0;
     int height = 0;
-    int blur_radius = 0;
     bool raw = false;
 
     bool operator==(const Image& other) const {
       return data == other.data && data_size == other.data_size && width == other.width &&
-             height == other.height && blur_radius == other.blur_radius;
+             height == other.height;
     }
 
     bool operator<(const Image& other) const {
@@ -50,7 +49,7 @@ namespace visage {
              (data == other.data && data_size == other.data_size && width == other.width &&
               height < other.height) ||
              (data == other.data && data_size == other.data_size && width == other.width &&
-              height == other.height && blur_radius < other.blur_radius);
+              height == other.height);
     }
   };
 

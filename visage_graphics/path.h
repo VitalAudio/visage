@@ -26,6 +26,7 @@
 
 #include <cfloat>
 #include <complex>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -228,7 +229,7 @@ namespace visage {
       auto delta1 = end1 - start1;
       auto delta2 = end2 - start2;
       auto det = delta1.cross(delta2);
-      if (std::abs(det) < std::numeric_limits<T>::epsilon())
+      if (std::abs(det) < std::numeric_limits<decltype(det)>::epsilon())
         return std::nullopt;
 
       auto start_delta = start2 - start1;
