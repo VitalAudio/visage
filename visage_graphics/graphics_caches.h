@@ -28,7 +28,6 @@ namespace visage {
   struct ShaderCacheMap;
   struct ProgramCacheMap;
   struct UniformCacheMap;
-  struct EmbeddedFile;
 
   class ShaderCache {
   public:
@@ -51,7 +50,7 @@ namespace visage {
       return instance()->swap(name, data, size);
     }
 
-    static void restoreShader(const EmbeddedFile& file) { return instance()->restore(file); }
+    static void restoreShader(const EmbeddedFile& file) { instance()->restore(file); }
 
     static const char* originalData(const std::string& name) {
       return instance()->shaderData(name);
