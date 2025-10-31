@@ -110,8 +110,11 @@ namespace visage {
   }
 
   void Frame::removeAllChildren() {
-    while (!children_.empty())
+    while (!children_.empty()) {
+      children_.back()->notifyRemoveFromHierarchy();
+      on_child_removed_.callback(children_.back());
       eraseChild(children_.back());
+    }
 
     owned_children_.clear();
     computeLayout();
@@ -233,8 +236,8 @@ namespace visage {
       pad_bottom = layout_->paddingBottom().computeInt(dpi, width, height, 0);
     }
 
-    int x = child->x();
-    int y = child->y();
+    int x = child->nativeX();
+    int y = child->nativeY();
     int dist_right = width - child->nativeRight();
     int dist_bottom = height - child->nativeBottom();
 
@@ -288,7 +291,7 @@ namespace visage {
   }
 
   bool Frame::focusNextTextReceiver(const Frame* starting_child) const {
-    int index = std::max(0, indexOfChild(starting_child));
+    int index = indexOfChild(starting_child);
     for (int i = index + 1; i < children_.size(); ++i) {
       if (children_[i]->tryFocusTextReceiver())
         return true;
@@ -305,7 +308,7 @@ namespace visage {
   }
 
   bool Frame::focusPreviousTextReceiver(const Frame* starting_child) const {
-    int index = std::max(0, indexOfChild(starting_child));
+    int index = indexOfChild(starting_child);
     for (int i = index - 1; i >= 0; --i) {
       if (children_[i]->tryFocusTextReceiver())
         return true;
