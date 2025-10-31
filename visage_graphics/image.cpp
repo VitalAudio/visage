@@ -166,7 +166,7 @@ namespace visage {
         std::unique_ptr<unsigned char[]> resampled = std::make_unique<unsigned char[]>(size);
         stbir_resize_uint8_srgb(image_data, image_container->m_width, image_container->m_height,
                                 image_container->m_width * numChannels(), resampled.get(),
-                                packed_rect.w, packed_rect.h, packed_rect.w * numChannels(), STBIR_BGRA);
+                                packed_rect.w, packed_rect.h, packed_rect.w * numChannels(), STBIR_RGBA);
         texture_->updateTexture(resampled.get(), packed_rect.x, packed_rect.y, packed_rect.w,
                                 packed_rect.h);
       }
@@ -177,6 +177,7 @@ namespace visage {
   }
 
   const bgfx::TextureHandle& ImageAtlas::textureHandle() const {
+    VISAGE_ASSERT(texture_.get());
     if (!texture_->hasHandle()) {
       texture_->checkHandle();
       for (auto& image : images_)

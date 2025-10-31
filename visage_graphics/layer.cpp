@@ -188,7 +188,7 @@ namespace visage {
     bottom_left_origin_ = bgfx::getCaps()->originBottomLeft;
   }
 
-  void Layer::destroyFrameBuffer() const {
+  void Layer::destroyFrameBuffer() {
     if (bgfx::isValid(frame_buffer_data_->handle)) {
       bgfx::destroy(frame_buffer_data_->handle);
       frame_buffer_data_->handle = BGFX_INVALID_HANDLE;

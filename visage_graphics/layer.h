@@ -38,7 +38,7 @@ namespace visage {
     ~Layer();
 
     void checkFrameBuffer();
-    void destroyFrameBuffer() const;
+    void destroyFrameBuffer();
 
     bgfx::FrameBufferHandle& frameBuffer() const;
     int frameBufferFormat() const;
@@ -53,7 +53,11 @@ namespace visage {
     void setIntermediateLayer(bool intermediate_layer) { intermediate_layer_ = intermediate_layer; }
     void addRegion(Region* region);
     void removeRegion(const Region* region) {
-      regions_.erase(std::find(regions_.begin(), regions_.end(), region));
+      auto it = std::find(regions_.begin(), regions_.end(), region);
+      if (it != regions_.end())
+        regions_.erase(it);
+      else
+        VISAGE_ASSERT(false);
     }
     void addPackedRegion(Region* region);
     void removePackedRegion(const Region* region);
