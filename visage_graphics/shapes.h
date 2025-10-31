@@ -210,8 +210,10 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     RoundedRectangle(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
-                     float width, float height, float rounding) :
-        Primitive(batchId(), clamp, brush, x, y, width, height), rounding(rounding) { }
+                     float width, float height, float rounding, float pixel_width = 1.0f) :
+        Primitive(batchId(), clamp, brush, x, y, width, height), rounding(rounding) {
+      this->pixel_width = pixel_width;
+    }
 
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);

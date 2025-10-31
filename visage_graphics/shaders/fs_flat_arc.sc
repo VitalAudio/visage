@@ -6,5 +6,5 @@ SAMPLER2D(s_gradient, 0);
 
 void main() {
   gl_FragColor = gradient(s_gradient, v_gradient_texture_pos, v_gradient_pos, v_gradient_pos2, v_position);
-  gl_FragColor.a = gl_FragColor.a * flatArc(v_coordinates, v_shader_values1.xy, v_shader_values1.zw, v_dimensions.x, v_shader_values.x);
+  gl_FragColor.a = gl_FragColor.a * flatArc(v_coordinates, v_shader_values1.xy, v_shader_values1.zw, v_dimensions.x, v_shader_values.x, v_shader_values.y);
 }

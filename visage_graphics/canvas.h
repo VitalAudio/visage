@@ -195,11 +195,11 @@ namespace visage {
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
     void roundedArcShadow(const T1& x, const T2& y, const T3& width, const T4& thickness,
                           float center_radians, float radians, const T5& shadow_width) {
-      float shadow = pixels(shadow_width);
-      float full_width = pixels(width) + 2.0f * shadow;
-      RoundedArc arc(state_.clamp, state_.brush, state_.x + pixels(x) - shadow,
-                     state_.y + pixels(y) - shadow, full_width, full_width,
-                     pixels(thickness) + 1.0f + 2.0f * shadow, center_radians, radians);
+      float shadow = std::max(1.0f, pixels(shadow_width));
+      float full_width = pixels(width) + shadow;
+      RoundedArc arc(state_.clamp, state_.brush, state_.x + pixels(x) - 0.5f * shadow,
+                     state_.y + pixels(y) - 0.5f * shadow, full_width, full_width,
+                     pixels(thickness) + shadow, center_radians, radians);
       arc.pixel_width = shadow;
       addShape(arc);
     }
@@ -207,11 +207,12 @@ namespace visage {
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
     void flatArcShadow(const T1& x, const T2& y, const T3& width, const T4& thickness,
                        float center_radians, float radians, const T5& shadow_width) {
-      float shadow = pixels(shadow_width);
-      float full_width = pixels(width) + 2.0f * shadow;
-      FlatArc arc(state_.clamp, state_.brush, state_.x + pixels(x) - shadow,
-                  state_.y + pixels(y) - shadow, full_width, full_width,
-                  pixels(thickness) + 1.0f + 2.0f * shadow, center_radians, radians);
+      float shadow = std::max(1.0f, pixels(shadow_width));
+      float raw_width = pixels(width);
+      float full_width = raw_width + shadow;
+      FlatArc arc(state_.clamp, state_.brush, state_.x + pixels(x) - 0.5f * shadow,
+                  state_.y + pixels(y) - 0.5f * shadow, full_width, full_width, pixels(thickness) + shadow,
+                  center_radians, radians + 0.25f * kPi * shadow / raw_width);
       arc.pixel_width = shadow;
       addShape(arc);
     }
@@ -280,15 +281,18 @@ namespace visage {
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5>
-    void rectangleShadow(const T1& x, const T2& y, const T3& width, const T4& height, const T5& blur_radius) {
-      addRectangleShadow(pixels(x), pixels(y), pixels(width), pixels(height), pixels(blur_radius));
+    void rectangleShadow(const T1& x, const T2& y, const T3& width, const T4& height, const T5& shadow_width) {
+      roundedRectangleShadow(x, y, width, height, 0.0f, shadow_width);
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
     void roundedRectangleShadow(const T1& x, const T2& y, const T3& width, const T4& height,
-                                const T5& rounding, const T6& blur_radius) {
-      addRoundedRectangleShadow(pixels(x), pixels(y), pixels(width), pixels(height),
-                                pixels(rounding), pixels(blur_radius));
+                                const T5& rounding, const T6& shadow_width) {
+      float pixel_width = std::max(1.0f, pixels(shadow_width));
+      addShape(RoundedRectangle(state_.clamp, state_.brush, state_.x + pixels(x) - 0.5f * pixel_width,
+                                state_.y + pixels(y) - 0.5f * pixel_width,
+                                pixels(width) + pixel_width, pixels(height) + pixel_width,
+                                std::max(1.0f, pixels(rounding) + 0.5f * pixel_width), pixel_width));
     }
 
     template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
@@ -414,10 +418,9 @@ namespace visage {
 
     template<typename T1, typename T2>
     void image(const Image& image, const T1& x, const T2& y) {
-      int radius = std::round(pixels(image.blur_radius));
       int w = std::round(pixels(image.width));
       int h = std::round(pixels(image.height));
-      addImage({ image.data, image.data_size, w, h, radius }, pixels(x), pixels(y));
+      addImage({ image.data, image.data_size, w, h }, pixels(x), pixels(y));
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
@@ -479,8 +482,11 @@ namespace visage {
     void saveState() { state_memory_.push_back(state_); }
 
     void restoreState() {
-      state_ = state_memory_.back();
-      state_memory_.pop_back();
+      VISAGE_ASSERT(!state_memory_.empty());
+      if (!state_memory_.empty()) {
+        state_ = state_memory_.back();
+        state_memory_.pop_back();
+      }
     }
 
     void setPosition(float x, float y) {
@@ -631,31 +637,6 @@ namespace visage {
       float growth = rounding + 1.0f;
       addShape(RoundedRectangle(clamp, state_.brush, state_.x + x, state_.y + y - growth, width,
                                 height + growth, std::max(1.0f, rounding)));
-    }
-
-    void addRectangleShadow(float x, float y, float width, float height, float blur_radius) {
-      if (blur_radius > 0.0f) {
-        Rectangle rectangle(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height);
-        rectangle.pixel_width = blur_radius;
-        addShape(rectangle);
-      }
-    }
-
-    void addRoundedRectangleShadow(float x, float y, float width, float height, float rounding,
-                                   float blur_radius) {
-      if (blur_radius <= 0.0f)
-        return;
-
-      float offset = -blur_radius * 0.5f;
-      if (rounding <= 1.0f)
-        rectangleShadow(state_.x + x + offset, state_.y + y + offset, width + blur_radius,
-                        height + blur_radius, blur_radius);
-      else {
-        RoundedRectangle shadow(state_.clamp, state_.brush, state_.x + x + offset, state_.y + y + offset,
-                                width + blur_radius, height + blur_radius, rounding);
-        shadow.pixel_width = blur_radius;
-        addShape(shadow);
-      }
     }
 
     void addRoundedRectangleBorder(float x, float y, float width, float height, float rounding,

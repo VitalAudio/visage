@@ -249,14 +249,14 @@ float flatSegment(vec2 coordinates, vec2 dimensions, vec2 point1, vec2 point2, f
   return 1.0 - smoothed(-2.0, 0.0, distance);
 }
 
-float arc(vec2 coordinates, vec2 middle_coords, vec2 curve_coords, float width, float thickness) {
+float arc(vec2 coordinates, vec2 middle_coords, vec2 curve_coords, float width, float thickness, float fade) {
   float distance = sdArc(coordinates * width, middle_coords, curve_coords, width - thickness, thickness * 0.5);
-  return 1.0 - smoothed(-2.0, 0.0, distance - thickness * 0.5);
+  return 1.0 - smoothed(-2.0, 0.0, (distance - thickness * 0.5) / fade);
 }
 
-float flatArc(vec2 coordinates, vec2 middle_coords, vec2 curve_coords, float width, float thickness) {
+float flatArc(vec2 coordinates, vec2 middle_coords, vec2 curve_coords, float width, float thickness, float fade) {
   float distance = sdFlatArc(coordinates * width, middle_coords, curve_coords, width - thickness, thickness);
-  return 1.0 - smoothed(-2.0, 0.0, distance);
+  return 1.0 - smoothed(-2.0, 0.0, distance / fade);
 }
 
 float roundedRectangle(vec2 coordinates, vec2 dimensions, float rounding, float thickness, float fade) {
