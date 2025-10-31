@@ -157,7 +157,7 @@ namespace visage {
         for (int y = 0; y < packed_glyph->height; ++y) {
           for (int x = 0; x < packed_glyph->width; ++x) {
             int i = y * packed_glyph->width + x;
-            texture[i] = (glyph->bitmap.buffer[y * packed_glyph->width + x] << 24) + 0xffffff;
+            texture[i] = (glyph->bitmap.buffer[y * glyph->bitmap.pitch + x] << 24) + 0xffffff;
           }
         }
       }
@@ -512,7 +512,7 @@ namespace visage {
       TypeFaceData type_face_data(font_data, data_size);
       if (type_face_data_lookup_.count(type_face_data) == 0) {
         auto saved_data = std::make_unique<unsigned char[]>(data_size);
-        memcpy(saved_data.get(), font_data, data_size);
+        std::memcpy(saved_data.get(), font_data, data_size);
         type_face_data.data = saved_data.get();
         type_face_data_lookup_[type_face_data] = std::move(saved_data);
       }
