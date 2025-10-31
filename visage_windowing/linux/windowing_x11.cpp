@@ -1475,11 +1475,7 @@ namespace visage {
 
       if (result == -1)
         running = false;
-      else if (result == 0) {
-        last_timer_microseconds = time::microseconds();
-        long long us_time = last_timer_microseconds - start_microseconds_;
-        drawCallback(us_time / 1000000.0);
-      }
+
       while (running && XPending(x11_->display())) {
         XNextEvent(x11_->display(), &event);
         WindowX11* window = NativeWindowLookup::instance().findWindow(event.xany.window);
@@ -1503,6 +1499,12 @@ namespace visage {
         }
         else
           window->processEvent(event);
+      }
+
+      if (timer_microseconds_ - (time::microseconds() - last_timer_microseconds) <= 0) {
+        last_timer_microseconds = time::microseconds();
+        long long us_time = last_timer_microseconds - start_microseconds_;
+        drawCallback(us_time / 1000000.0);
       }
     }
   }
