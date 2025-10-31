@@ -24,6 +24,8 @@
 #include <cstdarg>
 
 namespace visage {
+  constexpr float kPi = 3.14159265358979323846f;
+
   class String;
   void debugLogString(const char* file, unsigned int line, const String& log_message);
   void debugLogArgs(const char* file, unsigned int line, const char* format, va_list arg_list);

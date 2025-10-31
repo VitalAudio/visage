@@ -22,7 +22,6 @@
 #pragma once
 
 #include <chrono>
-#include <ctime>
 #include <string>
 
 namespace visage::time {

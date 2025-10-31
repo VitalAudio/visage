@@ -40,7 +40,7 @@ namespace visage {
     canvas.setBlendedColor(ScrollBarDefault, ScrollBarDown, color_.update());
     float w = width_.update();
 
-    float rounding = std::min(width_.setSourceValue() / 2.0f, rounding_);
+    float rounding = std::min(width_.sourceValue() / 2.0f, rounding_);
     float x = left_ ? 0.0f : width() - w;
     canvas.roundedRectangle(x, y_ratio * h, w, height_ratio * h, rounding);
 
