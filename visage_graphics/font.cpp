@@ -225,7 +225,7 @@ namespace visage {
     }
 
     int atlasWidth() const { return atlas_map_.width(); }
-    int atlasHeight() const { return atlas_map_.width(); }
+    int atlasHeight() const { return atlas_map_.height(); }
     bgfx::TextureHandle& textureHandle() { return texture_handle_; }
     int lineHeight() const { return type_face_->lineHeight(); }
     int size() const { return size_; }

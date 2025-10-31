@@ -125,22 +125,22 @@ namespace visage {
       static constexpr int kMaxMultiples = 8;
 
       checkRemovedRects();
-      bool packed = false;
       if (packed_rects_.size() == 1) {
         width_ = std::max(1, packed_rects_[0].w + packer_.padding());
         height_ = std::max(1, packed_rects_[0].h + packer_.padding());
-        packed = packer_.pack(packed_rects_, width_, height_);
+        if (!packer_.pack(packed_rects_, width_, height_))
+          VISAGE_ASSERT(false);
       }
       else if (!packed_rects_.empty()) {
+        bool packed = false;
         for (int m = 0; !packed && m < kMaxMultiples; ++m) {
           width_ = height_ = kDefaultWidth << m;
           if (fixed_width_)
             width_ = fixed_width_;
           packed = packer_.pack(packed_rects_, width_, height_);
         }
+        VISAGE_ASSERT(packed);
       }
-
-      VISAGE_ASSERT(packed);
     }
 
     void clear() {

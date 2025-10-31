@@ -221,7 +221,7 @@ namespace visage {
 
     const bgfx::Caps* caps = bgfx::getCaps();
     std::vector<std::string> result;
-    result.push_back(std::string("Grapihcs API: ") + bgfx::getRendererName(caps->rendererType));
+    result.push_back(std::string("Graphics API: ") + bgfx::getRendererName(caps->rendererType));
     float hz = 1.0f / std::max(0.001f, refresh_rate_);
     result.push_back("Refresh Rate : " + std::to_string(hz) + " Hz");
 
