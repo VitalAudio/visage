@@ -56,7 +56,7 @@ TEST_CASE("Combine with default", "[utils]") {
   REQUIRE(Dimension::min(def, dim2).compute(1, 100, 100) == 10.0f);
   REQUIRE(Dimension::max(def, dim2).compute(1, 100, 100) == 10.0f);
   REQUIRE((def + dim2).compute(1, 100, 100) == 10.0f);
-  REQUIRE((def - dim2).compute(1, 100, 100) == 10.0f);
+  REQUIRE((def - dim2).compute(1, 100, 100) == -10.0f);
 }
 
 TEST_CASE("Dimension width/height percentages", "[utils]") {

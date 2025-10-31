@@ -34,7 +34,6 @@ namespace visage::time {
 #endif
 
     char buffer[kMaxLength];
-    std::strftime(buffer, kMaxLength, format_string, &time_info);
     if (std::strftime(buffer, kMaxLength, format_string, &time_info) == 0)
       return "";
 

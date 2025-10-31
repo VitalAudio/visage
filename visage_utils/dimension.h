@@ -141,7 +141,7 @@ namespace visage {
 
     Dimension operator-(const Dimension& other) const {
       if (compute_function == nullptr)
-        return other;
+        return -other;
       if (other.compute_function == nullptr)
         return *this;
 
@@ -178,6 +178,8 @@ namespace visage {
     }
 
     Dimension operator/(float scalar) const { return *this * (1.0f / scalar); }
+
+    Dimension operator-() const { return *this * -1.0f; }
 
     Dimension min(const Dimension& other) const { return min(*this, other); }
 

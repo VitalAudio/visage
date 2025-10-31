@@ -58,9 +58,11 @@ namespace visage {
     si.dwFlags |= STARTF_USESTDHANDLES;
     ZeroMemory(&pi, sizeof(pi));
 
-    std::string full_command = "" + command + " " + arguments;
-    if (!CreateProcess(nullptr, const_cast<LPSTR>(full_command.c_str()), nullptr, nullptr, TRUE,
-                       CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+    std::string full_command = command + " " + arguments;
+    std::vector<char> command_buffer(full_command.begin(), full_command.end());
+    command_buffer.push_back('\0');
+    if (!CreateProcess(nullptr, command_buffer.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW,
+                       nullptr, nullptr, &si, &pi)) {
       DWORD error_code = GetLastError();
       char message_buffer[256];
       FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, error_code,

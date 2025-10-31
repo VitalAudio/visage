@@ -370,7 +370,7 @@ namespace visage {
       };
 
       auto it = std::remove_if(callbacks_.begin(), callbacks_.end(), compare);
-      callbacks_.erase(it);
+      callbacks_.erase(it, callbacks_.end());
     }
 
     CallbackList& operator-=(const std::function<T>& callback) {
