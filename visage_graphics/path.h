@@ -229,7 +229,7 @@ namespace visage {
       auto delta1 = end1 - start1;
       auto delta2 = end2 - start2;
       auto det = delta1.cross(delta2);
-      if (std::abs(det) < std::numeric_limits<decltype(det)>::epsilon())
+      if (det == 0.0)
         return std::nullopt;
 
       auto start_delta = start2 - start1;
