@@ -21,6 +21,7 @@
 
 #include "palette.h"
 
+#include "gradient.h"
 #include "theme.h"
 
 #include <algorithm>
@@ -172,8 +173,13 @@ namespace visage {
         std::size_t split_position = color_mapping.find(kEncodingSeparator);
         if (split_position != std::string::npos) {
           std::string key = color_mapping.substr(0, split_position);
-          int color_index = std::stoi(color_mapping.substr(split_position + 1));
-          color_map_[override_id][color_name_map[key]] = color_index;
+
+          try {
+            int color_index = std::stoi(color_mapping.substr(split_position + 1));
+            color_map_[override_id][color_name_map[key]] = color_index;
+          }
+          catch (...) {
+          }
         }
 
         std::getline(stream, color_mapping);
@@ -212,7 +218,12 @@ namespace visage {
 
     std::string line;
     std::getline(stream, line);
-    int num_colors = std::stoi(line);
+    int num_colors = 0;
+    try {
+      num_colors = std::stoi(line);
+    }
+    catch (...) {
+    }
 
     colors_.clear();
     colors_.reserve(num_colors);

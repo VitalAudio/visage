@@ -22,8 +22,8 @@
 #pragma once
 
 #include "color.h"
+#include "theme.h"
 
-#include <iosfwd>
 #include <map>
 #include <vector>
 
