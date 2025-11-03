@@ -60,13 +60,36 @@ endif ()
 include(FetchContent)
 message(STATUS "Downloading graphics dependencies")
 set(CMAKE_MESSAGE_LOG_LEVEL "ERROR")
-FetchContent_Declare(bgfx GIT_REPOSITORY https://github.com/bkaradzic/bgfx.cmake.git
-  GIT_SHALLOW TRUE
-  GIT_TAG v1.129.8958-498
+
+FetchContent_Declare(bx URL https://github.com/bkaradzic/bx/archive/59d9249.zip EXCLUDE_FROM_ALL)
+FetchContent_Declare(bimg URL https://github.com/bkaradzic/bimg/archive/a1a2ae3.zip EXCLUDE_FROM_ALL)
+FetchContent_Declare(bgfx URL https://github.com/bkaradzic/bgfx/archive/b0e9cbd.zip EXCLUDE_FROM_ALL)
+FetchContent_Declare(
+  bgfx_cmake
+  URL https://github.com/bkaradzic/bgfx.cmake/archive/refs/tags/v1.129.8958-498.zip
   EXCLUDE_FROM_ALL
 )
-FetchContent_MakeAvailable(bgfx)
 
+FetchContent_GetProperties(bx)
+if(NOT bx_POPULATED)
+  FetchContent_Populate(bx)
+endif()
+
+FetchContent_GetProperties(bimg)
+if(NOT bimg_POPULATED)
+  FetchContent_Populate(bimg)
+endif()
+
+FetchContent_GetProperties(bgfx)
+if(NOT bgfx_POPULATED)
+  FetchContent_Populate(bgfx)
+endif()
+
+set(BX_DIR ${bx_SOURCE_DIR})
+set(BIMG_DIR ${bimg_SOURCE_DIR})
+set(BGFX_DIR ${bgfx_SOURCE_DIR})
+
+FetchContent_MakeAvailable(bgfx_cmake)
 
 FetchContent_Declare(freetype GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
   GIT_SHALLOW TRUE
@@ -110,10 +133,10 @@ target_include_directories(VisageGraphics
   PRIVATE
   ${VISAGE_INCLUDE_PATH}
   ${freetype_SOURCE_DIR}/include
-  ${bgfx_SOURCE_DIR}/bgfx/include
-  ${bgfx_SOURCE_DIR}/bgfx/3rdparty
-  ${bgfx_SOURCE_DIR}/bx/include
-  ${bgfx_SOURCE_DIR}/bimg/include
+  ${bgfx_SOURCE_DIR}/include
+  ${bgfx_SOURCE_DIR}/3rdparty
+  ${bx_SOURCE_DIR}/include
+  ${bimg_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
@@ -128,11 +151,11 @@ endif()
 target_include_directories(VisageGraphics
   SYSTEM PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/
-  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bgfx/bgfx/3rdparty
-  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bgfx/bgfx/include
-  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bgfx/bgfx/tools
-  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bgfx/bx/include
-  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bgfx/bimg/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bgfx/3rdparty
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bgfx/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bgfx/tools
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bx/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bimg/include
 )
 
 set_target_properties(VisageGraphics PROPERTIES FOLDER "visage")
