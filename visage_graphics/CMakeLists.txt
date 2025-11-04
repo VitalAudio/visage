@@ -57,37 +57,19 @@ if (NOT EMSCRIPTEN AND VISAGE_ENABLE_BACKGROUND_GRAPHICS_THREAD)
   target_compile_definitions(VisageGraphics PUBLIC VISAGE_BACKGROUND_GRAPHICS_THREAD=1)
 endif ()
 
-include(FetchContent)
 message(STATUS "Downloading graphics dependencies")
 set(CMAKE_MESSAGE_LOG_LEVEL "ERROR")
 
-FetchContent_Declare(bx URL https://github.com/bkaradzic/bx/archive/59d9249.zip EXCLUDE_FROM_ALL)
-FetchContent_Declare(bimg URL https://github.com/bkaradzic/bimg/archive/a1a2ae3.zip EXCLUDE_FROM_ALL)
-FetchContent_Declare(bgfx URL https://github.com/bkaradzic/bgfx/archive/b0e9cbd.zip EXCLUDE_FROM_ALL)
+download_and_extract(bx https://github.com/bkaradzic/bx/archive/59d9249.zip BX_DIR)
+download_and_extract(bimg https://github.com/bkaradzic/bimg/archive/a1a2ae3.zip BIMG_DIR)
+download_and_extract(bgfx https://github.com/bkaradzic/bgfx/archive/b0e9cbd.zip BGFX_DIR)
+
 FetchContent_Declare(
   bgfx_cmake
   URL https://github.com/bkaradzic/bgfx.cmake/archive/refs/tags/v1.129.8958-498.zip
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
   EXCLUDE_FROM_ALL
 )
-
-FetchContent_GetProperties(bx)
-if(NOT bx_POPULATED)
-  FetchContent_Populate(bx)
-endif()
-
-FetchContent_GetProperties(bimg)
-if(NOT bimg_POPULATED)
-  FetchContent_Populate(bimg)
-endif()
-
-FetchContent_GetProperties(bgfx)
-if(NOT bgfx_POPULATED)
-  FetchContent_Populate(bgfx)
-endif()
-
-set(BX_DIR ${bx_SOURCE_DIR})
-set(BIMG_DIR ${bimg_SOURCE_DIR})
-set(BGFX_DIR ${bgfx_SOURCE_DIR})
 
 FetchContent_MakeAvailable(bgfx_cmake)
 
