@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xcodebuild:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(./visage_graphics/Debug/VisageGraphicsTests:*)",
+      "Bash(ctest:*)",
+      "Bash(make:*)",
+      "Bash(cmake:*)",
+      "Bash(pgrep:*)",
+      "Bash(find:*)",
+      "Bash(./cmake_build/visage_graphics/Debug/VisageGraphicsTests:*)",
+      "Bash(/Users/mtytel/visage/cmake_build/visage_graphics/Debug/VisageGraphicsTests:*)"
+    ],
+    "deny": []
+  }
+}
