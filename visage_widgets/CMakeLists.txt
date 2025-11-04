@@ -15,7 +15,7 @@ if (VISAGE_ENABLE_WIDGETS)
   target_link_libraries(VisageWidgets PRIVATE VisageGraphicsEmbeds)
   set_target_properties(VisageWidgets PROPERTIES FOLDER "visage")
 
-  add_test_target(
+  visage_add_test_target(
     TARGET VisageWidgetsTests
     TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
   )

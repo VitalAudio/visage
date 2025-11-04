@@ -1,4 +1,4 @@
-function(download_and_extract NAME URL OUT_DIR)
+function(visage_download_archive NAME URL OUT_DIR)
   set(DOWNLOAD_DIR "${CMAKE_BINARY_DIR}/_deps")
   set(EXTRACT_DIR "${DOWNLOAD_DIR}/${NAME}")
   set(ARCHIVE_FILE "${DOWNLOAD_DIR}/${NAME}.archive")

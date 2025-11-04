@@ -65,7 +65,7 @@ foreach (EXAMPLE ${EXAMPLES})
 endforeach ()
 
 if (NOT EMSCRIPTEN)
-  message(STATUS "Downloading CLAP SDK for plugin example")
+  message(STATUS "VISAGE: Downloading CLAP SDK for plugin example")
   FetchContent_Declare(clap GIT_REPOSITORY https://github.com/free-audio/clap.git
     GIT_TAG main
     GIT_SHALLOW TRUE

@@ -1,5 +1,5 @@
 if (VISAGE_BUILD_TESTS AND NOT EMSCRIPTEN)
-  message(STATUS "Downloading testing dependencies")
+  message(STATUS "VISAGE: Downloading testing dependencies")
 
   include(FetchContent)
   FetchContent_Declare(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.git
@@ -16,7 +16,7 @@ if (VISAGE_BUILD_TESTS AND NOT EMSCRIPTEN)
   set_target_properties(Catch2WithMain PROPERTIES FOLDER "visage/third_party/Catch2")
 endif ()
 
-function(add_test_target)
+function(visage_add_test_target)
   set(single_options TARGET TEST_DIRECTORY)
   cmake_parse_arguments(PARSE "" "${single_options}" "${multi_options}" ${ARGN})
 

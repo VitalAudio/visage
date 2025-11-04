@@ -22,7 +22,7 @@ target_include_directories(VisageUtils PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(VisageUtilsDefinitions INTERFACE)
 set_target_properties(VisageUtils PROPERTIES FOLDER "visage")
 
-add_test_target(
+visage_add_test_target(
   TARGET VisageUtilsTests
   TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )

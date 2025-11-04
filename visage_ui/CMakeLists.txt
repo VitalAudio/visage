@@ -17,7 +17,7 @@ target_include_directories(VisageUi PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VISAGE
 target_link_libraries(VisageUi PRIVATE VisageGraphicsEmbeds)
 set_target_properties(VisageUi PROPERTIES FOLDER "visage")
 
-add_test_target(
+visage_add_test_target(
   TARGET VisageUiTests
   TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )

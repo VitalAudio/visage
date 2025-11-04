@@ -57,12 +57,12 @@ if (NOT EMSCRIPTEN AND VISAGE_ENABLE_BACKGROUND_GRAPHICS_THREAD)
   target_compile_definitions(VisageGraphics PUBLIC VISAGE_BACKGROUND_GRAPHICS_THREAD=1)
 endif ()
 
-message(STATUS "Downloading graphics dependencies")
+message(STATUS "VISAGE: Downloading graphics dependencies")
 set(CMAKE_MESSAGE_LOG_LEVEL "ERROR")
 
-download_and_extract(bx https://github.com/bkaradzic/bx/archive/59d9249.zip BX_DIR)
-download_and_extract(bimg https://github.com/bkaradzic/bimg/archive/a1a2ae3.zip BIMG_DIR)
-download_and_extract(bgfx https://github.com/bkaradzic/bgfx/archive/b0e9cbd.zip BGFX_DIR)
+visage_download_archive(bx https://github.com/bkaradzic/bx/archive/59d9249.zip BX_DIR)
+visage_download_archive(bimg https://github.com/bkaradzic/bimg/archive/a1a2ae3.zip BIMG_DIR)
+visage_download_archive(bgfx https://github.com/bkaradzic/bgfx/archive/b0e9cbd.zip BGFX_DIR)
 
 FetchContent_Declare(
   bgfx_cmake
@@ -147,7 +147,7 @@ set_target_properties(bimg PROPERTIES FOLDER "visage/third_party/bgfx")
 set_target_properties(bimg_decode PROPERTIES FOLDER "visage/third_party/bgfx")
 set_target_properties(bimg_encode PROPERTIES FOLDER "visage/third_party/bgfx")
 
-add_test_target(
+visage_add_test_target(
   TARGET VisageGraphicsTests
   TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
