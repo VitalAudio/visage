@@ -21,11 +21,11 @@ function(visage_download_archive NAME URL OUT_DIR)
 
   if(NOT EXISTS "${ARCHIVE_FILE}")
     message(STATUS "Downloading ${NAME}...")
-    file(DOWNLOAD "${URL}" "${ARCHIVE_FILE}" SHOW_PROGRESS STATUS DOWNLOAD_STATUS)
+    file(DOWNLOAD "${URL}" "${ARCHIVE_FILE}" STATUS DOWNLOAD_STATUS)
     list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
     if(NOT STATUS_CODE EQUAL 0)
       file(REMOVE "${ARCHIVE_FILE}")
-      message(FATAL_ERROR "Failed to download ${URL} - CODE${STATUS_CODE}: ${DOWNLOAD_STATUS}")
+      message(FATAL_ERROR "Failed to download ${URL}")
     endif()
   endif()
 
