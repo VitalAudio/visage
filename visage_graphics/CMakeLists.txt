@@ -59,19 +59,12 @@ endif ()
 
 message(STATUS "VISAGE: Downloading graphics dependencies")
 set(CMAKE_MESSAGE_LOG_LEVEL "ERROR")
-
-visage_download_archive(bx https://github.com/bkaradzic/bx/archive/59d9249.zip BX_DIR)
-visage_download_archive(bimg https://github.com/bkaradzic/bimg/archive/a1a2ae3.zip BIMG_DIR)
-visage_download_archive(bgfx https://github.com/bkaradzic/bgfx/archive/b0e9cbd.zip BGFX_DIR)
-
-FetchContent_Declare(
-  bgfx_cmake
-  URL https://github.com/bkaradzic/bgfx.cmake/archive/refs/tags/v1.129.8958-498.zip
-  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+FetchContent_Declare(bgfx GIT_REPOSITORY https://github.com/bkaradzic/bgfx.cmake.git
+  GIT_SHALLOW TRUE
+  GIT_TAG v1.129.8958-499
   EXCLUDE_FROM_ALL
 )
-
-FetchContent_MakeAvailable(bgfx_cmake)
+FetchContent_MakeAvailable(bgfx)
 
 FetchContent_Declare(freetype GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
   GIT_SHALLOW TRUE
