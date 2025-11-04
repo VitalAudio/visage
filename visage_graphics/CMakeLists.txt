@@ -115,10 +115,10 @@ target_include_directories(VisageGraphics
   PRIVATE
   ${VISAGE_INCLUDE_PATH}
   ${freetype_SOURCE_DIR}/include
-  ${bgfx_SOURCE_DIR}/include
-  ${bgfx_SOURCE_DIR}/3rdparty
-  ${bx_SOURCE_DIR}/include
-  ${bimg_SOURCE_DIR}/include
+  ${BGFX_DIR}/include
+  ${BGFX_DIR}/3rdparty
+  ${BX_DIR}/include
+  ${BIMG_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
