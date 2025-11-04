@@ -25,7 +25,7 @@ function(visage_download_archive NAME URL OUT_DIR)
     list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
     if(NOT STATUS_CODE EQUAL 0)
       file(REMOVE "${ARCHIVE_FILE}")
-      message(FATAL_ERROR "Failed to download ${URL}")
+      message(FATAL_ERROR "Failed to download ${URL} - CODE${STATUS_CODE}: ${DOWNLOAD_STATUS}")
     endif()
   endif()
 
