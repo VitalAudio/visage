@@ -21,8 +21,6 @@
 
 #pragma once
 
-#include "visage_utils/file_system.h"
-
 namespace visage {
   class Screenshot {
   public:
@@ -56,7 +54,6 @@ namespace visage {
 
     void save(const char* path) const;
     void save(const std::string& path) const;
-    void save(const File& file) const;
 
     void setDimensions(int width, int height) {
       width_ = width;

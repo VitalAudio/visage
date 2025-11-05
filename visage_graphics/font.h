@@ -24,7 +24,6 @@
 #include "color.h"
 #include "graphics_utils.h"
 #include "visage_file_embed/embedded_file.h"
-#include "visage_utils/file_system.h"
 
 #include <map>
 #include <vector>
@@ -181,14 +180,7 @@ namespace visage {
       return instance()->createOrLoadPackedFont(id, size, font.data, font.size);
     }
 
-    static PackedFont* loadPackedFont(int size, const std::string& file_path) {
-      std::string id = "file: " + file_path + " - " + std::to_string(size);
-      File file(file_path);
-      size_t file_size = 0;
-      std::unique_ptr<unsigned char[]> data = loadFileData(file, file_size);
-      return instance()->createOrLoadPackedFont(id, size, data.get(), file_size);
-    }
-
+    static PackedFont* loadPackedFont(int size, const std::string& file_path);
     static PackedFont* loadPackedFont(const PackedFont* packed_font);
     static PackedFont* loadPackedFont(int size, const unsigned char* font_data, int data_size);
 

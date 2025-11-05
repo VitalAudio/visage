@@ -38,8 +38,4 @@ namespace visage {
   void Screenshot::save(const std::string& path) const {
     save(path.c_str());
   }
-
-  void Screenshot::save(const File& file) const {
-    save(file.string());
-  }
 }

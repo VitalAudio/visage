@@ -26,7 +26,6 @@
 
 #include <visage/app.h>
 #include <visage/graphics.h>
-#include <visage/utils.h>
 #include <visage/widgets.h>
 
 using namespace visage::dimension;
