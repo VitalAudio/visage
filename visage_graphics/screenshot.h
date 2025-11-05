@@ -21,6 +21,12 @@
 
 #pragma once
 
+#include "visage_utils/space.h"
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
 namespace visage {
   class Screenshot {
   public:
