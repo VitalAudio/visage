@@ -174,18 +174,6 @@ namespace visage {
     if (uv_data == nullptr)
       return;
 
-    if (region->layer()->bottomLeftOrigin()) {
-      for (int i = 0; i < kVerticesPerQuad; ++i) {
-        uv_data[i].x = inv_screen_vertices_[i].x;
-        uv_data[i].y = inv_screen_vertices_[i].y;
-      }
-    }
-    else {
-      for (int i = 0; i < kVerticesPerQuad; ++i) {
-        uv_data[i].x = screen_vertices_[i].x;
-        uv_data[i].y = screen_vertices_[i].y;
-      }
-    }
     float width_scale = 1.0f / region->layer()->width();
     float height_scale = 1.0f / region->layer()->height();
     IPoint position = region->layer()->coordinatesForRegion(region);
@@ -201,6 +189,21 @@ namespace visage {
     uv_data[2].v = bottom;
     uv_data[3].u = right;
     uv_data[3].v = bottom;
+
+    if (region->layer()->bottomLeftOrigin()) {
+      for (int i = 0; i < kVerticesPerQuad; ++i) {
+        uv_data[i].x = inv_screen_vertices_[i].x;
+        uv_data[i].y = inv_screen_vertices_[i].y;
+      }
+      for (int i = 0; i < kVerticesPerQuad; ++i)
+        uv_data[i].v = 1.0f - uv_data[i].v;
+    }
+    else {
+      for (int i = 0; i < kVerticesPerQuad; ++i) {
+        uv_data[i].x = screen_vertices_[i].x;
+        uv_data[i].y = screen_vertices_[i].y;
+      }
+    }
 
     bgfx::setVertexBuffer(0, &first_sample_buffer);
   }
