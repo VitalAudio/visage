@@ -196,8 +196,10 @@ namespace visage {
     uv_data[3].v = bottom;
 
     if (region->layer()->bottomLeftOrigin()) {
-      for (int i = 0; i < kVerticesPerQuad; ++i)
-        uv_data[i].v = 1.0f - uv_data[i].v;
+      uv_data[0].v = 1.0f - bottom;
+      uv_data[1].v = 1.0f - bottom;
+      uv_data[2].v = 1.0f - top;
+      uv_data[3].v = 1.0f - top;
     }
 
     bgfx::setVertexBuffer(0, &first_sample_buffer);
@@ -343,6 +345,7 @@ namespace visage {
 
     float value = destination.hdr() ? kHdrColorMultiplier : 1.0f;
     setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
+    setOriginFlipUniform(false);
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                           SampleRegion::fragmentShader()));
   }
@@ -505,10 +508,11 @@ namespace visage {
     setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(destination.bottomLeftOrigin());
 
-    setPostEffectUniform<Uniforms::kTextureClamp>((quads.vertices[0].texture_x + 0.5f) * width_scale,
-                                                  (quads.vertices[0].texture_y + 0.5f) * height_scale,
-                                                  (quads.vertices[3].texture_x - 0.5f) * width_scale,
-                                                  (quads.vertices[3].texture_y - 0.5f) * height_scale);
+    float min_x = (std::min(quads.vertices[0].texture_x, quads.vertices[3].texture_x) + 0.5f) * width_scale;
+    float min_y = (std::min(quads.vertices[0].texture_y, quads.vertices[3].texture_y) + 0.5f) * height_scale;
+    float max_x = (std::max(quads.vertices[0].texture_x, quads.vertices[3].texture_x) - 0.5f) * width_scale;
+    float max_y = (std::max(quads.vertices[0].texture_y, quads.vertices[3].texture_y) - 0.5f) * height_scale;
+    setPostEffectUniform<Uniforms::kTextureClamp>(min_x, min_y, max_x, max_y);
     float center_x = (quads.vertices[0].texture_x + quads.vertices[3].texture_x) * 0.5f;
     float center_y = (quads.vertices[0].texture_y + quads.vertices[3].texture_y) * 0.5f;
     setPostEffectUniform<Uniforms::kCenterPosition>(center_x, center_y);
