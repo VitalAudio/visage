@@ -469,11 +469,6 @@ namespace visage {
       quads.vertices[i * kVerticesPerQuad + 3].texture_y = heights_[1];
     }
 
-    if (destination.bottomLeftOrigin()) {
-      for (int i = 0; i < kVerticesPerQuad; ++i)
-        quads.vertices[i].texture_y = heights_[1] - quads.vertices[i].texture_y;
-    }
-
     setBlendMode(BlendMode::Add);
 
     float width_scale = 1.0f / widths_[1];
