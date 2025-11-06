@@ -195,8 +195,8 @@ namespace visage {
     uv_data[3].v = bottom;
 
     if (region->layer()->bottomLeftOrigin()) {
-      for (int i = 0; i < kVerticesPerQuad; ++i)
-        uv_data[i].v = 1.0f - uv_data[i].v;
+      // for (int i = 0; i < kVerticesPerQuad; ++i)
+      //   uv_data[i].v = 1.0f - uv_data[i].v;
     }
 
     bgfx::setVertexBuffer(0, &first_sample_buffer);
