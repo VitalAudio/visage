@@ -40,6 +40,7 @@ endif ()
 
 set(VISAGE_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
+include(FetchContent)
 include(cmake/compile_flags.cmake)
 include(cmake/testing_framework.cmake)
 
