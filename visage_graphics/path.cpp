@@ -1456,7 +1456,8 @@ namespace visage {
         results.inner_points.push_back(point);
         auto intersection = Path::findIntersection(prev + prev_offset, point + prev_offset,
                                                    point + offset, next + offset);
-        if (intersection.has_value())
+        float min_comp = std::min((point - prev).squareMagnitude(), (next - point).squareMagnitude());
+        if (intersection.has_value() && (intersection.value() - point).squareMagnitude() < min_comp)
           results.outer_points.push_back(intersection.value());
         else
           results.outer_points.push_back(point + prev_offset);
