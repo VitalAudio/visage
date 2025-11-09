@@ -100,6 +100,8 @@ namespace visage {
                                                           SampleRegion::fragmentShader()));
   }
 
+  DownsamplePostEffect::~DownsamplePostEffect() = default;
+
   DownsamplePostEffect::DownsamplePostEffect(bool hdr) : PostEffect(hdr) {
     handles_ = std::make_unique<DownsampleHandles>();
 

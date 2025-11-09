@@ -48,6 +48,7 @@ namespace visage {
     static constexpr int kMaxDownsamples = 6;
 
     explicit DownsamplePostEffect(bool hdr = false);
+    ~DownsamplePostEffect() override;
 
   protected:
     void setInitialVertices(Region* region);
