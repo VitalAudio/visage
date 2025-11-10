@@ -130,10 +130,16 @@ namespace visage {
   void ImageAtlas::resize() {
     clearStaleImages();
 
+    int last_width = atlas_map_.width();
+    int last_height = atlas_map_.height();
     atlas_map_.pack();
-    texture_ = std::make_unique<ImageAtlasTexture>(atlas_map_.width(), atlas_map_.height(), data_type_);
     for (auto& image : images_)
       loadImageRect(image.second.get());
+
+    if (atlas_map_.width() != last_width || atlas_map_.height() != last_height)
+      texture_ = std::make_unique<ImageAtlasTexture>(atlas_map_.width(), atlas_map_.height(), data_type_);
+    else
+      repacked_ = true;
   }
 
   void ImageAtlas::loadImageRect(PackedImageRect* image) const {
@@ -176,14 +182,15 @@ namespace visage {
       VISAGE_ASSERT(false);
   }
 
-  const bgfx::TextureHandle& ImageAtlas::textureHandle() const {
+  const bgfx::TextureHandle& ImageAtlas::textureHandle() {
     VISAGE_ASSERT(texture_.get());
-    if (!texture_->hasHandle()) {
+    if (!texture_->hasHandle() || repacked_) {
       texture_->checkHandle();
       for (auto& image : images_) {
         if (stale_images_.count(image.first) == 0)
           updateImage(image.second.get());
       }
+      repacked_ = false;
     }
     return texture_->handle();
   }

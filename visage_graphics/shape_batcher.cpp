@@ -220,7 +220,7 @@ namespace visage {
     bgfx::submit(submit_pass, program);
   }
 
-  void setImageAtlasUniform(const ImageAtlas* atlas) {
+  void setImageAtlasUniform(ImageAtlas* atlas) {
     setTexture<Uniforms::kTexture>(1, atlas->textureHandle());
     setUniform<Uniforms::kAtlasScale>(1.0f / atlas->width(), 1.0f / atlas->height());
   }
