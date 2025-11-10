@@ -180,8 +180,10 @@ namespace visage {
     VISAGE_ASSERT(texture_.get());
     if (!texture_->hasHandle()) {
       texture_->checkHandle();
-      for (auto& image : images_)
-        updateImage(image.second.get());
+      for (auto& image : images_) {
+        if (stale_images_.count(image.first) == 0)
+          updateImage(image.second.get());
+      }
     }
     return texture_->handle();
   }

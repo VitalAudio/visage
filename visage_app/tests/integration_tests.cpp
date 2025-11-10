@@ -108,3 +108,31 @@ TEST_CASE("Screenshot horizontal gradient", "[integration]") {
     }
   }
 }
+
+TEST_CASE("Testing animated graph lines", "[integration]") {
+  Color source = 0xff123456;
+  Color destination = 0xff88aacc;
+  ApplicationEditor editor;
+  editor.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(Brush::horizontal(source, destination));
+    canvas.fill(0, 0, editor.width(), editor.height());
+  };
+
+  visage::GraphLine graph_line1(254);
+  visage::GraphLine graph_line2(250);
+  editor.addChild(&graph_line1);
+  editor.addChild(&graph_line2);
+
+  editor.onResize() += [&]() {
+    graph_line1.setBounds(editor.localBounds());
+    graph_line2.setBounds(editor.localBounds());
+  };
+
+  editor.setWindowless(100, 100);
+
+  for (int i = 0; i < 90; ++i) {
+    graph_line1.redraw();
+    graph_line2.redraw();
+    editor.drawWindow();
+  }
+}
