@@ -247,6 +247,11 @@ namespace visage {
       initSettings(shadow);
     }
 
+    ToggleIconButton(const EmbeddedFile& icon_file, bool shadow = false) : ToggleButton() {
+      setIcon(icon_file);
+      initSettings(shadow);
+    }
+
     ToggleIconButton(const unsigned char* svg, int svg_size, bool shadow = false) : ToggleButton() {
       setIcon({ svg, svg_size });
       initSettings(shadow);
@@ -257,6 +262,8 @@ namespace visage {
       setIcon({ svg, svg_size });
       initSettings(shadow);
     }
+
+    void setIcon(const EmbeddedFile& icon_file) { setIcon({ icon_file.data, icon_file.size }); }
 
     void setIcon(const Svg& icon) {
       shadow_.load(icon);
