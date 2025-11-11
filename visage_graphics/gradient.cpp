@@ -87,6 +87,9 @@ namespace visage {
       return;
 
     int resolution = gradient->gradient.resolution();
+    if (resolution == 0)
+      return;
+
     std::unique_ptr<uint64_t[]> color_data = std::make_unique<uint64_t[]>(resolution);
     float step = 1.0f / std::max(1, resolution - 1);
     for (int i = 0; i < resolution; ++i)

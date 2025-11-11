@@ -1375,7 +1375,7 @@ namespace visage {
         return gradients_.at(id);
     }
 
-    if (color == "current-color")
+    if (color == "currentColor")
       return GradientDef::Type::CurrentColor;
     if (color == "context-fill")
       return GradientDef::Type::ContextFill;

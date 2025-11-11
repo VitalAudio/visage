@@ -51,6 +51,7 @@ namespace visage {
       float y = 0;
       float scale = 1.0f;
       theme::OverrideId palette_override;
+      Brush set_brush;
       const PackedBrush* brush = nullptr;
       ClampBounds clamp;
       BlendMode blend_mode = BlendMode::Alpha;
@@ -101,7 +102,10 @@ namespace visage {
     int frameCount() const { return render_frame_; }
 
     void setBlendMode(BlendMode blend_mode) { state_.blend_mode = blend_mode; }
+
+    const Brush& brush() { return state_.set_brush; }
     void setBrush(const Brush& brush) {
+      state_.set_brush = brush;
       state_.brush = state_.current_region->addBrush(&gradient_atlas_, brush.gradient(),
                                                      brush.position() * state_.scale);
     }
@@ -400,8 +404,8 @@ namespace visage {
              const T4& height) {
       Svg new_svg(svg_data, svg_size);
       new_svg.setDimensions(pixels(width) / state_.scale, pixels(height) / state_.scale);
-      new_svg.setFillBrush(state_.brush->originalBrush());
-      new_svg.setStrokeBrush(state_.brush->originalBrush());
+      new_svg.setFillBrush(state_.set_brush);
+      new_svg.setStrokeBrush(state_.set_brush);
       svg(new_svg, x, y, width, height);
     }
 
@@ -757,7 +761,7 @@ namespace visage {
     void addSvg(const Svg& svg, float x, float y, float width, float height) {
       SvgDrawable::ColorContext context;
       if (state_.brush) {
-        Brush current = state_.brush->originalBrush();
+        Brush current = state_.set_brush;
         context.current_color = &current;
       }
       svg.drawable()->drawAll(*this, &context, x, y, width, height);

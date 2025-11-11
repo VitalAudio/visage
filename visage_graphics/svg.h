@@ -99,6 +99,7 @@ namespace visage {
     }
 
     bool isNone() const { return gradient.isNone(); }
+    bool isCurrentColor() const { return type == Type::CurrentColor; }
 
     Gradient gradient;
     Transform transform;
@@ -161,17 +162,30 @@ namespace visage {
     }
 
     void setAllFillBrush(const Brush& brush) {
-      if (!fill_brush.isNone())
+      if ((!state.fill_gradient.isNone() || state.fill_gradient.isCurrentColor()) &&
+          state.fill_opacity > 0.0f) {
         fill_brush = brush;
+      }
       for (auto& child : children)
         child->setAllFillBrush(brush);
     }
 
     void setAllStrokeBrush(const Brush& brush) {
-      if (!stroke_brush.isNone())
+      if ((!state.stroke_gradient.isNone() || state.stroke_gradient.isCurrentColor()) &&
+          state.stroke_opacity > 0.0f) {
         stroke_brush = brush;
+      }
       for (auto& child : children)
         child->setAllStrokeBrush(brush);
+    }
+
+    void setAllCurrentColor(const Brush& brush) {
+      if (state.fill_gradient.isCurrentColor() && state.fill_opacity > 0.0f)
+        fill_brush = brush;
+      if (state.stroke_gradient.isCurrentColor() && state.stroke_opacity > 0.0f)
+        stroke_brush = brush;
+      for (auto& child : children)
+        child->setAllCurrentColor(brush);
     }
 
     Bounds boundingFillBox() const {
@@ -413,6 +427,12 @@ namespace visage {
       resetDrawable();
     }
 
+    void setCurrentColor(const Brush& brush) {
+      current_color_ = brush;
+      if (drawable_)
+        drawable_->setAllCurrentColor(brush);
+    }
+
   private:
     void setDrawableDimensions(int width, int height) {
       if (width != draw_width_ || height != draw_height_) {
@@ -431,6 +451,8 @@ namespace visage {
         drawable_->setAllFillBrush(fill_brush_);
       if (!stroke_brush_.isNone())
         drawable_->setAllStrokeBrush(stroke_brush_);
+      if (!current_color_.isNone())
+        drawable_->setAllCurrentColor(current_color_);
     }
 
     SvgViewSettings view_;
@@ -440,5 +462,6 @@ namespace visage {
 
     Brush fill_brush_;
     Brush stroke_brush_;
+    Brush current_color_;
   };
 }

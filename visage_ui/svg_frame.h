@@ -72,6 +72,11 @@ namespace visage {
       redrawAll();
     }
 
+    void setCurrentColor(const Brush& brush) {
+      svg_.setCurrentColor(brush);
+      redrawAll();
+    }
+
   private:
     class SubFrame : public Frame {
     public:
