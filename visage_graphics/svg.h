@@ -161,13 +161,15 @@ namespace visage {
     }
 
     void setAllFillBrush(const Brush& brush) {
-      fill_brush = brush;
+      if (!fill_brush.isNone())
+        fill_brush = brush;
       for (auto& child : children)
         child->setAllFillBrush(brush);
     }
 
     void setAllStrokeBrush(const Brush& brush) {
-      stroke_brush = brush;
+      if (!stroke_brush.isNone())
+        stroke_brush = brush;
       for (auto& child : children)
         child->setAllStrokeBrush(brush);
     }
