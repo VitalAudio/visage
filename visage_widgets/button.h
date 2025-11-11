@@ -133,7 +133,10 @@ namespace visage {
       initSettings(shadow);
     }
 
-    IconButton(const unsigned char* svg, int svg_size) { setIcon(svg, svg_size); }
+    IconButton(const unsigned char* svg, int svg_size, bool shadow = false) {
+      setIcon(svg, svg_size);
+      initSettings(shadow);
+    }
 
     void setIcon(const EmbeddedFile& icon_file) { setIcon({ icon_file.data, icon_file.size }); }
     void setIcon(const unsigned char* svg, int svg_size) { setIcon({ svg, svg_size }); }
