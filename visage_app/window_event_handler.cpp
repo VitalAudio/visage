@@ -210,7 +210,7 @@ namespace visage {
     IPoint original_window_position = { x, y };
     mouse_event.window_position = convertToLogical(original_window_position);
     mouse_event.relative_position = mouse_event.window_position -
-                                    Point(window_->lastWindowMousePosition());
+                                    convertToLogical(window_->lastWindowMousePosition());
     mouse_event.relative_position.x = std::round(mouse_event.relative_position.x);
     mouse_event.relative_position.y = std::round(mouse_event.relative_position.y);
     if (!window_->mouseRelativeMode())
