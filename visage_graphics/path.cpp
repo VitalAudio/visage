@@ -109,8 +109,6 @@ namespace visage {
     if (currentPath().points.empty())
       addPoint(last_point_);
 
-    smooth_control_point_ = {};
-
     Point from = last_point_;
     if (relative)
       point += last_point_;

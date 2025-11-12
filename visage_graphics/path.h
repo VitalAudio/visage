@@ -200,6 +200,12 @@ namespace visage {
       EvenOdd
     };
 
+    enum class ControlPoints {
+      Linear,
+      Quadratic,
+      Cubic
+    };
+
     enum class Operation {
       Union,
       Intersection,
@@ -258,7 +264,6 @@ namespace visage {
         point += last_point_;
 
       last_point_ = point;
-      smooth_control_point_ = {};
     }
 
     void moveTo(float x, float y, bool relative = false) { moveTo(Point(x, y), relative); }
@@ -271,7 +276,6 @@ namespace visage {
         point += last_point_;
 
       addPoint(point);
-      smooth_control_point_ = {};
     }
 
     void lineTo(float x, float y, bool relative = false) { lineTo(Point(x, y), relative); }
@@ -281,7 +285,6 @@ namespace visage {
         y += last_point_.y;
 
       lineTo(last_point_.x, y);
-      smooth_control_point_ = {};
     }
 
     void horizontalTo(float x, bool relative = false) {
@@ -289,7 +292,6 @@ namespace visage {
         x += last_point_.x;
 
       lineTo(x, last_point_.y);
-      smooth_control_point_ = {};
     }
 
     void close() {
@@ -322,6 +324,7 @@ namespace visage {
       Point control2 = end + (2.0f / 3.0f) * (control - end);
       smooth_control_point_ = end + (end - control);
       recurseBezierTo(from, control1, control2, end);
+      current_control_points_ = ControlPoints::Quadratic;
     }
 
     void quadraticTo(float control_x, float control_y, float end_x, float end_y, bool relative = false) {
@@ -329,6 +332,9 @@ namespace visage {
     }
 
     void smoothQuadraticTo(Point end, bool relative = false) {
+      if (current_control_points_ != ControlPoints::Quadratic)
+        smooth_control_point_ = last_point_;
+
       if (relative)
         end += last_point_;
 
@@ -352,6 +358,7 @@ namespace visage {
 
       recurseBezierTo(from, control1, control2, end);
       smooth_control_point_ = end + (end - control2);
+      current_control_points_ = ControlPoints::Cubic;
     }
 
     void bezierTo(float x1, float y1, float x2, float y2, float x3, float y3, bool relative = false) {
@@ -363,6 +370,8 @@ namespace visage {
         end_control += last_point_;
         end += last_point_;
       }
+      if (current_control_points_ != ControlPoints::Cubic)
+        smooth_control_point_ = end_control;
 
       bezierTo(smooth_control_point_, end_control, end);
     }
@@ -916,8 +925,8 @@ namespace visage {
       if (paths_.empty() || !paths_.back().points.empty())
         paths_.emplace_back();
 
-      smooth_control_point_ = {};
       current_value_ = 0.0f;
+      current_control_points_ = ControlPoints::Linear;
     }
 
     SubPath& currentPath() {
@@ -934,6 +943,7 @@ namespace visage {
       last_point_ = point;
       currentPath().points.push_back(point);
       currentPath().values.push_back(current_value_);
+      current_control_points_ = ControlPoints::Linear;
     }
 
     TriangulationGraph* triangulationGraph() {
@@ -949,6 +959,7 @@ namespace visage {
     clone_ptr<TriangulationGraph> triangulation_graph_;
     FillRule fill_rule_ = FillRule::EvenOdd;
     Point smooth_control_point_;
+    ControlPoints current_control_points_ = ControlPoints::Linear;
     Point last_point_;
     float current_value_ = 0.0f;
     float error_tolerance_ = kDefaultErrorTolerance;
