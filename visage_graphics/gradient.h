@@ -319,6 +319,7 @@ namespace visage {
     std::map<Gradient, const PackedGradientRect*> stale_gradients_;
 
     bool hdr_ = false;
+    bool repacked_ = false;
     PackedAtlasMap<const PackedGradientRect*> atlas_map_;
     std::unique_ptr<GradientAtlasTexture> texture_;
     std::shared_ptr<GradientAtlas*> reference_;

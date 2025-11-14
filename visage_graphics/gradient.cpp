@@ -106,7 +106,10 @@ namespace visage {
     if (!bgfx::isValid(texture_->handle)) {
       texture_->handle = bgfx::createTexture2D(atlas_map_.width(), atlas_map_.height(), false, 1,
                                                bgfx::TextureFormat::RGBA16F);
+    }
 
+    if (repacked_) {
+      repacked_ = false;
       for (auto& gradient : gradients_)
         updateGradient(gradient.second.get());
     }
@@ -117,8 +120,12 @@ namespace visage {
   }
 
   void GradientAtlas::resize() {
-    texture_.reset();
+    int prev_width = atlas_map_.width();
+    int prev_height = atlas_map_.height();
     atlas_map_.pack();
+    repacked_ = true;
+    if (atlas_map_.width() != prev_width && atlas_map_.height() != prev_height)
+      texture_.reset();
 
     for (auto& gradient : gradients_) {
       const PackedRect& rect = atlas_map_.rectForId(gradient.second.get());
