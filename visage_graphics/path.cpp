@@ -30,7 +30,7 @@ namespace visage {
     try {
       return std::stof(str);
     }
-    catch (const std::exception&) {
+    catch (...) {
       return 0.0f;
     }
   }
