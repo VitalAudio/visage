@@ -286,6 +286,7 @@ namespace visage {
       for (const auto& stale : stale_gradients_) {
         gradients_.erase(stale.first);
         atlas_map_.removeRect(stale.second);
+        references_.erase(stale.first);
       }
       stale_gradients_.clear();
     }

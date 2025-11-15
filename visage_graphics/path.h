@@ -964,4 +964,148 @@ namespace visage {
     float current_value_ = 0.0f;
     float error_tolerance_ = kDefaultErrorTolerance;
   };
+
+  struct PathAtlasTexture;
+
+  class PathAtlas {
+  public:
+    static constexpr int kBuffer = 1;
+
+    struct PackedPathRect {
+      explicit PackedPathRect(Path p) : path(std::move(p)) { }
+
+      Path path;
+      int x = 0;
+      int y = 0;
+      int w = 0;
+      int h = 0;
+      bool needs_update = true;
+    };
+
+    struct PackedPathReference {
+      PackedPathReference(std::weak_ptr<PathAtlas*> atlas, const PackedPathRect* packed_path_rect) :
+          atlas(std::move(atlas)), packed_path_rect(packed_path_rect) { }
+      ~PackedPathReference();
+
+      std::weak_ptr<PathAtlas*> atlas;
+      const PackedPathRect* packed_path_rect = nullptr;
+    };
+
+    class PackedPath {
+    public:
+      int x() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_path_rect->x;
+      }
+
+      int y() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_path_rect->y;
+      }
+
+      int w() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_path_rect->w;
+      }
+
+      int h() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_path_rect->h;
+      }
+
+      const Path& path() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_path_rect->path;
+      }
+
+      const PackedPathRect* packedImageRect() const {
+        VISAGE_ASSERT(reference_->atlas.lock().get());
+        return reference_->packed_path_rect;
+      }
+
+      explicit PackedPath(std::shared_ptr<PackedPathReference> reference) :
+          reference_(std::move(reference)) { }
+
+      ~PackedPath() = default;
+
+    private:
+      std::shared_ptr<PackedPathReference> reference_;
+    };
+
+    PathAtlas();
+    ~PathAtlas();
+
+    PackedPath addPath(const Path& path) {
+      auto bounds = path.boundingBox();
+      std::unique_ptr<PackedPathRect> packed_path_rect = std::make_unique<PackedPathRect>(path);
+      if (!atlas_map_.addRect(packed_path_rect.get(), bounds.right(), bounds.bottom()))
+        needs_packing_ = true;
+
+      const PackedRect& rect = atlas_map_.rectForId(packed_path_rect.get());
+      packed_path_rect->x = rect.x;
+      packed_path_rect->y = rect.y;
+      packed_path_rect->w = rect.w;
+      packed_path_rect->h = rect.h;
+      auto packed_rect = packed_path_rect.get();
+      paths_.push_back(std::move(packed_path_rect));
+
+      auto reference = std::make_shared<PackedPathReference>(reference_, packed_rect);
+      references_[packed_rect] = reference;
+      return PackedPath(reference);
+    }
+
+    int updatePaths(int submit_pass);
+    void destroy();
+    int width() const { return width_; }
+    int height() const { return height_; }
+
+    const bgfx::FrameBufferHandle& frameBufferHandle();
+
+    void removePath(const PackedPathRect* packed_path_rect) {
+      atlas_map_.removeRect(packed_path_rect);
+      references_.erase(packed_path_rect);
+      paths_.erase(std::remove_if(paths_.begin(), paths_.end(),
+                                  [&](const std::unique_ptr<PackedPathRect>& ptr) {
+                                    return ptr.get() == packed_path_rect;
+                                  }),
+                   paths_.end());
+    }
+
+    void setPathAtlasCoordinates(TextureVertex* vertices, const PackedPath& rect) const {
+      float left = rect.x();
+      float top = rect.y();
+      float right = left + rect.w();
+      float bottom = top + rect.h();
+
+      vertices[0].texture_x = left;
+      vertices[0].texture_y = top;
+      vertices[1].texture_x = right;
+      vertices[1].texture_y = top;
+      vertices[2].texture_x = left;
+      vertices[2].texture_y = bottom;
+      vertices[3].texture_x = right;
+      vertices[3].texture_y = bottom;
+
+      for (int i = 0; i < kVerticesPerQuad; ++i) {
+        vertices[i].direction_x = 1.0f;
+        vertices[i].direction_y = 0.0f;
+      }
+    }
+
+  private:
+    bool clearUpdatedPathAreas(int submit_pass);
+    void checkInit();
+    void resize();
+
+    std::map<const PackedPathRect*, std::weak_ptr<PackedPathReference>> references_;
+    std::vector<std::unique_ptr<PackedPathRect>> paths_;
+    PackedAtlasMap<const PackedPathRect*> atlas_map_;
+    std::unique_ptr<PathAtlasTexture> frame_buffer_;
+    int width_ = 0;
+    int height_ = 0;
+    bool needs_packing_ = false;
+    std::shared_ptr<PathAtlas*> reference_;
+
+    VISAGE_LEAK_CHECKER(PathAtlas)
+  };
 }

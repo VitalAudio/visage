@@ -159,6 +159,7 @@ namespace visage {
       for (const auto& stale : stale_images_) {
         images_.erase(stale.first);
         atlas_map_.removeRect(stale.second);
+        references_.erase(stale.first);
       }
       stale_images_.clear();
     }
