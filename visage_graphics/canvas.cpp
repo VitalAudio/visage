@@ -74,6 +74,8 @@ namespace visage {
     int submission = submit_pass;
     int last_submission = submission - 1;
 
+    submission = path_atlas_.updatePaths(submission);
+
     for (int i = 2; i < layers_.size(); ++i) {
       if (!layers_[1]->invalidRects().empty())
         layers_[i]->checkBackdropInvalidation(layers_[1]->invalidRects().begin()->second);

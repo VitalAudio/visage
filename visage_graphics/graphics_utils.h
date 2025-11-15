@@ -104,6 +104,8 @@ namespace visage {
   template<typename T = int>
   class PackedAtlasMap {
   public:
+    static constexpr int kDefaultWidth = 64;
+
     bool addRect(T id, int width, int height) {
       VISAGE_ASSERT(lookup_.count(id) == 0);
 
@@ -120,9 +122,10 @@ namespace visage {
       lookup_.erase(id);
     }
 
-    void pack() {
-      static constexpr int kDefaultWidth = 64;
+    void pack(int start_width = kDefaultWidth, int start_height = kDefaultWidth) {
       static constexpr int kMaxMultiples = 8;
+      start_width = std::max(kDefaultWidth, start_width);
+      start_height = std::max(kDefaultWidth, start_height);
 
       checkRemovedRects();
       if (packed_rects_.size() == 1) {
@@ -134,7 +137,8 @@ namespace visage {
       else if (!packed_rects_.empty()) {
         bool packed = false;
         for (int m = 0; !packed && m < kMaxMultiples; ++m) {
-          width_ = height_ = kDefaultWidth << m;
+          width_ = start_width << m;
+          height_ = start_height << m;
           if (fixed_width_)
             width_ = fixed_width_;
           packed = packer_.pack(packed_rects_, width_, height_);

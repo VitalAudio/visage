@@ -523,27 +523,24 @@ namespace visage {
     ImageAtlas::PackedImage packed_data;
   };
 
-  struct PathFillWrapper : Shape<> {
+  struct PathFillWrapper : Shape<TextureVertex> {
     VISAGE_CREATE_BATCH_ID
     static constexpr int kLineVerticesPerPoint = 6;
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     PathFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
-                    float width, float height, const Path& original, float scale) :
-        Shape(batchId(), clamp, brush, x, y, width, height), scale(scale) {
-      Path border;
-      border.addRectangle(0, 0, width / scale, height / scale);
-      path = original;
-      path = path.combine(border, Path::Operation::Intersection);
-      triangulation = path.offset(-0.5f / scale, Path::Join::Miter).offsetAntiAlias(scale);
+                    float width, float height, const Path& path, PathAtlas* atlas, float scale) :
+        Shape(batchId(), clamp, brush, x, y, width, height), path_atlas(atlas), scale(scale),
+        packed_path(atlas->addPath(path.scaled(scale))) { }
+
+    void setVertexData(Vertex* vertices) const {
+      path_atlas->setPathAtlasCoordinates(vertices, packed_path);
     }
 
-    Path path;
+    PathAtlas* path_atlas = nullptr;
     float scale = 1.0f;
-    Path::AntiAliasTriangulation triangulation;
-
-    int numVertices() const { return triangulation.points.size(); }
+    PathAtlas::PackedPath packed_path;
   };
 
   template<typename T>

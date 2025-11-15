@@ -21,6 +21,10 @@
 
 #include "path.h"
 
+#include "embedded/shaders.h"
+#include "graphics_caches.h"
+#include "shape_batcher.h"
+
 #include <complex>
 #include <memory>
 #include <set>
@@ -1633,5 +1637,129 @@ namespace visage {
     TriangulationGraph graph = *triangulationGraph();
     graph.fixWindings(fillRule());
     return graph.toPath();
+  }
+
+  struct PathAtlasTexture {
+    bgfx::FrameBufferHandle handle = { bgfx::kInvalidHandle };
+
+    ~PathAtlasTexture() {
+      if (bgfx::isValid(handle))
+        bgfx::destroy(handle);
+    }
+  };
+
+  PathAtlas::PackedPathReference::~PackedPathReference() {
+    if (auto atlas_pointer = atlas.lock())
+      (*atlas_pointer)->removePath(packed_path_rect);
+  }
+
+  PathAtlas::PathAtlas() {
+    reference_ = std::make_shared<PathAtlas*>(this);
+    atlas_map_.setPadding(kBuffer);
+  }
+
+  PathAtlas::~PathAtlas() = default;
+
+  bool PathAtlas::clearUpdatedPathAreas(int submit_pass) {
+    int total_need_update = 0;
+    for (auto& path : paths_) {
+      if (path->needs_update)
+        ++total_need_update;
+    }
+
+    if (total_need_update == 0)
+      return false;
+
+    float width_scale = 2.0f / width_;
+    float height_scale = 2.0f / height_;
+
+    bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
+    bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
+    bgfx::setViewFrameBuffer(submit_pass, frame_buffer_->handle);
+    bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+                   BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ZERO));
+    auto clear_vertices = initQuadVertices<UvVertex>(total_need_update);
+    int vertex_index = 0;
+    for (auto& path : paths_) {
+      if (path->needs_update) {
+        float left = path->x * width_scale - 1.0f;
+        float top = 1.0f - path->y * height_scale;
+        float right = left + path->w * width_scale;
+        float bottom = top - path->h * height_scale;
+        clear_vertices[vertex_index].x = left;
+        clear_vertices[vertex_index].y = top;
+        clear_vertices[vertex_index + 1].x = right;
+        clear_vertices[vertex_index + 1].y = top;
+        clear_vertices[vertex_index + 2].x = left;
+        clear_vertices[vertex_index + 2].y = bottom;
+        clear_vertices[vertex_index + 3].x = right;
+        clear_vertices[vertex_index + 3].y = bottom;
+        clear_vertices[vertex_index].u = 1.0f;
+        clear_vertices[vertex_index].v = 0.0f;
+        clear_vertices[vertex_index + 1].u = 1.0f;
+        clear_vertices[vertex_index + 1].v = 0.0f;
+        clear_vertices[vertex_index + 2].u = 0.0f;
+        clear_vertices[vertex_index + 2].v = 0.0f;
+        clear_vertices[vertex_index + 3].u = 0.0f;
+        clear_vertices[vertex_index + 3].v = 0.0f;
+        vertex_index += 4;
+      }
+    }
+
+    bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_clear, shaders::fs_clear));
+
+    return true;
+  }
+
+  int PathAtlas::updatePaths(int submit_pass) {
+    checkInit();
+
+    if (!clearUpdatedPathAreas(submit_pass))
+      return submit_pass;
+
+    return submit_pass + 1;
+  }
+
+  void PathAtlas::destroy() {
+    frame_buffer_.reset();
+  }
+
+  void PathAtlas::checkInit() {
+    constexpr uint64_t kFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+    if (needs_packing_) {
+      resize();
+      needs_packing_ = false;
+    }
+
+    if (frame_buffer_ == nullptr)
+      frame_buffer_ = std::make_unique<PathAtlasTexture>();
+
+    if (!bgfx::isValid(frame_buffer_->handle) && atlas_map_.width() && atlas_map_.height()) {
+      frame_buffer_->handle = bgfx::createFrameBuffer(atlas_map_.width(), atlas_map_.height(),
+                                                      bgfx::TextureFormat::R8, kFlags);
+      width_ = atlas_map_.width();
+      height_ = atlas_map_.height();
+    }
+  }
+
+  void PathAtlas::resize() {
+    static constexpr float kShrinkFactor = 0.5f;
+    atlas_map_.pack(width_, height_);
+    if (atlas_map_.width() > width_ || atlas_map_.height() > height_ ||
+        atlas_map_.width() < width_ * kShrinkFactor || atlas_map_.height() < height_ * kShrinkFactor)
+      frame_buffer_.reset();
+
+    for (auto& path : paths_) {
+      const PackedRect& rect = atlas_map_.rectForId(path.get());
+      path->x = rect.x;
+      path->y = rect.y;
+      path->w = rect.w;
+      path->h = rect.h;
+      path->needs_update = true;
+    }
+  }
+
+  const bgfx::FrameBufferHandle& PathAtlas::frameBufferHandle() {
+    return frame_buffer_->handle;
   }
 }

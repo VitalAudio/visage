@@ -163,65 +163,13 @@ namespace visage {
     bgfx::submit(submit_pass, ProgramCache::programHandle(vertex_shader, fragment_shader));
   }
 
-  void submitPathFill(const PathFillWrapper& path_fill_wrapper, const Layer& layer, int submit_pass) {
-    const auto& triangulation = path_fill_wrapper.triangulation;
-    int num_vertices = path_fill_wrapper.numVertices();
-    int num_indices = triangulation.triangles.size();
-
-    if (num_vertices == 0 || num_indices == 0)
-      return;
-
-    if (bgfx::getAvailTransientVertexBuffer(num_vertices, LineVertex::layout()) != num_vertices)
-      return;
-
-    if (bgfx::getAvailTransientIndexBuffer(num_indices) != num_indices)
-      return;
-
-    bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::TransientIndexBuffer index_buffer {};
-    bgfx::allocTransientBuffers(&vertex_buffer, LineVertex::layout(), num_vertices, &index_buffer,
-                                num_indices);
-    LineVertex* line_data = reinterpret_cast<LineVertex*>(vertex_buffer.data);
-    uint16_t* indices = reinterpret_cast<uint16_t*>(index_buffer.data);
-    if (line_data == nullptr || indices == nullptr)
-      return;
-
-    float scale = path_fill_wrapper.scale;
-    for (int i = 0; i < num_vertices; ++i) {
-      line_data[i].x = triangulation.points[i].x * scale;
-      line_data[i].y = triangulation.points[i].y * scale;
-      line_data[i].fill = triangulation.alphas[i];
-      line_data[i].data = 0.0f;
-    }
-
-    for (int i = 0; i < num_indices; ++i) {
-      VISAGE_ASSERT(triangulation.triangles[i] < (uint16_t)num_vertices);
-      indices[i] = triangulation.triangles[i];
-    }
-
-    GradientTexturePosition texture_pos {};
-    GradientVertexPosition gradient_pos {};
-    PackedBrush::computeVertexGradientTexturePositions(texture_pos, path_fill_wrapper.brush);
-    PackedBrush::computeVertexGradientPositions(gradient_pos, path_fill_wrapper.brush, 0, 0, 0, 0,
-                                                path_fill_wrapper.width, path_fill_wrapper.height);
-    setUniform<Uniforms::kDimensions>(path_fill_wrapper.width, path_fill_wrapper.height, 1.0f, 1.0f);
-    setUniform<Uniforms::kGradientTexturePosition>(&texture_pos);
-    setUniform<Uniforms::kGradientPosition>(gradient_pos.position1());
-    setUniform<Uniforms::kGradientPosition2>(gradient_pos.position2());
-    setUniform<Uniforms::kRadialGradient>(path_fill_wrapper.radialGradient() ? 1.0f : 0.0f);
-    setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
-
-    bgfx::setVertexBuffer(0, &vertex_buffer);
-    bgfx::setIndexBuffer(&index_buffer);
-    setUniformBounds(path_fill_wrapper.x, path_fill_wrapper.y, layer.width(), layer.height());
-    setColorMult(layer.hdr());
-    auto program = ProgramCache::programHandle(PathFillWrapper::vertexShader(),
-                                               PathFillWrapper::fragmentShader());
-    bgfx::submit(submit_pass, program);
-  }
-
   void setImageAtlasUniform(ImageAtlas* atlas) {
     setTexture<Uniforms::kTexture>(1, atlas->textureHandle());
+    setUniform<Uniforms::kAtlasScale>(1.0f / atlas->width(), 1.0f / atlas->height());
+  }
+
+  void setPathAtlasUniform(PathAtlas* atlas) {
+    setTexture<Uniforms::kTexture>(1, bgfx::getTexture(atlas->frameBufferHandle()));
     setUniform<Uniforms::kAtlasScale>(1.0f / atlas->width(), 1.0f / atlas->height());
   }
 
@@ -238,6 +186,11 @@ namespace visage {
   void setGraphDataUniform(const BatchVector<GraphFillWrapper>& batches) {
     if (!batches.empty() && !batches[0].shapes->empty())
       setImageAtlasUniform(batches[0].shapes->front().data_atlas);
+  }
+
+  void setPathDataUniform(const BatchVector<PathFillWrapper>& batches) {
+    if (!batches.empty() && !batches[0].shapes->empty())
+      setPathAtlasUniform(batches[0].shapes->front().path_atlas);
   }
 
   inline int numTextPieces(const TextBlock& text, int x, int y, const std::vector<IBounds>& invalid_rects) {

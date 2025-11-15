@@ -24,6 +24,7 @@
 #include "font.h"
 #include "graphics_utils.h"
 #include "layer.h"
+#include "path.h"
 #include "region.h"
 #include "screenshot.h"
 #include "shape_batcher.h"
@@ -458,7 +459,7 @@ namespace visage {
         return;
 
       addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
-                               pixels(width), pixels(height), path, state_.scale));
+                               pixels(width), pixels(height), path, pathAtlas(), state_.scale));
     }
 
     template<typename T1, typename T2>
@@ -469,7 +470,8 @@ namespace visage {
       auto bounding_box = path.boundingBox();
       addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x),
                                state_.y + pixels(y), bounding_box.right() * state_.scale + 1.0f,
-                               bounding_box.bottom() * state_.scale + 1.0f, path, state_.scale));
+                               bounding_box.bottom() * state_.scale + 1.0f, path, pathAtlas(),
+                               state_.scale));
     }
 
     void fill(const Path& path) { fill(path, 0, 0); }
@@ -553,6 +555,7 @@ namespace visage {
     float value(theme::ValueId value_id);
     std::vector<std::string> debugInfo() const;
 
+    PathAtlas* pathAtlas() { return &path_atlas_; }
     ImageAtlas* imageAtlas() { return &image_atlas_; }
     ImageAtlas* dataAtlas() { return &data_atlas_; }
     GradientAtlas* gradientAtlas() { return &gradient_atlas_; }
@@ -793,6 +796,7 @@ namespace visage {
     State state_;
 
     GradientAtlas gradient_atlas_;
+    PathAtlas path_atlas_;
     ImageAtlas image_atlas_;
     ImageAtlas data_atlas_;
 
