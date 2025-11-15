@@ -205,7 +205,7 @@ namespace visage {
           try {
             value = std::stof(value_mapping.substr(split_position + 1));
           }
-          catch (const std::exception&) {
+          catch (...) {
           }
           value_map_[override_id][value_name_map[key]] = value;
         }

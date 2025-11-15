@@ -272,7 +272,7 @@ namespace visage {
       try {
         return std::stof(toUtf8());
       }
-      catch (const std::exception&) {
+      catch (...) {
         return 0.0f;
       }
     }
@@ -281,7 +281,7 @@ namespace visage {
       try {
         return std::stoi(toUtf8());
       }
-      catch (const std::exception&) {
+      catch (...) {
         return 0;
       }
     }
