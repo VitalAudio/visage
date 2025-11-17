@@ -243,15 +243,6 @@ namespace visage {
       return start1 + delta1 * t1;
     }
 
-    struct Triangulation {
-      std::vector<Point> points;
-      std::vector<uint16_t> triangles;
-    };
-
-    struct AntiAliasTriangulation : Triangulation {
-      std::vector<float> alphas;
-    };
-
     static CommandList parseSvgPath(const std::string& path);
 
     void setPointValue(float value) { current_value_ = value; }
@@ -414,14 +405,11 @@ namespace visage {
     void addEllipse(float cx, float cy, float rx, float ry);
     void addCircle(float cx, float cy, float r);
 
-    Triangulation triangulate();
     Path combine(Path& other, Operation operation = Operation::Union);
-    AntiAliasTriangulation offsetAntiAlias(float scale);
     Path offset(float offset, Join join = Join::Square, float miter_limit = kDefaultMiterLimit);
     Path stroke(float stroke_width, Join join = Join::Round, EndCap end_cap = EndCap::Round,
                 std::vector<float> dash_array = {}, float dash_offset = 0.0f,
                 float miter_limit = kDefaultMiterLimit);
-    Path breakIntoSimplePolygons();
 
     Path scaled(float mult) const {
       Path result = *this;
@@ -629,8 +617,6 @@ namespace visage {
           next_edge_(other.next_edge_), scan_line_(std::make_unique<ScanLine>(*other.scan_line_)) {
         scan_line_->setGraph(this);
       }
-
-      Triangulation triangulate(FillRule fill_rule, int minimum_cycles = 1);
 
       class ScanLine {
       public:
@@ -849,8 +835,6 @@ namespace visage {
       void fixWindings(FillRule fill_rule, int minimum_cycles = 1);
       void reverse();
 
-      void breakSimpleIntoMonotonicPolygons();
-      std::vector<uint16_t> breakIntoTriangles();
       void singlePointOffset(double amount, int index, EndCap end_cap);
       void offset(double amount, Join join, EndCap end_cap, float miter_limit = kDefaultMiterLimit);
 
@@ -993,6 +977,12 @@ namespace visage {
 
     class PackedPath {
     public:
+      explicit PackedPath(std::shared_ptr<PackedPathReference> reference) :
+          reference_(std::move(reference)) { }
+
+      PackedPath() = default;
+      ~PackedPath() = default;
+
       int x() const {
         VISAGE_ASSERT(reference_->atlas.lock().get());
         return reference_->packed_path_rect->x;
@@ -1023,11 +1013,6 @@ namespace visage {
         return reference_->packed_path_rect;
       }
 
-      explicit PackedPath(std::shared_ptr<PackedPathReference> reference) :
-          reference_(std::move(reference)) { }
-
-      ~PackedPath() = default;
-
     private:
       std::shared_ptr<PackedPathReference> reference_;
     };
@@ -1035,10 +1020,9 @@ namespace visage {
     PathAtlas();
     ~PathAtlas();
 
-    PackedPath addPath(const Path& path) {
-      auto bounds = path.boundingBox();
+    PackedPath addPath(Path path, int width, int height) {
       std::unique_ptr<PackedPathRect> packed_path_rect = std::make_unique<PackedPathRect>(path);
-      if (!atlas_map_.addRect(packed_path_rect.get(), bounds.right(), bounds.bottom()))
+      if (!atlas_map_.addRect(packed_path_rect.get(), width, height))
         needs_packing_ = true;
 
       const PackedRect& rect = atlas_map_.rectForId(packed_path_rect.get());
