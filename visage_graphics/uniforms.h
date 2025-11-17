@@ -27,6 +27,7 @@ namespace visage {
     static constexpr char kMult[] = "u_mult";
     static constexpr char kTextureClamp[] = "u_texture_clamp";
     static constexpr char kBounds[] = "u_bounds";
+    static constexpr char kColor[] = "u_color";
     static constexpr char kColorMult[] = "u_color_mult";
     static constexpr char kLimitMult[] = "u_limit_mult";
     static constexpr char kOriginFlip[] = "u_origin_flip";

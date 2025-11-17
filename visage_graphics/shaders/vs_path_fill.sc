@@ -1,13 +1,12 @@
-$input a_position
-$output v_shader_values, v_position
+$input a_position, a_texcoord0
+$output v_shader_values, v_shader_values1
 
 #include <shader_include.sh>
 
 uniform vec4 u_bounds;
-uniform vec4 u_dimensions;
 
 void main() {
-  v_position = a_position.xy;
-  v_shader_values.x = a_position.z;
-  gl_Position = vec4(v_position * u_bounds.xy + u_bounds.zw, 0.5, 1.0);
+  v_shader_values = a_position;
+  v_shader_values1 = a_texcoord0;
+  gl_Position = vec4(a_position.xy * u_bounds.xy + u_bounds.zw, 0.5, 1.0);
 }

@@ -531,8 +531,23 @@ namespace visage {
 
     PathFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
                     float width, float height, const Path& path, PathAtlas* atlas, float scale) :
-        Shape(batchId(), clamp, brush, x, y, width, height), path_atlas(atlas), scale(scale),
-        packed_path(atlas->addPath(path.scaled(scale))) { }
+        Shape(batchId(), clamp, brush, x, y, width, height), path_atlas(atlas), scale(scale) {
+      Path adjusted_path = path.scaled(scale);
+      Bounds bounding_box = adjusted_path.boundingBox();
+      float new_x = std::max<int>(0, x + bounding_box.x() - 1.0f);
+      float new_y = std::max<int>(0, y + bounding_box.y() - 1.0f);
+      float new_width = std::ceil(x + bounding_box.right() + 1.0f) - new_x;
+      float new_height = std::ceil(y + bounding_box.bottom() + 1.0f) - new_y;
+
+      float shift_x = new_x - x;
+      float shift_y = new_y - y;
+      this->x = new_x;
+      this->y = new_y;
+      this->width = new_width;
+      this->height = new_height;
+      adjusted_path = adjusted_path.translated(-shift_x, -shift_y);
+      packed_path = atlas->addPath(std::move(adjusted_path), new_width, new_height);
+    }
 
     void setVertexData(Vertex* vertices) const {
       path_atlas->setPathAtlasCoordinates(vertices, packed_path);

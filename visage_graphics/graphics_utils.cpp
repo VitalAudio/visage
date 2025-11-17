@@ -320,13 +320,16 @@ namespace visage {
     return layout;
   }
 
-  bgfx::VertexLayout& LineVertex::layout() {
+  bgfx::VertexLayout& PathVertex::layout() {
     static bgfx::VertexLayout layout;
     static bool initialized = false;
 
     if (!initialized) {
       initialized = true;
-      layout.begin().add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float).end();
+      layout.begin()
+          .add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
+          .end();
     }
 
     return layout;

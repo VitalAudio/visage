@@ -220,11 +220,15 @@ namespace visage {
     static bgfx::VertexLayout& layout();
   };
 
-  struct LineVertex {
+  struct PathVertex {
     float x;
     float y;
-    float fill;
-    float data;
+    float x1;
+    float y1;
+    float x2;
+    float y2;
+    float x3;
+    float y3;
 
     static bgfx::VertexLayout& layout();
   };
