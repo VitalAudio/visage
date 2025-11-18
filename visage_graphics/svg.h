@@ -230,19 +230,21 @@ namespace visage {
       if (clip_path == nullptr || clip_path->numPoints() == 0)
         return;
 
-      if (path.numPoints())
-        path = clip_path->combine(path, Path::Operation::Intersection);
-
-      if (stroke_path.numPoints())
-        stroke_path = clip_path->combine(stroke_path, Path::Operation::Intersection);
+      // TODO
+      // if (path.numPoints())
+      //   path = clip_path->combine(path, Path::Operation::Intersection);
+      //
+      // if (stroke_path.numPoints())
+      //   stroke_path = clip_path->combine(stroke_path, Path::Operation::Intersection);
 
       for (auto& child : children)
         child->applyClipping(clip_path);
     }
 
     void unionPaths(Path* result) {
+      // TODO double check this
       if (path.numPoints())
-        *result = result->combine(path, Path::Operation::Union);
+        *result = result->combine(path, Path::FillRule::NonZero);
 
       for (auto& child : children)
         child->unionPaths(result);
