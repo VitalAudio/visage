@@ -1014,25 +1014,24 @@ namespace visage {
         }
         else if (type == Join::Round) {
           bool convex = stableOrientation(prev, point, next) <= 0.0;
-          if (convex == (amount > 0.0)) {
-            double arc_angle = clampedACos(prev_offset.dot(offset) / (amount * amount));
-            points_[index] += prev_offset;
-            int num_points = std::max(0.0, std::ceil(arc_angle / max_delta_radians - 0.1));
-            std::complex<double> position(prev_offset.x, prev_offset.y);
-            double angle_delta = arc_angle / (num_points + 1);
-            std::complex<double> rotation = std::polar(1.0, (amount < 0.0) ? angle_delta : -angle_delta);
-            int current_index = index;
+          double arc_angle = clampedACos(prev_offset.dot(offset) / (amount * amount));
+          if (convex != (amount > 0.0))
+            arc_angle = 2.0f * kPi - arc_angle;
 
-            for (int p = 0; p <= num_points; ++p) {
-              position *= rotation;
-              DPoint insert = point + DPoint(position.real(), position.imag());
-              current_index = insertPointBetween(current_index, next_index, insert);
-            }
+          points_[index] += prev_offset;
+          int num_points = std::max(0.0, std::ceil(arc_angle / max_delta_radians - 0.1));
+          std::complex<double> position(prev_offset.x, prev_offset.y);
+          double angle_delta = arc_angle / (num_points + 1);
+          std::complex<double> rotation = std::polar(1.0, (amount < 0.0) ? angle_delta : -angle_delta);
+          int current_index = index;
+
+          for (int p = 0; p <= num_points; ++p) {
+            position *= rotation;
+            DPoint insert = point + DPoint(position.real(), position.imag());
+            current_index = insertPointBetween(current_index, next_index, insert);
           }
-          else
-            type = Join::Miter;
         }
-        if (type == Join::Miter) {
+        else if (type == Join::Miter) {
           auto intersection = findIntersection(prev + prev_offset, point + prev_offset,
                                                point + offset, next + offset);
           if (intersection.has_value() &&
@@ -1056,10 +1055,6 @@ namespace visage {
         prev_offset = offset;
       }
     }
-
-    simplify();
-    breakIntersections();
-    fixWindings(FillRule::Positive);
   }
 
   void Path::TriangulationGraph::combine(const TriangulationGraph& other) {
@@ -1239,68 +1234,6 @@ namespace visage {
       std::swap(prev_edge_[i], next_edge_[i]);
   }
 
-  int Path::TriangulationGraph::addDiagonal(int index, int target) {
-    int new_index = prev_edge_.size();
-    int new_diagonal_index = new_index + 1;
-    scan_line_->addAlias(new_index, index);
-    scan_line_->addAlias(new_diagonal_index, target);
-    points_.push_back(points_[index]);
-    points_.push_back(points_[target]);
-
-    next_edge_[prev_edge_[target]] = new_diagonal_index;
-    prev_edge_[next_edge_[index]] = new_index;
-
-    prev_edge_.push_back(new_diagonal_index);
-    next_edge_.push_back(next_edge_[index]);
-    prev_edge_.push_back(prev_edge_[target]);
-    next_edge_.push_back(new_index);
-
-    connect(index, target);
-
-    return new_index;
-  }
-
-  bool Path::TriangulationGraph::tryCutEar(int index, bool forward, std::vector<uint16_t>& triangles,
-                                           const std::unique_ptr<bool[]>& touched) {
-    auto& direction = forward ? next_edge_ : prev_edge_;
-    auto& reverse = forward ? prev_edge_ : next_edge_;
-
-    int intermediate_index = direction[index];
-    int target_index = direction[intermediate_index];
-    if (intermediate_index == index || target_index == index || !touched[intermediate_index] ||
-        !touched[target_index]) {
-      return false;
-    }
-
-    DPoint start = points_[index];
-    DPoint intermediate = points_[intermediate_index];
-    DPoint target = points_[target_index];
-
-    double orientation = stableOrientation(start, intermediate, target);
-    if ((orientation < 0.0) != forward && orientation)
-      return false;
-
-    if (orientation) {
-      triangles.push_back(index);
-      triangles.push_back(intermediate_index);
-      triangles.push_back(target_index);
-    }
-    direction[index] = target_index;
-    reverse[target_index] = index;
-
-    direction[intermediate_index] = intermediate_index;
-    reverse[intermediate_index] = intermediate_index;
-    return true;
-  }
-
-  void Path::TriangulationGraph::cutEars(int index, std::vector<uint16_t>& triangles,
-                                         const std::unique_ptr<bool[]>& touched) {
-    while (tryCutEar(index, true, triangles, touched))
-      ;
-    while (tryCutEar(index, false, triangles, touched))
-      ;
-  }
-
   Path Path::combine(Path& other, Operation operation) {
     switch (operation) {
     case Operation::Union: return combine(other, FillRule::NonZero, 1, false);
@@ -1419,7 +1352,9 @@ namespace visage {
     TriangulationGraph graph(&stroke_path);
     graph.simplify();
     graph.offset(stroke_width / 2.0f, join, end_cap, miter_limit);
-    return graph.toPath();
+    Path result = graph.toPath();
+    result.fill_rule_ = FillRule::NonZero;
+    return result;
   }
 
   struct PathAtlasTexture {

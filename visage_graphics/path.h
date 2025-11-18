@@ -854,10 +854,6 @@ namespace visage {
       const std::vector<IndexData>* sortedIndices();
       void removeCycle(int start_index);
       void reverseCycle(int start_index);
-      int addDiagonal(int index, int target);
-      bool tryCutEar(int index, bool forward, std::vector<uint16_t>& triangles,
-                     const std::unique_ptr<bool[]>& touched);
-      void cutEars(int index, std::vector<uint16_t>& triangles, const std::unique_ptr<bool[]>& touched);
 
       Transform resolution_transform_;
       bool intersections_broken_ = false;
