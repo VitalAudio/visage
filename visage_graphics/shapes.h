@@ -551,6 +551,9 @@ namespace visage {
 
     void setVertexData(Vertex* vertices) const {
       path_atlas->setPathAtlasCoordinates(vertices, packed_path);
+      float even_odd = packed_path.path().fillRule() == Path::FillRule::EvenOdd ? 1.0f : 0.0f;
+      for (int i = 0; i < kVerticesPerQuad; ++i)
+        vertices[i].direction_x = even_odd;
     }
 
     PathAtlas* path_atlas = nullptr;
