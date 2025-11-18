@@ -106,6 +106,8 @@ namespace visage {
   public:
     static constexpr int kDefaultWidth = 64;
 
+    PackedAtlasMap() = default;
+
     bool addRect(T id, int width, int height) {
       VISAGE_ASSERT(lookup_.count(id) == 0);
 
