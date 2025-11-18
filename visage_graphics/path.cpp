@@ -693,7 +693,7 @@ namespace visage {
     bgfx::TransientVertexBuffer vertex_buffer {};
     bgfx::TransientIndexBuffer index_buffer {};
     if (!bgfx::allocTransientBuffers(&vertex_buffer, PathVertex::layout(), num_triangles * 3,
-                                     &index_buffer, num_triangles * 3)) {
+                                     &index_buffer, num_triangles * 3, true)) {
       VISAGE_LOG("PathAtlas::updatePaths: Failed to allocate transient buffers");
       return submit_pass + 1;
     }
@@ -702,11 +702,13 @@ namespace visage {
     bgfx::setIndexBuffer(&index_buffer);
 
     auto vertices = reinterpret_cast<PathVertex*>(vertex_buffer.data);
-    auto indices = reinterpret_cast<uint16_t*>(index_buffer.data);
+    auto indices = reinterpret_cast<uint32_t*>(index_buffer.data);
 
-    uint16_t triangle_index = 0;
+    uint32_t triangle_index = 0;
     for (auto& path : paths_) {
       if (path->needs_update) {
+        path->needs_update = false;
+
         for (const auto& sub_path : path->path.subPaths()) {
           if (sub_path.points.size() <= 2)
             continue;
