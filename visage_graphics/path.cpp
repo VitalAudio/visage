@@ -29,7 +29,6 @@
 #include <bgfx/bgfx.h>
 #include <complex>
 #include <memory>
-#include <set>
 
 namespace visage {
   static float toFloat(const std::string& str) {

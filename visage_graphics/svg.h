@@ -226,28 +226,12 @@ namespace visage {
         child->transformPaths(transform);
     }
 
-    void applyClipping(Path* clip_path) {
-      if (clip_path == nullptr || clip_path->numPoints() == 0)
-        return;
-
-      // TODO
-      // if (path.numPoints())
-      //   path = clip_path->combine(path, Path::Operation::Intersection);
-      //
-      // if (stroke_path.numPoints())
-      //   stroke_path = clip_path->combine(stroke_path, Path::Operation::Intersection);
-
-      for (auto& child : children)
-        child->applyClipping(clip_path);
-    }
-
-    void unionPaths(Path* result) {
-      // TODO double check this
+    void gatherPaths(std::vector<Path>& paths) {
       if (path.numPoints())
-        *result = result->combine(path, Path::FillRule::NonZero);
+        paths.push_back(path);
 
       for (auto& child : children)
-        child->unionPaths(result);
+        child->gatherPaths(paths);
 
       path.clear();
       stroke_path.clear();
@@ -328,6 +312,7 @@ namespace visage {
     Brush stroke_brush;
     Path path;
     Path stroke_path;
+    std::vector<Path> clipping_paths;
     Marker* marker_start = nullptr;
     Marker* marker_mid = nullptr;
     Marker* marker_end = nullptr;
