@@ -230,6 +230,8 @@ namespace visage {
         child->transformPaths(transform);
         post_bounding_box = post_bounding_box.unioned(child->post_bounding_box);
       }
+      for (auto& clip_path : clipping_paths)
+        clip_path = clip_path.transformed(transform);
     }
 
     void gatherPaths(std::vector<Path>& paths) {

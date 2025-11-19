@@ -534,8 +534,8 @@ namespace visage {
         Shape(batchId(), clamp, brush, x, y, width, height), path_atlas(atlas), scale(scale) {
       Path adjusted_path = path.scaled(scale);
       Bounds bounding_box = adjusted_path.boundingBox();
-      float new_x = std::max<int>(0, x + bounding_box.x() - 1.0f);
-      float new_y = std::max<int>(0, y + bounding_box.y() - 1.0f);
+      float new_x = static_cast<int>(x + bounding_box.x() - 1.0f);
+      float new_y = static_cast<int>(y + bounding_box.y() - 1.0f);
       float new_width = std::ceil(x + bounding_box.right() + 1.0f) - new_x;
       float new_height = std::ceil(y + bounding_box.bottom() + 1.0f) - new_y;
 

@@ -51,6 +51,7 @@ namespace visage {
     Mult,
     MaskAdd,
     MaskRemove,
+    MaskInvert,
   };
 
   static constexpr float kHdrColorRange = 4.0f;
