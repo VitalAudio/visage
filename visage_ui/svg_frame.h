@@ -35,16 +35,19 @@ namespace visage {
     void load(const Svg& svg) {
       svg_ = svg;
       loadSubFrames();
+      redraw();
     }
 
     void load(const EmbeddedFile& file) {
       svg_ = Svg(file);
       loadSubFrames();
+      redraw();
     }
 
     void load(const uint8_t* data, size_t size) {
       svg_ = Svg(data, size);
       loadSubFrames();
+      redraw();
     }
 
     void setMargin(const Dimension& margin) {
@@ -84,6 +87,34 @@ namespace visage {
           drawable_(drawable), context_(context) {
         setAlphaTransparency(drawable_->opacity);
         addSubFrames(drawable);
+
+        if (!drawable_->clipping_paths.empty()) {
+          setMasked(true);
+          clipping_frame_ = std::make_unique<Frame>();
+          clipping_frame_->onDraw() = [this](Canvas& canvas) {
+            float offset_x = -drawable_->post_bounding_box.x();
+            float offset_y = -drawable_->post_bounding_box.y();
+
+            for (int i = 0; i < drawable_->clipping_paths.size(); ++i) {
+              canvas.setBlendMode(BlendMode::Mult);
+              canvas.setColor(0xffffffff);
+              canvas.fill(drawable_->clipping_paths[i], offset_x, offset_y);
+              auto bounding_box = drawable_->clipping_paths[i].boundingBox();
+
+              canvas.setColor(0x00ffffff);
+              float min_x = bounding_box.x() + offset_x;
+              float max_x = bounding_box.right() + offset_x;
+              canvas.fill(0, 0, min_x, height());
+              canvas.fill(max_x, 0, width() - max_x, height());
+              float min_y = bounding_box.y() + offset_y;
+              float max_y = bounding_box.bottom() + offset_y;
+              canvas.fill(min_x, 0, max_x - min_x, min_y);
+              canvas.fill(min_x, max_y, max_x - min_x, height() - max_y);
+            }
+          };
+          addChild(clipping_frame_.get());
+          clipping_frame_->setOnTop(true);
+        }
       }
 
       void addSubFrame(std::unique_ptr<SubFrame> child) {
@@ -97,11 +128,8 @@ namespace visage {
           if ((child->opacity != 0.0f && child->opacity != 1.0f) || !child->clipping_paths.empty())
             make_subframes = true;
 
-          if (make_subframes) {
-            float x = child->post_bounding_box.x();
-            float y = child->post_bounding_box.y();
+          if (make_subframes)
             addSubFrame(std::make_unique<SubFrame>(child.get(), context_));
-          }
           else {
             child_drawables_.push_back(child.get());
             addSubFrames(child.get());
@@ -122,9 +150,13 @@ namespace visage {
         for (auto& child : children_)
           child->setBounds(child->drawable_->post_bounding_box +
                            Point(-drawable_->post_bounding_box.x(), -drawable_->post_bounding_box.y()));
+
+        if (clipping_frame_)
+          clipping_frame_->setBounds(localBounds());
       }
 
     private:
+      std::unique_ptr<Frame> clipping_frame_;
       SvgDrawable* drawable_ = nullptr;
       std::vector<std::unique_ptr<SubFrame>> children_;
       std::vector<SvgDrawable*> child_drawables_;
