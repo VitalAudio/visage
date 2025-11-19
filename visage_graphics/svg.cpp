@@ -173,7 +173,9 @@ namespace visage {
       if (fill_brush.isNone())
         return;
 
-      canvas.setColor(fill_brush);
+      auto brush = fill_brush;
+      brush.transform(Transform::translation(x, y));
+      canvas.setColor(brush);
       context->fill_color = &fill_brush;
     }
 
@@ -189,7 +191,9 @@ namespace visage {
       if (stroke_brush.isNone())
         return;
 
-      canvas.setColor(stroke_brush);
+      auto brush = stroke_brush;
+      brush.transform(Transform::translation(x, y));
+      canvas.setColor(brush);
       context->stroke_color = &stroke_brush;
     }
 

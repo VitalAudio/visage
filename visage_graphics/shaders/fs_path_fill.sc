@@ -10,7 +10,7 @@ vec2 distanceToLine(vec2 p, vec2 a, vec2 b) {
   float t = dot(pa, ba) / dot(ba, ba);
   float offset = max(t - 1.0, -t);
   float ba_length = length(ba);
-  return vec2((ba.x * pa.y - ba.y * pa.x) / ba_length, clamp(offset * ba_length - 1.0, 0.0, 1.0));
+  return vec2((ba.x * pa.y - ba.y * pa.x) / ba_length, clamp(offset * ba_length, 0.0, 1.0));
 }
 
 void main() {

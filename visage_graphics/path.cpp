@@ -697,11 +697,15 @@ namespace visage {
       return submit_pass + 1;
     }
 
-    bgfx::setVertexBuffer(0, &vertex_buffer);
-    bgfx::setIndexBuffer(&index_buffer);
-
     auto vertices = reinterpret_cast<PathVertex*>(vertex_buffer.data);
     auto indices = reinterpret_cast<uint32_t*>(index_buffer.data);
+    if (indices == nullptr || vertices == nullptr) {
+      VISAGE_LOG("PathAtlas::updatePaths: Failed to map transient buffers");
+      return submit_pass + 1;
+    }
+
+    bgfx::setVertexBuffer(0, &vertex_buffer);
+    bgfx::setIndexBuffer(&index_buffer);
 
     uint32_t triangle_index = 0;
     for (auto& path : paths_) {
