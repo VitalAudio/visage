@@ -31,17 +31,8 @@ namespace visage {
     sub_frame_->setNativeBounds(m, m, nativeWidth() - 2 * m, nativeHeight() - 2 * m);
   }
 
-  void SvgFrame::loadSubFrames(SubFrame* frame, SvgDrawable* drawable) {
-    for (auto& child : drawable->children) {
-      auto sub_frame = std::make_unique<SubFrame>(child.get(), &context_);
-      loadSubFrames(sub_frame.get(), child.get());
-      frame->addChild(std::move(sub_frame));
-    }
-  }
-
   void SvgFrame::loadSubFrames() {
     sub_frame_ = std::make_unique<SubFrame>(svg_.drawable(), &context_);
-    loadSubFrames(sub_frame_.get(), svg_.drawable());
     addChild(sub_frame_.get());
     setDimensions();
   }

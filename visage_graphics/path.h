@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "graphics_utils.h"
 #include "visage_utils/space.h"
 
 #include <cfloat>
@@ -88,7 +89,7 @@ namespace visage {
         return adjustPoint({ x, y }, relative);
       }
 
-      void addCommand(Command command) {
+      void addCommand(const Command& command) {
         current = command.end;
         push_back(command);
       }
@@ -156,7 +157,7 @@ namespace visage {
           return check != Point(FLT_MAX, FLT_MAX) && check != current;
         };
 
-        index = std::clamp(index, 0, (int)size() - 1);
+        index = std::clamp(index, 0, static_cast<int>(size()) - 1);
         Point command = at(index).end;
         Point prev_point = command;
         for (int i = index; i >= 0 && prev_point == command; --i) {

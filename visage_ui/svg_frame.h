@@ -83,11 +83,28 @@ namespace visage {
       SubFrame(SvgDrawable* drawable, SvgDrawable::ColorContext* context) :
           drawable_(drawable), context_(context) {
         setAlphaTransparency(drawable_->opacity);
+        addSubFrames(drawable);
+      }
+
+      void addSubFrames(SvgDrawable* drawable) {
+        bool make_subframes = false;
+        for (auto& child : drawable->children) {
+          if ((child->opacity != 0.0f && child->opacity != 1.0f) || !child->clipping_paths.empty())
+            make_subframes = true;
+
+          if (make_subframes)
+            addChild(std::make_unique<SubFrame>(child.get(), context_));
+          else {
+            child_drawables_.push_back(child.get());
+            addSubFrames(child.get());
+          }
+        }
       }
 
       void draw(Canvas& canvas) override {
-        setAlphaTransparency(drawable_->opacity);
         drawable_->draw(canvas, context_, 0, 0, width(), height());
+        for (auto& child_drawable : child_drawables_)
+          child_drawable->draw(canvas, context_, 0, 0, width(), height());
       }
 
       void resized() override {
@@ -97,6 +114,7 @@ namespace visage {
 
     private:
       SvgDrawable* drawable_ = nullptr;
+      std::vector<SvgDrawable*> child_drawables_;
       SvgDrawable::ColorContext* context_ = nullptr;
     };
 

@@ -383,13 +383,10 @@ namespace visage {
 
   void SvgDrawable::checkPathClipping(const Matrix& scale_matrix, const Bounds& view_box,
                                       std::map<std::string, SvgDrawable*>& clip_paths) {
-    if (is_clip_path) {
-      Path p;
-      path.clear();
-      unionPaths(&p);
-      path = p;
+    clipping_paths.clear();
+
+    if (is_clip_path)
       clip_paths[id] = this;
-    }
 
     int position = 0;
     auto tokens = parseFunctionTokens(clip_path_shape, position);
@@ -416,14 +413,14 @@ namespace visage {
           clip_drawable->initPaths(scale, view_box);
           clip_drawable->adjustPaths(scale, view_box, clip_paths);
 
-          Path clip_path;
-          clip_drawable->unionPaths(&clip_path);
-          clip_path.transform(Transform::translation(bounding_box.x(), bounding_box.y()) *
-                              Transform::scale(bounding_box.width(), bounding_box.height()));
-          applyClipping(&clip_path);
+          clip_drawable->gatherPaths(clipping_paths);
+          for (auto& clip_path : clipping_paths) {
+            clip_path.transform(Transform::translation(bounding_box.x(), bounding_box.y()) *
+                                Transform::scale(bounding_box.width(), bounding_box.height()));
+          }
         }
         else
-          applyClipping(&clip_drawable->path);
+          clip_drawable->gatherPaths(clipping_paths);
       }
 
       return;
@@ -438,7 +435,8 @@ namespace visage {
       clip_path.loadCommands(parseEllipseShape(tokens, bounding_box));
     else if (tokens[0] == "polygon" || tokens[0] == "polyline")
       clip_path.loadCommands(parsePolygonShape(tokens, 1, bounding_box));
-    applyClipping(&clip_path);
+
+    clipping_paths.push_back(clip_path);
   }
 
   void SvgDrawable::initPaths(const Matrix& scale_matrix, const Bounds& view_box) {
