@@ -28,7 +28,9 @@ namespace visage {
 
     int m = margin_.compute(dpiScale(), nativeWidth(), nativeHeight(), 0.0f);
     svg_.setDimensions(width() - 2 * m / dpiScale(), height() - 2 * m / dpiScale());
-    sub_frame_->setNativeBounds(m, m, nativeWidth() - 2 * m, nativeHeight() - 2 * m);
+    sub_frame_->setNativeBounds(m + svg_.drawable()->post_bounding_box.x() * dpiScale(),
+                                m + svg_.drawable()->post_bounding_box.y() * dpiScale(),
+                                nativeWidth() - 2 * m, nativeHeight() - 2 * m);
   }
 
   void SvgFrame::loadSubFrames() {

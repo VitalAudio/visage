@@ -86,14 +86,22 @@ namespace visage {
         addSubFrames(drawable);
       }
 
+      void addSubFrame(std::unique_ptr<SubFrame> child) {
+        addChild(child.get());
+        children_.push_back(std::move(child));
+      }
+
       void addSubFrames(SvgDrawable* drawable) {
         bool make_subframes = false;
         for (auto& child : drawable->children) {
           if ((child->opacity != 0.0f && child->opacity != 1.0f) || !child->clipping_paths.empty())
             make_subframes = true;
 
-          if (make_subframes)
-            addChild(std::make_unique<SubFrame>(child.get(), context_));
+          if (make_subframes) {
+            float x = child->post_bounding_box.x();
+            float y = child->post_bounding_box.y();
+            addSubFrame(std::make_unique<SubFrame>(child.get(), context_));
+          }
           else {
             child_drawables_.push_back(child.get());
             addSubFrames(child.get());
@@ -102,24 +110,28 @@ namespace visage {
       }
 
       void draw(Canvas& canvas) override {
-        drawable_->draw(canvas, context_, 0, 0, width(), height());
+        float offset_x = -drawable_->post_bounding_box.x();
+        float offset_y = -drawable_->post_bounding_box.y();
+
+        drawable_->draw(canvas, context_, offset_x, offset_y, width(), height());
         for (auto& child_drawable : child_drawables_)
-          child_drawable->draw(canvas, context_, 0, 0, width(), height());
+          child_drawable->draw(canvas, context_, offset_x, offset_y, width(), height());
       }
 
       void resized() override {
-        for (auto& child : children())
-          child->setBounds(localBounds());
+        for (auto& child : children_)
+          child->setBounds(child->drawable_->post_bounding_box +
+                           Point(-drawable_->post_bounding_box.x(), -drawable_->post_bounding_box.y()));
       }
 
     private:
       SvgDrawable* drawable_ = nullptr;
+      std::vector<std::unique_ptr<SubFrame>> children_;
       std::vector<SvgDrawable*> child_drawables_;
       SvgDrawable::ColorContext* context_ = nullptr;
     };
 
     void setDimensions();
-    void loadSubFrames(SubFrame* frame, SvgDrawable* drawable);
     void loadSubFrames();
 
     void resized() override {

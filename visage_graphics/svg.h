@@ -213,17 +213,23 @@ namespace visage {
     Bounds boundingBox() const { return boundingFillBox().unioned(boundingStrokeBox()); }
 
     void transformPaths(const Transform& transform) {
+      post_bounding_box = {};
+
       if (path.numPoints()) {
         path = path.transformed(transform);
         fill_brush.transform(transform);
+        post_bounding_box = path.boundingBox();
 
         if (stroke_path.numPoints()) {
           stroke_path = stroke_path.transformed(transform);
           stroke_brush.transform(transform);
+          post_bounding_box = post_bounding_box.unioned(stroke_path.boundingBox());
         }
       }
-      for (auto& child : children)
+      for (auto& child : children) {
         child->transformPaths(transform);
+        post_bounding_box = post_bounding_box.unioned(child->post_bounding_box);
+      }
     }
 
     void gatherPaths(std::vector<Path>& paths) {
@@ -312,6 +318,7 @@ namespace visage {
     Brush stroke_brush;
     Path path;
     Path stroke_path;
+    Bounds post_bounding_box;
     std::vector<Path> clipping_paths;
     Marker* marker_start = nullptr;
     Marker* marker_mid = nullptr;
