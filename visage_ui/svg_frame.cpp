@@ -24,7 +24,7 @@
 namespace visage {
   void SvgFrame::setDimensions() {
     int m = margin_.compute(dpiScale(), nativeWidth(), nativeHeight(), 0.0f);
-    svg_.setDimensions(width() - 2 * m / dpiScale(), height() - 2 * m / dpiScale());
+    svg_.setDimensions(width() - 2 * m / dpiScale(), height() - 2 * m / dpiScale(), dpiScale());
 
     if (sub_frame_ == nullptr && svg_.width() && svg_.height()) {
       sub_frame_ = std::make_unique<SubFrame>(svg_.drawable(), &context_);

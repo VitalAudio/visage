@@ -485,6 +485,7 @@ namespace visage {
         dashes.push_back(dash.first);
     }
 
+    float stroke_opacity = state.stroke_opacity;
     if (state.non_scaling_stroke) {
       auto inverted = path.transformed(scale_matrix);
       stroke_path = inverted.stroke(state.stroke_width, state.stroke_join, state.stroke_end_cap,
@@ -492,12 +493,15 @@ namespace visage {
       stroke_path.transform(scale_matrix.inversed());
     }
     else {
-      stroke_path = path.stroke(state.stroke_width, state.stroke_join, state.stroke_end_cap, dashes,
-                                dash_offset, state.stroke_miter_limit);
+      float multiplier = std::sqrt(std::abs(scale_matrix.determinant()));
+      float width = std::max(1.0f, state.stroke_width * multiplier) / multiplier;
+      stroke_opacity = state.stroke_opacity * state.stroke_width / width;
+      stroke_path = path.stroke(width, state.stroke_join, state.stroke_end_cap, dashes, dash_offset,
+                                state.stroke_miter_limit);
     }
     auto stroke_box = state.stroke_gradient.user_space ? view_box : path.boundingBox();
     stroke_brush = state.stroke_gradient.toBrush(stroke_box);
-    stroke_brush = stroke_brush.withMultipliedAlpha(state.stroke_opacity);
+    stroke_brush = stroke_brush.withMultipliedAlpha(stroke_opacity);
   }
 
   void SvgDrawable::adjustPaths(const Matrix& scale_matrix, const Bounds& view_box,

@@ -251,14 +251,15 @@ namespace visage {
     void adjustPaths(const Matrix& scale_matrix, const Bounds& view_box,
                      std::map<std::string, SvgDrawable*>& clip_paths);
     void strokePath(const Matrix& scale_matrix, const Bounds& view_box);
-    void setSize(const SvgViewSettings& view, float width, float height) {
+    void setSize(const SvgViewSettings& view, float width, float height, float scale = 1.0f) {
       if (width == 0.0f || height == 0.0f)
         return;
 
       std::map<std::string, SvgDrawable*> clip_paths;
       auto initial_transform = initialTransform(view, width, height);
-      initPaths(initial_transform.matrix, view.view_box);
-      adjustPaths(initial_transform.matrix, view.view_box, clip_paths);
+      auto dpi_scale = Matrix::scale(scale, scale);
+      initPaths(dpi_scale * initial_transform.matrix, view.view_box);
+      adjustPaths(dpi_scale * initial_transform.matrix, view.view_box, clip_paths);
       transformPaths(initial_transform);
     }
 
@@ -394,7 +395,9 @@ namespace visage {
 
     explicit Svg(const EmbeddedFile& file) : Svg(file.data, file.size) { }
 
-    void setDimensions(int width, int height) { setDrawableDimensions(width, height); }
+    void setDimensions(int width, int height, float scale) {
+      setDrawableDimensions(width, height, scale);
+    }
 
     SvgDrawable* drawable() const { return drawable_.get(); }
 
@@ -430,10 +433,11 @@ namespace visage {
     }
 
   private:
-    void setDrawableDimensions(int width, int height) {
+    void setDrawableDimensions(int width, int height, float scale) {
       if (width != draw_width_ || height != draw_height_) {
         draw_width_ = width;
         draw_height_ = height;
+        draw_scale_ = scale;
         resetDrawable();
       }
     }
@@ -442,7 +446,7 @@ namespace visage {
       if (!drawable_)
         return;
 
-      drawable_->setSize(view_, draw_width_, draw_height_);
+      drawable_->setSize(view_, draw_width_, draw_height_, draw_scale_);
       if (!fill_brush_.isNone())
         drawable_->setAllFillBrush(fill_brush_);
       if (!stroke_brush_.isNone())
@@ -455,6 +459,7 @@ namespace visage {
     clone_ptr<SvgDrawable> drawable_;
     float draw_width_ = 0.0f;
     float draw_height_ = 0.0f;
+    float draw_scale_ = 1.0f;
 
     Brush fill_brush_;
     Brush stroke_brush_;

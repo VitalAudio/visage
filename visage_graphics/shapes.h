@@ -533,7 +533,7 @@ namespace visage {
     PathFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
                     float width, float height, const Path& path, PathAtlas* atlas, float scale) :
         Shape(batchId(), clamp, brush, x, y, width, height), path_atlas(atlas), scale(scale) {
-      Path adjusted_path = path.scaled(scale);
+      Path adjusted_path = scale == 1.0f ? path : path.scaled(scale);
       Bounds bounding_box = adjusted_path.boundingBox();
       float new_x = static_cast<int>(x + bounding_box.x() - kBuffer);
       float new_y = static_cast<int>(y + bounding_box.y() - kBuffer);

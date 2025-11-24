@@ -404,7 +404,7 @@ namespace visage {
     void svg(const unsigned char* svg_data, int svg_size, const T1& x, const T2& y, const T3& width,
              const T4& height) {
       Svg new_svg(svg_data, svg_size);
-      new_svg.setDimensions(pixels(width) / state_.scale, pixels(height) / state_.scale);
+      new_svg.setDimensions(pixels(width) / state_.scale, pixels(height) / state_.scale, state_.scale);
       new_svg.setFillBrush(state_.set_brush);
       new_svg.setStrokeBrush(state_.set_brush);
       svg(new_svg, x, y, width, height);
