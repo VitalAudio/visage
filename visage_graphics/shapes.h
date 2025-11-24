@@ -526,6 +526,7 @@ namespace visage {
   struct PathFillWrapper : Shape<TextureVertex> {
     VISAGE_CREATE_BATCH_ID
     static constexpr int kLineVerticesPerPoint = 6;
+    static constexpr float kBuffer = 1.0f;
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
@@ -534,10 +535,10 @@ namespace visage {
         Shape(batchId(), clamp, brush, x, y, width, height), path_atlas(atlas), scale(scale) {
       Path adjusted_path = path.scaled(scale);
       Bounds bounding_box = adjusted_path.boundingBox();
-      float new_x = static_cast<int>(x + bounding_box.x() - 1.0f);
-      float new_y = static_cast<int>(y + bounding_box.y() - 1.0f);
-      float new_width = std::ceil(x + bounding_box.right() + 1.0f) - new_x;
-      float new_height = std::ceil(y + bounding_box.bottom() + 1.0f) - new_y;
+      float new_x = static_cast<int>(x + bounding_box.x() - kBuffer);
+      float new_y = static_cast<int>(y + bounding_box.y() - kBuffer);
+      float new_width = std::ceil(x + bounding_box.right() + kBuffer) - new_x;
+      float new_height = std::ceil(y + bounding_box.bottom() + kBuffer) - new_y;
 
       float shift_x = new_x - x;
       float shift_y = new_y - y;

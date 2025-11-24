@@ -672,6 +672,10 @@ namespace visage {
   }
 
   int PathAtlas::updatePaths(int submit_pass) {
+    constexpr int kTriangleIndices[] = { 0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5 };
+    constexpr int kConservativeVerticesPerTriangle = 3;
+    constexpr int kRegularVerticesPerTriangle = 6;
+
     checkInit();
 
     if (!clearUpdatedPathAreas(submit_pass))
@@ -687,12 +691,25 @@ namespace visage {
       }
     }
 
-    bgfx::setState(BGFX_STATE_CONSERVATIVE_RASTER | BGFX_STATE_WRITE_R |
-                   BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE));
+    auto state = BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE);
+    int vertices_per_triangle = kRegularVerticesPerTriangle;
+    int indices_per_triangle = sizeof(kTriangleIndices) / sizeof(int);
+    int vertices_per_point = 2;
+    bool conservative_raster = bgfx::getCaps()->supported | BGFX_CAPS_CONSERVATIVE_RASTER;
+    if (conservative_raster) {
+      state |= BGFX_STATE_CONSERVATIVE_RASTER;
+      vertices_per_triangle = kConservativeVerticesPerTriangle;
+      indices_per_triangle = 3;
+      vertices_per_point = 1;
+    }
+
+    bgfx::setState(state);
     bgfx::TransientVertexBuffer vertex_buffer {};
     bgfx::TransientIndexBuffer index_buffer {};
-    if (!bgfx::allocTransientBuffers(&vertex_buffer, PathVertex::layout(), num_triangles * 3,
-                                     &index_buffer, num_triangles * 3, true)) {
+    int num_vertices = num_triangles * vertices_per_triangle;
+    int num_indices = num_triangles * indices_per_triangle;
+    if (!bgfx::allocTransientBuffers(&vertex_buffer, PathVertex::layout(), num_vertices,
+                                     &index_buffer, num_indices, true)) {
       VISAGE_LOG("PathAtlas::updatePaths: Failed to allocate transient buffers");
       return submit_pass + 1;
     }
@@ -707,6 +724,7 @@ namespace visage {
     bgfx::setVertexBuffer(0, &vertex_buffer);
     bgfx::setIndexBuffer(&index_buffer);
 
+    uint32_t vertex = 0;
     uint32_t triangle_index = 0;
     for (auto& path : paths_) {
       if (path->needs_update) {
@@ -723,30 +741,32 @@ namespace visage {
           float last_x = x + sub_path.points[1].x;
           float last_y = y + sub_path.points[1].y;
           for (int i = 2; i < sub_path.points.size(); ++i) {
+            for (int k = 0; k < indices_per_triangle; ++k)
+              indices[triangle_index++] = vertex + kTriangleIndices[k];
+
             float new_x = x + sub_path.points[i].x;
             float new_y = y + sub_path.points[i].y;
-            for (int v = 0; v < 3; ++v) {
-              vertices[triangle_index + v].x1 = anchor_x;
-              vertices[triangle_index + v].y1 = anchor_y;
-              vertices[triangle_index + v].x2 = last_x;
-              vertices[triangle_index + v].y2 = last_y;
-              vertices[triangle_index + v].x3 = new_x;
-              vertices[triangle_index + v].y3 = new_y;
+            float index = 0.0f;
+
+            for (int v = vertex; v < vertex + vertices_per_triangle;) {
+              float direction = 1.0f;
+              for (int p = 0; p < vertices_per_point; ++p, ++v) {
+                vertices[v].index = index;
+                vertices[v].direction = direction;
+                direction *= -1.0f;
+              }
+              index += 1.0f;
             }
-            vertices[triangle_index].x = anchor_x;
-            vertices[triangle_index].y = anchor_y;
-            indices[triangle_index] = triangle_index;
-            ++triangle_index;
 
-            vertices[triangle_index].x = last_x;
-            vertices[triangle_index].y = last_y;
-            indices[triangle_index] = triangle_index;
-            ++triangle_index;
-
-            vertices[triangle_index].x = new_x;
-            vertices[triangle_index].y = new_y;
-            indices[triangle_index] = triangle_index;
-            ++triangle_index;
+            for (int v = 0; v < vertices_per_triangle; ++v) {
+              vertices[vertex].x1 = anchor_x;
+              vertices[vertex].y1 = anchor_y;
+              vertices[vertex].x2 = last_x;
+              vertices[vertex].y2 = last_y;
+              vertices[vertex].x3 = new_x;
+              vertices[vertex].y3 = new_y;
+              ++vertex;
+            }
 
             last_x = new_x;
             last_y = new_y;
@@ -755,12 +775,16 @@ namespace visage {
       }
     }
 
-    VISAGE_ASSERT(triangle_index == num_triangles * 3);
+    VISAGE_ASSERT(vertex == num_vertices);
+    VISAGE_ASSERT(triangle_index == num_indices);
 
     setPathUniform<Uniforms::kColor>(1.0f);
     setPathUniform<Uniforms::kBounds>(2.0f / width_, -2.0f / height_, -1.0f, 1.0f);
-    bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_path_fill, shaders::fs_path_fill));
-
+    if (conservative_raster)
+      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_conservative_path_fill,
+                                                            shaders::fs_path_fill));
+    else
+      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_path_fill, shaders::fs_path_fill));
     return submit_pass + 1;
   }
 

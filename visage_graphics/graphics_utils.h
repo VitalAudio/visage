@@ -223,9 +223,22 @@ namespace visage {
     static bgfx::VertexLayout& layout();
   };
 
-  struct PathVertex {
+  struct ConservativePathVertex {
     float x;
     float y;
+    float x1;
+    float y1;
+    float x2;
+    float y2;
+    float x3;
+    float y3;
+
+    static bgfx::VertexLayout& layout();
+  };
+
+  struct PathVertex {
+    float index;
+    float direction;
     float x1;
     float y1;
     float x2;
