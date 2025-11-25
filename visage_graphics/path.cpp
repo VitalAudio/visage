@@ -675,6 +675,7 @@ namespace visage {
     constexpr int kTriangleIndices[] = { 0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5 };
     constexpr int kConservativeVerticesPerTriangle = 3;
     constexpr int kRegularVerticesPerTriangle = 6;
+    constexpr float kTriangleDrawOffset = 3.0f;
 
     checkInit();
 
@@ -686,7 +687,7 @@ namespace visage {
       if (path->needs_update) {
         for (const auto& sub_path : path->path.subPaths()) {
           if (sub_path.points.size() > 2)
-            num_triangles += sub_path.points.size() - 2;
+            num_triangles += sub_path.points.size();
         }
       }
     }
@@ -734,13 +735,21 @@ namespace visage {
           if (sub_path.points.size() <= 2)
             continue;
 
+          float average_x = 0.0f;
+          float max_y = 0.0f;
+          for (const auto& point : sub_path.points) {
+            max_y = std::max(max_y, point.y);
+            average_x += point.x;
+          }
+          average_x /= static_cast<float>(sub_path.points.size());
+
           float x = path->x;
           float y = path->y;
-          float anchor_x = x + sub_path.points[0].x;
-          float anchor_y = y + sub_path.points[0].y;
-          float last_x = x + sub_path.points[1].x;
-          float last_y = y + sub_path.points[1].y;
-          for (int i = 2; i < sub_path.points.size(); ++i) {
+          float anchor_x = x + average_x;
+          float anchor_y = y + max_y + kTriangleDrawOffset;
+          float last_x = x + sub_path.points.back().x;
+          float last_y = y + sub_path.points.back().y;
+          for (int i = 0; i < sub_path.points.size(); ++i) {
             for (int k = 0; k < indices_per_triangle; ++k)
               indices[triangle_index++] = vertex + kTriangleIndices[k];
 

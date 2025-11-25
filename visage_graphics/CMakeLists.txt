@@ -1,5 +1,6 @@
 file(GLOB HEADERS *.h)
 file(GLOB SOURCE_FILES *.cpp)
+
 if (WIN32)
   list(APPEND SOURCE_FILES win32/emoji_win32.cpp)
   set(WIN_LIBS d2d1 dwrite Windowscodecs)
