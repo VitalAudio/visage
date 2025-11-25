@@ -150,4 +150,3 @@ set_target_properties(freetype PROPERTIES FOLDER "visage/third_party")
 if (APPLE)
   target_compile_options(VisageGraphics PRIVATE -fobjc-arc)
 endif ()
-
