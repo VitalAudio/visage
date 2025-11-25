@@ -675,7 +675,7 @@ namespace visage {
     constexpr int kTriangleIndices[] = { 0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5 };
     constexpr int kConservativeVerticesPerTriangle = 3;
     constexpr int kRegularVerticesPerTriangle = 6;
-    constexpr float kTriangleDrawOffset = 3.0f;
+    constexpr float kTriangleDrawOffset = 2.0f;
 
     checkInit();
 
