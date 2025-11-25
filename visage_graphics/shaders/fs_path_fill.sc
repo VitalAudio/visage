@@ -7,6 +7,6 @@ void main() {
   vec3 delta = clamp(mult * v_shader_values.xyz + vec3(0.5, 0.5, 0.5), 0.0, 1.0);
   float outer_amount = clamp((abs(v_shader_values.w - 0.5) - 0.5) / fwidth(v_shader_values.w), 0.0, 1.0);
   float outer_alpha = delta.z * (1.0 - outer_amount) + outer_amount;
-  float point_alpha = length(gl_FragCoord.xy - v_shader_values1.xy) < 1.7 ? 0.0 : 1.0;
+  float point_alpha = v_shader_values1.y < gl_FragCoord.y + 2.0 ? 0.0 : 1.0;
   gl_FragColor.r = mult * (delta.y - delta.x) * outer_alpha * point_alpha;
 }
