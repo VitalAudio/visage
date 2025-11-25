@@ -114,8 +114,6 @@ namespace visage {
     composite_layer_.requestScreenshot();
     default_region_.invalidate();
     submit();
-    default_region_.invalidate();
-    submit();
     return composite_layer_.screenshot();
   }
 
