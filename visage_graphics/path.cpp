@@ -696,7 +696,8 @@ namespace visage {
     int vertices_per_triangle = kRegularVerticesPerTriangle;
     int indices_per_triangle = sizeof(kTriangleIndices) / sizeof(int);
     int vertices_per_point = 2;
-    bool conservative_raster = bgfx::getCaps()->supported & BGFX_CAPS_CONSERVATIVE_RASTER;
+    bool conservative_raster = false;
+    //bgfx::getCaps()->supported & BGFX_CAPS_CONSERVATIVE_RASTER;
     if (conservative_raster) {
       state |= BGFX_STATE_CONSERVATIVE_RASTER;
       vertices_per_triangle = kConservativeVerticesPerTriangle;
