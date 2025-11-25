@@ -111,6 +111,8 @@ namespace visage {
   }
 
   const Screenshot& Canvas::takeScreenshot() {
+    default_region_.invalidate();
+    submit();
     composite_layer_.requestScreenshot();
     default_region_.invalidate();
     submit();
