@@ -298,28 +298,28 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.setColor(0xff000000);
     canvas.fill(0, 0, kWidth, kWidth);
     canvas.setColor(0xffff0000);
-    canvas.fill(star);
+    canvas.fill(star, 0, 0, kWidth, kWidth);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
     screenshot.save("point_star.png");
 
-    // for (int i = 0; i < star.subPaths()[0].points.size() - 2; i += 3) {
-    //   Point p0 = star.subPaths()[0].points[i];
-    //   Point p1 = star.subPaths()[0].points[i + 1];
-    //   Point p2 = star.subPaths()[0].points[i + 2];
-    //   Point inside = (p0 + p1 + p2) / 3.0f;
-    //   Color sample = screenshot.sample(inside);
-    //   REQUIRE(sample.hexRed() == 0xff);
-    // }
-    //
-    // for (int i = 2; i < star.subPaths()[0].points.size() - 2; i += 3) {
-    //   Point p0 = star.subPaths()[0].points[i];
-    //   Point p1 = star.subPaths()[0].points[i + 1];
-    //   Point p2 = star.subPaths()[0].points[i + 2];
-    //   Point outside = (p0 + p1 + p2) / 3.0f;
-    //   Color sample = screenshot.sample(outside);
-    //   REQUIRE(sample.hexRed() == 0);
-    // }
+    for (int i = 0; i < star.subPaths()[0].points.size() - 2; i += 3) {
+      Point p0 = star.subPaths()[0].points[i];
+      Point p1 = star.subPaths()[0].points[i + 1];
+      Point p2 = star.subPaths()[0].points[i + 2];
+      Point inside = (p0 + p1 + p2) / 3.0f;
+      Color sample = screenshot.sample(inside);
+      REQUIRE(sample.hexRed() == 0xff);
+    }
+
+    for (int i = 2; i < star.subPaths()[0].points.size() - 2; i += 3) {
+      Point p0 = star.subPaths()[0].points[i];
+      Point p1 = star.subPaths()[0].points[i + 1];
+      Point p2 = star.subPaths()[0].points[i + 2];
+      Point outside = (p0 + p1 + p2) / 3.0f;
+      Color sample = screenshot.sample(outside);
+      REQUIRE(sample.hexRed() == 0);
+    }
   }
 
   SECTION("Vertical cross line degeneracy") {
