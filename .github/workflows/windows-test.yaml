@@ -24,3 +24,8 @@ jobs:
           ctest --output-on-failure
           Get-ChildItem -Recurse -File -Filter '*infinity*'
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image
+          path: cmake_build/visage_graphics/infinity.png
