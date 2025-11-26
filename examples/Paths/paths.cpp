@@ -27,6 +27,7 @@
 
 visage::Path starPath(float center_x, float center_y, float radius) {
   static constexpr float kPi = 3.14159265f;
+
   visage::Path path;
   int num_points = 10;
   for (int i = 0; i < num_points; ++i) {
@@ -56,9 +57,9 @@ int runExample() {
     float h = app.height();
     visage::Path star = starPath(w * 0.5f, h * 0.5f, std::min(w, h) * 0.4f);
     auto stroked = star.stroke(2);
-    float segment = star.length() / 20.0f;
-    auto dashed = star.stroke(2, visage::Path::Join::Miter, visage::Path::EndCap::Butt, { segment },
-                              canvas.time() * segment);
+    float segment = star.length() / 40.0f;
+    auto dashed = star.stroke(2, visage::Path::Join::Round, visage::Path::EndCap::Round,
+                              { segment }, canvas.time() * segment);
     canvas.fill(star);
     canvas.fill(stroked, w, 0);
     canvas.fill(dashed, 2.0f * w, 0);
