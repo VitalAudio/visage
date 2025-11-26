@@ -24,7 +24,7 @@ void main() {
   points[0] = a_position.zw;
   points[1] = a_texcoord0.xy;
   points[2] = a_texcoord0.zw;
-  int index = a_position.x;
+  int index = int(a_position.x);
   vec2 position = points[index];
 
   v_shader_values.x = lineFunctionScaled(position, a_position.zw, a_texcoord0.xy);
