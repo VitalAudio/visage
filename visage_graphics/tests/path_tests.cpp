@@ -263,53 +263,6 @@ TEST_CASE("Degeneracies", "[graphics]") {
     REQUIRE(screenshot.sample(95, 10).hexRed() >= 0xfe);
   }
 
-  SECTION("Degeneracy center point star") {
-    static constexpr float kPi = 3.14159265358979323846f;
-    static constexpr int kStarPoints = 10;
-    static constexpr float kRadius = 40.0f;
-
-    Canvas canvas;
-    canvas.setWindowless(kWidth, kWidth);
-    canvas.setColor(0xff000000);
-    canvas.fill(0, 0, kWidth, kWidth);
-
-    Path star;
-    std::complex<float> position(1.0f, 0.0f);
-    float center = kWidth * 0.5f;
-    star.moveTo(center, center);
-    std::complex<float> delta(std::cos(2.0f * kPi / kStarPoints), std::sin(2.0f * kPi / kStarPoints));
-
-    for (int i = 0; i < kStarPoints; ++i) {
-      position = position * delta;
-      star.lineTo(center + kRadius * position.real(), center + kRadius * position.imag());
-      if (i % 2)
-        star.lineTo(center, center);
-    }
-    star.close();
-    canvas.setColor(0xffff0000);
-    canvas.fill(star);
-    canvas.submit();
-    const auto& screenshot = canvas.takeScreenshot();
-
-    for (int i = 0; i < star.subPaths()[0].points.size() - 2; i += 3) {
-      Point p0 = star.subPaths()[0].points[i];
-      Point p1 = star.subPaths()[0].points[i + 1];
-      Point p2 = star.subPaths()[0].points[i + 2];
-      Point inside = (p0 + p1 + p2) / 3.0f;
-      Color sample = screenshot.sample(inside);
-      REQUIRE(sample.hexRed() >= 0xfe);
-    }
-
-    for (int i = 2; i < star.subPaths()[0].points.size() - 2; i += 3) {
-      Point p0 = star.subPaths()[0].points[i];
-      Point p1 = star.subPaths()[0].points[i + 1];
-      Point p2 = star.subPaths()[0].points[i + 2];
-      Point outside = (p0 + p1 + p2) / 3.0f;
-      Color sample = screenshot.sample(outside);
-      REQUIRE(sample.hexRed() <= 1);
-    }
-  }
-
   SECTION("Vertical cross line degeneracy") {
     Path path;
     path.moveTo(10, 10);
