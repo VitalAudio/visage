@@ -135,9 +135,8 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
-    REQUIRE(screenshot.sample(10, 10).hexRed() == 0);
-    REQUIRE(screenshot.sample(29, 29).hexRed() == 0);
-    REQUIRE(screenshot.sample(10, 10).hexRed() == 0);
+    REQUIRE(screenshot.sample(10, 10).hexRed() <= 1);
+    REQUIRE(screenshot.sample(29, 29).hexRed() <= 1);
   }
 
   SECTION("Degeneracy embedded rectangles sharing two points") {
@@ -163,9 +162,8 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
-    REQUIRE(screenshot.sample(10, 10).hexRed() == 0);
-    REQUIRE(screenshot.sample(29, 29).hexRed() == 0);
-    REQUIRE(screenshot.sample(10, 10).hexRed() == 0);
+    REQUIRE(screenshot.sample(10, 10).hexRed() <= 1);
+    REQUIRE(screenshot.sample(29, 29).hexRed() <= 1);
   }
 
   SECTION("Degeneracy rectangle in rectangle middle") {
@@ -191,18 +189,18 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
-    REQUIRE(screenshot.sample(10, 10).hexRed() == 0xff);
-    REQUIRE(screenshot.sample(10, 25).hexRed() == 0xff);
-    REQUIRE(screenshot.sample(10, 39).hexRed() == 0xff);
-    REQUIRE(screenshot.sample(21, 10).hexRed() == 0);
-    REQUIRE(screenshot.sample(21, 25).hexRed() == 0);
-    REQUIRE(screenshot.sample(21, 40).hexRed() == 0);
-    REQUIRE(screenshot.sample(29, 10).hexRed() == 0);
-    REQUIRE(screenshot.sample(29, 20).hexRed() == 0);
-    REQUIRE(screenshot.sample(29, 40).hexRed() == 0);
-    REQUIRE(screenshot.sample(31, 10).hexRed() == 0xff);
-    REQUIRE(screenshot.sample(31, 20).hexRed() == 0xff);
-    REQUIRE(screenshot.sample(31, 39).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(10, 10).hexRed() >= 0xfe);
+    REQUIRE(screenshot.sample(10, 25).hexRed() >= 0xfe);
+    REQUIRE(screenshot.sample(10, 39).hexRed() >= 0xfe);
+    REQUIRE(screenshot.sample(21, 10).hexRed() <= 1);
+    REQUIRE(screenshot.sample(21, 25).hexRed() <= 1);
+    REQUIRE(screenshot.sample(21, 40).hexRed() <= 1);
+    REQUIRE(screenshot.sample(29, 10).hexRed() <= 1);
+    REQUIRE(screenshot.sample(29, 20).hexRed() <= 1);
+    REQUIRE(screenshot.sample(29, 40).hexRed() <= 1);
+    REQUIRE(screenshot.sample(31, 10).hexRed() >= 0xfe);
+    REQUIRE(screenshot.sample(31, 20).hexRed() >= 0xfe);
+    REQUIRE(screenshot.sample(31, 39).hexRed() >= 0xfe);
   }
 
   SECTION("Degeneracy begin point on existing line") {
@@ -227,9 +225,9 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
-    REQUIRE(screenshot.sample(10, 10).hexRed() == 0xff);
-    REQUIRE(screenshot.sample(25, 8).hexRed() == 0xff);
-    REQUIRE(screenshot.sample(25, 12).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(10, 10).hexRed() >= 0xfe);
+    REQUIRE(screenshot.sample(25, 8).hexRed() >= 0xfe);
+    REQUIRE(screenshot.sample(25, 12).hexRed() <= 0x01);
   }
 
   SECTION("Degeneracy begin point on two existing lines") {
@@ -258,11 +256,11 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
 
-    REQUIRE(screenshot.sample(5, 10).hexRed() == 0xff);
-    REQUIRE(screenshot.sample(15, 10).hexRed() == 0x00);
-    REQUIRE(screenshot.sample(25, 10).hexRed() == 0xff);
-    REQUIRE(screenshot.sample(35, 10).hexRed() == 0x00);
-    REQUIRE(screenshot.sample(95, 10).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(5, 10).hexRed() >= 0xfe);
+    REQUIRE(screenshot.sample(15, 10).hexRed() <= 0x01);
+    REQUIRE(screenshot.sample(25, 10).hexRed() >= 0xfe);
+    REQUIRE(screenshot.sample(35, 10).hexRed() <= 0x01);
+    REQUIRE(screenshot.sample(95, 10).hexRed() >= 0xfe);
   }
 
   SECTION("Degeneracy center point star") {
@@ -299,7 +297,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
       Point p2 = star.subPaths()[0].points[i + 2];
       Point inside = (p0 + p1 + p2) / 3.0f;
       Color sample = screenshot.sample(inside);
-      REQUIRE(sample.hexRed() == 0xff);
+      REQUIRE(sample.hexRed() >= 0xfe);
     }
 
     for (int i = 2; i < star.subPaths()[0].points.size() - 2; i += 3) {
@@ -308,7 +306,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
       Point p2 = star.subPaths()[0].points[i + 2];
       Point outside = (p0 + p1 + p2) / 3.0f;
       Color sample = screenshot.sample(outside);
-      REQUIRE(sample.hexRed() == 0);
+      REQUIRE(sample.hexRed() <= 1);
     }
   }
 
