@@ -19,7 +19,6 @@ void main() {
   v_gradient_pos = a_color1;
   v_gradient_pos2 = a_color2;
   v_coordinates = (a_texcoord0.xy + delta) * u_atlas_scale.xy;
-  v_coordinates.y = u_origin_flip.x == 1.0 ? v_coordinates.y : 1.0 - v_coordinates.y;
   vec2 adjusted_position = clamped * u_bounds.xy + u_bounds.zw;
   gl_Position = vec4(adjusted_position, 0.5, 1.0);
 }
