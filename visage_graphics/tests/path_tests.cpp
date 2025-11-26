@@ -74,6 +74,7 @@ TEST_CASE("Degeneracies", "[graphics]") {
     canvas.fill(path, 0, 0, kWidth, kWidth);
     canvas.submit();
     const auto& screenshot = canvas.takeScreenshot();
+    screenshot.save("infinity.png");
 
     for (int i = 0; i < path.subPaths()[0].points.size() - 2; i += 3) {
       Point p0 = path.subPaths()[0].points[i];
