@@ -322,40 +322,33 @@ TEST_CASE("Degeneracies", "[graphics]") {
   //   }
   // }
 
-  // SECTION("Vertical cross line degeneracy") {
-  //   Path path;
-  //   path.moveTo(10, 10);
-  //   path.lineTo(40, 10);
-  //   path.lineTo(40, 30);
-  //   path.lineTo(50, 25);
-  //   path.lineTo(40, 20);
-  //   path.lineTo(40, 40);
-  //   path.lineTo(10, 40);
-  //
-  //   Canvas canvases[2];
-  //   for (auto& canvas : canvases) {
-  //     canvas.setWindowless(50, 40);
-  //     canvas.setColor(0xff000000);
-  //     canvas.fill(0, 0, canvas.width(), canvas.height());
-  //     canvas.setColor(0xffff0000);
-  //   }
-  //
-  //   canvases[0].fill(path, 0, 0, canvases[0].width(), canvases[0].height());
-  //   canvases[0].submit();
-  //   path.reverse();
-  //   canvases[1].fill(path, 0, 0, canvases[1].width(), canvases[1].height());
-  //   canvases[1].submit();
-  //   Screenshot screenshots[] = { canvases[0].takeScreenshot(), canvases[1].takeScreenshot() };
-  //
-  //   for (const auto& screenshot : screenshots) {
-  //     REQUIRE(screenshot.sample(5, 20).hexRed() == 0x00);
-  //     REQUIRE(screenshot.sample(20, 5).hexRed() == 0x00);
-  //     REQUIRE(screenshot.sample(20, 20).hexRed() == 0xff);
-  //     REQUIRE(screenshot.sample(45, 25).hexRed() == 0xff);
-  //     REQUIRE(screenshot.sample(45, 30).hexRed() == 0x00);
-  //     REQUIRE(screenshot.sample(45, 20).hexRed() == 0x00);
-  //     REQUIRE(screenshot.sample(35, 15).hexRed() == 0xff);
-  //     REQUIRE(screenshot.sample(35, 35).hexRed() == 0xff);
-  //   }
-  // }
+  SECTION("Vertical cross line degeneracy") {
+    Path path;
+    path.moveTo(10, 10);
+    path.lineTo(40, 10);
+    path.lineTo(40, 30);
+    path.lineTo(50, 25);
+    path.lineTo(40, 20);
+    path.lineTo(40, 40);
+    path.lineTo(10, 40);
+
+    Canvas canvas;
+    canvas.setWindowless(50, 40);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.setColor(0xffff0000);
+
+    canvas.fill(path, 0, 0, canvas.width(), canvas.height());
+    canvas.submit();
+    Screenshot screenshot = canvas.takeScreenshot();
+
+    REQUIRE(screenshot.sample(5, 20).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(20, 5).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(20, 20).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(45, 25).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(45, 30).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(45, 20).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(35, 15).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(35, 35).hexRed() == 0xff);
+  }
 }
