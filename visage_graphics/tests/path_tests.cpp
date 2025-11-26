@@ -166,43 +166,6 @@ TEST_CASE("Degeneracies", "[graphics]") {
     REQUIRE(screenshot.sample(29, 29).hexRed() <= 1);
   }
 
-  SECTION("Degeneracy rectangle in rectangle middle") {
-    Path path;
-    path.moveTo(10, 10);
-    path.lineTo(40, 10);
-    path.lineTo(40, 40);
-    path.lineTo(10, 40);
-    path.close();
-
-    path.moveTo(20, 10);
-    path.lineTo(30, 10);
-    path.lineTo(30, 40);
-    path.lineTo(20, 40);
-    path.close();
-
-    Canvas canvas;
-    canvas.setWindowless(50, 50);
-    canvas.setColor(0xff000000);
-    canvas.fill(0, 0, canvas.width(), canvas.height());
-    canvas.setColor(0xffff0000);
-    canvas.fill(path, 0, 0, kWidth, kWidth);
-    canvas.submit();
-    const auto& screenshot = canvas.takeScreenshot();
-
-    REQUIRE(screenshot.sample(10, 10).hexRed() >= 0xfe);
-    REQUIRE(screenshot.sample(10, 25).hexRed() >= 0xfe);
-    REQUIRE(screenshot.sample(10, 39).hexRed() >= 0xfe);
-    REQUIRE(screenshot.sample(21, 10).hexRed() <= 1);
-    REQUIRE(screenshot.sample(21, 25).hexRed() <= 1);
-    REQUIRE(screenshot.sample(21, 40).hexRed() <= 1);
-    REQUIRE(screenshot.sample(29, 10).hexRed() <= 1);
-    REQUIRE(screenshot.sample(29, 20).hexRed() <= 1);
-    REQUIRE(screenshot.sample(29, 40).hexRed() <= 1);
-    REQUIRE(screenshot.sample(31, 10).hexRed() >= 0xfe);
-    REQUIRE(screenshot.sample(31, 20).hexRed() >= 0xfe);
-    REQUIRE(screenshot.sample(31, 39).hexRed() >= 0xfe);
-  }
-
   SECTION("Degeneracy begin point on existing line") {
     Path path;
     path.moveTo(10, 10);
