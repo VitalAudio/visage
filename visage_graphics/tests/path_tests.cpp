@@ -91,62 +91,62 @@ TEST_CASE("Degeneracies", "[graphics]") {
     REQUIRE(sample_right.hexRed() == 0);
   }
 
-  // SECTION("Infinity path with points at intersection") {
-  //   Path path;
-  //   path.moveTo(15, 10);
-  //   path.lineTo(50, 50);
-  //   path.lineTo(90, 90);
-  //   path.lineTo(20, 80);
-  //   path.lineTo(50, 50);
-  //   path.lineTo(80, 30);
-  //
-  //   Canvas canvas;
-  //   canvas.setWindowless(kWidth, kWidth);
-  //   canvas.setColor(0xff000000);
-  //   canvas.fill(0, 0, canvas.width(), canvas.height());
-  //   canvas.setColor(0xffff0000);
-  //   canvas.fill(path, 0, 0, kWidth, kWidth);
-  //   canvas.submit();
-  //   const auto& screenshot = canvas.takeScreenshot();
-  //
-  //   Color sample_top = screenshot.sample(50, 45);
-  //   REQUIRE(sample_top.hexRed() == 0xff);
-  //   Color sample_bottom = screenshot.sample(50, 55);
-  //   REQUIRE(sample_bottom.hexRed() == 0xff);
-  //
-  //   Color sample_left = screenshot.sample(45, 50);
-  //   REQUIRE(sample_left.hexRed() == 0);
-  //   Color sample_right = screenshot.sample(55, 50);
-  //   REQUIRE(sample_right.hexRed() == 0);
-  // }
-  //
-  // SECTION("Degeneracy rectangle in rectangle corner") {
-  //   Path path;
-  //   path.moveTo(10, 10);
-  //   path.lineTo(40, 10);
-  //   path.lineTo(40, 40);
-  //   path.lineTo(10, 40);
-  //   path.close();
-  //
-  //   path.moveTo(10, 10);
-  //   path.lineTo(30, 10);
-  //   path.lineTo(30, 30);
-  //   path.lineTo(10, 30);
-  //   path.close();
-  //
-  //   Canvas canvas;
-  //   canvas.setWindowless(50, 50);
-  //   canvas.setColor(0xff000000);
-  //   canvas.fill(0, 0, canvas.width(), canvas.height());
-  //   canvas.setColor(0xffff0000);
-  //   canvas.fill(path, 0, 0, kWidth, kWidth);
-  //   canvas.submit();
-  //   const auto& screenshot = canvas.takeScreenshot();
-  //
-  //   REQUIRE(screenshot.sample(10, 10).hexRed() == 0);
-  //   REQUIRE(screenshot.sample(29, 29).hexRed() == 0);
-  //   REQUIRE(screenshot.sample(10, 10).hexRed() == 0);
-  // }
+  SECTION("Infinity path with points at intersection") {
+    Path path;
+    path.moveTo(15, 10);
+    path.lineTo(50, 50);
+    path.lineTo(90, 90);
+    path.lineTo(20, 80);
+    path.lineTo(50, 50);
+    path.lineTo(80, 30);
+
+    Canvas canvas;
+    canvas.setWindowless(kWidth, kWidth);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.setColor(0xffff0000);
+    canvas.fill(path, 0, 0, kWidth, kWidth);
+    canvas.submit();
+    const auto& screenshot = canvas.takeScreenshot();
+
+    Color sample_top = screenshot.sample(50, 45);
+    REQUIRE(sample_top.hexRed() == 0xff);
+    Color sample_bottom = screenshot.sample(50, 55);
+    REQUIRE(sample_bottom.hexRed() == 0xff);
+
+    Color sample_left = screenshot.sample(45, 50);
+    REQUIRE(sample_left.hexRed() == 0);
+    Color sample_right = screenshot.sample(55, 50);
+    REQUIRE(sample_right.hexRed() == 0);
+  }
+
+  SECTION("Degeneracy rectangle in rectangle corner") {
+    Path path;
+    path.moveTo(10, 10);
+    path.lineTo(40, 10);
+    path.lineTo(40, 40);
+    path.lineTo(10, 40);
+    path.close();
+
+    path.moveTo(10, 10);
+    path.lineTo(30, 10);
+    path.lineTo(30, 30);
+    path.lineTo(10, 30);
+    path.close();
+
+    Canvas canvas;
+    canvas.setWindowless(50, 50);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.setColor(0xffff0000);
+    canvas.fill(path, 0, 0, kWidth, kWidth);
+    canvas.submit();
+    const auto& screenshot = canvas.takeScreenshot();
+
+    REQUIRE(screenshot.sample(10, 10).hexRed() == 0);
+    REQUIRE(screenshot.sample(29, 29).hexRed() == 0);
+    REQUIRE(screenshot.sample(10, 10).hexRed() == 0);
+  }
   //
   // SECTION("Degeneracy embedded rectangles sharing two points") {
   //   Path path;
