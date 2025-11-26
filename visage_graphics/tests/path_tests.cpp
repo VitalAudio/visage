@@ -82,13 +82,13 @@ TEST_CASE("Degeneracies", "[graphics]") {
       Point p2 = path.subPaths()[0].points[i + 2];
       Point inside = (p0 + p1 + p2) / 3.0f;
       Color sample = screenshot.sample(inside);
-      //REQUIRE(sample.hexRed() == 0xff);
+      REQUIRE(sample.hexRed() == 0xff);
     }
 
     Color sample_left = screenshot.sample(45, 50);
     Color sample_right = screenshot.sample(55, 50);
-    //REQUIRE(sample_left.hexRed() == 0);
-    //REQUIRE(sample_right.hexRed() == 0);
+    REQUIRE(sample_left.hexRed() == 0);
+    REQUIRE(sample_right.hexRed() == 0);
   }
 
   // SECTION("Infinity path with points at intersection") {
