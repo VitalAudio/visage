@@ -2,6 +2,7 @@ $input a_position, a_texcoord0
 $output v_shader_values, v_shader_values1
 
 uniform vec4 u_bounds;
+uniform vec4 u_origin_flip;
 
 float lineFunctionDeltas(vec2 pa, vec2 ba) {
   return (ba.x * pa.y - ba.y * pa.x) / dot(ba, ba);
@@ -54,7 +55,7 @@ void main() {
 
   v_shader_values.x = lineFunctionScaled(position, a_position.zw, a_texcoord0.xy);
   v_shader_values.y = lineFunctionScaled(position, a_position.zw, a_texcoord0.zw);
-  v_shader_values.z = lineFunctionScaled(position, a_texcoord0.zw, a_texcoord0.xy);
+  v_shader_values.z = lineFunctionScaled(position, a_texcoord0.zw, a_texcoord0.xy) * u_origin_flip.x;
   vec2 delta = a_texcoord0.zw - a_texcoord0.xy;
   v_shader_values.w = lineFunction(position, a_texcoord0.xy, a_texcoord0.xy + vec2(delta.y, -delta.x));
   v_shader_values1.xy = a_position.zw;

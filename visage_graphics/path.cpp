@@ -665,6 +665,11 @@ namespace visage {
       }
     }
 
+    if (bgfx::getCaps()->originBottomLeft) {
+      for (int i = 0; i < vertex_index; ++i)
+        clear_vertices[i].y = -clear_vertices[i].y;
+    }
+
     setPathUniform<Uniforms::kColor>(0.0f);
     bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_clear, shaders::fs_clear));
 
@@ -787,8 +792,15 @@ namespace visage {
     VISAGE_ASSERT(vertex == num_vertices);
     VISAGE_ASSERT(triangle_index == num_indices);
 
+    bool origin_flip = bgfx::getCaps()->originBottomLeft;
     setPathUniform<Uniforms::kColor>(1.0f);
-    setPathUniform<Uniforms::kBounds>(2.0f / width_, -2.0f / height_, -1.0f, 1.0f);
+    setPathUniform<Uniforms::kOriginFlip>(origin_flip ? -1.0 : 1.0);
+
+    if (origin_flip)
+      setPathUniform<Uniforms::kBounds>(2.0f / width_, 2.0f / height_, -1.0f, -1.0f);
+    else
+      setPathUniform<Uniforms::kBounds>(2.0f / width_, -2.0f / height_, -1.0f, 1.0f);
+
     if (conservative_raster)
       bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_conservative_path_fill,
                                                             shaders::fs_path_fill));
