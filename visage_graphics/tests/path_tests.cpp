@@ -273,56 +273,66 @@ TEST_CASE("Degeneracies", "[graphics]") {
   }
 
   SECTION("Degeneracy center point star") {
-    static constexpr float kPi = 3.14159265358979323846f;
-    static constexpr int kStarPoints = 10;
-    static constexpr float kRadius = 40.0f;
+    Path path;
+    path.moveTo(10, 10);
+    path.lineTo(40, 10);
+    path.lineTo(40, 30);
+    path.lineTo(50, 25);
+    path.lineTo(40, 20);
+    path.lineTo(40, 40);
+    path.lineTo(10, 40);
 
-    Path star;
-    float phase = randomFloat(0.0f, 1.0f);
-    std::complex<float> position(std::cos(-2.0f * kPi * phase / kStarPoints),
-                                 std::sin(-2.0f * kPi * phase / kStarPoints));
-
-    float center = kWidth * 0.5f;
-    star.moveTo(center, center);
-    std::complex<float> delta(std::cos(2.0f * kPi / kStarPoints), std::sin(2.0f * kPi / kStarPoints));
-
-    for (int i = 0; i < kStarPoints; ++i) {
-      position = position * delta;
-      star.lineTo(center + kRadius * position.real(), center + kRadius * position.imag());
-      if (i % 2)
-        star.lineTo(center, center);
-    }
-    star.close();
     Canvas canvas;
-    canvas.setWindowless(kWidth, kWidth);
+    canvas.setWindowless(50, 40);
     canvas.setColor(0xff000000);
-    canvas.fill(0, 0, kWidth, kWidth);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
     canvas.setColor(0xffff0000);
-    canvas.fill(star, 0, 0, kWidth, kWidth);
+
+    canvas.fill(path, 0, 0, canvas.width(), canvas.height());
     canvas.submit();
-    const auto& screenshot = canvas.takeScreenshot();
-    screenshot.save("point_star.png");
+    Screenshot screenshot = canvas.takeScreenshot();
 
-    for (int i = 0; i < star.subPaths()[0].points.size() - 2; i += 3) {
-      Point p0 = star.subPaths()[0].points[i];
-      Point p1 = star.subPaths()[0].points[i + 1];
-      Point p2 = star.subPaths()[0].points[i + 2];
-      Point inside = (p0 + p1 + p2) / 3.0f;
-      Color sample = screenshot.sample(inside);
-      REQUIRE(sample.hexRed() == 0xff);
-    }
-
-    for (int i = 2; i < star.subPaths()[0].points.size() - 2; i += 3) {
-      Point p0 = star.subPaths()[0].points[i];
-      Point p1 = star.subPaths()[0].points[i + 1];
-      Point p2 = star.subPaths()[0].points[i + 2];
-      Point outside = (p0 + p1 + p2) / 3.0f;
-      Color sample = screenshot.sample(outside);
-      REQUIRE(sample.hexRed() == 0);
-    }
+    REQUIRE(screenshot.sample(5, 20).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(20, 5).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(20, 20).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(45, 25).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(45, 30).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(45, 20).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(35, 15).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(35, 35).hexRed() == 0xff);
   }
 
   SECTION("Vertical cross line degeneracy") {
+    Path path;
+    path.moveTo(10, 10);
+    path.lineTo(40, 10);
+    path.lineTo(40, 30);
+    path.lineTo(50, 25);
+    path.lineTo(40, 20);
+    path.lineTo(40, 40);
+    path.lineTo(10, 40);
+
+    Canvas canvas;
+    canvas.setWindowless(50, 40);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.setColor(0xffff0000);
+
+    canvas.fill(path, 0, 0, canvas.width(), canvas.height());
+    canvas.submit();
+    Screenshot screenshot = canvas.takeScreenshot();
+
+    REQUIRE(screenshot.sample(5, 20).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(20, 5).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(20, 20).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(45, 25).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(45, 30).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(45, 20).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(35, 15).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(35, 35).hexRed() == 0xff);
+  }
+
+  SECTION("Vertical cross line degeneracy 2") {
     Path path;
     path.moveTo(10, 10);
     path.lineTo(40, 10);
