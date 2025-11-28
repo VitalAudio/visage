@@ -4,7 +4,7 @@
 
 ## Full Basic Example
 ```cpp
-#include <visage_app/application_window.h>
+#include <visage/app.h>
 
 int main() {
   visage::ApplicationWindow app;
