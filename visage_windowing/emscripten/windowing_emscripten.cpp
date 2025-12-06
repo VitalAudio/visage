@@ -22,6 +22,7 @@
 #if VISAGE_EMSCRIPTEN
 #include "windowing_emscripten.h"
 
+#include "visage_utils/string_utils.h"
 #include "visage_utils/time_utils.h"
 
 #include <emscripten/emscripten.h>
@@ -210,27 +211,29 @@ namespace visage {
 
   static int keyboardModifiers(const EmscriptenMouseEvent* event) {
     int state = 0;
+    bool mac = EM_ASM_INT({ return clientInformation.vendor.search("Apple"); }) >= 0;
     if (event->ctrlKey)
-      state |= Modifiers::kModifierRegCtrl;
+      state |= mac ? Modifiers::kModifierMacCtrl : Modifiers::kModifierRegCtrl;
     if (event->altKey)
       state |= Modifiers::kModifierAlt;
     if (event->shiftKey)
       state |= Modifiers::kModifierShift;
     if (event->metaKey)
-      state |= kModifierMeta;
+      state |= mac ? Modifiers::kModifierCmd : Modifiers::kModifierMeta;
     return state;
   }
 
   static int keyboardModifiers(const EmscriptenKeyboardEvent* event) {
     int state = 0;
+    bool mac = EM_ASM_INT({ return clientInformation.vendor.search("Apple"); }) >= 0;
     if (event->ctrlKey)
-      state |= Modifiers::kModifierRegCtrl;
+      state |= mac ? Modifiers::kModifierMacCtrl : Modifiers::kModifierRegCtrl;
     if (event->altKey)
       state |= Modifiers::kModifierAlt;
     if (event->shiftKey)
       state |= Modifiers::kModifierShift;
     if (event->metaKey)
-      state |= kModifierMeta;
+      state |= mac ? Modifiers::kModifierCmd : Modifiers::kModifierMeta;
     return state;
   }
 
@@ -567,7 +570,7 @@ namespace visage {
 
     switch (event_type) {
     case EMSCRIPTEN_EVENT_KEYPRESS:
-      if (code == KeyCode::Return || strlen(event->key) == 0)
+      if (code == KeyCode::Return || code == KeyCode::Backspace || strlen(event->key) == 0)
         return true;
       return window->handleTextInput(event->key);
     case EMSCRIPTEN_EVENT_KEYDOWN: {
