@@ -27,12 +27,15 @@
 namespace visage {
   class HeatMap : public Frame {
   public:
-    VISAGE_THEME_DEFINE_COLOR(HeatMapGradient);
-
     explicit HeatMap(int width, int height);
     ~HeatMap() override;
 
     void draw(Canvas& canvas) override;
+
+    void setGradient(visage::Gradient gradient) {
+      gradient_ = std::move(gradient);
+      redraw();
+    }
 
     float at(int x, int y) const { return data_.at(x, y); }
     void set(int x, int y, float val) {
@@ -44,10 +47,8 @@ namespace visage {
     int dataHeight() const { return data_.height(); }
 
   private:
-    void drawLine(Canvas& canvas, theme::ColorId color_id);
-    void drawFill(Canvas& canvas, theme::ColorId color_id);
-
     HeatMapData data_;
+    visage::Gradient gradient_ = visage::Gradient::kViridis;
 
     VISAGE_LEAK_CHECKER(HeatMap)
   };

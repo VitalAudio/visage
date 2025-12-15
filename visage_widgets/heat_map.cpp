@@ -22,8 +22,6 @@
 #include "heat_map.h"
 
 namespace visage {
-  VISAGE_THEME_IMPLEMENT_COLOR(HeatMap, HeatMapGradient, 0xffaa88ff);
-
   HeatMap::HeatMap(int width, int height) : data_(width, height) { }
 
   HeatMap::~HeatMap() = default;
@@ -32,7 +30,7 @@ namespace visage {
     if (canvas.totallyClamped())
       return;
 
-    canvas.setColor(visage::Brush::horizontal(visage::Gradient::kViridis));
+    canvas.setColor(visage::Brush::horizontal(gradient_));
     canvas.heatMap(data_, 0.0f, 0.0f, width(), height());
   }
 }
