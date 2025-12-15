@@ -22,6 +22,7 @@
 #include "heat_map.h"
 
 namespace visage {
+  HeatMap::HeatMap() = default;
   HeatMap::HeatMap(int width, int height) : data_(width, height) { }
 
   HeatMap::~HeatMap() = default;

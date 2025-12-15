@@ -92,6 +92,9 @@ namespace visage {
       values_.resize(width * height, 0.0f);
     }
 
+    void setOctaves(float octaves) { octaves_ = octaves; }
+    float octaves() const { return octaves_; }
+
     int width() const { return width_; }
     int height() const { return height_; }
 
@@ -117,6 +120,7 @@ namespace visage {
   private:
     int width_ = 0;
     int height_ = 0;
+    float octaves_ = 0.0f;
     std::vector<float> values_;
   };
 

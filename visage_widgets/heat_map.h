@@ -27,8 +27,19 @@
 namespace visage {
   class HeatMap : public Frame {
   public:
-    explicit HeatMap(int width, int height);
+    HeatMap();
+    HeatMap(int width, int height);
     ~HeatMap() override;
+
+    void setDimensions(int width, int height) {
+      data_.setDimensions(width, height);
+      redraw();
+    }
+
+    void setOctaves(float octaves) {
+      data_.setOctaves(octaves);
+      redraw();
+    }
 
     void draw(Canvas& canvas) override;
 

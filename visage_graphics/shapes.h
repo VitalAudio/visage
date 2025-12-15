@@ -531,7 +531,10 @@ namespace visage {
                    float height, const HeatMapData& heat_map_data, ImageAtlas* data_atlas) :
         Primitive(data_atlas, clamp, brush, x, y, width, height), data_atlas(data_atlas),
         data(heat_map_data),
-        packed_data(data_atlas->addData(data.data(), data.width(), data.height())) { }
+        packed_data(data_atlas->addData(data.data(), data.width(), data.height())) {
+      thickness = heat_map_data.height();
+      pixel_width = heat_map_data.octaves();
+    }
 
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
@@ -543,10 +546,10 @@ namespace visage {
       vertices[1].value2 = packed_data.y();
 
       vertices[2].value1 = packed_data.x();
-      vertices[2].value2 = packed_data.y() + packed_data.h();
+      vertices[2].value2 = packed_data.y();
 
       vertices[3].value1 = packed_data.x() + packed_data.w();
-      vertices[3].value2 = packed_data.y() + packed_data.h();
+      vertices[3].value2 = packed_data.y();
     }
 
     ImageAtlas* data_atlas = nullptr;
