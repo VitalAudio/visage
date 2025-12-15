@@ -427,6 +427,11 @@ namespace visage {
       addGraphFill(data, pixels(x), pixels(y), pixels(width), pixels(height), fill_center);
     }
 
+    template<typename T1, typename T2, typename T3, typename T4>
+    void heatMap(const HeatMapData& data, const T1& x, const T2& y, const T3& width, const T4& height) {
+      addHeatMap(data, pixels(x), pixels(y), pixels(width), pixels(height));
+    }
+
     template<typename T1, typename T2>
     void image(const Image& image, const T1& x, const T2& y) {
       int w = std::round(pixels(image.width));
@@ -783,6 +788,11 @@ namespace visage {
     void addGraphFill(const GraphData& data, float x, float y, float width, float height, float center) {
       addShape(GraphFillWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
                                 height, center, data, dataAtlas()));
+    }
+
+    void addHeatMap(const HeatMapData& data, float x, float y, float width, float height) {
+      addShape(HeatMapWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height,
+                              data, dataAtlas()));
     }
 
     Palette* palette_ = nullptr;

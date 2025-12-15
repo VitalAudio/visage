@@ -121,8 +121,8 @@ namespace visage {
     return PackedImage(reference);
   }
 
-  ImageAtlas::PackedImage ImageAtlas::addData(const unsigned char* data, int data_size) {
-    Image image(data, data_size * 4, data_size, 1);
+  ImageAtlas::PackedImage ImageAtlas::addData(const unsigned char* data, int width, int height) {
+    Image image(data, width * height * 4, width, height);
     image.raw = true;
     return addImage(image, true);
   }

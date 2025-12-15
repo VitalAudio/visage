@@ -27,9 +27,6 @@
 namespace visage {
   class GraphLine : public Frame {
   public:
-    static constexpr int kLineVerticesPerPoint = 6;
-    static constexpr int kFillVerticesPerPoint = 2;
-
     VISAGE_THEME_DEFINE_COLOR(LineColor);
     VISAGE_THEME_DEFINE_COLOR(LineFillColor);
     VISAGE_THEME_DEFINE_COLOR(LineFillColor2);

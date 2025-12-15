@@ -523,6 +523,37 @@ namespace visage {
     ImageAtlas::PackedImage packed_data;
   };
 
+  struct HeatMapWrapper : Primitive<> {
+    static const EmbeddedFile& vertexShader();
+    static const EmbeddedFile& fragmentShader();
+
+    HeatMapWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
+                   float height, const HeatMapData& heat_map_data, ImageAtlas* data_atlas) :
+        Primitive(data_atlas, clamp, brush, x, y, width, height), data_atlas(data_atlas),
+        data(heat_map_data),
+        packed_data(data_atlas->addData(data.data(), data.width(), data.height())) { }
+
+    void setVertexData(Vertex* vertices) const {
+      setPrimitiveData(vertices);
+
+      vertices[0].value1 = packed_data.x();
+      vertices[0].value2 = packed_data.y();
+
+      vertices[1].value1 = packed_data.x() + packed_data.w();
+      vertices[1].value2 = packed_data.y();
+
+      vertices[2].value1 = packed_data.x();
+      vertices[2].value2 = packed_data.y() + packed_data.h();
+
+      vertices[3].value1 = packed_data.x() + packed_data.w();
+      vertices[3].value2 = packed_data.y() + packed_data.h();
+    }
+
+    ImageAtlas* data_atlas = nullptr;
+    HeatMapData data;
+    ImageAtlas::PackedImage packed_data;
+  };
+
   struct PathFillWrapper : Shape<TextureVertex> {
     VISAGE_CREATE_BATCH_ID
     static constexpr int kLineVerticesPerPoint = 6;

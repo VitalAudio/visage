@@ -81,6 +81,45 @@ namespace visage {
     std::vector<float> y_values_;
   };
 
+  class HeatMapData {
+  public:
+    HeatMapData(int width = 0, int height = 0) :
+        width_(width), height_(height), values_(width * height, 0.0f) { }
+
+    void setDimensions(int width, int height) {
+      width_ = width;
+      height_ = height;
+      values_.resize(width * height, 0.0f);
+    }
+
+    int width() const { return width_; }
+    int height() const { return height_; }
+
+    void clear() { std::fill(values_.begin(), values_.end(), 0.0f); }
+
+    const unsigned char* data() const { return (const unsigned char*)values_.data(); }
+
+    void set(int x, int y, float value) {
+      VISAGE_ASSERT(x >= 0 && x < width_ && y >= 0 && y < height_);
+      values_[y * width_ + x] = value;
+    }
+
+    float& at(int x, int y) {
+      VISAGE_ASSERT(x >= 0 && x < width_ && y >= 0 && y < height_);
+      return values_[y * width_ + x];
+    }
+
+    const float& at(int x, int y) const {
+      VISAGE_ASSERT(x >= 0 && x < width_ && y >= 0 && y < height_);
+      return values_[y * width_ + x];
+    }
+
+  private:
+    int width_ = 0;
+    int height_ = 0;
+    std::vector<float> values_;
+  };
+
   class ImageAtlasTexture;
 
   class ImageAtlas {
@@ -154,7 +193,7 @@ namespace visage {
     virtual ~ImageAtlas();
 
     PackedImage addImage(const Image& image, bool force_update = false);
-    PackedImage addData(const unsigned char* data, int data_size);
+    PackedImage addData(const unsigned char* data, int width, int height = 1);
     void clearStaleImages() {
       for (const auto& stale : stale_images_) {
         images_.erase(stale.first);

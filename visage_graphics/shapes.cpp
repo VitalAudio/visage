@@ -50,6 +50,7 @@ namespace visage {
   VISAGE_SET_PROGRAM(PathFillWrapper, shaders::vs_sample_path, shaders::fs_sample_path)
   VISAGE_SET_PROGRAM(GraphLineWrapper, shaders::vs_shape, shaders::fs_graph_line)
   VISAGE_SET_PROGRAM(GraphFillWrapper, shaders::vs_shape, shaders::fs_graph_fill)
+  VISAGE_SET_PROGRAM(HeatMapWrapper, shaders::vs_shape, shaders::fs_heat_map)
   VISAGE_SET_PROGRAM(SampleRegion, shaders::vs_post_effect, shaders::fs_post_effect)
 
   SampleRegion::SampleRegion(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,

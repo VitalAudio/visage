@@ -188,6 +188,11 @@ namespace visage {
       setImageAtlasUniform(batches[0].shapes->front().data_atlas);
   }
 
+  void setHeatMapDataUniform(const BatchVector<HeatMapWrapper>& batches) {
+    if (!batches.empty() && !batches[0].shapes->empty())
+      setImageAtlasUniform(batches[0].shapes->front().data_atlas);
+  }
+
   void setPathDataUniform(const BatchVector<PathFillWrapper>& batches) {
     if (!batches.empty() && !batches[0].shapes->empty())
       setPathAtlasUniform(batches[0].shapes->front().path_atlas);
