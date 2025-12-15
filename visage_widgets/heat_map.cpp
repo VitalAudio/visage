@@ -27,7 +27,7 @@ namespace visage {
   HeatMap::~HeatMap() = default;
 
   void HeatMap::draw(Canvas& canvas) {
-    if (canvas.totallyClamped())
+    if (canvas.totallyClamped() || data_.width() <= 0 || data_.height() <= 0)
       return;
 
     canvas.setColor(visage::Brush::horizontal(gradient_));
