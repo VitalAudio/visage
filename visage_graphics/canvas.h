@@ -429,6 +429,9 @@ namespace visage {
 
     template<typename T1, typename T2, typename T3, typename T4>
     void heatMap(const HeatMapData& data, const T1& x, const T2& y, const T3& width, const T4& height) {
+      if (data.width() == 0 || data.height() == 0)
+        return;
+
       addHeatMap(data, pixels(x), pixels(y), pixels(width), pixels(height));
     }
 
