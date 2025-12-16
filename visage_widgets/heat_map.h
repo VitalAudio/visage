@@ -59,7 +59,7 @@ namespace visage {
 
   private:
     HeatMapData data_;
-    visage::Gradient gradient_ = visage::Gradient::kViridis;
+    visage::Gradient gradient_ = visage::Gradient::kMagma;
 
     VISAGE_LEAK_CHECKER(HeatMap)
   };
