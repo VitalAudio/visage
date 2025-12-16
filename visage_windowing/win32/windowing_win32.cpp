@@ -626,6 +626,7 @@ namespace visage {
 
     HRESULT STDMETHODCALLTYPE DragEnter(IDataObject* data_object, DWORD key_state, POINTL point,
                                         DWORD* effect) override {
+      DpiAwareness dpi_awareness;
       IPoint position = dragPosition(point);
       files_ = dropFileList(data_object);
       if (window_->handleFileDrag(position.x, position.y, files_))
@@ -636,6 +637,7 @@ namespace visage {
     }
 
     HRESULT STDMETHODCALLTYPE DragOver(DWORD key_state, POINTL point, DWORD* effect) override {
+      DpiAwareness dpi_awareness;
       IPoint position = dragPosition(point);
       if (window_->handleFileDrag(position.x, position.y, files_))
         *effect = DROPEFFECT_COPY;
@@ -651,6 +653,7 @@ namespace visage {
 
     HRESULT STDMETHODCALLTYPE Drop(IDataObject* data_object, DWORD key_state, POINTL point,
                                    DWORD* effect) override {
+      DpiAwareness dpi_awareness;
       IPoint position = dragPosition(point);
       files_ = dropFileList(data_object);
       if (window_->handleFileDrop(position.x, position.y, files_))
