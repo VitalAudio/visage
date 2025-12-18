@@ -116,4 +116,73 @@ namespace visage {
     result.erase(std::remove_if(result.begin(), result.end(), filter), result.end());
     return result;
   }
+
+  int String::naturalCompare(const std::u32string& a, const std::u32string& b) {
+    size_t i = 0;
+    size_t j = 0;
+
+    auto is_digit = [](char32_t c) { return c >= U'0' && c <= U'9'; };
+
+    while (i < a.size() && j < b.size()) {
+      if (is_digit(a[i]) && is_digit(b[j])) {
+        size_t leading_zeros_a = 0;
+        size_t leading_zeros_b = 0;
+
+        while (i < a.size() && a[i] == U'0') {
+          ++leading_zeros_a;
+          ++i;
+        }
+
+        while (j < b.size() && b[j] == U'0') {
+          ++leading_zeros_b;
+          ++j;
+        }
+
+        size_t start_a = i;
+        size_t start_b = j;
+
+        while (i < a.size() && is_digit(a[i]))
+          ++i;
+
+        while (j < b.size() && is_digit(b[j]))
+          ++j;
+
+        size_t len_a = i - start_a;
+        size_t len_b = j - start_b;
+
+        if (len_a != len_b)
+          return len_a < len_b ? -1 : 1;
+
+        for (size_t k = 0; k < len_a; ++k) {
+          if (a[start_a + k] != b[start_b + k])
+            return a[start_a + k] < b[start_b + k] ? -1 : 1;
+        }
+
+        if (leading_zeros_a != leading_zeros_b)
+          return leading_zeros_a < leading_zeros_b ? -1 : 1;
+      }
+      else {
+        if (a[i] != b[j])
+          return a[i] < b[j] ? -1 : 1;
+
+        ++i;
+        ++j;
+      }
+    }
+
+    if (i < a.size())
+      return 1;
+    if (j < b.size())
+      return -1;
+
+    return 0;
+  }
+
+  int String::naturalCompare(const String& a, const String& b) {
+    return naturalCompare(a.toUtf32(), b.toUtf32());
+  }
+
+  int String::naturalCompare(const std::string& a, const std::string& b) {
+    return naturalCompare(convertToUtf32(a), convertToUtf32(b));
+  }
 }

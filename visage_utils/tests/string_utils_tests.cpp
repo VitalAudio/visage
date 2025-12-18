@@ -89,6 +89,16 @@ TEST_CASE("String comparison operators", "[utils]") {
   REQUIRE(bool(b >= a));
 }
 
+TEST_CASE("String natural comparison", "[utils]") {
+  String test1 = "file2.txt";
+  String test2 = "file10.txt";
+  String test3 = "file02.txt";
+  REQUIRE(test1.naturalCompare(test2) < 0);
+  REQUIRE(test2.naturalCompare(test1) > 0);
+  REQUIRE(test2.naturalCompare(test3) > 0);
+  REQUIRE(test3.naturalCompare(test2) < 0);
+}
+
 TEST_CASE("String contains and endsWith", "[utils]") {
   String test = "Hello World";
 
