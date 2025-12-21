@@ -790,12 +790,17 @@ public:
         canvas.fill(0, trig_y - 1, 20, 2);
       }
 
-      generateWaveform(time, current_samples_);
+      // Only generate new waveform if not paused (freeze display when paused)
+      bool is_paused = test_signal_.isPaused();
+      if (!is_paused || current_samples_.empty()) {
+        generateWaveform(time, current_samples_);
+      }
 
       if (current_samples_.size() >= 2) {
         canvas.setBlendMode(visage::BlendMode::Add);
 
-        if (phosphor_enabled_) {
+        // Only update history when not paused (freeze frame completely)
+        if (phosphor_enabled_ && !is_paused) {
           for (int age = kHistoryFrames - 1; age >= 1; --age) {
             int idx = (history_index_ - age + kHistoryFrames) % kHistoryFrames;
             if (history_[idx].size() >= 2) {
@@ -882,6 +887,7 @@ public:
 
     // Mode selector (display mode)
     addChild(&mode_selector_);
+    mode_selector_.setLabel("Mode");
     mode_selector_.setOptions({"Time", "Trig", "XY"});
     mode_selector_.setColor(visage::Color(1.0f, 0.4f, 0.8f, 0.9f));
     mode_selector_.setCallback([this](int i) {
@@ -892,6 +898,7 @@ public:
 
     // Waveform selector
     addChild(&waveform_selector_);
+    waveform_selector_.setLabel("Wave");
     waveform_selector_.setOptions({"Sin", "Tri", "Saw", "Sqr", "Nz"});
     waveform_selector_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));
     waveform_selector_.setCallback([this](int i) {
@@ -901,6 +908,7 @@ public:
 
     // Split mode selector
     addChild(&split_selector_);
+    split_selector_.setLabel("Split");
     split_selector_.setOptions({"LP/HP", "BP/AP", "BR/AP", "LP/BP", "AP/HP", "BP/BR", "Morph"});
     split_selector_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
     split_selector_.setCallback([this](int i) {
@@ -955,11 +963,11 @@ public:
   void resized() override {
     // Vintage control panel on right side (always visible)
     const int panel_width = 140;
-    const int margin = 6;
-    const int knob_size = 50;
-    const int js_size = 80;
-    const int selector_h = 24;
-    const int switch_h = 28;
+    const int margin = 4;
+    const int knob_size = 60;  // Taller to fit label
+    const int js_size = 90;    // Taller to fit label
+    const int selector_h = 34; // Taller to fit label
+    const int switch_h = 32;   // Taller to fit label
 
     int panel_x = width() - panel_width;
     control_panel_.setBounds(panel_x, 0, panel_width, height());

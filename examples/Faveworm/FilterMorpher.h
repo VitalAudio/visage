@@ -183,8 +183,14 @@ public:
   static constexpr double kTwoPi = 2.0 * kPi;
 
   void setPosition(float x, float y) {
-    pos_x_ = std::clamp(x, -1.0f, 1.0f);
-    pos_y_ = std::clamp(y, -1.0f, 1.0f);
+    // Constrain to unit circle (not square)
+    float dist = std::sqrt(x * x + y * y);
+    if (dist > 1.0f) {
+      x /= dist;
+      y /= dist;
+    }
+    pos_x_ = x;
+    pos_y_ = y;
     updateWeights();
   }
 
