@@ -855,6 +855,10 @@ public:
     oscilloscope_.layout().setMargin(0);
     oscilloscope_.setAudioPlayer(&audio_player_);
 
+    // Control panel background (add first so it's behind controls)
+    addChild(&control_panel_);
+    control_panel_.setVisible(false);
+
     // Set up filter joystick for morph control
     addChild(&filter_joystick_);
     filter_joystick_.setMorpher(&oscilloscope_.morpher());
@@ -864,7 +868,7 @@ public:
     addChild(&cutoff_knob_);
     cutoff_knob_.setValue(&filter_cutoff_);
     cutoff_knob_.setRange(20.0f, 2000.0f);
-    cutoff_knob_.setColor(visage::Color(1.0f, 0.3f, 0.9f, 0.7f));  // Cyan-ish
+    cutoff_knob_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));  // Cyan
     cutoff_knob_.setCallback([this](float v) { oscilloscope_.setFilterCutoff(v); });
     cutoff_knob_.setVisible(false);
 
@@ -872,13 +876,9 @@ public:
     addChild(&resonance_knob_);
     resonance_knob_.setValue(&filter_resonance_);
     resonance_knob_.setRange(0.0f, 1.0f);
-    resonance_knob_.setColor(visage::Color(1.0f, 0.9f, 0.5f, 0.3f));  // Orange-ish
+    resonance_knob_.setColor(visage::Color(1.0f, 0.9f, 0.6f, 0.4f));  // Orange
     resonance_knob_.setCallback([this](float v) { oscilloscope_.setFilterResonance(v); });
     resonance_knob_.setVisible(false);
-
-    // Control panel background
-    addChild(&control_panel_);
-    control_panel_.setVisible(false);
 
     // Help overlay (covers entire window)
     addChild(&help_overlay_);
