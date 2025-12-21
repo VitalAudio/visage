@@ -67,7 +67,7 @@ FetchContent_Declare(bgfx GIT_REPOSITORY https://github.com/bkaradzic/bgfx.cmake
 )
 FetchContent_MakeAvailable(bgfx)
 
-FetchContent_Declare(freetype GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
+FetchContent_Declare(freetype GIT_REPOSITORY https://github.com/freetype/freetype.git
   GIT_SHALLOW TRUE
   GIT_TAG VER-2-14-1
   EXCLUDE_FROM_ALL
