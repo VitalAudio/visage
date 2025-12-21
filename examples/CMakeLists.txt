@@ -61,6 +61,11 @@ foreach (EXAMPLE ${EXAMPLES})
       EmbeddedIconResources
       EmbeddedImageResources
     )
+
+    # Link AudioToolbox for Faveworm audio playback on macOS
+    if (APPLE AND EXAMPLE STREQUAL "Faveworm")
+      target_link_libraries(Example${EXAMPLE} PRIVATE "-framework AudioToolbox")
+    endif ()
   endif ()
 endforeach ()
 
