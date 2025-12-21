@@ -36,7 +36,8 @@
 class HelpOverlay : public visage::Frame {
 public:
   HelpOverlay() {
-    setIgnoresMouseEvents(false, false);
+    // Start with mouse events ignored (hidden by default)
+    setIgnoresMouseEvents(true, true);
   }
 
   void draw(visage::Canvas& canvas) override {
@@ -120,6 +121,8 @@ public:
 
   void setVisible(bool v) {
     visible_ = v;
+    // Block mouse events when visible, pass through when hidden
+    setIgnoresMouseEvents(!visible_, !visible_);
     if (visible_) redraw();
   }
 
@@ -836,7 +839,7 @@ public:
     addChild(&help_overlay_);
 
     bloom_.setBloomSize(20.0f);
-    bloom_.setBloomIntensity(0.1f);  // Subtle glow by default
+    bloom_.setBloomIntensity(0.2f);  // Subtle glow by default
     setPostEffect(&bloom_);
   }
 
@@ -982,7 +985,7 @@ private:
   HelpOverlay help_overlay_;
   visage::BloomPostEffect bloom_;
   AudioPlayer audio_player_;
-  float bloom_intensity_ = 0.1f;
+  float bloom_intensity_ = 0.2f;
   bool bloom_enabled_ = true;
   float filter_cutoff_ = 150.0f;
   float filter_resonance_ = 0.7f;
