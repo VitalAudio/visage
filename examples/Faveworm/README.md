@@ -34,6 +34,16 @@ Analog oscilloscope waveform visualization inspired by [faveworm](https://music.
 | `F` | Toggle filter on/off |
 | `Left/Right` | Adjust filter cutoff frequency |
 
+### Test Signal Generator (XY Mode)
+| Key | Action |
+|-----|--------|
+| `T` | Toggle test signal on/off |
+| `W` | Cycle waveform (Sine → Triangle → Saw → Square → Noise) |
+| `[` / `]` | Decrease/increase base frequency |
+| `Shift+[` / `Shift+]` | Decrease/increase Y detune ratio |
+
+The test signal generator uses two detuned RPM oscillators to create rotating Lissajous patterns without audio input. The slight detune causes the pattern to slowly rotate.
+
 ## Filter Joystick (XY Mode)
 
 The circular joystick in the bottom-right corner controls the SVF filter morphing:
@@ -77,11 +87,13 @@ Supported formats:
 
 ```
 Faveworm/
-├── faveworm.cpp        # Main oscilloscope implementation
-├── FilterMorpher.h     # 360° filter morphing + SimpleSVF
-├── FilterJoystick.h    # Visual joystick UI control
-└── dsp/                # Full SVF from superfreak (reference)
+├── faveworm.cpp          # Main oscilloscope implementation
+├── FilterMorpher.h       # 360° filter morphing + SimpleSVF
+├── FilterJoystick.h      # Visual joystick UI control
+├── TestSignalGenerator.h # RPM oscillator test signal for XY mode
+└── dsp/                  # DSP components from superfreak
     ├── dfl_StateVariableFilter.h/.cpp
+    ├── dfl_RPMOscillator.h
     ├── dfl_FilterBase.h
     ├── dfl_FastMath.h
     └── ...

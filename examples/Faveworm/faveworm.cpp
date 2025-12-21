@@ -29,6 +29,7 @@
 
 #include "FilterMorpher.h"
 #include "FilterJoystick.h"
+#include "TestSignalGenerator.h"
 
 #ifdef __APPLE__
 #include <AudioToolbox/AudioToolbox.h>
@@ -431,6 +432,11 @@ public:
   void setFilterEnabled(bool enabled) { filter_enabled_ = enabled; }
   bool filterEnabled() const { return filter_enabled_; }
 
+  // Test signal generator controls
+  TestSignalGenerator& testSignal() { return test_signal_; }
+  void setTestSignalEnabled(bool enabled) { test_signal_enabled_ = enabled; }
+  bool testSignalEnabled() const { return test_signal_enabled_; }
+
   void generateWaveform(double time, std::vector<Sample>& samples) {
     const float w = static_cast<float>(width());
     const float h = static_cast<float>(height());
@@ -452,6 +458,30 @@ public:
         float y_val = right[i];
 
         // Apply SVF filter to Y channel (right) for Lissajous shapes
+        if (filter_enabled_) {
+          auto outputs = svf_.process(static_cast<double>(y_val));
+          y_val = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
+        }
+
+        samples[i].x = cx + x_val * scale;
+        samples[i].y = cy - y_val * scale;
+      }
+      return;
+    }
+
+    // XY mode with test signal generator (no audio loaded)
+    if (display_mode_ == DisplayMode::XY && test_signal_enabled_) {
+      const int num_samples = 512;
+      samples.resize(num_samples);
+      float cx = w * 0.5f;
+      float cy = h * 0.5f;
+      float scale = std::min(w, h) * 0.4f;
+
+      for (int i = 0; i < num_samples; ++i) {
+        float x_val, y_val;
+        test_signal_.getSample(x_val, y_val);
+
+        // Apply SVF filter to Y channel for Lissajous shapes
         if (filter_enabled_) {
           auto outputs = svf_.process(static_cast<double>(y_val));
           y_val = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
@@ -649,6 +679,10 @@ private:
   float filter_resonance_ = 0.7f;
   bool filter_enabled_ = true;
 
+  // Test signal generator for XY mode without audio
+  TestSignalGenerator test_signal_;
+  bool test_signal_enabled_ = true;  // Enabled by default
+
   AudioPlayer* audio_player_ = nullptr;
 };
 
@@ -717,6 +751,38 @@ public:
     }
     else if (event.keyCode() == visage::KeyCode::F) {
       oscilloscope_.setFilterEnabled(!oscilloscope_.filterEnabled());
+      return true;
+    }
+    else if (event.keyCode() == visage::KeyCode::W) {
+      // Cycle test signal waveform
+      oscilloscope_.testSignal().cycleWaveform();
+      return true;
+    }
+    else if (event.keyCode() == visage::KeyCode::T) {
+      // Toggle test signal
+      oscilloscope_.setTestSignalEnabled(!oscilloscope_.testSignalEnabled());
+      return true;
+    }
+    else if (event.keyCode() == visage::KeyCode::LeftBracket) {
+      auto& ts = oscilloscope_.testSignal();
+      if (event.isShiftDown()) {
+        // Decrease detune
+        ts.setDetune(ts.detune() * 0.999);
+      } else {
+        // Decrease frequency
+        ts.setFrequency(ts.frequency() * 0.9);
+      }
+      return true;
+    }
+    else if (event.keyCode() == visage::KeyCode::RightBracket) {
+      auto& ts = oscilloscope_.testSignal();
+      if (event.isShiftDown()) {
+        // Increase detune
+        ts.setDetune(ts.detune() * 1.001);
+      } else {
+        // Increase frequency
+        ts.setFrequency(ts.frequency() * 1.1);
+      }
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::Left) {
