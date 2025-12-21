@@ -27,6 +27,9 @@
 #include <mutex>
 #include <algorithm>
 
+#include "FilterMorpher.h"
+#include "FilterJoystick.h"
+
 #ifdef __APPLE__
 #include <AudioToolbox/AudioToolbox.h>
 #endif
@@ -365,6 +368,10 @@ public:
 
   Oscilloscope() {
     setIgnoresMouseEvents(false, false);
+    // Initialize SVF with default settings for XY visualization
+    svf_.setSampleRate(44100.0);
+    svf_.setCutoff(150.0);      // Good starting frequency for XY visuals
+    svf_.setResonance(0.7);     // Moderate resonance for defined shapes
   }
 
   bool receivesDragDropFiles() override { return true; }
@@ -402,14 +409,34 @@ public:
   void setWaveformLock(bool lock) { waveform_lock_ = lock; }
   bool waveformLock() const { return waveform_lock_; }
 
-  void setAudioPlayer(AudioPlayer* player) { audio_player_ = player; }
+  void setAudioPlayer(AudioPlayer* player) {
+    audio_player_ = player;
+    if (player && player->hasAudio()) {
+      svf_.setSampleRate(player->sampleRate());
+    }
+  }
+
+  // SVF controls
+  FilterMorpher& morpher() { return morpher_; }
+  float filterCutoff() const { return filter_cutoff_; }
+  float filterResonance() const { return filter_resonance_; }
+  void setFilterCutoff(float fc) {
+    filter_cutoff_ = std::clamp(fc, 20.0f, 2000.0f);
+    svf_.setCutoff(filter_cutoff_);
+  }
+  void setFilterResonance(float r) {
+    filter_resonance_ = std::clamp(r, 0.0f, 1.0f);
+    svf_.setResonance(filter_resonance_);
+  }
+  void setFilterEnabled(bool enabled) { filter_enabled_ = enabled; }
+  bool filterEnabled() const { return filter_enabled_; }
 
   void generateWaveform(double time, std::vector<Sample>& samples) {
     const float w = static_cast<float>(width());
     const float h = static_cast<float>(height());
     if (w <= 0 || h <= 0) return;
 
-    // XY mode with audio
+    // XY mode with audio - apply SVF filter to Y channel for Lissajous shapes
     if (display_mode_ == DisplayMode::XY && audio_player_ && audio_player_->hasAudio()) {
       const int num_samples = 512;
       std::vector<float> left, right;
@@ -421,8 +448,17 @@ public:
       float scale = std::min(w, h) * 0.4f;
 
       for (int i = 0; i < num_samples; ++i) {
-        samples[i].x = cx + left[i] * scale;
-        samples[i].y = cy - right[i] * scale;
+        float x_val = left[i];
+        float y_val = right[i];
+
+        // Apply SVF filter to Y channel (right) for Lissajous shapes
+        if (filter_enabled_) {
+          auto outputs = svf_.process(static_cast<double>(y_val));
+          y_val = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
+        }
+
+        samples[i].x = cx + x_val * scale;
+        samples[i].y = cy - y_val * scale;
       }
       return;
     }
@@ -606,6 +642,13 @@ private:
   bool trigger_rising_ = true;
   bool waveform_lock_ = true;
 
+  // SVF filter for XY mode
+  mutable SimpleSVF svf_;
+  FilterMorpher morpher_;
+  float filter_cutoff_ = 150.0f;
+  float filter_resonance_ = 0.7f;
+  bool filter_enabled_ = true;
+
   AudioPlayer* audio_player_ = nullptr;
 };
 
@@ -618,9 +661,21 @@ public:
     oscilloscope_.layout().setMargin(0);
     oscilloscope_.setAudioPlayer(&audio_player_);
 
+    // Set up filter joystick (positioned in bottom-right corner)
+    addChild(&filter_joystick_);
+    filter_joystick_.setMorpher(&oscilloscope_.morpher());
+    filter_joystick_.setCutoff(&filter_cutoff_);
+    filter_joystick_.setResonance(&filter_resonance_);
+
     bloom_.setBloomSize(20.0f);
     bloom_.setBloomIntensity(1.5f);
     setPostEffect(&bloom_);
+  }
+
+  void resized() override {
+    // Position joystick in bottom-right corner
+    int js_size = std::min(150, static_cast<int>(std::min(width(), height())) / 3);
+    filter_joystick_.setBounds(width() - js_size - 10, height() - js_size - 10, js_size, js_size);
   }
 
   void setBloomEnabled(bool enabled) {
@@ -658,6 +713,22 @@ public:
       oscilloscope_.setTriggerRising(!oscilloscope_.triggerRising());
       return true;
     }
+    else if (event.keyCode() == visage::KeyCode::F) {
+      oscilloscope_.setFilterEnabled(!oscilloscope_.filterEnabled());
+      return true;
+    }
+    else if (event.keyCode() == visage::KeyCode::Left) {
+      // Decrease cutoff
+      filter_cutoff_ = std::max(20.0f, filter_cutoff_ * 0.9f);
+      oscilloscope_.setFilterCutoff(filter_cutoff_);
+      return true;
+    }
+    else if (event.keyCode() == visage::KeyCode::Right) {
+      // Increase cutoff
+      filter_cutoff_ = std::min(2000.0f, filter_cutoff_ * 1.1f);
+      oscilloscope_.setFilterCutoff(filter_cutoff_);
+      return true;
+    }
     else if (event.keyCode() == visage::KeyCode::Space) {
       if (audio_player_.isPlaying())
         audio_player_.stop();
@@ -689,10 +760,13 @@ public:
 
 private:
   Oscilloscope oscilloscope_;
+  FilterJoystick filter_joystick_;
   visage::BloomPostEffect bloom_;
   AudioPlayer audio_player_;
   float bloom_intensity_ = 1.5f;
   bool bloom_enabled_ = true;
+  float filter_cutoff_ = 150.0f;
+  float filter_resonance_ = 0.7f;
 };
 
 int runExample() {
