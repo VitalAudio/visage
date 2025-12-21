@@ -31,6 +31,7 @@ namespace visage {
   bool replaceFileWithText(const File& file, const std::string& text);
   bool hasWriteAccess(const File& file);
   bool fileExists(const File& file);
+  bool isDirectory(const File& file);
   bool appendTextToFile(const File& file, const std::string& text);
   std::unique_ptr<unsigned char[]> loadFileData(const File& file, size_t& size);
   std::string loadFileAsString(const File& file);
@@ -39,6 +40,8 @@ namespace visage {
   File appDataDirectory();
   File userDocumentsDirectory();
   File createTemporaryFile(const std::string& extension);
+  void createDirectory(const File& file);
+
   std::string fileName(const File& file);
   std::string fileStem(const File& file);
   std::string hostName();

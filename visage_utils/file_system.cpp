@@ -81,6 +81,10 @@ namespace visage {
     return std::filesystem::exists(file);
   }
 
+  bool isDirectory(const File& file) {
+    return std::filesystem::is_directory(file);
+  }
+
   bool appendTextToFile(const File& file, const std::string& text) {
     std::ofstream stream(file, std::ios::binary | std::ios::app);
     if (!stream)
@@ -190,6 +194,10 @@ namespace visage {
     long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
     std::string unique_file = std::to_string(ms) + "." + extension;
     return std::filesystem::temp_directory_path() / unique_file;
+  }
+
+  void createDirectory(const File& file) {
+    std::filesystem::create_directories(file);
   }
 
   std::string fileName(const File& file) {
