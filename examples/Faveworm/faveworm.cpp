@@ -30,6 +30,105 @@
 #include "FilterMorpher.h"
 #include "FilterJoystick.h"
 #include "TestSignalGenerator.h"
+#include "embedded/example_fonts.h"
+
+// Help overlay showing keyboard shortcuts
+class HelpOverlay : public visage::Frame {
+public:
+  HelpOverlay() {
+    setIgnoresMouseEvents(false, false);
+  }
+
+  void draw(visage::Canvas& canvas) override {
+    if (!visible_) return;
+
+    const float w = static_cast<float>(width());
+    const float h = static_cast<float>(height());
+
+    // Semi-transparent background
+    canvas.setColor(visage::Color(0.85f, 0.0f, 0.0f, 0.0f));
+    canvas.fill(0, 0, w, h);
+
+    // Title and help text
+    visage::Font title_font(24, resources::fonts::Lato_Regular_ttf);
+    visage::Font font(14, resources::fonts::DroidSansMono_ttf);
+
+    float y = 30;
+    float col1 = 30;
+    float col2 = 130;
+    float line_h = 20;
+
+    canvas.setColor(visage::Color(1.0f, 0.4f, 1.0f, 0.9f));
+    canvas.text("Faveworm Help", title_font, visage::Font::kTopLeft, col1, y, w - 60, 30);
+    y += 40;
+
+    canvas.setColor(visage::Color(0.9f, 0.8f, 0.9f, 0.95f));
+
+    auto drawSection = [&](const char* title) {
+      canvas.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.8f));
+      canvas.text(title, font, visage::Font::kTopLeft, col1, y, w - 60, line_h);
+      y += line_h + 5;
+      canvas.setColor(visage::Color(0.9f, 0.8f, 0.9f, 0.95f));
+    };
+
+    auto drawKey = [&](const char* key, const char* desc) {
+      canvas.setColor(visage::Color(1.0f, 0.6f, 1.0f, 0.7f));
+      canvas.text(key, font, visage::Font::kTopLeft, col1, y, 90, line_h);
+      canvas.setColor(visage::Color(0.9f, 0.8f, 0.9f, 0.95f));
+      canvas.text(desc, font, visage::Font::kTopLeft, col2, y, w - col2 - 30, line_h);
+      y += line_h;
+    };
+
+    drawSection("General");
+    drawKey("H / ?", "Toggle this help");
+    drawKey("M", "Cycle display mode");
+    drawKey("Space", "Play/pause audio");
+    drawKey("B", "Toggle bloom");
+    drawKey("P", "Toggle phosphor");
+    drawKey("Up/Down", "Adjust bloom intensity");
+    y += 10;
+
+    drawSection("Trigger Mode");
+    drawKey("L", "Toggle waveform lock");
+    drawKey("E", "Toggle trigger edge");
+    drawKey("Shift+Up/Dn", "Adjust threshold");
+    y += 10;
+
+    drawSection("XY Mode - Filter");
+    drawKey("F", "Toggle filter");
+    drawKey("S", "Toggle split mode");
+    drawKey("D", "Cycle split presets");
+    drawKey("Left/Right", "Adjust cutoff");
+    y += 10;
+
+    drawSection("XY Mode - Test Signal");
+    drawKey("T", "Toggle test signal");
+    drawKey("W", "Cycle waveform");
+    drawKey("[ / ]", "Adjust frequency");
+    drawKey("Shift+[/]", "Adjust detune");
+    y += 15;
+
+    canvas.setColor(visage::Color(0.6f, 0.5f, 0.6f, 0.6f));
+    canvas.text("Drag audio file to load", font, visage::Font::kTopLeft, col1, y, w - 60, line_h);
+
+    redraw();
+  }
+
+  void mouseDown(const visage::MouseEvent&) override {
+    setVisible(false);
+  }
+
+  void setVisible(bool v) {
+    visible_ = v;
+    if (visible_) redraw();
+  }
+
+  bool isVisible() const { return visible_; }
+  void toggle() { setVisible(!visible_); }
+
+private:
+  bool visible_ = false;
+};
 
 #ifdef __APPLE__
 #include <AudioToolbox/AudioToolbox.h>
@@ -733,8 +832,11 @@ public:
     filter_joystick_.setResonance(&filter_resonance_);
     filter_joystick_.setVisible(false);  // Hidden by default (TimeFree mode)
 
+    // Help overlay (covers entire window)
+    addChild(&help_overlay_);
+
     bloom_.setBloomSize(20.0f);
-    bloom_.setBloomIntensity(1.5f);
+    bloom_.setBloomIntensity(0.1f);  // Subtle glow by default
     setPostEffect(&bloom_);
   }
 
@@ -742,6 +844,8 @@ public:
     // Position joystick in bottom-right corner
     int js_size = std::min(150, static_cast<int>(std::min(width(), height())) / 3);
     filter_joystick_.setBounds(width() - js_size - 10, height() - js_size - 10, js_size, js_size);
+    // Help overlay covers entire window
+    help_overlay_.setBounds(0, 0, width(), height());
   }
 
   void setBloomEnabled(bool enabled) {
@@ -765,6 +869,11 @@ public:
     }
     else if (event.keyCode() == visage::KeyCode::P) {
       setPhosphorEnabled(!phosphorEnabled());
+      return true;
+    }
+    else if (event.keyCode() == visage::KeyCode::H ||
+             (event.isShiftDown() && event.keyCode() == visage::KeyCode::Slash)) {
+      help_overlay_.toggle();
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::M) {
@@ -870,9 +979,10 @@ public:
 private:
   Oscilloscope oscilloscope_;
   FilterJoystick filter_joystick_;
+  HelpOverlay help_overlay_;
   visage::BloomPostEffect bloom_;
   AudioPlayer audio_player_;
-  float bloom_intensity_ = 1.5f;
+  float bloom_intensity_ = 0.1f;
   bool bloom_enabled_ = true;
   float filter_cutoff_ = 150.0f;
   float filter_resonance_ = 0.7f;
