@@ -661,11 +661,12 @@ public:
     oscilloscope_.layout().setMargin(0);
     oscilloscope_.setAudioPlayer(&audio_player_);
 
-    // Set up filter joystick (positioned in bottom-right corner)
+    // Set up filter joystick (positioned in bottom-right corner, only visible in XY mode)
     addChild(&filter_joystick_);
     filter_joystick_.setMorpher(&oscilloscope_.morpher());
     filter_joystick_.setCutoff(&filter_cutoff_);
     filter_joystick_.setResonance(&filter_resonance_);
+    filter_joystick_.setVisible(false);  // Hidden by default (TimeFree mode)
 
     bloom_.setBloomSize(20.0f);
     bloom_.setBloomIntensity(1.5f);
@@ -703,6 +704,7 @@ public:
     }
     else if (event.keyCode() == visage::KeyCode::M) {
       oscilloscope_.cycleDisplayMode();
+      filter_joystick_.setVisible(oscilloscope_.displayMode() == DisplayMode::XY);
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::L) {
