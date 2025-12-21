@@ -373,6 +373,11 @@ public:
     svf_.setSampleRate(44100.0);
     svf_.setCutoff(150.0);      // Good starting frequency for XY visuals
     svf_.setResonance(0.7);     // Moderate resonance for defined shapes
+    // Stereo router for split X/Y filter modes
+    stereo_router_.setSampleRate(44100.0);
+    stereo_router_.setCutoff(150.0);
+    stereo_router_.setResonance(0.7);
+    stereo_router_.setSplitMode(StereoFilterRouter::SplitMode::LpHp);
   }
 
   bool receivesDragDropFiles() override { return true; }
@@ -419,18 +424,26 @@ public:
 
   // SVF controls
   FilterMorpher& morpher() { return morpher_; }
+  StereoFilterRouter& stereoRouter() { return stereo_router_; }
   float filterCutoff() const { return filter_cutoff_; }
   float filterResonance() const { return filter_resonance_; }
   void setFilterCutoff(float fc) {
     filter_cutoff_ = std::clamp(fc, 20.0f, 2000.0f);
     svf_.setCutoff(filter_cutoff_);
+    stereo_router_.setCutoff(filter_cutoff_);
   }
   void setFilterResonance(float r) {
     filter_resonance_ = std::clamp(r, 0.0f, 1.0f);
     svf_.setResonance(filter_resonance_);
+    stereo_router_.setResonance(filter_resonance_);
   }
   void setFilterEnabled(bool enabled) { filter_enabled_ = enabled; }
   bool filterEnabled() const { return filter_enabled_; }
+
+  // Stereo split mode (mono source -> X/Y via different filter outputs)
+  void setStereoSplitMode(bool enabled) { stereo_split_mode_ = enabled; }
+  bool stereoSplitMode() const { return stereo_split_mode_; }
+  void cycleSplitMode() { stereo_router_.cycleSplitMode(); }
 
   // Test signal generator controls
   TestSignalGenerator& testSignal() { return test_signal_; }
@@ -442,7 +455,7 @@ public:
     const float h = static_cast<float>(height());
     if (w <= 0 || h <= 0) return;
 
-    // XY mode with audio - apply SVF filter to Y channel for Lissajous shapes
+    // XY mode with audio - apply SVF filter for Lissajous shapes
     if (display_mode_ == DisplayMode::XY && audio_player_ && audio_player_->hasAudio()) {
       const int num_samples = 512;
       std::vector<float> left, right;
@@ -457,10 +470,18 @@ public:
         float x_val = left[i];
         float y_val = right[i];
 
-        // Apply SVF filter to Y channel (right) for Lissajous shapes
         if (filter_enabled_) {
-          auto outputs = svf_.process(static_cast<double>(y_val));
-          y_val = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
+          if (stereo_split_mode_) {
+            // Split mode: mix to mono, route through different filter outputs
+            float mono = (left[i] + right[i]) * 0.5f;
+            auto xy = stereo_router_.process(static_cast<double>(mono));
+            x_val = static_cast<float>(xy.x);
+            y_val = static_cast<float>(xy.y);
+          } else {
+            // Morph mode: filter Y channel with joystick-controlled mix
+            auto outputs = svf_.process(static_cast<double>(y_val));
+            y_val = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
+          }
         }
 
         samples[i].x = cx + x_val * scale;
@@ -481,10 +502,18 @@ public:
         float x_val, y_val;
         test_signal_.getSample(x_val, y_val);
 
-        // Apply SVF filter to Y channel for Lissajous shapes
         if (filter_enabled_) {
-          auto outputs = svf_.process(static_cast<double>(y_val));
-          y_val = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
+          if (stereo_split_mode_) {
+            // Split mode: mono source -> X/Y via different filter outputs
+            // Use X oscillator as mono source for interesting Lissajous
+            auto xy = stereo_router_.process(static_cast<double>(x_val));
+            x_val = static_cast<float>(xy.x);
+            y_val = static_cast<float>(xy.y);
+          } else {
+            // Morph mode: filter Y channel with joystick-controlled mix
+            auto outputs = svf_.process(static_cast<double>(y_val));
+            y_val = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
+          }
         }
 
         samples[i].x = cx + x_val * scale;
@@ -675,9 +704,11 @@ private:
   // SVF filter for XY mode
   mutable SimpleSVF svf_;
   FilterMorpher morpher_;
+  mutable StereoFilterRouter stereo_router_;
   float filter_cutoff_ = 150.0f;
   float filter_resonance_ = 0.7f;
   bool filter_enabled_ = true;
+  bool stereo_split_mode_ = false;  // false = morph (joystick), true = split (X/Y routing)
 
   // Test signal generator for XY mode without audio
   TestSignalGenerator test_signal_;
@@ -751,6 +782,16 @@ public:
     }
     else if (event.keyCode() == visage::KeyCode::F) {
       oscilloscope_.setFilterEnabled(!oscilloscope_.filterEnabled());
+      return true;
+    }
+    else if (event.keyCode() == visage::KeyCode::S) {
+      // Toggle stereo split mode (mono -> X/Y via different filter outputs)
+      oscilloscope_.setStereoSplitMode(!oscilloscope_.stereoSplitMode());
+      return true;
+    }
+    else if (event.keyCode() == visage::KeyCode::D) {
+      // Cycle through split mode presets
+      oscilloscope_.cycleSplitMode();
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::W) {

@@ -3,6 +3,21 @@
 #include <cmath>
 #include <algorithm>
 
+// Filter output selection for X/Y routing
+enum class FilterOutput { LP, BP, HP, BR, AP, Input };
+
+inline const char* filterOutputName(FilterOutput f) {
+  switch (f) {
+    case FilterOutput::LP: return "LP";
+    case FilterOutput::BP: return "BP";
+    case FilterOutput::HP: return "HP";
+    case FilterOutput::BR: return "BR";
+    case FilterOutput::AP: return "AP";
+    case FilterOutput::Input: return "In";
+  }
+  return "?";
+}
+
 // Simple TPT SVF that exposes LP/BP/HP outputs for morphing
 class SimpleSVF {
 public:
@@ -36,6 +51,19 @@ public:
 
   void reset() { z1_ = z2_ = 0.0; }
 
+  // Get specific output from last process() call
+  static double getOutput(const Outputs& o, FilterOutput type, double input) {
+    switch (type) {
+      case FilterOutput::LP: return o.lp;
+      case FilterOutput::BP: return o.bp;
+      case FilterOutput::HP: return o.hp;
+      case FilterOutput::BR: return o.lp + o.hp;  // Notch
+      case FilterOutput::AP: return o.lp + o.hp - o.bp;  // Allpass approx
+      case FilterOutput::Input: return input;
+    }
+    return input;
+  }
+
 private:
   void updateCoeffs() {
     g_ = std::tan(kPi * cutoff_ / sample_rate_);
@@ -48,6 +76,103 @@ private:
   double resonance_ = 0.7;
   double g_ = 0.0, k_ = 1.0, a1_ = 1.0;
   double z1_ = 0.0, z2_ = 0.0;
+};
+
+// Stereo filter router: mono input -> X/Y outputs via selectable filter modes
+// Perfect for Lissajous patterns where phase differences create rotation
+class StereoFilterRouter {
+public:
+  // Preset split modes for interesting XY patterns
+  // Each creates different visual characteristics due to phase relationships
+  enum class SplitMode {
+    LpHp,      // Classic retro: smooth ellipses, analog feel (fc 40-80, Q 0.7)
+    BpAp,      // Geometric flowers: swirling shapes, BP + phase rotation (fc 150-250, Q 1.0)
+    BrAp,      // Kaleidoscope: notch removes freqs, AP rotates phase (fc 300-800, Q 1.2-1.8)
+    LpBp,      // Organic petals: soft loops, classic visualizer look (fc 100-200, Q 0.8)
+    ApHp,      // Liquid vector: AP phase shift + HP edge (fc 20-40, Q 0.5-0.7)
+    BpBr,      // Complementary: BP emphasizes what notch removes
+    InMorph,   // Live control: X=raw input, Y=morphed (use with joystick)
+    Custom     // Manual X/Y output selection
+  };
+
+  static constexpr int kNumModes = 8;
+
+  void setSplitMode(SplitMode mode) {
+    split_mode_ = mode;
+    switch (mode) {
+      case SplitMode::LpHp:    x_output_ = FilterOutput::LP; y_output_ = FilterOutput::HP; break;
+      case SplitMode::BpAp:    x_output_ = FilterOutput::BP; y_output_ = FilterOutput::AP; break;
+      case SplitMode::BrAp:    x_output_ = FilterOutput::BR; y_output_ = FilterOutput::AP; break;
+      case SplitMode::LpBp:    x_output_ = FilterOutput::LP; y_output_ = FilterOutput::BP; break;
+      case SplitMode::ApHp:    x_output_ = FilterOutput::AP; y_output_ = FilterOutput::HP; break;
+      case SplitMode::BpBr:    x_output_ = FilterOutput::BP; y_output_ = FilterOutput::BR; break;
+      case SplitMode::InMorph: x_output_ = FilterOutput::Input; y_output_ = FilterOutput::LP; break;
+      case SplitMode::Custom:  break;  // Keep current settings
+    }
+  }
+
+  void cycleSplitMode() {
+    int next = (static_cast<int>(split_mode_) + 1) % kNumModes;
+    setSplitMode(static_cast<SplitMode>(next));
+  }
+
+  SplitMode splitMode() const { return split_mode_; }
+
+  const char* splitModeName() const {
+    switch (split_mode_) {
+      case SplitMode::LpHp:    return "LP/HP Retro";
+      case SplitMode::BpAp:    return "BP/AP Flowers";
+      case SplitMode::BrAp:    return "BR/AP Kaleidoscope";
+      case SplitMode::LpBp:    return "LP/BP Organic";
+      case SplitMode::ApHp:    return "AP/HP Liquid";
+      case SplitMode::BpBr:    return "BP/BR Complement";
+      case SplitMode::InMorph: return "In/Morph Live";
+      case SplitMode::Custom:  return "Custom";
+    }
+    return "?";
+  }
+
+  const char* splitModeDescription() const {
+    switch (split_mode_) {
+      case SplitMode::LpHp:    return "Classic ellipses (fc 40-80, Q 0.7)";
+      case SplitMode::BpAp:    return "Swirling shapes (fc 150-250, Q 1.0)";
+      case SplitMode::BrAp:    return "Geometric patterns (fc 300-800, Q 1.2)";
+      case SplitMode::LpBp:    return "Soft loops (fc 100-200, Q 0.8)";
+      case SplitMode::ApHp:    return "Phase + edge (fc 20-40, Q 0.5)";
+      case SplitMode::BpBr:    return "Complementary bands";
+      case SplitMode::InMorph: return "X=raw, Y=filtered (use joystick)";
+      case SplitMode::Custom:  return "Manual X/Y selection";
+    }
+    return "";
+  }
+
+  // Manual output selection
+  void setXOutput(FilterOutput f) { x_output_ = f; split_mode_ = SplitMode::Custom; }
+  void setYOutput(FilterOutput f) { y_output_ = f; split_mode_ = SplitMode::Custom; }
+  FilterOutput xOutput() const { return x_output_; }
+  FilterOutput yOutput() const { return y_output_; }
+
+  void setSampleRate(double sr) { svf_.setSampleRate(sr); }
+  void setCutoff(double fc) { svf_.setCutoff(fc); }
+  void setResonance(double r) { svf_.setResonance(r); }
+  void reset() { svf_.reset(); }
+
+  // Process mono input, return X/Y outputs
+  struct StereoOut { double x, y; };
+
+  StereoOut process(double input) {
+    auto o = svf_.process(input);
+    return {
+      SimpleSVF::getOutput(o, x_output_, input),
+      SimpleSVF::getOutput(o, y_output_, input)
+    };
+  }
+
+private:
+  SimpleSVF svf_;
+  SplitMode split_mode_ = SplitMode::LpHp;
+  FilterOutput x_output_ = FilterOutput::LP;
+  FilterOutput y_output_ = FilterOutput::HP;
 };
 
 // 360-degree Filter Morphing Controller

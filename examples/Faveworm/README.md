@@ -32,7 +32,23 @@ Analog oscilloscope waveform visualization inspired by [faveworm](https://music.
 | Key | Action |
 |-----|--------|
 | `F` | Toggle filter on/off |
+| `S` | Toggle stereo split mode (mono → X/Y via different filter outputs) |
+| `D` | Cycle split mode presets |
 | `Left/Right` | Adjust filter cutoff frequency |
+
+### Split Mode Presets
+
+In stereo split mode, a mono source is routed through an SVF, with different filter outputs sent to X and Y axes. This creates phase relationships that produce rotating, evolving Lissajous patterns.
+
+| Preset | X | Y | Best Settings | Visual Style |
+|--------|---|---|---------------|--------------|
+| LP/HP Retro | LP | HP | fc 40-80, Q 0.7 | Classic ellipses, analog feel |
+| BP/AP Flowers | BP | AP | fc 150-250, Q 1.0 | Swirling geometric shapes |
+| BR/AP Kaleidoscope | BR | AP | fc 300-800, Q 1.2 | Psychedelic mandalas |
+| LP/BP Organic | LP | BP | fc 100-200, Q 0.8 | Soft loops and petals |
+| AP/HP Liquid | AP | HP | fc 20-40, Q 0.5 | Liquid vector graphics |
+| BP/BR Complement | BP | BR | fc 200-500, Q 0.9 | Complementary bands |
+| In/Morph Live | Input | Filtered | varies | X stable, Y evolves (use joystick) |
 
 ### Test Signal Generator (XY Mode)
 | Key | Action |
