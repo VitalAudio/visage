@@ -133,6 +133,33 @@ private:
   bool visible_ = false;
 };
 
+// Vintage control panel background
+class ControlPanel : public visage::Frame {
+public:
+  void draw(visage::Canvas& canvas) override {
+    const float w = static_cast<float>(width());
+    const float h = static_cast<float>(height());
+
+    // Dark metallic background
+    canvas.setColor(visage::Color(0.95f, 0.06f, 0.07f, 0.08f));
+    canvas.fill(0, 0, w, h);
+
+    // Subtle border/bevel (thin rectangle)
+    canvas.setColor(visage::Color(0.3f, 0.12f, 0.12f, 0.10f));
+    canvas.fill(0, 0, 2, h);
+
+    // Vintage screws/rivets at corners
+    canvas.setColor(visage::Color(0.4f, 0.15f, 0.15f, 0.12f));
+    float rivet = 6.0f;
+    canvas.circle(8 - rivet/2, 8 - rivet/2, rivet);
+    canvas.circle(w - 8 - rivet/2, 8 - rivet/2, rivet);
+    canvas.circle(8 - rivet/2, h - 8 - rivet/2, rivet);
+    canvas.circle(w - 8 - rivet/2, h - 8 - rivet/2, rivet);
+
+    redraw();
+  }
+};
+
 #ifdef __APPLE__
 #include <AudioToolbox/AudioToolbox.h>
 #endif
@@ -828,12 +855,30 @@ public:
     oscilloscope_.layout().setMargin(0);
     oscilloscope_.setAudioPlayer(&audio_player_);
 
-    // Set up filter joystick (positioned in bottom-right corner, only visible in XY mode)
+    // Set up filter joystick for morph control
     addChild(&filter_joystick_);
     filter_joystick_.setMorpher(&oscilloscope_.morpher());
-    filter_joystick_.setCutoff(&filter_cutoff_);
-    filter_joystick_.setResonance(&filter_resonance_);
     filter_joystick_.setVisible(false);  // Hidden by default (TimeFree mode)
+
+    // Cutoff knob (logarithmic for frequency)
+    addChild(&cutoff_knob_);
+    cutoff_knob_.setValue(&filter_cutoff_);
+    cutoff_knob_.setRange(20.0f, 2000.0f);
+    cutoff_knob_.setColor(visage::Color(1.0f, 0.3f, 0.9f, 0.7f));  // Cyan-ish
+    cutoff_knob_.setCallback([this](float v) { oscilloscope_.setFilterCutoff(v); });
+    cutoff_knob_.setVisible(false);
+
+    // Resonance knob (linear)
+    addChild(&resonance_knob_);
+    resonance_knob_.setValue(&filter_resonance_);
+    resonance_knob_.setRange(0.0f, 1.0f);
+    resonance_knob_.setColor(visage::Color(1.0f, 0.9f, 0.5f, 0.3f));  // Orange-ish
+    resonance_knob_.setCallback([this](float v) { oscilloscope_.setFilterResonance(v); });
+    resonance_knob_.setVisible(false);
+
+    // Control panel background
+    addChild(&control_panel_);
+    control_panel_.setVisible(false);
 
     // Help overlay (covers entire window)
     addChild(&help_overlay_);
@@ -844,9 +889,37 @@ public:
   }
 
   void resized() override {
-    // Position joystick in bottom-right corner
-    int js_size = std::min(150, static_cast<int>(std::min(width(), height())) / 3);
-    filter_joystick_.setBounds(width() - js_size - 10, height() - js_size - 10, js_size, js_size);
+    bool show_panel = oscilloscope_.displayMode() == DisplayMode::XY;
+
+    if (show_panel) {
+      // Vintage control panel on right side
+      const int panel_width = 140;
+      const int margin = 8;
+      const int knob_size = 60;
+      const int js_size = 100;
+
+      int panel_x = width() - panel_width;
+      control_panel_.setBounds(panel_x, 0, panel_width, height());
+
+      // Joystick at top of panel
+      int y = margin + 10;
+      filter_joystick_.setBounds(panel_x + (panel_width - js_size) / 2, y, js_size, js_size);
+      y += js_size + margin + 10;
+
+      // Cutoff knob
+      cutoff_knob_.setBounds(panel_x + (panel_width - knob_size) / 2, y, knob_size, knob_size);
+      y += knob_size + margin;
+
+      // Resonance knob
+      resonance_knob_.setBounds(panel_x + (panel_width - knob_size) / 2, y, knob_size, knob_size);
+
+      // Oscilloscope fills remaining space
+      oscilloscope_.setBounds(0, 0, width() - panel_width, height());
+    } else {
+      // No panel - oscilloscope fills entire window
+      oscilloscope_.setBounds(0, 0, width(), height());
+    }
+
     // Help overlay covers entire window
     help_overlay_.setBounds(0, 0, width(), height());
   }
@@ -881,7 +954,13 @@ public:
     }
     else if (event.keyCode() == visage::KeyCode::M) {
       oscilloscope_.cycleDisplayMode();
-      filter_joystick_.setVisible(oscilloscope_.displayMode() == DisplayMode::XY);
+      bool show_panel = oscilloscope_.displayMode() == DisplayMode::XY;
+      control_panel_.setVisible(show_panel);
+      filter_joystick_.setVisible(show_panel);
+      cutoff_knob_.setVisible(show_panel);
+      resonance_knob_.setVisible(show_panel);
+      // Resize to update oscilloscope bounds
+      resized();
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::L) {
@@ -981,7 +1060,10 @@ public:
 
 private:
   Oscilloscope oscilloscope_;
+  ControlPanel control_panel_;
   FilterJoystick filter_joystick_;
+  FilterKnob cutoff_knob_{"Cutoff", true};  // logarithmic
+  FilterKnob resonance_knob_{"Resonance", false};  // linear
   HelpOverlay help_overlay_;
   visage::BloomPostEffect bloom_;
   AudioPlayer audio_player_;

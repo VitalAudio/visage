@@ -3,7 +3,146 @@
 #include <visage/app.h>
 #include <cmath>
 #include <algorithm>
+#include <functional>
 #include "FilterMorpher.h"
+
+// Simple rotary knob for filter parameters
+class FilterKnob : public visage::Frame {
+public:
+  static constexpr float kPi = 3.14159265358979323846f;
+
+  using Callback = std::function<void(float)>;
+
+  FilterKnob(const char* label = "", bool logarithmic = false)
+      : label_(label), logarithmic_(logarithmic) {
+    setIgnoresMouseEvents(false, false);
+  }
+
+  void setValue(float* v) { value_ = v; }
+  void setRange(float min, float max) { min_ = min; max_ = max; }
+  void setColor(visage::Color c) { color_ = c; }
+  void setCallback(Callback cb) { callback_ = cb; }
+
+  void draw(visage::Canvas& canvas) override {
+    const float w = static_cast<float>(width());
+    const float h = static_cast<float>(height());
+    const float cx = w * 0.5f;
+    const float cy = h * 0.5f;
+    const float r = std::min(w, h) * 0.4f;
+
+    // Background
+    canvas.setColor(visage::Color(0.6f, 0.08f, 0.08f, 0.08f));
+    canvas.circle(cx - r, cy - r, r * 2);
+
+    // Arc showing value range (270 degrees, from 135 to 405)
+    const float start_angle = 0.75f * kPi;  // 135 degrees
+    const float range = 1.5f * kPi;         // 270 degrees
+
+    // Draw tick marks as small circles
+    canvas.setColor(visage::Color(0.5f, 0.3f, 0.3f, 0.3f));
+    for (int i = 0; i <= 10; ++i) {
+      float t = static_cast<float>(i) / 10.0f;
+      float angle = start_angle + t * range;
+      float tick_r = r * 0.85f;
+      canvas.circle(cx + std::cos(angle) * tick_r - 2, cy + std::sin(angle) * tick_r - 2, 4);
+    }
+
+    // Value indicator
+    if (value_) {
+      float norm = getNormalizedValue();
+      float angle = start_angle + norm * range;
+
+      // Arc fill
+      canvas.setColor(visage::Color(color_.alpha() * 0.4f, color_.red(), color_.green(), color_.blue()));
+      const int segments = static_cast<int>(norm * 30) + 1;
+      for (int i = 0; i < segments; ++i) {
+        float t0 = static_cast<float>(i) / segments * norm;
+        float t1 = static_cast<float>(i + 1) / segments * norm;
+        float a0 = start_angle + t0 * range;
+        float a1 = start_angle + t1 * range;
+        float ri = r * 0.6f;
+        float ro = r * 0.85f;
+        canvas.triangle(cx + std::cos(a0) * ri, cy + std::sin(a0) * ri,
+                       cx + std::cos(a0) * ro, cy + std::sin(a0) * ro,
+                       cx + std::cos(a1) * ri, cy + std::sin(a1) * ri);
+        canvas.triangle(cx + std::cos(a1) * ri, cy + std::sin(a1) * ri,
+                       cx + std::cos(a0) * ro, cy + std::sin(a0) * ro,
+                       cx + std::cos(a1) * ro, cy + std::sin(a1) * ro);
+      }
+
+      // Pointer as elongated dot
+      canvas.setColor(color_);
+      float px = cx + std::cos(angle) * r * 0.5f;
+      float py = cy + std::sin(angle) * r * 0.5f;
+      canvas.circle(px - 5, py - 5, 10);
+
+      // Center dot
+      canvas.setColor(visage::Color(0.6f, 0.2f, 0.2f, 0.2f));
+      canvas.circle(cx - 6, cy - 6, 12);
+    }
+
+    redraw();
+  }
+
+  void mouseDown(const visage::MouseEvent& event) override {
+    dragging_ = true;
+    last_y_ = event.position.y;
+  }
+
+  void mouseDrag(const visage::MouseEvent& event) override {
+    if (!dragging_ || !value_) return;
+
+    float delta = (last_y_ - event.position.y) / 100.0f;
+    last_y_ = event.position.y;
+
+    if (logarithmic_) {
+      float mult = 1.0f + delta * 0.5f;
+      *value_ = std::clamp(*value_ * mult, min_, max_);
+    } else {
+      *value_ = std::clamp(*value_ + delta * (max_ - min_), min_, max_);
+    }
+    if (callback_) callback_(*value_);
+  }
+
+  void mouseUp(const visage::MouseEvent&) override {
+    dragging_ = false;
+  }
+
+  bool mouseWheel(const visage::MouseEvent& event) override {
+    if (!value_) return false;
+
+    if (logarithmic_) {
+      float mult = event.wheel_delta_y > 0 ? 1.1f : 0.9f;
+      *value_ = std::clamp(*value_ * mult, min_, max_);
+    } else {
+      float delta = event.wheel_delta_y * 0.05f * (max_ - min_);
+      *value_ = std::clamp(*value_ + delta, min_, max_);
+    }
+    if (callback_) callback_(*value_);
+    return true;
+  }
+
+private:
+  float getNormalizedValue() const {
+    if (!value_) return 0.0f;
+    if (logarithmic_) {
+      float log_min = std::log(min_);
+      float log_max = std::log(max_);
+      float log_val = std::log(*value_);
+      return (log_val - log_min) / (log_max - log_min);
+    }
+    return (*value_ - min_) / (max_ - min_);
+  }
+
+  const char* label_;
+  bool logarithmic_;
+  float* value_ = nullptr;
+  float min_ = 0.0f, max_ = 1.0f;
+  visage::Color color_{1.0f, 0.5f, 0.8f, 0.8f};
+  Callback callback_;
+  bool dragging_ = false;
+  float last_y_ = 0.0f;
+};
 
 // Visual Joystick Control for Filter Morphing
 class FilterJoystick : public visage::Frame {
