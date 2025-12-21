@@ -497,7 +497,7 @@ public:
   };
 
   Oscilloscope() {
-    setIgnoresMouseEvents(false, false);
+    setIgnoresMouseEvents(true, false);  // Pass through mouse clicks, but children don't ignore
     // Initialize SVF with default settings for XY visualization
     svf_.setSampleRate(44100.0);
     svf_.setCutoff(150.0);      // Good starting frequency for XY visuals
@@ -880,45 +880,129 @@ public:
     resonance_knob_.setCallback([this](float v) { oscilloscope_.setFilterResonance(v); });
     resonance_knob_.setVisible(false);
 
+    // Mode selector (display mode)
+    addChild(&mode_selector_);
+    mode_selector_.setOptions({"Time", "Trig", "XY"});
+    mode_selector_.setColor(visage::Color(1.0f, 0.4f, 0.8f, 0.9f));
+    mode_selector_.setCallback([this](int i) {
+      oscilloscope_.setDisplayMode(static_cast<DisplayMode>(i));
+      updatePanelVisibility();
+    });
+    mode_selector_.setVisible(false);
+
+    // Waveform selector
+    addChild(&waveform_selector_);
+    waveform_selector_.setOptions({"Sin", "Tri", "Saw", "Sqr", "Nz"});
+    waveform_selector_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));
+    waveform_selector_.setCallback([this](int i) {
+      oscilloscope_.testSignal().setWaveform(static_cast<TestSignalGenerator::Waveform>(i));
+    });
+    waveform_selector_.setVisible(false);
+
+    // Split mode selector
+    addChild(&split_selector_);
+    split_selector_.setOptions({"LP/HP", "BP/AP", "BR/AP", "LP/BP", "AP/HP", "BP/BR", "Morph"});
+    split_selector_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
+    split_selector_.setCallback([this](int i) {
+      oscilloscope_.stereoRouter().setSplitMode(static_cast<StereoFilterRouter::SplitMode>(i));
+    });
+    split_selector_.setVisible(false);
+
+    // Filter on/off switch
+    addChild(&filter_switch_);
+    filter_switch_.setValue(true);
+    filter_switch_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));
+    filter_switch_.setCallback([this](bool v) { oscilloscope_.setFilterEnabled(v); });
+    filter_switch_.setVisible(false);
+
+    // Split mode on/off switch
+    addChild(&split_switch_);
+    split_switch_.setValue(false);
+    split_switch_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
+    split_switch_.setCallback([this](bool v) { oscilloscope_.setStereoSplitMode(v); });
+    split_switch_.setVisible(false);
+
     // Help overlay (covers entire window)
     addChild(&help_overlay_);
 
     bloom_.setBloomSize(20.0f);
     bloom_.setBloomIntensity(0.2f);  // Subtle glow by default
     setPostEffect(&bloom_);
+
+    // Initialize panel visibility
+    updatePanelVisibility();
+  }
+
+  void updatePanelVisibility() {
+    bool show_panel = true;  // Always show panel
+    bool is_xy = oscilloscope_.displayMode() == DisplayMode::XY;
+
+    control_panel_.setVisible(show_panel);
+    mode_selector_.setVisible(show_panel);
+
+    // XY-specific controls
+    filter_joystick_.setVisible(is_xy);
+    cutoff_knob_.setVisible(is_xy);
+    resonance_knob_.setVisible(is_xy);
+    waveform_selector_.setVisible(is_xy);
+    split_selector_.setVisible(is_xy);
+    filter_switch_.setVisible(is_xy);
+    split_switch_.setVisible(is_xy);
+
+    resized();
   }
 
   void resized() override {
-    bool show_panel = oscilloscope_.displayMode() == DisplayMode::XY;
+    // Vintage control panel on right side (always visible)
+    const int panel_width = 140;
+    const int margin = 6;
+    const int knob_size = 50;
+    const int js_size = 80;
+    const int selector_h = 24;
+    const int switch_h = 28;
 
-    if (show_panel) {
-      // Vintage control panel on right side
-      const int panel_width = 140;
-      const int margin = 8;
-      const int knob_size = 60;
-      const int js_size = 100;
+    int panel_x = width() - panel_width;
+    control_panel_.setBounds(panel_x, 0, panel_width, height());
 
-      int panel_x = width() - panel_width;
-      control_panel_.setBounds(panel_x, 0, panel_width, height());
+    int y = margin;
+    int cx = panel_x + (panel_width - knob_size) / 2;
 
-      // Joystick at top of panel
-      int y = margin + 10;
+    // Mode selector at top (always visible)
+    mode_selector_.setBounds(panel_x + 10, y, panel_width - 20, selector_h);
+    y += selector_h + margin;
+
+    // XY mode controls
+    if (oscilloscope_.displayMode() == DisplayMode::XY) {
+      // Waveform selector
+      waveform_selector_.setBounds(panel_x + 10, y, panel_width - 20, selector_h);
+      y += selector_h + margin;
+
+      // Filter switch + label area
+      filter_switch_.setBounds(panel_x + 10, y, panel_width - 20, switch_h);
+      y += switch_h + margin;
+
+      // Joystick
       filter_joystick_.setBounds(panel_x + (panel_width - js_size) / 2, y, js_size, js_size);
-      y += js_size + margin + 10;
+      y += js_size + margin;
 
       // Cutoff knob
-      cutoff_knob_.setBounds(panel_x + (panel_width - knob_size) / 2, y, knob_size, knob_size);
+      cutoff_knob_.setBounds(cx, y, knob_size, knob_size);
       y += knob_size + margin;
 
       // Resonance knob
-      resonance_knob_.setBounds(panel_x + (panel_width - knob_size) / 2, y, knob_size, knob_size);
+      resonance_knob_.setBounds(cx, y, knob_size, knob_size);
+      y += knob_size + margin;
 
-      // Oscilloscope fills remaining space
-      oscilloscope_.setBounds(0, 0, width() - panel_width, height());
-    } else {
-      // No panel - oscilloscope fills entire window
-      oscilloscope_.setBounds(0, 0, width(), height());
+      // Split switch
+      split_switch_.setBounds(panel_x + 10, y, panel_width - 20, switch_h);
+      y += switch_h + margin;
+
+      // Split mode selector
+      split_selector_.setBounds(panel_x + 10, y, panel_width - 20, selector_h);
     }
+
+    // Oscilloscope fills remaining space
+    oscilloscope_.setBounds(0, 0, width() - panel_width, height());
 
     // Help overlay covers entire window
     help_overlay_.setBounds(0, 0, width(), height());
@@ -954,13 +1038,8 @@ public:
     }
     else if (event.keyCode() == visage::KeyCode::M) {
       oscilloscope_.cycleDisplayMode();
-      bool show_panel = oscilloscope_.displayMode() == DisplayMode::XY;
-      control_panel_.setVisible(show_panel);
-      filter_joystick_.setVisible(show_panel);
-      cutoff_knob_.setVisible(show_panel);
-      resonance_knob_.setVisible(show_panel);
-      // Resize to update oscilloscope bounds
-      resized();
+      mode_selector_.setIndex(static_cast<int>(oscilloscope_.displayMode()));
+      updatePanelVisibility();
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::L) {
@@ -1030,10 +1109,15 @@ public:
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::Space) {
-      if (audio_player_.isPlaying())
-        audio_player_.stop();
-      else
-        audio_player_.play();
+      // Toggle audio playback
+      if (audio_player_.hasAudio()) {
+        if (audio_player_.isPlaying())
+          audio_player_.stop();
+        else
+          audio_player_.play();
+      }
+      // Toggle test signal pause
+      oscilloscope_.testSignal().togglePause();
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::Up) {
@@ -1061,6 +1145,11 @@ public:
 private:
   Oscilloscope oscilloscope_;
   ControlPanel control_panel_;
+  ModeSelector mode_selector_;
+  ModeSelector waveform_selector_;
+  ModeSelector split_selector_;
+  ToggleSwitch filter_switch_{"Filter"};
+  ToggleSwitch split_switch_{"Split"};
   FilterJoystick filter_joystick_;
   FilterKnob cutoff_knob_{"Cutoff", true};  // logarithmic
   FilterKnob resonance_knob_{"Resonance", false};  // linear

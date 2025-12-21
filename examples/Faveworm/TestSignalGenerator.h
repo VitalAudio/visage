@@ -113,14 +113,25 @@ public:
 
   // Generate a single stereo sample
   void getSample(float& left, float& right) {
-    left = static_cast<float>(osc_x_.getSample());
-    right = static_cast<float>(osc_y_.getSample());
+    if (paused_) {
+      left = last_left_;
+      right = last_right_;
+    } else {
+      left = static_cast<float>(osc_x_.getSample());
+      right = static_cast<float>(osc_y_.getSample());
+      last_left_ = left;
+      last_right_ = right;
+    }
   }
 
   void reset() {
     osc_x_.reset();
     osc_y_.reset();
   }
+
+  void setPaused(bool p) { paused_ = p; }
+  bool isPaused() const { return paused_; }
+  void togglePause() { paused_ = !paused_; }
 
 private:
   void updateFrequencies() {
@@ -134,4 +145,7 @@ private:
   double base_freq_ = 80.0;
   double detune_ = 1.003;
   Waveform waveform_ = Waveform::Sine;
+  bool paused_ = false;
+  float last_left_ = 0.0f;
+  float last_right_ = 0.0f;
 };

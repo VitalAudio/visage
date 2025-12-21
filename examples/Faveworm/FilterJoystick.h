@@ -4,7 +4,124 @@
 #include <cmath>
 #include <algorithm>
 #include <functional>
+#include <vector>
+#include <string>
 #include "FilterMorpher.h"
+
+// Toggle switch (on/off)
+class ToggleSwitch : public visage::Frame {
+public:
+  using Callback = std::function<void(bool)>;
+
+  ToggleSwitch(const char* label = "") : label_(label) {
+    setIgnoresMouseEvents(false, false);
+  }
+
+  void setValue(bool v) { value_ = v; }
+  bool value() const { return value_; }
+  void setCallback(Callback cb) { callback_ = cb; }
+  void setColor(visage::Color c) { color_ = c; }
+
+  void draw(visage::Canvas& canvas) override {
+    const float w = static_cast<float>(width());
+    const float h = static_cast<float>(height());
+    const float sw = w * 0.7f;  // switch width
+    const float sh = h * 0.4f;  // switch height
+    const float sx = (w - sw) / 2;
+    const float sy = (h - sh) / 2;
+    const float r = sh / 2;
+
+    // Track background
+    if (value_) {
+      canvas.setColor(visage::Color(color_.alpha() * 0.5f, color_.red(), color_.green(), color_.blue()));
+    } else {
+      canvas.setColor(visage::Color(0.5f, 0.15f, 0.15f, 0.15f));
+    }
+    canvas.roundedRectangle(sx, sy, sw, sh, r);
+
+    // Thumb
+    float thumb_x = value_ ? (sx + sw - sh) : sx;
+    if (value_) {
+      canvas.setColor(color_);
+    } else {
+      canvas.setColor(visage::Color(0.7f, 0.3f, 0.3f, 0.3f));
+    }
+    canvas.circle(thumb_x + 2, sy + 2, sh - 4);
+
+    redraw();
+  }
+
+  void mouseDown(const visage::MouseEvent&) override {
+    value_ = !value_;
+    if (callback_) callback_(value_);
+  }
+
+private:
+  const char* label_;
+  bool value_ = false;
+  Callback callback_;
+  visage::Color color_{1.0f, 0.5f, 0.9f, 0.8f};
+};
+
+// Mode selector (cycles through options on click)
+class ModeSelector : public visage::Frame {
+public:
+  using Callback = std::function<void(int)>;
+
+  ModeSelector() {
+    setIgnoresMouseEvents(false, false);
+  }
+
+  void setOptions(const std::vector<std::string>& opts) { options_ = opts; }
+  void setIndex(int i) { index_ = std::clamp(i, 0, static_cast<int>(options_.size()) - 1); }
+  int index() const { return index_; }
+  void setCallback(Callback cb) { callback_ = cb; }
+  void setColor(visage::Color c) { color_ = c; }
+
+  void draw(visage::Canvas& canvas) override {
+    const float w = static_cast<float>(width());
+    const float h = static_cast<float>(height());
+
+    // Background
+    canvas.setColor(visage::Color(0.6f, 0.12f, 0.12f, 0.12f));
+    canvas.roundedRectangle(2, 2, w - 4, h - 4, 4);
+
+    // Border highlight
+    canvas.setColor(color_);
+    canvas.roundedRectangle(0, 0, w, h, 5);
+    canvas.setColor(visage::Color(0.95f, 0.08f, 0.08f, 0.08f));
+    canvas.roundedRectangle(2, 2, w - 4, h - 4, 4);
+
+    // Draw option indicators
+    if (!options_.empty()) {
+      float dot_spacing = w / (options_.size() + 1);
+      for (size_t i = 0; i < options_.size(); ++i) {
+        float dx = dot_spacing * (i + 1);
+        if (static_cast<int>(i) == index_) {
+          canvas.setColor(color_);
+          canvas.circle(dx - 4, h / 2 - 4, 8);
+        } else {
+          canvas.setColor(visage::Color(0.4f, 0.25f, 0.25f, 0.25f));
+          canvas.circle(dx - 3, h / 2 - 3, 6);
+        }
+      }
+    }
+
+    redraw();
+  }
+
+  void mouseDown(const visage::MouseEvent&) override {
+    if (options_.empty()) return;
+    index_ = (index_ + 1) % options_.size();
+    if (callback_) callback_(index_);
+  }
+
+private:
+  std::vector<std::string> options_;
+  int index_ = 0;
+  Callback callback_;
+  visage::Color color_{1.0f, 0.5f, 0.9f, 0.8f};
+};
 
 // Simple rotary knob for filter parameters
 class FilterKnob : public visage::Frame {
