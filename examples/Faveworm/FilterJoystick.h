@@ -22,6 +22,7 @@ public:
   bool value() const { return value_; }
   void setCallback(Callback cb) { callback_ = cb; }
   void setColor(visage::Color c) { color_ = c; }
+  void setEnabled(bool e) { enabled_ = e; }
 
   void draw(visage::Canvas& canvas) override {
     const float w = static_cast<float>(width());
@@ -32,28 +33,29 @@ public:
     const float sx = (w - sw) / 2;
     const float sy = label_h + ((h - label_h) - sh) / 2;
     const float r = sh / 2;
+    const float dim = enabled_ ? 1.0f : 0.3f;
 
     // Label at top
     if (label_ && label_[0]) {
       visage::Font font(10, resources::fonts::DroidSansMono_ttf);
-      canvas.setColor(visage::Color(0.7f, 0.6f, 0.65f, 0.7f));
+      canvas.setColor(visage::Color(0.7f * dim, 0.6f, 0.65f, 0.7f));
       canvas.text(label_, font, visage::Font::kCenter, 0, 0, w, label_h);
     }
 
     // Track background
     if (value_) {
-      canvas.setColor(visage::Color(color_.alpha() * 0.5f, color_.red(), color_.green(), color_.blue()));
+      canvas.setColor(visage::Color(color_.alpha() * 0.5f * dim, color_.red(), color_.green(), color_.blue()));
     } else {
-      canvas.setColor(visage::Color(0.5f, 0.15f, 0.15f, 0.15f));
+      canvas.setColor(visage::Color(0.5f * dim, 0.15f, 0.15f, 0.15f));
     }
     canvas.roundedRectangle(sx, sy, sw, sh, r);
 
     // Thumb
     float thumb_x = value_ ? (sx + sw - sh) : sx;
     if (value_) {
-      canvas.setColor(color_);
+      canvas.setColor(visage::Color(color_.alpha() * dim, color_.red(), color_.green(), color_.blue()));
     } else {
-      canvas.setColor(visage::Color(0.7f, 0.3f, 0.3f, 0.3f));
+      canvas.setColor(visage::Color(0.7f * dim, 0.3f, 0.3f, 0.3f));
     }
     canvas.circle(thumb_x + 2, sy + 2, sh - 4);
 
@@ -61,6 +63,7 @@ public:
   }
 
   void mouseDown(const visage::MouseEvent&) override {
+    if (!enabled_) return;
     value_ = !value_;
     if (callback_) callback_(value_);
   }
@@ -70,6 +73,7 @@ private:
   bool value_ = false;
   Callback callback_;
   visage::Color color_{1.0f, 0.5f, 0.9f, 0.8f};
+  bool enabled_ = true;
 };
 
 // Mode selector (cycles through options on click)
@@ -87,6 +91,7 @@ public:
   int index() const { return index_; }
   void setCallback(Callback cb) { callback_ = cb; }
   void setColor(visage::Color c) { color_ = c; }
+  void setEnabled(bool e) { enabled_ = e; }
 
   void draw(visage::Canvas& canvas) override {
     const float w = static_cast<float>(width());
@@ -94,28 +99,29 @@ public:
     const float label_h = (label_ && label_[0]) ? 12.0f : 0.0f;
     const float ctrl_h = h - label_h;
     const float ctrl_y = label_h;
+    const float dim = enabled_ ? 1.0f : 0.3f;
 
     // Label at top
     if (label_ && label_[0]) {
       visage::Font font(10, resources::fonts::DroidSansMono_ttf);
-      canvas.setColor(visage::Color(0.7f, 0.6f, 0.65f, 0.7f));
+      canvas.setColor(visage::Color(0.7f * dim, 0.6f, 0.65f, 0.7f));
       canvas.text(label_, font, visage::Font::kCenter, 0, 0, w, label_h);
     }
 
     // Background
-    canvas.setColor(visage::Color(0.6f, 0.12f, 0.12f, 0.12f));
+    canvas.setColor(visage::Color(0.6f * dim, 0.12f, 0.12f, 0.12f));
     canvas.roundedRectangle(2, ctrl_y + 2, w - 4, ctrl_h - 4, 4);
 
     // Border highlight
-    canvas.setColor(color_);
+    canvas.setColor(visage::Color(color_.alpha() * dim, color_.red(), color_.green(), color_.blue()));
     canvas.roundedRectangle(0, ctrl_y, w, ctrl_h, 5);
-    canvas.setColor(visage::Color(0.95f, 0.08f, 0.08f, 0.08f));
+    canvas.setColor(visage::Color(0.95f * dim, 0.08f, 0.08f, 0.08f));
     canvas.roundedRectangle(2, ctrl_y + 2, w - 4, ctrl_h - 4, 4);
 
     // Draw selected option text
     if (!options_.empty() && index_ >= 0 && index_ < static_cast<int>(options_.size())) {
       visage::Font font(11, resources::fonts::DroidSansMono_ttf);
-      canvas.setColor(color_);
+      canvas.setColor(visage::Color(color_.alpha() * dim, color_.red(), color_.green(), color_.blue()));
       canvas.text(options_[index_].c_str(), font, visage::Font::kCenter,
                   4, ctrl_y, w - 8, ctrl_h);
     }
@@ -124,7 +130,7 @@ public:
   }
 
   void mouseDown(const visage::MouseEvent&) override {
-    if (options_.empty()) return;
+    if (!enabled_ || options_.empty()) return;
     index_ = (index_ + 1) % options_.size();
     if (callback_) callback_(index_);
   }
@@ -135,6 +141,7 @@ private:
   int index_ = 0;
   Callback callback_;
   visage::Color color_{1.0f, 0.5f, 0.9f, 0.8f};
+  bool enabled_ = true;
 };
 
 // Simple rotary knob for filter parameters
@@ -153,6 +160,7 @@ public:
   void setRange(float min, float max) { min_ = min; max_ = max; }
   void setColor(visage::Color c) { color_ = c; }
   void setCallback(Callback cb) { callback_ = cb; }
+  void setEnabled(bool e) { enabled_ = e; }
 
   void draw(visage::Canvas& canvas) override {
     const float w = static_cast<float>(width());
@@ -162,9 +170,10 @@ public:
     const float cx = w * 0.5f;
     const float cy = knob_h * 0.5f;
     const float r = std::min(w, knob_h) * 0.4f;
+    const float dim = enabled_ ? 1.0f : 0.3f;
 
     // Background
-    canvas.setColor(visage::Color(0.6f, 0.08f, 0.08f, 0.08f));
+    canvas.setColor(visage::Color(0.6f * dim, 0.08f, 0.08f, 0.08f));
     canvas.circle(cx - r, cy - r, r * 2);
 
     // Arc showing value range (270 degrees, from 135 to 405)
@@ -172,7 +181,7 @@ public:
     const float range = 1.5f * kPi;         // 270 degrees
 
     // Draw tick marks as small circles
-    canvas.setColor(visage::Color(0.5f, 0.3f, 0.3f, 0.3f));
+    canvas.setColor(visage::Color(0.5f * dim, 0.3f, 0.3f, 0.3f));
     for (int i = 0; i <= 10; ++i) {
       float t = static_cast<float>(i) / 10.0f;
       float angle = start_angle + t * range;
@@ -186,7 +195,7 @@ public:
       float angle = start_angle + norm * range;
 
       // Arc fill
-      canvas.setColor(visage::Color(color_.alpha() * 0.4f, color_.red(), color_.green(), color_.blue()));
+      canvas.setColor(visage::Color(color_.alpha() * 0.4f * dim, color_.red(), color_.green(), color_.blue()));
       const int segments = static_cast<int>(norm * 30) + 1;
       for (int i = 0; i < segments; ++i) {
         float t0 = static_cast<float>(i) / segments * norm;
@@ -204,20 +213,20 @@ public:
       }
 
       // Pointer as elongated dot
-      canvas.setColor(color_);
+      canvas.setColor(visage::Color(color_.alpha() * dim, color_.red(), color_.green(), color_.blue()));
       float px = cx + std::cos(angle) * r * 0.5f;
       float py = cy + std::sin(angle) * r * 0.5f;
       canvas.circle(px - 5, py - 5, 10);
 
       // Center dot
-      canvas.setColor(visage::Color(0.6f, 0.2f, 0.2f, 0.2f));
+      canvas.setColor(visage::Color(0.6f * dim, 0.2f, 0.2f, 0.2f));
       canvas.circle(cx - 6, cy - 6, 12);
     }
 
     // Label at bottom
     if (label_ && label_[0]) {
       visage::Font font(10, resources::fonts::DroidSansMono_ttf);
-      canvas.setColor(visage::Color(0.7f, 0.6f, 0.65f, 0.7f));
+      canvas.setColor(visage::Color(0.7f * dim, 0.6f, 0.65f, 0.7f));
       canvas.text(label_, font, visage::Font::kCenter, 0, h - label_h, w, label_h);
     }
 
@@ -225,12 +234,13 @@ public:
   }
 
   void mouseDown(const visage::MouseEvent& event) override {
+    if (!enabled_) return;
     dragging_ = true;
     last_y_ = event.position.y;
   }
 
   void mouseDrag(const visage::MouseEvent& event) override {
-    if (!dragging_ || !value_) return;
+    if (!enabled_ || !dragging_ || !value_) return;
 
     float delta = (last_y_ - event.position.y) / 100.0f;
     last_y_ = event.position.y;
@@ -252,7 +262,7 @@ public:
   }
 
   bool mouseWheel(const visage::MouseEvent& event) override {
-    if (!value_) return false;
+    if (!enabled_ || !value_) return false;
 
     float wheel_delta = event.wheel_delta_y * 0.05f;
     if (logarithmic_) {
@@ -286,6 +296,7 @@ private:
   Callback callback_;
   bool dragging_ = false;
   float last_y_ = 0.0f;
+  bool enabled_ = true;
 };
 
 // Visual Joystick Control for Filter Morphing
@@ -301,6 +312,7 @@ public:
   void setMorpher(FilterMorpher* m) { morpher_ = m; }
   void setCutoff(float* c) { cutoff_ = c; }
   void setResonance(float* r) { resonance_ = r; }
+  void setEnabled(bool e) { enabled_ = e; }
 
   void draw(visage::Canvas& canvas) override {
     const float w = static_cast<float>(width());
@@ -310,9 +322,10 @@ public:
     const float cx = w * 0.5f;
     const float cy = js_h * 0.5f;
     const float r = std::min(w, js_h) * 0.45f;
+    const float dim = enabled_ ? 1.0f : 0.3f;
 
     // Dark background circle
-    canvas.setColor(visage::Color(0.7f, 0.06f, 0.08f, 0.12f));
+    canvas.setColor(visage::Color(0.7f * dim, 0.06f, 0.08f, 0.12f));
     canvas.circle(cx - r, cy - r, r * 2);
 
     // Ring gradient for mode zones
@@ -324,7 +337,7 @@ public:
 
       float norm_a = am / (kPi * 2.0f);
       visage::Color color = getModeColor(norm_a);
-      color = visage::Color(color.alpha() * 0.3f, color.red(), color.green(), color.blue());
+      color = visage::Color(color.alpha() * 0.3f * dim, color.red(), color.green(), color.blue());
 
       float x0 = cx + std::cos(a0) * r;
       float y0 = cy + std::sin(a0) * r;
@@ -343,12 +356,12 @@ public:
     // Mode labels with text
     visage::Font mode_font(8, resources::fonts::DroidSansMono_ttf);
     float labelR = r * 0.65f;
-    canvas.setColor(visage::Color(0.7f, 0.5f, 0.6f, 0.6f));
+    canvas.setColor(visage::Color(0.7f * dim, 0.5f, 0.6f, 0.6f));
     canvas.text("HP", mode_font, visage::Font::kCenter, cx + labelR - 8, cy - 5, 16, 10);
     canvas.text("BP", mode_font, visage::Font::kCenter, cx - 8, cy - labelR - 5, 16, 10);
     canvas.text("LP", mode_font, visage::Font::kCenter, cx - labelR - 8, cy - 5, 16, 10);
     canvas.text("BR", mode_font, visage::Font::kCenter, cx - 8, cy + labelR - 5, 16, 10);
-    canvas.setColor(visage::Color(0.5f, 0.4f, 0.5f, 0.5f));
+    canvas.setColor(visage::Color(0.5f * dim, 0.4f, 0.5f, 0.5f));
     canvas.text("AP", mode_font, visage::Font::kCenter, cx - 8, cy - 5, 16, 10);
 
     // Current position indicator
@@ -357,18 +370,18 @@ public:
       float py = cy - morpher_->posY() * r;
 
       // Glow
-      canvas.setColor(visage::Color(0.4f, 0.3f, 1.0f, 0.5f));
+      canvas.setColor(visage::Color(0.4f * dim, 0.3f, 1.0f, 0.5f));
       canvas.circle(px - 12, py - 12, 24);
 
       // Dot
-      canvas.setColor(visage::Color(1.0f, 0.4f, 1.0f, 0.9f));
+      canvas.setColor(visage::Color(1.0f * dim, 0.4f, 1.0f, 0.9f));
       canvas.circle(px - 6, py - 6, 12);
     }
 
     // Title label at bottom
     if (label_ && label_[0]) {
       visage::Font font(10, resources::fonts::DroidSansMono_ttf);
-      canvas.setColor(visage::Color(0.7f, 0.6f, 0.65f, 0.7f));
+      canvas.setColor(visage::Color(0.7f * dim, 0.6f, 0.65f, 0.7f));
       canvas.text(label_, font, visage::Font::kCenter, 0, h - label_h, w, label_h);
     }
 
@@ -376,11 +389,13 @@ public:
   }
 
   void mouseDown(const visage::MouseEvent& event) override {
+    if (!enabled_) return;
     dragging_ = true;
     updatePosition(static_cast<int>(event.position.x), static_cast<int>(event.position.y));
   }
 
   void mouseDrag(const visage::MouseEvent& event) override {
+    if (!enabled_) return;
     if (dragging_)
       updatePosition(static_cast<int>(event.position.x), static_cast<int>(event.position.y));
   }
@@ -390,6 +405,7 @@ public:
   }
 
   bool mouseWheel(const visage::MouseEvent& event) override {
+    if (!enabled_) return false;
     if (event.isShiftDown()) {
       if (resonance_) {
         *resonance_ = std::clamp(*resonance_ + event.wheel_delta_y * 0.02f, 0.0f, 1.0f);
@@ -443,4 +459,5 @@ private:
   float* cutoff_ = nullptr;
   float* resonance_ = nullptr;
   bool dragging_ = false;
+  bool enabled_ = true;
 };

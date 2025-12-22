@@ -923,7 +923,10 @@ public:
     addChild(&filter_switch_);
     filter_switch_.setValue(true);
     filter_switch_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));
-    filter_switch_.setCallback([this](bool v) { oscilloscope_.setFilterEnabled(v); });
+    filter_switch_.setCallback([this](bool v) {
+      oscilloscope_.setFilterEnabled(v);
+      updateFilterControlsEnabled(v);
+    });
     filter_switch_.setVisible(false);
 
     // Split mode on/off switch
@@ -960,7 +963,19 @@ public:
     filter_switch_.setVisible(is_xy);
     split_switch_.setVisible(is_xy);
 
+    // Update enabled state based on filter switch
+    updateFilterControlsEnabled(filter_switch_.value());
+
     resized();
+  }
+
+  void updateFilterControlsEnabled(bool enabled) {
+    // Dim/enable filter-related controls based on filter switch
+    filter_joystick_.setEnabled(enabled);
+    cutoff_knob_.setEnabled(enabled);
+    resonance_knob_.setEnabled(enabled);
+    split_switch_.setEnabled(enabled);
+    split_selector_.setEnabled(enabled);
   }
 
   void resized() override {
