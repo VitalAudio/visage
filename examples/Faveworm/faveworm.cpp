@@ -562,7 +562,7 @@ public:
     stereo_router_.setCutoff(filter_cutoff_);
   }
   void setFilterResonance(float r) {
-    filter_resonance_ = std::clamp(r, 0.0f, 1.0f);
+    filter_resonance_ = std::clamp(r, 0.0f, 0.99f);
     svf_.setResonance(filter_resonance_);
     stereo_router_.setResonance(filter_resonance_);
   }
@@ -880,13 +880,58 @@ public:
     cutoff_knob_.setCallback([this](float v) { oscilloscope_.setFilterCutoff(v); });
     cutoff_knob_.setVisible(false);
 
-    // Resonance knob (linear)
+    // Resonance knob (linear) - capped just below 1.0 for stability
     addChild(&resonance_knob_);
     resonance_knob_.setValue(&filter_resonance_);
-    resonance_knob_.setRange(0.0f, 1.0f);
+    resonance_knob_.setRange(0.0f, 0.99f);
     resonance_knob_.setColor(visage::Color(1.0f, 0.9f, 0.6f, 0.4f));  // Orange
-    resonance_knob_.setCallback([this](float v) { oscilloscope_.setFilterResonance(v); });
+    resonance_knob_.setCallback([this](float v) {
+      oscilloscope_.setFilterResonance(v);
+      filter_resonance_pct_ = v * 100.0f;
+    });
     resonance_knob_.setVisible(false);
+
+    // Numeric displays for filter values
+    addChild(&cutoff_display_);
+    cutoff_display_.setValue(&filter_cutoff_);
+    cutoff_display_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));  // Match cutoff knob
+    cutoff_display_.setDecimals(0);
+    cutoff_display_.setVisible(false);
+
+    addChild(&resonance_display_);
+    resonance_display_.setValue(&filter_resonance_pct_);
+    resonance_display_.setColor(visage::Color(1.0f, 0.9f, 0.6f, 0.4f));  // Match resonance knob
+    resonance_display_.setDecimals(0);
+    resonance_display_.setVisible(false);
+
+    // Frequency knob for test signal (logarithmic)
+    addChild(&freq_knob_);
+    freq_knob_.setValue(&signal_freq_);
+    freq_knob_.setRange(10.0f, 500.0f);
+    freq_knob_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));  // Match waveform selector
+    freq_knob_.setCallback([this](float v) { oscilloscope_.testSignal().setFrequency(v); });
+    freq_knob_.setVisible(false);
+
+    // Detune knob for test signal (linear around 1.0)
+    addChild(&detune_knob_);
+    detune_knob_.setValue(&signal_detune_);
+    detune_knob_.setRange(0.9f, 1.1f);
+    detune_knob_.setColor(visage::Color(1.0f, 0.6f, 0.8f, 0.6f));  // Lighter purple
+    detune_knob_.setCallback([this](float v) { oscilloscope_.testSignal().setDetune(v); });
+    detune_knob_.setVisible(false);
+
+    // Numeric displays for signal generator
+    addChild(&freq_display_);
+    freq_display_.setValue(&signal_freq_);
+    freq_display_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));  // Match freq knob
+    freq_display_.setDecimals(0);
+    freq_display_.setVisible(false);
+
+    addChild(&detune_display_);
+    detune_display_.setValue(&signal_detune_);
+    detune_display_.setColor(visage::Color(1.0f, 0.6f, 0.8f, 0.6f));  // Match detune knob
+    detune_display_.setDecimals(3);
+    detune_display_.setVisible(false);
 
     // Mode selector (display mode)
     addChild(&mode_selector_);
@@ -933,7 +978,10 @@ public:
     addChild(&split_switch_);
     split_switch_.setValue(false);
     split_switch_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
-    split_switch_.setCallback([this](bool v) { oscilloscope_.setStereoSplitMode(v); });
+    split_switch_.setCallback([this](bool v) {
+      oscilloscope_.setStereoSplitMode(v);
+      split_selector_.setEnabled(v && filter_switch_.value());
+    });
     split_switch_.setVisible(false);
 
     // Help overlay (covers entire window)
@@ -958,6 +1006,12 @@ public:
     filter_joystick_.setVisible(is_xy);
     cutoff_knob_.setVisible(is_xy);
     resonance_knob_.setVisible(is_xy);
+    cutoff_display_.setVisible(is_xy);
+    resonance_display_.setVisible(is_xy);
+    freq_knob_.setVisible(is_xy);
+    detune_knob_.setVisible(is_xy);
+    freq_display_.setVisible(is_xy);
+    detune_display_.setVisible(is_xy);
     waveform_selector_.setVisible(is_xy);
     split_selector_.setVisible(is_xy);
     filter_switch_.setVisible(is_xy);
@@ -975,7 +1029,8 @@ public:
     cutoff_knob_.setEnabled(enabled);
     resonance_knob_.setEnabled(enabled);
     split_switch_.setEnabled(enabled);
-    split_selector_.setEnabled(enabled);
+    // Split selector only enabled if both filter AND split switch are on
+    split_selector_.setEnabled(enabled && split_switch_.value());
   }
 
   void resized() override {
@@ -1003,6 +1058,18 @@ public:
       waveform_selector_.setBounds(panel_x + 10, y, panel_width - 20, selector_h);
       y += selector_h + margin;
 
+      // Signal freq and detune knobs side by side (smaller) with displays below
+      int small_knob = 50;
+      int small_display_h = 16;
+      int left_x = panel_x + 10;
+      int right_x = panel_x + panel_width - 10 - small_knob;
+      freq_knob_.setBounds(left_x, y, small_knob, small_knob);
+      detune_knob_.setBounds(right_x, y, small_knob, small_knob);
+      y += small_knob + 2;
+      freq_display_.setBounds(left_x, y, small_knob, small_display_h);
+      detune_display_.setBounds(right_x, y, small_knob, small_display_h);
+      y += small_display_h + margin;
+
       // Filter switch + label area
       filter_switch_.setBounds(panel_x + 10, y, panel_width - 20, switch_h);
       y += switch_h + margin;
@@ -1011,12 +1078,16 @@ public:
       filter_joystick_.setBounds(panel_x + (panel_width - js_size) / 2, y, js_size, js_size);
       y += js_size + margin;
 
-      // Cutoff knob
-      cutoff_knob_.setBounds(cx, y, knob_size, knob_size);
+      // Cutoff knob with display
+      int display_w = 50;
+      int display_h = 18;
+      cutoff_knob_.setBounds(panel_x + 10, y, knob_size, knob_size);
+      cutoff_display_.setBounds(panel_x + 10 + knob_size + 4, y + (knob_size - display_h) / 2, display_w, display_h);
       y += knob_size + margin;
 
-      // Resonance knob
-      resonance_knob_.setBounds(cx, y, knob_size, knob_size);
+      // Resonance knob with display
+      resonance_knob_.setBounds(panel_x + 10, y, knob_size, knob_size);
+      resonance_display_.setBounds(panel_x + 10 + knob_size + 4, y + (knob_size - display_h) / 2, display_w, display_h);
       y += knob_size + margin;
 
       // Split switch
@@ -1101,24 +1172,26 @@ public:
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::LeftBracket) {
-      auto& ts = oscilloscope_.testSignal();
       if (event.isShiftDown()) {
         // Decrease detune
-        ts.setDetune(ts.detune() * 0.999);
+        signal_detune_ = std::max(0.9f, signal_detune_ * 0.999f);
+        oscilloscope_.testSignal().setDetune(signal_detune_);
       } else {
         // Decrease frequency
-        ts.setFrequency(ts.frequency() * 0.9);
+        signal_freq_ = std::max(10.0f, signal_freq_ * 0.9f);
+        oscilloscope_.testSignal().setFrequency(signal_freq_);
       }
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::RightBracket) {
-      auto& ts = oscilloscope_.testSignal();
       if (event.isShiftDown()) {
         // Increase detune
-        ts.setDetune(ts.detune() * 1.001);
+        signal_detune_ = std::min(1.1f, signal_detune_ * 1.001f);
+        oscilloscope_.testSignal().setDetune(signal_detune_);
       } else {
         // Increase frequency
-        ts.setFrequency(ts.frequency() * 1.1);
+        signal_freq_ = std::min(500.0f, signal_freq_ * 1.1f);
+        oscilloscope_.testSignal().setFrequency(signal_freq_);
       }
       return true;
     }
@@ -1179,6 +1252,12 @@ private:
   FilterJoystick filter_joystick_;
   FilterKnob cutoff_knob_{"Cutoff", true};  // logarithmic
   FilterKnob resonance_knob_{"Resonance", false};  // linear
+  NumericDisplay cutoff_display_{"Hz"};
+  NumericDisplay resonance_display_{"%"};
+  FilterKnob freq_knob_{"Freq", true};  // logarithmic
+  FilterKnob detune_knob_{"Detune", false};  // linear (around 1.0)
+  NumericDisplay freq_display_{"Hz"};
+  NumericDisplay detune_display_{"x"};
   HelpOverlay help_overlay_;
   visage::BloomPostEffect bloom_;
   AudioPlayer audio_player_;
@@ -1186,6 +1265,9 @@ private:
   bool bloom_enabled_ = true;
   float filter_cutoff_ = 150.0f;
   float filter_resonance_ = 0.7f;
+  float filter_resonance_pct_ = 70.0f;  // For display (0-100%)
+  float signal_freq_ = 80.0f;
+  float signal_detune_ = 1.003f;
 };
 
 int runExample() {

@@ -43,6 +43,9 @@ public:
 
   void setWaveform(Waveform wf) {
     waveform_ = wf;
+    // Reset oscillator state when changing waveforms to clear any bad state
+    osc_x_.reset();
+    osc_y_.reset();
     switch (wf) {
       case Waveform::Sine:
         osc_x_.setBeta(0.0);

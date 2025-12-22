@@ -299,6 +299,51 @@ private:
   bool enabled_ = true;
 };
 
+// Numeric display with digital font
+class NumericDisplay : public visage::Frame {
+public:
+  NumericDisplay(const char* suffix = "") : suffix_(suffix) {}
+
+  void setValue(float* v) { value_ = v; }
+  void setColor(visage::Color c) { color_ = c; }
+  void setDecimals(int d) { decimals_ = d; }
+
+  void draw(visage::Canvas& canvas) override {
+    const float w = static_cast<float>(width());
+    const float h = static_cast<float>(height());
+
+    // Dark background
+    canvas.setColor(visage::Color(0.8f, 0.02f, 0.03f, 0.05f));
+    canvas.roundedRectangle(0, 0, w, h, 3);
+
+    // Value text
+    if (value_) {
+      char buf[32];
+      if (decimals_ == 0) {
+        snprintf(buf, sizeof(buf), "%.0f%s", *value_, suffix_);
+      } else if (decimals_ == 1) {
+        snprintf(buf, sizeof(buf), "%.1f%s", *value_, suffix_);
+      } else if (decimals_ == 2) {
+        snprintf(buf, sizeof(buf), "%.2f%s", *value_, suffix_);
+      } else {
+        snprintf(buf, sizeof(buf), "%.3f%s", *value_, suffix_);
+      }
+
+      visage::Font font(14, resources::fonts::DS_DIGIT_ttf);
+      canvas.setColor(color_);
+      canvas.text(buf, font, visage::Font::kCenter, 2, 0, w - 4, h);
+    }
+
+    redraw();
+  }
+
+private:
+  float* value_ = nullptr;
+  const char* suffix_;
+  visage::Color color_{1.0f, 0.4f, 1.0f, 0.8f};
+  int decimals_ = 0;
+};
+
 // Visual Joystick Control for Filter Morphing
 class FilterJoystick : public visage::Frame {
 public:
