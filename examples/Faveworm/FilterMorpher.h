@@ -19,6 +19,7 @@ inline const char* filterOutputName(FilterOutput f) {
 }
 
 // Simple TPT SVF that exposes LP/BP/HP outputs for morphing
+// Allows true self-oscillation with soft-clipping on feedback to prevent blowup
 class SimpleSVF {
 public:
   static constexpr double kPi = 3.14159265358979323846;
@@ -41,11 +42,17 @@ public:
   struct Outputs { double lp, bp, hp; };
 
   Outputs process(double in) {
-    double hp = (in - k_ * z1_ - z2_) * a1_;
+    // Soft-clip the input combined with feedback - this is where energy enters
+    // At high resonance the filter self-oscillates; saturation limits amplitude
+    double v0 = softClip(in - k_ * z1_ - z2_);
+    double hp = v0 * a1_;
     double bp = g_ * hp + z1_;
     double lp = g_ * bp + z2_;
+
+    // Update state (trapezoidal integration)
     z1_ = 2.0 * bp - z1_;
     z2_ = 2.0 * lp - z2_;
+
     return {lp, bp, hp};
   }
 
@@ -65,8 +72,14 @@ public:
   }
 
 private:
+  // Soft saturation using tanh - allows self-oscillation to stabilize
+  static double softClip(double x) {
+    return std::tanh(x);
+  }
+
   void updateCoeffs() {
     g_ = std::tan(kPi * cutoff_ / sample_rate_);
+    // Allow true self-oscillation: k=0 when resonance=1
     k_ = 2.0 * (1.0 - resonance_);
     a1_ = 1.0 / (1.0 + g_ * (g_ + k_));
   }
