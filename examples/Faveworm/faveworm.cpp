@@ -799,8 +799,8 @@ public:
       if (current_samples_.size() >= 2) {
         canvas.setBlendMode(visage::BlendMode::Add);
 
-        // Only update history when not paused (freeze frame completely)
-        if (phosphor_enabled_ && !is_paused) {
+        // Always render phosphor trails (frozen snapshot when paused)
+        if (phosphor_enabled_) {
           for (int age = kHistoryFrames - 1; age >= 1; --age) {
             int idx = (history_index_ - age + kHistoryFrames) % kHistoryFrames;
             if (history_[idx].size() >= 2) {
@@ -809,8 +809,11 @@ public:
                 renderWaveform(canvas, history_[idx], decay);
             }
           }
-          history_[history_index_] = current_samples_;
-          history_index_ = (history_index_ + 1) % kHistoryFrames;
+          // Only update history when not paused
+          if (!is_paused) {
+            history_[history_index_] = current_samples_;
+            history_index_ = (history_index_ + 1) % kHistoryFrames;
+          }
         }
 
         renderWaveform(canvas, current_samples_, 1.0f);

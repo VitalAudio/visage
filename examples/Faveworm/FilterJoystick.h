@@ -112,20 +112,12 @@ public:
     canvas.setColor(visage::Color(0.95f, 0.08f, 0.08f, 0.08f));
     canvas.roundedRectangle(2, ctrl_y + 2, w - 4, ctrl_h - 4, 4);
 
-    // Draw option indicators
-    if (!options_.empty()) {
-      float dot_spacing = w / (options_.size() + 1);
-      for (size_t i = 0; i < options_.size(); ++i) {
-        float dx = dot_spacing * (i + 1);
-        float dy = ctrl_y + ctrl_h / 2;
-        if (static_cast<int>(i) == index_) {
-          canvas.setColor(color_);
-          canvas.circle(dx - 4, dy - 4, 8);
-        } else {
-          canvas.setColor(visage::Color(0.4f, 0.25f, 0.25f, 0.25f));
-          canvas.circle(dx - 3, dy - 3, 6);
-        }
-      }
+    // Draw selected option text
+    if (!options_.empty() && index_ >= 0 && index_ < static_cast<int>(options_.size())) {
+      visage::Font font(11, resources::fonts::DroidSansMono_ttf);
+      canvas.setColor(color_);
+      canvas.text(options_[index_].c_str(), font, visage::Font::kCenter,
+                  4, ctrl_y, w - 8, ctrl_h);
     }
 
     redraw();
