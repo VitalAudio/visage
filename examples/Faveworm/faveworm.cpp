@@ -935,6 +935,7 @@ public:
   void setBeamSize(float size) { beam_size_ = size; }
   void setBeamGain(float gain) { beam_gain_ = gain; }
   void setWaveformHue(float hue) { waveform_hue_ = hue; }
+  void setHueDynamics(float dynamics) { hue_dynamics_ = dynamics; }
   void setPostScale(float scale) { post_scale_ = scale; }
   void setPostRotate(float rotate) { post_rotate_ = rotate; }
   void setGridEnabled(bool enabled) { grid_enabled_ = enabled; }
@@ -1175,9 +1176,16 @@ public:
       const float g = unit_gain * nr;
       const int end = (pos == num_samples - 2) ? n + 1 : n;
 
+      // Velocity-based hue shift: faster beam motion shifts hue
+      float velocity = d * nr;  // Instantaneous velocity per substep
+      float hue_shift = velocity * hue_dynamics_ * 180.0f;  // Scale for visible effect
+      float dynamic_hue = std::fmod(waveform_hue_ + hue_shift, 360.0f);
+      if (dynamic_hue < 0.0f)
+        dynamic_hue += 360.0f;
+
       for (int k = 0; k < end; ++k) {
         float brightness = std::min(1.0f, g);
-        visage::Color color = visage::Color::fromAHSV(brightness * 0.9f, waveform_hue_, 0.85f, brightness);
+        visage::Color color = visage::Color::fromAHSV(brightness * 0.9f, dynamic_hue, 0.85f, brightness);
         canvas.setColor(color);
         canvas.fadeCircle(x - half_beam, y - half_beam, beam_size_, beam_size_ * 0.35f);
         x += ix;
@@ -1263,6 +1271,7 @@ private:
   float beam_size_ = 3.0f;
   float beam_gain_ = 1.5f;
   float waveform_hue_ = 170.0f;
+  float hue_dynamics_ = 0.0f;  // Velocity-based hue shift sensitivity (0-1)
 
   DisplayMode display_mode_ = DisplayMode::XY;
   double time_offset_ = 0.0;
@@ -1476,6 +1485,12 @@ public:
       hue_slider_.setColor(visage::Color::fromAHSV(1.0f, v, 0.85f, 0.9f));
     });
 
+    control_panel_.addScrolledChild(&dynamics_slider_);
+    dynamics_slider_.setValue(&hue_dynamics_);
+    dynamics_slider_.setRange(0.0f, 1.25f);
+    dynamics_slider_.setColor(visage::Color(1.0f, 0.4f, 1.0f, 0.8f));
+    dynamics_slider_.setCallback([this](float v) { oscilloscope_.setHueDynamics(v); });
+
     control_panel_.addScrolledChild(&bloom_slider_);
     bloom_slider_.setValue(&bloom_intensity_);
     bloom_slider_.setLedIntensity(&bloom_intensity_);
@@ -1546,6 +1561,7 @@ public:
     post_rotate_knob_.setVisible(is_xy);
     volume_knob_.setVisible(show_panel);
     hue_slider_.setVisible(show_panel);
+    dynamics_slider_.setVisible(show_panel);
     bloom_slider_.setVisible(show_panel);
 
     signal_box_.setVisible(is_xy);
@@ -1688,9 +1704,10 @@ public:
 
     int slider_w = 40;
     int slider_h = 50;
-    int sliders_x = (panel_width - (slider_w * 2 + margin)) / 2;
+    int sliders_x = (panel_width - (slider_w * 3 + margin * 2)) / 2;
     hue_slider_.setBounds(sliders_x, y, slider_w, slider_h);
-    bloom_slider_.setBounds(sliders_x + slider_w + margin, y, slider_w, slider_h);
+    dynamics_slider_.setBounds(sliders_x + slider_w + margin, y, slider_w, slider_h);
+    bloom_slider_.setBounds(sliders_x + (slider_w + margin) * 2, y, slider_w, slider_h);
     y += slider_h + 8;
 
     volume_knob_.setBounds((panel_width - knob_size) / 2, y, knob_size, knob_size);
@@ -1917,6 +1934,7 @@ private:
   FilterKnob post_rotate_knob_ { "Rotate" };
   FilterKnob volume_knob_ { "Vol" };
   FilterSlider hue_slider_ { "Hue" };
+  FilterSlider dynamics_slider_ { "Dyn" };
   FilterSlider bloom_slider_ { "Bloom" };
 #if VISAGE_EMSCRIPTEN
   float volume_val_ = 0.0f;
@@ -1948,6 +1966,7 @@ private:
   float bloom_intensity_ = 0.5f;
   bool bloom_enabled_ = true;
   float waveform_hue_ = 170.0f;
+  float hue_dynamics_ = 0.0f;  // Velocity-based hue shift sensitivity
   float filter_cutoff_ = 150.0f;
   float filter_resonance_ = 1.0f;
   float filter_resonance_pct_ = 100.0f;  // For display (0-100%)
