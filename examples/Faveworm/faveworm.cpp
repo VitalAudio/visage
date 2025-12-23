@@ -1929,7 +1929,7 @@ private:
   NumericDisplay angle_display_ { "°" };
   NumericDisplay depth_display_ { "" };
   NumericDisplay pre_gain_display_ { "x" };
-  SectionFrame signal_box_ { "SIGNAL" };
+  SectionFrame signal_box_ { "Signal Gen" };
   SectionFrame filter_box_ { "FILTER" };
   SectionFrame display_box_ { "DISPLAY" };
   HelpOverlay help_overlay_;
