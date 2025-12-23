@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
 
-# Set deployment target before project() call
 if (APPLE)
   if (NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS deployment version")
