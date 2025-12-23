@@ -1,11 +1,4 @@
 cmake_minimum_required(VERSION 3.17)
-
-if (APPLE)
-  if (NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS deployment version")
-  endif ()
-endif ()
-
 project(visage VERSION 0.1.0)
 
 set(CMAKE_POLICY_DEFAULT_CMP0177 NEW)
@@ -17,6 +10,9 @@ endif ()
 if (APPLE)
   enable_language(OBJC)
   enable_language(OBJCXX)
+  if (NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS deployment version")
+  endif ()
 endif ()
 
 option(VISAGE_AMALGAMATED_BUILD "Compile sources together" ON)
