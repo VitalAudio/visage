@@ -1632,7 +1632,7 @@ public:
 
       // --- FILTER SECTION ---
       int filter_start_y = y;
-      y += 12;
+      y += 18;  // Extra padding to avoid clipping joystick knob
 
       // Joystick and Filter Switch
       int js_x = (panel_width - js_size) / 2;  // Centered
