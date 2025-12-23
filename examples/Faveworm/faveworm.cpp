@@ -37,7 +37,7 @@
 
 // Global constants for parameter ranges
 static constexpr float kMinFilterCutoff = 20.0f;
-static constexpr float kMaxFilterCutoff = 2000.0f;
+static constexpr float kMaxFilterCutoff = 5000.0f;
 static constexpr float kMinFilterResonance = 0.0f;
 static constexpr float kMaxFilterResonance = 1.0f;  // Note: UI limits to 0.99f for safety
 static constexpr float kMinSplitAngle = -180.0f;
