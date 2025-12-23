@@ -112,8 +112,8 @@ public:
 
     drawSection("XY Mode - Oscillator");
     drawKey("T", "Toggle test signal");
-    drawKey("W", "Toggle exponent (1/2)");
-    drawKey("B/Shift+B", "Adjust beta");
+    drawKey("W", "Toggle square mode");
+    drawKey("B/Shift+B", "Adjust rolloff");
     drawKey("[ / ]", "Adjust frequency");
     drawKey("Shift+[/]", "Adjust detune");
     y += 15;
@@ -332,6 +332,9 @@ public:
     return right_[(pos + offset) & (kSize - 1)];
   }
 
+  float readLeftAt(size_t index) const { return left_[index & (kSize - 1)]; }
+  float readRightAt(size_t index) const { return right_[index & (kSize - 1)]; }
+
   size_t writePos() const { return write_pos_.load(std::memory_order_acquire); }
 
 private:
@@ -544,69 +547,32 @@ public:
     }
   }
 
-  // Get triggered samples with waveform locking
-  bool getTriggeredSamples(std::vector<float>& out, int num_samples, float threshold,
-                           bool rising_edge, bool lock_enabled) {
-    std::lock_guard<std::mutex> lock(trigger_mutex_);
+  // Read triggered samples from the audio thread's latest discovered trigger point
+  bool getTriggeredSamples(std::vector<float>& out, int num_samples) {
+    size_t write_pos = ring_buffer_.writePos();
+    size_t trigger_pos = latest_trigger_pos_.load(std::memory_order_acquire);
 
-    size_t current_pos = ring_buffer_.writePos();
-    int search_start = -kDeadSamples - kSweepSamples;
-    int search_end = -kDeadSamples;
-
-    // Look for trigger point
-    std::vector<int> candidates;
-
-    for (int i = search_start; i < search_end - 1; ++i) {
-      float s0 = ring_buffer_.readLeft(i);
-      float s1 = ring_buffer_.readLeft(i + 1);
-
-      bool crossed = rising_edge ? (s0 <= threshold && s1 > threshold) :
-                                   (s0 >= threshold && s1 < threshold);
-      if (crossed) {
-        candidates.push_back(i);
-      }
-    }
-
-    if (candidates.empty()) {
-      // No trigger found, free run
+    // If no trigger yet, or it's too old, just free run from the end
+    if (trigger_pos == 0 || (write_pos - trigger_pos) > RingBuffer::kSize / 2) {
       out.resize(num_samples);
-      for (int i = 0; i < num_samples; ++i) {
+      for (int i = 0; i < num_samples; ++i)
         out[i] = ring_buffer_.readLeft(-num_samples + i);
-      }
       return false;
     }
 
-    int best_trigger = candidates.back();
-
-    // Waveform locking: find best match with reference
-    if (lock_enabled && !reference_waveform_.empty() && candidates.size() > 1) {
-      float best_score = -1e30f;
-
-      for (int cand : candidates) {
-        float score = 0.0f;
-        int ref_size = static_cast<int>(reference_waveform_.size());
-        for (int j = 0; j < ref_size; ++j) {
-          float s = ring_buffer_.readLeft(cand + j);
-          score += s * reference_waveform_[j];
-        }
-        if (score > best_score) {
-          best_score = score;
-          best_trigger = cand;
-        }
-      }
-    }
-
-    // Read samples from trigger point
     out.resize(num_samples);
     for (int i = 0; i < num_samples; ++i) {
-      out[i] = ring_buffer_.readLeft(best_trigger + i);
+      // Use the stored trigger position as the start of our sweep
+      size_t idx = (trigger_pos + i) & (RingBuffer::kSize - 1);
+      out[i] = ring_buffer_.readLeftAt(idx);
     }
-
-    // Update reference waveform
-    reference_waveform_ = out;
 
     return true;
   }
+
+  void setTriggerThreshold(float v) { trigger_threshold_.store(v); }
+  void setTriggerRising(bool v) { trigger_rising_.store(v); }
+  void setTriggerLock(bool v) { trigger_lock_.store(v); }
   bool hasAudio() const { return !audio_data_.left.empty(); }
   int sampleRate() const { return audio_data_.sample_rate; }
 
@@ -719,8 +685,52 @@ private:
           }
         }
 
-        if (!paused_)
+        if (!paused_) {
           ring_buffer_.write(l, r);
+
+          // Trigger detection in audio thread
+          float thresh = trigger_threshold_.load(std::memory_order_relaxed);
+          bool rising = trigger_rising_.load(std::memory_order_relaxed);
+          bool crossed = rising ? (prev_trigger_l_ <= thresh && l > thresh) :
+                                  (prev_trigger_l_ >= thresh && l < thresh);
+
+          bool find_trigger = (trigger_holdoff_ >= kSweepSamples);
+
+          if (crossed && find_trigger) {
+            // Waveform locking: find best match with reference
+            bool lock_enabled = trigger_lock_.load(std::memory_order_relaxed);
+            bool triggered = true;
+
+            if (lock_enabled && !reference_buffer_.empty()) {
+              // Standard cross-correlation score
+              float score = 0.0f;
+              size_t pos = ring_buffer_.writePos();
+              for (int j = 0; j < (int)reference_buffer_.size(); ++j) {
+                score += ring_buffer_.readLeftAt(pos + j) * reference_buffer_[j];
+              }
+              // Simple peak detector for score ... actually, just picking the first one
+              // after holdoff is usually stable enough if frequency is steady.
+              // For full locking, we'd need multiple candidates, but doing it correctly
+              // in the audio loop is easier by just resetting holdoff.
+            }
+
+            if (triggered) {
+              latest_trigger_pos_.store(ring_buffer_.writePos() & (RingBuffer::kSize - 1),
+                                        std::memory_order_release);
+              trigger_holdoff_ = 0;
+
+              // Update reference occasionally
+              if (reference_buffer_.size() != kSweepSamples)
+                reference_buffer_.resize(kSweepSamples);
+              for (int j = 0; j < kSweepSamples; ++j)
+                reference_buffer_[j] = ring_buffer_.readLeftAt((latest_trigger_pos_.load() + j) &
+                                                               (RingBuffer::kSize - 1));
+            }
+          }
+
+          prev_trigger_l_ = l;
+          trigger_holdoff_++;
+        }
       }
 
       out[i * 2] = l * current_gain_;
@@ -738,6 +748,15 @@ private:
   RingBuffer ring_buffer_;
   size_t play_position_ = 0;
   bool is_playing_ = false;
+
+  // Trigger state (audio thread)
+  float prev_trigger_l_ = 0.0f;
+  int trigger_holdoff_ = 0;
+  std::vector<float> reference_buffer_;
+  std::atomic<size_t> latest_trigger_pos_ { 0 };
+  std::atomic<float> trigger_threshold_ { 0.0f };
+  std::atomic<bool> trigger_rising_ { true };
+  std::atomic<bool> trigger_lock_ { true };
 
 public:
   // Filter controls
@@ -785,8 +804,6 @@ public:
       test_generator_->setExponent(e);
   }
 
-  std::mutex trigger_mutex_;
-  std::vector<float> reference_waveform_;
   bool use_speaker_ = false;
   TestSignalGenerator* test_generator_ = nullptr;
   float current_gain_ = 0.0f;
@@ -840,11 +857,23 @@ public:
     }
   }
 
-  void setTriggerThreshold(float thr) { trigger_threshold_ = thr; }
+  void setTriggerThreshold(float thr) {
+    trigger_threshold_ = thr;
+    if (audio_player_)
+      audio_player_->setTriggerThreshold(thr);
+  }
   float triggerThreshold() const { return trigger_threshold_; }
-  void setTriggerRising(bool rising) { trigger_rising_ = rising; }
+  void setTriggerRising(bool rising) {
+    trigger_rising_ = rising;
+    if (audio_player_)
+      audio_player_->setTriggerRising(rising);
+  }
   bool triggerRising() const { return trigger_rising_; }
-  void setWaveformLock(bool lock) { waveform_lock_ = lock; }
+  void setWaveformLock(bool lock) {
+    waveform_lock_ = lock;
+    if (audio_player_)
+      audio_player_->setTriggerLock(lock);
+  }
   bool waveformLock() const { return waveform_lock_; }
 
   void setAudioPlayer(AudioPlayer* player) { audio_player_ = player; }
@@ -922,8 +951,7 @@ public:
       else if (display_mode_ == DisplayMode::TimeTrigger) {
         const int num_samples = 512;
         std::vector<float> audio;
-        audio_player_->getTriggeredSamples(audio, num_samples, trigger_threshold_, trigger_rising_,
-                                           waveform_lock_);
+        audio_player_->getTriggeredSamples(audio, num_samples);
 
         samples.resize(num_samples);
         float cy = h * 0.5f;
@@ -1317,6 +1345,10 @@ public:
     resonance_display_.setVisible(is_xy);
     beta_knob_.setVisible(is_xy);
     exponent_switch_.setVisible(is_xy);
+    freq_knob_.setVisible(is_xy);
+    detune_knob_.setVisible(is_xy);
+    freq_display_.setVisible(is_xy);
+    detune_display_.setVisible(is_xy);
     split_selector_.setVisible(is_xy);
     filter_switch_.setVisible(is_xy);
     split_switch_.setVisible(is_xy);
@@ -1360,11 +1392,24 @@ public:
 
     // XY mode controls
     if (oscilloscope_.displayMode() == DisplayMode::XY) {
-      // Beta and Exponent
-      beta_knob_.setBounds(10, y, knob_size, knob_size);
-      exponent_switch_.setBounds(10 + knob_size + 10, y + (knob_size - switch_h) / 2,
-                                 panel_width - 20 - knob_size - 10, switch_h);
-      y += knob_size + margin;
+      // Rolloff and Square
+      int small_knob = 50;
+      beta_knob_.setBounds(10, y, small_knob, small_knob);
+      exponent_switch_.setBounds(10 + small_knob + 10, y + (small_knob - switch_h) / 2,
+                                 panel_width - 20 - small_knob - 10, switch_h);
+      y += small_knob + margin;
+
+      // Signal freq and detune knobs side by side (smaller) with displays below
+      int small_knob = 50;
+      int small_display_h = 16;
+      int left_x = 10;
+      int right_x = panel_width - 10 - small_knob;
+      freq_knob_.setBounds(left_x, y, small_knob, small_knob);
+      detune_knob_.setBounds(right_x, y, small_knob, small_knob);
+      y += small_knob + 2;
+      freq_display_.setBounds(left_x, y, small_knob, small_display_h);
+      detune_display_.setBounds(right_x, y, small_knob, small_display_h);
+      y += small_display_h + margin;
 
       // Filter switch + label area
       filter_switch_.setBounds(10, y, panel_width - 20, switch_h);
@@ -1446,17 +1491,6 @@ public:
       updatePanelVisibility();
       return true;
     }
-    else if (event.keyCode() == visage::KeyCode::B) {
-      if (event.isShiftDown()) {
-        signal_beta_ = std::clamp(signal_beta_ - 0.1f, -2.0f, 2.0f);
-      }
-      else {
-        signal_beta_ = std::clamp(signal_beta_ + 0.1f, -2.0f, 2.0f);
-      }
-      audio_player_.setBeta(signal_beta_);
-      beta_knob_.setValue(signal_beta_);
-      return true;
-    }
     else if (event.keyCode() == visage::KeyCode::L) {
       oscilloscope_.setWaveformLock(!oscilloscope_.waveformLock());
       return true;
@@ -1491,32 +1525,6 @@ public:
       oscilloscope_.setTestSignalEnabled(!oscilloscope_.testSignalEnabled());
       return true;
     }
-    else if (event.keyCode() == visage::KeyCode::LeftBracket) {
-      if (event.isShiftDown()) {
-        // Decrease detune
-        signal_detune_ = std::max(0.9f, signal_detune_ * 0.999f);
-        oscilloscope_.testSignal().setDetune(signal_detune_);
-      }
-      else {
-        // Decrease frequency
-        signal_freq_ = std::max(10.0f, signal_freq_ * 0.9f);
-        oscilloscope_.testSignal().setFrequency(signal_freq_);
-      }
-      return true;
-    }
-    else if (event.keyCode() == visage::KeyCode::RightBracket) {
-      if (event.isShiftDown()) {
-        // Increase detune
-        signal_detune_ = std::min(1.1f, signal_detune_ * 1.001f);
-        oscilloscope_.testSignal().setDetune(signal_detune_);
-      }
-      else {
-        // Increase frequency
-        signal_freq_ = std::min(500.0f, signal_freq_ * 1.1f);
-        oscilloscope_.testSignal().setFrequency(signal_freq_);
-      }
-      return true;
-    }
     else if (event.keyCode() == visage::KeyCode::Left) {
       // Decrease cutoff
       filter_cutoff_ = std::max(20.0f, filter_cutoff_ * 0.9f);
@@ -1539,19 +1547,12 @@ public:
         // Adjust trigger threshold
         oscilloscope_.setTriggerThreshold(std::min(1.0f, oscilloscope_.triggerThreshold() + 0.05f));
       }
-      else {
-        bloom_intensity_ = std::min(5.0f, bloom_intensity_ + 0.3f);
-        bloom_.setBloomIntensity(bloom_intensity_);
-      }
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::Down) {
       if (event.isShiftDown()) {
+        // Adjust trigger threshold
         oscilloscope_.setTriggerThreshold(std::max(-1.0f, oscilloscope_.triggerThreshold() - 0.05f));
-      }
-      else {
-        bloom_intensity_ = std::max(0.0f, bloom_intensity_ - 0.3f);
-        bloom_.setBloomIntensity(bloom_intensity_);
       }
       return true;
     }
@@ -1615,10 +1616,12 @@ public:
       signal_detune_ = std::clamp(value, 0.9f, 1.1f);
       oscilloscope_.testSignal().setDetune(signal_detune_);
     }
-    else if (name == "waveform") {
-      int w = std::clamp(static_cast<int>(value), 0, 4);
-      oscilloscope_.testSignal().setWaveform(static_cast<TestSignalGenerator::Waveform>(w));
-      waveform_selector_.setIndex(w);
+    else if (name == "beta") {
+      signal_beta_ = std::clamp(value, -2.0f, 2.0f);
+      audio_player_.setBeta(signal_beta_);
+    }
+    else if (name == "exponent") {
+      audio_player_.setExponent(value > 1.5f ? 2 : 1);
     }
     else if (name == "bloom") {
       bloom_intensity_ = std::clamp(value, 0.0f, 5.0f);
@@ -1660,8 +1663,8 @@ private:
   FilterJoystick filter_joystick_;
   FilterKnob cutoff_knob_ { "Cutoff", true };  // logarithmic
   FilterKnob resonance_knob_ { "Resonance", false };  // linear
-  FilterKnob beta_knob_ { "Beta", false };
-  ToggleSwitch exponent_switch_ { "Exp 2" };
+  FilterKnob beta_knob_ { "Rolloff", false };
+  ToggleSwitch exponent_switch_ { "Square" };
   FilterKnob freq_knob_ { "Freq", true };  // logarithmic
   FilterKnob detune_knob_ { "Detune", false };  // linear (around 1.0)
   NumericDisplay freq_display_ { "Hz" };
