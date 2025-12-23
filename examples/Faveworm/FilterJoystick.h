@@ -164,6 +164,7 @@ public:
   }
 
   void setValue(float* v) { value_ = v; }
+  void setLedIntensity(float* v) { led_intensity_ = v; }
   void setRange(float min, float max) {
     min_ = min;
     max_ = max;
@@ -230,6 +231,26 @@ public:
       // Center dot
       canvas.setColor(visage::Color(0.6f * dim, 0.2f, 0.2f, 0.2f));
       canvas.circle(cx - 6, cy - 6, 12);
+
+      // LED Indicator (blooms if led_intensity_ is high)
+      if (led_intensity_) {
+        float intensity = *led_intensity_;
+        // Position it at the top of the knob
+        float lx = cx;
+        float ly = cy - r * 0.7f;
+        float led_r = 3.0f;
+
+        // Base LED color
+        canvas.setColor(visage::Color(1.0f * dim, 0.9f, 0.4f, 0.4f));
+        canvas.circle(lx - led_r, ly - led_r, led_r * 2);
+
+        // Blooming core (high HDR value triggers post-effect bloom)
+        if (intensity > 0.05f) {
+          float hdr = 1.0f + intensity * 8.0f;  // Scale up for bloom post effect
+          canvas.setColor(visage::Color(1.0f * dim, 1.0f, 0.9f, 0.8f, hdr));
+          canvas.circle(lx - led_r * 0.5f, ly - led_r * 0.5f, led_r);
+        }
+      }
     }
 
     // Label at bottom
@@ -311,6 +332,145 @@ private:
   Callback callback_;
   bool dragging_ = false;
   float last_y_ = 0.0f;
+  bool enabled_ = true;
+  float* led_intensity_ = nullptr;
+};
+
+// Retro vertical slider for military aesthetic
+class FilterSlider : public visage::Frame {
+public:
+  using Callback = std::function<void(float)>;
+
+  FilterSlider(const char* label = "") : label_(label) { setIgnoresMouseEvents(false, false); }
+
+  void setValue(float* v) { value_ = v; }
+  void setLedIntensity(float* v) { led_intensity_ = v; }
+  void setRange(float min, float max) {
+    min_ = min;
+    max_ = max;
+  }
+  void setColor(visage::Color c) { color_ = c; }
+  void setCallback(Callback cb) { callback_ = cb; }
+  void setEnabled(bool e) { enabled_ = e; }
+
+  void draw(visage::Canvas& canvas) override {
+    const float w = static_cast<float>(width());
+    const float h = static_cast<float>(height());
+    const float label_h = 12.0f;
+    const float track_h = h - label_h - 10.0f;
+    const float track_w = 4.0f;
+    const float tx = (w - track_w) * 0.5f;
+    const float ty = 5.0f;
+    const float dim = enabled_ ? 1.0f : 0.3f;
+
+    // Track background
+    canvas.setColor(visage::Color(0.6f * dim, 0.05f, 0.05f, 0.05f));
+    canvas.roundedRectangle(tx, ty, track_w, track_h, track_w * 0.5f);
+
+    // Tick marks
+    canvas.setColor(visage::Color(0.4f * dim, 0.3f, 0.3f, 0.3f));
+    for (int i = 0; i <= 5; ++i) {
+      float t = static_cast<float>(i) / 5.0f;
+      float y = ty + (1.0f - t) * track_h;
+      canvas.fill(tx - 6, y - 0.5f, 4, 1);
+      canvas.fill(tx + track_w + 2, y - 0.5f, 4, 1);
+    }
+
+    if (value_) {
+      float norm = (*value_ - min_) / (max_ - min_);
+      float thumb_h = 16.0f;
+      float thumb_w = w * 0.7f;
+      float thumb_y = ty + (1.0f - norm) * track_h - thumb_h * 0.5f;
+      float thumb_x = (w - thumb_w) * 0.5f;
+
+      // Thumb Shadow
+      canvas.setColor(visage::Color(0.4f, 0.0f, 0.0f, 0.0f));
+      canvas.roundedRectangle(thumb_x + 2, thumb_y + 2, thumb_w, thumb_h, 2);
+
+      // Thumb
+      canvas.setColor(visage::Color(1.0f * dim, 0.15f, 0.15f, 0.15f));
+      canvas.roundedRectangle(thumb_x, thumb_y, thumb_w, thumb_h, 2);
+
+      // Center line on thumb
+      canvas.setColor(visage::Color(color_.alpha() * dim, color_.red(), color_.green(), color_.blue()));
+      canvas.fill(thumb_x + 2, thumb_y + thumb_h * 0.5f - 1, thumb_w - 4, 2);
+
+      // LED Indicator on the slider thumb
+      if (led_intensity_) {
+        float intensity = *led_intensity_;
+        float lx = w * 0.5f;
+        float ly = thumb_y + thumb_h * 0.5f;
+        float led_r = 2.5f;
+
+        // Base LED
+        canvas.setColor(visage::Color(1.0f * dim, 0.8f, 0.3f, 0.3f));
+        canvas.circle(lx - led_r, ly - led_r, led_r * 2);
+
+        // Bloom core
+        if (intensity > 0.05f) {
+          float hdr = 1.0f + intensity * 6.0f;
+          canvas.setColor(visage::Color(1.0f * dim, 1.0f, 0.9f, 0.8f, hdr));
+          canvas.circle(lx - led_r * 0.6f, ly - led_r * 0.6f, led_r * 1.2f);
+        }
+      }
+    }
+
+    // Label at bottom
+    if (label_ && label_[0]) {
+      visage::Font font(10, resources::fonts::DroidSansMono_ttf);
+      canvas.setColor(visage::Color(0.7f * dim, 0.6f, 0.65f, 0.7f));
+      canvas.text(label_, font, visage::Font::kCenter, 0, h - label_h, w, label_h);
+    }
+
+    redraw();
+  }
+
+  void mouseDown(const visage::MouseEvent& event) override {
+    if (!enabled_)
+      return;
+    dragging_ = true;
+    updateFromMouse(event.position.y);
+  }
+
+  void mouseDrag(const visage::MouseEvent& event) override {
+    if (!enabled_ || !dragging_)
+      return;
+    updateFromMouse(event.position.y);
+  }
+
+  void mouseUp(const visage::MouseEvent&) override { dragging_ = false; }
+
+  bool mouseWheel(const visage::MouseEvent& event) override {
+    if (!enabled_ || !value_)
+      return false;
+    float wheel_delta = event.wheel_delta_y * 0.05f;
+    *value_ = std::clamp(*value_ + wheel_delta * (max_ - min_), min_, max_);
+    if (callback_)
+      callback_(*value_);
+    return true;
+  }
+
+private:
+  void updateFromMouse(float mouse_y) {
+    if (!value_)
+      return;
+    const float label_h = 12.0f;
+    const float track_h = height() - label_h - 10.0f;
+    const float ty = 5.0f;
+
+    float norm = 1.0f - (mouse_y - ty) / track_h;
+    *value_ = std::clamp(min_ + norm * (max_ - min_), min_, max_);
+    if (callback_)
+      callback_(*value_);
+  }
+
+  const char* label_;
+  float* value_ = nullptr;
+  float* led_intensity_ = nullptr;
+  float min_ = 0.0f, max_ = 1.0f;
+  visage::Color color_ { 1.0f, 0.5f, 0.8f, 0.8f };
+  Callback callback_;
+  bool dragging_ = false;
   bool enabled_ = true;
 };
 

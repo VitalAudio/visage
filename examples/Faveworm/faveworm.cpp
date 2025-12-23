@@ -33,6 +33,7 @@
 #include <thread>
 #include <vector>
 #include <visage/app.h>
+#include <visage_ui/scroll_bar.h>
 
 // Help overlay showing keyboard shortcuts
 class HelpOverlay : public visage::Frame {
@@ -138,7 +139,8 @@ private:
 };
 
 // Vintage control panel background
-class ControlPanel : public visage::Frame {
+// Vintage control panel background
+class ControlPanel : public visage::ScrollableFrame {
 public:
   void draw(visage::Canvas& canvas) override {
     const float w = static_cast<float>(width());
@@ -159,11 +161,12 @@ public:
     canvas.circle(w - 8 - rivet / 2, 8 - rivet / 2, rivet);
     canvas.circle(8 - rivet / 2, h - 8 - rivet / 2, rivet);
     canvas.circle(w - 8 - rivet / 2, h - 8 - rivet / 2, rivet);
-
-    redraw();
   }
 };
 
+#if VISAGE_EMSCRIPTEN
+#include <SDL2/SDL.h>
+#else
 #include <portaudio.h>
 
 // Helper structure for PortAudio initialization
@@ -172,6 +175,7 @@ struct PortAudioRAII {
   ~PortAudioRAII() { Pa_Terminate(); }
 };
 static PortAudioRAII pa_raii;
+#endif
 
 // Display modes
 enum class DisplayMode {
@@ -351,6 +355,13 @@ public:
     stereo_router_.setCutoff(150.0);
     stereo_router_.setResonance(0.7);
     stereo_router_.setSplitMode(StereoFilterRouter::SplitMode::LpHp);
+#if VISAGE_EMSCRIPTEN
+    volume_ = 0.0f;
+#else
+    volume_ = 0.5f;
+#endif
+    paused_ = false;
+    current_gain_ = 0.0f;
   }
 
   bool load(const std::string& path) {
@@ -363,12 +374,44 @@ public:
   void setTestGenerator(TestSignalGenerator* gen) { test_generator_ = gen; }
 
   void play() {
+#if !VISAGE_EMSCRIPTEN
     if (is_playing_)
       return;
+#endif
 
     if (audio_data_.left.empty() && !test_generator_)
       return;
 
+#if VISAGE_EMSCRIPTEN
+    if (is_playing_) {
+      if (device_ != 0)
+        SDL_PauseAudioDevice(device_, 0);
+      return;
+    }
+    static bool sdl_inited = false;
+    if (!sdl_inited) {
+      if (SDL_Init(SDL_INIT_AUDIO) < 0)
+        return;
+      sdl_inited = true;
+    }
+    SDL_AudioSpec want, have;
+    SDL_memset(&want, 0, sizeof(want));
+    want.freq = audio_data_.left.empty() ? 44100 : audio_data_.sample_rate;
+    want.format = AUDIO_F32;
+    want.channels = 2;
+    want.samples = 1024;  // Larger buffer for stability on web
+    want.callback = sdlCallback;
+    want.userdata = this;
+
+    device_ = SDL_OpenAudioDevice(nullptr, 0, &want, &have, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+    if (device_ == 0)
+      return;
+
+    sample_rate_ = have.freq;
+
+    SDL_PauseAudioDevice(device_, 0);
+    is_playing_ = true;
+#else
     PaError init_err = Pa_Initialize();
     if (init_err != paNoError)
       return;
@@ -406,23 +449,38 @@ public:
     }
 
     is_playing_ = true;
+#endif
   }
 
   void stop() {
-    if (!is_playing_ || !stream_)
+    if (!is_playing_)
+      return;
+
+#if VISAGE_EMSCRIPTEN
+    if (device_ != 0) {
+      SDL_CloseAudioDevice(device_);
+      device_ = 0;
+    }
+#else
+    if (!stream_)
       return;
 
     // We don't wait for ramp here because target_gain_ is managed by UI
     Pa_StopStream(stream_);
     Pa_CloseStream(stream_);
     stream_ = nullptr;
+#endif
     is_playing_ = false;
   }
 
   bool isPlaying() const { return is_playing_; }
 
   bool isPaused() const { return paused_; }
-  void setPaused(bool p) { paused_ = p; }
+  void setPaused(bool p) {
+    paused_ = p;
+    if (test_generator_)
+      test_generator_->setPaused(p);
+  }
 
   void getCurrentSamples(std::vector<float>& left, std::vector<float>& right, int num_samples) {
     ring_buffer_.read(left, right, num_samples);
@@ -564,6 +622,9 @@ public:
   }
 
   int getOutputDevice(bool speaker) {
+#if VISAGE_EMSCRIPTEN
+    return 0;
+#else
     int numDevices = Pa_GetDeviceCount();
     if (numDevices < 0)
       return paNoDevice;
@@ -589,6 +650,7 @@ public:
       }
     }
     return fallback;
+#endif
   }
 
   bool useSpeaker() const { return use_speaker_; }
@@ -597,73 +659,77 @@ public:
   float volume() const { return volume_; }
 
 private:
+#if VISAGE_EMSCRIPTEN
+  static void sdlCallback(void* userData, Uint8* stream, int len) {
+    auto* player = static_cast<AudioPlayer*>(userData);
+    float* out = reinterpret_cast<float*>(stream);
+    int num_samples = len / (2 * sizeof(float));
+    player->process(out, num_samples);
+  }
+#else
   static int paCallback(const void* inputBuffer, void* outputBuffer, unsigned long framesPerBuffer,
                         const PaStreamCallbackTimeInfo* timeInfo, PaStreamCallbackFlags statusFlags,
                         void* userData) {
     auto* player = static_cast<AudioPlayer*>(userData);
     float* out = static_cast<float*>(outputBuffer);
-    size_t total = player->audio_data_.left.size();
+    player->process(out, framesPerBuffer);
+    return paContinue;
+  }
+#endif
 
-    if (total == 0 && !player->test_generator_) {
-      memset(out, 0, framesPerBuffer * 2 * sizeof(float));
-      return paContinue;
-    }
+  void process(float* out, unsigned long framesPerBuffer) {
+    size_t total = audio_data_.left.size();
 
-    const float target_gain = player->paused_ ? 0.0f : player->volume_.load();
-    const float ramp_inc = 1.0f / (0.050f * player->sample_rate_);
+    const float target_gain = paused_ ? 0.0f : volume_.load();
+    const float ramp_inc = 1.0f / (0.050f * sample_rate_);
 
     for (unsigned int i = 0; i < framesPerBuffer; ++i) {
-      // Apply gain ramp first to determine if we should still be pulling samples for output
-      if (player->current_gain_ < target_gain)
-        player->current_gain_ = std::min(target_gain, player->current_gain_ + ramp_inc);
-      else if (player->current_gain_ > target_gain)
-        player->current_gain_ = std::max(target_gain, player->current_gain_ - ramp_inc);
+      if (current_gain_ < target_gain)
+        current_gain_ = std::min(target_gain, current_gain_ + ramp_inc);
+      else if (current_gain_ > target_gain)
+        current_gain_ = std::max(target_gain, current_gain_ - ramp_inc);
 
-      // The waveform/engine is "running" if not paused OR if we are still ramping down audio
-      bool is_running = !player->paused_ || player->current_gain_ > 0.0f;
+      bool is_running = !paused_ || current_gain_ > 0.0f;
 
       float l = 0.0f, r = 0.0f;
       if (is_running) {
         if (total > 0) {
-          size_t idx = player->play_position_ % total;
-          l = player->audio_data_.left[idx];
-          r = player->audio_data_.stereo ? player->audio_data_.right[idx] : player->audio_data_.left[idx];
-          player->play_position_++;
+          size_t idx = play_position_ % total;
+          l = audio_data_.left[idx];
+          r = audio_data_.stereo ? audio_data_.right[idx] : audio_data_.left[idx];
+          play_position_++;
         }
-        else if (player->test_generator_) {
-          player->test_generator_->getSample(l, r);
+        else if (test_generator_) {
+          test_generator_->getSample(l, r);
         }
 
-        // Apply visualizer-style filtering to the audio output
-        if (player->filter_enabled_) {
-          // Note: accessing filter members from audio thread while UI thread writes to them
-          // is theoretically racy but practically safe for simple float params.
-          if (player->stereo_split_mode_) {
+        if (filter_enabled_) {
+          if (stereo_split_mode_) {
             double mono = (static_cast<double>(l) + static_cast<double>(r)) * 0.5;
-            auto xy = player->stereo_router_.process(mono);
+            auto xy = stereo_router_.process(mono);
             l = static_cast<float>(xy.x);
             r = static_cast<float>(xy.y);
           }
           else {
-            // Morph mode: only filter Y (right) channel
-            auto outputs = player->svf_.process(static_cast<double>(r));
-            r = static_cast<float>(player->morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
+            auto outputs = svf_.process(static_cast<double>(r));
+            r = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
           }
         }
 
-        // Only update ring buffer (waveform) if the user hasn't explicitly paused it
-        if (!player->paused_)
-          player->ring_buffer_.write(l, r);
+        if (!paused_)
+          ring_buffer_.write(l, r);
       }
 
-      out[i * 2] = l * player->current_gain_;
-      out[i * 2 + 1] = r * player->current_gain_;
+      out[i * 2] = l * current_gain_;
+      out[i * 2 + 1] = r * current_gain_;
     }
-
-    return paContinue;
   }
 
+#if VISAGE_EMSCRIPTEN
+  SDL_AudioDeviceID device_ = 0;
+#else
   PaStream* stream_ = nullptr;
+#endif
 
   AudioData audio_data_;
   RingBuffer ring_buffer_;
@@ -727,7 +793,10 @@ public:
     float x, y;
   };
 
-  Oscilloscope() { setIgnoresMouseEvents(true, false); }
+  Oscilloscope() {
+    setIgnoresMouseEvents(true, false);
+    // Demo mode: synthetic waveform if nothing else
+  }
 
   bool receivesDragDropFiles() override { return true; }
 
@@ -746,6 +815,7 @@ public:
   void setPhosphorDecay(float decay) { phosphor_decay_ = decay; }
   void setBeamSize(float size) { beam_size_ = size; }
   void setBeamGain(float gain) { beam_gain_ = gain; }
+  void setWaveformHue(float hue) { waveform_hue_ = hue; }
 
   void setDisplayMode(DisplayMode mode) { display_mode_ = mode; }
   DisplayMode displayMode() const { return display_mode_; }
@@ -787,6 +857,8 @@ public:
   }
   bool filterEnabled() const { return audio_player_ ? audio_player_->filterEnabled() : false; }
 
+  void step() { needs_step_update_ = true; }
+
   // Stereo split mode delegates
   void setStereoSplitMode(bool enabled) {
     if (audio_player_)
@@ -799,7 +871,11 @@ public:
   }
 
   // Test signal generator controls
-  TestSignalGenerator& testSignal() { return test_signal_; }
+  TestSignalGenerator& testSignal() {
+    if (audio_player_ && audio_player_->test_generator_)
+      return *audio_player_->test_generator_;
+    return test_signal_;
+  }
   void setTestSignalEnabled(bool enabled) { test_signal_enabled_ = enabled; }
   bool testSignalEnabled() const { return test_signal_enabled_; }
 
@@ -810,7 +886,7 @@ public:
       return;
 
     // Use audio player data for all primary modes
-    if (audio_player_) {
+    if (audio_player_ && audio_player_->isPlaying()) {
       if (display_mode_ == DisplayMode::XY) {
         const int num_samples = 512;
         std::vector<float> left, right;
@@ -863,6 +939,35 @@ public:
         }
         return;
       }
+    }
+
+    // If audio isn't playing, use the test signal for visualization feedback
+    if (test_signal_enabled_) {
+      const int num_samples = 512;
+      samples.resize(num_samples);
+
+      float cy = h * 0.5f;
+      float scale = h * 0.4f;
+      float cx = w * 0.5f;
+      float xy_scale = std::min(w, h) * 0.4f;
+
+      TestSignalGenerator& gen = testSignal();
+
+      for (int i = 0; i < num_samples; ++i) {
+        float l, r;
+        gen.getSample(l, r);
+
+        if (display_mode_ == DisplayMode::XY) {
+          samples[i].x = cx + l * xy_scale;
+          samples[i].y = cy - r * xy_scale;
+        }
+        else {
+          float t = static_cast<float>(i) / (num_samples - 1);
+          samples[i].x = t * w;
+          samples[i].y = cy - l * scale;
+        }
+      }
+      return;
     }
 
     // Demo mode: synthetic waveform
@@ -930,7 +1035,7 @@ public:
 
       for (int k = 0; k < end; ++k) {
         float brightness = std::min(1.0f, g);
-        visage::Color color(brightness * 0.9f, brightness * 0.15f, brightness, brightness * 0.85f);
+        visage::Color color = visage::Color::fromAHSV(brightness * 0.9f, waveform_hue_, 0.85f, brightness);
         canvas.setColor(color);
         canvas.fadeCircle(x - half_beam, y - half_beam, beam_size_, beam_size_ * 0.35f);
         x += ix;
@@ -971,9 +1076,10 @@ public:
       }
 
       // Only generate new waveform if not paused (freeze display when paused)
-      bool is_paused = test_signal_.isPaused();
-      if (!is_paused || current_samples_.empty()) {
+      bool is_paused = testSignal().isPaused();
+      if (!is_paused || current_samples_.empty() || needs_step_update_) {
         generateWaveform(time + time_offset_, current_samples_);
+        needs_step_update_ = false;
       }
 
       if (current_samples_.size() >= 2) {
@@ -1012,6 +1118,7 @@ private:
   float phosphor_decay_ = 0.1f;
   float beam_size_ = 3.0f;
   float beam_gain_ = 1.5f;
+  float waveform_hue_ = 170.0f;
 
   DisplayMode display_mode_ = DisplayMode::XY;
   double time_offset_ = 0.0;
@@ -1024,90 +1131,29 @@ private:
   bool test_signal_enabled_ = true;  // Enabled by default
 
   AudioPlayer* audio_player_ = nullptr;
+  bool needs_step_update_ = false;
 };
+
+class ExampleEditor;
+static ExampleEditor* g_editor = nullptr;
 
 class ExampleEditor : public visage::ApplicationWindow {
 public:
   ExampleEditor() {
+    g_editor = this;
     setAcceptsKeystrokes(true);
 
     addChild(&oscilloscope_);
     oscilloscope_.layout().setMargin(0);
     oscilloscope_.setAudioPlayer(&audio_player_);
-    audio_player_.setTestGenerator(&oscilloscope_.testSignal());
+    audio_player_.setTestGenerator(&audio_test_signal_);
 
-    // Control panel background (add first so it's behind controls)
+    // Control panel background (added first)
     addChild(&control_panel_);
-    control_panel_.setVisible(false);
+    control_panel_.setVisible(true);
 
-    // Set up filter joystick for morph control
-    addChild(&filter_joystick_);
-    filter_joystick_.setMorpher(&oscilloscope_.morpher());
-    filter_joystick_.setVisible(false);  // Hidden by default (TimeFree mode)
-
-    // Cutoff knob (logarithmic for frequency)
-    addChild(&cutoff_knob_);
-    cutoff_knob_.setValue(&filter_cutoff_);
-    cutoff_knob_.setRange(20.0f, 2000.0f);
-    cutoff_knob_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));  // Cyan
-    cutoff_knob_.setCallback([this](float v) { oscilloscope_.setFilterCutoff(v); });
-    cutoff_knob_.setVisible(false);
-
-    // Resonance knob (linear) - capped just below 1.0 for stability
-    addChild(&resonance_knob_);
-    resonance_knob_.setValue(&filter_resonance_);
-    resonance_knob_.setRange(0.0f, 0.99f);
-    resonance_knob_.setColor(visage::Color(1.0f, 0.9f, 0.6f, 0.4f));  // Orange
-    resonance_knob_.setCallback([this](float v) {
-      oscilloscope_.setFilterResonance(v);
-      filter_resonance_pct_ = v * 100.0f;
-    });
-    resonance_knob_.setVisible(false);
-
-    // Numeric displays for filter values
-    addChild(&cutoff_display_);
-    cutoff_display_.setValue(&filter_cutoff_);
-    cutoff_display_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));  // Match cutoff knob
-    cutoff_display_.setDecimals(0);
-    cutoff_display_.setVisible(false);
-
-    addChild(&resonance_display_);
-    resonance_display_.setValue(&filter_resonance_pct_);
-    resonance_display_.setColor(visage::Color(1.0f, 0.9f, 0.6f, 0.4f));  // Match resonance knob
-    resonance_display_.setDecimals(0);
-    resonance_display_.setVisible(false);
-
-    // Frequency knob for test signal (logarithmic)
-    addChild(&freq_knob_);
-    freq_knob_.setValue(&signal_freq_);
-    freq_knob_.setRange(10.0f, 500.0f);
-    freq_knob_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));  // Match waveform selector
-    freq_knob_.setCallback([this](float v) { oscilloscope_.testSignal().setFrequency(v); });
-    freq_knob_.setVisible(false);
-
-    // Detune knob for test signal (linear around 1.0)
-    addChild(&detune_knob_);
-    detune_knob_.setValue(&signal_detune_);
-    detune_knob_.setRange(0.9f, 1.1f);
-    detune_knob_.setColor(visage::Color(1.0f, 0.6f, 0.8f, 0.6f));  // Lighter purple
-    detune_knob_.setCallback([this](float v) { oscilloscope_.testSignal().setDetune(v); });
-    detune_knob_.setVisible(false);
-
-    // Numeric displays for signal generator
-    addChild(&freq_display_);
-    freq_display_.setValue(&signal_freq_);
-    freq_display_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));  // Match freq knob
-    freq_display_.setDecimals(0);
-    freq_display_.setVisible(false);
-
-    addChild(&detune_display_);
-    detune_display_.setValue(&signal_detune_);
-    detune_display_.setColor(visage::Color(1.0f, 0.6f, 0.8f, 0.6f));  // Match detune knob
-    detune_display_.setDecimals(3);
-    detune_display_.setVisible(false);
-
-    // Mode selector (display mode)
-    addChild(&mode_selector_);
+    // Add controls to scrollable control panel
+    control_panel_.addScrolledChild(&mode_selector_);
     mode_selector_.setLabel("Mode");
     mode_selector_.setOptions({ "Time", "Trig", "XY" });
     mode_selector_.setColor(visage::Color(1.0f, 0.4f, 0.8f, 0.9f));
@@ -1115,67 +1161,119 @@ public:
       oscilloscope_.setDisplayMode(static_cast<DisplayMode>(i));
       updatePanelVisibility();
     });
-    mode_selector_.setVisible(false);
 
-    // Waveform selector
-    addChild(&waveform_selector_);
+    control_panel_.addScrolledChild(&waveform_selector_);
     waveform_selector_.setLabel("Wave");
     waveform_selector_.setOptions({ "Sin", "Tri", "Saw", "Sqr", "Nz" });
     waveform_selector_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));
     waveform_selector_.setCallback([this](int i) {
       oscilloscope_.testSignal().setWaveform(static_cast<TestSignalGenerator::Waveform>(i));
     });
-    waveform_selector_.setVisible(false);
 
-    // Split mode selector
-    addChild(&split_selector_);
-    split_selector_.setLabel("Split");
-    split_selector_.setOptions({ "LP/HP", "BP/AP", "BR/AP", "LP/BP", "AP/HP", "BP/BR", "Morph" });
-    split_selector_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
-    split_selector_.setCallback([this](int i) {
-      oscilloscope_.stereoRouter().setSplitMode(static_cast<StereoFilterRouter::SplitMode>(i));
-    });
-    split_selector_.setVisible(false);
+    control_panel_.addScrolledChild(&freq_knob_);
+    freq_knob_.setValue(&signal_freq_);
+    freq_knob_.setRange(10.0f, 500.0f);
+    freq_knob_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));
+    freq_knob_.setCallback([this](float v) { oscilloscope_.testSignal().setFrequency(v); });
 
-    // Filter on/off switch
-    addChild(&filter_switch_);
+    control_panel_.addScrolledChild(&detune_knob_);
+    detune_knob_.setValue(&signal_detune_);
+    detune_knob_.setRange(0.9f, 1.1f);
+    detune_knob_.setColor(visage::Color(1.0f, 0.6f, 0.8f, 0.6f));
+    detune_knob_.setCallback([this](float v) { oscilloscope_.testSignal().setDetune(v); });
+
+    control_panel_.addScrolledChild(&freq_display_);
+    freq_display_.setValue(&signal_freq_);
+    freq_display_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));
+    freq_display_.setDecimals(0);
+
+    control_panel_.addScrolledChild(&detune_display_);
+    detune_display_.setValue(&signal_detune_);
+    detune_display_.setColor(visage::Color(1.0f, 0.6f, 0.8f, 0.6f));
+    detune_display_.setDecimals(3);
+
+    control_panel_.addScrolledChild(&filter_switch_);
     filter_switch_.setValue(false);
     filter_switch_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));
     filter_switch_.setCallback([this](bool v) {
       oscilloscope_.setFilterEnabled(v);
       updateFilterControlsEnabled(v);
     });
-    filter_switch_.setVisible(false);
 
-    // Split mode on/off switch
-    addChild(&split_switch_);
+    control_panel_.addScrolledChild(&filter_joystick_);
+    filter_joystick_.setMorpher(&oscilloscope_.morpher());
+
+    control_panel_.addScrolledChild(&cutoff_knob_);
+    cutoff_knob_.setValue(&filter_cutoff_);
+    cutoff_knob_.setRange(20.0f, 2000.0f);
+    cutoff_knob_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));
+    cutoff_knob_.setCallback([this](float v) { oscilloscope_.setFilterCutoff(v); });
+
+    control_panel_.addScrolledChild(&cutoff_display_);
+    cutoff_display_.setValue(&filter_cutoff_);
+    cutoff_display_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));
+    cutoff_display_.setDecimals(0);
+
+    control_panel_.addScrolledChild(&resonance_knob_);
+    resonance_knob_.setValue(&filter_resonance_);
+    resonance_knob_.setRange(0.0f, 0.99f);
+    resonance_knob_.setColor(visage::Color(1.0f, 0.9f, 0.6f, 0.4f));
+    resonance_knob_.setCallback([this](float v) {
+      oscilloscope_.setFilterResonance(v);
+      filter_resonance_pct_ = v * 100.0f;
+    });
+
+    control_panel_.addScrolledChild(&resonance_display_);
+    resonance_display_.setValue(&filter_resonance_pct_);
+    resonance_display_.setColor(visage::Color(1.0f, 0.9f, 0.6f, 0.4f));
+    resonance_display_.setDecimals(0);
+
+    control_panel_.addScrolledChild(&split_switch_);
     split_switch_.setValue(false);
     split_switch_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
     split_switch_.setCallback([this](bool v) {
       oscilloscope_.setStereoSplitMode(v);
       split_selector_.setEnabled(v && filter_switch_.value());
     });
-    split_switch_.setVisible(false);
 
-    // Volume Knob (replaces speaker switch)
-    addChild(&volume_knob_);
+    control_panel_.addScrolledChild(&split_selector_);
+    split_selector_.setLabel("Split");
+    split_selector_.setOptions({ "LP/HP", "BP/AP", "BR/AP", "LP/BP", "AP/HP", "BP/BR", "Morph" });
+    split_selector_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
+    split_selector_.setCallback([this](int i) {
+      oscilloscope_.stereoRouter().setSplitMode(static_cast<StereoFilterRouter::SplitMode>(i));
+    });
+
+    control_panel_.addScrolledChild(&volume_knob_);
     volume_knob_.setValue(&volume_val_);
     volume_knob_.setRange(0.0f, 1.0f);
-    volume_knob_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));  // Match cutoff
+    volume_knob_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));
     volume_knob_.setCallback([this](float v) { audio_player_.setVolume(v); });
-    volume_knob_.setVisible(false);
 
-    addChild(&volume_display_);
-    volume_display_.setValue(&volume_val_);
-    volume_display_.setDecimals(2);
-    volume_display_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));
-    volume_display_.setVisible(false);
+    control_panel_.addScrolledChild(&hue_slider_);
+    hue_slider_.setValue(&waveform_hue_);
+    hue_slider_.setRange(0.0f, 360.0f);
+    hue_slider_.setColor(visage::Color::fromAHSV(1.0f, waveform_hue_, 0.85f, 0.9f));
+    hue_slider_.setCallback([this](float v) {
+      oscilloscope_.setWaveformHue(v);
+      hue_slider_.setColor(visage::Color::fromAHSV(1.0f, v, 0.85f, 0.9f));
+    });
+
+    control_panel_.addScrolledChild(&bloom_slider_);
+    bloom_slider_.setValue(&bloom_intensity_);
+    bloom_slider_.setLedIntensity(&bloom_intensity_);
+    bloom_slider_.setRange(0.0f, 5.0f);
+    bloom_slider_.setColor(visage::Color(1.0f, 1.0f, 0.8f, 0.2f));
+    bloom_slider_.setCallback([this](float v) {
+      bloom_intensity_ = v;
+      bloom_.setBloomIntensity(v);
+    });
 
     // Help overlay (covers entire window)
     addChild(&help_overlay_);
 
     bloom_.setBloomSize(20.0f);
-    bloom_.setBloomIntensity(0.2f);  // Subtle glow by default
+    bloom_.setBloomIntensity(0.5f);  // Slightly higher default glow
     setPostEffect(&bloom_);
 
     // Initialize panel visibility
@@ -1183,6 +1281,9 @@ public:
 
     // Start audio engine immediately (it will be muted by default)
     audio_player_.play();
+#if VISAGE_EMSCRIPTEN
+    setVolume(0.0f);
+#endif
   }
 
   void updatePanelVisibility() {
@@ -1207,7 +1308,8 @@ public:
     filter_switch_.setVisible(is_xy);
     split_switch_.setVisible(is_xy);
     volume_knob_.setVisible(show_panel);
-    volume_display_.setVisible(show_panel);
+    hue_slider_.setVisible(show_panel);
+    bloom_slider_.setVisible(show_panel);
 
     // Update enabled state based on filter switch
     updateFilterControlsEnabled(filter_switch_.value());
@@ -1238,23 +1340,22 @@ public:
     control_panel_.setBounds(panel_x, 0, panel_width, height());
 
     int y = margin;
-    int cx = panel_x + (panel_width - knob_size) / 2;
 
     // Mode selector at top (always visible)
-    mode_selector_.setBounds(panel_x + 10, y, panel_width - 20, selector_h);
+    mode_selector_.setBounds(10, y, panel_width - 20, selector_h);
     y += selector_h + margin;
 
     // XY mode controls
     if (oscilloscope_.displayMode() == DisplayMode::XY) {
       // Waveform selector
-      waveform_selector_.setBounds(panel_x + 10, y, panel_width - 20, selector_h);
+      waveform_selector_.setBounds(10, y, panel_width - 20, selector_h);
       y += selector_h + margin;
 
       // Signal freq and detune knobs side by side (smaller) with displays below
       int small_knob = 50;
       int small_display_h = 16;
-      int left_x = panel_x + 10;
-      int right_x = panel_x + panel_width - 10 - small_knob;
+      int left_x = 10;
+      int right_x = panel_width - 10 - small_knob;
       freq_knob_.setBounds(left_x, y, small_knob, small_knob);
       detune_knob_.setBounds(right_x, y, small_knob, small_knob);
       y += small_knob + 2;
@@ -1263,42 +1364,47 @@ public:
       y += small_display_h + margin;
 
       // Filter switch + label area
-      filter_switch_.setBounds(panel_x + 10, y, panel_width - 20, switch_h);
+      filter_switch_.setBounds(10, y, panel_width - 20, switch_h);
       y += switch_h + margin;
 
       // Joystick
-      filter_joystick_.setBounds(panel_x + (panel_width - js_size) / 2, y, js_size, js_size);
+      filter_joystick_.setBounds((panel_width - js_size) / 2, y, js_size, js_size);
       y += js_size + margin;
 
       // Cutoff knob with display
       int display_w = 50;
       int display_h = 18;
-      cutoff_knob_.setBounds(panel_x + 10, y, knob_size, knob_size);
-      cutoff_display_.setBounds(panel_x + 10 + knob_size + 4, y + (knob_size - display_h) / 2,
-                                display_w, display_h);
+      cutoff_knob_.setBounds(10, y, knob_size, knob_size);
+      cutoff_display_.setBounds(10 + knob_size + 4, y + (knob_size - display_h) / 2, display_w, display_h);
       y += knob_size + margin;
 
       // Resonance knob with display
-      resonance_knob_.setBounds(panel_x + 10, y, knob_size, knob_size);
-      resonance_display_.setBounds(panel_x + 10 + knob_size + 4, y + (knob_size - display_h) / 2,
-                                   display_w, display_h);
+      resonance_knob_.setBounds(10, y, knob_size, knob_size);
+      resonance_display_.setBounds(10 + knob_size + 4, y + (knob_size - display_h) / 2, display_w, display_h);
       y += knob_size + margin;
 
       // Split switch
-      split_switch_.setBounds(panel_x + 10, y, panel_width - 20, switch_h);
+      split_switch_.setBounds(10, y, panel_width - 20, switch_h);
       y += switch_h + margin;
 
       // Split mode selector
-      split_selector_.setBounds(panel_x + 10, y, panel_width - 20, selector_h);
+      split_selector_.setBounds(10, y, panel_width - 20, selector_h);
+      y += selector_h + 20;  // Extra padding
     }
 
-    // Speaker switch at the bottom of the control panel
-    int display_w = 50;
-    int display_h = 18;
-    volume_knob_.setBounds(panel_x + 10, height() - knob_size - margin, knob_size, knob_size);
-    volume_display_.setBounds(panel_x + 10 + knob_size + 4,
-                              height() - knob_size - margin + (knob_size - display_h) / 2,
-                              display_w, display_h);
+    // Dual vertical sliders side-by-side
+    int slider_w = 40;
+    int slider_h = 100;
+    int sliders_x = (panel_width - (slider_w * 2 + margin)) / 2;
+
+    hue_slider_.setBounds(sliders_x, y, slider_w, slider_h);
+    bloom_slider_.setBounds(sliders_x + slider_w + margin, y, slider_w, slider_h);
+
+    y += slider_h + margin;
+
+    // Volume knob centered below sliders
+    volume_knob_.setBounds((panel_width - knob_size) / 2, y, knob_size, knob_size);
+    y += knob_size + margin;
 
     // Oscilloscope fills remaining space
     oscilloscope_.setBounds(0, 0, width() - panel_width, height());
@@ -1442,6 +1548,7 @@ public:
       if (audio_player_.isPaused()) {
         int samples = event.isShiftDown() ? -4410 : -441;
         audio_player_.step(samples);
+        oscilloscope_.step();
       }
       return true;
     }
@@ -1450,10 +1557,77 @@ public:
       if (audio_player_.isPaused()) {
         int samples = event.isShiftDown() ? 4410 : 441;
         audio_player_.step(samples);
+        oscilloscope_.step();
       }
       return true;
     }
     return false;
+  }
+
+  void setVolume(float v) {
+    volume_val_ = std::clamp(v, 0.0f, 1.0f);
+    audio_player_.setVolume(volume_val_);
+    volume_knob_.redraw();
+  }
+
+  void setFilterCutoff(float fc) {
+    filter_cutoff_ = std::clamp(fc, 20.0f, 2000.0f);
+    oscilloscope_.setFilterCutoff(filter_cutoff_);
+    cutoff_knob_.redraw();
+  }
+
+  void setFilterResonance(float r) {
+    filter_resonance_ = std::clamp(r, 0.0f, 0.99f);
+    filter_resonance_pct_ = filter_resonance_ * 100.0f;
+    oscilloscope_.setFilterResonance(filter_resonance_);
+    resonance_knob_.redraw();
+  }
+
+  void setWindowSize(int w, int h) { setBounds(0, 0, w, h); }
+
+  void setParam(const std::string& name, float value) {
+    if (name == "volume") {
+      setVolume(value);
+    }
+    else if (name == "cutoff") {
+      setFilterCutoff(value);
+    }
+    else if (name == "resonance") {
+      setFilterResonance(value);
+    }
+    else if (name == "freq") {
+      signal_freq_ = std::clamp(value, 20.0f, 500.0f);
+      oscilloscope_.testSignal().setFrequency(signal_freq_);
+    }
+    else if (name == "detune") {
+      signal_detune_ = std::clamp(value, 0.9f, 1.1f);
+      oscilloscope_.testSignal().setDetune(signal_detune_);
+    }
+    else if (name == "waveform") {
+      int w = std::clamp(static_cast<int>(value), 0, 4);
+      oscilloscope_.testSignal().setWaveform(static_cast<TestSignalGenerator::Waveform>(w));
+      waveform_selector_.setIndex(w);
+    }
+    else if (name == "bloom") {
+      bloom_intensity_ = std::clamp(value, 0.0f, 5.0f);
+      bloom_.setBloomIntensity(bloom_intensity_);
+    }
+    else if (name == "hue") {
+      waveform_hue_ = std::clamp(value, 0.0f, 360.0f);
+      oscilloscope_.setWaveformHue(waveform_hue_);
+    }
+    else if (name == "display") {
+      int m = std::clamp(static_cast<int>(value), 0, 2);
+      oscilloscope_.setDisplayMode(static_cast<DisplayMode>(m));
+      mode_selector_.setIndex(m);
+      updatePanelVisibility();
+    }
+    redraw();
+  }
+
+  void mouseDown(const visage::MouseEvent& event) override {
+    // Satisfy browser autoplay policy on first click
+    audio_player_.play();
   }
 
 private:
@@ -1464,9 +1638,14 @@ private:
   ModeSelector split_selector_;
   ToggleSwitch filter_switch_ { "Filter" };
   ToggleSwitch split_switch_ { "Split" };
-  FilterKnob volume_knob_ { "Volume" };
-  NumericDisplay volume_display_ { "" };
+  FilterKnob volume_knob_ { "Vol" };
+  FilterSlider hue_slider_ { "Hue" };
+  FilterSlider bloom_slider_ { "Bloom" };
+#if VISAGE_EMSCRIPTEN
   float volume_val_ = 0.0f;
+#else
+  float volume_val_ = 0.5f;
+#endif
   FilterJoystick filter_joystick_;
   FilterKnob cutoff_knob_ { "Cutoff", true };  // logarithmic
   FilterKnob resonance_knob_ { "Resonance", false };  // linear
@@ -1478,9 +1657,11 @@ private:
   NumericDisplay detune_display_ { "x" };
   HelpOverlay help_overlay_;
   visage::BloomPostEffect bloom_;
+  TestSignalGenerator audio_test_signal_;
   AudioPlayer audio_player_;
-  float bloom_intensity_ = 0.2f;
+  float bloom_intensity_ = 0.5f;
   bool bloom_enabled_ = true;
+  float waveform_hue_ = 170.0f;
   float filter_cutoff_ = 150.0f;
   float filter_resonance_ = 0.7f;
   float filter_resonance_pct_ = 70.0f;  // For display (0-100%)
@@ -1492,12 +1673,40 @@ int runExample() {
   ExampleEditor editor;
   editor.setWindowDecoration(visage::Window::Decoration::Client);
 
+#if VISAGE_EMSCRIPTEN
+  editor.showMaximized();
+#else
   if (visage::isMobileDevice())
     editor.showMaximized();
   else
     editor.show(900, 550);
+#endif
 
   editor.runEventLoop();
 
   return 0;
 }
+
+#if VISAGE_EMSCRIPTEN
+#include <emscripten.h>
+
+extern "C" {
+EMSCRIPTEN_KEEPALIVE
+void setVolume(float volume) {
+  if (g_editor)
+    g_editor->setVolume(volume);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setParameter(const char* name, float value) {
+  if (g_editor && name)
+    g_editor->setParam(name, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void resizeWindow(int w, int h) {
+  if (g_editor)
+    g_editor->setWindowSize(w, h);
+}
+}
+#endif
