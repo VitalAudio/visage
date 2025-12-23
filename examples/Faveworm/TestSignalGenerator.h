@@ -29,7 +29,7 @@ public:
   }
 
   void setFrequency(double hz) {
-    base_freq_ = std::max(10.0, std::min(500.0, hz));
+    base_freq_ = std::max(10.0, std::min(1000.0, hz));
     updateFrequencies();
   }
 
