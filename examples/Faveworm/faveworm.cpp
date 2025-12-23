@@ -53,9 +53,23 @@ static constexpr float kMaxPostRotate = 360.0f;
 static constexpr float kMinPreGain = 0.0f;
 static constexpr float kMaxPreGain = 4.0f;
 
-// Default values for display parameters
+// Default values for all parameters
 static constexpr float kDefaultHueDynamics = 0.05f;
-static constexpr float kDefaultPhosphorDecay = 0.8f;
+static constexpr float kDefaultPhosphorDecay = 0.1f;
+static constexpr float kDefaultWaveformHue = 170.0f;
+static constexpr float kDefaultBloomIntensity = 0.5f;
+static constexpr float kDefaultFilterCutoff = 150.0f;
+static constexpr float kDefaultFilterResonance = 1.0f;
+static constexpr float kDefaultPreGain = 1.0f;
+static constexpr float kDefaultVolume = 0.5f;
+static constexpr float kDefaultSignalBeta = 0.0f;
+static constexpr float kDefaultSignalFreq = 80.0f;
+static constexpr float kDefaultSignalDetune = 1.003f;
+static constexpr float kDefaultSplitAngle = 0.0f;
+static constexpr float kDefaultSplitDepth = 0.0f;
+static constexpr float kDefaultPostScale = 1.0f;
+static constexpr float kDefaultPostRotate = 0.0f;
+static constexpr float kDefaultTriggerThreshold = 0.0f;
 
 // Help overlay showing keyboard shortcuts
 class HelpOverlay : public visage::Frame {
@@ -433,7 +447,7 @@ public:
 #if VISAGE_EMSCRIPTEN
     volume_ = 0.0f;
 #else
-    volume_ = 0.5f;
+    volume_ = kDefaultVolume;
 #endif
     paused_ = false;
     current_gain_ = 0.0f;
@@ -887,11 +901,11 @@ public:
   mutable SimpleSVF svf_;
   FilterMorpher morpher_;
   mutable StereoFilterRouter stereo_router_;
-  std::atomic<float> filter_cutoff_ { 150.0f };
-  std::atomic<float> filter_resonance_ { 0.7f };
+  std::atomic<float> filter_cutoff_ { kDefaultFilterCutoff };
+  std::atomic<float> filter_resonance_ { kDefaultFilterResonance };
   std::atomic<bool> filter_enabled_ { true };
   std::atomic<bool> stereo_split_mode_ { false };
-  std::atomic<float> pre_gain_ { 1.0f };
+  std::atomic<float> pre_gain_ { kDefaultPreGain };
 
   // RPM controls
   void setBeta(float b) {
@@ -1316,7 +1330,7 @@ private:
   float phosphor_decay_ = kDefaultPhosphorDecay;
   float beam_size_ = 3.0f;
   float beam_gain_ = 1.5f;
-  float waveform_hue_ = 170.0f;
+  float waveform_hue_ = kDefaultWaveformHue;
   float hue_dynamics_ = kDefaultHueDynamics;  // Velocity-based hue shift sensitivity (0-1)
 
   DisplayMode display_mode_ = DisplayMode::XY;
@@ -2037,7 +2051,7 @@ private:
 #if VISAGE_EMSCRIPTEN
   float volume_val_ = 0.0f;
 #else
-  float volume_val_ = 0.5f;
+  float volume_val_ = kDefaultVolume;
 #endif
   FilterJoystick filter_joystick_;
   FilterKnob cutoff_knob_ { "Cutoff", true };  // logarithmic
@@ -2060,23 +2074,23 @@ private:
   visage::BloomPostEffect bloom_;
 
   AudioPlayer audio_player_;
-  float pre_gain_val_ = 1.0f;
-  float bloom_intensity_ = 0.5f;
+  float pre_gain_val_ = kDefaultPreGain;
+  float bloom_intensity_ = kDefaultBloomIntensity;
   bool bloom_enabled_ = true;
-  float waveform_hue_ = 170.0f;
+  float waveform_hue_ = kDefaultWaveformHue;
   float hue_dynamics_ = kDefaultHueDynamics;  // Velocity-based hue shift sensitivity
   float phosphor_decay_ = kDefaultPhosphorDecay;  // Phosphor decay rate
-  float filter_cutoff_ = 150.0f;
-  float filter_resonance_ = 1.0f;
+  float filter_cutoff_ = kDefaultFilterCutoff;
+  float filter_resonance_ = kDefaultFilterResonance;
   float filter_resonance_pct_ = 100.0f;  // For display (0-100%)
-  float signal_beta_ = 0.00f;
-  float signal_freq_ = 80.0f;
-  float signal_detune_ = 1.003f;
-  float split_angle_ = 0.0f;  // -180 to +180 degrees
-  float split_depth_ = 0.0f;  // -1 to +1
-  float post_scale_val_ = 1.0f;
-  float post_rotate_val_ = 0.0f;
-  float trigger_threshold_ = 0.0f;
+  float signal_beta_ = kDefaultSignalBeta;
+  float signal_freq_ = kDefaultSignalFreq;
+  float signal_detune_ = kDefaultSignalDetune;
+  float split_angle_ = kDefaultSplitAngle;  // -180 to +180 degrees
+  float split_depth_ = kDefaultSplitDepth;  // -1 to +1
+  float post_scale_val_ = kDefaultPostScale;
+  float post_rotate_val_ = kDefaultPostRotate;
+  float trigger_threshold_ = kDefaultTriggerThreshold;
 
   bool shutting_down_ = false;
   FadeOutTimer fade_out_timer_ { this, [this] { visage::closeApplication(); } };
