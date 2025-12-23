@@ -78,16 +78,17 @@ cmake --build . --target ExampleFaveworm -j8
 ```
 
 **Output location:**
-- `build_wasm/examples/ExampleFaveworm.html`
-- `build_wasm/examples/ExampleFaveworm.js`
-- `build_wasm/examples/ExampleFaveworm.wasm`
+- `build_wasm/examples/builds/Faveworm/index.html`
+- `build_wasm/examples/builds/Faveworm/index.js`
+- `build_wasm/examples/builds/Faveworm/index.wasm`
 
 **Running locally:**
 ```bash
-# Serve with Python (from build_wasm/examples/)
+# Serve with Python (from build_wasm/examples/builds/Faveworm/)
+cd build_wasm/examples/builds/Faveworm
 python3 -m http.server 8000
 
-# Then open: http://localhost:8000/ExampleFaveworm.html
+# Then open: http://localhost:8000/index.html
 ```
 
 ### Quick Rebuild
