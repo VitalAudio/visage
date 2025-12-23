@@ -1,6 +1,8 @@
 #pragma once
 
 #include "dsp/dfl_RPMOscillator.h"
+
+#include <algorithm>
 #include <cmath>
 #include <random>
 
@@ -9,17 +11,17 @@
 class TestSignalGenerator {
 public:
   enum class Waveform {
-    Sine,       // Pure sine - clean ellipses
-    Triangle,   // Low beta RPM - soft harmonics
-    Saw,        // Positive beta RPM - rich harmonics
-    Square,     // Negative beta + exp 2 - hard edges
-    Noise       // High beta + soft clip - chaotic
+    Sine,  // Pure sine - clean ellipses
+    Triangle,  // Low beta RPM - soft harmonics
+    Saw,  // Positive beta RPM - rich harmonics
+    Square,  // Negative beta + exp 2 - hard edges
+    Noise  // High beta + soft clip - chaotic
   };
 
   TestSignalGenerator() {
     setSampleRate(44100.0);
-    setFrequency(80.0);      // Base frequency for good XY visuals
-    setDetune(1.003);        // Slight detune for slow rotation
+    setFrequency(80.0);  // Base frequency for good XY visuals
+    setDetune(1.003);  // Slight detune for slow rotation
     setWaveform(Waveform::Sine);
   }
 
@@ -47,42 +49,42 @@ public:
     osc_x_.reset();
     osc_y_.reset();
     switch (wf) {
-      case Waveform::Sine:
-        osc_x_.setBeta(0.0);
-        osc_x_.setExponent(1);
-        osc_x_.setSoftClip(false);
-        osc_y_.setBeta(0.0);
-        osc_y_.setExponent(1);
-        osc_y_.setSoftClip(false);
-        break;
-      case Waveform::Triangle:
-        osc_x_.setBeta(0.3);
-        osc_x_.setExponent(1);
-        osc_x_.setSoftClip(false);
-        osc_y_.setBeta(0.3);
-        osc_y_.setExponent(1);
-        osc_y_.setSoftClip(false);
-        break;
-      case Waveform::Saw:
-        osc_x_.setSawMode(1.2);
-        osc_x_.setSoftClip(false);
-        osc_y_.setSawMode(1.2);
-        osc_y_.setSoftClip(false);
-        break;
-      case Waveform::Square:
-        osc_x_.setSquareMode(1.5);
-        osc_x_.setSoftClip(false);
-        osc_y_.setSquareMode(1.5);
-        osc_y_.setSoftClip(false);
-        break;
-      case Waveform::Noise:
-        osc_x_.setBeta(4.0);
-        osc_x_.setExponent(1);
-        osc_x_.setSoftClip(true);
-        osc_y_.setBeta(4.0);
-        osc_y_.setExponent(1);
-        osc_y_.setSoftClip(true);
-        break;
+    case Waveform::Sine:
+      osc_x_.setBeta(0.0);
+      osc_x_.setExponent(1);
+      osc_x_.setSoftClip(false);
+      osc_y_.setBeta(0.0);
+      osc_y_.setExponent(1);
+      osc_y_.setSoftClip(false);
+      break;
+    case Waveform::Triangle:
+      osc_x_.setBeta(0.3);
+      osc_x_.setExponent(1);
+      osc_x_.setSoftClip(false);
+      osc_y_.setBeta(0.3);
+      osc_y_.setExponent(1);
+      osc_y_.setSoftClip(false);
+      break;
+    case Waveform::Saw:
+      osc_x_.setSawMode(1.2);
+      osc_x_.setSoftClip(false);
+      osc_y_.setSawMode(1.2);
+      osc_y_.setSoftClip(false);
+      break;
+    case Waveform::Square:
+      osc_x_.setSquareMode(1.5);
+      osc_x_.setSoftClip(false);
+      osc_y_.setSquareMode(1.5);
+      osc_y_.setSoftClip(false);
+      break;
+    case Waveform::Noise:
+      osc_x_.setBeta(4.0);
+      osc_x_.setExponent(1);
+      osc_x_.setSoftClip(true);
+      osc_y_.setBeta(4.0);
+      osc_y_.setExponent(1);
+      osc_y_.setSoftClip(true);
+      break;
     }
   }
 
@@ -97,11 +99,11 @@ public:
 
   const char* waveformName() const {
     switch (waveform_) {
-      case Waveform::Sine: return "Sine";
-      case Waveform::Triangle: return "Triangle";
-      case Waveform::Saw: return "Saw";
-      case Waveform::Square: return "Square";
-      case Waveform::Noise: return "Noise";
+    case Waveform::Sine: return "Sine";
+    case Waveform::Triangle: return "Triangle";
+    case Waveform::Saw: return "Saw";
+    case Waveform::Square: return "Square";
+    case Waveform::Noise: return "Noise";
     }
     return "Unknown";
   }
@@ -119,7 +121,8 @@ public:
     if (paused_) {
       left = last_left_;
       right = last_right_;
-    } else {
+    }
+    else {
       left = static_cast<float>(osc_x_.getSample());
       right = static_cast<float>(osc_y_.getSample());
       last_left_ = left;
@@ -135,6 +138,21 @@ public:
   void setPaused(bool p) { paused_ = p; }
   bool isPaused() const { return paused_; }
   void togglePause() { paused_ = !paused_; }
+
+  void step(int num_samples) {
+    if (num_samples > 0) {
+      for (int i = 0; i < num_samples; ++i) {
+        last_left_ = static_cast<float>(osc_x_.getSample());
+        last_right_ = static_cast<float>(osc_y_.getSample());
+      }
+    }
+    else {
+      // For stateful oscillators, we can't easily go back.
+      // We could reset and fast-forward, but for now we'll just ignore negative steps
+      // or at least not crash. The time_offset_ in Oscilloscope will still shift
+      // the demo patterns and audio player correctly.
+    }
+  }
 
 private:
   void updateFrequencies() {

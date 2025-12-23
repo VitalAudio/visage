@@ -19,18 +19,20 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#include <visage/app.h>
-#include <cmath>
-#include <vector>
-#include <fstream>
-#include <atomic>
-#include <mutex>
-#include <algorithm>
-
-#include "FilterMorpher.h"
-#include "FilterJoystick.h"
-#include "TestSignalGenerator.h"
 #include "embedded/example_fonts.h"
+#include "FilterJoystick.h"
+#include "FilterMorpher.h"
+#include "TestSignalGenerator.h"
+
+#include <algorithm>
+#include <atomic>
+#include <cmath>
+#include <cstring>
+#include <fstream>
+#include <mutex>
+#include <thread>
+#include <vector>
+#include <visage/app.h>
 
 // Help overlay showing keyboard shortcuts
 class HelpOverlay : public visage::Frame {
@@ -41,7 +43,8 @@ public:
   }
 
   void draw(visage::Canvas& canvas) override {
-    if (!visible_) return;
+    if (!visible_)
+      return;
 
     const float w = static_cast<float>(width());
     const float h = static_cast<float>(height());
@@ -84,9 +87,11 @@ public:
     drawKey("H / ?", "Toggle this help");
     drawKey("M", "Cycle display mode");
     drawKey("Space", "Play/pause audio");
+    drawKey("O", "Toggle speaker output");
     drawKey("B", "Toggle bloom");
     drawKey("P", "Toggle phosphor");
     drawKey("Up/Down", "Adjust bloom intensity");
+    drawKey(", / .", "Step back / forward (when frozen)");
     y += 10;
 
     drawSection("Trigger Mode");
@@ -115,15 +120,14 @@ public:
     redraw();
   }
 
-  void mouseDown(const visage::MouseEvent&) override {
-    setVisible(false);
-  }
+  void mouseDown(const visage::MouseEvent&) override { setVisible(false); }
 
   void setVisible(bool v) {
     visible_ = v;
     // Block mouse events when visible, pass through when hidden
     setIgnoresMouseEvents(!visible_, !visible_);
-    if (visible_) redraw();
+    if (visible_)
+      redraw();
   }
 
   bool isVisible() const { return visible_; }
@@ -151,24 +155,29 @@ public:
     // Vintage screws/rivets at corners
     canvas.setColor(visage::Color(0.4f, 0.15f, 0.15f, 0.12f));
     float rivet = 6.0f;
-    canvas.circle(8 - rivet/2, 8 - rivet/2, rivet);
-    canvas.circle(w - 8 - rivet/2, 8 - rivet/2, rivet);
-    canvas.circle(8 - rivet/2, h - 8 - rivet/2, rivet);
-    canvas.circle(w - 8 - rivet/2, h - 8 - rivet/2, rivet);
+    canvas.circle(8 - rivet / 2, 8 - rivet / 2, rivet);
+    canvas.circle(w - 8 - rivet / 2, 8 - rivet / 2, rivet);
+    canvas.circle(8 - rivet / 2, h - 8 - rivet / 2, rivet);
+    canvas.circle(w - 8 - rivet / 2, h - 8 - rivet / 2, rivet);
 
     redraw();
   }
 };
 
-#ifdef __APPLE__
-#include <AudioToolbox/AudioToolbox.h>
-#endif
+#include <portaudio.h>
+
+// Helper structure for PortAudio initialization
+struct PortAudioRAII {
+  PortAudioRAII() { Pa_Initialize(); }
+  ~PortAudioRAII() { Pa_Terminate(); }
+};
+static PortAudioRAII pa_raii;
 
 // Display modes
 enum class DisplayMode {
-  TimeFree,     // Horizontal sweep, free running
+  TimeFree,  // Horizontal sweep, free running
   TimeTrigger,  // Horizontal sweep with trigger and waveform locking
-  XY            // X-Y mode (Lissajous)
+  XY  // X-Y mode (Lissajous)
 };
 
 // Simple WAV file loader
@@ -180,18 +189,21 @@ struct AudioData {
 
   bool loadWav(const std::string& path) {
     std::ifstream file(path, std::ios::binary);
-    if (!file) return false;
+    if (!file)
+      return false;
 
     char riff[4];
     file.read(riff, 4);
-    if (std::string(riff, 4) != "RIFF") return false;
+    if (std::string(riff, 4) != "RIFF")
+      return false;
 
     uint32_t file_size;
     file.read(reinterpret_cast<char*>(&file_size), 4);
 
     char wave[4];
     file.read(wave, 4);
-    if (std::string(wave, 4) != "WAVE") return false;
+    if (std::string(wave, 4) != "WAVE")
+      return false;
 
     uint16_t audio_format = 0, num_channels = 0, bits_per_sample = 0;
     uint32_t byte_rate = 0, block_align = 0;
@@ -209,13 +221,15 @@ struct AudioData {
         file.read(reinterpret_cast<char*>(&byte_rate), 4);
         file.read(reinterpret_cast<char*>(&block_align), 2);
         file.read(reinterpret_cast<char*>(&bits_per_sample), 2);
-        if (chunk_size > 16) file.seekg(chunk_size - 16, std::ios::cur);
+        if (chunk_size > 16)
+          file.seekg(chunk_size - 16, std::ios::cur);
       }
       else if (std::string(chunk_id, 4) == "data") {
         stereo = (num_channels == 2);
         int num_samples = chunk_size / (bits_per_sample / 8) / num_channels;
         left.resize(num_samples);
-        if (stereo) right.resize(num_samples);
+        if (stereo)
+          right.resize(num_samples);
 
         for (int i = 0; i < num_samples; ++i) {
           if (bits_per_sample == 16) {
@@ -316,18 +330,28 @@ public:
 private:
   float left_[kSize] = {};
   float right_[kSize] = {};
-  std::atomic<size_t> write_pos_{0};
+  std::atomic<size_t> write_pos_ { 0 };
 };
 
 // Audio player with trigger detection
 class AudioPlayer {
 public:
   static constexpr int kSweepSamples = 1024;  // Samples per sweep
-  static constexpr int kDeadSamples = 256;     // Dead time after trigger
-  static constexpr int kEvalSamples = 512;     // Evaluation window for waveform locking
+  static constexpr int kDeadSamples = 256;  // Dead time after trigger
+  static constexpr int kEvalSamples = 512;  // Evaluation window for waveform locking
 
-  AudioPlayer() = default;
   ~AudioPlayer() { stop(); }
+
+  AudioPlayer() {
+    // Initialize filter defaults
+    svf_.setSampleRate(44100.0);
+    svf_.setCutoff(150.0);
+    svf_.setResonance(0.7);
+    stereo_router_.setSampleRate(44100.0);
+    stereo_router_.setCutoff(150.0);
+    stereo_router_.setResonance(0.7);
+    stereo_router_.setSplitMode(StereoFilterRouter::SplitMode::LpHp);
+  }
 
   bool load(const std::string& path) {
     if (!audio_data_.loadWav(path))
@@ -336,50 +360,118 @@ public:
     return true;
   }
 
+  void setTestGenerator(TestSignalGenerator* gen) { test_generator_ = gen; }
+
   void play() {
-#ifdef __APPLE__
-    if (is_playing_ || audio_data_.left.empty()) return;
+    if (is_playing_)
+      return;
 
-    AudioStreamBasicDescription format = {};
-    format.mSampleRate = audio_data_.sample_rate;
-    format.mFormatID = kAudioFormatLinearPCM;
-    format.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked;
-    format.mBitsPerChannel = 32;
-    format.mChannelsPerFrame = 2;
-    format.mFramesPerPacket = 1;
-    format.mBytesPerFrame = 8;
-    format.mBytesPerPacket = 8;
+    if (audio_data_.left.empty() && !test_generator_)
+      return;
 
-    AudioQueueNewOutput(&format, audioCallback, this, nullptr, nullptr, 0, &audio_queue_);
+    PaError init_err = Pa_Initialize();
+    if (init_err != paNoError)
+      return;
 
-    for (int i = 0; i < 3; ++i) {
-      AudioQueueAllocateBuffer(audio_queue_, 512 * 8, &buffers_[i]);
-      fillBuffer(buffers_[i]);
-      AudioQueueEnqueueBuffer(audio_queue_, buffers_[i], 0, nullptr);
+    PaStreamParameters outputParameters;
+    outputParameters.device = getOutputDevice(use_speaker_);
+    if (outputParameters.device == paNoDevice) {
+      outputParameters.device = Pa_GetDefaultOutputDevice();
     }
 
-    AudioQueueStart(audio_queue_, nullptr);
+    if (outputParameters.device == paNoDevice)
+      return;
+
+    const PaDeviceInfo* info = Pa_GetDeviceInfo(outputParameters.device);
+    if (!info)
+      return;
+
+    outputParameters.channelCount = 2;
+    outputParameters.sampleFormat = paFloat32;
+    outputParameters.suggestedLatency = info->defaultLowOutputLatency;
+    outputParameters.hostApiSpecificStreamInfo = nullptr;
+
+    double sr = audio_data_.left.empty() ? 44100.0 : audio_data_.sample_rate;
+    sample_rate_ = sr;
+
+    PaError err = Pa_OpenStream(&stream_, nullptr, &outputParameters, sr, 512, paClipOff, paCallback, this);
+    if (err != paNoError)
+      return;
+
+    err = Pa_StartStream(stream_);
+    if (err != paNoError) {
+      Pa_CloseStream(stream_);
+      stream_ = nullptr;
+      return;
+    }
+
     is_playing_ = true;
-#endif
   }
 
   void stop() {
-#ifdef __APPLE__
-    if (!is_playing_) return;
-    AudioQueueStop(audio_queue_, true);
-    AudioQueueDispose(audio_queue_, true);
+    if (!is_playing_ || !stream_)
+      return;
+
+    // We don't wait for ramp here because target_gain_ is managed by UI
+    Pa_StopStream(stream_);
+    Pa_CloseStream(stream_);
+    stream_ = nullptr;
     is_playing_ = false;
-#endif
   }
 
   bool isPlaying() const { return is_playing_; }
+
+  bool isPaused() const { return paused_; }
+  void setPaused(bool p) { paused_ = p; }
 
   void getCurrentSamples(std::vector<float>& left, std::vector<float>& right, int num_samples) {
     ring_buffer_.read(left, right, num_samples);
   }
 
+  // Step forward or backward in time (only used when frozen)
+  void step(int samples) {
+    if (audio_data_.left.empty()) {
+      if (test_generator_) {
+        for (int i = 0; i < std::abs(samples); ++i) {
+          float l, r;
+          test_generator_->getSample(l, r);
+          if (samples > 0)
+            ring_buffer_.write(l, r);
+          // Note: Test generator doesn't support seeking backward easily,
+          // so we just advance or stay still for now.
+        }
+      }
+      return;
+    }
+
+    size_t total = audio_data_.left.size();
+    if (samples > 0) {
+      for (int i = 0; i < samples; ++i) {
+        size_t idx = play_position_ % total;
+        float l = audio_data_.left[idx];
+        float r = audio_data_.stereo ? audio_data_.right[idx] : audio_data_.left[idx];
+        ring_buffer_.write(l, r);
+        play_position_++;
+      }
+    }
+    else {
+      int abs_samples = -samples;
+      play_position_ = (play_position_ + total - abs_samples) % total;
+
+      // Update ring buffer so the visualization shows the new position
+      int update_samples = kSweepSamples;
+      for (int i = 0; i < update_samples; ++i) {
+        size_t idx = (play_position_ - update_samples + i + total) % total;
+        float l = audio_data_.left[idx];
+        float r = audio_data_.stereo ? audio_data_.right[idx] : audio_data_.left[idx];
+        ring_buffer_.write(l, r);
+      }
+    }
+  }
+
   // Get triggered samples with waveform locking
-  bool getTriggeredSamples(std::vector<float>& out, int num_samples, float threshold, bool rising_edge, bool lock_enabled) {
+  bool getTriggeredSamples(std::vector<float>& out, int num_samples, float threshold,
+                           bool rising_edge, bool lock_enabled) {
     std::lock_guard<std::mutex> lock(trigger_mutex_);
 
     size_t current_pos = ring_buffer_.writePos();
@@ -393,8 +485,8 @@ public:
       float s0 = ring_buffer_.readLeft(i);
       float s1 = ring_buffer_.readLeft(i + 1);
 
-      bool crossed = rising_edge ? (s0 <= threshold && s1 > threshold)
-                                 : (s0 >= threshold && s1 < threshold);
+      bool crossed = rising_edge ? (s0 <= threshold && s1 > threshold) :
+                                   (s0 >= threshold && s1 < threshold);
       if (crossed) {
         candidates.push_back(i);
       }
@@ -440,49 +532,174 @@ public:
 
     return true;
   }
-
   bool hasAudio() const { return !audio_data_.left.empty(); }
   int sampleRate() const { return audio_data_.sample_rate; }
 
-private:
-#ifdef __APPLE__
-  static void audioCallback(void* user_data, AudioQueueRef queue, AudioQueueBufferRef buffer) {
-    auto* player = static_cast<AudioPlayer*>(user_data);
-    player->fillBuffer(buffer);
-    AudioQueueEnqueueBuffer(queue, buffer, 0, nullptr);
+  bool isMuted() const { return muted_; }
+  void setMuted(bool m) { muted_ = m; }
+
+  void setSpeakerOutput(bool use_speaker) {
+    if (use_speaker_ == use_speaker)
+      return;
+
+    use_speaker_ = use_speaker;
+    // If we're already playing, we have to restart the stream to change the device.
+    // To avoid clicks, we should technically ramp down first, but for now we'll
+    // just allow the hardware switch to be a bit abrupt, or the user can mute first.
+    if (is_playing_) {
+      stop();
+      play();
+    }
   }
 
-  void fillBuffer(AudioQueueBufferRef buffer) {
-    float* data = static_cast<float*>(buffer->mAudioData);
-    int frames = buffer->mAudioDataBytesCapacity / 8;
-    size_t total = audio_data_.left.size();
+  int getOutputDevice(bool speaker) {
+    int numDevices = Pa_GetDeviceCount();
+    if (numDevices < 0)
+      return paNoDevice;
 
-    for (int i = 0; i < frames; ++i) {
-      size_t idx = play_position_ % total;
-      float l = audio_data_.left[idx];
-      float r = audio_data_.stereo ? audio_data_.right[idx] : audio_data_.left[idx];
-      data[i * 2] = l;
-      data[i * 2 + 1] = r;
+    int fallback = paNoDevice;
+    for (int i = 0; i < numDevices; ++i) {
+      const PaDeviceInfo* deviceInfo = Pa_GetDeviceInfo(i);
+      if (deviceInfo->maxOutputChannels <= 0)
+        continue;
 
-      ring_buffer_.write(l, r);
+      if (fallback == paNoDevice)
+        fallback = i;
 
-      play_position_++;
+      const char* name = deviceInfo->name;
+      if (speaker) {
+        if (strstr(name, "Speaker") || strstr(name, "Built-in") || strstr(name, "Internal"))
+          return i;
+      }
+      else {
+        // For non-speaker, we prefer something that ISN'T the internal speaker if possible,
+        // but really the user just wants the "default" if they didn't toggle speaker.
+        // On macOS, PortAudio's default is usually correct.
+      }
+    }
+    return fallback;
+  }
+
+  bool useSpeaker() const { return use_speaker_; }
+
+private:
+  static int paCallback(const void* inputBuffer, void* outputBuffer, unsigned long framesPerBuffer,
+                        const PaStreamCallbackTimeInfo* timeInfo, PaStreamCallbackFlags statusFlags,
+                        void* userData) {
+    auto* player = static_cast<AudioPlayer*>(userData);
+    float* out = static_cast<float*>(outputBuffer);
+    size_t total = player->audio_data_.left.size();
+
+    if (total == 0 && !player->test_generator_) {
+      memset(out, 0, framesPerBuffer * 2 * sizeof(float));
+      return paContinue;
     }
 
-    buffer->mAudioDataByteSize = frames * 8;
+    const float target_gain = (player->muted_ || player->paused_) ? 0.0f : 1.0f;
+    const float ramp_inc = 1.0f / (0.050f * player->sample_rate_);
+
+    for (unsigned int i = 0; i < framesPerBuffer; ++i) {
+      // Apply gain ramp first to determine if we should still be pulling samples for output
+      if (player->current_gain_ < target_gain)
+        player->current_gain_ = std::min(target_gain, player->current_gain_ + ramp_inc);
+      else if (player->current_gain_ > target_gain)
+        player->current_gain_ = std::max(target_gain, player->current_gain_ - ramp_inc);
+
+      // The waveform/engine is "running" if not paused OR if we are still ramping down audio
+      bool is_running = !player->paused_ || player->current_gain_ > 0.0f;
+
+      float l = 0.0f, r = 0.0f;
+      if (is_running) {
+        if (total > 0) {
+          size_t idx = player->play_position_ % total;
+          l = player->audio_data_.left[idx];
+          r = player->audio_data_.stereo ? player->audio_data_.right[idx] : player->audio_data_.left[idx];
+          player->play_position_++;
+        }
+        else if (player->test_generator_) {
+          player->test_generator_->getSample(l, r);
+        }
+
+        // Apply visualizer-style filtering to the audio output
+        if (player->filter_enabled_) {
+          // Note: accessing filter members from audio thread while UI thread writes to them
+          // is theoretically racy but practically safe for simple float params.
+          if (player->stereo_split_mode_) {
+            double mono = (static_cast<double>(l) + static_cast<double>(r)) * 0.5;
+            auto xy = player->stereo_router_.process(mono);
+            l = static_cast<float>(xy.x);
+            r = static_cast<float>(xy.y);
+          }
+          else {
+            // Morph mode: only filter Y (right) channel
+            auto outputs = player->svf_.process(static_cast<double>(r));
+            r = static_cast<float>(player->morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
+          }
+        }
+
+        // Only update ring buffer (waveform) if the user hasn't explicitly paused it
+        if (!player->paused_)
+          player->ring_buffer_.write(l, r);
+      }
+
+      out[i * 2] = l * player->current_gain_;
+      out[i * 2 + 1] = r * player->current_gain_;
+    }
+
+    return paContinue;
   }
 
-  AudioQueueRef audio_queue_ = nullptr;
-  AudioQueueBufferRef buffers_[3] = {};
-#endif
+  PaStream* stream_ = nullptr;
 
   AudioData audio_data_;
   RingBuffer ring_buffer_;
   size_t play_position_ = 0;
   bool is_playing_ = false;
 
+public:
+  // Filter controls
+  void setFilterCutoff(float fc) {
+    filter_cutoff_ = std::clamp(fc, 20.0f, 2000.0f);
+    svf_.setCutoff(filter_cutoff_);
+    stereo_router_.setCutoff(filter_cutoff_);
+  }
+  float filterCutoff() const { return filter_cutoff_; }
+
+  void setFilterResonance(float r) {
+    filter_resonance_ = std::clamp(r, 0.0f, 0.99f);
+    svf_.setResonance(filter_resonance_);
+    stereo_router_.setResonance(filter_resonance_);
+  }
+  float filterResonance() const { return filter_resonance_; }
+
+  void setFilterEnabled(bool enabled) { filter_enabled_ = enabled; }
+  bool filterEnabled() const { return filter_enabled_; }
+
+  void setStereoSplitMode(bool enabled) { stereo_split_mode_ = enabled; }
+  bool stereoSplitMode() const { return stereo_split_mode_; }
+  void cycleSplitMode() { stereo_router_.cycleSplitMode(); }
+
+  // Expose for UI
+  FilterMorpher& morpher() { return morpher_; }
+  StereoFilterRouter& stereoRouter() { return stereo_router_; }
+
+  // Filter state
+  mutable SimpleSVF svf_;
+  FilterMorpher morpher_;
+  mutable StereoFilterRouter stereo_router_;
+  std::atomic<float> filter_cutoff_ { 150.0f };
+  std::atomic<float> filter_resonance_ { 0.7f };
+  std::atomic<bool> filter_enabled_ { false };
+  std::atomic<bool> stereo_split_mode_ { false };
+
   std::mutex trigger_mutex_;
   std::vector<float> reference_waveform_;
+  bool use_speaker_ = false;
+  TestSignalGenerator* test_generator_ = nullptr;
+  float current_gain_ = 0.0f;
+  std::atomic<bool> paused_ { false };
+  std::atomic<bool> muted_ { true };
+  float sample_rate_ = 44100.0f;
 };
 
 class Oscilloscope : public visage::Frame {
@@ -496,18 +713,7 @@ public:
     float x, y;
   };
 
-  Oscilloscope() {
-    setIgnoresMouseEvents(true, false);  // Pass through mouse clicks, but children don't ignore
-    // Initialize SVF with default settings for XY visualization
-    svf_.setSampleRate(44100.0);
-    svf_.setCutoff(150.0);      // Good starting frequency for XY visuals
-    svf_.setResonance(0.7);     // Moderate resonance for defined shapes
-    // Stereo router for split X/Y filter modes
-    stereo_router_.setSampleRate(44100.0);
-    stereo_router_.setCutoff(150.0);
-    stereo_router_.setResonance(0.7);
-    stereo_router_.setSplitMode(StereoFilterRouter::SplitMode::LpHp);
-  }
+  Oscilloscope() { setIgnoresMouseEvents(true, false); }
 
   bool receivesDragDropFiles() override { return true; }
 
@@ -531,9 +737,9 @@ public:
   DisplayMode displayMode() const { return display_mode_; }
   void cycleDisplayMode() {
     switch (display_mode_) {
-      case DisplayMode::TimeFree: display_mode_ = DisplayMode::TimeTrigger; break;
-      case DisplayMode::TimeTrigger: display_mode_ = DisplayMode::XY; break;
-      case DisplayMode::XY: display_mode_ = DisplayMode::TimeFree; break;
+    case DisplayMode::TimeFree: display_mode_ = DisplayMode::TimeTrigger; break;
+    case DisplayMode::TimeTrigger: display_mode_ = DisplayMode::XY; break;
+    case DisplayMode::XY: display_mode_ = DisplayMode::TimeFree; break;
     }
   }
 
@@ -544,35 +750,39 @@ public:
   void setWaveformLock(bool lock) { waveform_lock_ = lock; }
   bool waveformLock() const { return waveform_lock_; }
 
-  void setAudioPlayer(AudioPlayer* player) {
-    audio_player_ = player;
-    if (player && player->hasAudio()) {
-      svf_.setSampleRate(player->sampleRate());
-    }
-  }
+  void setAudioPlayer(AudioPlayer* player) { audio_player_ = player; }
 
   // SVF controls
-  FilterMorpher& morpher() { return morpher_; }
-  StereoFilterRouter& stereoRouter() { return stereo_router_; }
-  float filterCutoff() const { return filter_cutoff_; }
-  float filterResonance() const { return filter_resonance_; }
+  // SVF controls delegates
+  FilterMorpher& morpher() { return audio_player_->morpher(); }
+  StereoFilterRouter& stereoRouter() { return audio_player_->stereoRouter(); }
+  float filterCutoff() const { return audio_player_ ? audio_player_->filterCutoff() : 150.0f; }
+  float filterResonance() const { return audio_player_ ? audio_player_->filterResonance() : 0.7f; }
+
   void setFilterCutoff(float fc) {
-    filter_cutoff_ = std::clamp(fc, 20.0f, 2000.0f);
-    svf_.setCutoff(filter_cutoff_);
-    stereo_router_.setCutoff(filter_cutoff_);
+    if (audio_player_)
+      audio_player_->setFilterCutoff(fc);
   }
   void setFilterResonance(float r) {
-    filter_resonance_ = std::clamp(r, 0.0f, 0.99f);
-    svf_.setResonance(filter_resonance_);
-    stereo_router_.setResonance(filter_resonance_);
+    if (audio_player_)
+      audio_player_->setFilterResonance(r);
   }
-  void setFilterEnabled(bool enabled) { filter_enabled_ = enabled; }
-  bool filterEnabled() const { return filter_enabled_; }
+  void setFilterEnabled(bool enabled) {
+    if (audio_player_)
+      audio_player_->setFilterEnabled(enabled);
+  }
+  bool filterEnabled() const { return audio_player_ ? audio_player_->filterEnabled() : false; }
 
-  // Stereo split mode (mono source -> X/Y via different filter outputs)
-  void setStereoSplitMode(bool enabled) { stereo_split_mode_ = enabled; }
-  bool stereoSplitMode() const { return stereo_split_mode_; }
-  void cycleSplitMode() { stereo_router_.cycleSplitMode(); }
+  // Stereo split mode delegates
+  void setStereoSplitMode(bool enabled) {
+    if (audio_player_)
+      audio_player_->setStereoSplitMode(enabled);
+  }
+  bool stereoSplitMode() const { return audio_player_ ? audio_player_->stereoSplitMode() : false; }
+  void cycleSplitMode() {
+    if (audio_player_)
+      audio_player_->cycleSplitMode();
+  }
 
   // Test signal generator controls
   TestSignalGenerator& testSignal() { return test_signal_; }
@@ -582,109 +792,63 @@ public:
   void generateWaveform(double time, std::vector<Sample>& samples) {
     const float w = static_cast<float>(width());
     const float h = static_cast<float>(height());
-    if (w <= 0 || h <= 0) return;
+    if (w <= 0 || h <= 0)
+      return;
 
-    // XY mode with audio - apply SVF filter for Lissajous shapes
-    if (display_mode_ == DisplayMode::XY && audio_player_ && audio_player_->hasAudio()) {
-      const int num_samples = 512;
-      std::vector<float> left, right;
-      audio_player_->getCurrentSamples(left, right, num_samples);
+    // Use audio player data for all primary modes
+    if (audio_player_) {
+      if (display_mode_ == DisplayMode::XY) {
+        const int num_samples = 512;
+        std::vector<float> left, right;
+        audio_player_->getCurrentSamples(left, right, num_samples);
 
-      samples.resize(num_samples);
-      float cx = w * 0.5f;
-      float cy = h * 0.5f;
-      float scale = std::min(w, h) * 0.4f;
+        samples.resize(num_samples);
+        float cx = w * 0.5f;
+        float cy = h * 0.5f;
+        float scale = std::min(w, h) * 0.4f;
 
-      for (int i = 0; i < num_samples; ++i) {
-        float x_val = left[i];
-        float y_val = right[i];
+        for (int i = 0; i < num_samples; ++i) {
+          float x_val = left[i];
+          float y_val = right[i];
 
-        if (filter_enabled_) {
-          if (stereo_split_mode_) {
-            // Split mode: mix to mono, route through different filter outputs
-            float mono = (left[i] + right[i]) * 0.5f;
-            auto xy = stereo_router_.process(static_cast<double>(mono));
-            x_val = static_cast<float>(xy.x);
-            y_val = static_cast<float>(xy.y);
-          } else {
-            // Morph mode: filter Y channel with joystick-controlled mix
-            auto outputs = svf_.process(static_cast<double>(y_val));
-            y_val = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
-          }
+          samples[i].x = cx + x_val * scale;
+          samples[i].y = cy - y_val * scale;
         }
-
-        samples[i].x = cx + x_val * scale;
-        samples[i].y = cy - y_val * scale;
+        return;
       }
-      return;
-    }
+      else if (display_mode_ == DisplayMode::TimeTrigger) {
+        const int num_samples = 512;
+        std::vector<float> audio;
+        audio_player_->getTriggeredSamples(audio, num_samples, trigger_threshold_, trigger_rising_,
+                                           waveform_lock_);
 
-    // XY mode with test signal generator (no audio loaded)
-    if (display_mode_ == DisplayMode::XY && test_signal_enabled_) {
-      const int num_samples = 512;
-      samples.resize(num_samples);
-      float cx = w * 0.5f;
-      float cy = h * 0.5f;
-      float scale = std::min(w, h) * 0.4f;
+        samples.resize(num_samples);
+        float cy = h * 0.5f;
+        float scale = h * 0.4f;
 
-      for (int i = 0; i < num_samples; ++i) {
-        float x_val, y_val;
-        test_signal_.getSample(x_val, y_val);
-
-        if (filter_enabled_) {
-          if (stereo_split_mode_) {
-            // Split mode: mono source -> X/Y via different filter outputs
-            // Use X oscillator as mono source for interesting Lissajous
-            auto xy = stereo_router_.process(static_cast<double>(x_val));
-            x_val = static_cast<float>(xy.x);
-            y_val = static_cast<float>(xy.y);
-          } else {
-            // Morph mode: filter Y channel with joystick-controlled mix
-            auto outputs = svf_.process(static_cast<double>(y_val));
-            y_val = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
-          }
+        for (int i = 0; i < num_samples; ++i) {
+          float t = static_cast<float>(i) / (num_samples - 1);
+          samples[i].x = t * w;
+          samples[i].y = cy - audio[i] * scale;
         }
-
-        samples[i].x = cx + x_val * scale;
-        samples[i].y = cy - y_val * scale;
+        return;
       }
-      return;
-    }
+      else if (display_mode_ == DisplayMode::TimeFree) {
+        const int num_samples = 512;
+        std::vector<float> left, right;
+        audio_player_->getCurrentSamples(left, right, num_samples);
 
-    // Time mode with trigger
-    if (display_mode_ == DisplayMode::TimeTrigger && audio_player_ && audio_player_->hasAudio()) {
-      const int num_samples = 512;
-      std::vector<float> audio;
-      audio_player_->getTriggeredSamples(audio, num_samples, trigger_threshold_, trigger_rising_, waveform_lock_);
+        samples.resize(num_samples);
+        float cy = h * 0.5f;
+        float scale = h * 0.4f;
 
-      samples.resize(num_samples);
-      float cy = h * 0.5f;
-      float scale = h * 0.4f;
-
-      for (int i = 0; i < num_samples; ++i) {
-        float t = static_cast<float>(i) / (num_samples - 1);
-        samples[i].x = t * w;
-        samples[i].y = cy - audio[i] * scale;
+        for (int i = 0; i < num_samples; ++i) {
+          float t = static_cast<float>(i) / (num_samples - 1);
+          samples[i].x = t * w;
+          samples[i].y = cy - left[i] * scale;
+        }
+        return;
       }
-      return;
-    }
-
-    // Time mode free running with audio
-    if (display_mode_ == DisplayMode::TimeFree && audio_player_ && audio_player_->hasAudio()) {
-      const int num_samples = 512;
-      std::vector<float> left, right;
-      audio_player_->getCurrentSamples(left, right, num_samples);
-
-      samples.resize(num_samples);
-      float cy = h * 0.5f;
-      float scale = h * 0.4f;
-
-      for (int i = 0; i < num_samples; ++i) {
-        float t = static_cast<float>(i) / (num_samples - 1);
-        samples[i].x = t * w;
-        samples[i].y = cy - left[i] * scale;
-      }
-      return;
     }
 
     // Demo mode: synthetic waveform
@@ -719,11 +883,13 @@ public:
   }
 
   void renderWaveform(visage::Canvas& canvas, const std::vector<Sample>& samples, float alpha_mult) {
-    if (samples.size() < 2) return;
+    if (samples.size() < 2)
+      return;
 
     const float w = static_cast<float>(width());
     const float h = static_cast<float>(height());
-    if (w <= 0 || h <= 0) return;
+    if (w <= 0 || h <= 0)
+      return;
 
     const float diag = std::sqrt(w * w + h * h);
     const float ref_energy = 50.0f;
@@ -793,7 +959,7 @@ public:
       // Only generate new waveform if not paused (freeze display when paused)
       bool is_paused = test_signal_.isPaused();
       if (!is_paused || current_samples_.empty()) {
-        generateWaveform(time, current_samples_);
+        generateWaveform(time + time_offset_, current_samples_);
       }
 
       if (current_samples_.size() >= 2) {
@@ -833,19 +999,11 @@ private:
   float beam_size_ = 3.0f;
   float beam_gain_ = 1.5f;
 
-  DisplayMode display_mode_ = DisplayMode::TimeFree;
+  DisplayMode display_mode_ = DisplayMode::XY;
+  double time_offset_ = 0.0;
   float trigger_threshold_ = 0.0f;
   bool trigger_rising_ = true;
   bool waveform_lock_ = true;
-
-  // SVF filter for XY mode
-  mutable SimpleSVF svf_;
-  FilterMorpher morpher_;
-  mutable StereoFilterRouter stereo_router_;
-  float filter_cutoff_ = 150.0f;
-  float filter_resonance_ = 0.7f;
-  bool filter_enabled_ = true;
-  bool stereo_split_mode_ = false;  // false = morph (joystick), true = split (X/Y routing)
 
   // Test signal generator for XY mode without audio
   TestSignalGenerator test_signal_;
@@ -862,6 +1020,7 @@ public:
     addChild(&oscilloscope_);
     oscilloscope_.layout().setMargin(0);
     oscilloscope_.setAudioPlayer(&audio_player_);
+    audio_player_.setTestGenerator(&oscilloscope_.testSignal());
 
     // Control panel background (add first so it's behind controls)
     addChild(&control_panel_);
@@ -936,7 +1095,7 @@ public:
     // Mode selector (display mode)
     addChild(&mode_selector_);
     mode_selector_.setLabel("Mode");
-    mode_selector_.setOptions({"Time", "Trig", "XY"});
+    mode_selector_.setOptions({ "Time", "Trig", "XY" });
     mode_selector_.setColor(visage::Color(1.0f, 0.4f, 0.8f, 0.9f));
     mode_selector_.setCallback([this](int i) {
       oscilloscope_.setDisplayMode(static_cast<DisplayMode>(i));
@@ -947,7 +1106,7 @@ public:
     // Waveform selector
     addChild(&waveform_selector_);
     waveform_selector_.setLabel("Wave");
-    waveform_selector_.setOptions({"Sin", "Tri", "Saw", "Sqr", "Nz"});
+    waveform_selector_.setOptions({ "Sin", "Tri", "Saw", "Sqr", "Nz" });
     waveform_selector_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));
     waveform_selector_.setCallback([this](int i) {
       oscilloscope_.testSignal().setWaveform(static_cast<TestSignalGenerator::Waveform>(i));
@@ -957,7 +1116,7 @@ public:
     // Split mode selector
     addChild(&split_selector_);
     split_selector_.setLabel("Split");
-    split_selector_.setOptions({"LP/HP", "BP/AP", "BR/AP", "LP/BP", "AP/HP", "BP/BR", "Morph"});
+    split_selector_.setOptions({ "LP/HP", "BP/AP", "BR/AP", "LP/BP", "AP/HP", "BP/BR", "Morph" });
     split_selector_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
     split_selector_.setCallback([this](int i) {
       oscilloscope_.stereoRouter().setSplitMode(static_cast<StereoFilterRouter::SplitMode>(i));
@@ -966,7 +1125,7 @@ public:
 
     // Filter on/off switch
     addChild(&filter_switch_);
-    filter_switch_.setValue(true);
+    filter_switch_.setValue(false);
     filter_switch_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));
     filter_switch_.setCallback([this](bool v) {
       oscilloscope_.setFilterEnabled(v);
@@ -984,6 +1143,15 @@ public:
     });
     split_switch_.setVisible(false);
 
+    // Speaker Switch (Sound toggle)
+    addChild(&speaker_switch_);
+    speaker_switch_.setValue(false);  // Default: Sound OFF (Muted)
+    speaker_switch_.setColor(visage::Color(1.0f, 1.0f, 0.8f, 0.2f));  // Yellowish
+    speaker_switch_.setCallback([this](bool v) {
+      audio_player_.setMuted(!v);  // Switch ON (v=true) -> Muted = false
+    });
+    speaker_switch_.setVisible(false);
+
     // Help overlay (covers entire window)
     addChild(&help_overlay_);
 
@@ -993,6 +1161,9 @@ public:
 
     // Initialize panel visibility
     updatePanelVisibility();
+
+    // Start audio engine immediately (it will be muted by default)
+    audio_player_.play();
   }
 
   void updatePanelVisibility() {
@@ -1016,6 +1187,7 @@ public:
     split_selector_.setVisible(is_xy);
     filter_switch_.setVisible(is_xy);
     split_switch_.setVisible(is_xy);
+    speaker_switch_.setVisible(show_panel);
 
     // Update enabled state based on filter switch
     updateFilterControlsEnabled(filter_switch_.value());
@@ -1038,9 +1210,9 @@ public:
     const int panel_width = 140;
     const int margin = 4;
     const int knob_size = 60;  // Taller to fit label
-    const int js_size = 90;    // Taller to fit label
-    const int selector_h = 34; // Taller to fit label
-    const int switch_h = 32;   // Taller to fit label
+    const int js_size = 90;  // Taller to fit label
+    const int selector_h = 34;  // Taller to fit label
+    const int switch_h = 32;  // Taller to fit label
 
     int panel_x = width() - panel_width;
     control_panel_.setBounds(panel_x, 0, panel_width, height());
@@ -1082,12 +1254,14 @@ public:
       int display_w = 50;
       int display_h = 18;
       cutoff_knob_.setBounds(panel_x + 10, y, knob_size, knob_size);
-      cutoff_display_.setBounds(panel_x + 10 + knob_size + 4, y + (knob_size - display_h) / 2, display_w, display_h);
+      cutoff_display_.setBounds(panel_x + 10 + knob_size + 4, y + (knob_size - display_h) / 2,
+                                display_w, display_h);
       y += knob_size + margin;
 
       // Resonance knob with display
       resonance_knob_.setBounds(panel_x + 10, y, knob_size, knob_size);
-      resonance_display_.setBounds(panel_x + 10 + knob_size + 4, y + (knob_size - display_h) / 2, display_w, display_h);
+      resonance_display_.setBounds(panel_x + 10 + knob_size + 4, y + (knob_size - display_h) / 2,
+                                   display_w, display_h);
       y += knob_size + margin;
 
       // Split switch
@@ -1097,6 +1271,9 @@ public:
       // Split mode selector
       split_selector_.setBounds(panel_x + 10, y, panel_width - 20, selector_h);
     }
+
+    // Speaker switch at the bottom of the control panel
+    speaker_switch_.setBounds(panel_x + 10, height() - switch_h - margin, panel_width - 20, switch_h);
 
     // Oscilloscope fills remaining space
     oscilloscope_.setBounds(0, 0, width() - panel_width, height());
@@ -1176,7 +1353,8 @@ public:
         // Decrease detune
         signal_detune_ = std::max(0.9f, signal_detune_ * 0.999f);
         oscilloscope_.testSignal().setDetune(signal_detune_);
-      } else {
+      }
+      else {
         // Decrease frequency
         signal_freq_ = std::max(10.0f, signal_freq_ * 0.9f);
         oscilloscope_.testSignal().setFrequency(signal_freq_);
@@ -1188,7 +1366,8 @@ public:
         // Increase detune
         signal_detune_ = std::min(1.1f, signal_detune_ * 1.001f);
         oscilloscope_.testSignal().setDetune(signal_detune_);
-      } else {
+      }
+      else {
         // Increase frequency
         signal_freq_ = std::min(500.0f, signal_freq_ * 1.1f);
         oscilloscope_.testSignal().setFrequency(signal_freq_);
@@ -1208,22 +1387,21 @@ public:
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::Space) {
-      // Toggle audio playback
-      if (audio_player_.hasAudio()) {
-        if (audio_player_.isPlaying())
-          audio_player_.stop();
-        else
-          audio_player_.play();
-      }
-      // Toggle test signal pause
-      oscilloscope_.testSignal().togglePause();
+      // Toggle pause state (Freezes waveform and audio)
+      audio_player_.setPaused(!audio_player_.isPaused());
+      return true;
+    }
+    else if (event.keyCode() == visage::KeyCode::O) {
+      // Toggle audio mute (Speaker switch)
+      speaker_switch_.setValue(!speaker_switch_.value(), true);
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::Up) {
       if (event.isShiftDown()) {
         // Adjust trigger threshold
         oscilloscope_.setTriggerThreshold(std::min(1.0f, oscilloscope_.triggerThreshold() + 0.05f));
-      } else {
+      }
+      else {
         bloom_intensity_ = std::min(5.0f, bloom_intensity_ + 0.3f);
         bloom_.setBloomIntensity(bloom_intensity_);
       }
@@ -1232,9 +1410,26 @@ public:
     else if (event.keyCode() == visage::KeyCode::Down) {
       if (event.isShiftDown()) {
         oscilloscope_.setTriggerThreshold(std::max(-1.0f, oscilloscope_.triggerThreshold() - 0.05f));
-      } else {
+      }
+      else {
         bloom_intensity_ = std::max(0.0f, bloom_intensity_ - 0.3f);
         bloom_.setBloomIntensity(bloom_intensity_);
+      }
+      return true;
+    }
+    else if (event.keyCode() == visage::KeyCode::Comma) {
+      // Step back in time
+      if (audio_player_.isPaused()) {
+        int samples = event.isShiftDown() ? -4410 : -441;
+        audio_player_.step(samples);
+      }
+      return true;
+    }
+    else if (event.keyCode() == visage::KeyCode::Period) {
+      // Step forward in time
+      if (audio_player_.isPaused()) {
+        int samples = event.isShiftDown() ? 4410 : 441;
+        audio_player_.step(samples);
       }
       return true;
     }
@@ -1247,17 +1442,18 @@ private:
   ModeSelector mode_selector_;
   ModeSelector waveform_selector_;
   ModeSelector split_selector_;
-  ToggleSwitch filter_switch_{"Filter"};
-  ToggleSwitch split_switch_{"Split"};
+  ToggleSwitch filter_switch_ { "Filter" };
+  ToggleSwitch split_switch_ { "Split" };
+  ToggleSwitch speaker_switch_ { "Speaker" };
   FilterJoystick filter_joystick_;
-  FilterKnob cutoff_knob_{"Cutoff", true};  // logarithmic
-  FilterKnob resonance_knob_{"Resonance", false};  // linear
-  NumericDisplay cutoff_display_{"Hz"};
-  NumericDisplay resonance_display_{"%"};
-  FilterKnob freq_knob_{"Freq", true};  // logarithmic
-  FilterKnob detune_knob_{"Detune", false};  // linear (around 1.0)
-  NumericDisplay freq_display_{"Hz"};
-  NumericDisplay detune_display_{"x"};
+  FilterKnob cutoff_knob_ { "Cutoff", true };  // logarithmic
+  FilterKnob resonance_knob_ { "Resonance", false };  // linear
+  NumericDisplay cutoff_display_ { "Hz" };
+  NumericDisplay resonance_display_ { "%" };
+  FilterKnob freq_knob_ { "Freq", true };  // logarithmic
+  FilterKnob detune_knob_ { "Detune", false };  // linear (around 1.0)
+  NumericDisplay freq_display_ { "Hz" };
+  NumericDisplay detune_display_ { "x" };
   HelpOverlay help_overlay_;
   visage::BloomPostEffect bloom_;
   AudioPlayer audio_player_;

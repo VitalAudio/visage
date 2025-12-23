@@ -1,24 +1,27 @@
 #pragma once
 
-#include <visage/app.h>
-#include <cmath>
-#include <algorithm>
-#include <functional>
-#include <vector>
-#include <string>
-#include "FilterMorpher.h"
 #include "embedded/example_fonts.h"
+#include "FilterMorpher.h"
+
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <string>
+#include <vector>
+#include <visage/app.h>
 
 // Toggle switch (on/off)
 class ToggleSwitch : public visage::Frame {
 public:
   using Callback = std::function<void(bool)>;
 
-  ToggleSwitch(const char* label = "") : label_(label) {
-    setIgnoresMouseEvents(false, false);
-  }
+  ToggleSwitch(const char* label = "") : label_(label) { setIgnoresMouseEvents(false, false); }
 
-  void setValue(bool v) { value_ = v; }
+  void setValue(bool v, bool send_callback = false) {
+    value_ = v;
+    if (send_callback && callback_)
+      callback_(value_);
+  }
   bool value() const { return value_; }
   void setCallback(Callback cb) { callback_ = cb; }
   void setColor(visage::Color c) { color_ = c; }
@@ -44,8 +47,10 @@ public:
 
     // Track background
     if (value_) {
-      canvas.setColor(visage::Color(color_.alpha() * 0.5f * dim, color_.red(), color_.green(), color_.blue()));
-    } else {
+      canvas.setColor(visage::Color(color_.alpha() * 0.5f * dim, color_.red(), color_.green(),
+                                    color_.blue()));
+    }
+    else {
       canvas.setColor(visage::Color(0.5f * dim, 0.15f, 0.15f, 0.15f));
     }
     canvas.roundedRectangle(sx, sy, sw, sh, r);
@@ -54,7 +59,8 @@ public:
     float thumb_x = value_ ? (sx + sw - sh) : sx;
     if (value_) {
       canvas.setColor(visage::Color(color_.alpha() * dim, color_.red(), color_.green(), color_.blue()));
-    } else {
+    }
+    else {
       canvas.setColor(visage::Color(0.7f * dim, 0.3f, 0.3f, 0.3f));
     }
     canvas.circle(thumb_x + 2, sy + 2, sh - 4);
@@ -63,16 +69,18 @@ public:
   }
 
   void mouseDown(const visage::MouseEvent&) override {
-    if (!enabled_) return;
+    if (!enabled_)
+      return;
     value_ = !value_;
-    if (callback_) callback_(value_);
+    if (callback_)
+      callback_(value_);
   }
 
 private:
   const char* label_;
   bool value_ = false;
   Callback callback_;
-  visage::Color color_{1.0f, 0.5f, 0.9f, 0.8f};
+  visage::Color color_ { 1.0f, 0.5f, 0.9f, 0.8f };
   bool enabled_ = true;
 };
 
@@ -81,9 +89,7 @@ class ModeSelector : public visage::Frame {
 public:
   using Callback = std::function<void(int)>;
 
-  ModeSelector(const char* label = "") : label_(label) {
-    setIgnoresMouseEvents(false, false);
-  }
+  ModeSelector(const char* label = "") : label_(label) { setIgnoresMouseEvents(false, false); }
 
   void setLabel(const char* label) { label_ = label; }
   void setOptions(const std::vector<std::string>& opts) { options_ = opts; }
@@ -122,17 +128,18 @@ public:
     if (!options_.empty() && index_ >= 0 && index_ < static_cast<int>(options_.size())) {
       visage::Font font(11, resources::fonts::DroidSansMono_ttf);
       canvas.setColor(visage::Color(color_.alpha() * dim, color_.red(), color_.green(), color_.blue()));
-      canvas.text(options_[index_].c_str(), font, visage::Font::kCenter,
-                  4, ctrl_y, w - 8, ctrl_h);
+      canvas.text(options_[index_].c_str(), font, visage::Font::kCenter, 4, ctrl_y, w - 8, ctrl_h);
     }
 
     redraw();
   }
 
   void mouseDown(const visage::MouseEvent&) override {
-    if (!enabled_ || options_.empty()) return;
+    if (!enabled_ || options_.empty())
+      return;
     index_ = (index_ + 1) % options_.size();
-    if (callback_) callback_(index_);
+    if (callback_)
+      callback_(index_);
   }
 
 private:
@@ -140,7 +147,7 @@ private:
   std::vector<std::string> options_;
   int index_ = 0;
   Callback callback_;
-  visage::Color color_{1.0f, 0.5f, 0.9f, 0.8f};
+  visage::Color color_ { 1.0f, 0.5f, 0.9f, 0.8f };
   bool enabled_ = true;
 };
 
@@ -151,13 +158,16 @@ public:
 
   using Callback = std::function<void(float)>;
 
-  FilterKnob(const char* label = "", bool logarithmic = false)
-      : label_(label), logarithmic_(logarithmic) {
+  FilterKnob(const char* label = "", bool logarithmic = false) :
+      label_(label), logarithmic_(logarithmic) {
     setIgnoresMouseEvents(false, false);
   }
 
   void setValue(float* v) { value_ = v; }
-  void setRange(float min, float max) { min_ = min; max_ = max; }
+  void setRange(float min, float max) {
+    min_ = min;
+    max_ = max;
+  }
   void setColor(visage::Color c) { color_ = c; }
   void setCallback(Callback cb) { callback_ = cb; }
   void setEnabled(bool e) { enabled_ = e; }
@@ -178,7 +188,7 @@ public:
 
     // Arc showing value range (270 degrees, from 135 to 405)
     const float start_angle = 0.75f * kPi;  // 135 degrees
-    const float range = 1.5f * kPi;         // 270 degrees
+    const float range = 1.5f * kPi;  // 270 degrees
 
     // Draw tick marks as small circles
     canvas.setColor(visage::Color(0.5f * dim, 0.3f, 0.3f, 0.3f));
@@ -195,7 +205,8 @@ public:
       float angle = start_angle + norm * range;
 
       // Arc fill
-      canvas.setColor(visage::Color(color_.alpha() * 0.4f * dim, color_.red(), color_.green(), color_.blue()));
+      canvas.setColor(visage::Color(color_.alpha() * 0.4f * dim, color_.red(), color_.green(),
+                                    color_.blue()));
       const int segments = static_cast<int>(norm * 30) + 1;
       for (int i = 0; i < segments; ++i) {
         float t0 = static_cast<float>(i) / segments * norm;
@@ -204,12 +215,10 @@ public:
         float a1 = start_angle + t1 * range;
         float ri = r * 0.6f;
         float ro = r * 0.85f;
-        canvas.triangle(cx + std::cos(a0) * ri, cy + std::sin(a0) * ri,
-                       cx + std::cos(a0) * ro, cy + std::sin(a0) * ro,
-                       cx + std::cos(a1) * ri, cy + std::sin(a1) * ri);
-        canvas.triangle(cx + std::cos(a1) * ri, cy + std::sin(a1) * ri,
-                       cx + std::cos(a0) * ro, cy + std::sin(a0) * ro,
-                       cx + std::cos(a1) * ro, cy + std::sin(a1) * ro);
+        canvas.triangle(cx + std::cos(a0) * ri, cy + std::sin(a0) * ri, cx + std::cos(a0) * ro,
+                        cy + std::sin(a0) * ro, cx + std::cos(a1) * ri, cy + std::sin(a1) * ri);
+        canvas.triangle(cx + std::cos(a1) * ri, cy + std::sin(a1) * ri, cx + std::cos(a0) * ro,
+                        cy + std::sin(a0) * ro, cx + std::cos(a1) * ro, cy + std::sin(a1) * ro);
       }
 
       // Pointer as elongated dot
@@ -234,13 +243,15 @@ public:
   }
 
   void mouseDown(const visage::MouseEvent& event) override {
-    if (!enabled_) return;
+    if (!enabled_)
+      return;
     dragging_ = true;
     last_y_ = event.position.y;
   }
 
   void mouseDrag(const visage::MouseEvent& event) override {
-    if (!enabled_ || !dragging_ || !value_) return;
+    if (!enabled_ || !dragging_ || !value_)
+      return;
 
     float delta = (last_y_ - event.position.y) / 100.0f;
     last_y_ = event.position.y;
@@ -251,34 +262,38 @@ public:
       float log_range = std::log(max_ / min_);
       float log_delta = delta * log_range;
       *value_ = std::clamp(*value_ * std::exp(log_delta), min_, max_);
-    } else {
+    }
+    else {
       *value_ = std::clamp(*value_ + delta * (max_ - min_), min_, max_);
     }
-    if (callback_) callback_(*value_);
+    if (callback_)
+      callback_(*value_);
   }
 
-  void mouseUp(const visage::MouseEvent&) override {
-    dragging_ = false;
-  }
+  void mouseUp(const visage::MouseEvent&) override { dragging_ = false; }
 
   bool mouseWheel(const visage::MouseEvent& event) override {
-    if (!enabled_ || !value_) return false;
+    if (!enabled_ || !value_)
+      return false;
 
     float wheel_delta = event.wheel_delta_y * 0.05f;
     if (logarithmic_) {
       float log_range = std::log(max_ / min_);
       float log_delta = wheel_delta * log_range;
       *value_ = std::clamp(*value_ * std::exp(log_delta), min_, max_);
-    } else {
+    }
+    else {
       *value_ = std::clamp(*value_ + wheel_delta * (max_ - min_), min_, max_);
     }
-    if (callback_) callback_(*value_);
+    if (callback_)
+      callback_(*value_);
     return true;
   }
 
 private:
   float getNormalizedValue() const {
-    if (!value_) return 0.0f;
+    if (!value_)
+      return 0.0f;
     if (logarithmic_) {
       float log_min = std::log(min_);
       float log_max = std::log(max_);
@@ -292,7 +307,7 @@ private:
   bool logarithmic_;
   float* value_ = nullptr;
   float min_ = 0.0f, max_ = 1.0f;
-  visage::Color color_{1.0f, 0.5f, 0.8f, 0.8f};
+  visage::Color color_ { 1.0f, 0.5f, 0.8f, 0.8f };
   Callback callback_;
   bool dragging_ = false;
   float last_y_ = 0.0f;
@@ -302,7 +317,7 @@ private:
 // Numeric display with digital font
 class NumericDisplay : public visage::Frame {
 public:
-  NumericDisplay(const char* suffix = "") : suffix_(suffix) {}
+  NumericDisplay(const char* suffix = "") : suffix_(suffix) { }
 
   void setValue(float* v) { value_ = v; }
   void setColor(visage::Color c) { color_ = c; }
@@ -321,11 +336,14 @@ public:
       char buf[32];
       if (decimals_ == 0) {
         snprintf(buf, sizeof(buf), "%.0f%s", *value_, suffix_);
-      } else if (decimals_ == 1) {
+      }
+      else if (decimals_ == 1) {
         snprintf(buf, sizeof(buf), "%.1f%s", *value_, suffix_);
-      } else if (decimals_ == 2) {
+      }
+      else if (decimals_ == 2) {
         snprintf(buf, sizeof(buf), "%.2f%s", *value_, suffix_);
-      } else {
+      }
+      else {
         snprintf(buf, sizeof(buf), "%.3f%s", *value_, suffix_);
       }
 
@@ -340,7 +358,7 @@ public:
 private:
   float* value_ = nullptr;
   const char* suffix_;
-  visage::Color color_{1.0f, 0.4f, 1.0f, 0.8f};
+  visage::Color color_ { 1.0f, 0.4f, 1.0f, 0.8f };
   int decimals_ = 0;
 };
 
@@ -434,28 +452,30 @@ public:
   }
 
   void mouseDown(const visage::MouseEvent& event) override {
-    if (!enabled_) return;
+    if (!enabled_)
+      return;
     dragging_ = true;
     updatePosition(static_cast<int>(event.position.x), static_cast<int>(event.position.y));
   }
 
   void mouseDrag(const visage::MouseEvent& event) override {
-    if (!enabled_) return;
+    if (!enabled_)
+      return;
     if (dragging_)
       updatePosition(static_cast<int>(event.position.x), static_cast<int>(event.position.y));
   }
 
-  void mouseUp(const visage::MouseEvent& event) override {
-    dragging_ = false;
-  }
+  void mouseUp(const visage::MouseEvent& event) override { dragging_ = false; }
 
   bool mouseWheel(const visage::MouseEvent& event) override {
-    if (!enabled_) return false;
+    if (!enabled_)
+      return false;
     if (event.isShiftDown()) {
       if (resonance_) {
         *resonance_ = std::clamp(*resonance_ + event.wheel_delta_y * 0.02f, 0.0f, 1.0f);
       }
-    } else {
+    }
+    else {
       if (cutoff_) {
         float mult = event.wheel_delta_y > 0 ? 1.05f : 0.95f;
         *cutoff_ = std::clamp(*cutoff_ * mult, 20.0f, 2000.0f);

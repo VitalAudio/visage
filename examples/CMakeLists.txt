@@ -1,3 +1,6 @@
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(PORTAUDIO REQUIRED portaudio-2.0)
+
 file(GLOB EXAMPLES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} */)
 
 file(GLOB_RECURSE EXAMPLE_SHADERS shaders/[vf]s_*.sc)
@@ -62,9 +65,13 @@ foreach (EXAMPLE ${EXAMPLES})
       EmbeddedImageResources
     )
 
-    # Link AudioToolbox for Faveworm audio playback on macOS
-    if (APPLE AND EXAMPLE STREQUAL "Faveworm")
-      target_link_libraries(Example${EXAMPLE} PRIVATE "-framework AudioToolbox")
+    # Link Audio libraries for Faveworm audio playback
+    if (EXAMPLE STREQUAL "Faveworm")
+      target_link_libraries(Example${EXAMPLE} PRIVATE ${PORTAUDIO_LIBRARIES})
+      target_include_directories(Example${EXAMPLE} PRIVATE ${PORTAUDIO_INCLUDE_DIRS})
+      if (APPLE)
+         target_link_libraries(Example${EXAMPLE} PRIVATE "-framework AudioToolbox" "-framework CoreAudio" "-framework CoreFoundation")
+      endif()
     endif ()
   endif ()
 endforeach ()
