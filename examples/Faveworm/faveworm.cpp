@@ -681,6 +681,8 @@ private:
       bool is_running = !paused_ || current_gain_ > 0.0f;
 
       float l = 0.0f, r = 0.0f;
+      float speaker_l = 0.0f, speaker_r = 0.0f;
+
       if (is_running) {
         if (total > 0) {
           size_t idx = play_position_ % total;
@@ -695,9 +697,17 @@ private:
         // For scope visualization: X = raw, Y = filtered (unless split mode)
         float scope_l = l;
         float scope_r = r;
+
+        // Speaker output values (default to raw if filter disabled)
+        speaker_l = l;
+        speaker_r = r;
+
         if (filter_enabled_) {
+          // Process GLOBAL filter once per sample (preserving state)
           double mono = (static_cast<double>(l) + static_cast<double>(r)) * 0.5;
           auto outputs = svf_.process(mono);
+
+          // 1. Calculate SCOPE values
           if (morpher_.hasSplit()) {
             // Split mode: both X and Y get offset-based filtering
             auto xy = morpher_.applyXY(outputs.lp, outputs.bp, outputs.hp);
@@ -708,6 +718,12 @@ private:
             // No split: X = raw, Y = filtered with morpher
             scope_r = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
           }
+
+          // 2. Calculate SPEAKER values (always filtered)
+          // Note: If no split, applyXY returns identical L/R based on main position
+          auto xy_speaker = morpher_.applyXY(outputs.lp, outputs.bp, outputs.hp);
+          speaker_l = static_cast<float>(xy_speaker.x);
+          speaker_r = static_cast<float>(xy_speaker.y);
         }
 
         if (!paused_) {
@@ -734,10 +750,6 @@ private:
               for (int j = 0; j < (int)reference_buffer_.size(); ++j) {
                 score += ring_buffer_.readLeftAt(pos + j) * reference_buffer_[j];
               }
-              // Simple peak detector for score ... actually, just picking the first one
-              // after holdoff is usually stable enough if frequency is steady.
-              // For full locking, we'd need multiple candidates, but doing it correctly
-              // in the audio loop is easier by just resetting holdoff.
             }
 
             if (triggered) {
@@ -757,18 +769,6 @@ private:
           prev_trigger_l_ = scope_l;
           trigger_holdoff_++;
         }
-      }
-
-      // For SPEAKER output: both L and R filtered with morpher
-      float speaker_l = l;
-      float speaker_r = r;
-      if (filter_enabled_) {
-        // Note: svf_ already processed above, need fresh process for speaker
-        double mono = (static_cast<double>(l) + static_cast<double>(r)) * 0.5;
-        auto outputs = svf_.process(mono);
-        auto xy = morpher_.applyXY(outputs.lp, outputs.bp, outputs.hp);
-        speaker_l = static_cast<float>(xy.x);
-        speaker_r = static_cast<float>(xy.y);
       }
 
       out[i * 2] = speaker_l * current_gain_;
