@@ -10,19 +10,12 @@
 // Generates two channels (X/Y) with configurable waveforms
 class TestSignalGenerator {
 public:
-  enum class Waveform {
-    Sine,  // Pure sine - clean ellipses
-    Triangle,  // Low beta RPM - soft harmonics
-    Saw,  // Positive beta RPM - rich harmonics
-    Square,  // Negative beta + exp 2 - hard edges
-    Noise  // High beta + soft clip - chaotic
-  };
-
   TestSignalGenerator() {
     setSampleRate(44100.0);
     setFrequency(80.0);  // Base frequency for good XY visuals
     setDetune(1.003);  // Slight detune for slow rotation
-    setWaveform(Waveform::Sine);
+    setBeta(0.0);
+    setExponent(1);
   }
 
   void setSampleRate(double sr) {
@@ -33,7 +26,7 @@ public:
   }
 
   void setFrequency(double hz) {
-    base_freq_ = std::clamp(hz, 10.0, 500.0);
+    base_freq_ = std::max(10.0, std::min(500.0, hz));
     updateFrequencies();
   }
 
@@ -43,70 +36,22 @@ public:
     updateFrequencies();
   }
 
-  void setWaveform(Waveform wf) {
-    waveform_ = wf;
-    // Reset oscillator state when changing waveforms to clear any bad state
-    osc_x_.reset();
-    osc_y_.reset();
-    switch (wf) {
-    case Waveform::Sine:
-      osc_x_.setBeta(0.0);
-      osc_x_.setExponent(1);
-      osc_x_.setSoftClip(false);
-      osc_y_.setBeta(0.0);
-      osc_y_.setExponent(1);
-      osc_y_.setSoftClip(false);
-      break;
-    case Waveform::Triangle:
-      osc_x_.setBeta(0.3);
-      osc_x_.setExponent(1);
-      osc_x_.setSoftClip(false);
-      osc_y_.setBeta(0.3);
-      osc_y_.setExponent(1);
-      osc_y_.setSoftClip(false);
-      break;
-    case Waveform::Saw:
-      osc_x_.setSawMode(1.2);
-      osc_x_.setSoftClip(false);
-      osc_y_.setSawMode(1.2);
-      osc_y_.setSoftClip(false);
-      break;
-    case Waveform::Square:
-      osc_x_.setSquareMode(1.5);
-      osc_x_.setSoftClip(false);
-      osc_y_.setSquareMode(1.5);
-      osc_y_.setSoftClip(false);
-      break;
-    case Waveform::Noise:
-      osc_x_.setBeta(4.0);
-      osc_x_.setExponent(1);
-      osc_x_.setSoftClip(true);
-      osc_y_.setBeta(4.0);
-      osc_y_.setExponent(1);
-      osc_y_.setSoftClip(true);
-      break;
-    }
+  void setBeta(double b) {
+    beta_ = b;
+    osc_x_.setBeta(b);
+    osc_y_.setBeta(b);
   }
 
-  void cycleWaveform() {
-    int next = (static_cast<int>(waveform_) + 1) % 5;
-    setWaveform(static_cast<Waveform>(next));
+  void setExponent(int e) {
+    exponent_ = e;
+    osc_x_.setExponent(e);
+    osc_y_.setExponent(e);
   }
 
-  Waveform waveform() const { return waveform_; }
-  double frequency() const { return base_freq_; }
-  double detune() const { return detune_; }
+  double beta() const { return beta_; }
+  int exponent() const { return exponent_; }
 
-  const char* waveformName() const {
-    switch (waveform_) {
-    case Waveform::Sine: return "Sine";
-    case Waveform::Triangle: return "Triangle";
-    case Waveform::Saw: return "Saw";
-    case Waveform::Square: return "Square";
-    case Waveform::Noise: return "Noise";
-    }
-    return "Unknown";
-  }
+  const char* waveformName() const { return "RPM"; }
 
   // Generate samples into provided buffers
   void generate(float* left, float* right, int num_samples) {
@@ -171,7 +116,8 @@ private:
   double sample_rate_ = 44100.0;
   double base_freq_ = 80.0;
   double detune_ = 1.003;
-  Waveform waveform_ = Waveform::Sine;
+  double beta_ = 0.0;
+  int exponent_ = 1;
   bool paused_ = false;
   float last_left_ = 0.0f;
   float last_right_ = 0.0f;
