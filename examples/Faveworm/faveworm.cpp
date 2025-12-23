@@ -1205,7 +1205,7 @@ public:
 
     control_panel_.addScrolledChild(&beta_knob_);
     beta_knob_.setValue(&signal_beta_);
-    beta_knob_.setRange(-2.0f, 2.0f);
+    beta_knob_.setRange(-100.0f, 100.0f);
     beta_knob_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));
     beta_knob_.setCallback([this](float v) { audio_player_.setBeta(v); });
 
@@ -1662,10 +1662,10 @@ private:
   FilterJoystick filter_joystick_;
   FilterKnob cutoff_knob_ { "Cutoff", true };  // logarithmic
   FilterKnob resonance_knob_ { "Resonance", false };  // linear
-  FilterKnob beta_knob_ { "Rolloff", false };
+  FilterKnob beta_knob_ { "Rolloff", false, true, true };  // bipolar logarithmic, bidirectional
   ToggleSwitch exponent_switch_ { "Square" };
   FilterKnob freq_knob_ { "Freq", true };  // logarithmic
-  FilterKnob detune_knob_ { "Detune", false };  // linear (around 1.0)
+  FilterKnob detune_knob_ { "Detune", false, false, true };  // linear (around 1.0), bidirectional
   NumericDisplay freq_display_ { "Hz" };
   NumericDisplay detune_display_ { "x" };
   NumericDisplay cutoff_display_ { "Hz" };

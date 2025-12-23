@@ -158,8 +158,11 @@ public:
 
   using Callback = std::function<void(float)>;
 
-  FilterKnob(const char* label = "", bool logarithmic = false) :
-      label_(label), logarithmic_(logarithmic) {
+  FilterKnob(const char* label = "", bool logarithmic = false, bool bipolar_logarithmic = false,
+             bool bidirectional = false) :
+      label_(label),
+      logarithmic_(logarithmic), bipolar_logarithmic_(bipolar_logarithmic),
+      bidirectional_(bidirectional) {
     setIgnoresMouseEvents(false, false);
   }
 
@@ -208,18 +211,43 @@ public:
       // Arc fill
       canvas.setColor(visage::Color(color_.alpha() * 0.4f * dim, color_.red(), color_.green(),
                                     color_.blue()));
-      const int segments = static_cast<int>(norm * 30) + 1;
-      for (int i = 0; i < segments; ++i) {
-        float t0 = static_cast<float>(i) / segments * norm;
-        float t1 = static_cast<float>(i + 1) / segments * norm;
-        float a0 = start_angle + t0 * range;
-        float a1 = start_angle + t1 * range;
-        float ri = r * 0.6f;
-        float ro = r * 0.85f;
-        canvas.triangle(cx + std::cos(a0) * ri, cy + std::sin(a0) * ri, cx + std::cos(a0) * ro,
-                        cy + std::sin(a0) * ro, cx + std::cos(a1) * ri, cy + std::sin(a1) * ri);
-        canvas.triangle(cx + std::cos(a1) * ri, cy + std::sin(a1) * ri, cx + std::cos(a0) * ro,
-                        cy + std::sin(a0) * ro, cx + std::cos(a1) * ro, cy + std::sin(a1) * ro);
+
+      if (bidirectional_) {
+        // Fill from center (0.5) to current position
+        float center_norm = 0.5f;
+        float fill_start = std::min(norm, center_norm);
+        float fill_end = std::max(norm, center_norm);
+        float fill_range = fill_end - fill_start;
+        const int segments = static_cast<int>(fill_range * 30) + 1;
+
+        for (int i = 0; i < segments; ++i) {
+          float t0 = fill_start + static_cast<float>(i) / segments * fill_range;
+          float t1 = fill_start + static_cast<float>(i + 1) / segments * fill_range;
+          float a0 = start_angle + t0 * range;
+          float a1 = start_angle + t1 * range;
+          float ri = r * 0.6f;
+          float ro = r * 0.85f;
+          canvas.triangle(cx + std::cos(a0) * ri, cy + std::sin(a0) * ri, cx + std::cos(a0) * ro,
+                          cy + std::sin(a0) * ro, cx + std::cos(a1) * ri, cy + std::sin(a1) * ri);
+          canvas.triangle(cx + std::cos(a1) * ri, cy + std::sin(a1) * ri, cx + std::cos(a0) * ro,
+                          cy + std::sin(a0) * ro, cx + std::cos(a1) * ro, cy + std::sin(a1) * ro);
+        }
+      }
+      else {
+        // Fill from start to current position (original behavior)
+        const int segments = static_cast<int>(norm * 30) + 1;
+        for (int i = 0; i < segments; ++i) {
+          float t0 = static_cast<float>(i) / segments * norm;
+          float t1 = static_cast<float>(i + 1) / segments * norm;
+          float a0 = start_angle + t0 * range;
+          float a1 = start_angle + t1 * range;
+          float ri = r * 0.6f;
+          float ro = r * 0.85f;
+          canvas.triangle(cx + std::cos(a0) * ri, cy + std::sin(a0) * ri, cx + std::cos(a0) * ro,
+                          cy + std::sin(a0) * ro, cx + std::cos(a1) * ri, cy + std::sin(a1) * ri);
+          canvas.triangle(cx + std::cos(a1) * ri, cy + std::sin(a1) * ri, cx + std::cos(a0) * ro,
+                          cy + std::sin(a0) * ro, cx + std::cos(a1) * ro, cy + std::sin(a1) * ro);
+        }
       }
 
       // Pointer as elongated dot
@@ -277,7 +305,13 @@ public:
     float delta = (last_y_ - event.position.y) / 100.0f;
     last_y_ = event.position.y;
 
-    if (logarithmic_) {
+    if (bipolar_logarithmic_) {
+      // Bipolar logarithmic: symmetric log scaling around zero
+      float norm = getNormalizedValue();
+      norm = std::clamp(norm + delta, 0.0f, 1.0f);
+      *value_ = denormalizeBipolarLog(norm);
+    }
+    else if (logarithmic_) {
       // Use exponential scaling: full drag range covers log ratio
       // For 20-2000Hz (100x), delta of 1.0 should cover full range
       float log_range = std::log(max_ / min_);
@@ -298,7 +332,12 @@ public:
       return false;
 
     float wheel_delta = event.wheel_delta_y * 0.05f;
-    if (logarithmic_) {
+    if (bipolar_logarithmic_) {
+      float norm = getNormalizedValue();
+      norm = std::clamp(norm + wheel_delta, 0.0f, 1.0f);
+      *value_ = denormalizeBipolarLog(norm);
+    }
+    else if (logarithmic_) {
       float log_range = std::log(max_ / min_);
       float log_delta = wheel_delta * log_range;
       *value_ = std::clamp(*value_ * std::exp(log_delta), min_, max_);
@@ -315,6 +354,27 @@ private:
   float getNormalizedValue() const {
     if (!value_)
       return 0.0f;
+    if (bipolar_logarithmic_) {
+      // Bipolar log: map value to 0-1 range with log scaling on each side of zero
+      // For -100 to +100 range where halfway is ±10:
+      // Negative side: -100 to 0 maps to 0.0 to 0.5
+      // Positive side: 0 to +100 maps to 0.5 to 1.0
+      float v = *value_;
+      if (v < 0) {
+        // Negative side: use log scale from max_ (e.g., -100) to 0
+        float abs_v = -v;
+        float abs_max = -min_;  // min_ is negative, so -min_ is positive max
+        float log_v = std::log(abs_v + 1.0f);  // +1 to handle zero
+        float log_max = std::log(abs_max + 1.0f);
+        return 0.5f * (1.0f - log_v / log_max);
+      }
+      else {
+        // Positive side: use log scale from 0 to max_
+        float log_v = std::log(v + 1.0f);
+        float log_max = std::log(max_ + 1.0f);
+        return 0.5f + 0.5f * (log_v / log_max);
+      }
+    }
     if (logarithmic_) {
       float log_min = std::log(min_);
       float log_max = std::log(max_);
@@ -324,8 +384,29 @@ private:
     return (*value_ - min_) / (max_ - min_);
   }
 
+  float denormalizeBipolarLog(float norm) const {
+    // Convert normalized 0-1 value back to bipolar logarithmic range
+    if (norm < 0.5f) {
+      // Negative side
+      float t = 1.0f - (norm / 0.5f);  // 0 at center, 1 at min
+      float abs_max = -min_;
+      float log_max = std::log(abs_max + 1.0f);
+      float abs_v = std::exp(t * log_max) - 1.0f;
+      return std::clamp(-abs_v, min_, 0.0f);
+    }
+    else {
+      // Positive side
+      float t = (norm - 0.5f) / 0.5f;  // 0 at center, 1 at max
+      float log_max = std::log(max_ + 1.0f);
+      float v = std::exp(t * log_max) - 1.0f;
+      return std::clamp(v, 0.0f, max_);
+    }
+  }
+
   const char* label_;
   bool logarithmic_;
+  bool bipolar_logarithmic_;
+  bool bidirectional_;
   float* value_ = nullptr;
   float min_ = 0.0f, max_ = 1.0f;
   visage::Color color_ { 1.0f, 0.5f, 0.8f, 0.8f };
