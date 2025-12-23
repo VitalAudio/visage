@@ -31,9 +31,12 @@ public:
     const float w = static_cast<float>(width());
     const float h = static_cast<float>(height());
     const float label_h = 12.0f;
-    const float sw = w * 0.5f;  // switch width
+    const float led_size = 6.0f;  // LED diameter
+    const float led_gap = 4.0f;  // Gap between button and LED
+    const float available_w = w - led_size - led_gap;  // Space for button
+    const float sw = available_w * 0.6f;  // switch width (smaller to fit LED)
     const float sh = (h - label_h) * 0.5f;  // switch height
-    const float sx = (w - sw) / 2;
+    const float sx = (available_w - sw) / 2;
     const float sy = label_h + ((h - label_h) - sh) / 2;
     const float r = sh / 2;
     const float dim = enabled_ ? 1.0f : 0.3f;
@@ -64,6 +67,28 @@ public:
       canvas.setColor(visage::Color(0.7f * dim, 0.3f, 0.3f, 0.3f));
     }
     canvas.circle(thumb_x + 2, sy + 2, sh - 4);
+
+    // External LED indicator to the right
+    float led_x = available_w + led_gap + led_size * 0.5f;
+    float led_y = sy + sh * 0.5f;
+    float led_r = led_size * 0.5f;
+
+    if (value_) {
+      // Base LED (dim when off, bright when on)
+      canvas.setColor(visage::Color(1.0f * dim, 0.8f, 0.3f, 0.3f));
+      canvas.circle(led_x - led_r, led_y - led_r, led_size);
+
+      // Bloom core with fixed 15% intensity
+      float bloom_intensity = 0.15f;
+      float hdr = 1.0f + bloom_intensity * 6.0f;
+      canvas.setColor(visage::Color(1.0f * dim, 1.0f, 0.9f, 0.8f, hdr));
+      canvas.circle(led_x - led_r * 0.6f, led_y - led_r * 0.6f, led_r * 2.4f);
+    }
+    else {
+      // Dim LED when off
+      canvas.setColor(visage::Color(0.3f * dim, 0.3f, 0.2f, 0.2f));
+      canvas.circle(led_x - led_r, led_y - led_r, led_size);
+    }
 
     redraw();
   }
@@ -275,10 +300,10 @@ public:
   using Callback = std::function<void(float)>;
 
   FilterKnob(const char* label = "", bool logarithmic = false, bool bipolar_logarithmic = false,
-             bool bidirectional = false) :
+             bool bidirectional = false, bool reverse_logarithmic = false) :
       label_(label),
       logarithmic_(logarithmic), bipolar_logarithmic_(bipolar_logarithmic),
-      bidirectional_(bidirectional) {
+      bidirectional_(bidirectional), reverse_logarithmic_(reverse_logarithmic) {
     setIgnoresMouseEvents(false, false);
   }
 
@@ -427,6 +452,12 @@ public:
       norm = std::clamp(norm + delta, 0.0f, 1.0f);
       *value_ = denormalizeBipolarLog(norm);
     }
+    else if (reverse_logarithmic_) {
+      // Reverse logarithmic: more resolution at high values
+      float norm = getNormalizedValue();
+      norm = std::clamp(norm + delta, 0.0f, 1.0f);
+      *value_ = denormalizeReverseLog(norm);
+    }
     else if (logarithmic_) {
       // Use exponential scaling: full drag range covers log ratio
       // For 20-2000Hz (100x), delta of 1.0 should cover full range
@@ -452,6 +483,11 @@ public:
       float norm = getNormalizedValue();
       norm = std::clamp(norm + wheel_delta, 0.0f, 1.0f);
       *value_ = denormalizeBipolarLog(norm);
+    }
+    else if (reverse_logarithmic_) {
+      float norm = getNormalizedValue();
+      norm = std::clamp(norm + wheel_delta, 0.0f, 1.0f);
+      *value_ = denormalizeReverseLog(norm);
     }
     else if (logarithmic_) {
       float log_range = std::log(max_ / min_);
@@ -491,6 +527,12 @@ private:
         return 0.5f + 0.5f * (log_v / log_max);
       }
     }
+    if (reverse_logarithmic_) {
+      // Reverse logarithmic: use sqrt to get more resolution at high values
+      // This creates an x^2 curve: normalized = sqrt((value - min) / (max - min))
+      float linear_norm = (*value_ - min_) / (max_ - min_);
+      return std::sqrt(linear_norm);
+    }
     if (logarithmic_) {
       float log_min = std::log(min_);
       float log_max = std::log(max_);
@@ -519,10 +561,18 @@ private:
     }
   }
 
+  float denormalizeReverseLog(float norm) const {
+    // Convert normalized 0-1 value back to reverse logarithmic range
+    // Inverse of sqrt: value = norm^2 * (max - min) + min
+    float squared = norm * norm;
+    return std::clamp(min_ + squared * (max_ - min_), min_, max_);
+  }
+
   const char* label_;
   bool logarithmic_;
   bool bipolar_logarithmic_;
   bool bidirectional_;
+  bool reverse_logarithmic_;
   float* value_ = nullptr;
   float min_ = 0.0f, max_ = 1.0f;
   visage::Color color_ { 1.0f, 0.5f, 0.8f, 0.8f };
