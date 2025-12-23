@@ -849,7 +849,7 @@ public:
     const float js_h = h - label_h;
     const float cx = w * 0.5f;
     const float cy = js_h * 0.5f;
-    const float r = std::min(w, js_h) * 0.45f;
+    const float r = std::min(w, js_h) * 0.4f;
     const float dim = enabled_ ? 1.0f : 0.3f;
 
     // Dark background circle
@@ -957,7 +957,7 @@ private:
     const float js_h = h - label_h;
     const float cx = w * 0.5f;
     const float cy = js_h * 0.5f;
-    const float r = std::min(w, js_h) * 0.45f;
+    const float r = std::min(w, js_h) * 0.4f;
 
     float x = (mx - cx) / r;
     float y = -(my - cy) / r;

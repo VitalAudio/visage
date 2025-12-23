@@ -209,11 +209,11 @@ public:
     visage::String title_str(title_);
     float text_w = font.stringWidth(title_str.c_str(), title_str.length());
     canvas.setColor(visage::Color(0.95f, 0.06f, 0.07f, 0.08f));  // Match panel bg
-    canvas.fill(12, 0, text_w + 8, 5);
+    canvas.fill(12, -2, text_w + 8, 5);
 
     // Title text
     canvas.setColor(visage::Color(1.0f, 0.5f, 0.8f, 0.8f));
-    canvas.text(title_, font, visage::Font::kTopLeft, 16, -2, text_w, 12);
+    canvas.text(title_, font, visage::Font::kTopLeft, 16, -4, text_w, 12);
   }
 
 private:
@@ -1648,16 +1648,17 @@ public:
 
       // --- FILTER SECTION ---
       int filter_start_y = y;
-      y += 18;  // Extra padding to avoid clipping joystick knob
+      y += 12;  // Reduced from 18 to give more space for taller joystick
 
       // Joystick and Filter Switch
+      int js_size_tall = js_size + 10;
       int js_x = (panel_width - js_size) / 2;  // Centered
-      filter_joystick_.setBounds(js_x, y, js_size, js_size);
+      filter_joystick_.setBounds(js_x, y, js_size, js_size_tall);
 
       // Filter switch on far right to avoid overlapping joystick area
       filter_switch_.setBounds(panel_width - margin - btn_size - 4, y, btn_size, btn_size);
 
-      y += js_size + margin;
+      y += js_size_tall + margin;
 
       // Cutoff and Resonance knobs
       int left_f_x = 10 + margin;
