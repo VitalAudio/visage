@@ -10,7 +10,7 @@
 #include <vector>
 #include <visage/app.h>
 
-// Toggle switch (on/off)
+// Toggle switch (on/off) - sliding style
 class ToggleSwitch : public visage::Frame {
 public:
   using Callback = std::function<void(bool)>;
@@ -64,6 +64,122 @@ public:
       canvas.setColor(visage::Color(0.7f * dim, 0.3f, 0.3f, 0.3f));
     }
     canvas.circle(thumb_x + 2, sy + 2, sh - 4);
+
+    redraw();
+  }
+
+  void mouseDown(const visage::MouseEvent&) override {
+    if (!enabled_)
+      return;
+    value_ = !value_;
+    if (callback_)
+      callback_(value_);
+  }
+
+private:
+  const char* label_;
+  bool value_ = false;
+  Callback callback_;
+  visage::Color color_ { 1.0f, 0.5f, 0.9f, 0.8f };
+  bool enabled_ = true;
+};
+
+// Retro square push button with LED indicator (oscilloscope style)
+class PushButtonSwitch : public visage::Frame {
+public:
+  using Callback = std::function<void(bool)>;
+
+  PushButtonSwitch(const char* label = "") : label_(label) { setIgnoresMouseEvents(false, false); }
+
+  void setValue(bool v, bool send_callback = false) {
+    value_ = v;
+    if (send_callback && callback_)
+      callback_(value_);
+  }
+  bool value() const { return value_; }
+  void setCallback(Callback cb) { callback_ = cb; }
+  void setColor(visage::Color c) { color_ = c; }
+  void setEnabled(bool e) { enabled_ = e; }
+
+  void draw(visage::Canvas& canvas) override {
+    const float w = static_cast<float>(width());
+    const float h = static_cast<float>(height());
+    const float label_h = 12.0f;
+    const float btn_size = std::min(w * 0.6f, h - label_h - 10.0f);
+    const float bx = (w - btn_size) * 0.5f;
+    const float by = (h - label_h - btn_size) * 0.5f;
+    const float dim = enabled_ ? 1.0f : 0.3f;
+    const float led_r = 3.0f;
+    const float led_y = by - led_r * 2 - 2;
+
+    // LED indicator above button
+    float led_x = w * 0.5f;
+    if (value_) {
+      // On: bright LED with bloom
+      canvas.setColor(visage::Color(1.0f * dim, 0.3f, 1.0f, 0.3f));
+      canvas.circle(led_x - led_r, led_y - led_r, led_r * 2);
+      // Bloom core (HDR)
+      float hdr = 3.0f;
+      canvas.setColor(visage::Color(1.0f * dim, 0.5f, 1.0f, 0.4f, hdr));
+      canvas.circle(led_x - led_r * 0.6f, led_y - led_r * 0.6f, led_r * 1.2f);
+    }
+    else {
+      // Off: dim LED
+      canvas.setColor(visage::Color(0.4f * dim, 0.15f, 0.15f, 0.1f));
+      canvas.circle(led_x - led_r, led_y - led_r, led_r * 2);
+    }
+
+    // Button bezel (outer frame)
+    canvas.setColor(visage::Color(0.8f * dim, 0.25f, 0.25f, 0.25f));
+    canvas.roundedRectangle(bx - 2, by - 2, btn_size + 4, btn_size + 4, 3);
+
+    // Button 3D effect - depends on pressed state
+    if (value_) {
+      // Pressed: inverted bevel (dark top-left, light bottom-right)
+      canvas.setColor(visage::Color(0.7f * dim, 0.08f, 0.08f, 0.08f));
+      canvas.fill(bx, by, btn_size, 2);  // top edge dark
+      canvas.fill(bx, by, 2, btn_size);  // left edge dark
+      canvas.setColor(visage::Color(0.5f * dim, 0.35f, 0.35f, 0.35f));
+      canvas.fill(bx, by + btn_size - 2, btn_size, 2);  // bottom edge light
+      canvas.fill(bx + btn_size - 2, by, 2, btn_size);  // right edge light
+
+      // Button face (slightly darker when pressed)
+      canvas.setColor(visage::Color(0.9f * dim, 0.12f, 0.12f, 0.12f));
+      canvas.roundedRectangle(bx + 2, by + 2, btn_size - 4, btn_size - 4, 2);
+    }
+    else {
+      // Not pressed: normal bevel (light top-left, dark bottom-right)
+      canvas.setColor(visage::Color(0.7f * dim, 0.35f, 0.35f, 0.35f));
+      canvas.fill(bx, by, btn_size, 2);  // top edge light
+      canvas.fill(bx, by, 2, btn_size);  // left edge light
+      canvas.setColor(visage::Color(0.5f * dim, 0.08f, 0.08f, 0.08f));
+      canvas.fill(bx, by + btn_size - 2, btn_size, 2);  // bottom edge dark
+      canvas.fill(bx + btn_size - 2, by, 2, btn_size);  // right edge dark
+
+      // Button face
+      canvas.setColor(visage::Color(0.9f * dim, 0.18f, 0.18f, 0.18f));
+      canvas.roundedRectangle(bx + 2, by + 2, btn_size - 4, btn_size - 4, 2);
+    }
+
+    // Center marking (crosshair or square texture)
+    float mark_size = btn_size * 0.25f;
+    float mark_x = bx + (btn_size - mark_size) * 0.5f;
+    float mark_y = by + (btn_size - mark_size) * 0.5f;
+    if (value_) {
+      canvas.setColor(visage::Color(color_.alpha() * 0.6f * dim, color_.red(), color_.green(),
+                                    color_.blue()));
+    }
+    else {
+      canvas.setColor(visage::Color(0.3f * dim, 0.25f, 0.25f, 0.25f));
+    }
+    canvas.fill(mark_x, mark_y, mark_size, mark_size);
+
+    // Label at bottom
+    if (label_ && label_[0]) {
+      visage::Font font(10, resources::fonts::DroidSansMono_ttf);
+      canvas.setColor(visage::Color(0.7f * dim, 0.6f, 0.65f, 0.7f));
+      canvas.text(label_, font, visage::Font::kCenter, 0, h - label_h, w, label_h);
+    }
 
     redraw();
   }

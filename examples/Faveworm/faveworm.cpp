@@ -350,7 +350,19 @@ public:
   static constexpr int kDeadSamples = 256;  // Dead time after trigger
   static constexpr int kEvalSamples = 512;  // Evaluation window for waveform locking
 
-  ~AudioPlayer() { stop(); }
+  ~AudioPlayer() {
+#if !VISAGE_EMSCRIPTEN
+    // Ramp down audio before stopping to prevent pops/clicks
+    if (is_playing_ && stream_) {
+      shutting_down_ = true;
+      // Wait for gain to ramp down (max ~50ms at 44.1kHz)
+      for (int i = 0; i < 100 && current_gain_ > 0.001f; ++i) {
+        Pa_Sleep(1);
+      }
+    }
+#endif
+    stop();
+  }
 
   AudioPlayer() {
     // Initialize filter defaults
@@ -645,7 +657,7 @@ private:
   void process(float* out, unsigned long framesPerBuffer) {
     size_t total = audio_data_.left.size();
 
-    const float target_gain = paused_ ? 0.0f : volume_.load();
+    const float target_gain = (paused_ || shutting_down_) ? 0.0f : volume_.load();
     const float ramp_inc = 1.0f / (0.050f * sample_rate_);
 
     for (unsigned int i = 0; i < framesPerBuffer; ++i) {
@@ -822,6 +834,7 @@ public:
   TestSignalGenerator* test_generator_ = nullptr;
   float current_gain_ = 0.0f;
   std::atomic<bool> paused_ { false };
+  std::atomic<bool> shutting_down_ { false };
   std::atomic<float> volume_ { 0.0f };
   float sample_rate_ = 44100.0f;
 };
@@ -1405,7 +1418,7 @@ public:
     const int knob_size = 60;  // Taller to fit label
     const int js_size = 90;  // Taller to fit label
     const int selector_h = 34;  // Taller to fit label
-    const int switch_h = 32;  // Taller to fit label
+    const int switch_h = 42;  // Square push button height (needs room for LED + button + label)
 
     int panel_x = width() - panel_width;
     control_panel_.setBounds(panel_x, 0, panel_width, height());
@@ -1418,11 +1431,11 @@ public:
 
     // XY mode controls
     if (oscilloscope_.displayMode() == DisplayMode::XY) {
-      // Rolloff and Square
+      // Rolloff and Square buttons side by side
       int small_knob = 50;
+      int btn_size = 42;  // Square push button
       beta_knob_.setBounds(10, y, small_knob, small_knob);
-      exponent_switch_.setBounds(10 + small_knob + 10, y + (small_knob - switch_h) / 2,
-                                 panel_width - 20 - small_knob - 10, switch_h);
+      exponent_switch_.setBounds(10 + small_knob + 10, y + (small_knob - btn_size) / 2, btn_size, btn_size);
       y += small_knob + margin;
 
       // Signal freq and detune knobs side by side (smaller) with displays below
@@ -1436,9 +1449,10 @@ public:
       detune_display_.setBounds(right_x, y, small_knob, small_display_h);
       y += small_display_h + margin;
 
-      // Filter switch + label area
-      filter_switch_.setBounds(10, y, panel_width - 20, switch_h);
-      y += switch_h + margin;
+      // Filter push button (square)
+      int filter_btn_size = 42;
+      filter_switch_.setBounds((panel_width - filter_btn_size) / 2, y, filter_btn_size, filter_btn_size);
+      y += filter_btn_size + margin;
 
       // Joystick
       filter_joystick_.setBounds((panel_width - js_size) / 2, y, js_size, js_size);
@@ -1680,7 +1694,7 @@ private:
   Oscilloscope oscilloscope_;
   ControlPanel control_panel_;
   ModeSelector mode_selector_;
-  ToggleSwitch filter_switch_ { "Filter" };
+  PushButtonSwitch filter_switch_ { "Filter" };
   FilterKnob split_angle_knob_ { "Angle", false, false, true };  // bidirectional
   FilterKnob split_depth_knob_ { "Depth", false, false, true };  // bidirectional
   FilterKnob volume_knob_ { "Vol" };
@@ -1695,7 +1709,7 @@ private:
   FilterKnob cutoff_knob_ { "Cutoff", true };  // logarithmic
   FilterKnob resonance_knob_ { "Resonance", false };  // linear
   FilterKnob beta_knob_ { "Rolloff", false, true, true };  // bipolar logarithmic, bidirectional
-  ToggleSwitch exponent_switch_ { "Square" };
+  PushButtonSwitch exponent_switch_ { "Square" };
   FilterKnob freq_knob_ { "Freq", true };  // logarithmic
   FilterKnob detune_knob_ { "Detune", false, false, true };  // linear (around 1.0), bidirectional
   NumericDisplay freq_display_ { "Hz" };
