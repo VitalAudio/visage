@@ -1,19 +1,26 @@
 #pragma once
 
-#include <cmath>
 #include <algorithm>
+#include <cmath>
 
 // Filter output selection for X/Y routing
-enum class FilterOutput { LP, BP, HP, BR, AP, Input };
+enum class FilterOutput {
+  LP,
+  BP,
+  HP,
+  BR,
+  AP,
+  Input
+};
 
 inline const char* filterOutputName(FilterOutput f) {
   switch (f) {
-    case FilterOutput::LP: return "LP";
-    case FilterOutput::BP: return "BP";
-    case FilterOutput::HP: return "HP";
-    case FilterOutput::BR: return "BR";
-    case FilterOutput::AP: return "AP";
-    case FilterOutput::Input: return "In";
+  case FilterOutput::LP: return "LP";
+  case FilterOutput::BP: return "BP";
+  case FilterOutput::HP: return "HP";
+  case FilterOutput::BR: return "BR";
+  case FilterOutput::AP: return "AP";
+  case FilterOutput::Input: return "In";
   }
   return "?";
 }
@@ -39,7 +46,9 @@ public:
     updateCoeffs();
   }
 
-  struct Outputs { double lp, bp, hp; };
+  struct Outputs {
+    double lp, bp, hp;
+  };
 
   Outputs process(double in) {
     // Soft-clip the input combined with feedback - this is where energy enters
@@ -50,10 +59,11 @@ public:
     double lp = g_ * bp + z2_;
 
     // Update state (trapezoidal integration)
-    z1_ = 2.0 * bp - z1_;
-    z2_ = 2.0 * lp - z2_;
+    // Soft-clip before feedback to prevent runaway at extreme freq/resonance
+    z1_ = 2.0 * softClip(bp) - z1_;
+    z2_ = 2.0 * softClip(lp) - z2_;
 
-    return {lp, bp, hp};
+    return { lp, bp, hp };
   }
 
   void reset() { z1_ = z2_ = 0.0; }
@@ -61,21 +71,19 @@ public:
   // Get specific output from last process() call
   static double getOutput(const Outputs& o, FilterOutput type, double input) {
     switch (type) {
-      case FilterOutput::LP: return o.lp;
-      case FilterOutput::BP: return o.bp;
-      case FilterOutput::HP: return o.hp;
-      case FilterOutput::BR: return o.lp + o.hp;  // Notch
-      case FilterOutput::AP: return o.lp + o.hp - o.bp;  // Allpass approx
-      case FilterOutput::Input: return input;
+    case FilterOutput::LP: return o.lp;
+    case FilterOutput::BP: return o.bp;
+    case FilterOutput::HP: return o.hp;
+    case FilterOutput::BR: return o.lp + o.hp;  // Notch
+    case FilterOutput::AP: return o.lp + o.hp - o.bp;  // Allpass approx
+    case FilterOutput::Input: return input;
     }
     return input;
   }
 
 private:
   // Soft saturation using tanh - allows self-oscillation to stabilize
-  static double softClip(double x) {
-    return std::tanh(x);
-  }
+  static double softClip(double x) { return std::tanh(x); }
 
   void updateCoeffs() {
     g_ = std::tan(kPi * cutoff_ / sample_rate_);
@@ -98,14 +106,14 @@ public:
   // Preset split modes for interesting XY patterns
   // Each creates different visual characteristics due to phase relationships
   enum class SplitMode {
-    LpHp,      // Classic retro: smooth ellipses, analog feel (fc 40-80, Q 0.7)
-    BpAp,      // Geometric flowers: swirling shapes, BP + phase rotation (fc 150-250, Q 1.0)
-    BrAp,      // Kaleidoscope: notch removes freqs, AP rotates phase (fc 300-800, Q 1.2-1.8)
-    LpBp,      // Organic petals: soft loops, classic visualizer look (fc 100-200, Q 0.8)
-    ApHp,      // Liquid vector: AP phase shift + HP edge (fc 20-40, Q 0.5-0.7)
-    BpBr,      // Complementary: BP emphasizes what notch removes
-    InMorph,   // Live control: X=raw input, Y=morphed (use with joystick)
-    Custom     // Manual X/Y output selection
+    LpHp,  // Classic retro: smooth ellipses, analog feel (fc 40-80, Q 0.7)
+    BpAp,  // Geometric flowers: swirling shapes, BP + phase rotation (fc 150-250, Q 1.0)
+    BrAp,  // Kaleidoscope: notch removes freqs, AP rotates phase (fc 300-800, Q 1.2-1.8)
+    LpBp,  // Organic petals: soft loops, classic visualizer look (fc 100-200, Q 0.8)
+    ApHp,  // Liquid vector: AP phase shift + HP edge (fc 20-40, Q 0.5-0.7)
+    BpBr,  // Complementary: BP emphasizes what notch removes
+    InMorph,  // Live control: X=raw input, Y=morphed (use with joystick)
+    Custom  // Manual X/Y output selection
   };
 
   static constexpr int kNumModes = 8;
@@ -113,14 +121,35 @@ public:
   void setSplitMode(SplitMode mode) {
     split_mode_ = mode;
     switch (mode) {
-      case SplitMode::LpHp:    x_output_ = FilterOutput::LP; y_output_ = FilterOutput::HP; break;
-      case SplitMode::BpAp:    x_output_ = FilterOutput::BP; y_output_ = FilterOutput::AP; break;
-      case SplitMode::BrAp:    x_output_ = FilterOutput::BR; y_output_ = FilterOutput::AP; break;
-      case SplitMode::LpBp:    x_output_ = FilterOutput::LP; y_output_ = FilterOutput::BP; break;
-      case SplitMode::ApHp:    x_output_ = FilterOutput::AP; y_output_ = FilterOutput::HP; break;
-      case SplitMode::BpBr:    x_output_ = FilterOutput::BP; y_output_ = FilterOutput::BR; break;
-      case SplitMode::InMorph: x_output_ = FilterOutput::Input; y_output_ = FilterOutput::LP; break;
-      case SplitMode::Custom:  break;  // Keep current settings
+    case SplitMode::LpHp:
+      x_output_ = FilterOutput::LP;
+      y_output_ = FilterOutput::HP;
+      break;
+    case SplitMode::BpAp:
+      x_output_ = FilterOutput::BP;
+      y_output_ = FilterOutput::AP;
+      break;
+    case SplitMode::BrAp:
+      x_output_ = FilterOutput::BR;
+      y_output_ = FilterOutput::AP;
+      break;
+    case SplitMode::LpBp:
+      x_output_ = FilterOutput::LP;
+      y_output_ = FilterOutput::BP;
+      break;
+    case SplitMode::ApHp:
+      x_output_ = FilterOutput::AP;
+      y_output_ = FilterOutput::HP;
+      break;
+    case SplitMode::BpBr:
+      x_output_ = FilterOutput::BP;
+      y_output_ = FilterOutput::BR;
+      break;
+    case SplitMode::InMorph:
+      x_output_ = FilterOutput::Input;
+      y_output_ = FilterOutput::LP;
+      break;
+    case SplitMode::Custom: break;  // Keep current settings
     }
   }
 
@@ -133,35 +162,41 @@ public:
 
   const char* splitModeName() const {
     switch (split_mode_) {
-      case SplitMode::LpHp:    return "LP/HP Retro";
-      case SplitMode::BpAp:    return "BP/AP Flowers";
-      case SplitMode::BrAp:    return "BR/AP Kaleidoscope";
-      case SplitMode::LpBp:    return "LP/BP Organic";
-      case SplitMode::ApHp:    return "AP/HP Liquid";
-      case SplitMode::BpBr:    return "BP/BR Complement";
-      case SplitMode::InMorph: return "In/Morph Live";
-      case SplitMode::Custom:  return "Custom";
+    case SplitMode::LpHp: return "LP/HP Retro";
+    case SplitMode::BpAp: return "BP/AP Flowers";
+    case SplitMode::BrAp: return "BR/AP Kaleidoscope";
+    case SplitMode::LpBp: return "LP/BP Organic";
+    case SplitMode::ApHp: return "AP/HP Liquid";
+    case SplitMode::BpBr: return "BP/BR Complement";
+    case SplitMode::InMorph: return "In/Morph Live";
+    case SplitMode::Custom: return "Custom";
     }
     return "?";
   }
 
   const char* splitModeDescription() const {
     switch (split_mode_) {
-      case SplitMode::LpHp:    return "Classic ellipses (fc 40-80, Q 0.7)";
-      case SplitMode::BpAp:    return "Swirling shapes (fc 150-250, Q 1.0)";
-      case SplitMode::BrAp:    return "Geometric patterns (fc 300-800, Q 1.2)";
-      case SplitMode::LpBp:    return "Soft loops (fc 100-200, Q 0.8)";
-      case SplitMode::ApHp:    return "Phase + edge (fc 20-40, Q 0.5)";
-      case SplitMode::BpBr:    return "Complementary bands";
-      case SplitMode::InMorph: return "X=raw, Y=filtered (use joystick)";
-      case SplitMode::Custom:  return "Manual X/Y selection";
+    case SplitMode::LpHp: return "Classic ellipses (fc 40-80, Q 0.7)";
+    case SplitMode::BpAp: return "Swirling shapes (fc 150-250, Q 1.0)";
+    case SplitMode::BrAp: return "Geometric patterns (fc 300-800, Q 1.2)";
+    case SplitMode::LpBp: return "Soft loops (fc 100-200, Q 0.8)";
+    case SplitMode::ApHp: return "Phase + edge (fc 20-40, Q 0.5)";
+    case SplitMode::BpBr: return "Complementary bands";
+    case SplitMode::InMorph: return "X=raw, Y=filtered (use joystick)";
+    case SplitMode::Custom: return "Manual X/Y selection";
     }
     return "";
   }
 
   // Manual output selection
-  void setXOutput(FilterOutput f) { x_output_ = f; split_mode_ = SplitMode::Custom; }
-  void setYOutput(FilterOutput f) { y_output_ = f; split_mode_ = SplitMode::Custom; }
+  void setXOutput(FilterOutput f) {
+    x_output_ = f;
+    split_mode_ = SplitMode::Custom;
+  }
+  void setYOutput(FilterOutput f) {
+    y_output_ = f;
+    split_mode_ = SplitMode::Custom;
+  }
   FilterOutput xOutput() const { return x_output_; }
   FilterOutput yOutput() const { return y_output_; }
 
@@ -171,14 +206,13 @@ public:
   void reset() { svf_.reset(); }
 
   // Process mono input, return X/Y outputs
-  struct StereoOut { double x, y; };
+  struct StereoOut {
+    double x, y;
+  };
 
   StereoOut process(double input) {
     auto o = svf_.process(input);
-    return {
-      SimpleSVF::getOutput(o, x_output_, input),
-      SimpleSVF::getOutput(o, y_output_, input)
-    };
+    return { SimpleSVF::getOutput(o, x_output_, input), SimpleSVF::getOutput(o, y_output_, input) };
   }
 
 private:
@@ -239,7 +273,8 @@ private:
     radius_ = std::min(radius_, 1.0f);
 
     angle_ = std::atan2(pos_y_, pos_x_);
-    if (angle_ < 0) angle_ += static_cast<float>(kTwoPi);
+    if (angle_ < 0)
+      angle_ += static_cast<float>(kTwoPi);
 
     // Map angle to 4 modes evenly spaced:
     // 0 (right) = HP, pi/2 (up) = BP, pi (left) = LP, 3pi/2 (down) = BR
@@ -248,7 +283,8 @@ private:
     // Calculate weights using smooth cosine crossfades
     auto smoothWeight = [](float center, float a) {
       float dist = std::abs(a - center);
-      if (dist > 0.5f) dist = 1.0f - dist;
+      if (dist > 0.5f)
+        dist = 1.0f - dist;
       float w = std::cos(std::min(dist * 4.0f, 1.0f) * static_cast<float>(kPi) * 0.5f);
       return std::max(0.0f, w * w);
     };
