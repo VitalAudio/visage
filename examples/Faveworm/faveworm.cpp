@@ -1419,8 +1419,12 @@ public:
     filter_joystick_.setEnabled(enabled);
     cutoff_knob_.setEnabled(enabled);
     resonance_knob_.setEnabled(enabled);
+    cutoff_display_.setEnabled(enabled);
+    resonance_display_.setEnabled(enabled);
     split_angle_knob_.setEnabled(enabled);
     split_depth_knob_.setEnabled(enabled);
+    angle_display_.setEnabled(enabled);
+    depth_display_.setEnabled(enabled);
   }
 
   void resized() override {

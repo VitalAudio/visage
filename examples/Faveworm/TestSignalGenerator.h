@@ -11,7 +11,7 @@
 class TestSignalGenerator {
 public:
   static constexpr double kMinFrequency = 10.0;
-  static constexpr double kMaxFrequency = 1000.0;
+  static constexpr double kMaxFrequency = 500.0;
   static constexpr double kMinDetune = 0.9;
   static constexpr double kMaxDetune = 1.1;
   static constexpr double kMinBeta = -10.0;

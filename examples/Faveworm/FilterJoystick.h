@@ -134,25 +134,7 @@ public:
     const float bx = (w - btn_size) * 0.5f;
     const float by = (h - label_h - btn_size) * 0.5f;
     const float dim = enabled_ ? 1.0f : 0.3f;
-    const float led_r = 3.0f;
-    const float led_y = by - led_r * 2 - 2;
-
-    // LED indicator above button
-    float led_x = w * 0.5f;
-    if (value_) {
-      // On: bright LED with bloom
-      canvas.setColor(visage::Color(1.0f * dim, 0.3f, 1.0f, 0.3f));
-      canvas.circle(led_x - led_r, led_y - led_r, led_r * 2);
-      // Bloom core (HDR)
-      float hdr = 3.0f;
-      canvas.setColor(visage::Color(1.0f * dim, 0.5f, 1.0f, 0.4f, hdr));
-      canvas.circle(led_x - led_r * 0.6f, led_y - led_r * 0.6f, led_r * 1.2f);
-    }
-    else {
-      // Off: dim LED
-      canvas.setColor(visage::Color(0.4f * dim, 0.15f, 0.15f, 0.1f));
-      canvas.circle(led_x - led_r, led_y - led_r, led_r * 2);
-    }
+    const float led_r = 2.5f;
 
     // Button bezel (outer frame)
     canvas.setColor(visage::Color(0.8f * dim, 0.25f, 0.25f, 0.25f));
@@ -186,18 +168,27 @@ public:
       canvas.roundedRectangle(bx + 2, by + 2, btn_size - 4, btn_size - 4, 2);
     }
 
-    // Center marking (crosshair or square texture)
-    float mark_size = btn_size * 0.25f;
-    float mark_x = bx + (btn_size - mark_size) * 0.5f;
-    float mark_y = by + (btn_size - mark_size) * 0.5f;
+    // LED Indicator at CENTER of button
+    float led_x = bx + btn_size * 0.5f;
+    float led_y = by + btn_size * 0.5f;
+
     if (value_) {
-      canvas.setColor(visage::Color(color_.alpha() * 0.6f * dim, color_.red(), color_.green(),
-                                    color_.blue()));
+      // On: Active LED logic matching FilterSlider (red/orange)
+      // Base LED
+      canvas.setColor(visage::Color(1.0f * dim, 0.8f, 0.3f, 0.3f));
+      canvas.circle(led_x - led_r, led_y - led_r, led_r * 2);
+
+      // Bloom core with fixed 15% intensity
+      float intensity = 0.15f;
+      float hdr = 1.0f + intensity * 6.0f;
+      canvas.setColor(visage::Color(1.0f * dim, 1.0f, 0.9f, 0.8f, hdr));
+      canvas.circle(led_x - led_r * 0.6f, led_y - led_r * 0.6f, led_r * 1.2f);
     }
     else {
-      canvas.setColor(visage::Color(0.3f * dim, 0.25f, 0.25f, 0.25f));
+      // Off: dim LED
+      canvas.setColor(visage::Color(0.4f * dim, 0.15f, 0.15f, 0.1f));
+      canvas.circle(led_x - led_r, led_y - led_r, led_r * 2);
     }
-    canvas.fill(mark_x, mark_y, mark_size, mark_size);
 
     // Label at bottom
     if (label_ && label_[0]) {
@@ -733,13 +724,15 @@ public:
   void setValue(float* v) { value_ = v; }
   void setColor(visage::Color c) { color_ = c; }
   void setDecimals(int d) { decimals_ = d; }
+  void setEnabled(bool e) { enabled_ = e; }
 
   void draw(visage::Canvas& canvas) override {
     const float w = static_cast<float>(width());
     const float h = static_cast<float>(height());
+    const float dim = enabled_ ? 1.0f : 0.3f;
 
     // Dark background
-    canvas.setColor(visage::Color(0.8f, 0.02f, 0.03f, 0.05f));
+    canvas.setColor(visage::Color(0.8f * dim, 0.02f, 0.03f, 0.05f));
     canvas.roundedRectangle(0, 0, w, h, 3);
 
     // Value text
@@ -759,7 +752,7 @@ public:
       }
 
       visage::Font font(14, resources::fonts::DS_DIGIT_ttf);
-      canvas.setColor(color_);
+      canvas.setColor(visage::Color(color_.alpha() * dim, color_.red(), color_.green(), color_.blue()));
       canvas.text(buf, font, visage::Font::kCenter, 2, 0, w - 4, h);
     }
 
@@ -771,6 +764,7 @@ private:
   const char* suffix_;
   visage::Color color_ { 1.0f, 0.4f, 1.0f, 0.8f };
   int decimals_ = 0;
+  bool enabled_ = true;
 };
 
 // Visual Joystick Control for Filter Morphing
