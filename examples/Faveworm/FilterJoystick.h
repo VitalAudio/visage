@@ -246,32 +246,64 @@ public:
       canvas.text(label_, font, visage::Font::kCenter, 0, 0, w, label_h);
     }
 
-    // Background
-    canvas.setColor(visage::Color(0.6f * dim, 0.12f, 0.12f, 0.12f));
-    canvas.roundedRectangle(2, ctrl_y + 2, w - 4, ctrl_h - 4, 4);
+    if (options_.empty())
+      return;
 
-    // Border highlight
-    canvas.setColor(visage::Color(color_.alpha() * dim, color_.red(), color_.green(), color_.blue()));
-    canvas.roundedRectangle(0, ctrl_y, w, ctrl_h, 5);
-    canvas.setColor(visage::Color(0.95f * dim, 0.08f, 0.08f, 0.08f));
-    canvas.roundedRectangle(2, ctrl_y + 2, w - 4, ctrl_h - 4, 4);
+    float btn_w = w / options_.size();
+    visage::Font font(10, resources::fonts::DroidSansMono_ttf);
 
-    // Draw selected option text
-    if (!options_.empty() && index_ >= 0 && index_ < static_cast<int>(options_.size())) {
-      visage::Font font(11, resources::fonts::DroidSansMono_ttf);
-      canvas.setColor(visage::Color(color_.alpha() * dim, color_.red(), color_.green(), color_.blue()));
-      canvas.text(options_[index_].c_str(), font, visage::Font::kCenter, 4, ctrl_y, w - 8, ctrl_h);
+    for (int i = 0; i < (int)options_.size(); ++i) {
+      float bx = i * btn_w + 1;
+      float bw = btn_w - 2;
+      bool selected = (i == index_);
+
+      // Button background/bezel
+      canvas.setColor(visage::Color(0.8f * dim, 0.18f, 0.18f, 0.18f));
+      canvas.roundedRectangle(bx, ctrl_y, bw, ctrl_h, 2);
+
+      if (selected) {
+        canvas.setColor(visage::Color(0.6f * dim, color_.red(), color_.green(), color_.blue(), 0.3f));
+        canvas.roundedRectangle(bx + 1, ctrl_y + 1, bw - 2, ctrl_h - 2, 1);
+      }
+
+      // LED Indicator (smaller, top-centered)
+      float led_r = 1.5f;
+      float led_x = bx + bw * 0.5f;
+      float led_y = ctrl_y + 5.0f;
+
+      if (selected) {
+        canvas.setColor(visage::Color(1.0f * dim, 0.8f, 0.3f, 0.3f));
+        canvas.circle(led_x - led_r, led_y - led_r, led_r * 2);
+        float hdr = 1.0f + 0.15f * 6.0f;
+        canvas.setColor(visage::Color(1.0f * dim, 1.0f, 0.9f, 0.8f, hdr));
+        canvas.circle(led_x - led_r * 0.5f, led_y - led_r * 0.5f, led_r);
+      }
+      else {
+        canvas.setColor(visage::Color(0.3f * dim, 0.15f, 0.15f, 0.1f));
+        canvas.circle(led_x - led_r, led_y - led_r, led_r * 2);
+      }
+
+      // Option text
+      canvas.setColor(visage::Color(0.9f * dim, 0.9f, 0.9f, 0.95f));
+      canvas.text(options_[i].c_str(), font, visage::Font::kCenter, bx, ctrl_y + 8, bw, ctrl_h - 8);
     }
 
     redraw();
   }
 
-  void mouseDown(const visage::MouseEvent&) override {
+  void mouseDown(const visage::MouseEvent& event) override {
     if (!enabled_ || options_.empty())
       return;
-    index_ = (index_ + 1) % options_.size();
-    if (callback_)
-      callback_(index_);
+
+    float btn_w = static_cast<float>(width()) / options_.size();
+    int new_index = static_cast<int>(event.position.x / btn_w);
+    new_index = std::clamp(new_index, 0, (int)options_.size() - 1);
+
+    if (new_index != index_) {
+      index_ = new_index;
+      if (callback_)
+        callback_(index_);
+    }
   }
 
 private:
@@ -428,6 +460,7 @@ public:
       return;
     dragging_ = true;
     last_y_ = event.position.y;
+    virtual_norm_ = getNormalizedValue();
   }
 
   void mouseDrag(const visage::MouseEvent& event) override {
@@ -437,28 +470,41 @@ public:
     float delta = (last_y_ - event.position.y) / 100.0f;
     last_y_ = event.position.y;
 
-    if (bipolar_logarithmic_) {
-      // Bipolar logarithmic: symmetric log scaling around zero
-      float norm = getNormalizedValue();
-      norm = std::clamp(norm + delta, 0.0f, 1.0f);
-      *value_ = denormalizeBipolarLog(norm);
-    }
-    else if (reverse_logarithmic_) {
-      // Reverse logarithmic: more resolution at high values
-      float norm = getNormalizedValue();
-      norm = std::clamp(norm + delta, 0.0f, 1.0f);
-      *value_ = denormalizeReverseLog(norm);
-    }
-    else if (logarithmic_) {
-      // Use exponential scaling: full drag range covers log ratio
-      // For 20-2000Hz (100x), delta of 1.0 should cover full range
+    if (logarithmic_) {
+      // Logarithmic knobs are currently unidirectional (e.g. Cutoff), so no sticky center logic needed
       float log_range = std::log(max_ / min_);
       float log_delta = delta * log_range;
       *value_ = std::clamp(*value_ * std::exp(log_delta), min_, max_);
     }
     else {
-      *value_ = std::clamp(*value_ + delta * (max_ - min_), min_, max_);
+      virtual_norm_ = std::clamp(virtual_norm_ + delta, 0.0f, 1.0f);
+      float new_norm = virtual_norm_;
+
+      if (bidirectional_) {
+        // Sticky center logic: creates a dead zone at 0.5 that requires extra travel to break out.
+        // This makes it easy to set exactly zero without a "jump" or "gravity pull".
+        constexpr float kStickyZone = 0.02f;
+        if (std::abs(virtual_norm_ - 0.5f) < kStickyZone) {
+          new_norm = 0.5f;
+        }
+        else {
+          // Compress the remaining ranges [0, 0.5-kStickyZone] and [0.5+kStickyZone, 1]
+          // to cover the full [0, 0.5] and [0.5, 1] ranges smoothly.
+          if (virtual_norm_ > 0.5f)
+            new_norm = 0.5f + (virtual_norm_ - (0.5f + kStickyZone)) * (0.5f / (0.5f - kStickyZone));
+          else
+            new_norm = virtual_norm_ / (0.5f - kStickyZone) * 0.5f;
+        }
+      }
+
+      if (bipolar_logarithmic_)
+        *value_ = denormalizeBipolarLog(new_norm);
+      else if (reverse_logarithmic_)
+        *value_ = denormalizeReverseLog(new_norm);
+      else
+        *value_ = min_ + new_norm * (max_ - min_);
     }
+
     if (callback_)
       callback_(*value_);
   }
@@ -470,24 +516,37 @@ public:
       return false;
 
     float wheel_delta = event.wheel_delta_y * 0.05f;
-    if (bipolar_logarithmic_) {
-      float norm = getNormalizedValue();
-      norm = std::clamp(norm + wheel_delta, 0.0f, 1.0f);
-      *value_ = denormalizeBipolarLog(norm);
-    }
-    else if (reverse_logarithmic_) {
-      float norm = getNormalizedValue();
-      norm = std::clamp(norm + wheel_delta, 0.0f, 1.0f);
-      *value_ = denormalizeReverseLog(norm);
-    }
-    else if (logarithmic_) {
+    if (logarithmic_) {
       float log_range = std::log(max_ / min_);
       float log_delta = wheel_delta * log_range;
       *value_ = std::clamp(*value_ * std::exp(log_delta), min_, max_);
     }
     else {
-      *value_ = std::clamp(*value_ + wheel_delta * (max_ - min_), min_, max_);
+      float norm = getNormalizedValue();
+      float new_norm = std::clamp(norm + wheel_delta, 0.0f, 1.0f);
+
+      if (bidirectional_) {
+        // Apply sticky zone remapping to mouse wheel as well
+        constexpr float kStickyZone = 0.02f;
+        if (std::abs(new_norm - 0.5f) < kStickyZone) {
+          new_norm = 0.5f;
+        }
+        else {
+          if (new_norm > 0.5f)
+            new_norm = 0.5f + (new_norm - (0.5f + kStickyZone)) * (0.5f / (0.5f - kStickyZone));
+          else
+            new_norm = new_norm / (0.5f - kStickyZone) * 0.5f;
+        }
+      }
+
+      if (bipolar_logarithmic_)
+        *value_ = denormalizeBipolarLog(new_norm);
+      else if (reverse_logarithmic_)
+        *value_ = denormalizeReverseLog(new_norm);
+      else
+        *value_ = min_ + new_norm * (max_ - min_);
     }
+
     if (callback_)
       callback_(*value_);
     return true;
@@ -574,6 +633,7 @@ private:
   Callback callback_;
   bool dragging_ = false;
   float last_y_ = 0.0f;
+  float virtual_norm_ = 0.5f;
   bool enabled_ = true;
   float* led_intensity_ = nullptr;
 };
