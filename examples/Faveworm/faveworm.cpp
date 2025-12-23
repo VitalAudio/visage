@@ -37,7 +37,7 @@
 
 // Global constants for parameter ranges
 static constexpr float kMinFilterCutoff = 20.0f;
-static constexpr float kMaxFilterCutoff = 5000.0f;
+static constexpr float kMaxFilterCutoff = 3000.0f;
 static constexpr float kMinFilterResonance = 0.0f;
 static constexpr float kMaxFilterResonance = 1.0f;  // Note: UI limits to 0.99f for safety
 static constexpr float kMinSplitAngle = -180.0f;
@@ -569,15 +569,29 @@ public:
           float l, r;
           test_generator_->getSample(l, r);
 
+          // Match the main audio processing logic
+          float scope_l = l;
+          float scope_r = r;
+
           if (filter_enabled_) {
-            // Process both channels through filter with unified morpher
+            // Process GLOBAL filter once per sample (preserving state)
             double mono = (static_cast<double>(l) + static_cast<double>(r)) * 0.5;
             auto outputs = svf_.process(mono);
-            auto xy = morpher_.applyXY(outputs.lp, outputs.bp, outputs.hp);
-            l = static_cast<float>(xy.x);
-            r = static_cast<float>(xy.y);
+
+            // Calculate SCOPE values (same logic as main audio processing)
+            if (morpher_.hasSplit()) {
+              // Split mode: both X and Y get offset-based filtering
+              auto xy = morpher_.applyXY(outputs.lp, outputs.bp, outputs.hp);
+              scope_l = static_cast<float>(xy.x);
+              scope_r = static_cast<float>(xy.y);
+            }
+            else {
+              // No split: X = raw, Y = filtered with morpher
+              scope_r = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
+            }
           }
-          ring_buffer_.write(l, r);
+
+          ring_buffer_.write(scope_l, scope_r);
         }
       }
       return;
@@ -993,7 +1007,35 @@ public:
   }
   bool filterEnabled() const { return audio_player_ ? audio_player_->filterEnabled() : false; }
 
-  void step() { needs_step_update_ = true; }
+  void step() {
+    needs_step_update_ = true;
+
+    // Regenerate phosphor history to show motion blur
+    // Generate a few frames at slightly offset positions
+    const int trail_frames = 800000;  // Number of trail frames to generate
+
+    // Clear all history first
+    for (int i = 0; i < kHistoryFrames; ++i) {
+      history_[i].clear();
+    }
+
+    // Generate trail frames by temporarily offsetting time
+    double original_offset = time_offset_;
+    for (int i = 0; i < trail_frames; ++i) {
+      // Offset backwards in time for each trail frame
+      // Each frame is offset by ~16ms (assuming 60fps)
+      time_offset_ = original_offset - (trail_frames - i) * 0.016;
+
+      int idx = (history_index_ + i) % kHistoryFrames;
+      generateWaveform(0.0, history_[idx]);
+    }
+
+    // Restore original time offset
+    time_offset_ = original_offset;
+
+    // Update history index to point after the trail frames
+    history_index_ = (history_index_ + trail_frames) % kHistoryFrames;
+  }
 
   // Stereo split mode delegates
   void setStereoSplitMode(bool enabled) {
@@ -1271,7 +1313,7 @@ private:
   float beam_size_ = 3.0f;
   float beam_gain_ = 1.5f;
   float waveform_hue_ = 170.0f;
-  float hue_dynamics_ = 0.0f;  // Velocity-based hue shift sensitivity (0-1)
+  float hue_dynamics_ = 0.05f;  // Velocity-based hue shift sensitivity (0-1)
 
   DisplayMode display_mode_ = DisplayMode::XY;
   double time_offset_ = 0.0;
@@ -1326,6 +1368,7 @@ public:
     addChild(&oscilloscope_);
     oscilloscope_.layout().setMargin(0);
     oscilloscope_.setAudioPlayer(&audio_player_);
+    audio_player_.setTestGenerator(&oscilloscope_.testSignal());
 
     // Control panel background (added first)
     addChild(&control_panel_);
@@ -1966,7 +2009,7 @@ private:
   float bloom_intensity_ = 0.5f;
   bool bloom_enabled_ = true;
   float waveform_hue_ = 170.0f;
-  float hue_dynamics_ = 0.0f;  // Velocity-based hue shift sensitivity
+  float hue_dynamics_ = 0.15f;  // Velocity-based hue shift sensitivity
   float filter_cutoff_ = 150.0f;
   float filter_resonance_ = 1.0f;
   float filter_resonance_pct_ = 100.0f;  // For display (0-100%)
