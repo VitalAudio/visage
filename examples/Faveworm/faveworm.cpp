@@ -1304,7 +1304,7 @@ public:
 
     control_panel_.addScrolledChild(&resonance_knob_);
     resonance_knob_.setValue(&filter_resonance_);
-    resonance_knob_.setRange(kMinFilterResonance, 0.99f);
+    resonance_knob_.setRange(kMinFilterResonance, 1.0f);
     resonance_knob_.setColor(visage::Color(1.0f, 0.9f, 0.6f, 0.4f));
     resonance_knob_.setCallback([this](float v) {
       oscilloscope_.setFilterResonance(v);
