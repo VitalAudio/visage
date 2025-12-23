@@ -794,7 +794,7 @@ public:
   float filterCutoff() const { return filter_cutoff_; }
 
   void setFilterResonance(float r) {
-    filter_resonance_ = std::clamp(r, 0.0f, 0.99f);
+    filter_resonance_ = std::clamp(r, 0.0f, 1.0f);
     svf_.setResonance(filter_resonance_);
     stereo_router_.setResonance(filter_resonance_);
   }
@@ -1292,7 +1292,7 @@ public:
 
     control_panel_.addScrolledChild(&resonance_knob_);
     resonance_knob_.setValue(&filter_resonance_);
-    resonance_knob_.setRange(0.0f, 0.99f);
+    resonance_knob_.setRange(0.0f, 1.0f);
     resonance_knob_.setColor(visage::Color(1.0f, 0.9f, 0.6f, 0.4f));
     resonance_knob_.setCallback([this](float v) {
       oscilloscope_.setFilterResonance(v);
@@ -1458,30 +1458,28 @@ public:
       filter_joystick_.setBounds((panel_width - js_size) / 2, y, js_size, js_size);
       y += js_size + margin;
 
-      // Cutoff knob with display
-      int display_w = 50;
-      int display_h = 18;
-      cutoff_knob_.setBounds(10, y, knob_size, knob_size);
-      cutoff_display_.setBounds(10 + knob_size + 4, y + (knob_size - display_h) / 2, display_w, display_h);
-      y += knob_size + margin;
+      // Cutoff and Resonance knobs side by side (smaller) with displays below
+      int small_filter_knob = 50;
+      int filter_display_h = 16;
+      int filter_left_x = 10;
+      int filter_right_x = panel_width - 10 - small_filter_knob;
+      cutoff_knob_.setBounds(filter_left_x, y, small_filter_knob, small_filter_knob);
+      resonance_knob_.setBounds(filter_right_x, y, small_filter_knob, small_filter_knob);
+      y += small_filter_knob + 2;
+      cutoff_display_.setBounds(filter_left_x, y, small_filter_knob, filter_display_h);
+      resonance_display_.setBounds(filter_right_x, y, small_filter_knob, filter_display_h);
+      y += filter_display_h + margin;
 
-      // Resonance knob with display
-      resonance_knob_.setBounds(10, y, knob_size, knob_size);
-      resonance_display_.setBounds(10 + knob_size + 4, y + (knob_size - display_h) / 2, display_w, display_h);
-      y += knob_size + margin;
-
-      // Split knobs side by side with displays below
+      // Split angle and depth knobs side by side with displays below
       int small_split_knob = 50;
-      int split_display_w = 40;
       int split_display_h = 16;
-      split_angle_knob_.setBounds(10, y, small_split_knob, small_split_knob);
-      split_depth_knob_.setBounds(panel_width - 10 - small_split_knob, y, small_split_knob, small_split_knob);
+      int split_left_x = 10;
+      int split_right_x = panel_width - 10 - small_split_knob;
+      split_angle_knob_.setBounds(split_left_x, y, small_split_knob, small_split_knob);
+      split_depth_knob_.setBounds(split_right_x, y, small_split_knob, small_split_knob);
       y += small_split_knob + 2;
-      angle_display_.setBounds(10 + (small_split_knob - split_display_w) / 2, y, split_display_w,
-                               split_display_h);
-      depth_display_.setBounds(panel_width - 10 - small_split_knob +
-                                   (small_split_knob - split_display_w) / 2,
-                               y, split_display_w, split_display_h);
+      angle_display_.setBounds(split_left_x, y, small_split_knob, split_display_h);
+      depth_display_.setBounds(split_right_x, y, small_split_knob, split_display_h);
       y += split_display_h + 15;  // Extra padding
     }
 
@@ -1707,7 +1705,7 @@ private:
 #endif
   FilterJoystick filter_joystick_;
   FilterKnob cutoff_knob_ { "Cutoff", true };  // logarithmic
-  FilterKnob resonance_knob_ { "Resonance", false };  // linear
+  FilterKnob resonance_knob_ { "Resonance", false, false, false, true };  // reverse logarithmic
   FilterKnob beta_knob_ { "Rolloff", false, true, true };  // bipolar logarithmic, bidirectional
   PushButtonSwitch exponent_switch_ { "Square" };
   FilterKnob freq_knob_ { "Freq", true };  // logarithmic
