@@ -421,10 +421,10 @@ public:
     // Initialize filter defaults
     svf_.setSampleRate(44100.0);
     svf_.setCutoff(150.0);
-    svf_.setResonance(0.7);
+    svf_.setResonance(1.0);
     stereo_router_.setSampleRate(44100.0);
     stereo_router_.setCutoff(150.0);
-    stereo_router_.setResonance(0.7);
+    stereo_router_.setResonance(1.0);
     stereo_router_.setSplitMode(StereoFilterRouter::SplitMode::LpHp);
 #if VISAGE_EMSCRIPTEN
     volume_ = 0.0f;
@@ -1949,8 +1949,8 @@ private:
   bool bloom_enabled_ = true;
   float waveform_hue_ = 170.0f;
   float filter_cutoff_ = 150.0f;
-  float filter_resonance_ = 0.7f;
-  float filter_resonance_pct_ = 70.0f;  // For display (0-100%)
+  float filter_resonance_ = 1.0f;
+  float filter_resonance_pct_ = 100.0f;  // For display (0-100%)
   float signal_beta_ = 0.00f;
   float signal_freq_ = 80.0f;
   float signal_detune_ = 1.003f;
