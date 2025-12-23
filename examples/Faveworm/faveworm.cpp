@@ -53,6 +53,10 @@ static constexpr float kMaxPostRotate = 360.0f;
 static constexpr float kMinPreGain = 0.0f;
 static constexpr float kMaxPreGain = 4.0f;
 
+// Default values for display parameters
+static constexpr float kDefaultHueDynamics = 0.05f;
+static constexpr float kDefaultPhosphorDecay = 0.8f;
+
 // Help overlay showing keyboard shortcuts
 class HelpOverlay : public visage::Frame {
 public:
@@ -1309,11 +1313,11 @@ private:
   std::vector<Sample> history_[kHistoryFrames];
   int history_index_ = 0;
   bool phosphor_enabled_ = true;
-  float phosphor_decay_ = 0.1f;
+  float phosphor_decay_ = kDefaultPhosphorDecay;
   float beam_size_ = 3.0f;
   float beam_gain_ = 1.5f;
   float waveform_hue_ = 170.0f;
-  float hue_dynamics_ = 0.05f;  // Velocity-based hue shift sensitivity (0-1)
+  float hue_dynamics_ = kDefaultHueDynamics;  // Velocity-based hue shift sensitivity (0-1)
 
   DisplayMode display_mode_ = DisplayMode::XY;
   double time_offset_ = 0.0;
@@ -1561,6 +1565,10 @@ public:
     bloom_.setBloomSize(20.0f);
     bloom_.setBloomIntensity(0.5f);  // Slightly higher default glow
     setPostEffect(&bloom_);
+
+    // Initialize oscilloscope parameters to match UI defaults
+    oscilloscope_.setHueDynamics(hue_dynamics_);
+    oscilloscope_.setPhosphorDecay(phosphor_decay_);
 
     // Initialize panel visibility
     updatePanelVisibility();
@@ -2056,8 +2064,8 @@ private:
   float bloom_intensity_ = 0.5f;
   bool bloom_enabled_ = true;
   float waveform_hue_ = 170.0f;
-  float hue_dynamics_ = 0.15f;  // Velocity-based hue shift sensitivity
-  float phosphor_decay_ = 0.8f;  // Phosphor decay rate
+  float hue_dynamics_ = kDefaultHueDynamics;  // Velocity-based hue shift sensitivity
+  float phosphor_decay_ = kDefaultPhosphorDecay;  // Phosphor decay rate
   float filter_cutoff_ = 150.0f;
   float filter_resonance_ = 1.0f;
   float filter_resonance_pct_ = 100.0f;  // For display (0-100%)
