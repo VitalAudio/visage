@@ -46,6 +46,10 @@ static constexpr float kMinSplitDepth = 0.0f;
 static constexpr float kMaxSplitDepth = 1.0f;
 static constexpr float kMinVolume = 0.0f;
 static constexpr float kMaxVolume = 1.0f;
+static constexpr float kMinPostScale = 0.1f;
+static constexpr float kMaxPostScale = 3.0f;
+static constexpr float kMinPostRotate = 0.0f;
+static constexpr float kMaxPostRotate = 360.0f;
 
 // Help overlay showing keyboard shortcuts
 class HelpOverlay : public visage::Frame {
@@ -100,6 +104,7 @@ public:
     drawKey("H / ?", "Toggle this help");
     drawKey("M", "Cycle display mode");
     drawKey("P", "Toggle phosphor");
+    drawKey("G", "Toggle grid");
     drawKey("Up/Down", "Adjust bloom intensity");
     drawKey(", / .", "Step back / forward (when frozen)");
     y += 10;
@@ -885,6 +890,10 @@ public:
   void setBeamSize(float size) { beam_size_ = size; }
   void setBeamGain(float gain) { beam_gain_ = gain; }
   void setWaveformHue(float hue) { waveform_hue_ = hue; }
+  void setPostScale(float scale) { post_scale_ = scale; }
+  void setPostRotate(float rotate) { post_rotate_ = rotate; }
+  void setGridEnabled(bool enabled) { grid_enabled_ = enabled; }
+  bool gridEnabled() const { return grid_enabled_; }
 
   void setDisplayMode(DisplayMode mode) { display_mode_ = mode; }
   DisplayMode displayMode() const { return display_mode_; }
@@ -961,10 +970,8 @@ public:
   bool testSignalEnabled() const { return test_signal_enabled_; }
 
   void generateWaveform(double time, std::vector<Sample>& samples) {
-    const float w = static_cast<float>(width());
-    const float h = static_cast<float>(height());
-    if (w <= 0 || h <= 0)
-      return;
+    // Note: This now generates NORMALIZED coordinates (-1 to 1 range typically)
+    // they are mapped to screen pixels in renderWaveform.
 
     // Use audio player data for all primary modes
     if (audio_player_ && audio_player_->isPlaying()) {
@@ -974,21 +981,10 @@ public:
         audio_player_->getCurrentSamples(left, right, num_samples);
 
         samples.resize(num_samples);
-        float cx = w * 0.5f;
-        float cy = h * 0.5f;
-        float scale = std::min(w, h) * 0.4f;
-
         for (int i = 0; i < num_samples; ++i) {
-          // Clamp values to prevent graphics blowup with extreme beta
-          if (!std::isfinite(left[i]))
-            left[i] = 0.0f;
-          if (!std::isfinite(right[i]))
-            right[i] = 0.0f;
-          float x_val = std::clamp(left[i], -2.0f, 2.0f);
-          float y_val = std::clamp(right[i], -2.0f, 2.0f);
-
-          samples[i].x = cx + x_val * scale;
-          samples[i].y = cy - y_val * scale;
+          // Store raw signal values (clamped for safety)
+          samples[i].x = std::isfinite(left[i]) ? std::clamp(left[i], -2.0f, 2.0f) : 0.0f;
+          samples[i].y = std::isfinite(right[i]) ? std::clamp(right[i], -2.0f, 2.0f) : 0.0f;
         }
         return;
       }
@@ -998,13 +994,9 @@ public:
         audio_player_->getTriggeredSamples(audio, num_samples);
 
         samples.resize(num_samples);
-        float cy = h * 0.5f;
-        float scale = h * 0.4f;
-
         for (int i = 0; i < num_samples; ++i) {
-          float t = static_cast<float>(i) / (num_samples - 1);
-          samples[i].x = t * w;
-          samples[i].y = cy - audio[i] * scale;
+          samples[i].x = static_cast<float>(i) / (num_samples - 1);
+          samples[i].y = audio[i];
         }
         return;
       }
@@ -1014,13 +1006,9 @@ public:
         audio_player_->getCurrentSamples(left, right, num_samples);
 
         samples.resize(num_samples);
-        float cy = h * 0.5f;
-        float scale = h * 0.4f;
-
         for (int i = 0; i < num_samples; ++i) {
-          float t = static_cast<float>(i) / (num_samples - 1);
-          samples[i].x = t * w;
-          samples[i].y = cy - left[i] * scale;
+          samples[i].x = static_cast<float>(i) / (num_samples - 1);
+          samples[i].y = left[i];
         }
         return;
       }
@@ -1030,29 +1018,21 @@ public:
     if (test_signal_enabled_) {
       const int num_samples = 512;
       samples.resize(num_samples);
-
-      float cy = h * 0.5f;
-      float scale = h * 0.4f;
-      float cx = w * 0.5f;
-      float xy_scale = std::min(w, h) * 0.4f;
-
       TestSignalGenerator& gen = testSignal();
 
       for (int i = 0; i < num_samples; ++i) {
         float l, r;
         gen.getSample(l, r);
-        // Clamp values to prevent graphics blowup with extreme beta
         l = std::clamp(l, -2.0f, 2.0f);
         r = std::clamp(r, -2.0f, 2.0f);
 
         if (display_mode_ == DisplayMode::XY) {
-          samples[i].x = cx + l * xy_scale;
-          samples[i].y = cy - r * xy_scale;
+          samples[i].x = l;
+          samples[i].y = r;
         }
         else {
-          float t = static_cast<float>(i) / (num_samples - 1);
-          samples[i].x = t * w;
-          samples[i].y = cy - l * scale;
+          samples[i].x = static_cast<float>(i) / (num_samples - 1);
+          samples[i].y = l;
         }
       }
       return;
@@ -1072,19 +1052,16 @@ public:
       float phase = t * 2.0f * kPi;
 
       if (display_mode_ == DisplayMode::XY) {
-        float cx = w * 0.5f;
-        float cy = h * 0.5f;
-        float scale = std::min(w, h) * 0.35f;
-        samples[i].x = cx + scale * std::sin(phase * 3.0f + time_offset);
-        samples[i].y = cy + scale * std::sin(phase * 2.0f + time_offset * 0.7f);
+        samples[i].x = std::sin(phase * 3.0f + time_offset);
+        samples[i].y = std::sin(phase * 2.0f + time_offset * 0.7f);
       }
       else {
-        samples[i].x = t * w;
         float signal = 0.5f * std::sin(phase * freq1 + time_offset);
         signal += 0.25f * std::sin(phase * freq2 + time_offset * 1.3f);
         signal += 0.15f * std::sin(phase * freq3 + time_offset * 0.7f);
         signal *= 0.8f + 0.2f * std::sin(static_cast<float>(time) * 0.5f);
-        samples[i].y = (0.5f - signal * 0.4f) * h;
+        samples[i].x = t;
+        samples[i].y = signal;
       }
     }
   }
@@ -1098,6 +1075,32 @@ public:
     if (w <= 0 || h <= 0)
       return;
 
+    auto toPixel = [&](const Sample& s) -> Sample {
+      Sample p;
+      if (display_mode_ == DisplayMode::XY) {
+        float cx = w * 0.5f;
+        float cy = h * 0.5f;
+        float base_scale = std::min(w, h) * 0.4f * post_scale_;
+
+        float rad = post_rotate_ * kPi / 180.0f;
+        float sn = std::sin(rad);
+        float cs = std::cos(rad);
+
+        float rx = s.x * cs - s.y * sn;
+        float ry = s.x * sn + s.y * cs;
+
+        p.x = cx + rx * base_scale;
+        p.y = cy - ry * base_scale;
+      }
+      else {
+        float cy = h * 0.5f;
+        float base_scale = h * 0.4f * post_scale_;
+        p.x = s.x * w;
+        p.y = cy - s.y * base_scale;
+      }
+      return p;
+    };
+
     const float diag = std::sqrt(w * w + h * h);
     const float ref_energy = 50.0f;
     const float shutter_ratio = 1.0f;
@@ -1108,19 +1111,18 @@ public:
     const float half_beam = beam_size_ * 0.5f;
 
     for (int pos = 0; pos < num_samples - 1; ++pos) {
-      float x = samples[pos].x;
-      float y = samples[pos].y;
-      const float dx = samples[pos + 1].x - x;
-      const float dy = samples[pos + 1].y - y;
+      Sample p1 = toPixel(samples[pos]);
+      Sample p2 = toPixel(samples[pos + 1]);
+
+      float x = p1.x;
+      float y = p1.y;
+      const float dx = p2.x - x;
+      const float dy = p2.y - y;
       const float d = std::sqrt(dx * dx + dy * dy);
 
-      // Dynamically reduce oversampling (increase step distance) as beta increases
-      // to prevent freezing due to excessive draw calls.
-      // Use quadratic scaling (0.2 factor) to push performance for realism while safe.
       float beta = std::abs(static_cast<float>(testSignal().beta()));
       float step_dist = kMaxDist * (1.0f + 0.2f * beta * beta);
 
-      // Cap n to 100 to increase detail (realism) at cost of GPU/CPU load.
       const int n = std::min(100, std::max(static_cast<int>(std::ceil(d / step_dist)), 1));
       const float nr = 1.0f / static_cast<float>(n);
       const float ix = dx * nr;
@@ -1152,16 +1154,18 @@ public:
       const float h = static_cast<float>(ih);
 
       // Draw graticule
-      canvas.setColor(visage::Color(1.0f, 0.08f, 0.14f, 0.1f));
-      for (int i = 1; i < 10; ++i) {
-        float gx = w * i / 10.0f;
-        float gy = h * i / 10.0f;
-        canvas.fill(gx, 0, 1, h);
-        canvas.fill(0, gy, w, 1);
+      if (grid_enabled_) {
+        canvas.setColor(visage::Color(1.0f, 0.08f, 0.14f, 0.1f));
+        for (int i = 1; i < 10; ++i) {
+          float gx = w * i / 10.0f;
+          float gy = h * i / 10.0f;
+          canvas.fill(gx, 0, 1, h);
+          canvas.fill(0, gy, w, 1);
+        }
+        canvas.setColor(visage::Color(1.0f, 0.12f, 0.2f, 0.15f));
+        canvas.fill(w * 0.5f, 0, 1, h);
+        canvas.fill(0, h * 0.5f, w, 1);
       }
-      canvas.setColor(visage::Color(1.0f, 0.12f, 0.2f, 0.15f));
-      canvas.fill(w * 0.5f, 0, 1, h);
-      canvas.fill(0, h * 0.5f, w, 1);
 
       // Draw trigger level indicator in trigger mode
       if (display_mode_ == DisplayMode::TimeTrigger) {
@@ -1227,6 +1231,9 @@ private:
 
   AudioPlayer* audio_player_ = nullptr;
   bool needs_step_update_ = false;
+  float post_scale_ = 1.0f;
+  float post_rotate_ = 0.0f;
+  bool grid_enabled_ = true;
 };
 
 class ExampleEditor;
@@ -1267,6 +1274,11 @@ public:
     exponent_switch_.setValue(false);  // false = 1, true = 2
     exponent_switch_.setColor(visage::Color(1.0f, 0.6f, 0.8f, 0.6f));
     exponent_switch_.setCallback([this](bool v) { audio_player_.setExponent(v ? 2 : 1); });
+
+    control_panel_.addScrolledChild(&grid_switch_);
+    grid_switch_.setValue(true);
+    grid_switch_.setColor(visage::Color(1.0f, 0.8f, 0.8f, 0.4f));
+    grid_switch_.setCallback([this](bool v) { oscilloscope_.setGridEnabled(v); });
 
     control_panel_.addScrolledChild(&freq_knob_);
     freq_knob_.setValue(&signal_freq_);
@@ -1348,6 +1360,18 @@ public:
     depth_display_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
     depth_display_.setDecimals(2);
 
+    control_panel_.addScrolledChild(&post_scale_knob_);
+    post_scale_knob_.setValue(&post_scale_val_);
+    post_scale_knob_.setRange(kMinPostScale, kMaxPostScale);
+    post_scale_knob_.setColor(visage::Color(1.0f, 0.5f, 0.7f, 0.9f));
+    post_scale_knob_.setCallback([this](float v) { oscilloscope_.setPostScale(v); });
+
+    control_panel_.addScrolledChild(&post_rotate_knob_);
+    post_rotate_knob_.setValue(&post_rotate_val_);
+    post_rotate_knob_.setRange(kMinPostRotate, kMaxPostRotate);
+    post_rotate_knob_.setColor(visage::Color(1.0f, 0.5f, 0.7f, 0.9f));
+    post_rotate_knob_.setCallback([this](float v) { oscilloscope_.setPostRotate(v); });
+
     control_panel_.addScrolledChild(&volume_knob_);
     volume_knob_.setValue(&volume_val_);
     volume_knob_.setRange(kMinVolume, kMaxVolume);
@@ -1396,6 +1420,7 @@ public:
 
     control_panel_.setVisible(show_panel);
     mode_selector_.setVisible(show_panel);
+    grid_switch_.setVisible(show_panel);
 
     // XY-specific controls
     filter_joystick_.setVisible(is_xy);
@@ -1414,6 +1439,8 @@ public:
     angle_display_.setVisible(is_xy);
     depth_display_.setVisible(is_xy);
     filter_switch_.setVisible(is_xy);
+    post_scale_knob_.setVisible(is_xy);
+    post_rotate_knob_.setVisible(is_xy);
     volume_knob_.setVisible(show_panel);
     hue_slider_.setVisible(show_panel);
     bloom_slider_.setVisible(show_panel);
@@ -1444,6 +1471,8 @@ public:
     const int knob_size = 60;  // Taller to fit label
     const int js_size = 90;  // Taller to fit label
     const int selector_h = 34;  // Taller to fit label
+    const int btn_size = 24;  // Half size buttons
+    const int margin_x = 10;
     const int switch_h = 42;  // Square push button height (needs room for LED + button + label)
 
     int panel_x = width() - panel_width;
@@ -1457,11 +1486,10 @@ public:
 
     // XY mode controls
     if (oscilloscope_.displayMode() == DisplayMode::XY) {
-      // Rolloff and Square buttons side by side
+      // Rolloff knob and Square button side by side
       int small_knob = 50;
-      int btn_size = 50;  // Wider to accommodate external LED
       beta_knob_.setBounds(10, y, small_knob, small_knob);
-      exponent_switch_.setBounds(10 + small_knob + 10, y + (small_knob - btn_size) / 2, btn_size, btn_size);
+      exponent_switch_.setBounds(panel_width - 10 - 44, y + (small_knob - btn_size) / 2, btn_size, btn_size);
       y += small_knob + margin;
 
       // Signal freq and detune knobs side by side (smaller) with displays below
@@ -1475,10 +1503,9 @@ public:
       detune_display_.setBounds(right_x, y, small_knob, small_display_h);
       y += small_display_h + margin;
 
-      // Filter push button (wider to accommodate external LED)
-      int filter_btn_size = 50;
-      filter_switch_.setBounds((panel_width - filter_btn_size) / 2, y, filter_btn_size, filter_btn_size);
-      y += filter_btn_size + margin;
+      // Filter push button
+      filter_switch_.setBounds((panel_width - btn_size) / 2, y + 4, btn_size, btn_size);
+      y += btn_size + 8 + margin;
 
       // Joystick
       filter_joystick_.setBounds((panel_width - js_size) / 2, y, js_size, js_size);
@@ -1506,7 +1533,18 @@ public:
       y += small_split_knob + 2;
       angle_display_.setBounds(split_left_x, y, small_split_knob, split_display_h);
       depth_display_.setBounds(split_right_x, y, small_split_knob, split_display_h);
-      y += split_display_h + 15;  // Extra padding
+      y += split_display_h + 4;
+
+      // Small post-filter scale and rotate knobs with Grid button in between
+      int extra_small_knob = 40;
+      int extra_left_x = 10;
+      int extra_right_x = panel_width - 10 - extra_small_knob;
+      post_scale_knob_.setBounds(extra_left_x, y, extra_small_knob, extra_small_knob);
+      post_rotate_knob_.setBounds(extra_right_x, y, extra_small_knob, extra_small_knob);
+
+      grid_switch_.setBounds((panel_width - btn_size) / 2, y + (extra_small_knob - btn_size) / 2,
+                             btn_size, btn_size);
+      y += extra_small_knob + 15;  // Extra padding
     }
 
     // Dual vertical sliders side-by-side
@@ -1552,6 +1590,11 @@ public:
     else if (event.keyCode() == visage::KeyCode::H ||
              (event.isShiftDown() && event.keyCode() == visage::KeyCode::Slash)) {
       help_overlay_.toggle();
+      return true;
+    }
+    else if (event.keyCode() == visage::KeyCode::G) {
+      oscilloscope_.setGridEnabled(!oscilloscope_.gridEnabled());
+      grid_switch_.setValue(oscilloscope_.gridEnabled());
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::M) {
@@ -1721,9 +1764,13 @@ private:
   Oscilloscope oscilloscope_;
   ControlPanel control_panel_;
   ModeSelector mode_selector_;
-  PushButtonSwitch filter_switch_ { "Filter" };
+  PushButtonSwitch filter_switch_ { "Filt" };
+  PushButtonSwitch exponent_switch_ { "Sq" };
+  PushButtonSwitch grid_switch_ { "Grid" };
   FilterKnob split_angle_knob_ { "Angle", false, false, true };  // bidirectional
   FilterKnob split_depth_knob_ { "Depth", false, false, false };  // 0 to 1 range
+  FilterKnob post_scale_knob_ { "Scale" };
+  FilterKnob post_rotate_knob_ { "Rotate" };
   FilterKnob volume_knob_ { "Vol" };
   FilterSlider hue_slider_ { "Hue" };
   FilterSlider bloom_slider_ { "Bloom" };
@@ -1736,7 +1783,6 @@ private:
   FilterKnob cutoff_knob_ { "Cutoff", true };  // logarithmic
   FilterKnob resonance_knob_ { "Resonance", false, false, false, true };  // reverse logarithmic
   FilterKnob beta_knob_ { "Rolloff", false, true, true };  // bipolar logarithmic, bidirectional
-  PushButtonSwitch exponent_switch_ { "Square" };
   FilterKnob freq_knob_ { "Freq", true };  // logarithmic
   FilterKnob detune_knob_ { "Detune", false, false, true };  // linear (around 1.0), bidirectional
   NumericDisplay freq_display_ { "Hz" };
@@ -1760,6 +1806,8 @@ private:
   float signal_detune_ = 1.003f;
   float split_angle_ = 0.0f;  // 0-360 degrees
   float split_depth_ = 0.0f;  // -1 to +1
+  float post_scale_val_ = 1.0f;
+  float post_rotate_val_ = 0.0f;
 };
 
 int runExample() {
