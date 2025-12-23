@@ -940,8 +940,9 @@ public:
         float scale = std::min(w, h) * 0.4f;
 
         for (int i = 0; i < num_samples; ++i) {
-          float x_val = left[i];
-          float y_val = right[i];
+          // Clamp values to prevent graphics blowup with extreme beta
+          float x_val = std::clamp(left[i], -2.0f, 2.0f);
+          float y_val = std::clamp(right[i], -2.0f, 2.0f);
 
           samples[i].x = cx + x_val * scale;
           samples[i].y = cy - y_val * scale;
@@ -997,6 +998,9 @@ public:
       for (int i = 0; i < num_samples; ++i) {
         float l, r;
         gen.getSample(l, r);
+        // Clamp values to prevent graphics blowup with extreme beta
+        l = std::clamp(l, -2.0f, 2.0f);
+        r = std::clamp(r, -2.0f, 2.0f);
 
         if (display_mode_ == DisplayMode::XY) {
           samples[i].x = cx + l * xy_scale;
@@ -1067,7 +1071,8 @@ public:
       const float dy = samples[pos + 1].y - y;
       const float d = std::sqrt(dx * dx + dy * dy);
 
-      const int n = std::max(static_cast<int>(std::ceil(d / kMaxDist)), 1);
+      // Cap n to prevent excessive draw calls with noise-like high-frequency movement
+      const int n = std::min(50, std::max(static_cast<int>(std::ceil(d / kMaxDist)), 1));
       const float nr = 1.0f / static_cast<float>(n);
       const float ix = dx * nr;
       const float iy = dy * nr;
@@ -1205,7 +1210,7 @@ public:
 
     control_panel_.addScrolledChild(&beta_knob_);
     beta_knob_.setValue(&signal_beta_);
-    beta_knob_.setRange(-100.0f, 100.0f);
+    beta_knob_.setRange(-10.0f, 10.0f);
     beta_knob_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));
     beta_knob_.setCallback([this](float v) { audio_player_.setBeta(v); });
 

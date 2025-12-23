@@ -6,7 +6,6 @@
 
 #include <cmath>
 
-
 #ifndef TWO_PI
 #define TWO_PI 6.283185307179586476925286766559
 #endif
@@ -158,6 +157,10 @@ namespace dfl {
       // Using LUT: convert modulated radians back to normalized phase
       double modulatedPhase = phaseIn + (beta * state) / TWO_PI;
       lastOut = dfl::fastSin(modulatedPhase);
+
+      // Apply soft clipping to output to tame extreme values
+      if (softClip)
+        lastOut = dfl::fastTanh(lastOut);
 
       return lastOut;
     }

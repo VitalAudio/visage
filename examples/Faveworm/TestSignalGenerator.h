@@ -16,6 +16,9 @@ public:
     setDetune(1.003);  // Slight detune for slow rotation
     setBeta(0.0);
     setExponent(1);
+    // Enable soft clipping to apply tanh saturation at extreme beta
+    osc_x_.setSoftClip(true);
+    osc_y_.setSoftClip(true);
   }
 
   void setSampleRate(double sr) {
