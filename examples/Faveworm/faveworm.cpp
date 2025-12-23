@@ -668,23 +668,33 @@ private:
           test_generator_->getSample(l, r);
         }
 
+        // For scope visualization: X = raw, Y = filtered (unless split mode)
+        float scope_l = l;
+        float scope_r = r;
         if (filter_enabled_) {
-          // Process both channels through filter with unified morpher
           double mono = (static_cast<double>(l) + static_cast<double>(r)) * 0.5;
           auto outputs = svf_.process(mono);
-          auto xy = morpher_.applyXY(outputs.lp, outputs.bp, outputs.hp);
-          l = static_cast<float>(xy.x);
-          r = static_cast<float>(xy.y);
+          if (morpher_.hasSplit()) {
+            // Split mode: both X and Y get offset-based filtering
+            auto xy = morpher_.applyXY(outputs.lp, outputs.bp, outputs.hp);
+            scope_l = static_cast<float>(xy.x);
+            scope_r = static_cast<float>(xy.y);
+          }
+          else {
+            // No split: X = raw, Y = filtered with morpher
+            scope_r = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
+          }
         }
 
         if (!paused_) {
-          ring_buffer_.write(l, r);
+          // Write scope samples to ring buffer (X=raw, Y=filtered or split)
+          ring_buffer_.write(scope_l, scope_r);
 
           // Trigger detection in audio thread
           float thresh = trigger_threshold_.load(std::memory_order_relaxed);
           bool rising = trigger_rising_.load(std::memory_order_relaxed);
-          bool crossed = rising ? (prev_trigger_l_ <= thresh && l > thresh) :
-                                  (prev_trigger_l_ >= thresh && l < thresh);
+          bool crossed = rising ? (prev_trigger_l_ <= thresh && scope_l > thresh) :
+                                  (prev_trigger_l_ >= thresh && scope_l < thresh);
 
           bool find_trigger = (trigger_holdoff_ >= kSweepSamples);
 
@@ -720,13 +730,25 @@ private:
             }
           }
 
-          prev_trigger_l_ = l;
+          prev_trigger_l_ = scope_l;
           trigger_holdoff_++;
         }
       }
 
-      out[i * 2] = l * current_gain_;
-      out[i * 2 + 1] = r * current_gain_;
+      // For SPEAKER output: both L and R filtered with morpher
+      float speaker_l = l;
+      float speaker_r = r;
+      if (filter_enabled_) {
+        // Note: svf_ already processed above, need fresh process for speaker
+        double mono = (static_cast<double>(l) + static_cast<double>(r)) * 0.5;
+        auto outputs = svf_.process(mono);
+        auto xy = morpher_.applyXY(outputs.lp, outputs.bp, outputs.hp);
+        speaker_l = static_cast<float>(xy.x);
+        speaker_r = static_cast<float>(xy.y);
+      }
+
+      out[i * 2] = speaker_l * current_gain_;
+      out[i * 2 + 1] = speaker_r * current_gain_;
     }
   }
 
@@ -1064,7 +1086,7 @@ public:
       const float d = std::sqrt(dx * dx + dy * dy);
 
       // Cap n to prevent excessive draw calls with noise-like high-frequency movement
-      const int n = std::min(100, std::max(static_cast<int>(std::ceil(d / kMaxDist)), 1));
+      const int n = std::min(50, std::max(static_cast<int>(std::ceil(d / kMaxDist)), 1));
       const float nr = 1.0f / static_cast<float>(n);
       const float ix = dx * nr;
       const float iy = dy * nr;
@@ -1275,11 +1297,21 @@ public:
     split_angle_knob_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
     split_angle_knob_.setCallback([this](float v) { oscilloscope_.morpher().setSplitAngle(v); });
 
+    control_panel_.addScrolledChild(&angle_display_);
+    angle_display_.setValue(&split_angle_);
+    angle_display_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
+    angle_display_.setDecimals(0);
+
     control_panel_.addScrolledChild(&split_depth_knob_);
     split_depth_knob_.setValue(&split_depth_);
     split_depth_knob_.setRange(-1.0f, 1.0f);
     split_depth_knob_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
     split_depth_knob_.setCallback([this](float v) { oscilloscope_.morpher().setSplitDepth(v); });
+
+    control_panel_.addScrolledChild(&depth_display_);
+    depth_display_.setValue(&split_depth_);
+    depth_display_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
+    depth_display_.setDecimals(2);
 
     control_panel_.addScrolledChild(&volume_knob_);
     volume_knob_.setValue(&volume_val_);
@@ -1344,6 +1376,8 @@ public:
     detune_display_.setVisible(is_xy);
     split_angle_knob_.setVisible(is_xy);
     split_depth_knob_.setVisible(is_xy);
+    angle_display_.setVisible(is_xy);
+    depth_display_.setVisible(is_xy);
     filter_switch_.setVisible(is_xy);
     volume_knob_.setVisible(show_panel);
     hue_slider_.setVisible(show_panel);
@@ -1422,11 +1456,19 @@ public:
       resonance_display_.setBounds(10 + knob_size + 4, y + (knob_size - display_h) / 2, display_w, display_h);
       y += knob_size + margin;
 
-      // Split knobs side by side
+      // Split knobs side by side with displays below
       int small_split_knob = 50;
+      int split_display_w = 40;
+      int split_display_h = 16;
       split_angle_knob_.setBounds(10, y, small_split_knob, small_split_knob);
       split_depth_knob_.setBounds(panel_width - 10 - small_split_knob, y, small_split_knob, small_split_knob);
-      y += small_split_knob + 20;  // Extra padding
+      y += small_split_knob + 2;
+      angle_display_.setBounds(10 + (small_split_knob - split_display_w) / 2, y, split_display_w,
+                               split_display_h);
+      depth_display_.setBounds(panel_width - 10 - small_split_knob +
+                                   (small_split_knob - split_display_w) / 2,
+                               y, split_display_w, split_display_h);
+      y += split_display_h + 15;  // Extra padding
     }
 
     // Dual vertical sliders side-by-side
@@ -1660,6 +1702,8 @@ private:
   NumericDisplay detune_display_ { "x" };
   NumericDisplay cutoff_display_ { "Hz" };
   NumericDisplay resonance_display_ { "%" };
+  NumericDisplay angle_display_ { "°" };
+  NumericDisplay depth_display_ { "" };
   HelpOverlay help_overlay_;
   visage::BloomPostEffect bloom_;
   TestSignalGenerator audio_test_signal_;
