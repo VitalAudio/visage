@@ -1384,6 +1384,12 @@ public:
       updatePanelVisibility();
     });
 
+    control_panel_.addScrolledChild(&trigger_threshold_knob_);
+    trigger_threshold_knob_.setValue(&trigger_threshold_);
+    trigger_threshold_knob_.setRange(-1.0f, 1.0f);
+    trigger_threshold_knob_.setColor(visage::Color(1.0f, 0.8f, 0.2f, 0.6f));
+    trigger_threshold_knob_.setCallback([this](float v) { oscilloscope_.setTriggerThreshold(v); });
+
     control_panel_.addScrolledChild(&signal_box_);
     control_panel_.addScrolledChild(&filter_box_);
     control_panel_.addScrolledChild(&display_box_);
@@ -1585,6 +1591,10 @@ public:
     mode_selector_.setVisible(show_panel);
     grid_switch_.setVisible(show_panel);
 
+    // Trigger mode specific controls
+    bool is_trigger = oscilloscope_.displayMode() == DisplayMode::TimeTrigger;
+    trigger_threshold_knob_.setVisible(is_trigger);
+
     // XY-specific controls
     filter_joystick_.setVisible(is_xy);
     cutoff_knob_.setVisible(is_xy);
@@ -1656,6 +1666,13 @@ public:
     // Mode selector at top (always visible)
     mode_selector_.setBounds(10, y, inner_width, selector_h);
     y += selector_h + margin + 8;
+
+    // Trigger threshold knob (only in trigger mode)
+    if (oscilloscope_.displayMode() == DisplayMode::TimeTrigger) {
+      int small_knob = 40;
+      trigger_threshold_knob_.setBounds((panel_width - small_knob) / 2, y, small_knob, small_knob);
+      y += small_knob + margin + 8;
+    }
 
     // XY mode controls
     if (oscilloscope_.displayMode() == DisplayMode::XY) {
@@ -1752,21 +1769,31 @@ public:
       y += btn_size + 10;
     }
 
-    // Hue and Bloom sliders on left, Dyn and Phos knobs stacked on right
-    int slider_w = 40;
-    int slider_h = 50;
+    // Hue slider, Dyn/Phos knobs (stacked), Bloom slider - arranged horizontally
+    int slider_w = 35;  // Narrower sliders
+    int slider_h = 60;  // Taller sliders for better vertical space usage
     int small_knob = 40;  // Same size as scale/rotate
     int left_margin = 10;
 
-    // Position sliders on left
-    hue_slider_.setBounds(left_margin, y, slider_w, slider_h);
-    bloom_slider_.setBounds(left_margin + slider_w + margin, y, slider_w, slider_h);
+    // Calculate spacing to distribute across panel width
+    int total_width = slider_w * 2 + small_knob;  // 2 sliders + 1 knob width (for stacked pair)
+    int available_space = panel_width - 20;  // Account for margins
+    int spacing = (available_space - total_width) / 3;  // Space between 3 groups
 
-    // Position knobs stacked on right
-    int knobs_x = panel_width - 10 - small_knob;
-    int knob_spacing = (slider_h - small_knob * 2) / 3;  // Distribute vertically
-    dynamics_knob_.setBounds(knobs_x, y + knob_spacing, small_knob, small_knob);
-    phosphor_knob_.setBounds(knobs_x, y + knob_spacing * 2 + small_knob, small_knob, small_knob);
+    int x_pos = left_margin;
+
+    // Hue slider on left
+    hue_slider_.setBounds(x_pos, y, slider_w, slider_h);
+    x_pos += slider_w + spacing;
+
+    // Dyn and Phos knobs stacked vertically in the middle
+    int knob_y_offset = (slider_h - small_knob * 2 - margin) / 2;  // Center vertically
+    dynamics_knob_.setBounds(x_pos, y + knob_y_offset, small_knob, small_knob);
+    phosphor_knob_.setBounds(x_pos, y + knob_y_offset + small_knob + margin, small_knob, small_knob);
+    x_pos += small_knob + spacing;
+
+    // Bloom slider on right
+    bloom_slider_.setBounds(x_pos, y, slider_w, slider_h);
 
     y += slider_h + 8;
 
@@ -1994,6 +2021,7 @@ private:
   FilterKnob post_scale_knob_ { "Scale" };
   FilterKnob post_rotate_knob_ { "Rotate" };
   FilterKnob volume_knob_ { "Vol" };
+  FilterKnob trigger_threshold_knob_ { "Trig", false, false, true };  // bidirectional
   FilterSlider hue_slider_ { "Hue" };
   FilterSlider bloom_slider_ { "Bloom" };
   FilterKnob dynamics_knob_ { "Dyn" };
@@ -2040,6 +2068,7 @@ private:
   float split_depth_ = 0.0f;  // -1 to +1
   float post_scale_val_ = 1.0f;
   float post_rotate_val_ = 0.0f;
+  float trigger_threshold_ = 0.0f;
 
   bool shutting_down_ = false;
   FadeOutTimer fade_out_timer_ { this, [this] { visage::closeApplication(); } };
