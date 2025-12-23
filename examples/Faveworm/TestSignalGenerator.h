@@ -15,7 +15,7 @@ public:
   static constexpr double kMinDetune = 0.9;
   static constexpr double kMaxDetune = 1.1;
   static constexpr double kMinBeta = -10.0;
-  static constexpr double kMaxBeta = 10.0;
+  static constexpr double kMaxBeta = 50.0;
 
   TestSignalGenerator() {
     setSampleRate(44100.0);

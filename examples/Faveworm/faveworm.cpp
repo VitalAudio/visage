@@ -980,6 +980,10 @@ public:
 
         for (int i = 0; i < num_samples; ++i) {
           // Clamp values to prevent graphics blowup with extreme beta
+          if (!std::isfinite(left[i]))
+            left[i] = 0.0f;
+          if (!std::isfinite(right[i]))
+            right[i] = 0.0f;
           float x_val = std::clamp(left[i], -2.0f, 2.0f);
           float y_val = std::clamp(right[i], -2.0f, 2.0f);
 
@@ -1110,8 +1114,14 @@ public:
       const float dy = samples[pos + 1].y - y;
       const float d = std::sqrt(dx * dx + dy * dy);
 
-      // Cap n to prevent excessive draw calls with noise-like high-frequency movement
-      const int n = std::min(50, std::max(static_cast<int>(std::ceil(d / kMaxDist)), 1));
+      // Dynamically reduce oversampling (increase step distance) as beta increases
+      // to prevent freezing due to excessive draw calls.
+      // Use quadratic scaling (0.2 factor) to push performance for realism while safe.
+      float beta = std::abs(static_cast<float>(testSignal().beta()));
+      float step_dist = kMaxDist * (1.0f + 0.2f * beta * beta);
+
+      // Cap n to 100 to increase detail (realism) at cost of GPU/CPU load.
+      const int n = std::min(100, std::max(static_cast<int>(std::ceil(d / step_dist)), 1));
       const float nr = 1.0f / static_cast<float>(n);
       const float ix = dx * nr;
       const float iy = dy * nr;
