@@ -1306,7 +1306,7 @@ public:
     control_panel_.addScrolledChild(&bloom_slider_);
     bloom_slider_.setValue(&bloom_intensity_);
     bloom_slider_.setLedIntensity(&bloom_intensity_);
-    bloom_slider_.setRange(0.0f, 5.0f);
+    bloom_slider_.setRange(0.0f, 2.5f);
     bloom_slider_.setColor(visage::Color(1.0f, 1.0f, 0.8f, 0.2f));
     bloom_slider_.setCallback([this](float v) {
       bloom_intensity_ = v;
@@ -1400,7 +1400,6 @@ public:
       y += small_knob + margin;
 
       // Signal freq and detune knobs side by side (smaller) with displays below
-      int small_knob = 50;
       int small_display_h = 16;
       int left_x = 10;
       int right_x = panel_width - 10 - small_knob;
@@ -1624,7 +1623,7 @@ public:
       audio_player_.setExponent(value > 1.5f ? 2 : 1);
     }
     else if (name == "bloom") {
-      bloom_intensity_ = std::clamp(value, 0.0f, 5.0f);
+      bloom_intensity_ = std::clamp(value, 0.0f, 2.5f);
       bloom_.setBloomIntensity(bloom_intensity_);
     }
     else if (name == "hue") {
