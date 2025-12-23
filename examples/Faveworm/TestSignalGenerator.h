@@ -139,6 +139,12 @@ public:
   bool isPaused() const { return paused_; }
   void togglePause() { paused_ = !paused_; }
 
+  void advance(int samples) {
+    double s = static_cast<double>(samples);
+    osc_x_.advancePhase(s);
+    osc_y_.advancePhase(s);
+  }
+
   void step(int num_samples) {
     if (num_samples > 0) {
       for (int i = 0; i < num_samples; ++i) {

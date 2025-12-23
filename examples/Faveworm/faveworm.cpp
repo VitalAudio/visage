@@ -87,7 +87,7 @@ public:
     drawKey("H / ?", "Toggle this help");
     drawKey("M", "Cycle display mode");
     drawKey("Space", "Play/pause audio");
-    drawKey("O", "Toggle speaker output");
+    // drawKey("O", "Toggle speaker output");
     drawKey("B", "Toggle bloom");
     drawKey("P", "Toggle phosphor");
     drawKey("Up/Down", "Adjust bloom intensity");
@@ -432,13 +432,27 @@ public:
   void step(int samples) {
     if (audio_data_.left.empty()) {
       if (test_generator_) {
-        for (int i = 0; i < std::abs(samples); ++i) {
+        // Shift phase to new position - history window
+        test_generator_->advance(samples - kSweepSamples);
+
+        // Regenerate history window to update visualization
+        for (int i = 0; i < kSweepSamples; ++i) {
           float l, r;
           test_generator_->getSample(l, r);
-          if (samples > 0)
-            ring_buffer_.write(l, r);
-          // Note: Test generator doesn't support seeking backward easily,
-          // so we just advance or stay still for now.
+
+          if (filter_enabled_) {
+            if (stereo_split_mode_) {
+              double mono = (static_cast<double>(l) + static_cast<double>(r)) * 0.5;
+              auto xy = stereo_router_.process(mono);
+              l = static_cast<float>(xy.x);
+              r = static_cast<float>(xy.y);
+            }
+            else {
+              auto outputs = svf_.process(static_cast<double>(r));
+              r = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
+            }
+          }
+          ring_buffer_.write(l, r);
         }
       }
       return;
@@ -535,9 +549,6 @@ public:
   bool hasAudio() const { return !audio_data_.left.empty(); }
   int sampleRate() const { return audio_data_.sample_rate; }
 
-  bool isMuted() const { return muted_; }
-  void setMuted(bool m) { muted_ = m; }
-
   void setSpeakerOutput(bool use_speaker) {
     if (use_speaker_ == use_speaker)
       return;
@@ -582,6 +593,9 @@ public:
 
   bool useSpeaker() const { return use_speaker_; }
 
+  void setVolume(float v) { volume_ = std::clamp(v, 0.0f, 1.0f); }
+  float volume() const { return volume_; }
+
 private:
   static int paCallback(const void* inputBuffer, void* outputBuffer, unsigned long framesPerBuffer,
                         const PaStreamCallbackTimeInfo* timeInfo, PaStreamCallbackFlags statusFlags,
@@ -595,7 +609,7 @@ private:
       return paContinue;
     }
 
-    const float target_gain = (player->muted_ || player->paused_) ? 0.0f : 1.0f;
+    const float target_gain = player->paused_ ? 0.0f : player->volume_.load();
     const float ramp_inc = 1.0f / (0.050f * player->sample_rate_);
 
     for (unsigned int i = 0; i < framesPerBuffer; ++i) {
@@ -698,7 +712,7 @@ public:
   TestSignalGenerator* test_generator_ = nullptr;
   float current_gain_ = 0.0f;
   std::atomic<bool> paused_ { false };
-  std::atomic<bool> muted_ { true };
+  std::atomic<float> volume_ { 0.0f };
   float sample_rate_ = 44100.0f;
 };
 
@@ -1143,14 +1157,19 @@ public:
     });
     split_switch_.setVisible(false);
 
-    // Speaker Switch (Sound toggle)
-    addChild(&speaker_switch_);
-    speaker_switch_.setValue(false);  // Default: Sound OFF (Muted)
-    speaker_switch_.setColor(visage::Color(1.0f, 1.0f, 0.8f, 0.2f));  // Yellowish
-    speaker_switch_.setCallback([this](bool v) {
-      audio_player_.setMuted(!v);  // Switch ON (v=true) -> Muted = false
-    });
-    speaker_switch_.setVisible(false);
+    // Volume Knob (replaces speaker switch)
+    addChild(&volume_knob_);
+    volume_knob_.setValue(&volume_val_);
+    volume_knob_.setRange(0.0f, 1.0f);
+    volume_knob_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));  // Match cutoff
+    volume_knob_.setCallback([this](float v) { audio_player_.setVolume(v); });
+    volume_knob_.setVisible(false);
+
+    addChild(&volume_display_);
+    volume_display_.setValue(&volume_val_);
+    volume_display_.setDecimals(2);
+    volume_display_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));
+    volume_display_.setVisible(false);
 
     // Help overlay (covers entire window)
     addChild(&help_overlay_);
@@ -1187,7 +1206,8 @@ public:
     split_selector_.setVisible(is_xy);
     filter_switch_.setVisible(is_xy);
     split_switch_.setVisible(is_xy);
-    speaker_switch_.setVisible(show_panel);
+    volume_knob_.setVisible(show_panel);
+    volume_display_.setVisible(show_panel);
 
     // Update enabled state based on filter switch
     updateFilterControlsEnabled(filter_switch_.value());
@@ -1273,7 +1293,12 @@ public:
     }
 
     // Speaker switch at the bottom of the control panel
-    speaker_switch_.setBounds(panel_x + 10, height() - switch_h - margin, panel_width - 20, switch_h);
+    int display_w = 50;
+    int display_h = 18;
+    volume_knob_.setBounds(panel_x + 10, height() - knob_size - margin, knob_size, knob_size);
+    volume_display_.setBounds(panel_x + 10 + knob_size + 4,
+                              height() - knob_size - margin + (knob_size - display_h) / 2,
+                              display_w, display_h);
 
     // Oscilloscope fills remaining space
     oscilloscope_.setBounds(0, 0, width() - panel_width, height());
@@ -1391,11 +1416,6 @@ public:
       audio_player_.setPaused(!audio_player_.isPaused());
       return true;
     }
-    else if (event.keyCode() == visage::KeyCode::O) {
-      // Toggle audio mute (Speaker switch)
-      speaker_switch_.setValue(!speaker_switch_.value(), true);
-      return true;
-    }
     else if (event.keyCode() == visage::KeyCode::Up) {
       if (event.isShiftDown()) {
         // Adjust trigger threshold
@@ -1444,7 +1464,9 @@ private:
   ModeSelector split_selector_;
   ToggleSwitch filter_switch_ { "Filter" };
   ToggleSwitch split_switch_ { "Split" };
-  ToggleSwitch speaker_switch_ { "Speaker" };
+  FilterKnob volume_knob_ { "Volume" };
+  NumericDisplay volume_display_ { "" };
+  float volume_val_ = 0.0f;
   FilterJoystick filter_joystick_;
   FilterKnob cutoff_knob_ { "Cutoff", true };  // logarithmic
   FilterKnob resonance_knob_ { "Resonance", false };  // linear
