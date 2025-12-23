@@ -35,6 +35,18 @@
 #include <visage/app.h>
 #include <visage_ui/scroll_bar.h>
 
+// Global constants for parameter ranges
+static constexpr float kMinFilterCutoff = 20.0f;
+static constexpr float kMaxFilterCutoff = 2000.0f;
+static constexpr float kMinFilterResonance = 0.0f;
+static constexpr float kMaxFilterResonance = 1.0f;  // Note: UI limits to 0.99f for safety
+static constexpr float kMinSplitAngle = 0.0f;
+static constexpr float kMaxSplitAngle = 360.0f;
+static constexpr float kMinSplitDepth = -1.0f;
+static constexpr float kMaxSplitDepth = 1.0f;
+static constexpr float kMinVolume = 0.0f;
+static constexpr float kMaxVolume = 1.0f;
+
 // Help overlay showing keyboard shortcuts
 class HelpOverlay : public visage::Frame {
 public:
@@ -787,14 +799,14 @@ private:
 public:
   // Filter controls
   void setFilterCutoff(float fc) {
-    filter_cutoff_ = std::clamp(fc, 20.0f, 2000.0f);
+    filter_cutoff_ = std::clamp(fc, kMinFilterCutoff, kMaxFilterCutoff);
     svf_.setCutoff(filter_cutoff_);
     stereo_router_.setCutoff(filter_cutoff_);
   }
   float filterCutoff() const { return filter_cutoff_; }
 
   void setFilterResonance(float r) {
-    filter_resonance_ = std::clamp(r, 0.0f, 1.0f);
+    filter_resonance_ = std::clamp(r, kMinFilterResonance, kMaxFilterResonance);
     svf_.setResonance(filter_resonance_);
     stereo_router_.setResonance(filter_resonance_);
   }
@@ -1237,7 +1249,7 @@ public:
 
     control_panel_.addScrolledChild(&beta_knob_);
     beta_knob_.setValue(&signal_beta_);
-    beta_knob_.setRange(-10.0f, 10.0f);
+    beta_knob_.setRange(TestSignalGenerator::kMinBeta, TestSignalGenerator::kMaxBeta);
     beta_knob_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));
     beta_knob_.setCallback([this](float v) { audio_player_.setBeta(v); });
 
@@ -1248,13 +1260,13 @@ public:
 
     control_panel_.addScrolledChild(&freq_knob_);
     freq_knob_.setValue(&signal_freq_);
-    freq_knob_.setRange(10.0f, 1000.0f);
+    freq_knob_.setRange(TestSignalGenerator::kMinFrequency, TestSignalGenerator::kMaxFrequency);
     freq_knob_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));
     freq_knob_.setCallback([this](float v) { oscilloscope_.testSignal().setFrequency(v); });
 
     control_panel_.addScrolledChild(&detune_knob_);
     detune_knob_.setValue(&signal_detune_);
-    detune_knob_.setRange(0.9f, 1.1f);
+    detune_knob_.setRange(TestSignalGenerator::kMinDetune, TestSignalGenerator::kMaxDetune);
     detune_knob_.setColor(visage::Color(1.0f, 0.6f, 0.8f, 0.6f));
     detune_knob_.setCallback([this](float v) { oscilloscope_.testSignal().setDetune(v); });
 
@@ -1281,7 +1293,7 @@ public:
 
     control_panel_.addScrolledChild(&cutoff_knob_);
     cutoff_knob_.setValue(&filter_cutoff_);
-    cutoff_knob_.setRange(20.0f, 2000.0f);
+    cutoff_knob_.setRange(kMinFilterCutoff, kMaxFilterCutoff);
     cutoff_knob_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));
     cutoff_knob_.setCallback([this](float v) { oscilloscope_.setFilterCutoff(v); });
 
@@ -1292,7 +1304,7 @@ public:
 
     control_panel_.addScrolledChild(&resonance_knob_);
     resonance_knob_.setValue(&filter_resonance_);
-    resonance_knob_.setRange(0.0f, 1.0f);
+    resonance_knob_.setRange(kMinFilterResonance, 0.99f);
     resonance_knob_.setColor(visage::Color(1.0f, 0.9f, 0.6f, 0.4f));
     resonance_knob_.setCallback([this](float v) {
       oscilloscope_.setFilterResonance(v);
@@ -1306,7 +1318,7 @@ public:
 
     control_panel_.addScrolledChild(&split_angle_knob_);
     split_angle_knob_.setValue(&split_angle_);
-    split_angle_knob_.setRange(0.0f, 360.0f);
+    split_angle_knob_.setRange(kMinSplitAngle, kMaxSplitAngle);
     split_angle_knob_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
     split_angle_knob_.setCallback([this](float v) { oscilloscope_.morpher().setSplitAngle(v); });
 
@@ -1317,7 +1329,7 @@ public:
 
     control_panel_.addScrolledChild(&split_depth_knob_);
     split_depth_knob_.setValue(&split_depth_);
-    split_depth_knob_.setRange(-1.0f, 1.0f);
+    split_depth_knob_.setRange(kMinSplitDepth, kMaxSplitDepth);
     split_depth_knob_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
     split_depth_knob_.setCallback([this](float v) { oscilloscope_.morpher().setSplitDepth(v); });
 
@@ -1328,7 +1340,7 @@ public:
 
     control_panel_.addScrolledChild(&volume_knob_);
     volume_knob_.setValue(&volume_val_);
-    volume_knob_.setRange(0.0f, 1.0f);
+    volume_knob_.setRange(kMinVolume, kMaxVolume);
     volume_knob_.setColor(visage::Color(1.0f, 0.4f, 0.9f, 0.9f));
     volume_knob_.setCallback([this](float v) { audio_player_.setVolume(v); });
 
@@ -1570,13 +1582,13 @@ public:
     }
     else if (event.keyCode() == visage::KeyCode::Left) {
       // Decrease cutoff
-      filter_cutoff_ = std::max(20.0f, filter_cutoff_ * 0.9f);
+      filter_cutoff_ = std::max(kMinFilterCutoff, filter_cutoff_ * 0.9f);
       oscilloscope_.setFilterCutoff(filter_cutoff_);
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::Right) {
       // Increase cutoff
-      filter_cutoff_ = std::min(2000.0f, filter_cutoff_ * 1.1f);
+      filter_cutoff_ = std::min(kMaxFilterCutoff, filter_cutoff_ * 1.1f);
       oscilloscope_.setFilterCutoff(filter_cutoff_);
       return true;
     }
@@ -1621,19 +1633,19 @@ public:
   }
 
   void setVolume(float v) {
-    volume_val_ = std::clamp(v, 0.0f, 1.0f);
+    volume_val_ = std::clamp(v, kMinVolume, kMaxVolume);
     audio_player_.setVolume(volume_val_);
     volume_knob_.redraw();
   }
 
   void setFilterCutoff(float fc) {
-    filter_cutoff_ = std::clamp(fc, 20.0f, 2000.0f);
+    filter_cutoff_ = std::clamp(fc, kMinFilterCutoff, kMaxFilterCutoff);
     oscilloscope_.setFilterCutoff(filter_cutoff_);
     cutoff_knob_.redraw();
   }
 
   void setFilterResonance(float r) {
-    filter_resonance_ = std::clamp(r, 0.0f, 0.99f);
+    filter_resonance_ = std::clamp(r, kMinFilterResonance, 0.99f);
     filter_resonance_pct_ = filter_resonance_ * 100.0f;
     oscilloscope_.setFilterResonance(filter_resonance_);
     resonance_knob_.redraw();
@@ -1652,15 +1664,18 @@ public:
       setFilterResonance(value);
     }
     else if (name == "freq") {
-      signal_freq_ = std::clamp(value, 20.0f, 500.0f);
+      signal_freq_ = std::clamp(value, static_cast<float>(TestSignalGenerator::kMinFrequency),
+                                static_cast<float>(TestSignalGenerator::kMaxFrequency));
       oscilloscope_.testSignal().setFrequency(signal_freq_);
     }
     else if (name == "detune") {
-      signal_detune_ = std::clamp(value, 0.9f, 1.1f);
+      signal_detune_ = std::clamp(value, static_cast<float>(TestSignalGenerator::kMinDetune),
+                                  static_cast<float>(TestSignalGenerator::kMaxDetune));
       oscilloscope_.testSignal().setDetune(signal_detune_);
     }
     else if (name == "beta") {
-      signal_beta_ = std::clamp(value, -2.0f, 2.0f);
+      signal_beta_ = std::clamp(value, static_cast<float>(TestSignalGenerator::kMinBeta),
+                                static_cast<float>(TestSignalGenerator::kMaxBeta));
       audio_player_.setBeta(signal_beta_);
     }
     else if (name == "exponent") {

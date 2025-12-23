@@ -10,6 +10,13 @@
 // Generates two channels (X/Y) with configurable waveforms
 class TestSignalGenerator {
 public:
+  static constexpr double kMinFrequency = 10.0;
+  static constexpr double kMaxFrequency = 1000.0;
+  static constexpr double kMinDetune = 0.9;
+  static constexpr double kMaxDetune = 1.1;
+  static constexpr double kMinBeta = -10.0;
+  static constexpr double kMaxBeta = 10.0;
+
   TestSignalGenerator() {
     setSampleRate(44100.0);
     setFrequency(80.0);  // Base frequency for good XY visuals
@@ -29,20 +36,20 @@ public:
   }
 
   void setFrequency(double hz) {
-    base_freq_ = std::max(10.0, std::min(1000.0, hz));
+    base_freq_ = std::max(kMinFrequency, std::min(kMaxFrequency, hz));
     updateFrequencies();
   }
 
   // Detune ratio for Y oscillator (1.0 = unison, 1.01 = 1% sharp)
   void setDetune(double ratio) {
-    detune_ = std::clamp(ratio, 0.9, 1.1);
+    detune_ = std::clamp(ratio, kMinDetune, kMaxDetune);
     updateFrequencies();
   }
 
   void setBeta(double b) {
-    beta_ = b;
-    osc_x_.setBeta(b);
-    osc_y_.setBeta(b);
+    beta_ = std::clamp(b, kMinBeta, kMaxBeta);
+    osc_x_.setBeta(beta_);
+    osc_y_.setBeta(beta_);
   }
 
   void setExponent(int e) {
