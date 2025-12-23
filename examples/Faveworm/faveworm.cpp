@@ -51,7 +51,7 @@ static constexpr float kMaxPostScale = 3.0f;
 static constexpr float kMinPostRotate = 0.0f;
 static constexpr float kMaxPostRotate = 360.0f;
 static constexpr float kMinPreGain = 0.0f;
-static constexpr float kMaxPreGain = 10.0f;
+static constexpr float kMaxPreGain = 4.0f;
 
 // Help overlay showing keyboard shortcuts
 class HelpOverlay : public visage::Frame {
@@ -132,7 +132,7 @@ public:
     drawSection("XY Mode - Oscillator");
     drawKey("T", "Toggle test signal");
     drawKey("W", "Toggle square mode");
-    drawKey("B/Shift+B", "Adjust rolloff");
+    drawKey("B/Shift+B", "Adjust beta");
     drawKey("[ / ]", "Adjust frequency");
     drawKey("Shift+[/]", "Adjust detune");
     y += 15;
@@ -197,7 +197,7 @@ public:
 
     // Subtle box border - metallic/etched look
     canvas.setColor(visage::Color(1.0f, 0.15f, 0.15f, 0.15f));
-    canvas.rect(2, 2, w - 4, h - 4, 1.0f);
+    canvas.rectangleBorder(2, 2, w - 4, h - 4, 1.0f);
 
     // Etched highlight
     canvas.setColor(visage::Color(0.2f, 1.0f, 1.0f, 1.0f));
@@ -206,7 +206,8 @@ public:
 
     // Title label background bit (cut into the border)
     visage::Font font(10, resources::fonts::Lato_Regular_ttf);
-    float text_w = font.width(title_);
+    visage::String title_str(title_);
+    float text_w = font.stringWidth(title_str.c_str(), title_str.length());
     canvas.setColor(visage::Color(0.95f, 0.06f, 0.07f, 0.08f));  // Match panel bg
     canvas.fill(12, 0, text_w + 8, 5);
 
@@ -1505,7 +1506,7 @@ public:
       return false;
     };
 #endif
-    setMinimumDimensions(636.0f, 366.0f);
+    setMinimumDimensions(318.0f, 183.0f);
   }
 
   void updatePanelVisibility() {
@@ -1591,23 +1592,24 @@ public:
       int signal_start_y = y;
       y += 12;  // Title padding
 
-      // Rolloff, Sq switch, and Pregain side by side
-      int mini_knob = 36;
+      // Beta, Sq switch, and Gain side by side
+      int small_knob = 50;
       int extra_small_btn = 20;
-      int spacing = (inner_width - (mini_knob * 2 + extra_small_btn)) / 2;
+      int left_x = 10 + margin;
+      int right_x = panel_width - 10 - margin - small_knob;
+      int mid_x = (panel_width - extra_small_btn) / 2;
 
-      beta_knob_.setBounds(10 + margin, y, mini_knob, mini_knob);
-      exponent_switch_.setBounds(10 + margin + mini_knob + spacing,
-                                 y + (mini_knob - extra_small_btn) / 2, extra_small_btn, extra_small_btn);
-      pre_gain_knob_.setBounds(panel_width - 10 - margin - mini_knob, y, mini_knob, mini_knob);
-      y += mini_knob + 2;
+      beta_knob_.setBounds(left_x, y, small_knob, small_knob);
+      exponent_switch_.setBounds(mid_x, y + (small_knob - extra_small_btn) / 2, extra_small_btn,
+                                 extra_small_btn);
+      pre_gain_knob_.setBounds(right_x, y, small_knob, small_knob);
+      y += small_knob + 2;
 
-      // Indicator below Pregain
-      pre_gain_display_.setBounds(panel_width - 10 - margin - mini_knob, y, mini_knob, 14);
+      // Indicator below Gain
+      pre_gain_display_.setBounds(right_x, y, small_knob, 14);
       y += 14 + margin;
 
       // Signal freq and detune knobs
-      int small_knob = 50;
       int small_display_h = 16;
       int left_x = 10 + margin;
       int right_x = panel_width - 10 - margin - small_knob;
@@ -1625,12 +1627,13 @@ public:
       int filter_start_y = y;
       y += 12;
 
-      // Filter push button
-      filter_switch_.setBounds((panel_width - btn_size) / 2, y, btn_size, btn_size);
-      y += btn_size + 8;
+      // Joystick and Filter Switch
+      int js_x = (panel_width - js_size) / 2;
+      filter_joystick_.setBounds(js_x, y, js_size, js_size);
 
-      // Joystick
-      filter_joystick_.setBounds((panel_width - js_size) / 2, y, js_size, js_size);
+      // Filter switch at upper right of the joystick frame
+      filter_switch_.setBounds(js_x + js_size - btn_size, y, btn_size, btn_size);
+
       y += js_size + margin;
 
       // Cutoff and Resonance knobs
@@ -1897,10 +1900,10 @@ private:
   Oscilloscope oscilloscope_;
   ControlPanel control_panel_;
   ModeSelector mode_selector_;
-  PushButtonSwitch filter_switch_ { "Filt" };
+  PushButtonSwitch filter_switch_ { "On" };
   PushButtonSwitch exponent_switch_ { "Sq" };
   PushButtonSwitch grid_switch_ { "Grid" };
-  FilterKnob pre_gain_knob_ { "Pregain" };
+  FilterKnob pre_gain_knob_ { "Gain" };
   FilterKnob split_angle_knob_ { "Angle", false, false, true };  // bidirectional
   FilterKnob split_depth_knob_ { "Depth", false, false, false };  // 0 to 1 range
   FilterKnob post_scale_knob_ { "Scale" };
@@ -1916,7 +1919,7 @@ private:
   FilterJoystick filter_joystick_;
   FilterKnob cutoff_knob_ { "Cutoff", true };  // logarithmic
   FilterKnob resonance_knob_ { "Resonance", false, false, false, true };  // reverse logarithmic
-  FilterKnob beta_knob_ { "Rolloff", false, true, true };  // bipolar logarithmic, bidirectional
+  FilterKnob beta_knob_ { "Beta", false, true, true };  // bipolar logarithmic, bidirectional
   FilterKnob freq_knob_ { "Freq", true };  // logarithmic
   FilterKnob detune_knob_ { "Detune", false, false, true };  // linear (around 1.0), bidirectional
   NumericDisplay freq_display_ { "Hz" };
