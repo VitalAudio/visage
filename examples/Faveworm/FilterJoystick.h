@@ -78,8 +78,8 @@ public:
       canvas.setColor(visage::Color(1.0f * dim, 0.8f, 0.3f, 0.3f));
       canvas.circle(led_x - led_r, led_y - led_r, led_size);
 
-      // Bloom core with fixed 15% intensity
-      float bloom_intensity = 0.15f;
+      // Bloom core with fixed 15% intensity (respects enabled state)
+      float bloom_intensity = 0.15f * dim;  // Apply dim factor to bloom
       float hdr = 1.0f + bloom_intensity * 6.0f;
       canvas.setColor(visage::Color(1.0f * dim, 1.0f, 0.9f, 0.8f, hdr));
       canvas.circle(led_x - led_r * 0.6f, led_y - led_r * 0.6f, led_r * 2.4f);

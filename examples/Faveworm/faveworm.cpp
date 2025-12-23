@@ -1248,7 +1248,7 @@ public:
 
     control_panel_.addScrolledChild(&freq_knob_);
     freq_knob_.setValue(&signal_freq_);
-    freq_knob_.setRange(10.0f, 500.0f);
+    freq_knob_.setRange(10.0f, 1000.0f);
     freq_knob_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));
     freq_knob_.setCallback([this](float v) { oscilloscope_.testSignal().setFrequency(v); });
 
@@ -1433,7 +1433,7 @@ public:
     if (oscilloscope_.displayMode() == DisplayMode::XY) {
       // Rolloff and Square buttons side by side
       int small_knob = 50;
-      int btn_size = 42;  // Square push button
+      int btn_size = 50;  // Wider to accommodate external LED
       beta_knob_.setBounds(10, y, small_knob, small_knob);
       exponent_switch_.setBounds(10 + small_knob + 10, y + (small_knob - btn_size) / 2, btn_size, btn_size);
       y += small_knob + margin;
@@ -1449,8 +1449,8 @@ public:
       detune_display_.setBounds(right_x, y, small_knob, small_display_h);
       y += small_display_h + margin;
 
-      // Filter push button (square)
-      int filter_btn_size = 42;
+      // Filter push button (wider to accommodate external LED)
+      int filter_btn_size = 50;
       filter_switch_.setBounds((panel_width - filter_btn_size) / 2, y, filter_btn_size, filter_btn_size);
       y += filter_btn_size + margin;
 
