@@ -1635,11 +1635,11 @@ public:
       y += 12;
 
       // Joystick and Filter Switch
-      int js_x = (panel_width - js_size) / 2;
+      int js_x = 15;  // Shifted left to make room for toggle
       filter_joystick_.setBounds(js_x, y, js_size, js_size);
 
-      // Filter switch at upper right of the joystick frame
-      filter_switch_.setBounds(js_x + js_size - btn_size, y, btn_size, btn_size);
+      // Filter switch further right to avoid overlapping joystick area
+      filter_switch_.setBounds(panel_width - margin - btn_size - 4, y, btn_size, btn_size);
 
       y += js_size + margin;
 
