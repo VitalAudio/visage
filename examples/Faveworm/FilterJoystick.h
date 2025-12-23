@@ -528,10 +528,13 @@ private:
       }
     }
     if (reverse_logarithmic_) {
-      // Reverse logarithmic: use sqrt to get more resolution at high values
-      // This creates an x^2 curve: normalized = sqrt((value - min) / (max - min))
+      // Reverse logarithmic: fine control at top end (near max)
+      // Curve: value = min + (max - min) * (1 - (1 - norm)^3)
+      // This means as norm approaches 1, value approaches max VERY slowly
       float linear_norm = (*value_ - min_) / (max_ - min_);
-      return std::sqrt(linear_norm);
+      // linear = 1 - (1 - norm)^3  =>  (1 - norm)^3 = 1 - linear
+      // 1 - norm = cbrt(1 - linear) => norm = 1 - cbrt(1 - linear)
+      return 1.0f - std::cbrt(1.0f - linear_norm);
     }
     if (logarithmic_) {
       float log_min = std::log(min_);
@@ -562,10 +565,11 @@ private:
   }
 
   float denormalizeReverseLog(float norm) const {
-    // Convert normalized 0-1 value back to reverse logarithmic range
-    // Inverse of sqrt: value = norm^2 * (max - min) + min
-    float squared = norm * norm;
-    return std::clamp(min_ + squared * (max_ - min_), min_, max_);
+    // Convert normalized 0-1 value back to reverse log range
+    // Curve: value = min + (max - min) * (1 - (1 - norm)^3)
+    float inv = 1.0f - norm;
+    float factor = 1.0f - (inv * inv * inv);
+    return min_ + factor * (max_ - min_);
   }
 
   const char* label_;

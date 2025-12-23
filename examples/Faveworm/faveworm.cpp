@@ -42,7 +42,7 @@ static constexpr float kMinFilterResonance = 0.0f;
 static constexpr float kMaxFilterResonance = 1.0f;  // Note: UI limits to 0.99f for safety
 static constexpr float kMinSplitAngle = 0.0f;
 static constexpr float kMaxSplitAngle = 360.0f;
-static constexpr float kMinSplitDepth = -1.0f;
+static constexpr float kMinSplitDepth = 0.0f;
 static constexpr float kMaxSplitDepth = 1.0f;
 static constexpr float kMinVolume = 0.0f;
 static constexpr float kMaxVolume = 1.0f;
@@ -1709,7 +1709,7 @@ private:
   ModeSelector mode_selector_;
   PushButtonSwitch filter_switch_ { "Filter" };
   FilterKnob split_angle_knob_ { "Angle", false, false, true };  // bidirectional
-  FilterKnob split_depth_knob_ { "Depth", false, false, true };  // bidirectional
+  FilterKnob split_depth_knob_ { "Depth", false, false, false };  // 0 to 1 range
   FilterKnob volume_knob_ { "Vol" };
   FilterSlider hue_slider_ { "Hue" };
   FilterSlider bloom_slider_ { "Bloom" };

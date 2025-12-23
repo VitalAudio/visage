@@ -253,12 +253,12 @@ public:
   void setSplitAngle(float degrees) { split_angle_ = degrees * static_cast<float>(kPi) / 180.0f; }
   float splitAngle() const { return split_angle_ * 180.0f / static_cast<float>(kPi); }
 
-  // depth: -1 to +1, adjusts radius offset
-  // negative = Y toward center (AP), positive = X toward center (AP)
-  void setSplitDepth(float d) { split_depth_ = std::clamp(d, -1.0f, 1.0f); }
+  // depth: 0 to +1, adjusts Y radius offset
+  // 0 = no change, 1 = Y pinned to center (AP)
+  void setSplitDepth(float d) { split_depth_ = std::clamp(d, 0.0f, 1.0f); }
   float splitDepth() const { return split_depth_; }
 
-  bool hasSplit() const { return std::abs(split_angle_) > 0.01f || std::abs(split_depth_) > 0.01f; }
+  bool hasSplit() const { return std::abs(split_angle_) > 0.01f || split_depth_ > 0.01f; }
 
   float posX() const { return pos_x_; }
   float posY() const { return pos_y_; }
@@ -275,7 +275,7 @@ public:
     double x, y;
   };
   StereoOut applyXY(double lp, double bp, double hp) const {
-    // X channel: use base position
+    // X channel: use base position (unaffected by depth in this mode)
     double x_out = applyAtPosition(lp, bp, hp, radius_, angle_);
 
     // Y channel: apply offset to position
@@ -286,18 +286,8 @@ public:
     while (y_angle < 0)
       y_angle += static_cast<float>(kTwoPi);
 
-    // Apply depth: negative pushes Y toward center, positive pushes X toward center
-    float x_radius = radius_;
-    float y_radius = radius_;
-    if (split_depth_ < 0) {
-      // Y toward center
-      y_radius = radius_ * (1.0f + split_depth_);  // depth=-1 means y_radius=0
-    }
-    else if (split_depth_ > 0) {
-      // X toward center
-      x_radius = radius_ * (1.0f - split_depth_);  // depth=+1 means x_radius=0
-      x_out = applyAtPosition(lp, bp, hp, x_radius, angle_);
-    }
+    // Apply depth: pushes Y toward center (AP)
+    float y_radius = radius_ * (1.0f - split_depth_);  // depth=1 means y_radius=0
 
     double y_out = applyAtPosition(lp, bp, hp, y_radius, y_angle);
     return { x_out, y_out };
