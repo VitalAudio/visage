@@ -197,23 +197,23 @@ public:
 
     // Subtle box border - metallic/etched look
     canvas.setColor(visage::Color(1.0f, 0.15f, 0.15f, 0.15f));
-    canvas.rectangleBorder(2, 2, w - 4, h - 4, 1.0f);
+    canvas.rectangleBorder(2, 6, w - 4, h - 8, 1.0f);
 
     // Etched highlight
     canvas.setColor(visage::Color(0.2f, 1.0f, 1.0f, 1.0f));
-    canvas.fill(2, 2, w - 4, 1);
-    canvas.fill(2, 2, 1, h - 4);
+    canvas.fill(2, 6, w - 4, 1);
+    canvas.fill(2, 6, 1, h - 8);
 
     // Title label background bit (cut into the border)
     visage::Font font(10, resources::fonts::Lato_Regular_ttf);
     visage::String title_str(title_);
     float text_w = font.stringWidth(title_str.c_str(), title_str.length());
     canvas.setColor(visage::Color(0.95f, 0.06f, 0.07f, 0.08f));  // Match panel bg
-    canvas.fill(12, -2, text_w + 8, 5);
+    canvas.fill(12, 2, text_w + 8, 5);
 
     // Title text
     canvas.setColor(visage::Color(1.0f, 0.5f, 0.8f, 0.8f));
-    canvas.text(title_, font, visage::Font::kTopLeft, 16, -4, text_w, 12);
+    canvas.text(title_, font, visage::Font::kTopLeft, 16, 0, text_w, 12);
   }
 
 private:
@@ -1326,7 +1326,6 @@ public:
     addChild(&oscilloscope_);
     oscilloscope_.layout().setMargin(0);
     oscilloscope_.setAudioPlayer(&audio_player_);
-    audio_player_.setTestGenerator(&audio_test_signal_);
 
     // Control panel background (added first)
     addChild(&control_panel_);
@@ -1961,7 +1960,7 @@ private:
   SectionFrame display_box_ { "DISPLAY" };
   HelpOverlay help_overlay_;
   visage::BloomPostEffect bloom_;
-  TestSignalGenerator audio_test_signal_;
+
   AudioPlayer audio_player_;
   float pre_gain_val_ = 1.0f;
   float bloom_intensity_ = 0.5f;

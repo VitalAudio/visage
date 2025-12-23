@@ -73,16 +73,10 @@ public:
 
   // Generate a single stereo sample
   void getSample(float& left, float& right) {
-    if (paused_) {
-      left = last_left_;
-      right = last_right_;
-    }
-    else {
-      left = static_cast<float>(osc_x_.getSample());
-      right = static_cast<float>(osc_y_.getSample());
-      last_left_ = left;
-      last_right_ = right;
-    }
+    left = static_cast<float>(osc_x_.getSample());
+    right = static_cast<float>(osc_y_.getSample());
+    last_left_ = left;
+    last_right_ = right;
   }
 
   void reset() {
