@@ -20,6 +20,7 @@
  */
 
 #include "embedded/example_fonts.h"
+#include "embedded/example_shaders.h"
 #include "FilterJoystick.h"
 #include "FilterMorpher.h"
 #include "TestSignalGenerator.h"
@@ -70,6 +71,7 @@ static constexpr float kDefaultSplitDepth = 0.0f;
 static constexpr float kDefaultPostScale = 1.0f;
 static constexpr float kDefaultPostRotate = 0.0f;
 static constexpr float kDefaultTriggerThreshold = 0.0f;
+static constexpr float kDefaultCrtIntensity = 0.0f;  // CRT effect intensity (0 = off, 1 = full)
 
 // Help overlay showing keyboard shortcuts
 class HelpOverlay : public visage::Frame {
@@ -973,6 +975,22 @@ public:
   void setGridEnabled(bool enabled) { grid_enabled_ = enabled; }
   bool gridEnabled() const { return grid_enabled_; }
 
+  void setCrtIntensity(float intensity) {
+    crt_intensity_ = intensity;
+    if (intensity > 0.001f) {
+      if (!crt_effect_) {
+        crt_effect_ = std::make_unique<visage::ShaderPostEffect>(resources::shaders::vs_custom,
+                                                                 resources::shaders::fs_crt);
+      }
+      crt_effect_->setUniformValue("u_crt_params", intensity, 0.0f, 0.0f, 0.0f);
+      setPostEffect(crt_effect_.get());
+    }
+    else {
+      setPostEffect(nullptr);
+    }
+  }
+  float crtIntensity() const { return crt_intensity_; }
+
   void setDisplayMode(DisplayMode mode) { display_mode_ = mode; }
   DisplayMode displayMode() const { return display_mode_; }
   void cycleDisplayMode() {
@@ -1348,6 +1366,8 @@ private:
   float post_scale_ = 1.0f;
   float post_rotate_ = 0.0f;
   bool grid_enabled_ = true;
+  float crt_intensity_ = kDefaultCrtIntensity;
+  std::unique_ptr<visage::ShaderPostEffect> crt_effect_;
 };
 
 class ExampleEditor;
@@ -1573,6 +1593,12 @@ public:
     phosphor_knob_.setColor(visage::Color(1.0f, 0.6f, 1.0f, 0.6f));
     phosphor_knob_.setCallback([this](float v) { oscilloscope_.setPhosphorDecay(v); });
 
+    control_panel_.addScrolledChild(&crt_knob_);
+    crt_knob_.setValue(&crt_intensity_);
+    crt_knob_.setRange(0.0f, 1.0f);
+    crt_knob_.setColor(visage::Color(1.0f, 0.3f, 0.5f, 0.7f));  // Reddish-pink for retro feel
+    crt_knob_.setCallback([this](float v) { oscilloscope_.setCrtIntensity(v); });
+
     // Help overlay (covers entire window)
     addChild(&help_overlay_);
 
@@ -1644,6 +1670,7 @@ public:
     bloom_slider_.setVisible(show_panel);
     dynamics_knob_.setVisible(show_panel);
     phosphor_knob_.setVisible(show_panel);
+    crt_knob_.setVisible(show_panel);
 
     signal_box_.setVisible(is_xy);
     filter_box_.setVisible(is_xy);
@@ -1791,16 +1818,17 @@ public:
       y += btn_size + 10;
     }
 
-    // Hue slider, Dyn/Phos knobs (stacked), Bloom slider - arranged horizontally
-    int slider_w = 35;  // Narrower sliders
-    int slider_h = 60;  // Taller sliders for better vertical space usage
-    int small_knob = 40;  // Same size as scale/rotate
-    int left_margin = 10;
+    // Hue slider, 2x2 knob grid (Dyn/Phos/CRT), Bloom slider - arranged horizontally
+    int slider_w = 30;  // Narrower sliders to make room
+    int slider_h = 70;  // Taller sliders for better vertical space usage
+    int small_knob = 32;  // Smaller knobs to fit 2x2 grid
+    int left_margin = 8;
 
-    // Calculate spacing to distribute across panel width
-    int total_width = slider_w * 2 + small_knob;  // 2 sliders + 1 knob width (for stacked pair)
-    int available_space = panel_width - 20;  // Account for margins
-    int spacing = (available_space - total_width) / 3;  // Space between 3 groups
+    // Calculate spacing: slider | spacing | 2 knobs | spacing | slider
+    int knob_pair_width = small_knob * 2 + 4;  // Two knobs side by side with small gap
+    int total_width = slider_w * 2 + knob_pair_width;
+    int available_space = panel_width - 16;  // Account for margins
+    int spacing = (available_space - total_width) / 2;
 
     int x_pos = left_margin;
 
@@ -1808,11 +1836,20 @@ public:
     hue_slider_.setBounds(x_pos, y, slider_w, slider_h);
     x_pos += slider_w + spacing;
 
-    // Dyn and Phos knobs stacked vertically in the middle
-    int knob_y_offset = (slider_h - small_knob * 2 - margin) / 2;  // Center vertically
-    dynamics_knob_.setBounds(x_pos, y + knob_y_offset, small_knob, small_knob);
-    phosphor_knob_.setBounds(x_pos, y + knob_y_offset + small_knob + margin, small_knob, small_knob);
-    x_pos += small_knob + spacing;
+    // 2x2 grid of knobs in the middle
+    int knob_gap = 4;
+    int grid_height = small_knob * 2 + knob_gap;
+    int knob_y_top = y + (slider_h - grid_height) / 2;
+
+    // Top row: Dyn, Phos
+    dynamics_knob_.setBounds(x_pos, knob_y_top, small_knob, small_knob);
+    phosphor_knob_.setBounds(x_pos + small_knob + knob_gap, knob_y_top, small_knob, small_knob);
+
+    // Bottom row: CRT (centered under the pair)
+    int crt_x = x_pos + (knob_pair_width - small_knob) / 2;
+    crt_knob_.setBounds(crt_x, knob_y_top + small_knob + knob_gap, small_knob, small_knob);
+
+    x_pos += knob_pair_width + spacing;
 
     // Bloom slider on right
     bloom_slider_.setBounds(x_pos, y, slider_w, slider_h);
@@ -2048,6 +2085,7 @@ private:
   FilterSlider bloom_slider_ { "Bloom" };
   FilterKnob dynamics_knob_ { "Dyn" };
   FilterKnob phosphor_knob_ { "Phos" };
+  FilterKnob crt_knob_ { "CRT" };
 #if VISAGE_EMSCRIPTEN
   float volume_val_ = 0.0f;
 #else
@@ -2091,6 +2129,7 @@ private:
   float post_scale_val_ = kDefaultPostScale;
   float post_rotate_val_ = kDefaultPostRotate;
   float trigger_threshold_ = kDefaultTriggerThreshold;
+  float crt_intensity_ = kDefaultCrtIntensity;  // CRT effect ensemble intensity
 
   bool shutting_down_ = false;
   FadeOutTimer fade_out_timer_ { this, [this] { visage::closeApplication(); } };
