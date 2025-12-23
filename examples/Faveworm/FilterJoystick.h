@@ -483,7 +483,7 @@ public:
       if (bidirectional_) {
         // Sticky center logic: creates a dead zone at 0.5 that requires extra travel to break out.
         // This makes it easy to set exactly zero without a "jump" or "gravity pull".
-        constexpr float kStickyZone = 0.02f;
+        constexpr float kStickyZone = 0.05f;
         if (std::abs(virtual_norm_ - 0.5f) < kStickyZone) {
           new_norm = 0.5f;
         }
@@ -527,7 +527,7 @@ public:
 
       if (bidirectional_) {
         // Apply sticky zone remapping to mouse wheel as well
-        constexpr float kStickyZone = 0.02f;
+        constexpr float kStickyZone = 0.05f;
         if (std::abs(new_norm - 0.5f) < kStickyZone) {
           new_norm = 0.5f;
         }

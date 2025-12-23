@@ -1343,6 +1343,11 @@ public:
     beta_knob_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));
     beta_knob_.setCallback([this](float v) { audio_player_.setBeta(v); });
 
+    control_panel_.addScrolledChild(&beta_display_);
+    beta_display_.setValue(&signal_beta_);
+    beta_display_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.5f));
+    beta_display_.setDecimals(1);
+
     control_panel_.addScrolledChild(&exponent_switch_);
     exponent_switch_.setValue(false);  // false = 1, true = 2
     exponent_switch_.setColor(visage::Color(1.0f, 0.6f, 0.8f, 0.6f));
@@ -1524,6 +1529,7 @@ public:
     cutoff_display_.setVisible(is_xy);
     resonance_display_.setVisible(is_xy);
     beta_knob_.setVisible(is_xy);
+    beta_display_.setVisible(is_xy);
     exponent_switch_.setVisible(is_xy);
     pre_gain_knob_.setVisible(is_xy);
     pre_gain_display_.setVisible(is_xy);
@@ -1605,7 +1611,8 @@ public:
       pre_gain_knob_.setBounds(right_x, y, small_knob, small_knob);
       y += small_knob + 2;
 
-      // Indicator below Gain
+      // Indicators below knobs
+      beta_display_.setBounds(left_x, y, small_knob, 14);
       pre_gain_display_.setBounds(right_x, y, small_knob, 14);
       y += 14 + margin;
 
@@ -1918,7 +1925,7 @@ private:
 #endif
   FilterJoystick filter_joystick_;
   FilterKnob cutoff_knob_ { "Cutoff", true };  // logarithmic
-  FilterKnob resonance_knob_ { "Resonance", false, false, false, true };  // reverse logarithmic
+  FilterKnob resonance_knob_ { "Regen", false, false, false, true };  // reverse logarithmic
   FilterKnob beta_knob_ { "Beta", false, true, true };  // bipolar logarithmic, bidirectional
   FilterKnob freq_knob_ { "Freq", true };  // logarithmic
   FilterKnob detune_knob_ { "Detune", false, false, true };  // linear (around 1.0), bidirectional
@@ -1928,10 +1935,11 @@ private:
   NumericDisplay resonance_display_ { "%" };
   NumericDisplay angle_display_ { "°" };
   NumericDisplay depth_display_ { "" };
+  NumericDisplay beta_display_ { "" };
   NumericDisplay pre_gain_display_ { "x" };
   SectionFrame signal_box_ { "Signal Gen" };
-  SectionFrame filter_box_ { "FILTER" };
-  SectionFrame display_box_ { "DISPLAY" };
+  SectionFrame filter_box_ { "Filter" };
+  SectionFrame display_box_ { "Display" };
   HelpOverlay help_overlay_;
   visage::BloomPostEffect bloom_;
   TestSignalGenerator audio_test_signal_;
