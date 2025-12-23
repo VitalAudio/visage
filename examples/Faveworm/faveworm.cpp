@@ -82,17 +82,29 @@ public:
   HelpOverlay() {
     // Start with mouse events ignored (hidden by default)
     setIgnoresMouseEvents(true, true);
+
+    // Configure fade animation
+    fade_animation_.setSourceValue(0.0f);
+    fade_animation_.setTargetValue(1.0f);
+    fade_animation_.setAnimationTime(150);  // 150ms smooth fade
   }
 
   void draw(visage::Canvas& canvas) override {
-    if (!visible_)
+    // Update animation and get current opacity
+    float opacity = fade_animation_.update();
+
+    // Hide frame when fully faded out
+    if (!fade_animation_.isTargeting() && opacity == 0.0f) {
+      visible_ = false;
+      setIgnoresMouseEvents(true, true);
       return;
+    }
 
     const float w = static_cast<float>(width());
     const float h = static_cast<float>(height());
 
-    // Semi-transparent background
-    canvas.setColor(visage::Color(0.85f, 0.0f, 0.0f, 0.0f));
+    // Semi-transparent background with animated opacity
+    canvas.setColor(visage::Color(opacity * 0.85f, 0.0f, 0.0f, 0.0f));
     canvas.fill(0, 0, w, h);
 
     // Title and help text
@@ -104,23 +116,24 @@ public:
     float col2 = 130;
     float line_h = 20;
 
-    canvas.setColor(visage::Color(1.0f, 0.4f, 1.0f, 0.9f));
+    // All text elements fade with opacity
+    canvas.setColor(visage::Color(opacity, 0.4f, 1.0f, 0.9f));
     canvas.text("Faveworm Help", title_font, visage::Font::kTopLeft, col1, y, w - 60, 30);
     y += 40;
 
-    canvas.setColor(visage::Color(0.9f, 0.8f, 0.9f, 0.95f));
+    canvas.setColor(visage::Color(opacity * 0.9f, 0.8f, 0.9f, 0.95f));
 
     auto drawSection = [&](const char* title) {
-      canvas.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.8f));
+      canvas.setColor(visage::Color(opacity, 0.5f, 0.9f, 0.8f));
       canvas.text(title, font, visage::Font::kTopLeft, col1, y, w - 60, line_h);
       y += line_h + 5;
-      canvas.setColor(visage::Color(0.9f, 0.8f, 0.9f, 0.95f));
+      canvas.setColor(visage::Color(opacity * 0.9f, 0.8f, 0.9f, 0.95f));
     };
 
     auto drawKey = [&](const char* key, const char* desc) {
-      canvas.setColor(visage::Color(1.0f, 0.6f, 1.0f, 0.7f));
+      canvas.setColor(visage::Color(opacity, 0.6f, 1.0f, 0.7f));
       canvas.text(key, font, visage::Font::kTopLeft, col1, y, 90, line_h);
-      canvas.setColor(visage::Color(0.9f, 0.8f, 0.9f, 0.95f));
+      canvas.setColor(visage::Color(opacity * 0.9f, 0.8f, 0.9f, 0.95f));
       canvas.text(desc, font, visage::Font::kTopLeft, col2, y, w - col2 - 30, line_h);
       y += line_h;
     };
@@ -128,9 +141,7 @@ public:
     drawSection("General");
     drawKey("H / ?", "Toggle this help");
     drawKey("M", "Cycle display mode");
-    drawKey("P", "Toggle phosphor");
     drawKey("G", "Toggle grid");
-    drawKey("Up/Down", "Adjust bloom intensity");
     drawKey(", / .", "Step back / forward (when frozen)");
     y += 10;
 
@@ -160,27 +171,40 @@ public:
     drawKey("Shift+[/]", "Adjust detune");
     y += 15;
 
-    canvas.setColor(visage::Color(0.6f, 0.5f, 0.6f, 0.6f));
+    canvas.setColor(visage::Color(opacity * 0.6f, 0.5f, 0.6f, 0.6f));
     canvas.text("Drag audio file to load", font, visage::Font::kTopLeft, col1, y, w - 60, line_h);
 
-    redraw();
-  }
-
-  void mouseDown(const visage::MouseEvent&) override { setVisible(false); }
-
-  void setVisible(bool v) {
-    visible_ = v;
-    // Block mouse events when visible, pass through when hidden
-    setIgnoresMouseEvents(!visible_, !visible_);
-    if (visible_)
+    // Keep redrawing while animation is active
+    if (fade_animation_.isAnimating())
       redraw();
   }
 
+  void mouseDown(const visage::MouseEvent&) override {
+    toggle();  // Use toggle to trigger fade-out animation
+  }
+
+  void setVisible(bool v) {
+    if (v && !visible_) {
+      // Fade in
+      visible_ = true;
+      setIgnoresMouseEvents(false, false);
+      fade_animation_.target(true);
+      redraw();
+    }
+    else if (!v && visible_) {
+      // Fade out (actual hiding happens in draw when opacity reaches 0)
+      fade_animation_.target(false);
+      redraw();
+    }
+  }
+
   bool isVisible() const { return visible_; }
+
   void toggle() { setVisible(!visible_); }
 
 private:
   bool visible_ = false;
+  visage::Animation<float> fade_animation_;
 };
 
 // Vintage control panel background
@@ -1888,12 +1912,8 @@ public:
   }
 
   bool keyPress(const visage::KeyEvent& event) override {
-    if (event.keyCode() == visage::KeyCode::P) {
-      setPhosphorEnabled(!phosphorEnabled());
-      return true;
-    }
-    else if (event.keyCode() == visage::KeyCode::H ||
-             (event.isShiftDown() && event.keyCode() == visage::KeyCode::Slash)) {
+    if (event.keyCode() == visage::KeyCode::H ||
+        (event.isShiftDown() && event.keyCode() == visage::KeyCode::Slash)) {
       help_overlay_.toggle();
       return true;
     }
