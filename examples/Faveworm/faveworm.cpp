@@ -140,14 +140,13 @@ public:
 
     drawSection("General");
     drawKey("H / ?", "Toggle this help");
-    drawKey("M", "Cycle display mode");
     drawKey("G", "Toggle grid");
     drawKey(", / .", "Step back / forward (when frozen)");
     y += 10;
 
     drawSection("Audio");
     drawKey("Space", "Play/pause audio");
-    drawKey("V/Shift+V", "Adjust volume");
+    drawKey("M", "Mute/unmute");
     y += 10;
 
     drawSection("Trigger Mode");
@@ -156,19 +155,9 @@ public:
     drawKey("Shift+Up/Dn", "Adjust threshold");
     y += 10;
 
-    drawSection("XY Mode - Filter");
+    drawSection("XY Mode");
     drawKey("F", "Toggle filter");
-    drawKey("S", "Toggle split mode");
-    drawKey("D", "Cycle split presets");
-    drawKey("Left/Right", "Adjust cutoff");
-    y += 10;
-
-    drawSection("XY Mode - Oscillator");
-    drawKey("T", "Toggle test signal");
     drawKey("W", "Toggle square mode");
-    drawKey("B/Shift+B", "Adjust beta");
-    drawKey("[ / ]", "Adjust frequency");
-    drawKey("Shift+[/]", "Adjust detune");
     y += 15;
 
     canvas.setColor(visage::Color(opacity * 0.6f, 0.5f, 0.6f, 0.6f));
@@ -1923,9 +1912,14 @@ public:
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::M) {
-      oscilloscope_.cycleDisplayMode();
-      mode_selector_.setIndex(static_cast<int>(oscilloscope_.displayMode()));
-      updatePanelVisibility();
+      // Mute/unmute toggle (0.0 <-> 0.5)
+      if (volume_val_ > 0.0f) {
+        saved_volume_ = volume_val_;
+        setVolume(0.0f);
+      }
+      else {
+        setVolume(saved_volume_ > 0.0f ? saved_volume_ : 0.5f);
+      }
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::L) {
@@ -1940,38 +1934,11 @@ public:
       oscilloscope_.setFilterEnabled(!oscilloscope_.filterEnabled());
       return true;
     }
-    else if (event.keyCode() == visage::KeyCode::S) {
-      // Toggle stereo split mode (mono -> X/Y via different filter outputs)
-      oscilloscope_.setStereoSplitMode(!oscilloscope_.stereoSplitMode());
-      return true;
-    }
-    else if (event.keyCode() == visage::KeyCode::D) {
-      // Cycle through split mode presets
-      oscilloscope_.cycleSplitMode();
-      return true;
-    }
     else if (event.keyCode() == visage::KeyCode::W) {
-      // Toggle exponent
+      // Toggle exponent (square mode)
       bool next = !exponent_switch_.value();
       exponent_switch_.setValue(next);
       audio_player_.setExponent(next ? 2 : 1);
-      return true;
-    }
-    else if (event.keyCode() == visage::KeyCode::T) {
-      // Toggle test signal
-      oscilloscope_.setTestSignalEnabled(!oscilloscope_.testSignalEnabled());
-      return true;
-    }
-    else if (event.keyCode() == visage::KeyCode::Left) {
-      // Decrease cutoff
-      filter_cutoff_ = std::max(kMinFilterCutoff, filter_cutoff_ * 0.9f);
-      oscilloscope_.setFilterCutoff(filter_cutoff_);
-      return true;
-    }
-    else if (event.keyCode() == visage::KeyCode::Right) {
-      // Increase cutoff
-      filter_cutoff_ = std::min(kMaxFilterCutoff, filter_cutoff_ * 1.1f);
-      oscilloscope_.setFilterCutoff(filter_cutoff_);
       return true;
     }
     else if (event.keyCode() == visage::KeyCode::Space) {
@@ -2114,6 +2081,7 @@ private:
 #else
   float volume_val_ = kDefaultVolume;
 #endif
+  float saved_volume_ = 0.5f;  // Saved volume for mute/unmute toggle
   FilterJoystick filter_joystick_;
   FilterKnob cutoff_knob_ { "Cutoff", true };  // logarithmic
   FilterKnob resonance_knob_ { "Regen", false, false, false, true };  // reverse logarithmic
