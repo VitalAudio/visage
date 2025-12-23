@@ -52,10 +52,11 @@ public:
 
   Outputs process(double in) {
     // Attenuate input to operate below saturation knee (preserves resonance)
-    constexpr double kInputGain = 0.5;
+    // Incorporate user-controllable pre-gain
+    constexpr double kBaseInputGain = 0.5;
     constexpr double kOutputGain = 2.0;  // Compensate output level
 
-    in *= kInputGain;
+    in *= kBaseInputGain * pre_gain_;
 
     // Soft-clip the input combined with feedback - this is where energy enters
     // At high resonance the filter self-oscillates; saturation limits amplitude
@@ -71,6 +72,9 @@ public:
 
     return { lp * kOutputGain, bp * kOutputGain, hp * kOutputGain };
   }
+
+  void setPreGain(double g) { pre_gain_ = g; }
+  double preGain() const { return pre_gain_; }
 
   void reset() { z1_ = z2_ = 0.0; }
 
@@ -101,6 +105,7 @@ private:
   double sample_rate_ = 44100.0;
   double cutoff_ = 150.0;
   double resonance_ = 0.7;
+  double pre_gain_ = 1.0;
   double g_ = 0.0, k_ = 1.0, a1_ = 1.0;
   double z1_ = 0.0, z2_ = 0.0;
 };
@@ -209,6 +214,7 @@ public:
   void setSampleRate(double sr) { svf_.setSampleRate(sr); }
   void setCutoff(double fc) { svf_.setCutoff(fc); }
   void setResonance(double r) { svf_.setResonance(r); }
+  void setPreGain(double g) { svf_.setPreGain(g); }
   void reset() { svf_.reset(); }
 
   // Process mono input, return X/Y outputs

@@ -40,8 +40,8 @@ static constexpr float kMinFilterCutoff = 20.0f;
 static constexpr float kMaxFilterCutoff = 2000.0f;
 static constexpr float kMinFilterResonance = 0.0f;
 static constexpr float kMaxFilterResonance = 1.0f;  // Note: UI limits to 0.99f for safety
-static constexpr float kMinSplitAngle = 0.0f;
-static constexpr float kMaxSplitAngle = 360.0f;
+static constexpr float kMinSplitAngle = -180.0f;
+static constexpr float kMaxSplitAngle = 180.0f;
 static constexpr float kMinSplitDepth = 0.0f;
 static constexpr float kMaxSplitDepth = 1.0f;
 static constexpr float kMinVolume = 0.0f;
@@ -50,6 +50,8 @@ static constexpr float kMinPostScale = 0.1f;
 static constexpr float kMaxPostScale = 3.0f;
 static constexpr float kMinPostRotate = 0.0f;
 static constexpr float kMaxPostRotate = 360.0f;
+static constexpr float kMinPreGain = 0.0f;
+static constexpr float kMaxPreGain = 10.0f;
 
 // Help overlay showing keyboard shortcuts
 class HelpOverlay : public visage::Frame {
@@ -598,6 +600,7 @@ public:
   void setTriggerThreshold(float v) { trigger_threshold_.store(v); }
   void setTriggerRising(bool v) { trigger_rising_.store(v); }
   void setTriggerLock(bool v) { trigger_lock_.store(v); }
+  void startShutdown() { shutting_down_ = true; }
   bool hasAudio() const { return !audio_data_.left.empty(); }
   int sampleRate() const { return audio_data_.sample_rate; }
 
@@ -836,6 +839,7 @@ public:
   std::atomic<float> filter_resonance_ { 0.7f };
   std::atomic<bool> filter_enabled_ { true };
   std::atomic<bool> stereo_split_mode_ { false };
+  std::atomic<float> pre_gain_ { 1.0f };
 
   // RPM controls
   void setBeta(float b) {
@@ -846,6 +850,13 @@ public:
     if (test_generator_)
       test_generator_->setExponent(e);
   }
+
+  void setPreGain(float v) {
+    pre_gain_ = v;
+    svf_.setPreGain(v);
+    stereo_router_.setPreGain(v);
+  }
+  float preGain() const { return pre_gain_; }
 
   bool use_speaker_ = false;
   TestSignalGenerator* test_generator_ = nullptr;
@@ -1239,6 +1250,30 @@ private:
 class ExampleEditor;
 static ExampleEditor* g_editor = nullptr;
 
+class FadeOutTimer : public visage::EventTimer {
+public:
+  FadeOutTimer(visage::Frame* editor, std::function<void()> on_complete) :
+      editor_(editor), on_complete_(std::move(on_complete)) { }
+
+  void timerCallback() override {
+    alpha_ -= 0.04f;
+    if (alpha_ <= 0.0f) {
+      stopTimer();
+      if (on_complete_)
+        on_complete_();
+    }
+    else {
+      editor_->setAlphaTransparency(alpha_);
+      editor_->redraw();
+    }
+  }
+
+private:
+  visage::Frame* editor_;
+  std::function<void()> on_complete_;
+  float alpha_ = 1.0f;
+};
+
 class ExampleEditor : public visage::ApplicationWindow {
 public:
   ExampleEditor() {
@@ -1274,6 +1309,17 @@ public:
     exponent_switch_.setValue(false);  // false = 1, true = 2
     exponent_switch_.setColor(visage::Color(1.0f, 0.6f, 0.8f, 0.6f));
     exponent_switch_.setCallback([this](bool v) { audio_player_.setExponent(v ? 2 : 1); });
+
+    control_panel_.addScrolledChild(&pre_gain_knob_);
+    pre_gain_knob_.setValue(&pre_gain_val_);
+    pre_gain_knob_.setRange(kMinPreGain, kMaxPreGain);
+    pre_gain_knob_.setColor(visage::Color(1.0f, 0.9f, 0.6f, 0.5f));
+    pre_gain_knob_.setCallback([this](float v) { audio_player_.setPreGain(v); });
+
+    control_panel_.addScrolledChild(&pre_gain_display_);
+    pre_gain_display_.setValue(&pre_gain_val_);
+    pre_gain_display_.setColor(visage::Color(1.0f, 0.9f, 0.6f, 0.5f));
+    pre_gain_display_.setDecimals(1);
 
     control_panel_.addScrolledChild(&grid_switch_);
     grid_switch_.setValue(true);
@@ -1411,6 +1457,16 @@ public:
     audio_player_.play();
 #if VISAGE_EMSCRIPTEN
     setVolume(0.0f);
+#else
+    onCloseRequest() = [this] {
+      if (shutting_down_)
+        return true;
+
+      shutting_down_ = true;
+      audio_player_.startShutdown();
+      fade_out_timer_.startTimer(10);
+      return false;
+    };
 #endif
   }
 
@@ -1430,6 +1486,8 @@ public:
     resonance_display_.setVisible(is_xy);
     beta_knob_.setVisible(is_xy);
     exponent_switch_.setVisible(is_xy);
+    pre_gain_knob_.setVisible(is_xy);
+    pre_gain_display_.setVisible(is_xy);
     freq_knob_.setVisible(is_xy);
     detune_knob_.setVisible(is_xy);
     freq_display_.setVisible(is_xy);
@@ -1470,7 +1528,7 @@ public:
     const int margin = 4;
     const int knob_size = 60;  // Taller to fit label
     const int js_size = 90;  // Taller to fit label
-    const int selector_h = 34;  // Taller to fit label
+    const int selector_h = 40;  // Taller for multi-switch with LEDs
     const int btn_size = 24;  // Half size buttons
     const int margin_x = 10;
     const int switch_h = 42;  // Square push button height (needs room for LED + button + label)
@@ -1487,10 +1545,20 @@ public:
     // XY mode controls
     if (oscilloscope_.displayMode() == DisplayMode::XY) {
       // Rolloff knob and Square button side by side
-      int small_knob = 50;
+      // Rolloff, Sq switch, and Pregain side by side
+      int small_knob = 40;
+      int extra_small_btn = 20;
+      int spacing = (panel_width - 20 - (small_knob * 2 + extra_small_btn)) / 2;
+
       beta_knob_.setBounds(10, y, small_knob, small_knob);
-      exponent_switch_.setBounds(panel_width - 10 - 44, y + (small_knob - btn_size) / 2, btn_size, btn_size);
-      y += small_knob + margin;
+      exponent_switch_.setBounds(10 + small_knob + spacing, y + (small_knob - extra_small_btn) / 2,
+                                 extra_small_btn, extra_small_btn);
+      pre_gain_knob_.setBounds(panel_width - 10 - small_knob, y, small_knob, small_knob);
+      y += small_knob + 2;
+
+      // Indicator below Pregain
+      pre_gain_display_.setBounds(panel_width - 10 - small_knob, y, small_knob, 14);
+      y += 14 + margin;
 
       // Signal freq and detune knobs side by side (smaller) with displays below
       int small_display_h = 16;
@@ -1738,6 +1806,11 @@ public:
     else if (name == "exponent") {
       audio_player_.setExponent(value > 1.5f ? 2 : 1);
     }
+    else if (name == "pregain") {
+      pre_gain_val_ = std::clamp(value, kMinPreGain, kMaxPreGain);
+      audio_player_.setPreGain(pre_gain_val_);
+      pre_gain_knob_.redraw();
+    }
     else if (name == "bloom") {
       bloom_intensity_ = std::clamp(value, 0.0f, 2.5f);
       bloom_.setBloomIntensity(bloom_intensity_);
@@ -1767,6 +1840,7 @@ private:
   PushButtonSwitch filter_switch_ { "Filt" };
   PushButtonSwitch exponent_switch_ { "Sq" };
   PushButtonSwitch grid_switch_ { "Grid" };
+  FilterKnob pre_gain_knob_ { "Pregain" };
   FilterKnob split_angle_knob_ { "Angle", false, false, true };  // bidirectional
   FilterKnob split_depth_knob_ { "Depth", false, false, false };  // 0 to 1 range
   FilterKnob post_scale_knob_ { "Scale" };
@@ -1791,10 +1865,12 @@ private:
   NumericDisplay resonance_display_ { "%" };
   NumericDisplay angle_display_ { "°" };
   NumericDisplay depth_display_ { "" };
+  NumericDisplay pre_gain_display_ { "x" };
   HelpOverlay help_overlay_;
   visage::BloomPostEffect bloom_;
   TestSignalGenerator audio_test_signal_;
   AudioPlayer audio_player_;
+  float pre_gain_val_ = 1.0f;
   float bloom_intensity_ = 0.5f;
   bool bloom_enabled_ = true;
   float waveform_hue_ = 170.0f;
@@ -1804,10 +1880,13 @@ private:
   float signal_beta_ = 0.00f;
   float signal_freq_ = 80.0f;
   float signal_detune_ = 1.003f;
-  float split_angle_ = 0.0f;  // 0-360 degrees
+  float split_angle_ = 0.0f;  // -180 to +180 degrees
   float split_depth_ = 0.0f;  // -1 to +1
   float post_scale_val_ = 1.0f;
   float post_rotate_val_ = 0.0f;
+
+  bool shutting_down_ = false;
+  FadeOutTimer fade_out_timer_ { this, [this] { close(); } };
 };
 
 int runExample() {
