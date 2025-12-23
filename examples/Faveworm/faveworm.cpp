@@ -108,8 +108,8 @@ public:
     canvas.fill(0, 0, w, h);
 
     // Title and help text
-    visage::Font title_font(24, resources::fonts::Lato_Regular_ttf);
-    visage::Font font(14, resources::fonts::DroidSansMono_ttf);
+    visage::Font title_font(24, resources::fonts::Lato_Regular_ttf, dpiScale());
+    visage::Font font(14, resources::fonts::DroidSansMono_ttf, dpiScale());
 
     float y = 30;
     float col1 = 30;
@@ -241,7 +241,7 @@ public:
     canvas.fill(2, 6, 1, h - 8);
 
     // Title label background bit (cut into the border)
-    visage::Font font(10, resources::fonts::Lato_Regular_ttf);
+    visage::Font font(10, resources::fonts::Lato_Regular_ttf, dpiScale());
     visage::String title_str(title_);
     float text_w = font.stringWidth(title_str.c_str(), title_str.length());
     canvas.setColor(visage::Color(0.95f, 0.06f, 0.07f, 0.08f));  // Match panel bg
@@ -506,7 +506,7 @@ public:
     want.freq = audio_data_.left.empty() ? 44100 : audio_data_.sample_rate;
     want.format = AUDIO_F32;
     want.channels = 2;
-    want.samples = 1024;  // Larger buffer for stability on web
+    want.samples = 4096;  // Larger buffer for stability on web
     want.callback = sdlCallback;
     want.userdata = this;
 
@@ -835,15 +835,6 @@ private:
             bool lock_enabled = trigger_lock_.load(std::memory_order_relaxed);
             bool triggered = true;
 
-            if (lock_enabled && !reference_buffer_.empty()) {
-              // Standard cross-correlation score
-              float score = 0.0f;
-              size_t pos = ring_buffer_.writePos();
-              for (int j = 0; j < (int)reference_buffer_.size(); ++j) {
-                score += ring_buffer_.readLeftAt(pos + j) * reference_buffer_[j];
-              }
-            }
-
             if (triggered) {
               latest_trigger_pos_.store(ring_buffer_.writePos() & (RingBuffer::kSize - 1),
                                         std::memory_order_release);
@@ -955,8 +946,13 @@ class Oscilloscope : public visage::Frame {
 public:
   static constexpr float kPi = 3.14159265358979323846f;
   static constexpr int kHistoryFrames = 4;
+#if VISAGE_EMSCRIPTEN
+  static constexpr float kMaxDist = 1.6f;
+  static constexpr int kOversampleRate = 8;
+#else
   static constexpr float kMaxDist = 1.5f;
   static constexpr int kOversampleRate = 16;
+#endif
 
   struct Sample {
     float x, y;
@@ -1064,7 +1060,11 @@ public:
 
     // Regenerate phosphor history to show motion blur
     // Generate a few frames at slightly offset positions
-    const int trail_frames = 800000;  // Number of trail frames to generate
+#if VISAGE_EMSCRIPTEN
+    const int trail_frames = 8;
+#else
+    const int trail_frames = 800000;
+#endif
 
     // Clear all history first
     for (int i = 0; i < kHistoryFrames; ++i) {
@@ -1277,10 +1277,11 @@ public:
       if (dynamic_hue < 0.0f)
         dynamic_hue += 360.0f;
 
+      float brightness = std::min(1.0f, g);
+      visage::Color color = visage::Color::fromAHSV(brightness * 0.9f, dynamic_hue, 0.85f, brightness);
+      canvas.setColor(color);
+
       for (int k = 0; k < end; ++k) {
-        float brightness = std::min(1.0f, g);
-        visage::Color color = visage::Color::fromAHSV(brightness * 0.9f, dynamic_hue, 0.85f, brightness);
-        canvas.setColor(color);
         canvas.fadeCircle(x - half_beam, y - half_beam, beam_size_, beam_size_ * 0.35f);
         x += ix;
         y += iy;

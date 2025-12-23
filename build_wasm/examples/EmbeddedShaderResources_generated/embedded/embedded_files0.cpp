@@ -2,6 +2,8 @@
 #include "example_shaders.h"
 namespace resources::shaders {
   ::visage::EmbeddedFile fileByName(const std::string& filename) {
+    if (filename == "fs_crt")
+      return fs_crt;
     if (filename == "fs_glitch")
       return fs_glitch;
     if (filename == "fs_gray_scale")
@@ -22,6 +24,8 @@ namespace resources::shaders {
       return vs_shader_quad;
     if (filename == "varying_def_sc")
       return varying_def_sc;
+    if (filename == "fs_crt_sc")
+      return fs_crt_sc;
     if (filename == "fs_glitch_sc")
       return fs_glitch_sc;
     if (filename == "fs_gray_scale_sc")

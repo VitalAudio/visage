@@ -5,6 +5,7 @@
 #include <string>
 namespace resources::shaders {
   ::visage::EmbeddedFile getFileByName(const std::string& filename);
+  extern ::visage::EmbeddedFile fs_crt;
   extern ::visage::EmbeddedFile fs_glitch;
   extern ::visage::EmbeddedFile fs_gray_scale;
   extern ::visage::EmbeddedFile fs_overlay;
@@ -15,6 +16,7 @@ namespace resources::shaders {
   extern ::visage::EmbeddedFile vs_overlay;
   extern ::visage::EmbeddedFile vs_shader_quad;
   extern ::visage::EmbeddedFile varying_def_sc;
+  extern ::visage::EmbeddedFile fs_crt_sc;
   extern ::visage::EmbeddedFile fs_glitch_sc;
   extern ::visage::EmbeddedFile fs_gray_scale_sc;
   extern ::visage::EmbeddedFile fs_overlay_sc;

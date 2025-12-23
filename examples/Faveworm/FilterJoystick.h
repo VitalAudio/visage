@@ -43,7 +43,7 @@ public:
 
     // Label at top
     if (label_ && label_[0]) {
-      visage::Font font(10, resources::fonts::DroidSansMono_ttf);
+      visage::Font font(10, resources::fonts::DroidSansMono_ttf, dpiScale());
       canvas.setColor(visage::Color(0.7f * dim, 0.6f, 0.65f, 0.7f));
       canvas.text(label_, font, visage::Font::kCenter, 0, 0, w, label_h);
     }
@@ -192,7 +192,7 @@ public:
 
     // Label at bottom
     if (label_ && label_[0]) {
-      visage::Font font(10, resources::fonts::DroidSansMono_ttf);
+      visage::Font font(10, resources::fonts::DroidSansMono_ttf, dpiScale());
       canvas.setColor(visage::Color(0.7f * dim, 0.6f, 0.65f, 0.7f));
       canvas.text(label_, font, visage::Font::kCenter, 0, h - label_h, w, label_h);
     }
@@ -241,7 +241,7 @@ public:
 
     // Label at top
     if (label_ && label_[0]) {
-      visage::Font font(10, resources::fonts::DroidSansMono_ttf);
+      visage::Font font(10, resources::fonts::DroidSansMono_ttf, dpiScale());
       canvas.setColor(visage::Color(0.7f * dim, 0.6f, 0.65f, 0.7f));
       canvas.text(label_, font, visage::Font::kCenter, 0, 0, w, label_h);
     }
@@ -447,7 +447,7 @@ public:
 
     // Label at bottom
     if (label_ && label_[0]) {
-      visage::Font font(10, resources::fonts::DroidSansMono_ttf);
+      visage::Font font(10, resources::fonts::DroidSansMono_ttf, dpiScale());
       canvas.setColor(visage::Color(0.7f * dim, 0.6f, 0.65f, 0.7f));
       canvas.text(label_, font, visage::Font::kCenter, 0, h - label_h, w, label_h);
     }
@@ -719,7 +719,7 @@ public:
 
     // Label at bottom
     if (label_ && label_[0]) {
-      visage::Font font(10, resources::fonts::DroidSansMono_ttf);
+      visage::Font font(10, resources::fonts::DroidSansMono_ttf, dpiScale());
       canvas.setColor(visage::Color(0.7f * dim, 0.6f, 0.65f, 0.7f));
       canvas.text(label_, font, visage::Font::kCenter, 0, h - label_h, w, label_h);
     }
@@ -811,7 +811,7 @@ public:
         snprintf(buf, sizeof(buf), "%.3f%s", *value_, suffix_);
       }
 
-      visage::Font font(14, resources::fonts::DS_DIGIT_ttf);
+      visage::Font font(14, resources::fonts::DS_DIGIT_ttf, dpiScale());
       canvas.setColor(visage::Color(color_.alpha() * dim, color_.red(), color_.green(), color_.blue()));
       canvas.text(buf, font, visage::Font::kCenter, 2, 0, w - 4, h);
     }

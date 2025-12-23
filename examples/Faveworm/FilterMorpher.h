@@ -256,12 +256,18 @@ public:
 
   // Split offset controls
   // angle: 0-360 degrees, rotates Y's filter position relative to X
-  void setSplitAngle(float degrees) { split_angle_ = degrees * static_cast<float>(kPi) / 180.0f; }
+  void setSplitAngle(float degrees) {
+    split_angle_ = degrees * static_cast<float>(kPi) / 180.0f;
+    updateYWeights();
+  }
   float splitAngle() const { return split_angle_ * 180.0f / static_cast<float>(kPi); }
 
   // depth: 0 to +1, adjusts Y radius offset
   // 0 = no change, 1 = Y pinned to center (AP)
-  void setSplitDepth(float d) { split_depth_ = std::clamp(d, 0.0f, 1.0f); }
+  void setSplitDepth(float d) {
+    split_depth_ = std::clamp(d, 0.0f, 1.0f);
+    updateYWeights();
+  }
   float splitDepth() const { return split_depth_; }
 
   bool hasSplit() const { return std::abs(split_angle_) > 0.01f || split_depth_ > 0.01f; }
@@ -272,8 +278,9 @@ public:
   float angle() const { return angle_; }
 
   // Apply morph to filter outputs for a single channel (X)
+  // Apply morph to filter outputs for a single channel (X)
   double apply(double lp, double bp, double hp) const {
-    return applyAtPosition(lp, bp, hp, radius_, angle_);
+    return applyWithWeights(lp, bp, hp, radius_, w_lp_, w_bp_, w_hp_, w_br_);
   }
 
   // Apply morph with split offsets, returns both X and Y outputs
@@ -281,21 +288,11 @@ public:
     double x, y;
   };
   StereoOut applyXY(double lp, double bp, double hp) const {
-    // X channel: use base position (unaffected by depth in this mode)
-    double x_out = applyAtPosition(lp, bp, hp, radius_, angle_);
+    // X channel: use base cached weights
+    double x_out = applyWithWeights(lp, bp, hp, radius_, w_lp_, w_bp_, w_hp_, w_br_);
 
-    // Y channel: apply offset to position
-    float y_angle = angle_ + split_angle_;
-    // Wrap angle to 0-2π
-    while (y_angle >= static_cast<float>(kTwoPi))
-      y_angle -= static_cast<float>(kTwoPi);
-    while (y_angle < 0)
-      y_angle += static_cast<float>(kTwoPi);
-
-    // Apply depth: pushes Y toward center (AP)
-    float y_radius = radius_ * (1.0f - split_depth_);  // depth=1 means y_radius=0
-
-    double y_out = applyAtPosition(lp, bp, hp, y_radius, y_angle);
+    // Y channel: use Y cached weights
+    double y_out = applyWithWeights(lp, bp, hp, radius_y_, w_lp_y_, w_bp_y_, w_hp_y_, w_br_y_);
     return { x_out, y_out };
   }
 
@@ -307,15 +304,12 @@ public:
 
 private:
   // Compute filter mix at a specific polar position
-  double applyAtPosition(double lp, double bp, double hp, float r, float a) const {
+  double applyWithWeights(double lp, double bp, double hp, float r, float w_lp, float w_bp,
+                          float w_hp, float w_br) const {
     // Notch = LP + HP (cancels BP)
     double notch = lp + hp;
     // Allpass approximation = LP + HP - BP (phase inverted BP)
     double allpass = lp + hp - bp;
-
-    // Compute weights for this angle
-    float w_lp, w_bp, w_hp, w_br;
-    computeWeights(a, w_lp, w_bp, w_hp, w_br);
 
     // Mix filter modes by weights
     double filtered = w_lp * lp + w_bp * bp + w_hp * hp + w_br * notch;
@@ -364,6 +358,22 @@ private:
       angle_ += static_cast<float>(kTwoPi);
 
     computeWeights(angle_, w_lp_, w_bp_, w_hp_, w_br_);
+    updateYWeights();
+  }
+
+  void updateYWeights() {
+    // Calculate Y angle
+    angle_y_ = angle_ + split_angle_;
+    while (angle_y_ >= static_cast<float>(kTwoPi))
+      angle_y_ -= static_cast<float>(kTwoPi);
+    while (angle_y_ < 0)
+      angle_y_ += static_cast<float>(kTwoPi);
+
+    // Calculate Y radius
+    radius_y_ = radius_ * (1.0f - split_depth_);
+
+    // Compute Y weights
+    computeWeights(angle_y_, w_lp_y_, w_bp_y_, w_hp_y_, w_br_y_);
   }
 
   float pos_x_ = 0.0f, pos_y_ = 0.0f;
@@ -371,4 +381,9 @@ private:
   float w_lp_ = 0.25f, w_bp_ = 0.25f, w_hp_ = 0.25f, w_br_ = 0.25f;
   float split_angle_ = 0.0f;  // radians
   float split_depth_ = 0.0f;  // -1 to +1
+
+  // Cached Y parameters
+  float angle_y_ = 0.0f;
+  float radius_y_ = 0.0f;
+  float w_lp_y_ = 0.25f, w_bp_y_ = 0.25f, w_hp_y_ = 0.25f, w_br_y_ = 0.25f;
 };
