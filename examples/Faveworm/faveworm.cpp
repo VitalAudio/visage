@@ -1937,9 +1937,9 @@ private:
   NumericDisplay depth_display_ { "" };
   NumericDisplay beta_display_ { "" };
   NumericDisplay pre_gain_display_ { "x" };
-  SectionFrame signal_box_ { "Signal Gen" };
-  SectionFrame filter_box_ { "Filter" };
-  SectionFrame display_box_ { "Display" };
+  SectionFrame signal_box_ { "SIGNAL GEN" };
+  SectionFrame filter_box_ { "FILTER" };
+  SectionFrame display_box_ { "DISPLAY" };
   HelpOverlay help_overlay_;
   visage::BloomPostEffect bloom_;
   TestSignalGenerator audio_test_signal_;
