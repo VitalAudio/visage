@@ -1,4 +1,7 @@
-/* Copyright Vital Audio, LLC
+/* Faveworm - Audio Oscilloscope
+ *
+ * Written by David Lowenfels
+ * Based on code from Laurent de Soras
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
