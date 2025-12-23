@@ -79,12 +79,14 @@ namespace visage {
       if (sub_region->needsLayer())
         sub_region = sub_region->intermediateRegion();
 
-      bool overlaps = std::any_of(positions.begin(), positions.end(), [&sub_region](const auto& other) {
-        return sub_region->overlaps(other.region);
-      });
-
       IBounds bounds(done_position.x + sub_region->x(), done_position.y + sub_region->y(),
                      sub_region->width(), sub_region->height());
+
+      bool overlaps = std::any_of(positions.begin(), positions.end(), [&bounds](const RegionPosition& other) {
+        IBounds other_bounds(other.x, other.y, other.region->width(), other.region->height());
+        return bounds.overlaps(other_bounds);
+      });
+
 
       std::vector<IBounds> invalid_rects;
       for (const IBounds& invalid_rect : done_position.invalid_rects) {
