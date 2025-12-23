@@ -31,7 +31,10 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <fstream>
 #include <mutex>
 #include <thread>
@@ -283,7 +286,25 @@ struct AudioData {
   int sample_rate = 44100;
   bool stereo = false;
 
-  bool loadWav(const std::string& path) {
+  bool load(const std::string& path) {
+    if (loadWavInternal(path))
+      return true;
+
+#if !VISAGE_EMSCRIPTEN && defined(__APPLE__)
+    // Try converting with afconvert
+    std::srand(std::time(nullptr));
+    std::string temp_path = "/tmp/faveworm_temp_" + std::to_string(std::rand()) + ".wav";
+    std::string cmd = "afconvert -f WAVE -d LEF32 \"" + path + "\" \"" + temp_path + "\"";
+    if (std::system(cmd.c_str()) == 0) {
+      bool success = loadWavInternal(temp_path);
+      std::remove(temp_path.c_str());
+      return success;
+    }
+#endif
+    return false;
+  }
+
+  bool loadWavInternal(const std::string& path) {
     std::ifstream file(path, std::ios::binary);
     if (!file)
       return false;
@@ -472,7 +493,7 @@ public:
   }
 
   bool load(const std::string& path) {
-    if (!audio_data_.loadWav(path))
+    if (!audio_data_.load(path))
       return false;
     play_position_ = 0;
     return true;
@@ -2053,10 +2074,11 @@ public:
     redraw();
   }
 
-  void mouseDown(const visage::MouseEvent& event) override {
-    // Satisfy browser autoplay policy on first click
-    audio_player_.play();
-  }
+  void mouseDown(const visage::MouseEvent& event) override { audio_player_.play(); }
+
+  bool receivesDragDropFiles() override { return true; }
+
+  void dropFiles(const std::vector<std::string>& paths) override { oscilloscope_.dropFiles(paths); }
 
 private:
   Oscilloscope oscilloscope_;
