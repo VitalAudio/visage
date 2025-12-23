@@ -1611,8 +1611,8 @@ public:
 
       // Signal freq and detune knobs
       int small_display_h = 16;
-      int left_x = 10 + margin;
-      int right_x = panel_width - 10 - margin - small_knob;
+      left_x = 10 + margin;
+      right_x = panel_width - 10 - margin - small_knob;
       freq_knob_.setBounds(left_x, y, small_knob, small_knob);
       detune_knob_.setBounds(right_x, y, small_knob, small_knob);
       y += small_knob + 2;
