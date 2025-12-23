@@ -1505,6 +1505,7 @@ public:
       return false;
     };
 #endif
+    setMinimumDimensions(636.0f, 366.0f);
   }
 
   void updatePanelVisibility() {
