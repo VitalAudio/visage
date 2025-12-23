@@ -186,6 +186,39 @@ public:
   }
 };
 
+// Section frame with a subtle border and title for modular hardware look
+class SectionFrame : public visage::Frame {
+public:
+  SectionFrame(const std::string& title) : title_(title) { setIgnoresMouseEvents(true, true); }
+
+  void draw(visage::Canvas& canvas) override {
+    const float w = static_cast<float>(width());
+    const float h = static_cast<float>(height());
+
+    // Subtle box border - metallic/etched look
+    canvas.setColor(visage::Color(1.0f, 0.15f, 0.15f, 0.15f));
+    canvas.rect(2, 2, w - 4, h - 4, 1.0f);
+
+    // Etched highlight
+    canvas.setColor(visage::Color(0.2f, 1.0f, 1.0f, 1.0f));
+    canvas.fill(2, 2, w - 4, 1);
+    canvas.fill(2, 2, 1, h - 4);
+
+    // Title label background bit (cut into the border)
+    visage::Font font(10, resources::fonts::Lato_Regular_ttf);
+    float text_w = font.width(title_);
+    canvas.setColor(visage::Color(0.95f, 0.06f, 0.07f, 0.08f));  // Match panel bg
+    canvas.fill(12, 0, text_w + 8, 5);
+
+    // Title text
+    canvas.setColor(visage::Color(1.0f, 0.5f, 0.8f, 0.8f));
+    canvas.text(title_, font, visage::Font::kTopLeft, 16, -2, text_w, 12);
+  }
+
+private:
+  std::string title_;
+};
+
 #if VISAGE_EMSCRIPTEN
 #include <SDL2/SDL.h>
 #else
@@ -1299,6 +1332,10 @@ public:
       updatePanelVisibility();
     });
 
+    control_panel_.addScrolledChild(&signal_box_);
+    control_panel_.addScrolledChild(&filter_box_);
+    control_panel_.addScrolledChild(&display_box_);
+
     control_panel_.addScrolledChild(&beta_knob_);
     beta_knob_.setValue(&signal_beta_);
     beta_knob_.setRange(TestSignalGenerator::kMinBeta, TestSignalGenerator::kMaxBeta);
@@ -1503,6 +1540,10 @@ public:
     hue_slider_.setVisible(show_panel);
     bloom_slider_.setVisible(show_panel);
 
+    signal_box_.setVisible(is_xy);
+    filter_box_.setVisible(is_xy);
+    display_box_.setVisible(show_panel);
+
     // Update enabled state based on filter switch
     updateFilterControlsEnabled(filter_switch_.value());
 
@@ -1537,97 +1578,115 @@ public:
     control_panel_.setBounds(panel_x, 0, panel_width, height());
 
     int y = margin;
+    int inner_width = panel_width - 20;
 
     // Mode selector at top (always visible)
-    mode_selector_.setBounds(10, y, panel_width - 20, selector_h);
-    y += selector_h + margin;
+    mode_selector_.setBounds(10, y, inner_width, selector_h);
+    y += selector_h + margin + 8;
 
     // XY mode controls
     if (oscilloscope_.displayMode() == DisplayMode::XY) {
-      // Rolloff knob and Square button side by side
-      // Rolloff, Sq switch, and Pregain side by side
-      int small_knob = 40;
-      int extra_small_btn = 20;
-      int spacing = (panel_width - 20 - (small_knob * 2 + extra_small_btn)) / 2;
+      // --- SIGNAL SECTION ---
+      int signal_start_y = y;
+      y += 12;  // Title padding
 
-      beta_knob_.setBounds(10, y, small_knob, small_knob);
-      exponent_switch_.setBounds(10 + small_knob + spacing, y + (small_knob - extra_small_btn) / 2,
-                                 extra_small_btn, extra_small_btn);
-      pre_gain_knob_.setBounds(panel_width - 10 - small_knob, y, small_knob, small_knob);
-      y += small_knob + 2;
+      // Rolloff, Sq switch, and Pregain side by side
+      int mini_knob = 36;
+      int extra_small_btn = 20;
+      int spacing = (inner_width - (mini_knob * 2 + extra_small_btn)) / 2;
+
+      beta_knob_.setBounds(10 + margin, y, mini_knob, mini_knob);
+      exponent_switch_.setBounds(10 + margin + mini_knob + spacing,
+                                 y + (mini_knob - extra_small_btn) / 2, extra_small_btn, extra_small_btn);
+      pre_gain_knob_.setBounds(panel_width - 10 - margin - mini_knob, y, mini_knob, mini_knob);
+      y += mini_knob + 2;
 
       // Indicator below Pregain
-      pre_gain_display_.setBounds(panel_width - 10 - small_knob, y, small_knob, 14);
+      pre_gain_display_.setBounds(panel_width - 10 - margin - mini_knob, y, mini_knob, 14);
       y += 14 + margin;
 
-      // Signal freq and detune knobs side by side (smaller) with displays below
+      // Signal freq and detune knobs
+      int small_knob = 50;
       int small_display_h = 16;
-      int left_x = 10;
-      int right_x = panel_width - 10 - small_knob;
+      int left_x = 10 + margin;
+      int right_x = panel_width - 10 - margin - small_knob;
       freq_knob_.setBounds(left_x, y, small_knob, small_knob);
       detune_knob_.setBounds(right_x, y, small_knob, small_knob);
       y += small_knob + 2;
       freq_display_.setBounds(left_x, y, small_knob, small_display_h);
       detune_display_.setBounds(right_x, y, small_knob, small_display_h);
-      y += small_display_h + margin;
+      y += small_display_h + 10;
+
+      signal_box_.setBounds(5, signal_start_y, panel_width - 10, y - signal_start_y);
+      y += 12;
+
+      // --- FILTER SECTION ---
+      int filter_start_y = y;
+      y += 12;
 
       // Filter push button
-      filter_switch_.setBounds((panel_width - btn_size) / 2, y + 4, btn_size, btn_size);
-      y += btn_size + 8 + margin;
+      filter_switch_.setBounds((panel_width - btn_size) / 2, y, btn_size, btn_size);
+      y += btn_size + 8;
 
       // Joystick
       filter_joystick_.setBounds((panel_width - js_size) / 2, y, js_size, js_size);
       y += js_size + margin;
 
-      // Cutoff and Resonance knobs side by side (smaller) with displays below
-      int small_filter_knob = 50;
-      int filter_display_h = 16;
-      int filter_left_x = 10;
-      int filter_right_x = panel_width - 10 - small_filter_knob;
-      cutoff_knob_.setBounds(filter_left_x, y, small_filter_knob, small_filter_knob);
-      resonance_knob_.setBounds(filter_right_x, y, small_filter_knob, small_filter_knob);
-      y += small_filter_knob + 2;
-      cutoff_display_.setBounds(filter_left_x, y, small_filter_knob, filter_display_h);
-      resonance_display_.setBounds(filter_right_x, y, small_filter_knob, filter_display_h);
-      y += filter_display_h + margin;
+      // Cutoff and Resonance knobs
+      int left_f_x = 10 + margin;
+      int right_f_x = panel_width - 10 - margin - small_knob;
+      cutoff_knob_.setBounds(left_f_x, y, small_knob, small_knob);
+      resonance_knob_.setBounds(right_f_x, y, small_knob, small_knob);
+      y += small_knob + 2;
+      cutoff_display_.setBounds(left_f_x, y, small_knob, small_display_h);
+      resonance_display_.setBounds(right_f_x, y, small_knob, small_display_h);
+      y += small_display_h + 8;
 
-      // Split angle and depth knobs side by side with displays below
-      int small_split_knob = 50;
-      int split_display_h = 16;
-      int split_left_x = 10;
-      int split_right_x = panel_width - 10 - small_split_knob;
-      split_angle_knob_.setBounds(split_left_x, y, small_split_knob, small_split_knob);
-      split_depth_knob_.setBounds(split_right_x, y, small_split_knob, small_split_knob);
-      y += small_split_knob + 2;
-      angle_display_.setBounds(split_left_x, y, small_split_knob, split_display_h);
-      depth_display_.setBounds(split_right_x, y, small_split_knob, split_display_h);
-      y += split_display_h + 4;
+      // Split angle and depth
+      split_angle_knob_.setBounds(left_f_x, y, small_knob, small_knob);
+      split_depth_knob_.setBounds(right_f_x, y, small_knob, small_knob);
+      y += small_knob + 2;
+      angle_display_.setBounds(left_f_x, y, small_knob, small_display_h);
+      depth_display_.setBounds(right_f_x, y, small_knob, small_display_h);
+      y += small_display_h + 10;
 
-      // Small post-filter scale and rotate knobs with Grid button in between
-      int extra_small_knob = 40;
-      int extra_left_x = 10;
-      int extra_right_x = panel_width - 10 - extra_small_knob;
-      post_scale_knob_.setBounds(extra_left_x, y, extra_small_knob, extra_small_knob);
-      post_rotate_knob_.setBounds(extra_right_x, y, extra_small_knob, extra_small_knob);
-
-      grid_switch_.setBounds((panel_width - btn_size) / 2, y + (extra_small_knob - btn_size) / 2,
-                             btn_size, btn_size);
-      y += extra_small_knob + 15;  // Extra padding
+      filter_box_.setBounds(5, filter_start_y, panel_width - 10, y - filter_start_y);
+      y += 12;
     }
 
-    // Dual vertical sliders side-by-side
+    // --- DISPLAY / OUTPUT SECTION ---
+    int display_start_y = y;
+    y += 12;
+
+    if (oscilloscope_.displayMode() == DisplayMode::XY) {
+      // Small post-filter scale and rotate knobs with Grid button in between
+      int extra_small_knob = 40;
+      int extra_left_x = 10 + margin;
+      int extra_right_x = panel_width - 10 - margin - extra_small_knob;
+      post_scale_knob_.setBounds(extra_left_x, y, extra_small_knob, extra_small_knob);
+      post_rotate_knob_.setBounds(extra_right_x, y, extra_small_knob, extra_small_knob);
+      grid_switch_.setBounds((panel_width - btn_size) / 2, y + (extra_small_knob - btn_size) / 2,
+                             btn_size, btn_size);
+      y += extra_small_knob + 10;
+    }
+    else {
+      // Grid switch alone centered if not in XY
+      grid_switch_.setBounds((panel_width - btn_size) / 2, y, btn_size, btn_size);
+      y += btn_size + 10;
+    }
+
     int slider_w = 40;
     int slider_h = 100;
     int sliders_x = (panel_width - (slider_w * 2 + margin)) / 2;
-
     hue_slider_.setBounds(sliders_x, y, slider_w, slider_h);
     bloom_slider_.setBounds(sliders_x + slider_w + margin, y, slider_w, slider_h);
+    y += slider_h + 8;
 
-    y += slider_h + margin;
-
-    // Volume knob centered below sliders
     volume_knob_.setBounds((panel_width - knob_size) / 2, y, knob_size, knob_size);
-    y += knob_size + margin;
+    y += knob_size + 10;
+
+    display_box_.setBounds(5, display_start_y, panel_width - 10, y - display_start_y);
+    y += 10;
 
     // Oscilloscope fills remaining space
     oscilloscope_.setBounds(0, 0, width() - panel_width, height());
@@ -1866,6 +1925,9 @@ private:
   NumericDisplay angle_display_ { "°" };
   NumericDisplay depth_display_ { "" };
   NumericDisplay pre_gain_display_ { "x" };
+  SectionFrame signal_box_ { "SIGNAL" };
+  SectionFrame filter_box_ { "FILTER" };
+  SectionFrame display_box_ { "DISPLAY" };
   HelpOverlay help_overlay_;
   visage::BloomPostEffect bloom_;
   TestSignalGenerator audio_test_signal_;
@@ -1886,7 +1948,7 @@ private:
   float post_rotate_val_ = 0.0f;
 
   bool shutting_down_ = false;
-  FadeOutTimer fade_out_timer_ { this, [this] { close(); } };
+  FadeOutTimer fade_out_timer_ { this, [this] { visage::closeApplication(); } };
 };
 
 int runExample() {
