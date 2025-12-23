@@ -1527,12 +1527,6 @@ public:
       hue_slider_.setColor(visage::Color::fromAHSV(1.0f, v, 0.85f, 0.9f));
     });
 
-    control_panel_.addScrolledChild(&dynamics_slider_);
-    dynamics_slider_.setValue(&hue_dynamics_);
-    dynamics_slider_.setRange(0.0f, 1.25f);
-    dynamics_slider_.setColor(visage::Color(1.0f, 0.4f, 1.0f, 0.8f));
-    dynamics_slider_.setCallback([this](float v) { oscilloscope_.setHueDynamics(v); });
-
     control_panel_.addScrolledChild(&bloom_slider_);
     bloom_slider_.setValue(&bloom_intensity_);
     bloom_slider_.setLedIntensity(&bloom_intensity_);
@@ -1542,6 +1536,18 @@ public:
       bloom_intensity_ = v;
       bloom_.setBloomIntensity(v);
     });
+
+    control_panel_.addScrolledChild(&dynamics_knob_);
+    dynamics_knob_.setValue(&hue_dynamics_);
+    dynamics_knob_.setRange(0.0f, 1.25f);
+    dynamics_knob_.setColor(visage::Color(1.0f, 0.4f, 1.0f, 0.8f));
+    dynamics_knob_.setCallback([this](float v) { oscilloscope_.setHueDynamics(v); });
+
+    control_panel_.addScrolledChild(&phosphor_knob_);
+    phosphor_knob_.setValue(&phosphor_decay_);
+    phosphor_knob_.setRange(0.0f, 1.0f);
+    phosphor_knob_.setColor(visage::Color(1.0f, 0.6f, 1.0f, 0.6f));
+    phosphor_knob_.setCallback([this](float v) { oscilloscope_.setPhosphorDecay(v); });
 
     // Help overlay (covers entire window)
     addChild(&help_overlay_);
@@ -1603,8 +1609,9 @@ public:
     post_rotate_knob_.setVisible(is_xy);
     volume_knob_.setVisible(show_panel);
     hue_slider_.setVisible(show_panel);
-    dynamics_slider_.setVisible(show_panel);
     bloom_slider_.setVisible(show_panel);
+    dynamics_knob_.setVisible(show_panel);
+    phosphor_knob_.setVisible(show_panel);
 
     signal_box_.setVisible(is_xy);
     filter_box_.setVisible(is_xy);
@@ -1745,19 +1752,30 @@ public:
       y += btn_size + 10;
     }
 
+    // Hue and Bloom sliders on left, Dyn and Phos knobs stacked on right
     int slider_w = 40;
     int slider_h = 50;
-    int sliders_x = (panel_width - (slider_w * 3 + margin * 2)) / 2;
-    hue_slider_.setBounds(sliders_x, y, slider_w, slider_h);
-    dynamics_slider_.setBounds(sliders_x + slider_w + margin, y, slider_w, slider_h);
-    bloom_slider_.setBounds(sliders_x + (slider_w + margin) * 2, y, slider_w, slider_h);
-    y += slider_h + 8;
+    int small_knob = 40;  // Same size as scale/rotate
+    int left_margin = 10;
 
-    volume_knob_.setBounds((panel_width - knob_size) / 2, y, knob_size, knob_size);
-    y += knob_size + 10;
+    // Position sliders on left
+    hue_slider_.setBounds(left_margin, y, slider_w, slider_h);
+    bloom_slider_.setBounds(left_margin + slider_w + margin, y, slider_w, slider_h);
+
+    // Position knobs stacked on right
+    int knobs_x = panel_width - 10 - small_knob;
+    int knob_spacing = (slider_h - small_knob * 2) / 3;  // Distribute vertically
+    dynamics_knob_.setBounds(knobs_x, y + knob_spacing, small_knob, small_knob);
+    phosphor_knob_.setBounds(knobs_x, y + knob_spacing * 2 + small_knob, small_knob, small_knob);
+
+    y += slider_h + 8;
 
     display_box_.setBounds(5, display_start_y, panel_width - 10, y - display_start_y);
     y += 10;
+
+    // Volume knob below Display frame
+    volume_knob_.setBounds((panel_width - knob_size) / 2, y, knob_size, knob_size);
+    y += knob_size + 10;
 
     // Oscilloscope fills remaining space
     oscilloscope_.setBounds(0, 0, width() - panel_width, height());
@@ -1977,8 +1995,9 @@ private:
   FilterKnob post_rotate_knob_ { "Rotate" };
   FilterKnob volume_knob_ { "Vol" };
   FilterSlider hue_slider_ { "Hue" };
-  FilterSlider dynamics_slider_ { "Dyn" };
   FilterSlider bloom_slider_ { "Bloom" };
+  FilterKnob dynamics_knob_ { "Dyn" };
+  FilterKnob phosphor_knob_ { "Phos" };
 #if VISAGE_EMSCRIPTEN
   float volume_val_ = 0.0f;
 #else
@@ -2010,6 +2029,7 @@ private:
   bool bloom_enabled_ = true;
   float waveform_hue_ = 170.0f;
   float hue_dynamics_ = 0.15f;  // Velocity-based hue shift sensitivity
+  float phosphor_decay_ = 0.8f;  // Phosphor decay rate
   float filter_cutoff_ = 150.0f;
   float filter_resonance_ = 1.0f;
   float filter_resonance_pct_ = 100.0f;  // For display (0-100%)
