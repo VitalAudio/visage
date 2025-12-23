@@ -505,16 +505,12 @@ public:
           test_generator_->getSample(l, r);
 
           if (filter_enabled_) {
-            if (stereo_split_mode_) {
-              double mono = (static_cast<double>(l) + static_cast<double>(r)) * 0.5;
-              auto xy = stereo_router_.process(mono);
-              l = static_cast<float>(xy.x);
-              r = static_cast<float>(xy.y);
-            }
-            else {
-              auto outputs = svf_.process(static_cast<double>(r));
-              r = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
-            }
+            // Process both channels through filter with unified morpher
+            double mono = (static_cast<double>(l) + static_cast<double>(r)) * 0.5;
+            auto outputs = svf_.process(mono);
+            auto xy = morpher_.applyXY(outputs.lp, outputs.bp, outputs.hp);
+            l = static_cast<float>(xy.x);
+            r = static_cast<float>(xy.y);
           }
           ring_buffer_.write(l, r);
         }
@@ -673,16 +669,12 @@ private:
         }
 
         if (filter_enabled_) {
-          if (stereo_split_mode_) {
-            double mono = (static_cast<double>(l) + static_cast<double>(r)) * 0.5;
-            auto xy = stereo_router_.process(mono);
-            l = static_cast<float>(xy.x);
-            r = static_cast<float>(xy.y);
-          }
-          else {
-            auto outputs = svf_.process(static_cast<double>(r));
-            r = static_cast<float>(morpher_.apply(outputs.lp, outputs.bp, outputs.hp));
-          }
+          // Process both channels through filter with unified morpher
+          double mono = (static_cast<double>(l) + static_cast<double>(r)) * 0.5;
+          auto outputs = svf_.process(mono);
+          auto xy = morpher_.applyXY(outputs.lp, outputs.bp, outputs.hp);
+          l = static_cast<float>(xy.x);
+          r = static_cast<float>(xy.y);
         }
 
         if (!paused_) {
@@ -1072,7 +1064,7 @@ public:
       const float d = std::sqrt(dx * dx + dy * dy);
 
       // Cap n to prevent excessive draw calls with noise-like high-frequency movement
-      const int n = std::min(50, std::max(static_cast<int>(std::ceil(d / kMaxDist)), 1));
+      const int n = std::min(100, std::max(static_cast<int>(std::ceil(d / kMaxDist)), 1));
       const float nr = 1.0f / static_cast<float>(n);
       const float ix = dx * nr;
       const float iy = dy * nr;
@@ -1277,21 +1269,17 @@ public:
     resonance_display_.setColor(visage::Color(1.0f, 0.9f, 0.6f, 0.4f));
     resonance_display_.setDecimals(0);
 
-    control_panel_.addScrolledChild(&split_switch_);
-    split_switch_.setValue(false);
-    split_switch_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
-    split_switch_.setCallback([this](bool v) {
-      oscilloscope_.setStereoSplitMode(v);
-      split_selector_.setEnabled(v && filter_switch_.value());
-    });
+    control_panel_.addScrolledChild(&split_angle_knob_);
+    split_angle_knob_.setValue(&split_angle_);
+    split_angle_knob_.setRange(0.0f, 360.0f);
+    split_angle_knob_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
+    split_angle_knob_.setCallback([this](float v) { oscilloscope_.morpher().setSplitAngle(v); });
 
-    control_panel_.addScrolledChild(&split_selector_);
-    split_selector_.setLabel("Split");
-    split_selector_.setOptions({ "LP/HP", "BP/AP", "BR/AP", "LP/BP", "AP/HP", "BP/BR", "Morph" });
-    split_selector_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
-    split_selector_.setCallback([this](int i) {
-      oscilloscope_.stereoRouter().setSplitMode(static_cast<StereoFilterRouter::SplitMode>(i));
-    });
+    control_panel_.addScrolledChild(&split_depth_knob_);
+    split_depth_knob_.setValue(&split_depth_);
+    split_depth_knob_.setRange(-1.0f, 1.0f);
+    split_depth_knob_.setColor(visage::Color(1.0f, 0.3f, 0.7f, 0.9f));
+    split_depth_knob_.setCallback([this](float v) { oscilloscope_.morpher().setSplitDepth(v); });
 
     control_panel_.addScrolledChild(&volume_knob_);
     volume_knob_.setValue(&volume_val_);
@@ -1354,9 +1342,9 @@ public:
     detune_knob_.setVisible(is_xy);
     freq_display_.setVisible(is_xy);
     detune_display_.setVisible(is_xy);
-    split_selector_.setVisible(is_xy);
+    split_angle_knob_.setVisible(is_xy);
+    split_depth_knob_.setVisible(is_xy);
     filter_switch_.setVisible(is_xy);
-    split_switch_.setVisible(is_xy);
     volume_knob_.setVisible(show_panel);
     hue_slider_.setVisible(show_panel);
     bloom_slider_.setVisible(show_panel);
@@ -1372,9 +1360,8 @@ public:
     filter_joystick_.setEnabled(enabled);
     cutoff_knob_.setEnabled(enabled);
     resonance_knob_.setEnabled(enabled);
-    split_switch_.setEnabled(enabled);
-    // Split selector only enabled if both filter AND split switch are on
-    split_selector_.setEnabled(enabled && split_switch_.value());
+    split_angle_knob_.setEnabled(enabled);
+    split_depth_knob_.setEnabled(enabled);
   }
 
   void resized() override {
@@ -1435,13 +1422,11 @@ public:
       resonance_display_.setBounds(10 + knob_size + 4, y + (knob_size - display_h) / 2, display_w, display_h);
       y += knob_size + margin;
 
-      // Split switch
-      split_switch_.setBounds(10, y, panel_width - 20, switch_h);
-      y += switch_h + margin;
-
-      // Split mode selector
-      split_selector_.setBounds(10, y, panel_width - 20, selector_h);
-      y += selector_h + 20;  // Extra padding
+      // Split knobs side by side
+      int small_split_knob = 50;
+      split_angle_knob_.setBounds(10, y, small_split_knob, small_split_knob);
+      split_depth_knob_.setBounds(panel_width - 10 - small_split_knob, y, small_split_knob, small_split_knob);
+      y += small_split_knob + 20;  // Extra padding
     }
 
     // Dual vertical sliders side-by-side
@@ -1653,9 +1638,9 @@ private:
   Oscilloscope oscilloscope_;
   ControlPanel control_panel_;
   ModeSelector mode_selector_;
-  ModeSelector split_selector_;
   ToggleSwitch filter_switch_ { "Filter" };
-  ToggleSwitch split_switch_ { "Split" };
+  FilterKnob split_angle_knob_ { "Angle", false, false, true };  // bidirectional
+  FilterKnob split_depth_knob_ { "Depth", false, false, true };  // bidirectional
   FilterKnob volume_knob_ { "Vol" };
   FilterSlider hue_slider_ { "Hue" };
   FilterSlider bloom_slider_ { "Bloom" };
@@ -1688,6 +1673,8 @@ private:
   float signal_beta_ = 0.00f;
   float signal_freq_ = 80.0f;
   float signal_detune_ = 1.003f;
+  float split_angle_ = 0.0f;  // 0-360 degrees
+  float split_depth_ = 0.0f;  // -1 to +1
 };
 
 int runExample() {

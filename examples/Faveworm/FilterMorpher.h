@@ -51,6 +51,12 @@ public:
   };
 
   Outputs process(double in) {
+    // Attenuate input to operate below saturation knee (preserves resonance)
+    constexpr double kInputGain = 0.5;
+    constexpr double kOutputGain = 2.0;  // Compensate output level
+
+    in *= kInputGain;
+
     // Soft-clip the input combined with feedback - this is where energy enters
     // At high resonance the filter self-oscillates; saturation limits amplitude
     double v0 = softClip(in - k_ * z1_ - z2_);
@@ -63,7 +69,7 @@ public:
     z1_ = 2.0 * softClip(bp) - z1_;
     z2_ = 2.0 * softClip(lp) - z2_;
 
-    return { lp, bp, hp };
+    return { lp * kOutputGain, bp * kOutputGain, hp * kOutputGain };
   }
 
   void reset() { z1_ = z2_ = 0.0; }
@@ -224,6 +230,7 @@ private:
 
 // 360-degree Filter Morphing Controller
 // Maps polar coordinates to LP/BP/HP/BR with allpass at center
+// Extended with split offsets for stereo: Y can be rotated/shifted relative to X
 class FilterMorpher {
 public:
   static constexpr double kPi = 3.14159265358979323846;
@@ -241,24 +248,59 @@ public:
     updateWeights();
   }
 
+  // Split offset controls
+  // angle: 0-360 degrees, rotates Y's filter position relative to X
+  void setSplitAngle(float degrees) { split_angle_ = degrees * static_cast<float>(kPi) / 180.0f; }
+  float splitAngle() const { return split_angle_ * 180.0f / static_cast<float>(kPi); }
+
+  // depth: -1 to +1, adjusts radius offset
+  // negative = Y toward center (AP), positive = X toward center (AP)
+  void setSplitDepth(float d) { split_depth_ = std::clamp(d, -1.0f, 1.0f); }
+  float splitDepth() const { return split_depth_; }
+
+  bool hasSplit() const { return std::abs(split_angle_) > 0.01f || std::abs(split_depth_) > 0.01f; }
+
   float posX() const { return pos_x_; }
   float posY() const { return pos_y_; }
   float radius() const { return radius_; }
   float angle() const { return angle_; }
 
-  // Apply morph to filter outputs, returns mixed result
+  // Apply morph to filter outputs for a single channel (X)
   double apply(double lp, double bp, double hp) const {
-    // Notch = LP + HP (cancels BP)
-    double notch = lp + hp;
-    // Allpass approximation = LP + HP - BP (phase inverted BP)
-    double allpass = lp + hp - bp;
+    return applyAtPosition(lp, bp, hp, radius_, angle_);
+  }
 
-    // Mix filter modes by weights
-    double filtered = w_lp_ * lp + w_bp_ * bp + w_hp_ * hp + w_br_ * notch;
+  // Apply morph with split offsets, returns both X and Y outputs
+  struct StereoOut {
+    double x, y;
+  };
+  StereoOut applyXY(double lp, double bp, double hp) const {
+    // X channel: use base position
+    double x_out = applyAtPosition(lp, bp, hp, radius_, angle_);
 
-    // Blend between filtered and allpass based on radius
-    // Center (r=0) = allpass, Edge (r=1) = fully filtered
-    return (1.0f - radius_) * allpass + radius_ * filtered;
+    // Y channel: apply offset to position
+    float y_angle = angle_ + split_angle_;
+    // Wrap angle to 0-2π
+    while (y_angle >= static_cast<float>(kTwoPi))
+      y_angle -= static_cast<float>(kTwoPi);
+    while (y_angle < 0)
+      y_angle += static_cast<float>(kTwoPi);
+
+    // Apply depth: negative pushes Y toward center, positive pushes X toward center
+    float x_radius = radius_;
+    float y_radius = radius_;
+    if (split_depth_ < 0) {
+      // Y toward center
+      y_radius = radius_ * (1.0f + split_depth_);  // depth=-1 means y_radius=0
+    }
+    else if (split_depth_ > 0) {
+      // X toward center
+      x_radius = radius_ * (1.0f - split_depth_);  // depth=+1 means x_radius=0
+      x_out = applyAtPosition(lp, bp, hp, x_radius, angle_);
+    }
+
+    double y_out = applyAtPosition(lp, bp, hp, y_radius, y_angle);
+    return { x_out, y_out };
   }
 
   // Weight accessors for visualization
@@ -268,17 +310,29 @@ public:
   float wBR() const { return w_br_; }
 
 private:
-  void updateWeights() {
-    radius_ = std::sqrt(pos_x_ * pos_x_ + pos_y_ * pos_y_);
-    radius_ = std::min(radius_, 1.0f);
+  // Compute filter mix at a specific polar position
+  double applyAtPosition(double lp, double bp, double hp, float r, float a) const {
+    // Notch = LP + HP (cancels BP)
+    double notch = lp + hp;
+    // Allpass approximation = LP + HP - BP (phase inverted BP)
+    double allpass = lp + hp - bp;
 
-    angle_ = std::atan2(pos_y_, pos_x_);
-    if (angle_ < 0)
-      angle_ += static_cast<float>(kTwoPi);
+    // Compute weights for this angle
+    float w_lp, w_bp, w_hp, w_br;
+    computeWeights(a, w_lp, w_bp, w_hp, w_br);
 
+    // Mix filter modes by weights
+    double filtered = w_lp * lp + w_bp * bp + w_hp * hp + w_br * notch;
+
+    // Blend between filtered and allpass based on radius
+    // Center (r=0) = allpass, Edge (r=1) = fully filtered
+    return (1.0f - r) * allpass + r * filtered;
+  }
+
+  static void computeWeights(float angle, float& w_lp, float& w_bp, float& w_hp, float& w_br) {
     // Map angle to 4 modes evenly spaced:
     // 0 (right) = HP, pi/2 (up) = BP, pi (left) = LP, 3pi/2 (down) = BR
-    float a = angle_ / static_cast<float>(kTwoPi);
+    float a = angle / static_cast<float>(kTwoPi);
 
     // Calculate weights using smooth cosine crossfades
     auto smoothWeight = [](float center, float a) {
@@ -289,23 +343,36 @@ private:
       return std::max(0.0f, w * w);
     };
 
-    w_hp_ = smoothWeight(0.0f, a);
-    w_bp_ = smoothWeight(0.25f, a);
-    w_lp_ = smoothWeight(0.5f, a);
-    w_br_ = smoothWeight(0.75f, a);
+    w_hp = smoothWeight(0.0f, a);
+    w_bp = smoothWeight(0.25f, a);
+    w_lp = smoothWeight(0.5f, a);
+    w_br = smoothWeight(0.75f, a);
 
     // Handle wrap-around for HP
-    w_hp_ = std::max(w_hp_, smoothWeight(1.0f, a));
+    w_hp = std::max(w_hp, smoothWeight(1.0f, a));
 
     // Normalize weights
-    float sum = w_lp_ + w_bp_ + w_hp_ + w_br_ + 0.0001f;
-    w_lp_ /= sum;
-    w_bp_ /= sum;
-    w_hp_ /= sum;
-    w_br_ /= sum;
+    float sum = w_lp + w_bp + w_hp + w_br + 0.0001f;
+    w_lp /= sum;
+    w_bp /= sum;
+    w_hp /= sum;
+    w_br /= sum;
+  }
+
+  void updateWeights() {
+    radius_ = std::sqrt(pos_x_ * pos_x_ + pos_y_ * pos_y_);
+    radius_ = std::min(radius_, 1.0f);
+
+    angle_ = std::atan2(pos_y_, pos_x_);
+    if (angle_ < 0)
+      angle_ += static_cast<float>(kTwoPi);
+
+    computeWeights(angle_, w_lp_, w_bp_, w_hp_, w_br_);
   }
 
   float pos_x_ = 0.0f, pos_y_ = 0.0f;
   float radius_ = 0.0f, angle_ = 0.0f;
   float w_lp_ = 0.25f, w_bp_ = 0.25f, w_hp_ = 0.25f, w_br_ = 0.25f;
+  float split_angle_ = 0.0f;  // radians
+  float split_depth_ = 0.0f;  // -1 to +1
 };
