@@ -1474,7 +1474,7 @@ public:
     control_panel_.addScrolledChild(&bloom_slider_);
     bloom_slider_.setValue(&bloom_intensity_);
     bloom_slider_.setLedIntensity(&bloom_intensity_);
-    bloom_slider_.setRange(0.0f, 2.5f);
+    bloom_slider_.setRange(0.0f, 1.25f);
     bloom_slider_.setColor(visage::Color(1.0f, 1.0f, 0.8f, 0.2f));
     bloom_slider_.setCallback([this](float v) {
       bloom_intensity_ = v;
@@ -1680,7 +1680,7 @@ public:
     }
 
     int slider_w = 40;
-    int slider_h = 100;
+    int slider_h = 50;
     int sliders_x = (panel_width - (slider_w * 2 + margin)) / 2;
     hue_slider_.setBounds(sliders_x, y, slider_w, slider_h);
     bloom_slider_.setBounds(sliders_x + slider_w + margin, y, slider_w, slider_h);
@@ -1875,7 +1875,7 @@ public:
       pre_gain_knob_.redraw();
     }
     else if (name == "bloom") {
-      bloom_intensity_ = std::clamp(value, 0.0f, 2.5f);
+      bloom_intensity_ = std::clamp(value, 0.0f, 1.25f);
       bloom_.setBloomIntensity(bloom_intensity_);
     }
     else if (name == "hue") {
