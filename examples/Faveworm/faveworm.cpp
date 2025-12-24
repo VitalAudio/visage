@@ -78,6 +78,12 @@ static constexpr float kDefaultPostScale = 1.0f;
 static constexpr float kDefaultPostRotate = 0.0f;
 static constexpr float kDefaultTriggerThreshold = 0.0f;
 static constexpr float kDefaultCrtIntensity = 0.0f;  // CRT effect intensity (0 = off, 1 = full)
+static constexpr float kDefaultSlew = 0.0f;  // XY slew filter (0 = no filtering, 1 = max smoothing)
+
+// XY sample size options (128 to 2048)
+static constexpr int kSampleSizeOptions[] = { 128, 256, 512, 1024, 2048 };
+static constexpr int kNumSampleSizeOptions = sizeof(kSampleSizeOptions) / sizeof(kSampleSizeOptions[0]);
+static constexpr int kDefaultSampleSizeIndex = 2;  // Default to 512
 
 // Help overlay showing keyboard shortcuts
 class HelpOverlay : public visage::Frame {
@@ -1024,6 +1030,15 @@ public:
   }
   float crtIntensity() const { return crt_intensity_; }
 
+  void setSlew(float slew) { slew_ = slew; }
+  float slew() const { return slew_; }
+
+  void setSampleSizeIndex(int index) {
+    sample_size_index_ = std::clamp(index, 0, kNumSampleSizeOptions - 1);
+  }
+  int sampleSizeIndex() const { return sample_size_index_; }
+  int sampleSize() const { return kSampleSizeOptions[sample_size_index_]; }
+
   void setDisplayMode(DisplayMode mode) { display_mode_ = mode; }
   DisplayMode displayMode() const { return display_mode_; }
   void cycleDisplayMode() {
@@ -1137,7 +1152,7 @@ public:
     // Use audio player data for all primary modes
     if (audio_player_ && audio_player_->isPlaying()) {
       if (display_mode_ == DisplayMode::XY) {
-        const int num_samples = 512;
+        const int num_samples = sampleSize();
         std::vector<float> left, right;
         audio_player_->getCurrentSamples(left, right, num_samples);
 
@@ -1146,6 +1161,17 @@ public:
           // Store raw signal values (clamped for safety)
           samples[i].x = std::isfinite(left[i]) ? std::clamp(left[i], -2.0f, 2.0f) : 0.0f;
           samples[i].y = std::isfinite(right[i]) ? std::clamp(right[i], -2.0f, 2.0f) : 0.0f;
+        }
+
+        // Apply slew filter (one-pole low-pass) to smooth jittery lines
+        if (slew_ > 0.001f) {
+          float alpha = 1.0f - slew_;  // Higher slew_ = more smoothing
+          for (int i = 0; i < num_samples; ++i) {
+            prev_slew_x_ = prev_slew_x_ + alpha * (samples[i].x - prev_slew_x_);
+            prev_slew_y_ = prev_slew_y_ + alpha * (samples[i].y - prev_slew_y_);
+            samples[i].x = prev_slew_x_;
+            samples[i].y = prev_slew_y_;
+          }
         }
         return;
       }
@@ -1406,6 +1432,10 @@ private:
   bool grid_enabled_ = true;
   float crt_intensity_ = kDefaultCrtIntensity;
   std::unique_ptr<visage::ShaderPostEffect> crt_effect_;
+  float slew_ = kDefaultSlew;
+  float prev_slew_x_ = 0.0f;  // Previous filtered X value for slew filter
+  float prev_slew_y_ = 0.0f;  // Previous filtered Y value for slew filter
+  int sample_size_index_ = kDefaultSampleSizeIndex;
 };
 
 class ExampleEditor;
@@ -1637,6 +1667,21 @@ public:
     crt_knob_.setColor(visage::Color(1.0f, 0.3f, 0.5f, 0.7f));  // Reddish-pink for retro feel
     crt_knob_.setCallback([this](float v) { oscilloscope_.setCrtIntensity(v); });
 
+    control_panel_.addScrolledChild(&slew_knob_);
+    slew_knob_.setValue(&slew_);
+    slew_knob_.setRange(0.0f, 0.99f);
+    slew_knob_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.7f));  // Cyan-ish
+    slew_knob_.setCallback([this](float v) { oscilloscope_.setSlew(v); });
+
+    control_panel_.addScrolledChild(&samples_knob_);
+    samples_knob_.setValue(&sample_size_index_);
+    samples_knob_.setRange(0.0f, static_cast<float>(kNumSampleSizeOptions - 1));
+    samples_knob_.setColor(visage::Color(1.0f, 0.7f, 0.8f, 0.5f));  // Warm orange
+    samples_knob_.setCallback([this](float v) {
+      int index = static_cast<int>(std::round(v));
+      oscilloscope_.setSampleSizeIndex(index);
+    });
+
     // Help overlay (covers entire window)
     addChild(&help_overlay_);
 
@@ -1647,6 +1692,8 @@ public:
     // Initialize oscilloscope parameters to match UI defaults
     oscilloscope_.setHueDynamics(hue_dynamics_);
     oscilloscope_.setPhosphorDecay(phosphor_decay_);
+    oscilloscope_.setSlew(slew_);
+    oscilloscope_.setSampleSizeIndex(static_cast<int>(sample_size_index_));
 
     // Initialize panel visibility
     updatePanelVisibility();
@@ -1856,10 +1903,10 @@ public:
       y += btn_size + 10;
     }
 
-    // Hue slider, 2x2 knob grid (Dyn/Phos/CRT), Bloom slider - arranged horizontally
+    // Hue slider, 3-row knob grid, Bloom slider - arranged horizontally
     int slider_w = 30;  // Narrower sliders to make room
-    int slider_h = 70;  // Taller sliders for better vertical space usage
-    int small_knob = 32;  // Smaller knobs to fit 2x2 grid
+    int slider_h = 108;  // Taller sliders to match 3-row knob grid
+    int small_knob = 32;  // Smaller knobs to fit grid
     int left_margin = 8;
 
     // Calculate spacing: slider | spacing | 2 knobs | spacing | slider
@@ -1874,18 +1921,22 @@ public:
     hue_slider_.setBounds(x_pos, y, slider_w, slider_h);
     x_pos += slider_w + spacing;
 
-    // 2x2 grid of knobs in the middle
+    // 3x2 grid of knobs in the middle (with bottom row having single centered knob)
     int knob_gap = 4;
-    int grid_height = small_knob * 2 + knob_gap;
+    int grid_height = small_knob * 3 + knob_gap * 2;
     int knob_y_top = y + (slider_h - grid_height) / 2;
 
     // Top row: Dyn, Phos
     dynamics_knob_.setBounds(x_pos, knob_y_top, small_knob, small_knob);
     phosphor_knob_.setBounds(x_pos + small_knob + knob_gap, knob_y_top, small_knob, small_knob);
 
-    // Bottom row: CRT (centered under the pair)
-    int crt_x = x_pos + (knob_pair_width - small_knob) / 2;
-    crt_knob_.setBounds(crt_x, knob_y_top + small_knob + knob_gap, small_knob, small_knob);
+    // Middle row: CRT, Slew
+    crt_knob_.setBounds(x_pos, knob_y_top + small_knob + knob_gap, small_knob, small_knob);
+    slew_knob_.setBounds(x_pos + small_knob + knob_gap, knob_y_top + small_knob + knob_gap, small_knob, small_knob);
+
+    // Bottom row: Samp (centered)
+    int samp_x = x_pos + (knob_pair_width - small_knob) / 2;
+    samples_knob_.setBounds(samp_x, knob_y_top + (small_knob + knob_gap) * 2, small_knob, small_knob);
 
     x_pos += knob_pair_width + spacing;
 
@@ -2099,6 +2150,8 @@ private:
   FilterKnob dynamics_knob_ { "Dyn" };
   FilterKnob phosphor_knob_ { "Phos" };
   FilterKnob crt_knob_ { "CRT" };
+  FilterKnob slew_knob_ { "Slew" };
+  FilterKnob samples_knob_ { "Samp" };
 #if VISAGE_EMSCRIPTEN
   float volume_val_ = 0.0f;
 #else
@@ -2144,6 +2197,8 @@ private:
   float post_rotate_val_ = kDefaultPostRotate;
   float trigger_threshold_ = kDefaultTriggerThreshold;
   float crt_intensity_ = kDefaultCrtIntensity;  // CRT effect ensemble intensity
+  float slew_ = kDefaultSlew;  // XY slew filter amount
+  float sample_size_index_ = static_cast<float>(kDefaultSampleSizeIndex);  // XY sample size selector
 
   bool shutting_down_ = false;
   FadeOutTimer fade_out_timer_ { this, [this] { visage::closeApplication(); } };
