@@ -136,3 +136,57 @@ TEST_CASE("Testing animated graph lines", "[integration]") {
     editor.drawWindow();
   }
 }
+
+TEST_CASE("Testing grandchild overlapping order", "[integration]") {
+  ApplicationEditor editor;
+  visage::Frame trigger;
+
+  visage::Frame container;
+  visage::Frame wrapper;
+  visage::Frame bottom;
+  visage::Frame top;
+
+  editor.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff333333);
+    canvas.fill();
+  };
+
+  trigger.setBounds(20, 20, 100, 100);
+  trigger.onDraw() = [](visage::Canvas& c) {
+    c.setColor(0xFFFF0000);
+    c.fill();
+  };
+
+  container.setBounds(150, 20, 100, 100);
+  wrapper.setBounds(0, 0, 100, 100);
+  bottom.setBounds(0, 0, 100, 100);
+  top.setBounds(0, 0, 100, 100);
+
+  container.addChild(&wrapper);
+  wrapper.addChild(&bottom);
+  container.addChild(&top);
+
+  bottom.onDraw() = [](visage::Canvas& c) {
+    c.setColor(0xFF00FF00);
+    c.roundedRectangle(0, 0, 100, 100, 5);
+  };
+
+  top.onDraw() = [](visage::Canvas& c) {
+    c.setColor(0xFFFFFF00);
+    c.roundedRectangle(0, 0, 100, 100, 5);
+  };
+
+  editor.addChild(&trigger);
+  editor.addChild(&container);
+  editor.setWindowless(300, 150);
+  Screenshot screenshot = editor.takeScreenshot();
+  uint8_t* data = screenshot.data();
+
+  int y = 30;
+  int x = 160;
+  int index = (y * 300 + x) * 4;
+  REQUIRE(data[index] == 0xff);
+  REQUIRE(data[index + 1] == 0xff);
+  REQUIRE(data[index + 2] == 0x00);
+  REQUIRE(data[index + 3] == 0xff);
+}
