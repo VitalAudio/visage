@@ -164,6 +164,11 @@ namespace visage {
 
   template<typename VertexType = ShapeVertex>
   struct Primitive : Shape<VertexType> {
+    static void* taggedPointer(void* pointer, int tag) {
+      uintptr_t int_value = reinterpret_cast<uintptr_t>(pointer);
+      return reinterpret_cast<void*>(int_value | uintptr_t(tag) & 3);
+    }
+
     Primitive(const void* batch_id, const ClampBounds& clamp, const PackedBrush* brush, float x,
               float y, float width, float height) :
         Shape<VertexType>(batch_id, clamp, brush, x, y, width, height) { }
@@ -496,11 +501,6 @@ namespace visage {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    static void* taggedPointer(void* pointer, int tag) {
-      uintptr_t int_value = reinterpret_cast<uintptr_t>(pointer);
-      return reinterpret_cast<void*>(int_value | uintptr_t(tag) & 3);
-    }
-
     GraphFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
                      float height, float center, const GraphData& graph_data, ImageAtlas* data_atlas) :
         Primitive(taggedPointer(data_atlas, 1), clamp, brush, x, y, width, height),
@@ -529,8 +529,8 @@ namespace visage {
 
     HeatMapWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
                    float height, const HeatMapData& heat_map_data, ImageAtlas* data_atlas) :
-        Primitive(data_atlas, clamp, brush, x, y, width, height), data_atlas(data_atlas),
-        data(heat_map_data),
+        Primitive(taggedPointer(data_atlas, 2), clamp, brush, x, y, width, height),
+        data_atlas(data_atlas), data(heat_map_data),
         packed_data(data_atlas->addData(data.data(), data.width(), data.height())) {
       thickness = heat_map_data.height();
       pixel_width = heat_map_data.octaves();
