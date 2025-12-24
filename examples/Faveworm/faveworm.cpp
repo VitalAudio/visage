@@ -80,10 +80,10 @@ static constexpr float kDefaultTriggerThreshold = 0.0f;
 static constexpr float kDefaultCrtIntensity = 0.0f;  // CRT effect intensity (0 = off, 1 = full)
 static constexpr float kDefaultSlew = 0.0f;  // XY slew filter (0 = no filtering, 1 = max smoothing)
 
-// XY sample size options (128 to 2048)
-static constexpr int kSampleSizeOptions[] = { 128, 256, 512, 1024, 2048 };
-static constexpr int kNumSampleSizeOptions = sizeof(kSampleSizeOptions) / sizeof(kSampleSizeOptions[0]);
-static constexpr int kDefaultSampleSizeIndex = 2;  // Default to 512
+// Rendering step multiplier (1.0 = base, higher = coarser/faster rendering)
+static constexpr float kDefaultStepMult = 1.0f;
+static constexpr float kMinStepMult = 0.5f;
+static constexpr float kMaxStepMult = 5.0f;
 
 // Help overlay showing keyboard shortcuts
 class HelpOverlay : public visage::Frame {
@@ -1033,11 +1033,11 @@ public:
   void setSlew(float slew) { slew_ = slew; }
   float slew() const { return slew_; }
 
-  void setSampleSizeIndex(int index) {
-    sample_size_index_ = std::clamp(index, 0, kNumSampleSizeOptions - 1);
-  }
-  int sampleSizeIndex() const { return sample_size_index_; }
-  int sampleSize() const { return kSampleSizeOptions[sample_size_index_]; }
+  void setStepMult(float mult) { step_mult_ = mult; }
+  float stepMult() const { return step_mult_; }
+
+  void setBetaStepCoupled(bool coupled) { beta_step_coupled_ = coupled; }
+  bool betaStepCoupled() const { return beta_step_coupled_; }
 
   void setDisplayMode(DisplayMode mode) { display_mode_ = mode; }
   DisplayMode displayMode() const { return display_mode_; }
@@ -1152,7 +1152,7 @@ public:
     // Use audio player data for all primary modes
     if (audio_player_ && audio_player_->isPlaying()) {
       if (display_mode_ == DisplayMode::XY) {
-        const int num_samples = sampleSize();
+        const int num_samples = 1024;
         std::vector<float> left, right;
         audio_player_->getCurrentSamples(left, right, num_samples);
 
@@ -1307,8 +1307,13 @@ public:
       const float dy = p2.y - y;
       const float d = std::sqrt(dx * dx + dy * dy);
 
-      float beta = std::abs(static_cast<float>(testSignal().beta()));
-      float step_dist = kMaxDist * (1.0f + 0.2f * beta * beta);
+      float step_dist;
+      if (beta_step_coupled_) {
+        float beta = std::abs(static_cast<float>(testSignal().beta()));
+        step_dist = kMaxDist * (1.0f + 0.2f * beta * beta);
+      } else {
+        step_dist = kMaxDist * step_mult_;
+      }
 
       const int n = std::min(100, std::max(static_cast<int>(std::ceil(d / step_dist)), 1));
       const float nr = 1.0f / static_cast<float>(n);
@@ -1435,7 +1440,8 @@ private:
   float slew_ = kDefaultSlew;
   float prev_slew_x_ = 0.0f;  // Previous filtered X value for slew filter
   float prev_slew_y_ = 0.0f;  // Previous filtered Y value for slew filter
-  int sample_size_index_ = kDefaultSampleSizeIndex;
+  float step_mult_ = kDefaultStepMult;  // Rendering step multiplier
+  bool beta_step_coupled_ = true;  // Couple beta to step distance (default on)
 };
 
 class ExampleEditor;
@@ -1673,13 +1679,20 @@ public:
     slew_knob_.setColor(visage::Color(1.0f, 0.5f, 0.9f, 0.7f));  // Cyan-ish
     slew_knob_.setCallback([this](float v) { oscilloscope_.setSlew(v); });
 
-    control_panel_.addScrolledChild(&samples_knob_);
-    samples_knob_.setValue(&sample_size_index_);
-    samples_knob_.setRange(0.0f, static_cast<float>(kNumSampleSizeOptions - 1));
-    samples_knob_.setColor(visage::Color(1.0f, 0.7f, 0.8f, 0.5f));  // Warm orange
-    samples_knob_.setCallback([this](float v) {
-      int index = static_cast<int>(std::round(v));
-      oscilloscope_.setSampleSizeIndex(index);
+    control_panel_.addScrolledChild(&step_knob_);
+    step_knob_.setValue(&step_mult_);
+    step_knob_.setRange(kMinStepMult, kMaxStepMult);
+    step_knob_.setColor(visage::Color(1.0f, 0.6f, 0.7f, 0.6f));  // Light pink
+    step_knob_.setCallback([this](float v) { oscilloscope_.setStepMult(v); });
+    step_knob_.setEnabled(false);  // Disabled by default (beta coupled)
+
+    control_panel_.addScrolledChild(&beta_step_switch_);
+    beta_step_switch_.setValue(true);  // Coupled by default
+    beta_step_switch_.setColor(visage::Color(1.0f, 0.6f, 0.7f, 0.6f));
+    beta_step_switch_.setCallback([this](bool v) {
+      beta_step_coupled_ = v;
+      oscilloscope_.setBetaStepCoupled(v);
+      step_knob_.setEnabled(!v);  // Enable Step knob when uncoupled
     });
 
     // Help overlay (covers entire window)
@@ -1693,7 +1706,8 @@ public:
     oscilloscope_.setHueDynamics(hue_dynamics_);
     oscilloscope_.setPhosphorDecay(phosphor_decay_);
     oscilloscope_.setSlew(slew_);
-    oscilloscope_.setSampleSizeIndex(static_cast<int>(sample_size_index_));
+    oscilloscope_.setStepMult(step_mult_);
+    oscilloscope_.setBetaStepCoupled(beta_step_coupled_);
 
     // Initialize panel visibility
     updatePanelVisibility();
@@ -1934,9 +1948,9 @@ public:
     crt_knob_.setBounds(x_pos, knob_y_top + small_knob + knob_gap, small_knob, small_knob);
     slew_knob_.setBounds(x_pos + small_knob + knob_gap, knob_y_top + small_knob + knob_gap, small_knob, small_knob);
 
-    // Bottom row: Samp (centered)
-    int samp_x = x_pos + (knob_pair_width - small_knob) / 2;
-    samples_knob_.setBounds(samp_x, knob_y_top + (small_knob + knob_gap) * 2, small_knob, small_knob);
+    // Bottom row: Step knob, B toggle (side by side)
+    step_knob_.setBounds(x_pos, knob_y_top + (small_knob + knob_gap) * 2, small_knob, small_knob);
+    beta_step_switch_.setBounds(x_pos + small_knob + knob_gap, knob_y_top + (small_knob + knob_gap) * 2, small_knob, small_knob);
 
     x_pos += knob_pair_width + spacing;
 
@@ -2151,7 +2165,8 @@ private:
   FilterKnob phosphor_knob_ { "Phos" };
   FilterKnob crt_knob_ { "CRT" };
   FilterKnob slew_knob_ { "Slew" };
-  FilterKnob samples_knob_ { "Samp" };
+  FilterKnob step_knob_ { "Step" };
+  PushButtonSwitch beta_step_switch_ { "B" };  // Beta-Step coupling toggle
 #if VISAGE_EMSCRIPTEN
   float volume_val_ = 0.0f;
 #else
@@ -2198,7 +2213,8 @@ private:
   float trigger_threshold_ = kDefaultTriggerThreshold;
   float crt_intensity_ = kDefaultCrtIntensity;  // CRT effect ensemble intensity
   float slew_ = kDefaultSlew;  // XY slew filter amount
-  float sample_size_index_ = static_cast<float>(kDefaultSampleSizeIndex);  // XY sample size selector
+  float step_mult_ = kDefaultStepMult;  // Rendering step multiplier
+  bool beta_step_coupled_ = true;  // Beta-Step coupling (default on)
 
   bool shutting_down_ = false;
   FadeOutTimer fade_out_timer_ { this, [this] { visage::closeApplication(); } };
