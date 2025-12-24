@@ -87,7 +87,6 @@ namespace visage {
         return bounds.overlaps(other_bounds);
       });
 
-
       std::vector<IBounds> invalid_rects;
       for (const IBounds& invalid_rect : done_position.invalid_rects) {
         if (bounds.overlaps(invalid_rect))
