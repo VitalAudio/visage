@@ -1495,6 +1495,7 @@ public:
       oscilloscope_.setDisplayMode(static_cast<DisplayMode>(i));
       updatePanelVisibility();
     });
+    mode_selector_.setIndex(static_cast<int>(DisplayMode::XY));  // Match default display mode
 
     control_panel_.addScrolledChild(&trigger_threshold_knob_);
     trigger_threshold_knob_.setValue(&trigger_threshold_);
