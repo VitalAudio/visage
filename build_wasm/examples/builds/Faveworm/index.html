@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Emscripten-Generated Code</title>
+    <style>
+        html {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            height: 100%;
+            background-color: #13191c;
+            background-image: radial-gradient(#68747b 0.5px, #13191c 0.5px);
+            background-size: 18px 18px;
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .emscripten {
+            padding-right: 0;
+            margin-left: auto;
+            margin-right: auto;
+            display: block;
+            border-radius: 1%;
+            box-shadow: 0 0 20px rgb(0, 0, 0, 0.5);
+        }
+
+        textarea.emscripten {
+            font-family: monospace;
+            width: 80%;
+        }
+
+        div.emscripten {
+            text-align: center;
+        }
+
+        /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
+        canvas.emscripten {
+            width: 100%;
+            height: 100%;
+            border: 0 none;
+            background-color: black;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .center-div {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .loader {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100px;
+            height: 100px;
+            max-width: 6rem;
+            margin-top: 3rem;
+            margin-bottom: 3rem;
+        }
+
+        .loader:before,
+        .loader:after {
+            content: "";
+            position: absolute;
+            border-radius: 50%;
+            animation: pulsOut 1.8s ease-in-out infinite;
+            filter: drop-shadow(0 0 1rem rgba(166, 105, 255, 0.75));
+        }
+
+        .loader:before {
+            width: 100%;
+            padding-bottom: 100%;
+            box-shadow: inset 0 0 0 1rem #fff;
+            animation-name: pulsIn;
+        }
+
+        .loader:after {
+            width: calc(100% - 2rem);
+            padding-bottom: calc(100% - 2rem);
+            box-shadow: 0 0 0 0 #fff;
+        }
+
+        @keyframes pulsIn {
+            0% {
+                box-shadow: inset 0 0 0 1rem #fff;
+                opacity: 1;
+            }
+            50%, 100% {
+                box-shadow: inset 0 0 0 0 #fff;
+                opacity: 0;
+            }
+        }
+
+        @keyframes pulsOut {
+            0%, 50% {
+                box-shadow: 0 0 0 0 #fff;
+                opacity: 0;
+            }
+            100% {
+                box-shadow: 0 0 0 1rem #fff;
+                opacity: 1;
+            }
+        }
+
+    </style>
+</head>
+<body>
+<figure style="overflow:visible;" id="spinner" class="center-div">
+    <div class="loader"></div>
+</figure>
+<div class="emscripten" id="status" class="hidden">Downloading...</div>
+<div class="emscripten">
+    <progress value="0" max="100" id="progress" hidden="hidden"></progress>
+</div>
+<div class="container">
+    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+</div>
+<script type='text/javascript'>
+    var statusElement = document.getElementById('status');
+    var progressElement = document.getElementById('progress');
+    var spinnerElement = document.getElementById('spinner');
+    var canvas = document.getElementById('canvas');
+
+    var Module = {
+        print: (function () {
+            var element = document.getElementById('output');
+            if (element) element.value = ''; // clear browser cache
+            return (...args) => {
+                var text = args.join(' ');
+                console.log(text);
+                if (element) {
+                    element.value += text + "\n";
+                    element.scrollTop = element.scrollHeight; // focus on bottom
+                }
+            };
+        })(),
+        canvas: (() => {
+            // As a default initial behavior, pop up an alert when webgl context is lost. To make your
+            // application robust, you may want to override this behavior before shipping!
+            // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
+            canvas.addEventListener("webglcontextlost", (e) => {
+                alert('WebGL context lost. You will need to reload the page.');
+                e.preventDefault();
+            }, false);
+            return canvas;
+        })(),
+        setStatus: (text) => {
+            if (!Module.setStatus.last) Module.setStatus.last = {time: Date.now(), text: ''};
+            if (text === Module.setStatus.last.text) return;
+            var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+            var now = Date.now();
+            if (m && now - Module.setStatus.last.time < 30) return;
+            Module.setStatus.last.time = now;
+            Module.setStatus.last.text = text;
+            if (m) {
+                text = m[1];
+                progressElement.value = parseInt(m[2]) * 100;
+                progressElement.max = parseInt(m[4]) * 100;
+                progressElement.hidden = false;
+                spinnerElement.hidden = false;
+            } else {
+                progressElement.value = null;
+                progressElement.max = null;
+                progressElement.hidden = true;
+                if (!text) {
+                    spinnerElement.hidden = true;
+                    canvas.style.opacity = 1;
+                }
+            }
+            statusElement.innerHTML = text;
+        },
+        totalDependencies: 0,
+        monitorRunDependencies: (left) => {
+            this.totalDependencies = Math.max(this.totalDependencies, left);
+        },
+        postRun: [function() {
+            var urlParams = new URLSearchParams(window.location.search);
+            urlParams.forEach(function(value, key) {
+                var val = parseFloat(value);
+                if (!isNaN(val)) {
+                    Module.ccall('setParameter', null, ['string', 'number'], [key, val]);
+                }
+            });
+
+            // Initial resize
+            resizeCanvas();
+        }]
+    };
+
+    function resizeCanvas() {
+        var w = window.innerWidth;
+        var h = window.innerHeight;
+        // Call the C++ resize function
+        if (Module._resizeWindow) {
+            Module._resizeWindow(w, h);
+        }
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    window.onerror = () => {
+        Module.setStatus('Exception thrown, see JavaScript console');
+        spinnerElement.style.display = 'none';
+        Module.setStatus = (text) => {
+            if (text) console.error('[post-exception status] ' + text);
+        };
+    };
+</script>
+<script async type="text/javascript" src="index.js"></script>
+</body>
+</html>

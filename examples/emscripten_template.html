@@ -44,8 +44,8 @@
 
         /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
         canvas.emscripten {
-            width: 60%;
-            height: 60%;
+            width: 100%;
+            height: 100%;
             border: 0 none;
             background-color: black;
             opacity: 0;
@@ -185,8 +185,31 @@
         totalDependencies: 0,
         monitorRunDependencies: (left) => {
             this.totalDependencies = Math.max(this.totalDependencies, left);
-        }
+        },
+        postRun: [function() {
+            var urlParams = new URLSearchParams(window.location.search);
+            urlParams.forEach(function(value, key) {
+                var val = parseFloat(value);
+                if (!isNaN(val)) {
+                    Module.ccall('setParameter', null, ['string', 'number'], [key, val]);
+                }
+            });
+
+            // Initial resize
+            resizeCanvas();
+        }]
     };
+
+    function resizeCanvas() {
+        var w = window.innerWidth;
+        var h = window.innerHeight;
+        // Call the C++ resize function
+        if (Module._resizeWindow) {
+            Module._resizeWindow(w, h);
+        }
+    }
+
+    window.addEventListener('resize', resizeCanvas);
 
     window.onerror = () => {
         Module.setStatus('Exception thrown, see JavaScript console');

@@ -1,0 +1,87 @@
+// Generated file, do not edit
+#pragma once
+
+#include "embedded_file.h"
+#include <string>
+namespace visage::shaders {
+  ::visage::EmbeddedFile getFileByName(const std::string& filename);
+  extern ::visage::EmbeddedFile fs_blur;
+  extern ::visage::EmbeddedFile fs_blur_sample;
+  extern ::visage::EmbeddedFile fs_circle;
+  extern ::visage::EmbeddedFile fs_clear;
+  extern ::visage::EmbeddedFile fs_color;
+  extern ::visage::EmbeddedFile fs_diamond;
+  extern ::visage::EmbeddedFile fs_flat_arc;
+  extern ::visage::EmbeddedFile fs_flat_segment;
+  extern ::visage::EmbeddedFile fs_graph_fill;
+  extern ::visage::EmbeddedFile fs_graph_line;
+  extern ::visage::EmbeddedFile fs_mult;
+  extern ::visage::EmbeddedFile fs_mult_threshold;
+  extern ::visage::EmbeddedFile fs_path_fill;
+  extern ::visage::EmbeddedFile fs_post_effect;
+  extern ::visage::EmbeddedFile fs_quadratic_bezier;
+  extern ::visage::EmbeddedFile fs_rectangle;
+  extern ::visage::EmbeddedFile fs_rounded_arc;
+  extern ::visage::EmbeddedFile fs_rounded_rectangle;
+  extern ::visage::EmbeddedFile fs_rounded_segment;
+  extern ::visage::EmbeddedFile fs_sample;
+  extern ::visage::EmbeddedFile fs_sample_path;
+  extern ::visage::EmbeddedFile fs_small_blur;
+  extern ::visage::EmbeddedFile fs_split_threshold;
+  extern ::visage::EmbeddedFile fs_squircle;
+  extern ::visage::EmbeddedFile fs_tinted_texture;
+  extern ::visage::EmbeddedFile fs_triangle;
+  extern ::visage::EmbeddedFile vs_arc;
+  extern ::visage::EmbeddedFile vs_clear;
+  extern ::visage::EmbeddedFile vs_color;
+  extern ::visage::EmbeddedFile vs_complex_shape;
+  extern ::visage::EmbeddedFile vs_conservative_path_fill;
+  extern ::visage::EmbeddedFile vs_full_screen_texture;
+  extern ::visage::EmbeddedFile vs_path_fill;
+  extern ::visage::EmbeddedFile vs_post_effect;
+  extern ::visage::EmbeddedFile vs_sample;
+  extern ::visage::EmbeddedFile vs_sample_path;
+  extern ::visage::EmbeddedFile vs_shape;
+  extern ::visage::EmbeddedFile vs_tinted_texture;
+  extern ::visage::EmbeddedFile shader_include_sh;
+  extern ::visage::EmbeddedFile shader_utils_sh;
+  extern ::visage::EmbeddedFile varying_def_sc;
+  extern ::visage::EmbeddedFile fs_blur_sc;
+  extern ::visage::EmbeddedFile fs_blur_sample_sc;
+  extern ::visage::EmbeddedFile fs_circle_sc;
+  extern ::visage::EmbeddedFile fs_clear_sc;
+  extern ::visage::EmbeddedFile fs_color_sc;
+  extern ::visage::EmbeddedFile fs_diamond_sc;
+  extern ::visage::EmbeddedFile fs_flat_arc_sc;
+  extern ::visage::EmbeddedFile fs_flat_segment_sc;
+  extern ::visage::EmbeddedFile fs_graph_fill_sc;
+  extern ::visage::EmbeddedFile fs_graph_line_sc;
+  extern ::visage::EmbeddedFile fs_mult_sc;
+  extern ::visage::EmbeddedFile fs_mult_threshold_sc;
+  extern ::visage::EmbeddedFile fs_path_fill_sc;
+  extern ::visage::EmbeddedFile fs_post_effect_sc;
+  extern ::visage::EmbeddedFile fs_quadratic_bezier_sc;
+  extern ::visage::EmbeddedFile fs_rectangle_sc;
+  extern ::visage::EmbeddedFile fs_rounded_arc_sc;
+  extern ::visage::EmbeddedFile fs_rounded_rectangle_sc;
+  extern ::visage::EmbeddedFile fs_rounded_segment_sc;
+  extern ::visage::EmbeddedFile fs_sample_sc;
+  extern ::visage::EmbeddedFile fs_sample_path_sc;
+  extern ::visage::EmbeddedFile fs_small_blur_sc;
+  extern ::visage::EmbeddedFile fs_split_threshold_sc;
+  extern ::visage::EmbeddedFile fs_squircle_sc;
+  extern ::visage::EmbeddedFile fs_tinted_texture_sc;
+  extern ::visage::EmbeddedFile fs_triangle_sc;
+  extern ::visage::EmbeddedFile vs_arc_sc;
+  extern ::visage::EmbeddedFile vs_clear_sc;
+  extern ::visage::EmbeddedFile vs_color_sc;
+  extern ::visage::EmbeddedFile vs_complex_shape_sc;
+  extern ::visage::EmbeddedFile vs_conservative_path_fill_sc;
+  extern ::visage::EmbeddedFile vs_full_screen_texture_sc;
+  extern ::visage::EmbeddedFile vs_path_fill_sc;
+  extern ::visage::EmbeddedFile vs_post_effect_sc;
+  extern ::visage::EmbeddedFile vs_sample_sc;
+  extern ::visage::EmbeddedFile vs_sample_path_sc;
+  extern ::visage::EmbeddedFile vs_shape_sc;
+  extern ::visage::EmbeddedFile vs_tinted_texture_sc;
+}

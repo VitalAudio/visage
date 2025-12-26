@@ -98,7 +98,15 @@ namespace visage {
     virtual void runEventLoop() = 0;
     virtual void* nativeHandle() const = 0;
     virtual void windowContentsResized(int width, int height) = 0;
-    virtual bool closeRequested() { return true; }
+    virtual bool closeRequested() {
+      if (on_close_request_)
+        return on_close_request_();
+      return true;
+    }
+
+    void setOnCloseRequest(std::function<bool()> callback) {
+      on_close_request_ = std::move(callback);
+    }
 
     virtual void* initWindow() const { return nullptr; }
     virtual void* globalDisplay() const { return nullptr; }
@@ -207,6 +215,7 @@ namespace visage {
     bool mouse_relative_mode_ = false;
     int client_width_ = 0;
     int client_height_ = 0;
+    std::function<bool()> on_close_request_;
 
     VISAGE_LEAK_CHECKER(Window)
   };

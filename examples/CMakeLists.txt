@@ -1,3 +1,8 @@
+if (NOT EMSCRIPTEN)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(PORTAUDIO REQUIRED portaudio-2.0)
+endif ()
+
 file(GLOB EXAMPLES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} */)
 
 file(GLOB_RECURSE EXAMPLE_SHADERS shaders/[vf]s_*.sc)
@@ -21,8 +26,8 @@ else (UNIX)
 endif ()
 
 foreach (EXAMPLE ${EXAMPLES})
-  file(GLOB SOURCE_FILES ${EXAMPLE}/*.cpp)
-  file(GLOB HEADER_FILES ${EXAMPLE}/*.h)
+  file(GLOB_RECURSE SOURCE_FILES ${EXAMPLE}/*.cpp)
+  file(GLOB_RECURSE HEADER_FILES ${EXAMPLE}/*.h)
 
   if (IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${EXAMPLE}" AND SOURCE_FILES AND NOT EXAMPLE STREQUAL "ClapPlugin")
     add_executable(Example${EXAMPLE} main.cpp ${SOURCE_FILES} ${HEADER_FILES})
@@ -43,7 +48,7 @@ foreach (EXAMPLE ${EXAMPLES})
         -sGL_ENABLE_GET_PROC_ADDRESS
         -sALLOW_MEMORY_GROWTH
         --bind
-        "-sEXPORTED_FUNCTIONS=['_main', '_pasteCallback']"
+        "-sEXPORTED_FUNCTIONS=['_main', '_pasteCallback', '_setVolume', '_setParameter', '_resizeWindow']"
         "-sEXPORTED_RUNTIME_METHODS=['ccall', 'cwrap', 'UTF8ToString']"
       )
 
@@ -61,6 +66,19 @@ foreach (EXAMPLE ${EXAMPLES})
       EmbeddedIconResources
       EmbeddedImageResources
     )
+
+    # Link Audio libraries for Faveworm audio playback
+    if (EXAMPLE STREQUAL "Faveworm")
+      if (EMSCRIPTEN)
+        target_link_options(Example${EXAMPLE} PRIVATE "-sUSE_SDL=2" "-sSTACK_SIZE=1MB")
+      else()
+        target_link_libraries(Example${EXAMPLE} PRIVATE ${PORTAUDIO_LIBRARIES})
+        target_include_directories(Example${EXAMPLE} PRIVATE ${PORTAUDIO_INCLUDE_DIRS})
+        if (APPLE)
+           target_link_libraries(Example${EXAMPLE} PRIVATE "-framework AudioToolbox" "-framework CoreAudio" "-framework CoreFoundation")
+        endif()
+      endif()
+    endif ()
   endif ()
 endforeach ()
 
