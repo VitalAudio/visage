@@ -174,9 +174,22 @@ namespace visage {
   }
 
   void setCursorPosition(Point window_position) {
-    CGRect window_bounds = activeWindowBounds();
-    float x = window_bounds.origin.x + window_position.x;
-    float y = window_bounds.origin.y + window_position.y;
+    NSWindow* window = [NSApp mainWindow];
+    if (!window)
+      return;
+
+    NSScreen* primary = [[NSScreen screens] firstObject];
+    if (!primary)
+      return;
+
+    NSRect content_rect = [[window contentView] frame];
+    NSRect screen_rect = [window convertRectToScreen:content_rect];
+
+    float primary_height = [primary frame].size.height;
+
+    float x = screen_rect.origin.x + window_position.x;
+    float y = primary_height - NSMaxY(screen_rect) + window_position.y;
+
     setCursorScreenPosition({ x, y });
   }
 
