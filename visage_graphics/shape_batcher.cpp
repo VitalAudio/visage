@@ -242,8 +242,8 @@ namespace visage {
         if (length == 0)
           continue;
 
-        int x = text_block.x + batch.x;
-        int y = text_block.y + batch.y;
+        float x = text_block.x + batch.x;
+        float y = text_block.y + batch.y;
         for (const IBounds& invalid_rect : *batch.invalid_rects) {
           ClampBounds clamp = text_block.clamp.clamp(invalid_rect.x() - batch.x,
                                                      invalid_rect.y() - batch.y,
@@ -299,14 +299,14 @@ namespace visage {
             if (!overlaps(text_block.quads[i]))
               continue;
 
-            float left = x + text_block.quads[i].x;
-            float right = left + text_block.quads[i].width;
+            float left = x + text_block.quads[i].x - 0.5f;
+            float right = left + text_block.quads[i].width + 1.0f;
             float top = y + text_block.quads[i].y;
             float bottom = top + text_block.quads[i].height;
 
-            float texture_x = text_block.quads[i].packed_glyph->atlas_left;
+            float texture_x = text_block.quads[i].packed_glyph->atlas_left - 0.5f;
             float texture_y = text_block.quads[i].packed_glyph->atlas_top;
-            float texture_width = text_block.quads[i].packed_glyph->width;
+            float texture_width = text_block.quads[i].packed_glyph->width + 1.0f;
             float texture_height = text_block.quads[i].packed_glyph->height;
 
             vertices[vertex_index].x = left;
