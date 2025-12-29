@@ -155,17 +155,6 @@ namespace visage {
       [NSCursor hide];
   }
 
-  CGRect activeWindowBounds() {
-    NSArray* windows = [NSApp windows];
-
-    for (NSWindow* window in windows) {
-      if ([window isMainWindow])
-        return [window frame];
-    }
-
-    return NSMakeRect(0, 0, 0, 0);
-  }
-
   void setCursorScreenPosition(Point screen_position) {
     CGPoint position = CGPointMake(screen_position.x, screen_position.y);
     CGAssociateMouseAndMouseCursorPosition(false);
@@ -175,20 +164,18 @@ namespace visage {
 
   void setCursorPosition(Point window_position) {
     NSWindow* window = [NSApp mainWindow];
-    if (!window)
-      return;
+    if (!window) return;
 
-    NSScreen* primary = [[NSScreen screens] firstObject];
-    if (!primary)
-      return;
+    NSScreen* screen = [window screen];
+    if (!screen) return;
 
     NSRect content_rect = [[window contentView] frame];
     NSRect screen_rect = [window convertRectToScreen:content_rect];
 
-    float primary_height = [primary frame].size.height;
+    float screen_height = [screen frame].size.height;
 
     float x = screen_rect.origin.x + window_position.x;
-    float y = primary_height - NSMaxY(screen_rect) + window_position.y;
+    float y = screen_height - NSMaxY(screen_rect) + window_position.y;
 
     setCursorScreenPosition({ x, y });
   }
