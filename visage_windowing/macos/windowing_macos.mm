@@ -164,10 +164,12 @@ namespace visage {
 
   void setCursorPosition(Point window_position) {
     NSWindow* window = [NSApp mainWindow];
-    if (!window) return;
+    if (!window)
+      return;
 
     NSScreen* screen = [window screen];
-    if (!screen) return;
+    if (!screen)
+      return;
 
     NSRect content_rect = [[window contentView] frame];
     NSRect screen_rect = [window convertRectToScreen:content_rect];
