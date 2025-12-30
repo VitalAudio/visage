@@ -369,7 +369,7 @@ namespace visage {
 
   void Frame::eraseChild(Frame* child) {
     child->parent_ = nullptr;
-    child->event_handler_ = nullptr;
+    child->setEventHandler(nullptr);
     region_.removeRegion(child->region());
     children_.erase(std::find(children_.begin(), children_.end(), child));
   }

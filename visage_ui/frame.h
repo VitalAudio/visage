@@ -204,6 +204,7 @@ namespace visage {
     void addChild(Frame& child, bool make_visible = true) { addChild(&child, make_visible); }
     void addChild(std::unique_ptr<Frame> child, bool make_visible = true);
     void removeChild(Frame* child);
+    void removeChild(Frame& child) { removeChild(&child); }
     void removeAllChildren();
     int indexOfChild(const Frame* child) const;
     void setParent(Frame* parent) {
@@ -218,6 +219,7 @@ namespace visage {
 
     void setEventHandler(FrameEventHandler* handler) {
       event_handler_ = handler;
+      redrawing_ = false;
       for (Frame* child : children_)
         child->setEventHandler(handler);
     }
@@ -337,8 +339,6 @@ namespace visage {
 
       if (event_handler_ && event_handler_->remove_from_hierarchy)
         event_handler_->remove_from_hierarchy(this);
-
-      redrawing_ = false;
     }
 
     void setMouseRelativeMode(bool visible) {
