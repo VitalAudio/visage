@@ -109,7 +109,7 @@ TEST_CASE("Screenshot horizontal gradient", "[integration]") {
   }
 }
 
-TEST_CASE("Testing animated graph lines", "[integration]") {
+TEST_CASE("Animated graph lines", "[integration]") {
   Color source = 0xff123456;
   Color destination = 0xff88aacc;
   ApplicationEditor editor;
@@ -137,7 +137,7 @@ TEST_CASE("Testing animated graph lines", "[integration]") {
   }
 }
 
-TEST_CASE("Testing grandchild overlapping order", "[integration]") {
+TEST_CASE("Grandchild overlapping order", "[integration]") {
   ApplicationEditor editor;
   visage::Frame trigger;
 
@@ -189,4 +189,45 @@ TEST_CASE("Testing grandchild overlapping order", "[integration]") {
   REQUIRE(data[index + 1] == 0xff);
   REQUIRE(data[index + 2] == 0x00);
   REQUIRE(data[index + 3] == 0xff);
+}
+
+TEST_CASE("Add/remove child multiple times", "[integration]") {
+  ApplicationEditor app;
+  visage::Frame child;
+
+  app.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+
+  child.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+
+  child.setBounds(0, 0, 50, 50);
+  app.addChild(child);
+  app.setWindowless(50, 50);
+
+  for (int i = 0; i < 10; ++i) {
+    app.drawWindow();
+    Screenshot screenshot = app.takeScreenshot();
+    uint8_t* data = screenshot.data();
+
+    child.redraw();
+    int index = 100;
+    REQUIRE(data[index + 3] == 0xff);
+    if (i % 2) {
+      REQUIRE(data[index] == 0x00);
+      REQUIRE(data[index + 1] == 0x00);
+      REQUIRE(data[index + 2] == 0x00);
+      app.addChild(child);
+    }
+    else {
+      REQUIRE(data[index] == 0xff);
+      REQUIRE(data[index + 1] == 0xff);
+      REQUIRE(data[index + 2] == 0xff);
+      app.removeChild(child);
+    }
+  }
 }
