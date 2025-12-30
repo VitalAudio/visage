@@ -337,6 +337,8 @@ namespace visage {
 
       if (event_handler_ && event_handler_->remove_from_hierarchy)
         event_handler_->remove_from_hierarchy(this);
+
+      redrawing_ = false;
     }
 
     void setMouseRelativeMode(bool visible) {
