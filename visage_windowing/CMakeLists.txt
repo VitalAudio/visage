@@ -37,3 +37,8 @@ if (APPLE)
   target_compile_options(VisageWindowing PRIVATE -fobjc-arc)
 endif ()
 
+visage_add_test_target(
+  TARGET VisageWindowingTests
+  TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
+)
+

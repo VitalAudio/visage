@@ -31,6 +31,7 @@ namespace visage {
   void ApplicationWindow::registerCallbacks() {
     window_->onShow() = [this] { on_show_.callback(); };
     window_->onHide() = [this] { on_hide_.callback(); };
+    window_->setOnCloseRequest([this] { return on_close_request_.callback(); });
     window_->onWindowContentsResized() = [this] { on_window_contents_resized_.callback(); };
   }
 

@@ -66,6 +66,7 @@ namespace visage {
 
     auto& onShow() { return on_show_; }
     auto& onHide() { return on_hide_; }
+    auto& onCloseRequest() { return on_close_request_; }
     auto& onWindowContentsResized() { return on_window_contents_resized_; }
 
     void runEventLoop();
@@ -78,6 +79,7 @@ namespace visage {
     Window::Decoration decoration_ = Window::Decoration::Native;
     CallbackList<void()> on_show_;
     CallbackList<void()> on_hide_;
+    CallbackList<bool()> on_close_request_;
     CallbackList<void()> on_window_contents_resized_;
     std::string title_;
     bool always_on_top_ = false;
