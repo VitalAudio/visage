@@ -73,6 +73,7 @@ namespace visage {
     void handleFocusGained() override;
     void handleResized(int width, int height) override;
     void handleAdjustResize(int* width, int* height, bool horizontal_resize, bool vertical_resize) override;
+    bool handleCloseRequested() override;
 
     bool handleFileDrag(int x, int y, const std::vector<std::string>& files) override;
     void handleFileDragLeave() override;

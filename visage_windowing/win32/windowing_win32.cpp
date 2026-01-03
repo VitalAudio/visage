@@ -1287,9 +1287,9 @@ namespace visage {
       }
     }
     if (msg == WM_QUERYENDSESSION)
-      return window->closeRequested();
+      return window->handleCloseRequested();
     if (msg == WM_CLOSE) {
-      if (!window->closeRequested())
+      if (!window->handleCloseRequested())
         return 0;
     }
     return windowProcedure(hwnd, msg, w_param, l_param);

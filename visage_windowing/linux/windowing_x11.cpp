@@ -1490,7 +1490,7 @@ namespace visage {
 
         if (event.type == DestroyNotify ||
             (event.type == ClientMessage && event.xclient.data.l[0] == x11_->deleteMessage())) {
-          if (window->closeRequested()) {
+          if (window->handleCloseRequested()) {
             NativeWindowLookup::instance().removeWindow(window);
             window->hide();
             if (!NativeWindowLookup::instance().anyWindowOpen())

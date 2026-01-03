@@ -60,7 +60,7 @@ namespace visage {
     bool requestAllToClose() const {
       bool result = true;
       for (auto& window : native_window_lookup_) {
-        if (!window.second->closeRequested())
+        if (!window.second->handleCloseRequested())
           result = false;
       }
       return result;
@@ -694,7 +694,7 @@ namespace visage {
 - (BOOL)windowShouldClose:(NSWindow*)sender {
   NSView* view = [sender contentView];
   visage::WindowMac* window = visage::NativeWindowLookup::instance().findWindow((__bridge void*)view);
-  return window->closeRequested();
+  return window->handleCloseRequested();
 }
 
 - (void)windowWillClose:(NSNotification*)notification {

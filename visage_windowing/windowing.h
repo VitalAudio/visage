@@ -75,6 +75,7 @@ namespace visage {
       virtual void handleAdjustResize(int* width, int* height, bool horizontal_resize,
                                       bool vertical_resize) { }
       virtual void handleResized(int width, int height) = 0;
+      virtual bool handleCloseRequested() = 0;
 
       virtual bool handleFileDrag(int x, int y, const std::vector<std::string>& files) = 0;
       virtual void handleFileDragLeave() = 0;
@@ -98,7 +99,6 @@ namespace visage {
     virtual void runEventLoop() = 0;
     virtual void* nativeHandle() const = 0;
     virtual void windowContentsResized(int width, int height) = 0;
-    virtual bool closeRequested() { return true; }
 
     virtual void* initWindow() const { return nullptr; }
     virtual void* globalDisplay() const { return nullptr; }
@@ -172,6 +172,7 @@ namespace visage {
     void handleFocusGained();
     void handleResized(int width, int height);
     void handleAdjustResize(int* width, int* height, bool horizontal_resize, bool vertical_resize);
+    bool handleCloseRequested();
 
     bool handleKeyDown(KeyCode key_code, int modifiers, bool repeat);
     bool handleKeyUp(KeyCode key_code, int modifiers);

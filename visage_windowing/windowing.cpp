@@ -57,6 +57,12 @@ namespace visage {
       event_handler_->handleAdjustResize(width, height, horizontal_resize, vertical_resize);
   }
 
+  bool Window::handleCloseRequested() {
+    if (event_handler_)
+      return event_handler_->handleCloseRequested();
+    return true;
+  }
+
   bool Window::handleKeyDown(KeyCode key_code, int modifiers, bool repeat) {
     if (event_handler_ == nullptr)
       return false;
