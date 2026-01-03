@@ -63,22 +63,13 @@ namespace visage {
     void hide();
     void close();
     bool isShowing() const;
-
-    auto& onShow() { return on_show_; }
-    auto& onHide() { return on_hide_; }
-    auto& onWindowContentsResized() { return on_window_contents_resized_; }
-
     void runEventLoop();
 
   private:
-    void registerCallbacks();
     void showWindow(bool maximized);
 
     IPoint initial_position_;
     Window::Decoration decoration_ = Window::Decoration::Native;
-    CallbackList<void()> on_show_;
-    CallbackList<void()> on_hide_;
-    CallbackList<void()> on_window_contents_resized_;
     std::string title_;
     bool always_on_top_ = false;
     std::unique_ptr<Window> window_;

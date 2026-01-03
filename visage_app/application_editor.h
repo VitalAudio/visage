@@ -51,8 +51,13 @@ namespace visage {
     ApplicationEditor();
     ~ApplicationEditor() override;
 
-    const Screenshot& takeScreenshot();
+    auto& onShow() { return on_show_; }
+    auto& onHide() { return on_hide_; }
+    auto& onCloseRequested() { return on_close_requested_; }
+    auto& onWindowContentsResized() { return on_window_contents_resized_; }
 
+    void notifyContentsResized();
+    const Screenshot& takeScreenshot();
     void setCanvasDetails();
 
     void addToWindow(Window* window);
@@ -106,11 +111,17 @@ namespace visage {
     FrameEventHandler event_handler_;
     std::unique_ptr<Canvas> canvas_;
     std::unique_ptr<TopLevelFrame> top_level_;
-    std::unique_ptr<WindowEventHandler> window_event_handler_;
-    float fixed_aspect_ratio_ = 0.0f;
 
+    std::unique_ptr<WindowEventHandler> window_event_handler_;
+    CallbackList<void()> on_show_;
+    CallbackList<void()> on_hide_;
+    CallbackList<bool()> on_close_requested_;
+    CallbackList<void()> on_window_contents_resized_;
+
+    float fixed_aspect_ratio_ = 0.0f;
     float min_width_ = 0.0f;
     float min_height_ = 0.0f;
+
     std::vector<Frame*> stale_children_;
     std::vector<Frame*> drawing_children_;
 

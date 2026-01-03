@@ -1556,7 +1556,7 @@ namespace visage {
       v_blank_thread_ = std::make_unique<VBlankThread>(this);
       v_blank_thread_->start();
     }
-    notifyShow();
+    handleWindowShown();
   }
 
   void WindowWin32::show() {
@@ -1566,7 +1566,7 @@ namespace visage {
 
   void WindowWin32::hide() {
     ShowWindow(window_handle_, SW_HIDE);
-    notifyHide();
+    handleWindowHidden();
   }
 
   void WindowWin32::close() {

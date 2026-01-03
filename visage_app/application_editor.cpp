@@ -38,6 +38,7 @@ namespace visage {
 
     editor_->setNativeBounds(nativeLocalBounds());
     editor_->setCanvasDetails();
+    editor_->notifyContentsResized();
 
     if (client_decoration_) {
       int decoration_width = client_decoration_->requiredWidth();
@@ -91,6 +92,12 @@ namespace visage {
 
   ApplicationEditor::~ApplicationEditor() {
     top_level_->setEventHandler(nullptr);
+  }
+
+  void ApplicationEditor::notifyContentsResized() {
+    if (window_)
+      window_->setInternalWindowSize(nativeWidth(), nativeHeight());
+    on_window_contents_resized_.callback();
   }
 
   const Screenshot& ApplicationEditor::takeScreenshot() {

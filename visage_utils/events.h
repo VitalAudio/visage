@@ -385,6 +385,7 @@ namespace visage {
     }
 
     void clear() { callbacks_.clear(); }
+    bool isEmpty() const { return callbacks_.empty(); }
 
     template<typename... Args>
     auto callback(Args&&... args) const {

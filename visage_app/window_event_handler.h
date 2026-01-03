@@ -36,8 +36,6 @@ namespace visage {
     WindowEventHandler(ApplicationEditor* editor, Frame* frame);
     ~WindowEventHandler() override;
 
-    void onFrameResize(const Frame* frame) const;
-
     Frame* contentFrame() const { return content_frame_; }
     void setKeyboardFocus(Frame* frame);
     void giveUpFocus(Frame* frame);
@@ -73,6 +71,9 @@ namespace visage {
     void handleFocusGained() override;
     void handleResized(int width, int height) override;
     void handleAdjustResize(int* width, int* height, bool horizontal_resize, bool vertical_resize) override;
+
+    void handleWindowShown() override;
+    void handleWindowHidden() override;
     bool handleCloseRequested() override;
 
     bool handleFileDrag(int x, int y, const std::vector<std::string>& files) override;
@@ -94,7 +95,6 @@ namespace visage {
     Frame* mouse_down_frame_ = nullptr;
     Frame* keyboard_focused_frame_ = nullptr;
     Frame* drag_drop_target_frame_ = nullptr;
-    std::function<void()> resize_callback_ = [this] { onFrameResize(content_frame_); };
 
     Point last_mouse_position_ = { 0, 0 };
     HitTestResult current_hit_test_ = HitTestResult::Client;
