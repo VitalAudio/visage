@@ -1534,7 +1534,7 @@ namespace visage {
     XMapWindow(x11_->display(), window_handle_);
     XSetWMProtocols(x11_->display(), window_handle_, x11_->deleteMessageRef(), 1);
     XFlush(x11_->display());
-    notifyShow();
+    handleWindowShown();
   }
 
   void WindowX11::showMaximized() {
@@ -1577,7 +1577,7 @@ namespace visage {
     ::Display* display = x11_->display();
     XUnmapWindow(display, window_handle_);
     XFlush(display);
-    notifyHide();
+    handleWindowHidden();
   }
 
   void WindowX11::close() {

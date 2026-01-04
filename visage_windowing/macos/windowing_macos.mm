@@ -978,7 +978,7 @@ namespace visage {
       else
         [window_handle_ makeKeyAndOrderFront:nil];
     }
-    notifyShow();
+    handleWindowShown();
   }
 
   void WindowMac::showMaximized() {
@@ -987,13 +987,13 @@ namespace visage {
 
     [window_handle_ zoom:nil];
     [window_handle_ makeKeyAndOrderFront:nil];
-    notifyShow();
+    handleWindowShown();
   }
 
   void WindowMac::hide() {
     if (window_handle_ && parent_view_ == nullptr) {
       [window_handle_ orderOut:nil];
-      notifyHide();
+      handleWindowHidden();
     }
   }
 
