@@ -116,8 +116,6 @@ namespace visage {
 
   static void checkOverlappingRegions(std::vector<RegionPosition>& positions,
                                       std::vector<RegionPosition>& overlapping, int backdrop_count) {
-    std::vector<RegionPosition> new_overlapping;
-
     for (int i = overlapping.size() - 1; i >= 0; --i) {
       auto it = overlapping.begin() + i;
       auto overlap_check = [it](const RegionPosition& other) {
