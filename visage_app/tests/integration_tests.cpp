@@ -231,3 +231,352 @@ TEST_CASE("Add/remove child multiple times", "[integration]") {
     }
   }
 }
+
+TEST_CASE("Overlap test - grouping with overlaps bug", "[integration]") {
+  visage::ApplicationWindow app;
+
+  visage::Frame trigger;
+  visage::Frame container;
+  visage::Frame wrapper;
+  visage::Frame bottom;
+  visage::Frame top;
+
+  app.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff333333);
+    canvas.fill(0, 0, app.width(), app.height());
+  };
+
+  trigger.setBounds(0, 0, 25, 25);
+  trigger.onDraw() = [](visage::Canvas& c) {
+    c.setColor(0xFFFF0000);
+    c.fill();
+  };
+
+  container.setBounds(30, 0, 20, 25);
+  wrapper.setBounds(0, 0, 20, 25);
+  bottom.setBounds(0, 0, 20, 25);
+  top.setBounds(0, 0, 20, 25);
+
+  container.addChild(&wrapper);
+  wrapper.addChild(&bottom);
+  container.addChild(&top);
+
+  bottom.onDraw() = [](visage::Canvas& c) {
+    c.setColor(0xFF00FF00);
+    c.fill();
+  };
+
+  top.onDraw() = [&top](visage::Canvas& c) {
+    c.setColor(0xFFFF00FF);
+    c.fill();
+  };
+
+  app.addChild(&trigger);
+  app.addChild(&container);
+  app.setWindowless(50, 50);
+
+  Screenshot screenshot = app.takeScreenshot();
+  uint8_t* data = screenshot.data();
+  int index = (5 * 50 + 35) * 4;
+  REQUIRE(data[index] == 0xff);
+  REQUIRE(data[index + 1] == 0x00);
+  REQUIRE(data[index + 2] == 0xff);
+  REQUIRE(data[index + 3] == 0xff);
+}
+
+TEST_CASE("Overlap test - several overlapping siblings", "[integration]") {
+  visage::ApplicationWindow app;
+
+  visage::Frame one;
+  visage::Frame two;
+  visage::Frame three;
+
+  one.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xffcf6944);
+    canvas.fill();
+  };
+
+  two.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff8d9f8c);
+    canvas.fill();
+  };
+
+  three.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+
+  one.setBounds(0, 0, 50, 50);
+  two.setBounds(0, 0, 50, 50);
+  three.setBounds(0, 0, 50, 50);
+
+  app.addChild(one);
+  app.addChild(two);
+  app.addChild(three);
+
+  app.setWindowless(50, 50);
+
+  Screenshot screenshot = app.takeScreenshot();
+  uint8_t* data = screenshot.data();
+  int index = 100;
+  REQUIRE(data[index] == 0xff);
+  REQUIRE(data[index + 1] == 0xff);
+  REQUIRE(data[index + 2] == 0xff);
+  REQUIRE(data[index + 3] == 0xff);
+}
+
+TEST_CASE("Overlap test - several overlapping children", "[integration]") {
+  visage::ApplicationWindow app;
+
+  visage::Frame parent;
+  visage::Frame one;
+  visage::Frame two;
+  visage::Frame three;
+
+  one.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xffcf6944);
+    canvas.fill();
+  };
+
+  two.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff8d9f8c);
+    canvas.fill();
+  };
+
+  three.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+
+  parent.setBounds(0, 0, 50, 50);
+
+  one.setBounds(0, 0, 50, 50);
+  two.setBounds(0, 0, 50, 50);
+  three.setBounds(0, 0, 50, 50);
+
+  parent.addChild(one);
+  parent.addChild(two);
+  parent.addChild(three);
+
+  app.addChild(parent);
+  app.setWindowless(50, 50);
+
+  Screenshot screenshot = app.takeScreenshot();
+  uint8_t* data = screenshot.data();
+  int index = 100;
+  REQUIRE(data[index] == 0xff);
+  REQUIRE(data[index + 1] == 0xff);
+  REQUIRE(data[index + 2] == 0xff);
+  REQUIRE(data[index + 3] == 0xff);
+}
+
+TEST_CASE("Overlap test - niece/nephew overlap order", "[integration]") {
+  visage::ApplicationWindow app;
+
+  visage::Frame parent;
+  visage::Frame child;
+  visage::Frame overlay;
+  visage::Frame modal;
+
+  parent.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+
+  child.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff8d9f8c);
+    canvas.fill();
+  };
+
+  overlay.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff222222);
+    canvas.fill();
+  };
+
+  modal.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+
+  parent.setBounds(0, 0, 50, 50);
+  child.setBounds(0, 0, 50, 50);
+  overlay.setBounds(0, 0, 50, 50);
+  modal.setBounds(0, 0, 50, 50);
+
+  parent.addChild(&child);
+  parent.addChild(&overlay);
+
+  app.addChild(&parent);
+  app.addChild(&modal);
+
+  app.setWindowless(50, 50);
+
+  Screenshot screenshot = app.takeScreenshot();
+  uint8_t* data = screenshot.data();
+  int index = 100;
+  REQUIRE(data[index] == 0xff);
+  REQUIRE(data[index + 1] == 0xff);
+  REQUIRE(data[index + 2] == 0xff);
+  REQUIRE(data[index + 3] == 0xff);
+}
+
+TEST_CASE("Overlap test - niece/nephew overlap order 2", "[integration]") {
+  visage::ApplicationWindow app;
+
+  visage::Frame parent;
+  visage::Frame child;
+  visage::Frame overlay;
+  visage::Frame modal;
+
+  child.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff8d9f8c);
+    canvas.fill();
+  };
+
+  overlay.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff222222);
+    canvas.fill();
+  };
+
+  modal.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+
+  parent.setBounds(0, 0, 50, 50);
+  child.setBounds(0, 0, 50, 50);
+  overlay.setBounds(0, 0, 50, 50);
+  modal.setBounds(0, 0, 50, 50);
+
+  parent.addChild(&child);
+  parent.addChild(&overlay);
+
+  app.addChild(&parent);
+  app.addChild(&modal);
+
+  app.setWindowless(50, 50);
+
+  Screenshot screenshot = app.takeScreenshot();
+  uint8_t* data = screenshot.data();
+  int index = 100;
+  REQUIRE(data[index] == 0xff);
+  REQUIRE(data[index + 1] == 0xff);
+  REQUIRE(data[index + 2] == 0xff);
+  REQUIRE(data[index + 3] == 0xff);
+}
+
+TEST_CASE("Overlap test - non transitive overlap", "[integration]") {
+  visage::ApplicationWindow app;
+
+  visage::Frame one;
+  visage::Frame two;
+  visage::Frame three;
+
+  one.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xffff0000);
+    canvas.fill();
+  };
+
+  two.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff00ff00);
+    canvas.fill();
+  };
+
+  three.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff0000ff);
+    canvas.fill();
+  };
+
+  one.setBounds(0, 0, 20, 50);
+  two.setBounds(10, 0, 30, 50);
+  three.setBounds(30, 0, 20, 50);
+
+  app.addChild(one);
+  app.addChild(two);
+  app.addChild(three);
+
+  app.setWindowless(50, 50);
+
+  Screenshot screenshot = app.takeScreenshot();
+  uint8_t* data = screenshot.data();
+  int y = 30;
+  int index1 = (y * 50 + 5) * 4;
+  REQUIRE(data[index1] == 0xff);
+  REQUIRE(data[index1 + 1] == 0x00);
+  REQUIRE(data[index1 + 2] == 0x00);
+  REQUIRE(data[index1 + 3] == 0xff);
+
+  int index2 = (y * 50 + 15) * 4;
+  REQUIRE(data[index2] == 0x00);
+  REQUIRE(data[index2 + 1] == 0xff);
+  REQUIRE(data[index2 + 2] == 0x00);
+  REQUIRE(data[index2 + 3] == 0xff);
+
+  int index3 = (y * 50 + 35) * 4;
+  REQUIRE(data[index3] == 0x00);
+  REQUIRE(data[index3 + 1] == 0x00);
+  REQUIRE(data[index3 + 2] == 0xff);
+  REQUIRE(data[index3 + 3] == 0xff);
+}
+
+TEST_CASE("Overlap test - non transitive overlap after overlap", "[integration]") {
+  visage::ApplicationWindow app;
+
+  visage::Frame zero;
+  visage::Frame one;
+  visage::Frame two;
+  visage::Frame three;
+
+  zero.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+
+  one.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xffff0000);
+    canvas.fill();
+  };
+
+  two.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff00ff00);
+    canvas.fill();
+  };
+
+  three.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff0000ff);
+    canvas.fill();
+  };
+
+  zero.setBounds(0, 0, 50, 50);
+  one.setBounds(0, 0, 20, 50);
+  two.setBounds(10, 0, 30, 50);
+  three.setBounds(30, 0, 20, 50);
+
+  app.addChild(zero);
+  app.addChild(one);
+  app.addChild(two);
+  app.addChild(three);
+
+  app.setWindowless(50, 50);
+
+  Screenshot screenshot = app.takeScreenshot();
+  uint8_t* data = screenshot.data();
+  int y = 30;
+  int index1 = (y * 50 + 5) * 4;
+  REQUIRE(data[index1] == 0xff);
+  REQUIRE(data[index1 + 1] == 0x00);
+  REQUIRE(data[index1 + 2] == 0x00);
+  REQUIRE(data[index1 + 3] == 0xff);
+
+  int index2 = (y * 50 + 15) * 4;
+  REQUIRE(data[index2] == 0x00);
+  REQUIRE(data[index2 + 1] == 0xff);
+  REQUIRE(data[index2 + 2] == 0x00);
+  REQUIRE(data[index2 + 3] == 0xff);
+
+  int index3 = (y * 50 + 35) * 4;
+  REQUIRE(data[index3] == 0x00);
+  REQUIRE(data[index3 + 1] == 0x00);
+  REQUIRE(data[index3 + 2] == 0xff);
+  REQUIRE(data[index3 + 3] == 0xff);
+}

@@ -61,6 +61,7 @@ namespace visage {
     if (begin == end)
       return;
 
+    std::vector<RegionPosition> new_overlapping;
     bool on_top = false;
     for (auto it = begin; it != end || !on_top; ++it) {
       if (it == end) {
@@ -82,10 +83,13 @@ namespace visage {
       IBounds bounds(done_position.x + sub_region->x(), done_position.y + sub_region->y(),
                      sub_region->width(), sub_region->height());
 
-      bool overlaps = std::any_of(positions.begin(), positions.end(), [&bounds](const RegionPosition& other) {
+      auto overlap_check = [&bounds](const RegionPosition& other) {
         IBounds other_bounds(other.x, other.y, other.region->width(), other.region->height());
         return bounds.overlaps(other_bounds);
-      });
+      };
+
+      bool overlaps = std::any_of(positions.begin(), positions.end(), overlap_check) ||
+                      std::any_of(new_overlapping.begin(), new_overlapping.end(), overlap_check);
 
       std::vector<IBounds> invalid_rects;
       for (const IBounds& invalid_rect : done_position.invalid_rects) {
@@ -96,41 +100,42 @@ namespace visage {
       if (invalid_rects.empty())
         continue;
 
-      if (overlaps) {
-        RegionPosition overlap(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
-        overlapping.push_back(overlap);
-      }
+      if (overlaps)
+        new_overlapping.emplace_back(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
       else if (sub_region->isEmpty() || !should_draw) {
-        addSubRegions(positions, overlapping,
-                      { sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y() }, backdrop_count);
+        std::vector<RegionPosition> child_overlap;
+        RegionPosition region(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
+        addSubRegions(positions, child_overlap, region, backdrop_count);
+        new_overlapping.insert(new_overlapping.end(), child_overlap.rbegin(), child_overlap.rend());
       }
       else
         positions.emplace_back(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
     }
+    overlapping.insert(overlapping.end(), new_overlapping.rbegin(), new_overlapping.rend());
   }
 
   static void checkOverlappingRegions(std::vector<RegionPosition>& positions,
                                       std::vector<RegionPosition>& overlapping, int backdrop_count) {
     std::vector<RegionPosition> new_overlapping;
 
-    for (auto it = overlapping.begin(); it != overlapping.end();) {
-      bool overlaps = std::any_of(positions.begin(), positions.end(), [it](const RegionPosition& other) {
+    for (int i = overlapping.size() - 1; i >= 0; --i) {
+      auto it = overlapping.begin() + i;
+      auto overlap_check = [it](const RegionPosition& other) {
         return it->x < other.x + other.region->width() && it->x + it->region->width() > other.x &&
                it->y < other.y + other.region->height() && it->y + it->region->height() > other.y;
-      });
+      };
+      bool overlaps = std::any_of(positions.begin(), positions.end(), overlap_check) ||
+                      std::any_of(it + 1, overlapping.end(), overlap_check);
 
       if (!overlaps) {
-        if (it->isDone())
-          addSubRegions(positions, new_overlapping, *it, backdrop_count);
+        auto position = *it;
+        overlapping.erase(it);
+        if (position.isDone())
+          addSubRegions(positions, overlapping, position, backdrop_count);
         else
-          positions.push_back(*it);
-        it = overlapping.erase(it);
+          positions.push_back(position);
       }
-      else
-        ++it;
     }
-
-    overlapping.insert(overlapping.begin(), new_overlapping.begin(), new_overlapping.end());
   }
 
   static const SubmitBatch* nextBatch(const std::vector<RegionPosition>& positions,
