@@ -92,6 +92,20 @@ namespace visage {
       values_.resize(width * height, 0.0f);
     }
 
+    void normalize() {
+      float max_value = 0.0f;
+      for (const auto& value : values_) {
+        if (value > max_value)
+          max_value = value;
+      }
+
+      if (max_value > 0.0f) {
+        float scale = 1.0f / max_value;
+        for (auto& value : values_)
+          value *= scale;
+      }
+    }
+
     void setOctaves(float octaves) { octaves_ = octaves; }
     float octaves() const { return octaves_; }
 
