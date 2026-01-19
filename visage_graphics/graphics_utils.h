@@ -125,9 +125,7 @@ namespace visage {
     }
 
     void pack(int start_width = kDefaultWidth, int start_height = kDefaultWidth) {
-      static constexpr int kMaxMultiples = 8;
-      start_width = std::max(kDefaultWidth, start_width);
-      start_height = std::max(kDefaultWidth, start_height);
+      static constexpr int kMaxDimension = 1 << 14;
 
       checkRemovedRects();
       if (packed_rects_.size() == 1) {
@@ -137,15 +135,19 @@ namespace visage {
           VISAGE_ASSERT(false);
       }
       else if (!packed_rects_.empty()) {
-        bool packed = false;
-        for (int m = 0; !packed && m < kMaxMultiples; ++m) {
-          width_ = start_width << m;
-          height_ = start_height << m;
-          if (fixed_width_)
-            width_ = fixed_width_;
-          packed = packer_.pack(packed_rects_, width_, height_);
+        width_ = std::max(kDefaultWidth, start_width);
+        height_ = std::max(kDefaultWidth, start_height);
+
+        while (width_ < kMaxDimension * 2 || height_ < kMaxDimension * 2) {
+          width_ = fixed_width_ ? fixed_width_ : std::min(kMaxDimension, width_);
+          height_ = std::min(kMaxDimension, height_);
+          if (packer_.pack(packed_rects_, width_, height_))
+            return;
+
+          width_ *= 2;
+          height_ *= 2;
         }
-        VISAGE_ASSERT(packed);
+        VISAGE_ASSERT(false);
       }
     }
 
