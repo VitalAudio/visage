@@ -92,18 +92,37 @@ namespace visage {
       values_.resize(width * height, 0.0f);
     }
 
-    void normalize() {
+    float maxValue() const {
       float max_value = 0.0f;
       for (const auto& value : values_) {
         if (value > max_value)
           max_value = value;
       }
+      return max_value;
+    }
 
-      if (max_value > 0.0f) {
-        float scale = 1.0f / max_value;
-        for (auto& value : values_)
-          value *= scale;
+    float minValue() const {
+      if (values_.empty())
+        return 0.0f;
+
+      float min_value = values_[0];
+      for (const auto& value : values_) {
+        if (value < min_value)
+          min_value = value;
       }
+      return min_value;
+    }
+
+    void scale(float scale) {
+      for (auto& value : values_)
+        value *= scale;
+    }
+
+    void normalize() {
+      float max_value = maxValue();
+
+      if (max_value > 0.0f)
+        scale(1.0f / max_value);
     }
 
     void setOctaves(float octaves) { octaves_ = octaves; }
