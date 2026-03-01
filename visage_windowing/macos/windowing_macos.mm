@@ -383,8 +383,37 @@ namespace visage {
     [self interpretKeyEvents:[NSArray arrayWithObject:event]];
 
   visage::KeyCode key_code = visage::translateKeyCode([event keyCode]);
-  if (!self.visage_window->handleKeyDown(key_code, modifiers, [event isARepeat]))
-    [super keyDown:event];
+  if (!self.visage_window->handleKeyDown(key_code, modifiers, [event isARepeat])) {
+    if (command)
+      [[self nextResponder] keyDown:event];
+    else
+      [super keyDown:event];
+  }
+}
+
+- (BOOL)performKeyEquivalent:(NSEvent*)event {
+  if (!self.visage_window)
+    return [super performKeyEquivalent:event];
+
+  NSUInteger flags = [event modifierFlags] & NSEventModifierFlagDeviceIndependentFlagsMask;
+  bool justCmd = (flags & NSEventModifierFlagCommand) &&
+                 !(flags & NSEventModifierFlagControl) &&
+                 !(flags & NSEventModifierFlagOption);
+
+  if (justCmd && self.visage_window->hasActiveTextEntry()) {
+    NSString* chars = [event charactersIgnoringModifiers];
+    if ([chars length] == 1) {
+      unichar ch = [[chars lowercaseString] characterAtIndex:0];
+      if (ch == 'a' || ch == 'c' || ch == 'v' || ch == 'x' || ch == 'z') {
+        visage::KeyCode key_code = visage::translateKeyCode([event keyCode]);
+        int modifiers = [self keyboardModifiers:event];
+        self.visage_window->handleKeyDown(key_code, modifiers, [event isARepeat]);
+        return YES;
+      }
+    }
+  }
+
+  return [super performKeyEquivalent:event];
 }
 
 - (void)keyUp:(NSEvent*)event {
