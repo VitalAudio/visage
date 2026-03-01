@@ -538,6 +538,8 @@ namespace visage {
       return focusNextTextReceiver();
     }
     if (code == KeyCode::Up) {
+      if (!text_.multiLine())
+        return moveCaretToTop(shift);
       if (modifier && shift)
         return false;
       if (modifier)
@@ -545,6 +547,8 @@ namespace visage {
       return moveCaretUp(shift);
     }
     if (code == KeyCode::Down) {
+      if (!text_.multiLine())
+        return moveCaretToEnd(shift);
       if (modifier && shift)
         return false;
       if (modifier)
