@@ -357,7 +357,7 @@ namespace visage {
   self.enableSetNeedsDisplay = NO;
   self.framebufferOnly = YES;
   self.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
-  self.preferredFramesPerSecond = 120;
+  self.preferredFramesPerSecond = 60;
 
   [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
   self.drag_source = [[VisageDraggingSource alloc] init];
