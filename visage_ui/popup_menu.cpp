@@ -268,10 +268,8 @@ namespace visage {
     int y = point.y == PopupMenu::kNotSet ? window_bounds.bottom() : window_bounds.y() + point.y;
     int bottom = y + h;
     int right = x + w;
-    if (bottom > height()) {
-      int top = point.y == PopupMenu::kNotSet ? window_bounds.y() : point.y;
-      y = std::max(0, top - h);
-    }
+    if (bottom > height())
+      y = std::max(0, static_cast<int>(window_bounds.y()) - h);
     if (right > width())
       x = std::max(0, x - w);
 
