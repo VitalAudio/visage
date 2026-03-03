@@ -156,8 +156,11 @@ namespace visage {
     if (event_handler_ == nullptr)
       return;
 
-    if (pointer_id == 0 && (last_window_mouse_position_.x != x || last_window_mouse_position_.y != y))
-      pointer_repeat_clicks_[0].click_count = 0;
+    auto it = pointer_repeat_clicks_.find(pointer_id);
+    if (it != pointer_repeat_clicks_.end() &&
+        (it->second.last_position.x != x || it->second.last_position.y != y)) {
+      it->second.click_count = 0;
+    }
 
     event_handler_->handleMouseMove(x, y, button_state, modifiers, pointer_id);
 
@@ -181,6 +184,7 @@ namespace visage {
     else
       repeat.click_count = 1;
     repeat.last_click_ms = current_ms;
+    repeat.last_position = { x, y };
     event_handler_->handleMouseDown(button_id, x, y, button_state, modifiers,
                                     repeat.click_count, pointer_id);
   }

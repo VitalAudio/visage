@@ -196,6 +196,7 @@ namespace visage {
     struct RepeatClick {
       int click_count = 0;
       long long last_click_ms = 0;
+      IPoint last_position = { 0, 0 };
     };
 
     EventHandler* event_handler_ = nullptr;
