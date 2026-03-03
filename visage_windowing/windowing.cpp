@@ -152,40 +152,46 @@ namespace visage {
     return event_handler_->currentHitTest();
   }
 
-  void Window::handleMouseMove(int x, int y, int button_state, int modifiers) {
+  void Window::handleMouseMove(int x, int y, int button_state, int modifiers, int pointer_id) {
     if (event_handler_ == nullptr)
       return;
 
-    if (last_window_mouse_position_.x != x || last_window_mouse_position_.y != y)
-      mouse_repeat_clicks_.click_count = 0;
+    if (pointer_id == 0 && (last_window_mouse_position_.x != x || last_window_mouse_position_.y != y))
+      pointer_repeat_clicks_[0].click_count = 0;
 
-    event_handler_->handleMouseMove(x, y, button_state, modifiers);
+    event_handler_->handleMouseMove(x, y, button_state, modifiers, pointer_id);
 
-    if (!mouseRelativeMode())
+    if (pointer_id == 0 && !mouseRelativeMode())
       last_window_mouse_position_ = { x, y };
   }
 
-  void Window::handleMouseDown(MouseButton button_id, int x, int y, int button_state, int modifiers) {
+  void Window::handleMouseDown(MouseButton button_id, int x, int y, int button_state,
+                                int modifiers, int pointer_id) {
     if (event_handler_ == nullptr)
       return;
 
-    setMouseRelativeMode(false);
+    if (pointer_id == 0)
+      setMouseRelativeMode(false);
+
+    auto& repeat = pointer_repeat_clicks_[pointer_id];
     long long current_ms = time::milliseconds();
-    long long delta_ms = current_ms - mouse_repeat_clicks_.last_click_ms;
+    long long delta_ms = current_ms - repeat.last_click_ms;
     if (delta_ms > 0 && delta_ms < doubleClickSpeed())
-      mouse_repeat_clicks_.click_count++;
+      repeat.click_count++;
     else
-      mouse_repeat_clicks_.click_count = 1;
-    mouse_repeat_clicks_.last_click_ms = current_ms;
+      repeat.click_count = 1;
+    repeat.last_click_ms = current_ms;
     event_handler_->handleMouseDown(button_id, x, y, button_state, modifiers,
-                                    mouse_repeat_clicks_.click_count);
+                                    repeat.click_count, pointer_id);
   }
 
-  void Window::handleMouseUp(MouseButton button_id, int x, int y, int button_state, int modifiers) {
+  void Window::handleMouseUp(MouseButton button_id, int x, int y, int button_state,
+                              int modifiers, int pointer_id) {
     if (event_handler_ == nullptr)
       return;
 
-    event_handler_->handleMouseUp(button_id, x, y, button_state, modifiers, mouse_repeat_clicks_.click_count);
+    int click_count = pointer_repeat_clicks_[pointer_id].click_count;
+    event_handler_->handleMouseUp(button_id, x, y, button_state, modifiers, click_count, pointer_id);
   }
 
   void Window::handleMouseEnter(int x, int y) {

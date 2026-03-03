@@ -31,6 +31,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace visage {
@@ -53,11 +54,12 @@ namespace visage {
 
       virtual HitTestResult handleHitTest(int x, int y) = 0;
       virtual HitTestResult currentHitTest() const = 0;
-      virtual void handleMouseMove(int x, int y, int button_state, int modifiers) = 0;
+      virtual void handleMouseMove(int x, int y, int button_state, int modifiers,
+                                   int pointer_id = 0) = 0;
       virtual void handleMouseDown(MouseButton button_id, int x, int y, int button_state,
-                                   int modifiers, int repeat_clicks) = 0;
+                                   int modifiers, int repeat_clicks, int pointer_id = 0) = 0;
       virtual void handleMouseUp(MouseButton button_id, int x, int y, int button_state,
-                                 int modifiers, int repeat_clicks) = 0;
+                                 int modifiers, int repeat_clicks, int pointer_id = 0) = 0;
       virtual void handleMouseEnter(int x, int y) = 0;
       virtual void handleMouseLeave(int last_x, int last_y, int button_state, int modifiers) = 0;
       virtual void handleMouseWheel(float delta_x, float delta_y, float precise_x, float precise_y,
@@ -153,9 +155,11 @@ namespace visage {
 
     HitTestResult handleHitTest(int x, int y);
     HitTestResult currentHitTest() const;
-    void handleMouseMove(int x, int y, int button_state, int modifiers);
-    void handleMouseDown(MouseButton button_id, int x, int y, int button_state, int modifiers);
-    void handleMouseUp(MouseButton button_id, int x, int y, int button_state, int modifiers);
+    void handleMouseMove(int x, int y, int button_state, int modifiers, int pointer_id = 0);
+    void handleMouseDown(MouseButton button_id, int x, int y, int button_state, int modifiers,
+                         int pointer_id = 0);
+    void handleMouseUp(MouseButton button_id, int x, int y, int button_state, int modifiers,
+                       int pointer_id = 0);
     void handleMouseEnter(int x, int y);
     void handleMouseLeave(int button_state, int modifiers);
 
@@ -196,7 +200,7 @@ namespace visage {
 
     EventHandler* event_handler_ = nullptr;
     IPoint last_window_mouse_position_ = { 0, 0 };
-    RepeatClick mouse_repeat_clicks_;
+    std::unordered_map<int, RepeatClick> pointer_repeat_clicks_;
 
     std::function<void(double)> draw_callback_ = nullptr;
     float dpi_scale_ = 1.0f;
