@@ -52,8 +52,12 @@ namespace visage {
       mouse_hovered_frame_ = nullptr;
     if (temporary_frame_ == frame)
       temporary_frame_ = nullptr;
-    if (mouse_down_frame_ == frame)
-      mouse_down_frame_ = nullptr;
+    for (auto it = pointer_down_frames_.begin(); it != pointer_down_frames_.end(); ) {
+      if (it->second == frame)
+        it = pointer_down_frames_.erase(it);
+      else
+        ++it;
+    }
     if (keyboard_focused_frame_ == frame)
       keyboard_focused_frame_ = nullptr;
     if (drag_drop_target_frame_ == frame)
@@ -63,10 +67,15 @@ namespace visage {
   void WindowEventHandler::handleFocusLost() {
     if (keyboard_focused_frame_)
       keyboard_focused_frame_->processFocusChanged(false, false);
-    if (mouse_down_frame_) {
-      mouse_down_frame_->processMouseUp(mouseEvent(last_mouse_position_.x, last_mouse_position_.y, 0, 0));
-      mouse_down_frame_ = nullptr;
+    for (auto& [pid, frame] : pointer_down_frames_) {
+      if (frame) {
+        MouseEvent me = mouseEvent(last_mouse_position_.x, last_mouse_position_.y, 0, 0);
+        me.pointer_id = pid;
+        frame->processMouseUp(me);
+      }
     }
+    pointer_down_frames_.clear();
+    pointer_positions_.clear();
     if (mouse_hovered_frame_) {
       mouse_hovered_frame_->processMouseExit(mouseEvent(last_mouse_position_.x,
                                                         last_mouse_position_.y, 0, 0));
@@ -167,7 +176,9 @@ namespace visage {
       return false;
 
     temporary_frame_ = dragDropFrame(convertToLogical(IPoint(x, y)), files);
-    if (mouse_down_frame_ == temporary_frame_ && temporary_frame_) {
+    auto primary_it = pointer_down_frames_.find(0);
+    Frame* primary_down = (primary_it != pointer_down_frames_.end()) ? primary_it->second : nullptr;
+    if (primary_down == temporary_frame_ && temporary_frame_) {
       temporary_frame_ = nullptr;
       return true;
     }
@@ -196,7 +207,9 @@ namespace visage {
       return false;
 
     temporary_frame_ = dragDropFrame(convertToLogical(IPoint(x, y)), files);
-    if (mouse_down_frame_ == temporary_frame_ && temporary_frame_)
+    auto primary_it2 = pointer_down_frames_.find(0);
+    Frame* primary_down2 = (primary_it2 != pointer_down_frames_.end()) ? primary_it2->second : nullptr;
+    if (primary_down2 == temporary_frame_ && temporary_frame_)
       return false;
 
     if (drag_drop_target_frame_) {
@@ -248,17 +261,26 @@ namespace visage {
     return current_hit_test_;
   }
 
-  void WindowEventHandler::handleMouseMove(int x, int y, int button_state, int modifiers) {
+  void WindowEventHandler::handleMouseMove(int x, int y, int button_state, int modifiers,
+                                            int pointer_id) {
     MouseEvent mouse_event = mouseEvent(x, y, button_state, modifiers);
-    if (window_->mouseRelativeMode() && mouse_event.relative_position == Point(0, 0))
+    mouse_event.pointer_id = pointer_id;
+    if (pointer_id == 0 && window_->mouseRelativeMode() && mouse_event.relative_position == Point(0, 0))
       return;
 
-    if (mouse_down_frame_) {
-      mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
-      mouse_event.event_frame = mouse_down_frame_;
-      mouse_down_frame_->processMouseDrag(mouse_event);
+    pointer_positions_[pointer_id] = mouse_event.window_position;
+
+    auto it = pointer_down_frames_.find(pointer_id);
+    if (it != pointer_down_frames_.end() && it->second) {
+      Frame* down_frame = it->second;
+      mouse_event.position = mouse_event.window_position - down_frame->positionInWindow();
+      mouse_event.event_frame = down_frame;
+      down_frame->processMouseDrag(mouse_event);
       return;
     }
+
+    if (pointer_id != 0)
+      return;
 
     temporary_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
     if (temporary_frame_ != mouse_hovered_frame_) {
@@ -284,51 +306,65 @@ namespace visage {
   }
 
   void WindowEventHandler::handleMouseDown(MouseButton button_id, int x, int y, int button_state,
-                                           int modifiers, int repeat) {
+                                           int modifiers, int repeat, int pointer_id) {
     MouseEvent mouse_event = buttonMouseEvent(button_id, x, y, button_state, modifiers);
     mouse_event.repeat_click_count = repeat;
+    mouse_event.pointer_id = pointer_id;
 
-    mouse_down_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
-    temporary_frame_ = mouse_down_frame_;
-    while (temporary_frame_ && !temporary_frame_->acceptsKeystrokes())
-      temporary_frame_ = temporary_frame_->parent();
+    Frame* target_frame = content_frame_->frameAtPoint(mouse_event.window_position);
+    pointer_down_frames_[pointer_id] = target_frame;
+    pointer_positions_[pointer_id] = mouse_event.window_position;
 
-    if (keyboard_focused_frame_ && temporary_frame_ != keyboard_focused_frame_)
-      keyboard_focused_frame_->processFocusChanged(false, true);
+    if (pointer_id == 0) {
+      temporary_frame_ = target_frame;
+      while (temporary_frame_ && !temporary_frame_->acceptsKeystrokes())
+        temporary_frame_ = temporary_frame_->parent();
 
-    keyboard_focused_frame_ = temporary_frame_;
-    temporary_frame_ = nullptr;
-    if (keyboard_focused_frame_)
-      keyboard_focused_frame_->processFocusChanged(true, true);
+      if (keyboard_focused_frame_ && temporary_frame_ != keyboard_focused_frame_)
+        keyboard_focused_frame_->processFocusChanged(false, true);
 
-    if (mouse_down_frame_) {
-      mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
-      mouse_event.event_frame = mouse_down_frame_;
-      mouse_down_frame_->processMouseDown(mouse_event);
+      keyboard_focused_frame_ = temporary_frame_;
+      temporary_frame_ = nullptr;
+      if (keyboard_focused_frame_)
+        keyboard_focused_frame_->processFocusChanged(true, true);
+    }
+
+    if (target_frame) {
+      mouse_event.position = mouse_event.window_position - target_frame->positionInWindow();
+      mouse_event.event_frame = target_frame;
+      target_frame->processMouseDown(mouse_event);
     }
   }
 
   void WindowEventHandler::handleMouseUp(MouseButton button_id, int x, int y, int button_state,
-                                         int modifiers, int repeat) {
+                                         int modifiers, int repeat, int pointer_id) {
     MouseEvent mouse_event = buttonMouseEvent(button_id, x, y, button_state, modifiers);
     mouse_event.repeat_click_count = repeat;
+    mouse_event.pointer_id = pointer_id;
 
-    mouse_hovered_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
-    bool exited = mouse_hovered_frame_ != mouse_down_frame_;
+    auto it = pointer_down_frames_.find(pointer_id);
+    Frame* down_frame = (it != pointer_down_frames_.end()) ? it->second : nullptr;
+    pointer_down_frames_.erase(pointer_id);
+    pointer_positions_.erase(pointer_id);
 
-    if (mouse_down_frame_) {
-      mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
-      mouse_event.event_frame = mouse_down_frame_;
-      auto frame = mouse_down_frame_;
-      mouse_down_frame_ = nullptr;
-      frame->processMouseUp(mouse_event);
-      if (exited && frame)
-        frame->processMouseExit(mouse_event);
+    if (pointer_id == 0)
+      mouse_hovered_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
+
+    bool exited = (pointer_id == 0) && (mouse_hovered_frame_ != down_frame);
+
+    if (down_frame) {
+      mouse_event.position = mouse_event.window_position - down_frame->positionInWindow();
+      mouse_event.event_frame = down_frame;
+      down_frame->processMouseUp(mouse_event);
+      if (exited)
+        down_frame->processMouseExit(mouse_event);
     }
 
-    mouse_event.event_frame = mouse_hovered_frame_;
-    if (exited && mouse_hovered_frame_)
-      mouse_hovered_frame_->processMouseEnter(mouse_event);
+    if (pointer_id == 0) {
+      mouse_event.event_frame = mouse_hovered_frame_;
+      if (exited && mouse_hovered_frame_)
+        mouse_hovered_frame_->processMouseEnter(mouse_event);
+    }
   }
 
   void WindowEventHandler::handleMouseEnter(int x, int y) {
@@ -377,18 +413,24 @@ namespace visage {
   }
 
   bool WindowEventHandler::isDragDropSource() {
-    return mouse_down_frame_ != nullptr && mouse_down_frame_->isDragDropSource();
+    auto it = pointer_down_frames_.find(0);
+    Frame* primary = (it != pointer_down_frames_.end()) ? it->second : nullptr;
+    return primary != nullptr && primary->isDragDropSource();
   }
 
   std::string WindowEventHandler::startDragDropSource() {
-    if (mouse_down_frame_ == nullptr)
+    auto it = pointer_down_frames_.find(0);
+    Frame* primary = (it != pointer_down_frames_.end()) ? it->second : nullptr;
+    if (primary == nullptr)
       return {};
-    return mouse_down_frame_->startDragDropSource();
+    return primary->startDragDropSource();
   }
 
   void WindowEventHandler::cleanupDragDropSource() {
-    if (mouse_down_frame_)
-      mouse_down_frame_->cleanupDragDropSource();
+    auto it = pointer_down_frames_.find(0);
+    Frame* primary = (it != pointer_down_frames_.end()) ? it->second : nullptr;
+    if (primary)
+      primary->cleanupDragDropSource();
   }
 
   Frame* WindowEventHandler::dragDropFrame(Point point, const std::vector<std::string>& files) const {
