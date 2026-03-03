@@ -67,15 +67,28 @@ namespace visage {
   void WindowEventHandler::handleFocusLost() {
     if (keyboard_focused_frame_)
       keyboard_focused_frame_->processFocusChanged(false, false);
-    for (auto& [pid, frame] : pointer_down_frames_) {
+
+    auto active_pointers = pointer_down_frames_;
+    pointer_down_frames_.clear();
+
+    for (auto& [pid, frame] : active_pointers) {
       if (frame) {
-        MouseEvent me = mouseEvent(last_mouse_position_.x, last_mouse_position_.y, 0, 0);
+        auto pos_it = pointer_positions_.find(pid);
+        Point pos = pos_it != pointer_positions_.end() ? pos_it->second : last_mouse_position_;
+
+        MouseEvent me;
+        me.window_position = pos;
+        me.position = pos - frame->positionInWindow();
+        me.button_state = 0;
+        me.modifiers = 0;
         me.pointer_id = pid;
+        me.event_frame = frame;
         frame->processMouseUp(me);
       }
     }
-    pointer_down_frames_.clear();
+
     pointer_positions_.clear();
+
     if (mouse_hovered_frame_) {
       mouse_hovered_frame_->processMouseExit(mouseEvent(last_mouse_position_.x,
                                                         last_mouse_position_.y, 0, 0));
