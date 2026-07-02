@@ -376,7 +376,7 @@ namespace visage {
     bool processMouseWheel(const MouseEvent& e) { return on_mouse_wheel_.callback(e); }
     void processFocusChanged(bool is_focused, bool was_clicked) {
       keyboard_focus_ = is_focused && accepts_keystrokes_;
-      focusChanged(is_focused, was_clicked);
+      on_focus_change_.callback(is_focused, was_clicked);
     }
 
     bool processKeyPress(const KeyEvent& e) { return on_key_press_.callback(e); }
