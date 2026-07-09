@@ -73,13 +73,18 @@ namespace visage {
   }
 
   void EventManager::addCallback(std::function<void()> callback) {
+    std::lock_guard<std::mutex> lock(callback_mutex_);
     callbacks_.push_back(std::move(callback));
   }
 
   void EventManager::checkEventTimers() {
     long long current_time = time::milliseconds();
     std::vector<EventTimer*> timers = timers_;
-    std::vector<std::function<void()>> callbacks = std::move(callbacks_);
+    std::vector<std::function<void()>> callbacks;
+    {
+      std::lock_guard<std::mutex> lock(callback_mutex_);
+      callbacks = std::move(callbacks_);
+    }
 
     for (auto timer : timers)
       timer->checkTimer(current_time);
