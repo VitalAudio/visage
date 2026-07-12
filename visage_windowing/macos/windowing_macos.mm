@@ -872,6 +872,7 @@ namespace visage {
 
   WindowMac::WindowMac(int width, int height, float scale, void* parent_handle) :
       Window(width, height) {
+    setDpiScale(scale);
     parent_view_ = (__bridge NSView*)parent_handle;
     CGRect view_frame = CGRectMake(0.0f, 0.0f, width / scale, height / scale);
 
