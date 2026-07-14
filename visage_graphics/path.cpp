@@ -646,6 +646,7 @@ namespace visage {
 
     bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
     bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
+    bgfx::setViewClear(submit_pass, BGFX_CLEAR_NONE);
     bgfx::setViewFrameBuffer(submit_pass, frame_buffer_->handle);
     bgfx::setState(BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ZERO));
     auto clear_vertices = initQuadVertices<UvVertex>(total_need_update);
