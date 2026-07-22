@@ -1460,6 +1460,8 @@ namespace visage {
     long long last_timer_microseconds = start_microseconds_;
 
     XEvent event;
+    drawCallback(0.0);
+    
     bool running = true;
     while (running) {
       FD_ZERO(&read_fds);
@@ -1482,7 +1484,7 @@ namespace visage {
         if (window == nullptr)
           continue;
 
-        if (event.type == Expose && decoration_ != Decoration::Native) {
+        if (event.type == Expose) {
           int height = clientHeight();
           window->handleResized(clientWidth(), height + 1);
           window->handleResized(clientWidth(), height);
