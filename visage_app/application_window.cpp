@@ -118,7 +118,8 @@ namespace visage {
   void ApplicationWindow::showWindow(bool maximized) {
     if (!title_.empty())
       window_->setWindowTitle(title_);
-    window_->setAlwaysOnTop(always_on_top_);
+    if (always_on_top_)
+      window_->setAlwaysOnTop(true);
 
     addToWindow(window_.get());
     if (maximized)
