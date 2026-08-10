@@ -1012,7 +1012,11 @@ namespace visage {
   IPoint WindowMac::maxWindowDimensions() const {
     Point borders = windowBorderSize(window_handle_);
 
-    NSScreen* screen = [window_handle_ screen];
+    // Plugin views are created before the host puts them in a window (every
+    // AUv2 host does this), so the handle - and therefore its screen - can be
+    // nil here. Messaging nil yields a 0x0 visible frame, which would clamp
+    // any size query to nothing. Fall back to the main screen.
+    NSScreen* screen = [window_handle_ screen] ?: [NSScreen mainScreen];
     NSRect visible_frame = [screen visibleFrame];
 
     int display_width = dpiScale() * (visible_frame.size.width - borders.x);
