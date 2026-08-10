@@ -872,6 +872,12 @@ namespace visage {
 
   WindowMac::WindowMac(int width, int height, float scale, void* parent_handle) :
       Window(width, height) {
+    // The standalone ctor records its scale; this one never did. Everything
+    // reading dpiScale() before the first backing-properties reset -- which
+    // includes ApplicationEditor::addToWindow pushing dpi into the frame
+    // tree -- saw 1.0, so on retina the tree laid out at half scale and the
+    // mouse landed at double coordinates in every plugin host.
+    setDpiScale(scale);
     parent_view_ = (__bridge NSView*)parent_handle;
     CGRect view_frame = CGRectMake(0.0f, 0.0f, width / scale, height / scale);
 
