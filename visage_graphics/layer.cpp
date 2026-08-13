@@ -192,6 +192,31 @@ namespace visage {
     bottom_left_origin_ = bgfx::getCaps()->originBottomLeft;
   }
 
+  void Layer::removeFromWindow() {
+    // Only when there was something paired. show() calls this before it builds its FIRST window too,
+    // when there is no frame buffer and, more to the point, no renderer yet — bgfx::init runs later
+    // in addToWindow — and submitting a frame before that crashes outright.
+    const bool had_frame_buffer = frame_buffer_data_ && bgfx::isValid(frame_buffer_data_->handle);
+    window_handle_ = nullptr;
+    destroyFrameBuffer();
+    if (!had_frame_buffer)
+      return;
+
+    // FLUSH IT NOW, WHILE THE WINDOW IS STILL THERE. bgfx::destroy only queues the destruction; the
+    // backend performs it inside a later bgfx::frame(). Nothing submitted a frame between here and
+    // the window being torn down, so on Vulkan the deferred FrameBufferVK::destroy ran much later —
+    // inside the NEXT createFrameBuffer — by which time its surface was gone. SwapChainVK::destroy
+    // then waits in CommandQueueVK::consume for a queue that cannot drain, because Mesa's WSI thread
+    // is parked in xcb_wait_for_special_event waiting for a Present completion from a destroyed
+    // window. The caller's thread never returns: in a plugin that is the host's main thread, so the
+    // editor never reopens and the DAW hangs saving its project.
+    //
+    // Two frames because that is what it takes for a deferred command to be executed and retired,
+    // and it is the same idiom post_effects.cpp already uses after destroying its own frame buffers.
+    bgfx::frame();
+    bgfx::frame();
+  }
+
   void Layer::destroyFrameBuffer() {
     if (bgfx::isValid(frame_buffer_data_->handle)) {
       bgfx::destroy(frame_buffer_data_->handle);

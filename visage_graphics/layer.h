@@ -129,10 +129,13 @@ namespace visage {
     }
     bool isHeadlessRender() const { return headless_render_; }
 
-    void removeFromWindow() {
-      window_handle_ = nullptr;
-      destroyFrameBuffer();
-    }
+    /// Unpair this layer from the window it was drawn into.
+    ///
+    /// Defined in the .cpp because it has to FLUSH the destroy, and doing that needs bgfx. See the
+    /// note there: the frame buffer's destruction is deferred to a frame, and if no frame is
+    /// submitted before the window itself goes away, the deferred destroy runs later against a
+    /// window that no longer exists and deadlocks.
+    void removeFromWindow();
 
     void clear() {
       regions_.clear();
