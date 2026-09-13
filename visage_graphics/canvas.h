@@ -392,12 +392,13 @@ namespace visage {
 
     template<typename T1, typename T2>
     void svg(const Svg& svg, const T1& x, const T2& y) {
-      addSvg(svg, pixels(x), pixels(y), state_.scale * svg.width(), state_.scale * svg.height());
+      addSvg(svg, pixels(x) / state_.scale, pixels(y) / state_.scale, svg.width(), svg.height());
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
     void svg(const Svg& svg, const T1& x, const T2& y, const T3& width, const T4& height) {
-      addSvg(svg, pixels(x), pixels(y), pixels(width), pixels(height));
+      addSvg(svg, pixels(x) / state_.scale, pixels(y) / state_.scale, pixels(width) / state_.scale,
+             pixels(height) / state_.scale);
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
@@ -771,10 +772,9 @@ namespace visage {
 
     void addSvg(const Svg& svg, float x, float y, float width, float height) {
       SvgDrawable::ColorContext context;
-      if (state_.brush) {
-        Brush current = state_.set_brush;
+      Brush current = state_.set_brush;
+      if (state_.brush)
         context.current_color = &current;
-      }
       svg.drawable()->drawAll(*this, &context, x, y, width, height);
     }
 
