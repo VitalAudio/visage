@@ -30,6 +30,7 @@
 #include <thread>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
+#include <X11/extensions/XInput2.h>
 
 namespace visage {
   enum DecoratorOperation {
@@ -118,6 +119,15 @@ namespace visage {
       dnd_actions_[0] = dnd_action_copy_;
       dnd_actions_[1] = dnd_action_none_;
       cursors_ = std::make_unique<Cursors>(display_);
+
+      // Touch arrives through XInput 2.2 or not at all: the core protocol only
+      // ever sees a touchscreen as its emulated pointer, which is one finger.
+      int xi_event = 0, xi_error = 0;
+      if (XQueryExtension(display_, "XInputExtension", &xi_opcode_, &xi_event, &xi_error)) {
+        int major = 2, minor = 2;
+        touch_supported_ = XIQueryVersion(display_, &major, &minor) == Success &&
+                           (major > 2 || (major == 2 && minor >= 2));
+      }
     }
 
     X11Connection(const X11Connection& copy) = delete;
@@ -125,6 +135,8 @@ namespace visage {
     ~X11Connection() { XCloseDisplay(display_); }
 
     ::Display* display() const { return display_; }
+    int xiOpcode() const { return xi_opcode_; }
+    bool touchSupported() const { return touch_supported_; }
     ::Window rootWindow() const { return root_; }
     Atom clipboard() const { return clipboard_; }
     Atom utf8String() const { return utf8_string_; }
@@ -157,6 +169,8 @@ namespace visage {
 
   private:
     ::Display* display_ = nullptr;
+    int xi_opcode_ = -1;
+    bool touch_supported_ = false;
     int fd_ = 0;
     ::Window root_ = 0;
     Atom clipboard_ = 0;
@@ -216,6 +230,11 @@ namespace visage {
     void processPluginFdEvents() override;
     void processMessageWindowEvent(XEvent& event);
     void processEvent(XEvent& event);
+    // An XInput 2 touch event, handed to the window it was delivered to --
+    // `only_window` if given, else whichever window the lookup finds. True when
+    // the event was XInput's, handled or not: a generic event has no
+    // xany.window, so the core-event routing must never see one.
+    static bool processTouchCookie(X11Connection* x11, XEvent& event, WindowX11* only_window);
 
     void* nativeHandle() const override { return (void*)window_handle_; }
 
@@ -254,6 +273,8 @@ namespace visage {
     IPoint retrieveWindowDimensions();
     void passEventToParent(XEvent& event);
     int mouseButtonState() const;
+    void selectTouchEvents();
+    void processTouchEvent(int type, const XIDeviceEvent* event);
     int modifierState() const;
 
     ::Window windowUnderCursor(::Window inside);
@@ -285,6 +306,11 @@ namespace visage {
     ::Window window_handle_ = 0;
     ::Window parent_handle_ = 0;
     std::map<KeySym, bool> pressed_;
+    // XInput touch id to visage pointer_id, the iOS scheme: the first finger
+    // down is 0 -- the primary, the one that hovers and focuses -- and the
+    // rest count up from it until every finger is off the glass.
+    std::map<int, int> touch_pointers_;
+    int next_touch_pointer_id_ = 0;
     long long start_microseconds_ = 0;
     std::atomic<long long> timer_microseconds_ = 16667;
     std::atomic<bool> timer_thread_running_ = false;
