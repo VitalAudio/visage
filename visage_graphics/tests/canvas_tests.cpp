@@ -541,3 +541,42 @@ TEST_CASE("Canvas edge cases", "[graphics]") {
     REQUIRE_NOTHROW(canvas.circle(100, 100, 500));
   }
 }
+
+TEST_CASE("Canvas gradient atlas growth", "[graphics]") {
+  static constexpr int kTestWidth = 200;
+  static constexpr int kTestHeight = 200;
+  static constexpr int kNumGradients = 100;
+  static constexpr int kRowHeight = kTestHeight / kNumGradients;
+
+  auto row_color = [](int i) -> unsigned int {
+    return 0xff000000 | ((i * 2) << 16) | (0xff - i * 2);
+  };
+  auto row_brush = [&row_color](int i) {
+    Gradient gradient(row_color(i), row_color(i));
+    gradient.setRepeat(true);
+    return Brush::horizontal(gradient);
+  };
+
+  Canvas canvas;
+  canvas.setWindowless(kTestWidth, kTestHeight);
+
+  canvas.setColor(row_brush(0));
+  canvas.fill(0, 0, kTestWidth, kTestHeight);
+  canvas.submit();
+
+  canvas.clearDrawnShapes();
+  for (int i = 0; i < kNumGradients; ++i) {
+    canvas.setColor(row_brush(i));
+    canvas.fill(0, i * kRowHeight, kTestWidth, kRowHeight);
+  }
+  canvas.submit();
+  const Screenshot& screenshot = canvas.takeScreenshot();
+
+  for (int i = 0; i < kNumGradients; ++i) {
+    Color expected = row_color(i);
+    Color sample = screenshot.sample(kTestWidth / 2, i * kRowHeight + kRowHeight / 2);
+    INFO("Gradient row " << i);
+    REQUIRE(std::abs(static_cast<int>(sample.hexRed()) - static_cast<int>(expected.hexRed())) <= 1);
+    REQUIRE(std::abs(static_cast<int>(sample.hexBlue()) - static_cast<int>(expected.hexBlue())) <= 1);
+  }
+}

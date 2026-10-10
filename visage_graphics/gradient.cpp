@@ -155,7 +155,7 @@ namespace visage {
     int prev_height = atlas_map_.height();
     atlas_map_.pack();
     repacked_ = true;
-    if (atlas_map_.width() != prev_width && atlas_map_.height() != prev_height)
+    if (atlas_map_.width() != prev_width || atlas_map_.height() != prev_height)
       texture_.reset();
 
     for (auto& gradient : gradients_) {
