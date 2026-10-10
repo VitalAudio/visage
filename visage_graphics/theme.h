@@ -236,8 +236,8 @@ namespace visage::theme {
         return &instance;
       }
 
-      unsigned int next_id_ = 0;
-      std::map<OverrideId, std::string> name_map_ = { { OverrideId(0), "Global" } };
+      unsigned int next_id_ = kDefaultId + 1;
+      std::map<OverrideId, std::string> name_map_ = { { OverrideId(kDefaultId), "Global" } };
     };
   };
 }
