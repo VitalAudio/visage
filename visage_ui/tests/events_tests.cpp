@@ -341,3 +341,19 @@ TEST_CASE("KeyEvent repeat handling", "[ui]") {
   REQUIRE(repeat_event.isRepeat());
   REQUIRE_FALSE(normal_event.isRepeat());
 }
+
+TEST_CASE("MouseEvent pointer_id defaults to zero", "[ui]") {
+  MouseEvent event;
+
+  SECTION("Default pointer_id is 0") {
+    REQUIRE(event.pointer_id == 0);
+  }
+
+  SECTION("pointer_id can be set to identify additional touches") {
+    event.pointer_id = 1;
+    REQUIRE(event.pointer_id == 1);
+
+    event.pointer_id = 5;
+    REQUIRE(event.pointer_id == 5);
+  }
+}

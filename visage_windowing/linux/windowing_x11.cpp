@@ -24,6 +24,7 @@
 
 #include "visage_utils/thread_utils.h"
 
+#include <cmath>
 #include <cstring>
 #include <sstream>
 #include <X11/cursorfont.h>
@@ -572,6 +573,7 @@ namespace visage {
     XFree(size_hints);
 
     XSelectInput(display, window_handle_, kEventMask);
+    selectTouchEvents();
     start_draw_microseconds_ = time::microseconds();
     setDpiScale(monitor_info_.dpi / kDefaultDpi);
     XFlush(display);
@@ -627,6 +629,7 @@ namespace visage {
     XReparentWindow(display, window_handle_, parent_handle_, 0, 0);
 
     XSelectInput(display, window_handle_, kEventMask);
+    selectTouchEvents();
     XFlush(display);
 
     timer_thread_running_ = true;
@@ -1087,11 +1090,88 @@ namespace visage {
     XSendEvent(x11_->display(), receiver, False, NoEventMask, &message);
   }
 
+  void WindowX11::selectTouchEvents() {
+    if (!x11_->touchSupported())
+      return;
+
+    // Selecting touch on a window is also what stops the server emulating a
+    // pointer from those touches for it: a finger arrives once, as a touch,
+    // not again as a button press.
+    unsigned char mask_bits[XIMaskLen(XI_LASTEVENT)] = {};
+    XISetMask(mask_bits, XI_TouchBegin);
+    XISetMask(mask_bits, XI_TouchUpdate);
+    XISetMask(mask_bits, XI_TouchEnd);
+
+    XIEventMask mask;
+    mask.deviceid = XIAllMasterDevices;
+    mask.mask_len = sizeof(mask_bits);
+    mask.mask = mask_bits;
+    XISelectEvents(x11_->display(), window_handle_, &mask, 1);
+  }
+
+  bool WindowX11::processTouchCookie(X11Connection* x11, XEvent& event, WindowX11* only_window) {
+    if (event.type != GenericEvent || event.xcookie.extension != x11->xiOpcode())
+      return false;
+
+    if (!XGetEventData(x11->display(), &event.xcookie))
+      return true;
+
+    const int type = event.xcookie.evtype;
+    if (type == XI_TouchBegin || type == XI_TouchUpdate || type == XI_TouchEnd) {
+      const XIDeviceEvent* device_event = static_cast<const XIDeviceEvent*>(event.xcookie.data);
+      WindowX11* window = only_window;
+      if (window == nullptr)
+        window = NativeWindowLookup::instance().findWindow(device_event->event);
+      if (window != nullptr && window->window_handle_ == device_event->event)
+        window->processTouchEvent(type, device_event);
+    }
+
+    XFreeEventData(x11->display(), &event.xcookie);
+    return true;
+  }
+
+  void WindowX11::processTouchEvent(int type, const XIDeviceEvent* event) {
+    // The same mapping the iOS view makes: every finger is a left button held
+    // down, told apart by pointer_id.
+    const int touch = event->detail;
+    const int x = static_cast<int>(std::lround(event->event_x));
+    const int y = static_cast<int>(std::lround(event->event_y));
+    last_active_window_ = this;
+
+    if (type == XI_TouchBegin) {
+      if (touch_pointers_.count(touch))
+        return;
+
+      const int pointer_id = next_touch_pointer_id_++;
+      touch_pointers_[touch] = pointer_id;
+      handleMouseDown(kMouseButtonLeft, x, y, kMouseButtonLeft, modifierState(), pointer_id);
+      return;
+    }
+
+    auto it = touch_pointers_.find(touch);
+    if (it == touch_pointers_.end())
+      return;
+
+    const int pointer_id = it->second;
+    if (type == XI_TouchUpdate) {
+      handleMouseMove(x, y, kMouseButtonLeft, modifierState(), pointer_id);
+      return;
+    }
+
+    touch_pointers_.erase(it);
+    handleMouseUp(kMouseButtonLeft, x, y, 0, modifierState(), pointer_id);
+    if (touch_pointers_.empty())
+      next_touch_pointer_id_ = 0;
+  }
+
   void WindowX11::processPluginFdEvents() {
     bool timer_fired = false;
     XEvent event;
     while (XPending(x11_->display())) {
       XNextEvent(x11_->display(), &event);
+
+      if (processTouchCookie(x11_, event, this))
+        continue;
 
       if (event.xany.window == parent_handle_ && event.type == ConfigureNotify) {
         X11Connection::DisplayLock lock(x11_);
@@ -1478,6 +1558,9 @@ namespace visage {
 
       while (running && XPending(x11_->display())) {
         XNextEvent(x11_->display(), &event);
+        if (processTouchCookie(x11_, event, nullptr))
+          continue;
+
         WindowX11* window = NativeWindowLookup::instance().findWindow(event.xany.window);
         if (window == nullptr)
           continue;

@@ -132,6 +132,7 @@ namespace visage {
     bool wheel_reversed = false;
     bool wheel_momentum = false;
     int repeat_click_count = 0;
+    int pointer_id = 0;
   };
 
   class KeyEvent {
