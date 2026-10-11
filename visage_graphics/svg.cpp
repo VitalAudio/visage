@@ -1314,7 +1314,7 @@ namespace visage {
     }
   }
 
-  void SvgParser::resolveUses(std::vector<Tag>& tags) {
+  void SvgParser::resolveUses(std::vector<Tag>& tags, std::set<std::string>& reference_ids) {
     auto use_tag = [this](Tag& target, const std::string& reference_id) {
       if (defs_.count(reference_id) == 0)
         return;
@@ -1332,18 +1332,26 @@ namespace visage {
     };
 
     for (auto& tag : tags) {
+      std::string reference_id;
+      if (tag.data.name == "use" && tag.data.attributes.count("href"))
+        reference_id = tag.data.attributes.at("href");
+      else if (tag.data.attributes.count("xlink:href"))
+        reference_id = tag.data.attributes.at("xlink:href");
+
+      if (!reference_id.empty() && reference_ids.count(reference_id))
+        continue;
+
       if (tag.data.name == "use") {
         Tag child;
-        if (tag.data.attributes.count("href"))
-          use_tag(child, tag.data.attributes.at("href"));
-        else if (tag.data.attributes.count("xlink:href"))
-          use_tag(child, tag.data.attributes.at("xlink:href"));
+        use_tag(child, reference_id);
         tag.children.push_back(child);
       }
-      else if (tag.data.attributes.count("xlink:href"))
-        use_tag(tag, tag.data.attributes.at("xlink:href"));
+      else
+        use_tag(tag, reference_id);
 
-      resolveUses(tag.children);
+      reference_ids.insert(reference_id);
+      resolveUses(tag.children, reference_ids);
+      reference_ids.erase(reference_id);
     }
   }
 
@@ -1568,7 +1576,8 @@ namespace visage {
     }
 
     collectDefs(tags);
-    resolveUses(tags);
+    std::set<std::string> reference_ids;
+    resolveUses(tags, reference_ids);
     loadStyleTags(tags);
     collectGradients(tags);
     collectMarkers(tags);

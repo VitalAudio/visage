@@ -31,6 +31,19 @@ static Svg parseSvg(const std::string& data) {
   return svg;
 }
 
+static int numShapes(const SvgDrawable* drawable) {
+  int count = drawable->command_list.empty() ? 0 : 1;
+  for (const auto& child : drawable->children)
+    count += numShapes(child.get());
+  return count;
+}
+
+TEST_CASE("Svg use", "[graphics]") {
+  Svg without_use = parseSvg(R"svg(<svg viewBox="0 0 10 10"><defs><rect id="r" width="10" height="10"/></defs><g><g></g></g></svg>)svg");
+  Svg with_use = parseSvg(R"svg(<svg viewBox="0 0 10 10"><defs><rect id="r" width="10" height="10"/></defs><g><g><use href="#r"/></g></g></svg>)svg");
+  REQUIRE(numShapes(with_use.drawable()) == numShapes(without_use.drawable()) + 1);
+}
+
 TEST_CASE("Svg malformed input", "[graphics]") {
   SECTION("Inset border radius with no x radius") {
     Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" clip-path="inset(1px round / 2px)"/></svg>)svg");
@@ -44,6 +57,16 @@ TEST_CASE("Svg malformed input", "[graphics]") {
 
   SECTION("Empty css selector") {
     Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><style>a,>{fill:red}</style><rect width="10" height="10"/></svg>)svg");
+    REQUIRE(svg.drawable());
+  }
+
+  SECTION("Use that references itself") {
+    Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><g id="a"><use href="#a"/></g></svg>)svg");
+    REQUIRE(svg.drawable());
+  }
+
+  SECTION("Uses that reference each other") {
+    Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><g id="a"><use href="#b"/></g><g id="b"><use href="#a"/></g></svg>)svg");
     REQUIRE(svg.drawable());
   }
 }

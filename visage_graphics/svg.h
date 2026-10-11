@@ -28,6 +28,7 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -369,7 +370,7 @@ namespace visage {
     void collectDefs(std::vector<Tag>& tags);
     void collectGradients(std::vector<Tag>& tags);
     void collectMarkers(std::vector<Tag>& tags);
-    void resolveUses(std::vector<Tag>& tags);
+    void resolveUses(std::vector<Tag>& tags, std::set<std::string>& reference_ids);
     void parseCssStyle(const std::string& style);
     void loadStyleTags(std::vector<Tag>& tags);
 
