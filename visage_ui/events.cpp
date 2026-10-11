@@ -83,7 +83,7 @@ namespace visage {
     std::vector<std::function<void()>> callbacks;
     {
       std::lock_guard<std::mutex> lock(callback_mutex_);
-      callbacks = std::move(callbacks_);
+      callbacks.swap(callbacks_);
     }
 
     for (auto timer : timers)
