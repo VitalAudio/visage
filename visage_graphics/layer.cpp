@@ -357,7 +357,7 @@ namespace visage {
 
     if (screenshot_requested_ && bgfx::isValid(frame_buffer_data_->read_back_handle)) {
       screenshot_requested_ = false;
-      bgfx::blit(submit_pass, frame_buffer_data_->read_back_handle, 0, 0,
+      bgfx::blit(submit_pass + 1, frame_buffer_data_->read_back_handle, 0, 0,
                  bgfx::getTexture(frame_buffer_data_->handle), 0, 0, width_, height_);
 
       screenshot_.setDimensions(width_, height_);

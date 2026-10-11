@@ -580,3 +580,30 @@ TEST_CASE("Canvas gradient atlas growth", "[graphics]") {
     REQUIRE(std::abs(static_cast<int>(sample.hexBlue()) - static_cast<int>(expected.hexBlue())) <= 1);
   }
 }
+
+TEST_CASE("Canvas screenshot shows the current frame", "[graphics]") {
+  static constexpr int kSize = 16;
+
+  Canvas canvas;
+  canvas.setWindowless(kSize, kSize);
+
+  SECTION("Without submitting first") {
+    canvas.setColor(0xffff0000);
+    canvas.fill(0, 0, kSize, kSize);
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    REQUIRE(screenshot.sample(kSize / 2, kSize / 2).hexRed() == 0xff);
+  }
+
+  SECTION("After changing what was drawn") {
+    canvas.setColor(0xffff0000);
+    canvas.fill(0, 0, kSize, kSize);
+    canvas.submit();
+
+    canvas.clearDrawnShapes();
+    canvas.setColor(0xff0000ff);
+    canvas.fill(0, 0, kSize, kSize);
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    REQUIRE(screenshot.sample(kSize / 2, kSize / 2).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(kSize / 2, kSize / 2).hexBlue() == 0xff);
+  }
+}
