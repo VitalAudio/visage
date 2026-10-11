@@ -23,6 +23,7 @@
 
 #include "canvas.h"
 
+#include <optional>
 #include <unordered_map>
 
 namespace visage {
@@ -340,8 +341,10 @@ namespace visage {
     if (r_it == tokens.end())
       return false;
 
-    auto y_it = std::find(tokens.begin(), tokens.end(), "/");
+    auto y_it = std::find(r_it, tokens.end(), "/");
     int x_range = std::distance(r_it, y_it);
+    if (x_range == 0)
+      return false;
     int x_index = std::distance(tokens.begin(), r_it);
     for (int i = 0; i < 4; ++i) {
       int index = x_index + i % x_range;
@@ -961,7 +964,7 @@ namespace visage {
     return gradient_def;
   }
 
-  CssSelector parseCssSelector(const std::string& selectors) {
+  std::optional<CssSelector> parseCssSelector(const std::string& selectors) {
     auto edited = unescape(selectors, ">", " > ");
     bool direct_child = false;
     std::vector<CssSelector> chained_selectors;
@@ -995,6 +998,9 @@ namespace visage {
 
       direct_child = false;
     }
+
+    if (chained_selectors.empty())
+      return std::nullopt;
 
     for (int i = 0; i + 1 < chained_selectors.size(); ++i)
       chained_selectors[i + 1].parents.push_back(chained_selectors[i]);
@@ -1096,7 +1102,8 @@ namespace visage {
       drawable->command_list.moveTo(x1, y1);
       drawable->command_list.lineTo(x2, y2);
     }
-    else if (tag.data.name == "polygon" || tag.data.name == "polyline") {
+    else if ((tag.data.name == "polygon" || tag.data.name == "polyline") &&
+             tag.data.attributes.count("points")) {
       auto points = splitArguments(tag.data.attributes.at("points"));
       drawable->command_list = parsePolygonShape(points, 0, view_.view_box);
 
@@ -1360,7 +1367,9 @@ namespace visage {
         if (item.empty())
           continue;
 
-        style_lookup_.emplace_back(parseCssSelector(item), rules);
+        auto selector = parseCssSelector(item);
+        if (selector)
+          style_lookup_.emplace_back(*selector, rules);
       }
       pos = brace_close + 1;
     }
