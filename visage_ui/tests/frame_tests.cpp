@@ -39,6 +39,7 @@ public:
   int mouse_up_count = 0;
   bool last_key_press_result = false;
   bool last_mouse_wheel_result = false;
+  std::string last_text_input;
 
   void draw(Canvas& canvas) override {
     draw_count++;
@@ -73,6 +74,8 @@ public:
   bool keyPress(const KeyEvent& e) override { return last_key_press_result; }
 
   bool mouseWheel(const MouseEvent& e) override { return last_mouse_wheel_result; }
+
+  void textInput(const std::string& text) override { last_text_input = text; }
 };
 
 TEST_CASE("Frame construction and naming", "[ui]") {
@@ -279,6 +282,15 @@ TEST_CASE("Frame event handling", "[ui]") {
 
     frame.last_mouse_wheel_result = false;
     REQUIRE_FALSE(frame.processMouseWheel(wheel_event));
+  }
+
+  SECTION("Text input events") {
+    std::string callback_text;
+    frame.onTextInput() += [&](const std::string& text) { callback_text = text; };
+
+    frame.processTextInput("abc");
+    REQUIRE(frame.last_text_input == "abc");
+    REQUIRE(callback_text == "abc");
   }
 }
 

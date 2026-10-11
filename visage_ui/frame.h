@@ -381,7 +381,7 @@ namespace visage {
 
     bool processKeyPress(const KeyEvent& e) { return on_key_press_.callback(e); }
     bool processKeyRelease(const KeyEvent& e) { return on_key_release_.callback(e); }
-    void processTextInput(const std::string& text) { textInput(text); }
+    void processTextInput(const std::string& text) { on_text_input_.callback(text); }
 
     float paletteValue(theme::ValueId value_id) const;
     Brush paletteColor(theme::ColorId color_id) const;
