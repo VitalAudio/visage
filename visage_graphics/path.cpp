@@ -645,8 +645,9 @@ namespace visage {
 
     bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
     bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
-    bgfx::setViewClear(submit_pass, BGFX_CLEAR_NONE);
+    bgfx::setViewClear(submit_pass, needs_full_clear_ ? BGFX_CLEAR_COLOR : BGFX_CLEAR_NONE, 0);
     bgfx::setViewFrameBuffer(submit_pass, frame_buffer_->handle);
+    needs_full_clear_ = false;
     bgfx::setState(BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ZERO));
     int vertex_index = 0;
     for (auto& path : paths_) {
@@ -835,6 +836,7 @@ namespace visage {
     if (needs_packing_) {
       resize();
       needs_packing_ = false;
+      needs_full_clear_ = true;
     }
 
     if (frame_buffer_ == nullptr)
@@ -845,6 +847,7 @@ namespace visage {
                                                       bgfx::TextureFormat::R16F, kFlags);
       width_ = atlas_map_.width();
       height_ = atlas_map_.height();
+      needs_full_clear_ = true;
     }
   }
 

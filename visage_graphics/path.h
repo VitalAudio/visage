@@ -728,6 +728,7 @@ namespace visage {
     int width_ = 0;
     int height_ = 0;
     bool needs_packing_ = false;
+    bool needs_full_clear_ = false;
     std::shared_ptr<PathAtlas*> reference_;
 
     VISAGE_LEAK_CHECKER(PathAtlas)
