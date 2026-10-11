@@ -256,3 +256,36 @@ TEST_CASE("Degeneracies", "[graphics]") {
     REQUIRE(screenshot.sample(35, 35).hexRed() == 0xff);
   }
 }
+
+TEST_CASE("SVG path parsing", "[graphics]") {
+  SECTION("Implicit line to after move") {
+    auto commands = Path::parseSvgPath("M10 10 20 20 30 10");
+    REQUIRE(commands.size() == 3);
+    REQUIRE(commands[0].type == 'M');
+    REQUIRE(commands[1].type == 'L');
+    REQUIRE(commands[1].end == Point(20, 20));
+    REQUIRE(commands[2].type == 'L');
+    REQUIRE(commands[2].end == Point(30, 10));
+
+    commands = Path::parseSvgPath("M10,10,20,20,30,30");
+    REQUIRE(commands.size() == 3);
+    REQUIRE(commands[1].type == 'L');
+    REQUIRE(commands[2].type == 'L');
+    REQUIRE(commands[2].end == Point(30, 30));
+  }
+
+  SECTION("Relative implicit line to after move") {
+    auto commands = Path::parseSvgPath("m10 10 20 20");
+    REQUIRE(commands.size() == 2);
+    REQUIRE(commands[0].type == 'M');
+    REQUIRE(commands[1].type == 'L');
+    REQUIRE(commands[1].end == Point(30, 30));
+  }
+
+  SECTION("Invalid characters don't hang") {
+    REQUIRE(Path::parseSvgPath("10 10").empty());
+    REQUIRE(Path::parseSvgPath("M0 0 X1 1").size() == 1);
+    REQUIRE(Path::parseSvgPath("M0 0L5 5z,").back().type == 'Z');
+    REQUIRE(Path::parseSvgPath("M0 0L5 5Z;").back().type == 'Z');
+  }
+}

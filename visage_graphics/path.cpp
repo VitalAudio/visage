@@ -202,6 +202,7 @@ namespace visage {
         continue;
       }
 
+      size_t start = i;
       char new_command = path[i];
       if (std::isalpha(new_command)) {
         command_char = new_command;
@@ -215,17 +216,7 @@ namespace visage {
         float x = parseNumber(path, i);
         float y = parseNumber(path, i);
         commands.moveTo(x, y, relative);
-
-        if (std::isspace(path[i])) {
-          ++i;
-          continue;
-        }
-
-        if (i < path.size() && !std::isalpha(path[i])) {
-          x = parseNumber(path, i);
-          y = parseNumber(path, i);
-          commands.lineTo(x, y, relative);
-        }
+        command_char = relative ? 'l' : 'L';
       }
       else if (type == 'L') {
         float x = parseNumber(path, i);
@@ -276,6 +267,9 @@ namespace visage {
         float y = parseNumber(path, i);
         commands.arcTo(rx, ry, rotation, large_arc, sweep, x, y, relative);
       }
+
+      if (i == start)
+        ++i;
     }
     return commands;
   }
