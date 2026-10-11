@@ -232,6 +232,83 @@ TEST_CASE("Add/remove child multiple times", "[integration]") {
   }
 }
 
+TEST_CASE("Remove and re-add child with layer", "[integration]") {
+  ApplicationEditor app;
+  visage::Frame child;
+
+  app.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+
+  child.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+
+  child.setBounds(0, 0, 50, 50);
+  child.setAlphaTransparency(0.5f);
+  app.addChild(child);
+  app.setWindowless(50, 50);
+
+  for (int i = 0; i < 6; ++i) {
+    app.drawWindow();
+    Screenshot screenshot = app.takeScreenshot();
+    Color sample = screenshot.sample(10, 10);
+
+    if (i % 2) {
+      REQUIRE(sample.hexRed() == 0x00);
+      app.addChild(child);
+    }
+    else {
+      REQUIRE(sample.hexRed() >= 0x7f);
+      REQUIRE(sample.hexRed() <= 0x80);
+      app.removeChild(child);
+      child.setBounds(0, 0, 20 + i, 20 + i);
+    }
+  }
+}
+
+TEST_CASE("Remove and re-add parent of child with layer", "[integration]") {
+  ApplicationEditor app;
+  visage::Frame parent;
+  visage::Frame child;
+
+  app.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+
+  child.onDraw() = [&](visage::Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+
+  parent.setBounds(0, 0, 50, 50);
+  child.setBounds(0, 0, 50, 50);
+  child.setAlphaTransparency(0.5f);
+  parent.addChild(child);
+  app.addChild(parent);
+  app.setWindowless(50, 50);
+
+  for (int i = 0; i < 6; ++i) {
+    app.drawWindow();
+    Screenshot screenshot = app.takeScreenshot();
+    Color sample = screenshot.sample(10, 10);
+
+    if (i % 2) {
+      REQUIRE(sample.hexRed() == 0x00);
+      app.addChild(parent);
+    }
+    else {
+      REQUIRE(sample.hexRed() >= 0x7f);
+      REQUIRE(sample.hexRed() <= 0x80);
+      app.removeChild(parent);
+      child.setBounds(0, 0, 20 + i, 20 + i);
+    }
+  }
+}
+
 TEST_CASE("Overlap test - grouping with overlaps bug", "[integration]") {
   visage::ApplicationWindow app;
 

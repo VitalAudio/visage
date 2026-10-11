@@ -28,7 +28,6 @@ namespace visage {
     region->clear();
     region->parent_ = nullptr;
     region->setCanvas(nullptr);
-    region->setNeedsLayer(false);
     sub_regions_.erase(std::find(sub_regions_.begin(), sub_regions_.end(), region));
   }
 
@@ -36,8 +35,10 @@ namespace visage {
     if (canvas_ == canvas)
       return;
 
-    if (canvas_ && needsLayer())
+    if (canvas_ && needsLayer()) {
       canvas_->removeFromPackedLayer(this, layer_index_);
+      intermediate_region_ = nullptr;
+    }
 
     canvas_ = canvas;
     for (auto& sub_region : sub_regions_)
