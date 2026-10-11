@@ -233,6 +233,10 @@ namespace visage {
     float y2;
     float x3;
     float y3;
+    float cell_left;
+    float cell_top;
+    float cell_right;
+    float cell_bottom;
 
     static bgfx::VertexLayout& layout();
   };

@@ -1,5 +1,5 @@
-$input a_position, a_texcoord0
-$output v_shader_values, v_shader_values1
+$input a_position, a_texcoord0, a_texcoord1
+$output v_shader_values, v_shader_values1, v_position
 
 uniform vec4 u_bounds;
 uniform vec4 u_origin_flip;
@@ -59,5 +59,7 @@ void main() {
   vec2 delta = a_texcoord0.zw - a_texcoord0.xy;
   v_shader_values.w = lineFunction(position, a_texcoord0.xy, a_texcoord0.xy + vec2(delta.y, -delta.x));
   v_shader_values1.xy = a_position.zw;
+  v_shader_values1.zw = a_texcoord1.xy;
+  v_position = a_texcoord1.zw;
   gl_Position = vec4(position * u_bounds.xy + u_bounds.zw, 0.5, 1.0);
 }

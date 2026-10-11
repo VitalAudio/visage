@@ -704,6 +704,9 @@ namespace visage {
       }
     }
 
+    if (num_triangles == 0)
+      return submit_pass + 1;
+
     auto state = BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE);
     int vertices_per_triangle = kRegularVerticesPerTriangle;
     int indices_per_triangle = sizeof(kTriangleIndices) / sizeof(int);
@@ -786,6 +789,10 @@ namespace visage {
               vertices[vertex].y2 = last_y;
               vertices[vertex].x3 = new_x;
               vertices[vertex].y3 = new_y;
+              vertices[vertex].cell_left = x;
+              vertices[vertex].cell_top = y;
+              vertices[vertex].cell_right = x + path->w;
+              vertices[vertex].cell_bottom = y + path->h;
               ++vertex;
             }
 

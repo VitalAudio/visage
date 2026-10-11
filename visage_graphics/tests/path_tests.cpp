@@ -257,6 +257,28 @@ TEST_CASE("Degeneracies", "[graphics]") {
   }
 }
 
+TEST_CASE("Paths larger than the path atlas", "[graphics]") {
+  static constexpr int kWidth = 16;
+  static constexpr float kPathSize = 20000.0f;
+
+  Path path;
+  path.addRectangle(-kPathSize, -kPathSize, 2.0f * kPathSize, 2.0f * kPathSize);
+
+  Canvas canvas;
+  canvas.setWindowless(kWidth, kWidth);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, kWidth, kWidth);
+  canvas.setColor(0xffff0000);
+  canvas.fill(path, 0, 0, kWidth, kWidth);
+  canvas.fill(path, 0, 0, kWidth, kWidth);
+  canvas.submit();
+  const auto& screenshot = canvas.takeScreenshot();
+
+  REQUIRE(screenshot.sample(0, 0).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(kWidth / 2, kWidth / 2).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(kWidth - 1, kWidth - 1).hexRed() == 0xff);
+}
+
 TEST_CASE("SVG path parsing", "[graphics]") {
   SECTION("Implicit line to after move") {
     auto commands = Path::parseSvgPath("M10 10 20 20 30 10");
