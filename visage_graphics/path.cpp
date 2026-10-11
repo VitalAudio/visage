@@ -636,6 +636,10 @@ namespace visage {
     if (total_need_update == 0)
       return false;
 
+    auto clear_vertices = initQuadVertices<UvVertex>(total_need_update);
+    if (clear_vertices == nullptr)
+      return false;
+
     float width_scale = 2.0f / width_;
     float height_scale = 2.0f / height_;
 
@@ -644,7 +648,6 @@ namespace visage {
     bgfx::setViewClear(submit_pass, BGFX_CLEAR_NONE);
     bgfx::setViewFrameBuffer(submit_pass, frame_buffer_->handle);
     bgfx::setState(BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ZERO));
-    auto clear_vertices = initQuadVertices<UvVertex>(total_need_update);
     int vertex_index = 0;
     for (auto& path : paths_) {
       if (path->needs_update) {
@@ -719,7 +722,6 @@ namespace visage {
       vertices_per_point = 1;
     }
 
-    bgfx::setState(state);
     bgfx::TransientVertexBuffer vertex_buffer {};
     bgfx::TransientIndexBuffer index_buffer {};
     int num_vertices = num_triangles * vertices_per_triangle;
@@ -737,6 +739,7 @@ namespace visage {
       return submit_pass + 1;
     }
 
+    bgfx::setState(state);
     bgfx::setVertexBuffer(0, &vertex_buffer);
     bgfx::setIndexBuffer(&index_buffer);
 
