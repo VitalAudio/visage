@@ -949,10 +949,12 @@ namespace visage {
       gradient_def.user_space = tag.data.attributes.at("gradientUnits") == "userSpaceOnUse";
 
     for (auto& child : tag.children) {
-      if (child.data.name != "stop" || !child.data.attributes.count("offset"))
+      if (child.data.name != "stop")
         continue;
 
-      float offset = parseNumber(child.data.attributes.at("offset"), 1.0f);
+      float offset = child.data.attributes.count("offset")
+                        ? parseNumber(child.data.attributes.at("offset"), 1.0f)
+                        : 0.0f;
       gradient_def.gradient.addColorStop(parseStopColor(child), offset);
     }
 

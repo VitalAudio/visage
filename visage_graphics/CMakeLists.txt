@@ -96,7 +96,6 @@ target_link_libraries(
   bgfx
   bx
   bimg_decode
-  bimg_encode
   freetype
   ${WIN_LIBS}
   ${METAL_LIBS}
