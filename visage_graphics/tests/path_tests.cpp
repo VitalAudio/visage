@@ -279,6 +279,61 @@ TEST_CASE("Paths larger than the path atlas", "[graphics]") {
   REQUIRE(screenshot.sample(kWidth - 1, kWidth - 1).hexRed() == 0xff);
 }
 
+TEST_CASE("More paths than fit in transient buffers", "[graphics]") {
+  static constexpr int kWidth = 64;
+  static constexpr int kNumPaths = 120000;
+
+  Path path;
+  path.addRectangle(0, 0, 4, 4);
+
+  Canvas canvas;
+  canvas.setWindowless(kWidth, kWidth);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, kWidth, kWidth);
+  canvas.setColor(0xffff0000);
+  for (int i = 0; i < kNumPaths; ++i)
+    canvas.fill(path, i % 60, (i / 60) % 60, 4, 4);
+  canvas.submit();
+}
+
+TEST_CASE("Path atlas after removing paths", "[graphics]") {
+  static constexpr int kWidth = 32;
+  static constexpr int kHalf = kWidth / 2;
+
+  Path square;
+  square.addRectangle(2, 2, kHalf - 4, kHalf - 4);
+  Path triangle;
+  triangle.moveTo(2, 2);
+  triangle.lineTo(kHalf - 2, 2);
+  triangle.lineTo(2, kHalf - 2);
+  triangle.close();
+
+  Canvas canvas;
+  canvas.setWindowless(kWidth, kWidth);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, kWidth, kWidth);
+  canvas.setColor(0xffff0000);
+  canvas.fill(square, 0, 0, kHalf, kHalf);
+  canvas.fill(triangle, kHalf, 0, kHalf, kHalf);
+  canvas.fill(square, 0, kHalf, kHalf, kHalf);
+  canvas.fill(triangle, kHalf, kHalf, kHalf, kHalf);
+  canvas.submit();
+
+  canvas.clearDrawnShapes();
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, kWidth, kWidth);
+  canvas.setColor(0xffff0000);
+  canvas.fill(triangle, 0, 0, kHalf, kHalf);
+  canvas.fill(square, kHalf, kHalf, kHalf, kHalf);
+  const Screenshot& screenshot = canvas.takeScreenshot();
+
+  REQUIRE(screenshot.sample(4, 4).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(kHalf - 4, kHalf - 4).hexRed() == 0x00);
+  REQUIRE(screenshot.sample(kHalf + 4, 4).hexRed() == 0x00);
+  REQUIRE(screenshot.sample(4, kHalf + 4).hexRed() == 0x00);
+  REQUIRE(screenshot.sample(kHalf + kHalf / 2, kHalf + kHalf / 2).hexRed() == 0xff);
+}
+
 TEST_CASE("SVG path parsing", "[graphics]") {
   SECTION("Implicit line to after move") {
     auto commands = Path::parseSvgPath("M10 10 20 20 30 10");

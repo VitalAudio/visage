@@ -603,6 +603,7 @@ namespace visage {
       int y = 0;
       int w = 0;
       int h = 0;
+      int index = 0;
       bool needs_update = true;
     };
 
@@ -671,6 +672,7 @@ namespace visage {
       packed_path_rect->w = rect.w;
       packed_path_rect->h = rect.h;
       auto packed_rect = packed_path_rect.get();
+      packed_rect->index = paths_.size();
       paths_.push_back(std::move(packed_path_rect));
 
       auto reference = std::make_shared<PackedPathReference>(reference_, packed_rect);
@@ -688,11 +690,10 @@ namespace visage {
     void removePath(const PackedPathRect* packed_path_rect) {
       atlas_map_.removeRect(packed_path_rect);
       references_.erase(packed_path_rect);
-      paths_.erase(std::remove_if(paths_.begin(), paths_.end(),
-                                  [&](const std::unique_ptr<PackedPathRect>& ptr) {
-                                    return ptr.get() == packed_path_rect;
-                                  }),
-                   paths_.end());
+      int index = packed_path_rect->index;
+      std::swap(paths_[index], paths_.back());
+      paths_[index]->index = index;
+      paths_.pop_back();
     }
 
     static void setPathAtlasCoordinates(TextureVertex* vertices, const PackedPath& rect) {
