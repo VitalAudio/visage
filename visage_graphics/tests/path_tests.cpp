@@ -282,6 +282,15 @@ TEST_CASE("SVG path parsing", "[graphics]") {
     REQUIRE(commands[1].end == Point(30, 30));
   }
 
+  SECTION("Exponent with sign") {
+    auto commands = Path::parseSvgPath("M0 0L1e-1 5l2E+1,-2e-1");
+    REQUIRE(commands.size() == 3);
+    REQUIRE(commands[1].end.x == Catch::Approx(0.1f));
+    REQUIRE(commands[1].end.y == Catch::Approx(5.0f));
+    REQUIRE(commands[2].end.x == Catch::Approx(20.1f));
+    REQUIRE(commands[2].end.y == Catch::Approx(4.8f));
+  }
+
   SECTION("Invalid characters don't hang") {
     REQUIRE(Path::parseSvgPath("10 10").empty());
     REQUIRE(Path::parseSvgPath("M0 0 X1 1").size() == 1);

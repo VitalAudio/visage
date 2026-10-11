@@ -163,8 +163,9 @@ namespace visage {
     std::string number;
     while (i < str.size()) {
       bool sign = str[i] == '-' || str[i] == '+';
-      if (std::isdigit(str[i]) || (number.empty() && sign) || str[i] == '.' || str[i] == 'e' ||
-          str[i] == 'E') {
+      bool exponent_sign = sign && !number.empty() && (number.back() == 'e' || number.back() == 'E');
+      if (std::isdigit(str[i]) || (number.empty() && sign) || exponent_sign || str[i] == '.' ||
+          str[i] == 'e' || str[i] == 'E') {
         if (str[i] == '.') {
           if (number.find('.') != std::string::npos)
             return toFloat(number);
