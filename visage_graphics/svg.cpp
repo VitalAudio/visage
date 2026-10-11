@@ -952,9 +952,9 @@ namespace visage {
       if (child.data.name != "stop")
         continue;
 
-      float offset = child.data.attributes.count("offset")
-                        ? parseNumber(child.data.attributes.at("offset"), 1.0f)
-                        : 0.0f;
+      float offset = child.data.attributes.count("offset") ?
+                         parseNumber(child.data.attributes.at("offset"), 1.0f) :
+                         0.0f;
       gradient_def.gradient.addColorStop(parseStopColor(child), offset);
     }
 
