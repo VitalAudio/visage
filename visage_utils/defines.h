@@ -65,7 +65,10 @@ namespace visage {
       return instance;
     }
 
-    ~InstanceCounter() { VISAGE_ASSERT(count_ == 0); }
+    ~InstanceCounter() {
+      if (count_ != 0)
+        VISAGE_LOG("InstanceCounter: %d instance(s) of %s not released during shutdown", count_, T::vaLeakCheckerName());
+    }
 
     void add() { count_++; }
     void remove() { count_--; }
