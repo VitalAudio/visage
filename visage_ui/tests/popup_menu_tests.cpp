@@ -191,6 +191,22 @@ TEST_CASE("PopupMenu show functionality", "[ui]") {
   }
 }
 
+TEST_CASE("PopupMenu flips above point when it overflows the bottom", "[ui]") {
+  Frame root;
+  Frame source;
+  root.setBounds(0, 0, 400, 1000);
+  root.addChild(source);
+  source.setBounds(0, 500, 400, 400);
+
+  PopupMenu menu;
+  for (int i = 0; i < 10; ++i)
+    menu.addOption(i, "Option");
+  menu.show(&source, { 10, 300 });
+
+  Frame* list = root.children().back()->children()[0];
+  REQUIRE(list->y() + list->height() == 800);
+}
+
 TEST_CASE("PopupMenu native menu bar", "[ui]") {
   PopupMenu menu("File");
   menu.addOption(1, "New");
