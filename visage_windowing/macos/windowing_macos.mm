@@ -1013,7 +1013,7 @@ namespace visage {
   IPoint WindowMac::maxWindowDimensions() const {
     Point borders = windowBorderSize(window_handle_);
 
-    NSScreen* screen = [window_handle_ screen];
+    NSScreen* screen = [window_handle_ screen] ?: [NSScreen mainScreen];
     NSRect visible_frame = [screen visibleFrame];
 
     int display_width = dpiScale() * (visible_frame.size.width - borders.x);
