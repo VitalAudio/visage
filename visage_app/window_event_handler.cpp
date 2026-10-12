@@ -321,11 +321,12 @@ namespace visage {
     if (mouse_down_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
       mouse_event.event_frame = mouse_down_frame_;
-      auto frame = mouse_down_frame_;
+      temporary_frame_ = mouse_down_frame_;
       mouse_down_frame_ = nullptr;
-      frame->processMouseUp(mouse_event);
-      if (exited && frame)
-        frame->processMouseExit(mouse_event);
+      temporary_frame_->processMouseUp(mouse_event);
+      if (exited && temporary_frame_)
+        temporary_frame_->processMouseExit(mouse_event);
+      temporary_frame_ = nullptr;
     }
 
     mouse_event.event_frame = mouse_hovered_frame_;
