@@ -25,6 +25,7 @@
 #include "visage_utils/thread_utils.h"
 
 #include <cerrno>
+#include <clocale>
 #include <cstring>
 #include <sstream>
 #include <X11/cursorfont.h>
@@ -565,6 +566,8 @@ namespace visage {
 
   WindowX11::WindowX11(int x, int y, int width, int height, Decoration decoration) :
       Window(width, height), decoration_(decoration) {
+    if (std::strcmp(setlocale(LC_CTYPE, nullptr), "C") == 0)
+      setlocale(LC_CTYPE, "");
     XSetErrorHandler(X11Connection::xErrorHandler);
     x11_ = X11Connection::globalInstance();
 

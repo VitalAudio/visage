@@ -117,9 +117,6 @@ namespace visage {
       dnd_actions_[0] = dnd_action_copy_;
       dnd_actions_[1] = dnd_action_none_;
       cursors_ = std::make_unique<Cursors>(display_);
-
-      XSetLocaleModifiers("");
-      input_method_ = XOpenIM(display_, nullptr, nullptr, nullptr);
     }
 
     X11Connection(const X11Connection& copy) = delete;
@@ -159,7 +156,14 @@ namespace visage {
     const unsigned char* dndVersion() { return (unsigned char*)&dnd_version_; }
 
     const Cursors& cursors() const { return *cursors_; }
-    XIM inputMethod() const { return input_method_; }
+    XIM inputMethod() {
+      if (!input_method_opened_) {
+        input_method_opened_ = true;
+        XSetLocaleModifiers("");
+        input_method_ = XOpenIM(display_, nullptr, nullptr, nullptr);
+      }
+      return input_method_;
+    }
     int fd() const { return fd_; }
 
   private:
@@ -191,6 +195,7 @@ namespace visage {
     Atom dnd_types_[kNumDndTypes] {};
     std::unique_ptr<Cursors> cursors_;
     XIM input_method_ = nullptr;
+    bool input_method_opened_ = false;
   };
 
   struct MonitorInfo {
