@@ -546,6 +546,7 @@ namespace visage {
 
   WindowX11::WindowX11(int x, int y, int width, int height, Decoration decoration) :
       Window(width, height), decoration_(decoration) {
+    XSetErrorHandler(X11Connection::xErrorHandler);
     x11_ = X11Connection::globalInstance();
 
     monitor_info_ = activeMonitorInfo();

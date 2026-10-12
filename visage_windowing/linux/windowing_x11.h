@@ -85,7 +85,6 @@ namespace visage {
 
     X11Connection() {
       display_ = XOpenDisplay(nullptr);
-      XSetErrorHandler(xErrorHandler);
       if (display_ == nullptr)
         return;
 
