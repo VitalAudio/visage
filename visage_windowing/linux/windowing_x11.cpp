@@ -24,6 +24,7 @@
 
 #include "visage_utils/thread_utils.h"
 
+#include <cctype>
 #include <cerrno>
 #include <clocale>
 #include <cstring>
@@ -950,6 +951,42 @@ namespace visage {
     return keysym;
   }
 
+  static std::string fileUri(const std::string& path) {
+    static constexpr char kHex[] = "0123456789ABCDEF";
+
+    std::string result = "file://";
+    for (unsigned char c : path) {
+      if (std::isalnum(c) || c == '/' || c == '-' || c == '_' || c == '.' || c == '~')
+        result += c;
+      else {
+        result += '%';
+        result += kHex[c >> 4];
+        result += kHex[c & 0xf];
+      }
+    }
+    return result;
+  }
+
+  static std::string filePath(const std::string& uri) {
+    static const std::string kFilePrefix = "file://";
+
+    if (uri.compare(0, kFilePrefix.size(), kFilePrefix))
+      return uri;
+
+    std::string path = uri.substr(std::min(uri.find('/', kFilePrefix.size()), uri.size()));
+    std::string result;
+    for (int i = 0; i < path.size(); ++i) {
+      if (path[i] == '%' && i + 2 < path.size() && std::isxdigit((unsigned char)path[i + 1]) &&
+          std::isxdigit((unsigned char)path[i + 2])) {
+        result += static_cast<char>(std::stoi(path.substr(i + 1, 2), nullptr, 16));
+        i += 2;
+      }
+      else
+        result += path[i];
+    }
+    return result;
+  }
+
   ::Window WindowX11::windowUnderCursor(::Window inside) {
     ::Window root_return, child_return;
     int root_x, root_y, win_x, win_y;
@@ -1092,7 +1129,7 @@ namespace visage {
     else if (request->target == x11_->dndUriList()) {
       std::string selection_data;
       for (const auto& drag_drop_file : drag_drop_files_)
-        selection_data += "file://" + drag_drop_file + "\r\n";
+        selection_data += fileUri(drag_drop_file) + "\r\n";
 
       XChangeProperty(request->display, request->requestor, request->property, request->target, 8,
                       PropModeReplace, (unsigned char*)selection_data.c_str(), selection_data.length());
@@ -1240,8 +1277,6 @@ namespace visage {
 
       if (event.xselection.selection == x11_->dndSelection()) {
         if (event.xselection.property) {
-          const std::string kFilePrefix = "file://";
-
           Atom actual_type;
           int actual_format;
           unsigned long num_items = 0, bytes_after = 0;
@@ -1262,10 +1297,8 @@ namespace visage {
             drag_drop_files_.clear();
             while (std::getline(stream, line)) {
               std::string trimmed = String(line).trim().toUtf8();
-              if (trimmed.substr(0, kFilePrefix.size()) == kFilePrefix)
-                drag_drop_files_.push_back(trimmed.substr(kFilePrefix.size()));
-              else
-                drag_drop_files_.push_back(trimmed);
+              if (!trimmed.empty() && trimmed[0] != '#')
+                drag_drop_files_.push_back(filePath(trimmed));
             }
 
             XFree(files_string);
