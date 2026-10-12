@@ -22,6 +22,7 @@
 #include "visage_ui/scroll_bar.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <thread>
 
 using namespace visage;
 
@@ -299,5 +300,35 @@ TEST_CASE("ScrollableFrame scroll bar access", "[ui]") {
   SECTION("Scroll bar access") {
     ScrollBar& scroll_bar = scrollable_frame.scrollBar();
     scroll_bar.setRounding(10.0f);
+  }
+}
+
+TEST_CASE("ScrollableFrame smooth scrolling", "[ui]") {
+  MouseEvent wheel_event;
+  wheel_event.precise_wheel_delta_y = -1.0f;
+
+  SECTION("Reaches the target position") {
+    ScrollableFrame scrollable_frame;
+    scrollable_frame.setBounds(0, 0, 100, 200);
+    scrollable_frame.setScrollableHeight(400, 200);
+    scrollable_frame.setSmoothTime(0.01f);
+    REQUIRE(scrollable_frame.mouseWheel(wheel_event));
+
+    for (int i = 0; i < 100 && scrollable_frame.yPosition() != 100.0f; ++i) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      EventManager::instance().checkEventTimers();
+    }
+    REQUIRE(scrollable_frame.yPosition() == 100.0f);
+  }
+
+  SECTION("Deleted while scrolling") {
+    auto scrollable_frame = std::make_unique<ScrollableFrame>();
+    scrollable_frame->setBounds(0, 0, 100, 200);
+    scrollable_frame->setScrollableHeight(400, 200);
+    REQUIRE(scrollable_frame->mouseWheel(wheel_event));
+
+    scrollable_frame = nullptr;
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    EventManager::instance().checkEventTimers();
   }
 }
