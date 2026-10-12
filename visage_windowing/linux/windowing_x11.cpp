@@ -580,24 +580,28 @@ namespace visage {
   }
 
   static void threadTimerCallback(WindowX11* window) {
+    ::Display* display = XOpenDisplay(nullptr);
+    if (display == nullptr)
+      return;
+
+    Atom timer_event = XInternAtom(display, "VISAGE_TIMER_EVENT", False);
+    ::Window window_handle = (::Window)window->nativeHandle();
     while (window->timerThreadRunning()) {
       Thread::sleep(window->timerMs());
-
-      X11Connection* x11 = window->x11Connection();
-      X11Connection::DisplayLock lock(x11);
-      ::Window window_handle = (::Window)window->nativeHandle();
 
       XEvent event;
       memset(&event, 0, sizeof(event));
       event.type = ClientMessage;
       event.xclient.window = window_handle;
-      event.xclient.message_type = x11->timerEvent();
+      event.xclient.message_type = timer_event;
       event.xclient.format = 32;
       event.xclient.data.l[0] = 0;
 
-      XSendEvent(x11->display(), window_handle, False, NoEventMask, &event);
-      XFlush(x11->display());
+      XSendEvent(display, window_handle, False, NoEventMask, &event);
+      XFlush(display);
     }
+
+    XCloseDisplay(display);
   }
 
   WindowX11::WindowX11(int width, int height, void* parent_handle) : Window(width, height) {
