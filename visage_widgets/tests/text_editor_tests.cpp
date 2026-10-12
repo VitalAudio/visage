@@ -105,3 +105,14 @@ TEST_CASE("Text editor inactive", "[widgets]") {
   editor.processKeyPress(KeyEvent(KeyCode::Z, kModifierRegCtrl, true));
   REQUIRE(editor.text() == "abc");
 }
+
+TEST_CASE("Text editor single line input with newlines", "[widgets]") {
+  TextEditor editor;
+  editor.setMultiLine(false);
+  editor.processTextInput("a\r\nb\nc");
+  REQUIRE(editor.text() == "abc");
+
+  editor.setMultiLine(true);
+  editor.processTextInput("d\ne");
+  REQUIRE(editor.text() == "abcd\ne");
+}

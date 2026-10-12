@@ -865,6 +865,8 @@ namespace visage {
     dead_key_entry_ = DeadKey::None;
     if (!filtered_characters_.empty())
       text = text.removeCharacters(filtered_characters_);
+    if (!text_.multiLine())
+      text = text.removeCharacters("\r\n");
     text = text.removeEmojiVariations();
 
     if (action_state_ != kInserting)
