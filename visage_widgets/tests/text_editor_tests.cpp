@@ -37,3 +37,40 @@ TEST_CASE("Text editor text input callbacks", "[widgets]") {
   REQUIRE(text_change_count == 1);
   REQUIRE(input_text == "a");
 }
+
+TEST_CASE("Text editor dead key at max characters", "[widgets]") {
+  TextEditor editor;
+  editor.setMaxCharacters(3);
+  editor.setText("abc");
+
+  editor.moveCaretToTop(false);
+  editor.processKeyPress(KeyEvent(KeyCode::E, kModifierAlt, true));
+  editor.processTextInput("e");
+  REQUIRE(editor.text() == "abc");
+
+  editor.moveCaretToEnd(false);
+  editor.processKeyPress(KeyEvent(KeyCode::E, kModifierAlt, true));
+  editor.processTextInput("e");
+  REQUIRE(editor.text() == "abc");
+}
+
+TEST_CASE("Text editor dead key with filtered accent", "[widgets]") {
+  TextEditor editor;
+  editor.setFilteredCharacters("´");
+  editor.setText("abc");
+
+  editor.moveCaretToEnd(false);
+  editor.processKeyPress(KeyEvent(KeyCode::E, kModifierAlt, true));
+  editor.processTextInput("e");
+  REQUIRE(editor.text() == "abce");
+}
+
+TEST_CASE("Text editor dead key", "[widgets]") {
+  TextEditor editor;
+  editor.setText("ab");
+
+  editor.moveCaretToEnd(false);
+  editor.processKeyPress(KeyEvent(KeyCode::E, kModifierAlt, true));
+  editor.processTextInput("e");
+  REQUIRE(editor.text() == "abé");
+}

@@ -152,7 +152,7 @@ namespace visage {
     bool undo();
     bool redo();
 
-    void insertTextAtCaret(const String& insert_text);
+    int insertTextAtCaret(const String& insert_text);
 
     void setBackgroundRounding(float rounding) {
       background_rounding_ = rounding;

@@ -460,35 +460,39 @@ namespace visage {
   }
 
   bool TextEditor::handleDeadKey(const KeyEvent& key) {
+    DeadKey dead_key = DeadKey::None;
+    char32_t accent = 0;
     switch (key.key_code) {
     case KeyCode::E:
-      insertTextAtCaret(kAcuteAccentCharacter);
-      dead_key_entry_ = DeadKey::AcuteAccent;
+      dead_key = DeadKey::AcuteAccent;
+      accent = kAcuteAccentCharacter;
       break;
     case KeyCode::Grave:
-      insertTextAtCaret(kGraveAccentCharacter);
-      dead_key_entry_ = DeadKey::GraveAccent;
+      dead_key = DeadKey::GraveAccent;
+      accent = kGraveAccentCharacter;
       break;
     case KeyCode::N:
-      insertTextAtCaret(kTildeCharacter);
-      dead_key_entry_ = DeadKey::Tilde;
+      dead_key = DeadKey::Tilde;
+      accent = kTildeCharacter;
       break;
     case KeyCode::U:
-      insertTextAtCaret(kUmlautCharacter);
-      dead_key_entry_ = DeadKey::Umlaut;
+      dead_key = DeadKey::Umlaut;
+      accent = kUmlautCharacter;
       break;
     case KeyCode::I:
-      insertTextAtCaret(kCircumflexCharacter);
-      dead_key_entry_ = DeadKey::Circumflex;
+      dead_key = DeadKey::Circumflex;
+      accent = kCircumflexCharacter;
       break;
-    default: dead_key_entry_ = DeadKey::None; break;
-    }
-    if (dead_key_entry_ != DeadKey::None) {
-      selection_position_ = caret_position_ - 1;
-      makeCaretVisible();
+    default: dead_key_entry_ = DeadKey::None; return false;
     }
 
-    return dead_key_entry_ != DeadKey::None;
+    if (insertTextAtCaret(accent) == 0)
+      return false;
+
+    dead_key_entry_ = dead_key;
+    selection_position_ = caret_position_ - 1;
+    makeCaretVisible();
+    return true;
   }
 
   bool TextEditor::keyPress(const KeyEvent& key) {
@@ -837,7 +841,7 @@ namespace visage {
     return true;
   }
 
-  void TextEditor::insertTextAtCaret(const String& insert_text) {
+  int TextEditor::insertTextAtCaret(const String& insert_text) {
     undone_history_.clear();
     String text = translateDeadKeyText(insert_text);
     if (dead_key_entry_ != DeadKey::None && text == insert_text)
@@ -867,6 +871,7 @@ namespace visage {
 
     on_text_change_.callback();
     redraw();
+    return max_text;
   }
 
   void TextEditor::setNumberEntry() {
