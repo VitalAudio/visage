@@ -638,6 +638,8 @@ namespace visage {
 
   WindowX11::~WindowX11() {
     NativeWindowLookup::instance().removeWindow(this);
+    if (last_active_window_ == this)
+      last_active_window_ = nullptr;
 
     timer_thread_running_ = false;
     if (timer_thread_ && timer_thread_->joinable())
