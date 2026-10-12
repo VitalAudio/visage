@@ -291,10 +291,7 @@ namespace visage {
             coordinate_index3 = 2;
           }
 
-          PackedBrush::setVertexGradientPositions(text_block.brush, vertices + vertex_index,
-                                                  length * kVerticesPerQuad, x, y, batch.x, batch.y,
-                                                  x + text_block.width, y + text_block.height);
-
+          int start_index = vertex_index;
           for (int i = 0; i < length; ++i) {
             if (!overlaps(text_block.quads[i]))
               continue;
@@ -339,6 +336,10 @@ namespace visage {
 
             vertex_index += kVerticesPerQuad;
           }
+
+          PackedBrush::setVertexGradientPositions(text_block.brush, vertices + start_index,
+                                                  vertex_index - start_index, x, y, batch.x, batch.y,
+                                                  x + text_block.width, y + text_block.height);
         }
       }
     }
