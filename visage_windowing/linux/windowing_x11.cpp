@@ -567,14 +567,13 @@ namespace visage {
 
     XSetWindowAttributes window_attributes;
     window_attributes.background_pixmap = None;
-    window_attributes.background_pixel = None;
     window_attributes.border_pixel = BlackPixel(display, screen);
     window_attributes.backing_store = WhenMapped;
     window_attributes.bit_gravity = NorthWestGravity;
     window_attributes.win_gravity = NorthWestGravity;
 
-    unsigned long attribute_mask = CWBackPixmap | CWBackingPixel | CWBorderPixel | CWBackingStore |
-                                   CWBitGravity | CWWinGravity;
+    unsigned long attribute_mask = CWBackPixmap | CWBorderPixel | CWBackingStore | CWBitGravity |
+                                   CWWinGravity;
     window_handle_ = XCreateWindow(display, x11_->rootWindow(), bounds.x(), bounds.y(),
                                    bounds.width(), bounds.height(), 0, CopyFromParent, InputOutput,
                                    CopyFromParent, attribute_mask, &window_attributes);
