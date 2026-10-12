@@ -55,6 +55,13 @@ TEST_CASE("Svg malformed input", "[graphics]") {
     REQUIRE(svg.drawable());
   }
 
+  SECTION("Curve with non-finite transform") {
+    Svg nan_scale = parseSvg(R"svg(<svg viewBox="0 0 10 10"><g transform="scale(nan)"><path d="M0 0C10 0 10 10 0 10"/></g></svg>)svg");
+    REQUIRE(nan_scale.drawable());
+    Svg inf_scale = parseSvg(R"svg(<svg viewBox="0 0 10 10"><g transform="scale(inf)"><path d="M0 0C10 0 10 10 0 10"/></g></svg>)svg");
+    REQUIRE(inf_scale.drawable());
+  }
+
   SECTION("Empty css selector") {
     Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><style>a,>{fill:red}</style><rect width="10" height="10"/></svg>)svg");
     REQUIRE(svg.drawable());

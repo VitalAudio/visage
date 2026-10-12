@@ -533,12 +533,16 @@ namespace visage {
       return point - closest_point;
     }
 
-    void recurseBezierTo(const Point& from, const Point& control1, const Point& control2, const Point& to) {
+    void recurseBezierTo(const Point& from, const Point& control1, const Point& control2,
+                         const Point& to, int depth = 0) {
+      static constexpr int kMaxBezierDepth = 16;
       float error_squared = error_tolerance_ * error_tolerance_;
 
       Point delta1 = resolution_matrix_ * deltaFromLine(control1, from, to);
       Point delta2 = resolution_matrix_ * deltaFromLine(control2, from, to);
-      if (delta1.squareMagnitude() <= error_squared && delta2.squareMagnitude() <= error_squared) {
+      bool within_error = !(delta1.squareMagnitude() > error_squared) &&
+                          !(delta2.squareMagnitude() > error_squared);
+      if (within_error || depth >= kMaxBezierDepth) {
         addPoint(to);
         return;
       }
@@ -552,8 +556,8 @@ namespace visage {
 
       Point break_point = (midmid1 + midmid2) * 0.5f;
 
-      recurseBezierTo(from, mid1, midmid1, break_point);
-      recurseBezierTo(break_point, midmid2, mid3, to);
+      recurseBezierTo(from, mid1, midmid1, break_point, depth + 1);
+      recurseBezierTo(break_point, midmid2, mid3, to, depth + 1);
     }
 
     void startNewPath() {
