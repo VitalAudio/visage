@@ -316,6 +316,12 @@ namespace visage {
     return dpi;
   }
 
+  static float resourceDpi(Display* display) {
+    const char* resources = XResourceManagerString(display);
+    const char* dpi = resources ? std::strstr(resources, "Xft.dpi:") : nullptr;
+    return dpi ? std::strtof(dpi + std::strlen("Xft.dpi:"), nullptr) : 0.0f;
+  }
+
   static MonitorInfo monitorInfoForPosition(IPoint point) {
     static constexpr float kDpiAdjustment = 4.0f / Window::kDefaultDpi;
 
@@ -328,6 +334,7 @@ namespace visage {
                            DisplayHeight(display, default_screen));
     MonitorInfo result;
     result.bounds = default_bounds;
+    float resource_dpi = resourceDpi(display);
 
     XRRScreenResources* screen_resources = XRRGetScreenResources(display, x11->rootWindow());
     if (screen_resources == nullptr)
@@ -345,7 +352,8 @@ namespace visage {
         IBounds bounds(info->x, info->y, info->width, info->height);
         if (result.bounds.width() == 0 || bounds.contains(point)) {
           result.bounds = bounds;
-          result.dpi = std::round(monitorDpi(info, output_info) * kDpiAdjustment) / kDpiAdjustment;
+          float dpi = resource_dpi > 0.0f ? resource_dpi : monitorDpi(info, output_info);
+          result.dpi = std::round(dpi * kDpiAdjustment) / kDpiAdjustment;
           result.refresh_rate = refreshRate(screen_resources, info);
         }
         XRRFreeCrtcInfo(info);
