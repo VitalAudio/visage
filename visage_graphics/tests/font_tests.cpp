@@ -95,6 +95,25 @@ TEST_CASE("Font with 1-bit bitmap glyphs", "[graphics]") {
   REQUIRE(lit == 8);
 }
 
+TEST_CASE("Font variation selectors take no space", "[graphics]") {
+  Font font(16, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data), 1.0f);
+  FontAtlasQuad plain[2];
+  FontAtlasQuad selected[3];
+  font.setVertexPositions(plain, U"AB", 2, 0, 0, 100, 20);
+  font.setVertexPositions(selected, U"A\uFE0FB", 3, 0, 0, 100, 20);
+
+  REQUIRE(font.stringWidth(U"A\uFE0FB") == font.stringWidth(U"AB"));
+  REQUIRE(selected[0].x == plain[0].x);
+  REQUIRE(selected[1].width == 0.0f);
+  REQUIRE(selected[2].x == plain[1].x);
+
+  Canvas canvas;
+  canvas.setWindowless(100, 20);
+  canvas.setColor(Brush::horizontal(0xffff0000, 0xff0000ff));
+  canvas.text(U"A\uFE0FB", font, Font::Justification::kCenter, 0, 0, 100, 20);
+  canvas.submit();
+}
+
 #if VISAGE_LINUX
 TEST_CASE("Emoji rasterizer character missing from emoji font", "[graphics]") {
   static constexpr int kSize = 32;

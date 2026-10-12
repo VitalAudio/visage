@@ -399,7 +399,9 @@ namespace visage {
 
     for (int i = 0; i < length; ++i) {
       char32_t character = character_override ? character_override : text[i];
-      const PackedGlyph* packed_glyph = packed_font_->packedGlyph(character);
+      const PackedGlyph* packed_glyph = &kNullPackedGlyph;
+      if (!isIgnored(character))
+        packed_glyph = packed_font_->packedGlyph(character);
 
       quads[i].packed_glyph = packed_glyph;
       quads[i].x = pen_x + packed_glyph->x_offset;
