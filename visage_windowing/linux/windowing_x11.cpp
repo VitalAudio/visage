@@ -410,7 +410,7 @@ namespace visage {
     int ok_width = XTextWidth(font, "OK", 2);
     XDrawString(display, window, gc, (width - ok_width) / 2, button_y + (button_height + 24) / 2, "OK", 2);
 
-    XUnloadFont(display, font->fid);
+    XFreeFont(display, font);
   }
 
   static Bool isWindowEvent(Display* display, XEvent* event, XPointer window) {
