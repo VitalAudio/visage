@@ -96,12 +96,12 @@ namespace visage {
   }
 
   void ApplicationWindow::hide() {
-    if (window_ && onCloseRequested().callback())
+    if (window_ && (onCloseRequested().isEmpty() || onCloseRequested().callback()))
       return window_->hide();
   }
 
   void ApplicationWindow::close() {
-    if (window_ && onCloseRequested().callback()) {
+    if (window_ && (onCloseRequested().isEmpty() || onCloseRequested().callback())) {
       removeFromWindow();
       window_ = nullptr;
     }
