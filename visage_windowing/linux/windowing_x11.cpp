@@ -415,6 +415,14 @@ namespace visage {
     XFreeFont(display, font);
   }
 
+  static void setWindowName(X11Connection* x11, ::Window window, const std::string& name) {
+    Atom net_wm_name = XInternAtom(x11->display(), "_NET_WM_NAME", False);
+    Xutf8SetWMProperties(x11->display(), window, name.c_str(), nullptr, nullptr, 0, nullptr,
+                         nullptr, nullptr);
+    XChangeProperty(x11->display(), window, net_wm_name, x11->utf8String(), 8, PropModeReplace,
+                    (const unsigned char*)name.c_str(), name.size());
+  }
+
   static Bool isWindowEvent(Display* display, XEvent* event, XPointer window) {
     return event->xany.window == *reinterpret_cast<::Window*>(window);
   }
@@ -431,7 +439,7 @@ namespace visage {
                                                   bounds.y(), bounds.width(), bounds.height(), 0,
                                                   BlackPixel(display, screen),
                                                   WhitePixel(display, screen));
-    XStoreName(display, message_window, title.c_str());
+    setWindowName(x11, message_window, title);
     Atom wm_state = XInternAtom(display, "_NET_WM_STATE", False);
     Atom wm_state_above = XInternAtom(display, "_NET_WM_STATE_ABOVE", False);
     XChangeProperty(display, message_window, wm_state, XA_ATOM, 32, PropModeReplace,
@@ -579,7 +587,11 @@ namespace visage {
     window_handle_ = XCreateWindow(display, x11_->rootWindow(), bounds.x(), bounds.y(),
                                    bounds.width(), bounds.height(), 0, CopyFromParent, InputOutput,
                                    CopyFromParent, attribute_mask, &window_attributes);
-    XStoreName(display, window_handle_, VISAGE_APPLICATION_NAME);
+    setWindowName(x11_, window_handle_, VISAGE_APPLICATION_NAME);
+
+    std::string class_name = VISAGE_APPLICATION_NAME;
+    XClassHint class_hint = { class_name.data(), class_name.data() };
+    XSetClassHint(display, window_handle_, &class_hint);
 
     unsigned char blank = 0;
     XChangeProperty(display, window_handle_, x11_->dndActionList(), XA_ATOM, 32, PropModeReplace,
@@ -1764,7 +1776,7 @@ namespace visage {
 
   void WindowX11::setWindowTitle(const std::string& title) {
     X11Connection::DisplayLock lock(x11_);
-    XStoreName(x11_->display(), window_handle_, title.c_str());
+    setWindowName(x11_, window_handle_, title);
   }
 
   IPoint WindowX11::maxWindowDimensions() const {
