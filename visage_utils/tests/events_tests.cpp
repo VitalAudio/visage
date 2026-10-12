@@ -240,3 +240,96 @@ TEST_CASE("CallbackList copies are independent", "[utils]") {
   REQUIRE(original.callback() == 2);
   REQUIRE(copy.callback() == 3);
 }
+
+TEST_CASE("CallbackList remove by id", "[utils]") {
+  CallbackList<void()> callbacks;
+  std::vector<int> called;
+  std::vector<int> ids;
+  for (int i = 0; i < 3; ++i)
+    ids.push_back(callbacks.add([&called, i] { called.push_back(i); }));
+
+  callbacks.remove(ids[1]);
+  callbacks.callback();
+  REQUIRE(called == std::vector<int> { 0, 2 });
+
+  called.clear();
+  callbacks.remove(ids[1]);
+  callbacks.remove(-1);
+  callbacks.callback();
+  REQUIRE(called == std::vector<int> { 0, 2 });
+
+  int id = callbacks.set([&called] { called.push_back(3); });
+  callbacks.remove(id);
+  REQUIRE(callbacks.isEmpty());
+}
+
+TEST_CASE("CallbackList remove during callback", "[utils]") {
+  CallbackList<void()> callbacks;
+  int second_calls = 0;
+  int second_id = 0;
+  callbacks.add([&] { callbacks.remove(second_id); });
+  second_id = callbacks.add([&second_calls] { second_calls++; });
+
+  callbacks.callback();
+  REQUIRE(second_calls == 1);
+  callbacks.callback();
+  REQUIRE(second_calls == 1);
+}
+
+TEST_CASE("CallbackConnection", "[utils]") {
+  SECTION("Removes the callback when destroyed") {
+    CallbackList<void()> callbacks;
+    int calls = 0;
+    {
+      CallbackConnection connection = callbacks.connect([&calls] { calls++; });
+      callbacks.callback();
+    }
+    callbacks.callback();
+    REQUIRE(calls == 1);
+  }
+
+  SECTION("List destroyed first") {
+    auto callbacks = std::make_unique<CallbackList<void()>>();
+    CallbackConnection connection = callbacks->connect([] {});
+    callbacks.reset();
+    connection.disconnect();
+  }
+
+  SECTION("Moved connection") {
+    CallbackList<void()> callbacks;
+    int calls = 0;
+    CallbackConnection moved;
+    {
+      CallbackConnection connection = callbacks.connect([&calls] { calls++; });
+      moved = std::move(connection);
+    }
+    callbacks.callback();
+    REQUIRE(calls == 1);
+    moved.disconnect();
+    callbacks.callback();
+    REQUIRE(calls == 1);
+  }
+
+  SECTION("Copied list keeps its own callbacks") {
+    auto original = std::make_unique<CallbackList<void()>>();
+    int calls = 0;
+    CallbackConnection connection = original->connect([&calls] { calls++; });
+    CallbackList<void()> copy(*original);
+    original.reset();
+    connection.disconnect();
+    copy.callback();
+    REQUIRE(calls == 1);
+  }
+
+  SECTION("Assigned list invalidates old connections") {
+    CallbackList<void()> callbacks;
+    CallbackList<void()> other;
+    int calls = 0;
+    CallbackConnection connection = callbacks.connect([] {});
+    other.add([&calls] { calls++; });
+    callbacks = other;
+    connection.disconnect();
+    callbacks.callback();
+    REQUIRE(calls == 1);
+  }
+}

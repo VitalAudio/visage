@@ -500,3 +500,25 @@ TEST_CASE("Frame layout management", "[ui]") {
     REQUIRE_FALSE(frame.layout().flex());
   }
 }
+
+TEST_CASE("Frame listen", "[ui]") {
+  SECTION("Stops listening when the listener is destroyed") {
+    Frame parent;
+    int calls = 0;
+    auto child = std::make_unique<Frame>();
+    child->listen(parent.onResize(), [&calls] { calls++; });
+
+    parent.setBounds(0, 0, 10, 10);
+    REQUIRE(calls == 1);
+    child.reset();
+    parent.setBounds(0, 0, 20, 20);
+    REQUIRE(calls == 1);
+  }
+
+  SECTION("Source destroyed first") {
+    auto parent = std::make_unique<Frame>();
+    Frame child;
+    child.listen(parent->onResize(), [] {});
+    parent.reset();
+  }
+}

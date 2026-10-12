@@ -51,11 +51,17 @@ namespace visage {
     Frame() = default;
     explicit Frame(std::string name) : name_(std::move(name)) { }
     virtual ~Frame() {
+      listeners_.clear();
       notifyRemoveFromHierarchy();
       if (parent_)
         parent_->eraseChild(this);
 
       removeAllChildren();
+    }
+
+    template<typename T, typename F>
+    void listen(CallbackList<T>& list, F&& callback) {
+      listeners_.push_back(list.connect(std::forward<F>(callback)));
     }
 
     auto& onDraw() { return on_draw_; }
@@ -449,6 +455,7 @@ namespace visage {
     CallbackList<bool(const KeyEvent&)> on_key_press_ { [this](auto& e) { return keyPress(e); } };
     CallbackList<bool(const KeyEvent&)> on_key_release_ { [this](auto& e) { return keyRelease(e); } };
     CallbackList<void(const std::string&)> on_text_input_ { [this](auto& text) { textInput(text); } };
+    std::vector<CallbackConnection> listeners_;
 
     bool on_top_ = false;
     bool visible_ = true;
