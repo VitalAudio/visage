@@ -802,6 +802,9 @@ namespace visage {
   }
 
   void WindowX11::passEventToParent(XEvent& event) {
+    if (parent_handle_ == 0)
+      return;
+
     X11Connection::DisplayLock lock(x11_);
 
     ::Window root = 0, parent = 0;
