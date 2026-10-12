@@ -24,6 +24,7 @@
 
 #include "visage_utils/thread_utils.h"
 
+#include <cerrno>
 #include <cstring>
 #include <sstream>
 #include <X11/cursorfont.h>
@@ -1491,7 +1492,7 @@ namespace visage {
         result = select(fd + 1, &read_fds, nullptr, nullptr, &timeout);
       }
 
-      if (result == -1)
+      if (result == -1 && errno != EINTR)
         running = false;
 
       while (running && XPending(x11_->display())) {
