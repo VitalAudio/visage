@@ -66,7 +66,7 @@ namespace visage {
 
     if (flex_area < 0) {
       for (int i = 0; i < children.size(); ++i) {
-        if (children[i]->flex_shrink_) {
+        if (children[i]->flex_shrink_ && dimensions[i] > 0) {
           int delta = std::round(flex_area * children[i]->flex_shrink_ * dimensions[i] / total_flex_shrink);
           delta = std::max(delta, -dimensions[i]);
           total_flex_shrink -= children[i]->flex_shrink_ * dimensions[i];
