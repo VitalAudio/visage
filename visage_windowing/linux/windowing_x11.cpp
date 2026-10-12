@@ -353,7 +353,7 @@ namespace visage {
     result.bounds = default_bounds;
     float resource_dpi = resourceDpi(display);
 
-    XRRScreenResources* screen_resources = XRRGetScreenResources(display, x11->rootWindow());
+    XRRScreenResources* screen_resources = XRRGetScreenResourcesCurrent(display, x11->rootWindow());
     if (screen_resources == nullptr)
       return result;
 
