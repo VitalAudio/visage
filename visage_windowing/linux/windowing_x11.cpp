@@ -1187,8 +1187,7 @@ namespace visage {
       result.property = request->property;
     }
 
-    if (result.property != None)
-      XSendEvent(request->display, result.requestor, 0, NoEventMask, (XEvent*)&result);
+    XSendEvent(request->display, result.requestor, 0, NoEventMask, (XEvent*)&result);
   }
 
   void WindowX11::sendDragDropFinished(::Window source, ::Window target, bool accepted_drag) const {
