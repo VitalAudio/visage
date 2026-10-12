@@ -86,8 +86,10 @@ namespace visage {
       callbacks.swap(callbacks_);
     }
 
-    for (auto timer : timers)
-      timer->checkTimer(current_time);
+    for (auto timer : timers) {
+      if (std::find(timers_.begin(), timers_.end(), timer) != timers_.end())
+        timer->checkTimer(current_time);
+    }
 
     for (auto& callback : callbacks)
       callback();
