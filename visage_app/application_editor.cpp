@@ -178,8 +178,9 @@ namespace visage {
     for (int i = 0; i < stale_children_.size();) {
       Frame* child = stale_children_[i];
       if (std::find(drawing_children_.begin(), drawing_children_.end(), child) == drawing_children_.end()) {
-        child->drawToRegion(*canvas_);
         stale_children_.erase(stale_children_.begin() + i);
+        drawing_children_.push_back(child);
+        child->drawToRegion(*canvas_);
       }
       else
         ++i;

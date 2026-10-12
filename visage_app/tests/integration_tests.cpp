@@ -690,3 +690,37 @@ TEST_CASE("Redraw requested while drawing stale children", "[integration]") {
   for (int count : draw_counts)
     REQUIRE(count == 1);
 }
+
+TEST_CASE("Frame redrawing itself after being redrawn by another frame", "[integration]") {
+  ApplicationEditor editor;
+  Frame first;
+  Frame second;
+  bool animating = false;
+  int draw_count = 0;
+
+  first.onDraw() = [&](Canvas& canvas) {
+    animating = true;
+    second.redraw();
+  };
+  second.onDraw() = [&](Canvas& canvas) {
+    draw_count++;
+    if (animating)
+      second.redraw();
+  };
+
+  editor.addChild(first);
+  editor.addChild(second);
+  first.setBounds(0, 0, 10, 10);
+  second.setBounds(10, 0, 10, 10);
+  editor.setWindowless(20, 10);
+  editor.drawWindow();
+  animating = false;
+  editor.drawWindow();
+
+  first.redraw();
+  for (int i = 0; i < 3; ++i) {
+    draw_count = 0;
+    editor.drawWindow();
+    REQUIRE(draw_count == 1);
+  }
+}
