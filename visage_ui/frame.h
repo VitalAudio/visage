@@ -56,6 +56,7 @@ namespace visage {
       if (parent_)
         parent_->eraseChild(this);
 
+      on_child_removed_.clear();
       removeAllChildren();
     }
 

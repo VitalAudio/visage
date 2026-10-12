@@ -332,3 +332,16 @@ TEST_CASE("ScrollableFrame smooth scrolling", "[ui]") {
     EventManager::instance().checkEventTimers();
   }
 }
+
+TEST_CASE("ScrollableFrame destroyed with scrolled children", "[ui]") {
+  auto scrollable_frame = std::make_unique<ScrollableFrame>();
+  scrollable_frame->setBounds(0, 0, 100, 200);
+  auto child = std::make_unique<Frame>();
+  child->setBounds(0, 0, 100, 400);
+  scrollable_frame->addScrolledChild(std::move(child));
+
+  int scroll_count = 0;
+  scrollable_frame->onScroll() += [&](ScrollableFrame*) { scroll_count++; };
+  scrollable_frame = nullptr;
+  REQUIRE(scroll_count == 0);
+}
