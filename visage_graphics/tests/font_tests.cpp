@@ -38,3 +38,21 @@ TEST_CASE("Font embedded test", "[graphics]") {
   canvas.takeScreenshot();
   canvas.submit();
 }
+TEST_CASE("Font invalid data", "[graphics]") {
+  static constexpr unsigned char kJunk[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+
+  SECTION("Missing file") {
+    Font font(16, std::string("/missing/font.ttf"), 1.0f);
+    REQUIRE(font.stringWidth(U"Test") == 0.0f);
+  }
+
+  SECTION("Junk data") {
+    Font font(16, kJunk, sizeof(kJunk), 1.0f);
+    REQUIRE(font.stringWidth(U"Test") == 0.0f);
+
+    Canvas canvas;
+    canvas.setWindowless(100, 50);
+    canvas.text("Test", font, Font::Justification::kCenter, 0, 0, 100, 50);
+    canvas.submit();
+  }
+}

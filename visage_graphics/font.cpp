@@ -41,12 +41,17 @@ namespace visage {
 
     static FT_Face newMemoryFace(const unsigned char* data, int data_size) {
       FT_Face face = nullptr;
-      FT_New_Memory_Face(instance().library_, data, data_size, 0, &face);
+      if (FT_New_Memory_Face(instance().library_, data, data_size, 0, &face))
+        return nullptr;
+
       instance().faces_.insert(face);
       return face;
     }
 
     static void doneFace(FT_Face face) {
+      if (face == nullptr)
+        return;
+
       VISAGE_ASSERT(instance().faces_.count(face));
       if (instance().faces_.count(face) == 0)
         return;
@@ -57,7 +62,11 @@ namespace visage {
 
     static std::string idForFont(const unsigned char* data, int data_size) {
       FT_Face face = newMemoryFace(data, data_size);
-      std::string id = std::string(face->family_name) + "-" + std::string(face->style_name);
+      if (face == nullptr)
+        return "";
+
+      std::string id = std::string(face->family_name ? face->family_name : "") + "-" +
+                       std::string(face->style_name ? face->style_name : "");
       doneFace(face);
       return id;
     }
@@ -81,18 +90,21 @@ namespace visage {
 
     TypeFace(int size, const unsigned char* data, int data_size) {
       face_ = FreeTypeLibrary::newMemoryFace(data, data_size);
-      FT_Set_Pixel_Sizes(face_, 0, std::max(0, size));
+      if (face_)
+        FT_Set_Pixel_Sizes(face_, 0, std::max(0, size));
     }
 
     ~TypeFace() { FreeTypeLibrary::doneFace(face_); }
 
-    int numGlyphs() const { return face_->num_glyphs; }
-    std::string familyName() const { return face_->family_name; }
-    std::string styleName() const { return face_->style_name; }
+    int numGlyphs() const { return face_ ? face_->num_glyphs : 0; }
+    std::string familyName() const { return face_ && face_->family_name ? face_->family_name : ""; }
+    std::string styleName() const { return face_ && face_->style_name ? face_->style_name : ""; }
 
-    int glyphIndex(char32_t character) const { return FT_Get_Char_Index(face_, character); }
+    int glyphIndex(char32_t character) const {
+      return face_ ? FT_Get_Char_Index(face_, character) : 0;
+    }
     bool hasCharacter(char32_t character) const { return glyphIndex(character); }
-    int lineHeight() const { return face_->size->metrics.height >> 6; }
+    int lineHeight() const { return face_ ? face_->size->metrics.height >> 6 : 0; }
 
     FT_GlyphSlot characterInfo(char32_t character) const {
       FT_Load_Char(face_, character, 0);
