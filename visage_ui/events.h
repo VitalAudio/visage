@@ -35,6 +35,8 @@ namespace visage {
   class EventTimer {
   public:
     EventTimer() = default;
+    EventTimer(const EventTimer&) = delete;
+    EventTimer& operator=(const EventTimer&) = delete;
     virtual ~EventTimer();
 
     auto& onTimerCallback() { return on_timer_callback_; }
