@@ -1444,11 +1444,15 @@ namespace visage {
     case FocusIn: {
       if (input_context_)
         XSetICFocus(input_context_);
+      if (event.xfocus.mode != NotifyGrab && event.xfocus.mode != NotifyUngrab)
+        handleFocusGained();
       break;
     }
     case FocusOut: {
       if (input_context_)
         XUnsetICFocus(input_context_);
+      if (event.xfocus.mode != NotifyGrab && event.xfocus.mode != NotifyUngrab)
+        handleFocusLost();
       break;
     }
     case EnterNotify: {
