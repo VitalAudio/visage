@@ -273,10 +273,6 @@ namespace visage {
   }
 
   static IPoint nativeCursorScreenPosition() {
-    WindowX11* window = WindowX11::lastActiveWindow();
-    if (window == nullptr)
-      return { 0, 0 };
-
     X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
 
@@ -303,8 +299,24 @@ namespace visage {
     return MonitorInfo::kDefaultRefreshRate;
   }
 
-  static MonitorInfo monitorInfoForPosition(IPoint point) {
+  static float monitorDpi(const XRRCrtcInfo* crtc, const XRROutputInfo* output) {
     static constexpr float kInchToMm = 25.4f;
+    static constexpr float kMinDpi = 50.0f;
+    static constexpr float kMaxDpi = 500.0f;
+
+    bool aspect_ratio_as_size = output->mm_width == 160 &&
+                                (output->mm_height == 90 || output->mm_height == 100);
+    if (output->mm_width == 0 || aspect_ratio_as_size)
+      return Window::kDefaultDpi;
+
+    bool rotated = crtc->rotation & (RR_Rotate_90 | RR_Rotate_270);
+    float dpi = (rotated ? crtc->height : crtc->width) * kInchToMm / output->mm_width;
+    if (dpi < kMinDpi || dpi > kMaxDpi)
+      return Window::kDefaultDpi;
+    return dpi;
+  }
+
+  static MonitorInfo monitorInfoForPosition(IPoint point) {
     static constexpr float kDpiAdjustment = 4.0f / Window::kDefaultDpi;
 
     X11Connection* x11 = X11Connection::globalInstance();
@@ -333,13 +345,7 @@ namespace visage {
         IBounds bounds(info->x, info->y, info->width, info->height);
         if (result.bounds.width() == 0 || bounds.contains(point)) {
           result.bounds = bounds;
-          if (output_info->mm_width > 0 && output_info->mm_height > 0)
-            result.dpi = info->width * kInchToMm / output_info->mm_width;
-          else
-            result.dpi = DisplayWidth(display, default_screen) * kInchToMm /
-                         DisplayWidthMM(display, default_screen);
-
-          result.dpi = std::round(result.dpi * kDpiAdjustment) / kDpiAdjustment;
+          result.dpi = std::round(monitorDpi(info, output_info) * kDpiAdjustment) / kDpiAdjustment;
           result.refresh_rate = refreshRate(screen_resources, info);
         }
         XRRFreeCrtcInfo(info);
