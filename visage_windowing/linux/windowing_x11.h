@@ -52,8 +52,8 @@ namespace visage {
     }
 
     static X11Connection* globalInstance() {
-      static X11Connection connection;
-      return &connection;
+      static X11Connection* connection = new X11Connection();
+      return connection;
     }
 
     class DisplayLock {
