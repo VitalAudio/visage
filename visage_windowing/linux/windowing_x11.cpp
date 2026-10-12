@@ -941,22 +941,29 @@ namespace visage {
     }
   }
 
-  static std::string lookupText(XIC input_context, XKeyEvent* event, KeySym* keysym) {
+  static std::string lookupText(XIC input_context, XKeyEvent* event) {
     static constexpr int kMaxCharacters = 32;
     std::string text(kMaxCharacters, '\0');
     if (input_context == nullptr) {
-      text.resize(XLookupString(event, text.data(), text.size(), keysym, nullptr));
+      text.resize(XLookupString(event, text.data(), text.size(), nullptr, nullptr));
       return text;
     }
 
     Status status;
-    int length = Xutf8LookupString(input_context, event, text.data(), text.size(), keysym, &status);
+    int length = Xutf8LookupString(input_context, event, text.data(), text.size(), nullptr, &status);
     if (status == XBufferOverflow) {
       text.resize(length);
-      length = Xutf8LookupString(input_context, event, text.data(), text.size(), keysym, &status);
+      length = Xutf8LookupString(input_context, event, text.data(), text.size(), nullptr, &status);
     }
     text.resize(length);
     return text;
+  }
+
+  static KeySym lookupKeysym(XKeyEvent* event) {
+    KeySym keysym = XLookupKeysym(event, 0);
+    if (IsKeypadKey(keysym))
+      XLookupString(event, nullptr, 0, &keysym, nullptr);
+    return keysym;
   }
 
   ::Window WindowX11::windowUnderCursor(::Window inside) {
@@ -1465,11 +1472,11 @@ namespace visage {
     }
     case KeyPress: {
       int modifier_state = modifierState();
-      KeySym keysym = NoSymbol;
-      std::string text = lookupText(input_context_, &event.xkey, &keysym);
+      std::string text = lookupText(input_context_, &event.xkey);
       if ((modifier_state & kModifierAlt) == 0 && !text.empty() && text[0] < 127)
         handleTextInput(text);
 
+      KeySym keysym = lookupKeysym(&event.xkey);
       bool repeat = pressed_[keysym];
       pressed_[keysym] = true;
       KeyCode key_code = translateKeyCode(keysym);
@@ -1482,7 +1489,7 @@ namespace visage {
       break;
     }
     case KeyRelease: {
-      KeySym keysym = XLookupKeysym(&event.xkey, 0);
+      KeySym keysym = lookupKeysym(&event.xkey);
       pressed_[keysym] = false;
       KeyCode key_code = translateKeyCode(keysym);
       bool used = false;

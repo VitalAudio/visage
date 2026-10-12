@@ -29,6 +29,7 @@
 #include <map>
 #include <thread>
 #include <X11/Xatom.h>
+#include <X11/XKBlib.h>
 #include <X11/Xlib.h>
 
 namespace visage {
@@ -117,6 +118,7 @@ namespace visage {
       dnd_actions_[0] = dnd_action_copy_;
       dnd_actions_[1] = dnd_action_none_;
       cursors_ = std::make_unique<Cursors>(display_);
+      XkbSetDetectableAutoRepeat(display_, True, nullptr);
     }
 
     X11Connection(const X11Connection& copy) = delete;
