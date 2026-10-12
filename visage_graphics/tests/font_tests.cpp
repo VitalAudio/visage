@@ -21,6 +21,7 @@
 
 #include "lato_regular.h"
 #include "visage_graphics/canvas.h"
+#include "visage_graphics/emoji.h"
 #include "visage_graphics/font.h"
 
 #include <catch2/catch_approx.hpp>
@@ -56,3 +57,20 @@ TEST_CASE("Font invalid data", "[graphics]") {
     canvas.submit();
   }
 }
+
+#if VISAGE_LINUX
+TEST_CASE("Emoji rasterizer character missing from emoji font", "[graphics]") {
+  static constexpr int kSize = 32;
+  std::vector<unsigned int> buffer(kSize * kSize, 0);
+  EmojiRasterizer::instance().drawIntoBuffer(U'\u4e00', kSize, kSize, buffer.data(), kSize, 0, 0);
+
+  int drawn = 0;
+  for (unsigned int pixel : buffer) {
+    if (pixel == 0)
+      continue;
+    ++drawn;
+    REQUIRE((pixel & 0xffffff) == 0xffffff);
+  }
+  REQUIRE(drawn > 0);
+}
+#endif

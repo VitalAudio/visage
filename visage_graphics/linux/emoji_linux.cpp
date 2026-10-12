@@ -50,15 +50,22 @@ namespace visage {
       if (FT_Render_Glyph(face_->glyph, FT_RENDER_MODE_NORMAL))
         return;
 
-      int height = face_->glyph->bitmap.rows;
-      int width = face_->glyph->bitmap.width;
-      unsigned int* source = (unsigned int*)face_->glyph->bitmap.buffer;
+      const FT_Bitmap& bitmap = face_->glyph->bitmap;
+      if (bitmap.pixel_mode != FT_PIXEL_MODE_BGRA && bitmap.pixel_mode != FT_PIXEL_MODE_GRAY)
+        return;
+
+      int height = bitmap.rows;
+      int width = bitmap.width;
       int offset_x = std::max(0, write_width - width) / 2;
       int offset_y = std::max(0, write_width - height) / 2;
       for (int y = 0; y < height && y < write_width; ++y) {
+        const unsigned char* row = bitmap.buffer + y * bitmap.pitch;
         for (int x = 0; x < width && x < write_width; ++x) {
           int i = (dest_y + y + offset_y) * dest_width + dest_x + x + offset_x;
-          dest[i] = source[y * width + x];
+          if (bitmap.pixel_mode == FT_PIXEL_MODE_BGRA)
+            dest[i] = reinterpret_cast<const unsigned int*>(row)[x];
+          else
+            dest[i] = (row[x] << 24) + 0xffffff;
         }
       }
     }
