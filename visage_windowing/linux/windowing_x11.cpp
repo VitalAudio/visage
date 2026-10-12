@@ -396,6 +396,10 @@ namespace visage {
     XUnloadFont(display, font->fid);
   }
 
+  static Bool isWindowEvent(Display* display, XEvent* event, XPointer window) {
+    return event->xany.window == *reinterpret_cast<::Window*>(window);
+  }
+
   void showMessageBox(std::string title, std::string message) {
     IBounds bounds = computeWindowBounds(Dimension::viewMinPercent(30.0f),
                                          Dimension::viewMinPercent(20.0f));
@@ -432,10 +436,7 @@ namespace visage {
     XFlush(display);
     XEvent event;
     while (true) {
-      XNextEvent(display, &event);
-      if (event.xany.window != message_window)
-        continue;
-
+      XIfEvent(display, &event, isWindowEvent, reinterpret_cast<XPointer>(&message_window));
       if (event.type == Expose)
         drawMessageBox(bounds.width(), bounds.height(), display, message_window, gc, message);
 
@@ -1684,7 +1685,7 @@ namespace visage {
     event.xclient.window = window_handle_;
     event.xclient.message_type = wm_state;
     event.xclient.format = 32;
-    event.xclient.data.l[0] = 2;
+    event.xclient.data.l[0] = 1;
     event.xclient.data.l[1] = max_horizontal;
     event.xclient.data.l[2] = max_vertical;
     event.xclient.data.l[3] = 0;
@@ -1692,18 +1693,15 @@ namespace visage {
 
     XSendEvent(x11_->display(), x11_->rootWindow(), False,
                SubstructureRedirectMask | SubstructureNotifyMask, &event);
+    XFlush(x11_->display());
 
     for (int retries = 0; retries < 10; ++retries) {
       Thread::sleep(10);
-      while (XPending(x11_->display())) {
-        XEvent e;
-        XNextEvent(x11_->display(), &e);
-
-        if (e.type == ConfigureNotify && e.xconfigure.window == window_handle_) {
-          visage::IPoint dimensions = retrieveWindowDimensions();
-          handleResized(dimensions.x, dimensions.y);
-          return;
-        }
+      XEvent e;
+      if (XCheckTypedWindowEvent(x11_->display(), window_handle_, ConfigureNotify, &e)) {
+        visage::IPoint dimensions = retrieveWindowDimensions();
+        handleResized(dimensions.x, dimensions.y);
+        return;
       }
     }
   }
