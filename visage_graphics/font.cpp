@@ -166,11 +166,16 @@ namespace visage {
 
       std::unique_ptr<unsigned int[]> texture = std::make_unique<unsigned int[]>(size);
       if (packed_glyph->type_face) {
-        FT_GlyphSlot glyph = packed_glyph->type_face->characterRasterData(character);
-        for (int y = 0; y < packed_glyph->height; ++y) {
-          for (int x = 0; x < packed_glyph->width; ++x) {
-            int i = y * packed_glyph->width + x;
-            texture[i] = (glyph->bitmap.buffer[y * glyph->bitmap.pitch + x] << 24) + 0xffffff;
+        const FT_Bitmap& bitmap = packed_glyph->type_face->characterRasterData(character)->bitmap;
+        bool mono = bitmap.pixel_mode == FT_PIXEL_MODE_MONO;
+        bool supported = mono || bitmap.pixel_mode == FT_PIXEL_MODE_GRAY;
+        int height = supported ? std::min<int>(packed_glyph->height, bitmap.rows) : 0;
+        int width = std::min<int>(packed_glyph->width, bitmap.width);
+        for (int y = 0; y < height; ++y) {
+          const unsigned char* row = bitmap.buffer + y * bitmap.pitch;
+          for (int x = 0; x < width; ++x) {
+            unsigned char value = mono ? ((row[x / 8] >> (7 - x % 8)) & 1) * 0xff : row[x];
+            texture[y * packed_glyph->width + x] = (value << 24) + 0xffffff;
           }
         }
       }

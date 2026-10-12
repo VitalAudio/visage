@@ -58,6 +58,43 @@ TEST_CASE("Font invalid data", "[graphics]") {
   }
 }
 
+TEST_CASE("Font with 1-bit bitmap glyphs", "[graphics]") {
+  static constexpr char kBdf[] = "STARTFONT 2.1\n"
+                                 "FONT -test-mono-medium-r-normal--8-80-75-75-c-80-iso10646-1\n"
+                                 "SIZE 8 75 75\n"
+                                 "FONTBOUNDINGBOX 8 8 0 0\n"
+                                 "STARTPROPERTIES 2\n"
+                                 "FONT_ASCENT 8\n"
+                                 "FONT_DESCENT 0\n"
+                                 "ENDPROPERTIES\n"
+                                 "CHARS 1\n"
+                                 "STARTCHAR A\n"
+                                 "ENCODING 65\n"
+                                 "SWIDTH 500 0\n"
+                                 "DWIDTH 8 0\n"
+                                 "BBX 8 8 0 0\n"
+                                 "BITMAP\n"
+                                 "80\n80\n80\n80\n80\n80\n80\n80\n"
+                                 "ENDCHAR\n"
+                                 "ENDFONT\n";
+
+  Font font(8, reinterpret_cast<const unsigned char*>(kBdf), sizeof(kBdf) - 1);
+  Canvas canvas;
+  canvas.setWindowless(20, 20);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 20, 20);
+  canvas.setColor(0xffffffff);
+  canvas.text("A", font, Font::Justification::kCenter, 0, 0, 20, 20);
+  canvas.submit();
+  canvas.takeScreenshot();
+
+  const Screenshot& screenshot = canvas.screenshot();
+  int lit = 0;
+  for (int i = 0; i < screenshot.width() * screenshot.height(); ++i)
+    lit += screenshot.data()[i * 4] > 0x80;
+  REQUIRE(lit == 8);
+}
+
 #if VISAGE_LINUX
 TEST_CASE("Emoji rasterizer character missing from emoji font", "[graphics]") {
   static constexpr int kSize = 32;
