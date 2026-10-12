@@ -253,6 +253,7 @@ namespace visage {
     MonitorInfo monitorInfo() { return monitor_info_; }
     X11Connection* x11Connection() { return x11_; }
     bool timerThreadRunning() { return timer_thread_running_.load(); }
+    double drawTime() const;
     int timerMs() const { return timer_microseconds_.load() / 1000; }
 
   private:
@@ -300,7 +301,6 @@ namespace visage {
     ::Window parent_handle_ = 0;
     XIC input_context_ = nullptr;
     std::map<KeySym, bool> pressed_;
-    long long start_microseconds_ = 0;
     std::atomic<long long> timer_microseconds_ = 16667;
     std::atomic<bool> timer_thread_running_ = false;
     std::unique_ptr<std::thread> timer_thread_;

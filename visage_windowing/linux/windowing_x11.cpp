@@ -64,7 +64,7 @@ namespace visage {
         window.second->close();
     }
 
-    void drawAll(double time) const {
+    void drawAll() const {
       std::vector<void*> handles;
       for (auto& window : native_window_lookup_)
         handles.push_back(window.first);
@@ -72,7 +72,7 @@ namespace visage {
       for (void* handle : handles) {
         auto it = native_window_lookup_.find(handle);
         if (it != native_window_lookup_.end())
-          it->second->drawCallback(time);
+          it->second->drawCallback(it->second->drawTime());
       }
     }
 
@@ -721,6 +721,10 @@ namespace visage {
       XDestroyWindow(x11_->display(), window_handle_);
   }
 
+  double WindowX11::drawTime() const {
+    return (time::microseconds() - start_draw_microseconds_) / 1000000.0;
+  }
+
   int WindowX11::resizeOperationForPosition(int x, int y) const {
     if (decoration_ != Decoration::Client)
       return 0;
@@ -1231,8 +1235,7 @@ namespace visage {
                event.xclient.message_type == x11_->timerEvent()) {
         if (!timer_fired) {
           timer_fired = true;
-          long long microseconds = time::microseconds() - start_draw_microseconds_;
-          drawCallback(microseconds / 1000000.0);
+          drawCallback(drawTime());
         }
       }
       else if (event.xany.window == window_handle_ || event.xany.window == parent_handle_)
@@ -1587,8 +1590,7 @@ namespace visage {
       IPoint dimensions = retrieveWindowDimensions();
       if (dimensions.x != clientWidth() || dimensions.y != clientHeight()) {
         handleResized(dimensions.x, dimensions.y);
-        long long us_time = time::microseconds() - start_microseconds_;
-        drawCallback(us_time / 1000000.0);
+        drawCallback(drawTime());
       }
       break;
     }
@@ -1604,8 +1606,7 @@ namespace visage {
     fd_set read_fds;
     unsigned int fd = ConnectionNumber(display);
 
-    start_microseconds_ = time::microseconds();
-    long long last_timer_microseconds = start_microseconds_;
+    long long last_timer_microseconds = time::microseconds();
 
     XEvent event;
     bool running = true;
@@ -1657,8 +1658,7 @@ namespace visage {
 
       if (timer_microseconds_ - (time::microseconds() - last_timer_microseconds) <= 0) {
         last_timer_microseconds = time::microseconds();
-        long long us_time = last_timer_microseconds - start_microseconds_;
-        NativeWindowLookup::instance().drawAll(us_time / 1000000.0);
+        NativeWindowLookup::instance().drawAll();
       }
     }
   }
