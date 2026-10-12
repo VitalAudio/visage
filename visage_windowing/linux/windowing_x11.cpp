@@ -652,6 +652,8 @@ namespace visage {
                     x11_->dndVersion(), 1);
     XChangeProperty(display, parent_handle_, x11_->dndProxy(), XA_WINDOW, 32, PropModeReplace,
                     (unsigned char*)&window_handle_, 1);
+    XChangeProperty(display, window_handle_, x11_->dndProxy(), XA_WINDOW, 32, PropModeReplace,
+                    (unsigned char*)&window_handle_, 1);
     XReparentWindow(display, window_handle_, parent_handle_, 0, 0);
 
     XSelectInput(display, window_handle_, kEventMask);
@@ -676,6 +678,10 @@ namespace visage {
     timer_thread_.reset();
 
     X11Connection::DisplayLock lock(x11_);
+    if (parent_handle_ && dragDropProxy(parent_handle_) == window_handle_) {
+      XDeleteProperty(x11_->display(), parent_handle_, x11_->dndAware());
+      XDeleteProperty(x11_->display(), parent_handle_, x11_->dndProxy());
+    }
     if (input_context_)
       XDestroyIC(input_context_);
     if (window_handle_)
