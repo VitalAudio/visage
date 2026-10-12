@@ -1129,9 +1129,9 @@ namespace visage {
       result.property = None;
 
       if (request->target == x11->targets()) {
-        Atom supported_types[] = { x11->utf8String(), XA_STRING };
+        Atom supported_types[] = { x11->targets(), x11->utf8String(), XA_STRING };
         XChangeProperty(request->display, request->requestor, request->property, XA_ATOM, 32,
-                        PropModeReplace, (unsigned char*)supported_types, 1);
+                        PropModeReplace, (unsigned char*)supported_types, 3);
         result.property = request->property;
       }
       else if (request->target == x11->utf8String() || request->target == XA_STRING) {
@@ -1141,8 +1141,7 @@ namespace visage {
         result.property = request->property;
       }
 
-      if (result.property != None)
-        XSendEvent(request->display, result.requestor, 0, NoEventMask, (XEvent*)&result);
+      XSendEvent(request->display, result.requestor, 0, NoEventMask, (XEvent*)&result);
       break;
     }
     }
@@ -1479,8 +1478,11 @@ namespace visage {
       while (running && XPending(x11_->display())) {
         XNextEvent(x11_->display(), &event);
         WindowX11* window = NativeWindowLookup::instance().findWindow(event.xany.window);
-        if (window == nullptr)
+        if (window == nullptr) {
+          if (event.type == SelectionRequest)
+            processMessageWindowEvent(event);
           continue;
+        }
 
         if (event.type == Expose && decoration_ != Decoration::Native) {
           int height = clientHeight();
