@@ -1679,9 +1679,6 @@ namespace visage {
     handleAdjustResize(&min_width, &min_height, true, true);
     size_hints->min_width = min_width;
     size_hints->min_height = min_height;
-    auto max_dimension = maxWindowDimensions();
-    size_hints->max_width = max_dimension.x;
-    size_hints->max_height = max_dimension.y;
     XSetWMNormalHints(x11_->display(), handle, size_hints);
     XFree(size_hints);
 
