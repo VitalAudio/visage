@@ -111,51 +111,68 @@ namespace visage {
     ::Window window_handle_ = 0;
   };
 
+  static std::string latin1ToUtf8(const std::string& text) {
+    std::string result;
+    for (unsigned char c : text) {
+      if (c < 0x80)
+        result += c;
+      else {
+        result += static_cast<char>(0xc0 | (c >> 6));
+        result += static_cast<char>(0x80 | (c & 0x3f));
+      }
+    }
+    return result;
+  }
+
   std::string readClipboardText() {
     static constexpr int kSleepWait = 5;
     static constexpr int kMaxWaitTime = 250;
     static constexpr int kTries = kMaxWaitTime / kSleepWait;
     X11Connection* x11 = X11Connection::globalInstance();
     X11Connection::DisplayLock lock(x11);
-
-    WindowX11* window = WindowX11::lastActiveWindow();
-    if (window == nullptr)
-      return "";
-
     Display* display = x11->display();
 
     ::Window selection_owner = XGetSelectionOwner(display, x11->clipboard());
+    if (selection_owner == None)
+      return "";
     if (selection_owner == SharedMessageWindow::handle())
       return _clipboard_text;
 
     Atom selection_property = XInternAtom(display, "VISAGE_SELECT", False);
-    XConvertSelection(display, x11->clipboard(), x11->utf8String(), selection_property,
-                      SharedMessageWindow::handle(), CurrentTime);
+    for (Atom target : { x11->utf8String(), XA_STRING }) {
+      XConvertSelection(display, x11->clipboard(), target, selection_property,
+                        SharedMessageWindow::handle(), CurrentTime);
 
-    XEvent event;
-    for (int i = 0; i < kTries; ++i) {
-      if (XCheckTypedWindowEvent(display, SharedMessageWindow::handle(), SelectionNotify, &event)) {
-        if (event.xselection.property == selection_property) {
-          Atom actual_type;
-          int actual_format = 0;
-          unsigned long num_items = 0, bytes_after = 0;
-          unsigned char* property = nullptr;
-          XGetWindowProperty(display, SharedMessageWindow::handle(), selection_property, 0, ~0,
-                             False, AnyPropertyType, &actual_type, &actual_format, &num_items,
-                             &bytes_after, &property);
-
-          if (actual_type == x11->utf8String()) {
-            if (num_items && property[num_items - 1] == 0)
-              num_items--;
-
-            std::string result(reinterpret_cast<char*>(property), num_items);
-            XFree(property);
-            return result;
-          }
-          XFree(property);
-        }
+      XEvent event;
+      bool replied = false;
+      for (int i = 0; i < kTries && !replied; ++i) {
+        replied = XCheckTypedWindowEvent(display, SharedMessageWindow::handle(), SelectionNotify, &event);
+        if (!replied)
+          Thread::sleep(kSleepWait);
       }
-      Thread::sleep(kSleepWait);
+      if (!replied)
+        return "";
+      if (event.xselection.property != selection_property)
+        continue;
+
+      Atom actual_type;
+      int actual_format = 0;
+      unsigned long num_items = 0, bytes_after = 0;
+      unsigned char* property = nullptr;
+      XGetWindowProperty(display, SharedMessageWindow::handle(), selection_property, 0, ~0, True,
+                         AnyPropertyType, &actual_type, &actual_format, &num_items, &bytes_after,
+                         &property);
+      std::string result;
+      if (property && (actual_type == x11->utf8String() || actual_type == XA_STRING)) {
+        if (num_items && property[num_items - 1] == 0)
+          num_items--;
+        result = std::string(reinterpret_cast<char*>(property), num_items);
+        if (actual_type == XA_STRING)
+          result = latin1ToUtf8(result);
+      }
+      if (property)
+        XFree(property);
+      return result;
     }
 
     return "";
