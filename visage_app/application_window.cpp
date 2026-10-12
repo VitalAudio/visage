@@ -101,10 +101,8 @@ namespace visage {
   }
 
   void ApplicationWindow::close() {
-    if (window_ && (onCloseRequested().isEmpty() || onCloseRequested().callback())) {
-      removeFromWindow();
-      window_ = nullptr;
-    }
+    if (window_)
+      window_->close();
   }
 
   bool ApplicationWindow::isShowing() const {
