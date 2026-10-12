@@ -1772,12 +1772,7 @@ namespace visage {
 
   IPoint WindowX11::maxWindowDimensions() const {
     MonitorInfo monitor_info = activeMonitorInfo();
-
-    int display_width = monitor_info.bounds.width();
-    int display_height = monitor_info.bounds.height();
-    float aspect_ratio = clientWidth() * 1.0f / clientHeight();
-    return { std::min<int>(display_width, display_height * aspect_ratio),
-             std::min<int>(display_height, display_width / aspect_ratio) };
+    return { monitor_info.bounds.width(), monitor_info.bounds.height() };
   }
 }
 #endif
