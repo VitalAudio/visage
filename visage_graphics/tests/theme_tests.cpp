@@ -44,3 +44,31 @@ TEST_CASE("Palette override is separate from global", "[graphics]") {
   Brush global_brush;
   REQUIRE_FALSE(palette.color(theme::OverrideId(), TestThemeColor, global_brush));
 }
+
+TEST_CASE("Palette decode bad data", "[graphics]") {
+  Palette palette;
+  palette.decode("Global\nTestThemeColor@5\nUnknownColor@0\n\nUnknownOverride\nTestThemeColor@"
+                 "0\n\n\n\n-1\n");
+  REQUIRE(palette.numColors() == 0);
+
+  Brush brush;
+  REQUIRE(palette.color(theme::OverrideId(), TestThemeColor, brush));
+  REQUIRE(brush.gradient().sample(0.0f) == Palette::kInvalidColor);
+
+  std::string encoded = palette.encode();
+  REQUIRE(encoded.find("Unknown") == std::string::npos);
+  Palette decoded;
+  decoded.decode(encoded);
+  REQUIRE(decoded.encode() == encoded);
+
+  palette.decode("Global\nTestThemeColor@0\n");
+  REQUIRE(palette.color(theme::OverrideId(), TestThemeColor, brush));
+}
+
+TEST_CASE("Gradient decode bad data", "[graphics]") {
+  Gradient gradient;
+  gradient.decode("");
+  REQUIRE(gradient.resolution() == 0);
+  gradient.decode("0 0 -3");
+  REQUIRE(gradient.resolution() == 0);
+}

@@ -162,18 +162,16 @@ namespace visage {
     color_map_.clear();
     std::string override_name;
     std::getline(stream, override_name);
-    while (!override_name.empty()) {
-      theme::OverrideId override_id(theme::OverrideId::kInvalidId);
-      if (override_name_map.count(override_name))
-        override_id = override_name_map[override_name];
+    while (stream && !override_name.empty()) {
+      bool known_override = override_name_map.count(override_name);
+      theme::OverrideId override_id = override_name_map[override_name];
 
       std::string color_mapping;
       std::getline(stream, color_mapping);
-      while (!color_mapping.empty()) {
+      while (stream && !color_mapping.empty()) {
         std::size_t split_position = color_mapping.find(kEncodingSeparator);
-        if (split_position != std::string::npos) {
-          std::string key = color_mapping.substr(0, split_position);
-
+        std::string key = color_mapping.substr(0, split_position);
+        if (known_override && split_position != std::string::npos && color_name_map.count(key)) {
           try {
             int color_index = std::stoi(color_mapping.substr(split_position + 1));
             color_map_[override_id][color_name_map[key]] = color_index;
@@ -190,17 +188,16 @@ namespace visage {
 
     value_map_.clear();
     std::getline(stream, override_name);
-    while (!override_name.empty()) {
-      theme::OverrideId override_id(theme::OverrideId::kInvalidId);
-      if (override_name_map.count(override_name))
-        override_id = override_name_map[override_name];
+    while (stream && !override_name.empty()) {
+      bool known_override = override_name_map.count(override_name);
+      theme::OverrideId override_id = override_name_map[override_name];
 
       std::string value_mapping;
       std::getline(stream, value_mapping);
-      while (!value_mapping.empty()) {
+      while (stream && !value_mapping.empty()) {
         std::size_t split_position = value_mapping.find(kEncodingSeparator);
-        if (split_position != std::string::npos) {
-          std::string key = value_mapping.substr(0, split_position);
+        std::string key = value_mapping.substr(0, split_position);
+        if (known_override && split_position != std::string::npos && value_name_map.count(key)) {
           float value = 0.0f;
           try {
             value = std::stof(value_mapping.substr(split_position + 1));
@@ -226,11 +223,8 @@ namespace visage {
     }
 
     colors_.clear();
-    colors_.reserve(num_colors);
-
-    for (int i = 0; i < num_colors; ++i) {
-      colors_.emplace_back();
-      colors_[i].decode(stream);
-    }
+    colors_.resize(std::max(0, num_colors));
+    for (Brush& color : colors_)
+      color.decode(stream);
   }
 }

@@ -87,13 +87,14 @@ namespace visage {
     bool color(theme::OverrideId override_id, theme::ColorId color_id, Brush& color) {
       color_map_[override_id].try_emplace(color_id, kNotSetId);
 
-      if (color_map_[override_id][color_id] == kNotSetId)
+      int index = color_map_[override_id][color_id];
+      if (index == kNotSetId)
         return false;
 
-      if (color_map_[override_id][color_id] == kInvalidId)
+      if (index < 0 || index >= colors_.size())
         color = Brush::solid(kInvalidColor);
       else
-        color = colors_[color_map_[override_id][color_id]];
+        color = colors_[index];
       return true;
     }
 

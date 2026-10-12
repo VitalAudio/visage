@@ -78,11 +78,12 @@ namespace visage {
   }
 
   void Gradient::decode(std::istringstream& stream) {
-    int size, repeat, reflect;
+    int size = 0, repeat = 0, reflect = 0;
     stream >> repeat >> reflect >> size;
     repeat_ = repeat;
     reflect_ = reflect;
 
+    size = std::max(0, size);
     positions_.resize(size);
     colors_.resize(size);
     for (auto& position : positions_)
