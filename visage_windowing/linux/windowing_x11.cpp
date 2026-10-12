@@ -1111,12 +1111,12 @@ namespace visage {
     unsigned char* proxy_data = nullptr;
     XGetWindowProperty(x11_->display(), window, x11_->dndProxy(), 0, ~0, False, AnyPropertyType,
                        &actual_type, &actual_format, &num_items, &bytes_after, &proxy_data);
-    if (proxy_data && num_items * actual_format == 32) {
-      ::Window result = reinterpret_cast<long*>(proxy_data)[0];
+    ::Window result = 0;
+    if (proxy_data && num_items * actual_format == 32)
+      result = reinterpret_cast<long*>(proxy_data)[0];
+    if (proxy_data)
       XFree(proxy_data);
-      return result;
-    }
-    return 0;
+    return result;
   }
 
   void WindowX11::sendDragDropStatus(::Window source, ::Window target, bool accept_drag) const {
