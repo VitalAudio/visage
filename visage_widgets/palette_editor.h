@@ -88,6 +88,10 @@ namespace visage {
     void setEditedPalette(Palette* palette) {
       expanded_groups_.clear();
       palette_ = palette;
+      editing_ = -1;
+      highlight_ = -1;
+      setColorListHeight();
+      redraw();
     }
 
     void setCurrentOverrideId(theme::OverrideId override_id) { current_override_id_ = override_id; }
