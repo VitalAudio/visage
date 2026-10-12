@@ -1046,7 +1046,7 @@ namespace visage {
     message.xclient.message_type = x11_->dndPosition();
     message.xclient.format = 32;
     message.xclient.data.l[0] = source;
-    message.xclient.data.l[2] = (x << 16) | (y & 0xffff);
+    message.xclient.data.l[2] = ((x & 0xffff) << 16) | (y & 0xffff);
     message.xclient.data.l[3] = time;
     message.xclient.data.l[4] = x11_->dndActionCopy();
 
@@ -1251,8 +1251,8 @@ namespace visage {
         XTranslateCoordinates(x11_->display(), window_handle_, x11_->rootWindow(), 0, 0, &win_x,
                               &win_y, &child_return);
 
-        drag_drop_target_x_ = (event.xclient.data.l[2] >> 16) - win_x;
-        drag_drop_target_y_ = (event.xclient.data.l[2] & 0xffff) - win_y;
+        drag_drop_target_x_ = static_cast<short>(event.xclient.data.l[2] >> 16) - win_x;
+        drag_drop_target_y_ = static_cast<short>(event.xclient.data.l[2] & 0xffff) - win_y;
         bool accepts = handleFileDrag(drag_drop_target_x_, drag_drop_target_y_, drag_drop_files_);
         sendDragDropStatus(event.xclient.window, event.xclient.data.l[0], accepts);
       }
