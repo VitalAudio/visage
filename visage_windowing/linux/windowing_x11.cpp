@@ -61,6 +61,18 @@ namespace visage {
         window.second->close();
     }
 
+    void drawAll(double time) const {
+      std::vector<void*> handles;
+      for (auto& window : native_window_lookup_)
+        handles.push_back(window.first);
+
+      for (void* handle : handles) {
+        auto it = native_window_lookup_.find(handle);
+        if (it != native_window_lookup_.end())
+          it->second->drawCallback(time);
+      }
+    }
+
     WindowX11* findWindow(::Window handle) {
       auto it = native_window_lookup_.find((void*)handle);
       return it != native_window_lookup_.end() ? it->second : nullptr;
@@ -1491,10 +1503,10 @@ namespace visage {
           continue;
         }
 
-        if (event.type == Expose && decoration_ != Decoration::Native) {
-          int height = clientHeight();
-          window->handleResized(clientWidth(), height + 1);
-          window->handleResized(clientWidth(), height);
+        if (event.type == Expose && window->decoration_ != Decoration::Native) {
+          int height = window->clientHeight();
+          window->handleResized(window->clientWidth(), height + 1);
+          window->handleResized(window->clientWidth(), height);
         }
 
         if (event.type == DestroyNotify ||
@@ -1513,7 +1525,7 @@ namespace visage {
       if (timer_microseconds_ - (time::microseconds() - last_timer_microseconds) <= 0) {
         last_timer_microseconds = time::microseconds();
         long long us_time = last_timer_microseconds - start_microseconds_;
-        drawCallback(us_time / 1000000.0);
+        NativeWindowLookup::instance().drawAll(us_time / 1000000.0);
       }
     }
   }
