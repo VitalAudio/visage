@@ -347,7 +347,7 @@ namespace visage {
     CallbackList(const CallbackList& other) = default;
     CallbackList& operator=(const CallbackList& other) = default;
 
-    void add(std::function<T> callback) { callbacks_.push_back(std::move(callback)); }
+    void add(std::function<T> callback) { mutableCallbacks().push_back(std::move(callback)); }
 
     CallbackList& operator+=(std::function<T> callback) {
       add(callback);
@@ -355,8 +355,9 @@ namespace visage {
     }
 
     void set(std::function<T> callback) {
-      callbacks_.clear();
-      callbacks_.push_back(std::move(callback));
+      Callbacks& callbacks = mutableCallbacks();
+      callbacks.clear();
+      callbacks.push_back(std::move(callback));
     }
 
     CallbackList& operator=(const std::function<T>& callback) {
@@ -369,8 +370,9 @@ namespace visage {
         return other.target_type() == callback.target_type();
       };
 
-      auto it = std::remove_if(callbacks_.begin(), callbacks_.end(), compare);
-      callbacks_.erase(it, callbacks_.end());
+      Callbacks& callbacks = mutableCallbacks();
+      auto it = std::remove_if(callbacks.begin(), callbacks.end(), compare);
+      callbacks.erase(it, callbacks.end());
     }
 
     CallbackList& operator-=(const std::function<T>& callback) {
@@ -379,27 +381,39 @@ namespace visage {
     }
 
     void reset() {
-      callbacks_.clear();
+      Callbacks& callbacks = mutableCallbacks();
+      callbacks.clear();
       if (original_)
-        callbacks_.push_back(*original_);
+        callbacks.push_back(*original_);
     }
 
-    void clear() { callbacks_.clear(); }
-    bool isEmpty() const { return callbacks_.empty(); }
+    void clear() { mutableCallbacks().clear(); }
+    bool isEmpty() const { return callbacks_ == nullptr || callbacks_->empty(); }
 
     template<typename... Args>
     auto callback(Args&&... args) const {
-      if (callbacks_.empty())
+      if (isEmpty())
         return defaultResult<decltype(std::declval<std::function<T>>()(args...))>();
 
-      for (size_t i = 0; i + 1 < callbacks_.size(); ++i)
-        callbacks_[i](std::forward<Args>(args)...);
+      std::shared_ptr<const Callbacks> callbacks = callbacks_;
+      for (size_t i = 0; i + 1 < callbacks->size(); ++i)
+        (*callbacks)[i](args...);
 
-      return callbacks_.back()(std::forward<Args>(args)...);
+      return callbacks->back()(std::forward<Args>(args)...);
     }
 
   private:
+    typedef std::vector<std::function<T>> Callbacks;
+
+    Callbacks& mutableCallbacks() {
+      if (callbacks_ == nullptr)
+        callbacks_ = std::make_shared<Callbacks>();
+      else if (callbacks_.use_count() > 1)
+        callbacks_ = std::make_shared<Callbacks>(*callbacks_);
+      return *callbacks_;
+    }
+
     clone_ptr<std::function<T>> original_;
-    std::vector<std::function<T>> callbacks_;
+    std::shared_ptr<Callbacks> callbacks_;
   };
 }
