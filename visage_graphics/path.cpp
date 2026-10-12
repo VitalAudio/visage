@@ -472,10 +472,14 @@ namespace visage {
                                                     prev + prev_offset, point + prev_offset);
           auto intersection = findIntersection(square_center, square_center + square_tangent,
                                                point + offset, next + offset);
-          VISAGE_ASSERT(intersection_prev.has_value());
-          VISAGE_ASSERT(intersection.has_value());
-          new_path.push_back(intersection_prev.value());
-          new_path.push_back(intersection.value());
+          if (intersection_prev.has_value() && intersection.has_value()) {
+            new_path.push_back(intersection_prev.value());
+            new_path.push_back(intersection.value());
+          }
+          else {
+            new_path.push_back(point + prev_offset);
+            new_path.push_back(point + offset);
+          }
         }
         else if (type == Join::Round) {
           float arc_angle = clampedACos(prev_offset.dot(offset) / (amount * amount));

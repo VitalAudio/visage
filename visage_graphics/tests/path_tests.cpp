@@ -386,3 +386,16 @@ TEST_CASE("Arc with a huge radius", "[graphics]") {
   REQUIRE(points.size() == 3);
   REQUIRE((points[1] - Point(1000, 0)).length() < 0.01f);
 }
+
+TEST_CASE("Square join on a straight vertex", "[graphics]") {
+  Path path;
+  path.moveTo(0, 0);
+  path.lineTo(5, 0);
+  path.lineTo(10, 0);
+  path.lineTo(10, 10);
+  path.lineTo(0, 10);
+  path.close();
+
+  Path offset = path.offset(1.0f);
+  REQUIRE(offset.numPoints() > 0);
+}
