@@ -65,13 +65,18 @@ namespace visage {
   void WindowEventHandler::handleFocusLost() {
     if (keyboard_focused_frame_)
       keyboard_focused_frame_->processFocusChanged(false, false);
+    IPoint position = window_->lastWindowMousePosition();
+    MouseEvent mouse_event = mouseEvent(position.x, position.y, 0, 0);
     if (mouse_down_frame_) {
-      mouse_down_frame_->processMouseUp(mouseEvent(last_mouse_position_.x, last_mouse_position_.y, 0, 0));
+      mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
+      mouse_event.event_frame = mouse_down_frame_;
+      mouse_down_frame_->processMouseUp(mouse_event);
       mouse_down_frame_ = nullptr;
     }
     if (mouse_hovered_frame_) {
-      mouse_hovered_frame_->processMouseExit(mouseEvent(last_mouse_position_.x,
-                                                        last_mouse_position_.y, 0, 0));
+      mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
+      mouse_event.event_frame = mouse_hovered_frame_;
+      mouse_hovered_frame_->processMouseExit(mouse_event);
       mouse_hovered_frame_ = nullptr;
     }
   }
@@ -340,8 +345,7 @@ namespace visage {
 
   void WindowEventHandler::handleMouseLeave(int x, int y, int button_state, int modifiers) {
     if (mouse_hovered_frame_) {
-      MouseEvent mouse_event = mouseEvent(last_mouse_position_.x, last_mouse_position_.y,
-                                          button_state, modifiers);
+      MouseEvent mouse_event = mouseEvent(x, y, button_state, modifiers);
       mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
       mouse_event.event_frame = mouse_hovered_frame_;
       mouse_hovered_frame_->processMouseExit(mouse_event);
