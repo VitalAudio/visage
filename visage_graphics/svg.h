@@ -116,7 +116,7 @@ namespace visage {
     GradientDef current_color = GradientDef(0xff000000);
     GradientDef fill_gradient = GradientDef(0xff000000);
     float fill_opacity = 1.0f;
-    bool non_zero_fill = false;
+    bool non_zero_fill = true;
 
     GradientDef stroke_gradient;
     float stroke_opacity = 1.0f;

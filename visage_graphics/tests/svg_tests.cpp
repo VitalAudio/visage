@@ -44,6 +44,24 @@ TEST_CASE("Svg use", "[graphics]") {
   REQUIRE(numShapes(with_use.drawable()) == numShapes(without_use.drawable()) + 1);
 }
 
+static const SvgDrawable* firstShape(const SvgDrawable* drawable) {
+  if (!drawable->command_list.empty())
+    return drawable;
+  for (const auto& child : drawable->children) {
+    if (const SvgDrawable* shape = firstShape(child.get()))
+      return shape;
+  }
+  return nullptr;
+}
+
+TEST_CASE("Svg fill rule", "[graphics]") {
+  Svg default_rule = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10"/></svg>)svg");
+  REQUIRE(firstShape(default_rule.drawable())->path.fillRule() == Path::FillRule::NonZero);
+
+  Svg even_odd = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill-rule="evenodd"/></svg>)svg");
+  REQUIRE(firstShape(even_odd.drawable())->path.fillRule() == Path::FillRule::EvenOdd);
+}
+
 TEST_CASE("Svg malformed input", "[graphics]") {
   SECTION("Inset border radius with no x radius") {
     Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" clip-path="inset(1px round / 2px)"/></svg>)svg");
