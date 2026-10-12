@@ -260,6 +260,7 @@ namespace visage {
 
     struct DragDropOutState {
       bool dragging = false;
+      bool accepted = false;
       ::Window target = 0;
     };
 
@@ -269,9 +270,9 @@ namespace visage {
     IPoint retrieveWindowDimensions();
     void passEventToParent(XEvent& event);
 
-    ::Window windowUnderCursor(::Window inside);
-    ::Window windowUnderCursor();
+    ::Window dragDropTarget() const;
     ::Window dragDropProxy(::Window window) const;
+    ::Window dragDropReceiver(::Window target) const;
 
     void sendDragDropEnter(::Window source, ::Window target) const;
     void sendDragDropLeave(::Window source, ::Window target) const;

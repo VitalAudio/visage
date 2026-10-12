@@ -58,6 +58,8 @@ namespace visage {
       keyboard_focused_frame_ = nullptr;
     if (drag_drop_target_frame_ == frame)
       drag_drop_target_frame_ = nullptr;
+    if (drag_drop_source_frame_ == frame)
+      drag_drop_source_frame_ = nullptr;
   }
 
   void WindowEventHandler::handleFocusLost() {
@@ -383,12 +385,14 @@ namespace visage {
   std::string WindowEventHandler::startDragDropSource() {
     if (mouse_down_frame_ == nullptr)
       return {};
+    drag_drop_source_frame_ = mouse_down_frame_;
     return mouse_down_frame_->startDragDropSource();
   }
 
   void WindowEventHandler::cleanupDragDropSource() {
-    if (mouse_down_frame_)
-      mouse_down_frame_->cleanupDragDropSource();
+    if (drag_drop_source_frame_)
+      drag_drop_source_frame_->cleanupDragDropSource();
+    drag_drop_source_frame_ = nullptr;
   }
 
   Frame* WindowEventHandler::dragDropFrame(Point point, const std::vector<std::string>& files) const {

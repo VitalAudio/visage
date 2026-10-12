@@ -987,21 +987,34 @@ namespace visage {
     return result;
   }
 
-  ::Window WindowX11::windowUnderCursor(::Window inside) {
-    ::Window root_return, child_return;
-    int root_x, root_y, win_x, win_y;
-    unsigned int mask_return;
-    if (XQueryPointer(x11_->display(), inside, &root_return, &child_return, &root_x, &root_y,
-                      &win_x, &win_y, &mask_return)) {
-      if (child_return != None)
-        return windowUnderCursor(child_return);
-    }
+  ::Window WindowX11::dragDropTarget() const {
+    ::Window window = x11_->rootWindow();
+    while (window) {
+      Atom actual_type;
+      int actual_format = 0;
+      unsigned long num_items = 0, bytes_after = 0;
+      unsigned char* version = nullptr;
+      XGetWindowProperty(x11_->display(), window, x11_->dndAware(), 0, 1, False, XA_ATOM,
+                         &actual_type, &actual_format, &num_items, &bytes_after, &version);
+      if (version)
+        XFree(version);
+      if (num_items)
+        return window;
 
-    return inside;
+      ::Window root_return, child_return = None;
+      int root_x, root_y, win_x, win_y;
+      unsigned int mask_return;
+      if (!XQueryPointer(x11_->display(), window, &root_return, &child_return, &root_x, &root_y,
+                         &win_x, &win_y, &mask_return))
+        return 0;
+      window = child_return;
+    }
+    return 0;
   }
 
-  ::Window WindowX11::windowUnderCursor() {
-    return windowUnderCursor(x11_->rootWindow());
+  ::Window WindowX11::dragDropReceiver(::Window target) const {
+    ::Window proxy = dragDropProxy(target);
+    return proxy ? proxy : target;
   }
 
   void WindowX11::sendDragDropEnter(::Window source, ::Window target) const {
@@ -1018,7 +1031,7 @@ namespace visage {
     message.data.l[3] = None;
     message.data.l[4] = None;
 
-    XSendEvent(x11_->display(), target, False, 0, reinterpret_cast<XEvent*>(&message));
+    XSendEvent(x11_->display(), dragDropReceiver(target), False, 0, reinterpret_cast<XEvent*>(&message));
     XFlush(x11_->display());
   }
 
@@ -1032,7 +1045,7 @@ namespace visage {
     message.xclient.format = 32;
     message.xclient.data.l[0] = source;
 
-    XSendEvent(x11_->display(), target, False, 0, &message);
+    XSendEvent(x11_->display(), dragDropReceiver(target), False, 0, &message);
     XFlush(x11_->display());
   }
 
@@ -1050,7 +1063,7 @@ namespace visage {
     message.xclient.data.l[3] = time;
     message.xclient.data.l[4] = x11_->dndActionCopy();
 
-    XSendEvent(x11_->display(), drag_drop_out_state_.target, False, 0, &message);
+    XSendEvent(x11_->display(), dragDropReceiver(target), False, 0, &message);
     XFlush(x11_->display());
   }
 
@@ -1070,8 +1083,7 @@ namespace visage {
   }
 
   void WindowX11::sendDragDropStatus(::Window source, ::Window target, bool accept_drag) const {
-    ::Window proxy = dragDropProxy(target);
-    ::Window receiver = proxy ? proxy : target;
+    ::Window receiver = dragDropReceiver(target);
 
     XEvent message { 0 };
     message.xclient.type = ClientMessage;
@@ -1105,7 +1117,7 @@ namespace visage {
     message.xclient.data.l[0] = source;
     message.xclient.data.l[2] = CurrentTime;
 
-    XSendEvent(x11_->display(), target, False, 0, &message);
+    XSendEvent(x11_->display(), dragDropReceiver(target), False, 0, &message);
   }
 
   void WindowX11::sendDragDropSelectionNotify(XSelectionRequestEvent* request) const {
@@ -1141,8 +1153,7 @@ namespace visage {
   }
 
   void WindowX11::sendDragDropFinished(::Window source, ::Window target, bool accepted_drag) const {
-    ::Window proxy = dragDropProxy(target);
-    ::Window receiver = proxy ? proxy : target;
+    ::Window receiver = dragDropReceiver(target);
 
     XEvent message;
     memset(&message, 0, sizeof(message));
@@ -1257,10 +1268,12 @@ namespace visage {
         sendDragDropStatus(event.xclient.window, event.xclient.data.l[0], accepts);
       }
       else if (event.xclient.message_type == x11_->dndStatus()) {
+        if (event.xclient.data.l[0] == drag_drop_out_state_.target)
+          drag_drop_out_state_.accepted = event.xclient.data.l[1] & 1;
       }
       else if (event.xclient.message_type == x11_->dndFinished()) {
-        drag_drop_out_state_.target = 0;
-        drag_drop_out_state_.dragging = false;
+        cleanupDragDropSource();
+        drag_drop_out_state_ = {};
         setCursorStyle(MouseCursor::Arrow);
       }
       break;
@@ -1356,9 +1369,10 @@ namespace visage {
           if (drag_drop_out_state_.target == 0)
             handleFileDragLeave();
 
-          drag_drop_out_state_.target = windowUnderCursor();
+          drag_drop_out_state_.target = dragDropTarget();
         }
         if (last_target != drag_drop_out_state_.target) {
+          drag_drop_out_state_.accepted = false;
           if (last_target)
             sendDragDropLeave(window_handle_, last_target);
           if (drag_drop_out_state_.target)
@@ -1427,18 +1441,21 @@ namespace visage {
       MouseButton button = buttonFromEvent(event);
       HitTestResult hit_test = currentHitTest();
       if (drag_drop_out_state_.dragging && button == kMouseButtonLeft) {
-        if (event.xbutton.x >= 0 && event.xbutton.x < clientWidth() && event.xbutton.y >= 0 &&
-            event.xbutton.y < clientHeight()) {
+        bool inside = event.xbutton.x >= 0 && event.xbutton.x < clientWidth() &&
+                      event.xbutton.y >= 0 && event.xbutton.y < clientHeight();
+        if (!inside && drag_drop_out_state_.target && drag_drop_out_state_.accepted) {
+          sendDragDropDrop(window_handle_, drag_drop_out_state_.target);
+          drag_drop_out_state_.dragging = false;
+        }
+        else {
           if (drag_drop_out_state_.target)
             sendDragDropLeave(window_handle_, drag_drop_out_state_.target);
-          handleFileDrop(event.xbutton.x, event.xbutton.y, drag_drop_files_);
+          if (inside)
+            handleFileDrop(event.xbutton.x, event.xbutton.y, drag_drop_files_);
+          cleanupDragDropSource();
+          drag_drop_out_state_ = {};
+          setCursorStyle(MouseCursor::Arrow);
         }
-        else if (drag_drop_out_state_.target)
-          sendDragDropDrop(window_handle_, drag_drop_out_state_.target);
-
-        cleanupDragDropSource();
-        drag_drop_out_state_.dragging = false;
-        setCursorStyle(MouseCursor::Arrow);
       }
       if (button == kMouseButtonNone)
         passEventToParent(event);

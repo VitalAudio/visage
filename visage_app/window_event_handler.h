@@ -95,6 +95,7 @@ namespace visage {
     Frame* mouse_down_frame_ = nullptr;
     Frame* keyboard_focused_frame_ = nullptr;
     Frame* drag_drop_target_frame_ = nullptr;
+    Frame* drag_drop_source_frame_ = nullptr;
 
     Point last_mouse_position_ = { 0, 0 };
     HitTestResult current_hit_test_ = HitTestResult::Client;
