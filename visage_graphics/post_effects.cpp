@@ -60,19 +60,26 @@ namespace visage {
     }
 
     void destroyFrameBuffers() {
+      bool destroyed = false;
       for (auto& buffer : downsample_buffers1) {
-        if (bgfx::isValid(buffer))
+        if (bgfx::isValid(buffer)) {
           bgfx::destroy(buffer);
+          destroyed = true;
+        }
         buffer = BGFX_INVALID_HANDLE;
       }
       for (auto& buffer : downsample_buffers2) {
-        if (bgfx::isValid(buffer))
+        if (bgfx::isValid(buffer)) {
           bgfx::destroy(buffer);
+          destroyed = true;
+        }
         buffer = BGFX_INVALID_HANDLE;
       }
 
-      bgfx::frame();
-      bgfx::frame();
+      if (destroyed) {
+        bgfx::frame();
+        bgfx::frame();
+      }
     }
   };
 

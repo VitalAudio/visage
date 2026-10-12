@@ -22,6 +22,7 @@
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/color.h"
 #include "visage_graphics/gradient.h"
+#include "visage_graphics/post_effects.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -606,4 +607,9 @@ TEST_CASE("Canvas screenshot shows the current frame", "[graphics]") {
     REQUIRE(screenshot.sample(kSize / 2, kSize / 2).hexRed() == 0x00);
     REQUIRE(screenshot.sample(kSize / 2, kSize / 2).hexBlue() == 0xff);
   }
+}
+
+TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
+  { BlurPostEffect blur; }
+  { BloomPostEffect bloom; }
 }
