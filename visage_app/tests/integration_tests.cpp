@@ -657,3 +657,36 @@ TEST_CASE("Overlap test - non transitive overlap after overlap", "[integration]"
   REQUIRE(data[index3 + 2] == 0xff);
   REQUIRE(data[index3 + 3] == 0xff);
 }
+TEST_CASE("Redraw requested while drawing stale children", "[integration]") {
+  static constexpr int kNumChildren = 16;
+  ApplicationEditor editor;
+  Frame first;
+  Frame second;
+  Frame children[kNumChildren];
+  int draw_counts[kNumChildren] {};
+
+  first.onDraw() = [&](Canvas& canvas) { second.redraw(); };
+  second.onDraw() = [&](Canvas& canvas) {
+    for (auto& child : children)
+      child.redraw();
+  };
+
+  editor.addChild(first);
+  editor.addChild(second);
+  first.setBounds(0, 0, 10, 10);
+  second.setBounds(10, 0, 10, 10);
+  for (int i = 0; i < kNumChildren; ++i) {
+    editor.addChild(children[i]);
+    children[i].setBounds(i, 10, 1, 1);
+    children[i].onDraw() = [&draw_counts, i](Canvas& canvas) { draw_counts[i]++; };
+  }
+
+  editor.setWindowless(20, 20);
+  editor.drawWindow();
+  std::fill(std::begin(draw_counts), std::end(draw_counts), 0);
+
+  first.redraw();
+  editor.drawWindow();
+  for (int count : draw_counts)
+    REQUIRE(count == 1);
+}

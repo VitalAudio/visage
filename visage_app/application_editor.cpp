@@ -175,14 +175,14 @@ namespace visage {
       if (child->isDrawing())
         child->drawToRegion(*canvas_);
     }
-    for (auto it = stale_children_.begin(); it != stale_children_.end();) {
-      Frame* child = *it;
+    for (int i = 0; i < stale_children_.size();) {
+      Frame* child = stale_children_[i];
       if (std::find(drawing_children_.begin(), drawing_children_.end(), child) == drawing_children_.end()) {
         child->drawToRegion(*canvas_);
-        it = stale_children_.erase(it);
+        stale_children_.erase(stale_children_.begin() + i);
       }
       else
-        ++it;
+        ++i;
     }
     drawing_children_.clear();
   }
