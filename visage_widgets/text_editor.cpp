@@ -500,7 +500,7 @@ namespace visage {
 
     bool modifier = key.isMainModifier();
     if (key.isAltDown()) {
-      if (!modifier)
+      if (!modifier && active_)
         handleDeadKey(key);
       return !modifier;
     }
@@ -771,6 +771,9 @@ namespace visage {
   }
 
   bool TextEditor::pasteFromClipboard() {
+    if (!active_)
+      return false;
+
     addUndoPosition();
     action_state_ = kInserting;
     insertTextAtCaret(readClipboardText());
@@ -778,6 +781,9 @@ namespace visage {
   }
 
   bool TextEditor::deleteBackwards(bool modifier) {
+    if (!active_)
+      return false;
+
     if (caret_position_ == selection_position_) {
       if (modifier)
         selection_position_ = beginningOfWord();
@@ -790,6 +796,9 @@ namespace visage {
   }
 
   bool TextEditor::deleteForwards(bool modifier) {
+    if (!active_)
+      return false;
+
     if (caret_position_ == selection_position_) {
       if (modifier)
         selection_position_ = endOfWord();
@@ -809,6 +818,9 @@ namespace visage {
   }
 
   bool TextEditor::undo() {
+    if (!active_)
+      return false;
+
     if (undo_history_.empty())
       return true;
 
@@ -826,6 +838,9 @@ namespace visage {
   }
 
   bool TextEditor::redo() {
+    if (!active_)
+      return false;
+
     if (undone_history_.empty())
       return false;
 

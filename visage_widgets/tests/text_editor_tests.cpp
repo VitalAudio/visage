@@ -92,3 +92,16 @@ TEST_CASE("Text editor line range past the last line", "[widgets]") {
   editor.setText("abc");
   REQUIRE(editor.lineRange(5) == std::pair<int, int>(0, 3));
 }
+
+TEST_CASE("Text editor inactive", "[widgets]") {
+  TextEditor editor;
+  editor.processTextInput("abc");
+  editor.setActive(false);
+
+  editor.processKeyPress(KeyEvent(KeyCode::Backspace, 0, true));
+  editor.moveCaretToTop(false);
+  editor.processKeyPress(KeyEvent(KeyCode::Delete, 0, true));
+  editor.processKeyPress(KeyEvent(KeyCode::E, kModifierAlt, true));
+  editor.processKeyPress(KeyEvent(KeyCode::Z, kModifierRegCtrl, true));
+  REQUIRE(editor.text() == "abc");
+}
