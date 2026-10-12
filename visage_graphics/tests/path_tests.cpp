@@ -375,3 +375,14 @@ TEST_CASE("SVG path parsing", "[graphics]") {
     REQUIRE(Path::parseSvgPath("M0 0L5 5Z;").back().type == 'Z');
   }
 }
+
+TEST_CASE("Arc with a huge radius", "[graphics]") {
+  Path path;
+  path.moveTo(0, 0);
+  path.arcTo(2e7f, 2e7f, 0.0f, false, true, Point(1000, 0));
+  path.lineTo(1000, 50);
+
+  const std::vector<Point>& points = path.subPaths().back().points;
+  REQUIRE(points.size() == 3);
+  REQUIRE((points[1] - Point(1000, 0)).length() < 0.01f);
+}

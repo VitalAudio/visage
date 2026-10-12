@@ -49,6 +49,11 @@ namespace visage {
     return std::acos(value);
   }
 
+  static double maxDeltaRadians(double error_ratio) {
+    static constexpr double kMinDeltaRadians = 2.0 * kPi / (1 << 16);
+    return std::max(kMinDeltaRadians, 2.0 * clampedACos(1.0 - error_ratio));
+  }
+
   template<typename T>
   static void roundedRectangle(T& t, float x, float y, float width, float height, float rx_top_left,
                                float ry_top_left, float rx_top_right, float ry_top_right,
@@ -143,7 +148,7 @@ namespace visage {
 
     Point adjusted_radius = resolution_matrix_ * Point(rx, ry);
     float max_radius = std::max(std::abs(adjusted_radius.x), std::abs(adjusted_radius.y));
-    float max_delta_radians = 2.0f * clampedACos(1.0f - error_tolerance_ / max_radius);
+    float max_delta_radians = maxDeltaRadians(error_tolerance_ / max_radius);
     int num_points = std::ceil(std::abs(arc_angle) / max_delta_radians);
 
     std::complex<float> position(-center.x, -center.y);
@@ -389,7 +394,7 @@ namespace visage {
     }
     else if (end_cap == EndCap::Round) {
       float adjusted_radius = (resolution_matrix_ * Point(amount, 0.0f)).length();
-      float max_delta_radians = 2.0 * clampedACos(1.0 - kDefaultErrorTolerance / adjusted_radius);
+      float max_delta_radians = maxDeltaRadians(kDefaultErrorTolerance / adjusted_radius);
       int num_points = std::max<int>(1, std::ceil(2.0 * kPi / max_delta_radians - 0.1));
       std::complex<float> position(amount, 0.0);
       float angle_delta = 2.0 * kPi / num_points;
@@ -418,7 +423,7 @@ namespace visage {
 
     float square_miter_limit = miter_limit * miter_limit;
     float adjusted_radius = (resolution_matrix_ * Point(amount, 0.0f)).length();
-    float max_delta_radians = 2.0f * clampedACos(1.0 - kDefaultErrorTolerance / adjusted_radius);
+    float max_delta_radians = maxDeltaRadians(kDefaultErrorTolerance / adjusted_radius);
     for (const auto& sub_path : paths_) {
       if (sub_path.points.empty())
         continue;
