@@ -1355,6 +1355,9 @@ namespace visage {
         unsigned int window_width, window_height, border, depth;
         XGetGeometry(x11_->display(), window_handle_, &root, &window_x, &window_y, &window_width,
                      &window_height, &border, &depth);
+        ::Window child;
+        XTranslateCoordinates(x11_->display(), window_handle_, x11_->rootWindow(), 0, 0, &window_x,
+                              &window_y, &child);
         int window_right = window_x + window_width;
         int window_bottom = window_y + window_height;
 
@@ -1435,11 +1438,10 @@ namespace visage {
         window_operation_ = resizeOperationForPosition(event.xbutton.x, event.xbutton.y);
         if (hit_test == HitTestResult::TitleBar && window_operation_ == 0) {
           window_operation_ = kMoveWindow;
-          ::Window root;
+          ::Window child;
           int window_x, window_y;
-          unsigned int window_width, window_height, border, depth;
-          XGetGeometry(x11_->display(), window_handle_, &root, &window_x, &window_y, &window_width,
-                       &window_height, &border, &depth);
+          XTranslateCoordinates(x11_->display(), window_handle_, x11_->rootWindow(), 0, 0,
+                                &window_x, &window_y, &child);
           dragging_window_position_ = { event.xbutton.x_root - window_x, event.xbutton.y_root - window_y };
         }
 
