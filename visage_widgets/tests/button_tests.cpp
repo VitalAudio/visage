@@ -218,3 +218,12 @@ TEST_CASE("ButtonChangeAction undo/redo functionality", "[widgets]") {
   action.redo();
   REQUIRE(toggle_button.toggled());
 }
+
+TEST_CASE("ButtonChangeAction after button is deleted", "[widgets]") {
+  auto toggle_button = std::make_unique<ToggleButton>();
+  ButtonChangeAction action(toggle_button.get(), true);
+  toggle_button = nullptr;
+
+  action.undo();
+  action.redo();
+}
