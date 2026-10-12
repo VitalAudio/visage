@@ -1619,7 +1619,20 @@ namespace visage {
     XWindowAttributes attributes;
     if (XGetWindowAttributes(x11_->display(), window_handle_, &attributes) == 0)
       return false;
-    return attributes.map_state == IsViewable;
+    if (attributes.map_state == IsViewable)
+      return true;
+
+    Atom wm_state = XInternAtom(x11_->display(), "WM_STATE", False);
+    Atom actual_type;
+    int actual_format = 0;
+    unsigned long num_items = 0, bytes_after = 0;
+    unsigned char* state = nullptr;
+    XGetWindowProperty(x11_->display(), window_handle_, wm_state, 0, 1, False, wm_state,
+                       &actual_type, &actual_format, &num_items, &bytes_after, &state);
+    bool iconic = state && num_items && reinterpret_cast<long*>(state)[0] == IconicState;
+    if (state)
+      XFree(state);
+    return iconic;
   }
 
   void WindowX11::setWindowTitle(const std::string& title) {
