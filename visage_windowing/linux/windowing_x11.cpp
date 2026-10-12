@@ -553,6 +553,12 @@ namespace visage {
                     PropModeReplace, &blank, 0);
     XChangeProperty(display, window_handle_, x11_->dndAware(), XA_ATOM, 32, PropModeReplace,
                     x11_->dndVersion(), 1);
+
+    if (x11_->inputMethod()) {
+      input_context_ = XCreateIC(x11_->inputMethod(), XNInputStyle,
+                                 XIMPreeditNothing | XIMStatusNothing, XNClientWindow,
+                                 window_handle_, XNFocusWindow, window_handle_, nullptr);
+    }
   }
 
   WindowX11* WindowX11::last_active_window_ = nullptr;
@@ -666,6 +672,8 @@ namespace visage {
     timer_thread_.reset();
 
     X11Connection::DisplayLock lock(x11_);
+    if (input_context_)
+      XDestroyIC(input_context_);
     if (window_handle_)
       XDestroyWindow(x11_->display(), window_handle_);
   }
@@ -930,6 +938,24 @@ namespace visage {
     }
   }
 
+  static std::string lookupText(XIC input_context, XKeyEvent* event, KeySym* keysym) {
+    static constexpr int kMaxCharacters = 32;
+    std::string text(kMaxCharacters, '\0');
+    if (input_context == nullptr) {
+      text.resize(XLookupString(event, text.data(), text.size(), keysym, nullptr));
+      return text;
+    }
+
+    Status status;
+    int length = Xutf8LookupString(input_context, event, text.data(), text.size(), keysym, &status);
+    if (status == XBufferOverflow) {
+      text.resize(length);
+      length = Xutf8LookupString(input_context, event, text.data(), text.size(), keysym, &status);
+    }
+    text.resize(length);
+    return text;
+  }
+
   ::Window WindowX11::windowUnderCursor(::Window inside) {
     ::Window root_return, child_return;
     int root_x, root_y, win_x, win_y;
@@ -1112,6 +1138,8 @@ namespace visage {
     XEvent event;
     while (XPending(x11_->display())) {
       XNextEvent(x11_->display(), &event);
+      if (XFilterEvent(&event, None))
+        continue;
 
       if (event.xany.window == parent_handle_ && event.type == ConfigureNotify) {
         X11Connection::DisplayLock lock(x11_);
@@ -1414,6 +1442,16 @@ namespace visage {
       }
       break;
     }
+    case FocusIn: {
+      if (input_context_)
+        XSetICFocus(input_context_);
+      break;
+    }
+    case FocusOut: {
+      if (input_context_)
+        XUnsetICFocus(input_context_);
+      break;
+    }
     case EnterNotify: {
       handleMouseEnter(event.xcrossing.x, event.xcrossing.y);
       break;
@@ -1423,13 +1461,11 @@ namespace visage {
       break;
     }
     case KeyPress: {
-      static constexpr int kMaxCharacters = 32;
       int modifier_state = modifierState();
-      char buffer[kMaxCharacters] {};
-      KeySym keysym;
-      int length = XLookupString(&event.xkey, buffer, sizeof(buffer), &keysym, nullptr);
-      if ((modifier_state & kModifierAlt) == 0 && length && buffer[0] < 127)
-        handleTextInput(std::string(buffer, length));
+      KeySym keysym = NoSymbol;
+      std::string text = lookupText(input_context_, &event.xkey, &keysym);
+      if ((modifier_state & kModifierAlt) == 0 && !text.empty() && text[0] < 127)
+        handleTextInput(text);
 
       bool repeat = pressed_[keysym];
       pressed_[keysym] = true;
@@ -1497,6 +1533,9 @@ namespace visage {
 
       while (running && XPending(x11_->display())) {
         XNextEvent(x11_->display(), &event);
+        if (XFilterEvent(&event, None))
+          continue;
+
         WindowX11* window = NativeWindowLookup::instance().findWindow(event.xany.window);
         if (window == nullptr) {
           if (event.type == SelectionRequest)
