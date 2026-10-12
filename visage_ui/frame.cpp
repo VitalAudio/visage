@@ -94,7 +94,7 @@ namespace visage {
 
   void Frame::removeChild(Frame* child) {
     VISAGE_ASSERT(child && child != this);
-    if (child == nullptr)
+    if (child == nullptr || child->parent_ != this)
       return;
 
     child->region()->invalidate();

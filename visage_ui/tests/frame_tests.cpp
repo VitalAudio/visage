@@ -538,3 +538,16 @@ TEST_CASE("Frame removed by its own mouse event", "[ui]") {
   child->processMouseDown(mouse_event);
   REQUIRE(parent_mouse_downs == 1);
 }
+
+TEST_CASE("Frame remove child that isn't a child", "[ui]") {
+  Frame parent;
+  Frame other_parent;
+  Frame child;
+  Frame other_child;
+  parent.addChild(child);
+  other_parent.addChild(other_child);
+
+  parent.removeChild(other_child);
+  REQUIRE(parent.children().size() == 1);
+  REQUIRE(other_child.parent() == &other_parent);
+}
