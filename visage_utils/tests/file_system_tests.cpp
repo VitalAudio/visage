@@ -153,6 +153,8 @@ TEST_CASE("System directories", "[utils]") {
 
   REQUIRE_FALSE(app_data.empty());
   REQUIRE_FALSE(documents.empty());
+  REQUIRE(app_data.is_absolute());
+  REQUIRE(documents.is_absolute());
 }
 
 TEST_CASE("Temporary file creation", "[utils]") {

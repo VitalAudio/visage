@@ -30,19 +30,29 @@
 #include <ShlObj.h>
 #include <windows.h>
 #elif VISAGE_MAC
+#include <cstdlib>
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
 #else
 #include <cstdlib>
 #include <dlfcn.h>
 #include <unistd.h>
+#endif
 
+#if !VISAGE_WINDOWS
+static visage::File homeFolder(const char* folder) {
+  const char* home = getenv("HOME");
+  return visage::File(home ? home : "") / folder;
+}
+#endif
+
+#if !VISAGE_WINDOWS && !VISAGE_MAC
 static visage::File xdgFolder(const char* env_var, const char* default_folder) {
   const char* xdg_folder = getenv(env_var);
-  if (xdg_folder)
+  if (xdg_folder && xdg_folder[0] == '/')
     return xdg_folder;
 
-  return default_folder;
+  return homeFolder(default_folder);
 }
 #endif
 
@@ -163,9 +173,9 @@ namespace visage {
     }
     return path;
 #elif VISAGE_MAC
-    return "~/Library";
+    return homeFolder("Library");
 #elif VISAGE_LINUX
-    return xdgFolder("XDG_DATA_HOME", "~/.config");
+    return xdgFolder("XDG_DATA_HOME", ".local/share");
 #else
     return {};
 #endif
@@ -181,9 +191,9 @@ namespace visage {
     }
     return path;
 #elif VISAGE_MAC
-    return "~/Documents";
+    return homeFolder("Documents");
 #elif VISAGE_LINUX
-    return xdgFolder("XDG_DOCUMENTS_DIR", "~/Documents");
+    return xdgFolder("XDG_DOCUMENTS_DIR", "Documents");
 #else
     return {};
 #endif
