@@ -66,6 +66,13 @@ namespace visage {
     if (child == nullptr)
       return;
 
+    if (child->parent_) {
+      auto owned = child->parent_->owned_children_.extract(child);
+      child->parent_->removeChild(child);
+      if (owned)
+        owned_children_[child] = std::move(owned.mapped());
+    }
+
     children_.push_back(child);
     child->parent_ = this;
     child->setEventHandler(event_handler_);

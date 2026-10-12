@@ -551,3 +551,34 @@ TEST_CASE("Frame remove child that isn't a child", "[ui]") {
   REQUIRE(parent.children().size() == 1);
   REQUIRE(other_child.parent() == &other_parent);
 }
+
+TEST_CASE("Frame added to a new parent", "[ui]") {
+  Frame first_parent;
+  Frame second_parent;
+
+  SECTION("Unowned child") {
+    Frame child;
+    first_parent.addChild(child);
+    second_parent.addChild(child);
+    REQUIRE(first_parent.children().empty());
+    REQUIRE(second_parent.children().size() == 1);
+    REQUIRE(child.parent() == &second_parent);
+  }
+
+  SECTION("Owned child") {
+    auto owned_child = std::make_unique<Frame>();
+    Frame* child = owned_child.get();
+    first_parent.addChild(std::move(owned_child));
+    second_parent.addChild(child);
+    first_parent.removeAllChildren();
+    REQUIRE(second_parent.children().size() == 1);
+    REQUIRE(child->parent() == &second_parent);
+  }
+
+  SECTION("Same parent") {
+    Frame child;
+    first_parent.addChild(child);
+    first_parent.addChild(child);
+    REQUIRE(first_parent.children().size() == 1);
+  }
+}
