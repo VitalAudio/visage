@@ -400,12 +400,13 @@ namespace visage {
 
   private:
     void propagateMouseEvent(const MouseEvent& e, void (Frame::*handler)(const MouseEvent&)) {
+      Frame* frame = parent_;
       (this->*handler)(e);
-      auto frame = parent_;
       while (frame) {
+        Frame* parent = frame->parent_;
         if (frame->receiveChildMouseEvents())
           (frame->*handler)(e);
-        frame = frame->parent_;
+        frame = parent;
       }
     }
 

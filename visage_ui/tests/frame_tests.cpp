@@ -522,3 +522,19 @@ TEST_CASE("Frame listen", "[ui]") {
     parent.reset();
   }
 }
+
+TEST_CASE("Frame removed by its own mouse event", "[ui]") {
+  Frame parent;
+  auto owned_child = std::make_unique<Frame>();
+  Frame* child = owned_child.get();
+  parent.addChild(std::move(owned_child));
+  parent.setReceiveChildMouseEvents(true);
+
+  int parent_mouse_downs = 0;
+  parent.onMouseDown() += [&](const MouseEvent&) { parent_mouse_downs++; };
+  child->onMouseDown() += [&](const MouseEvent&) { parent.removeChild(child); };
+
+  MouseEvent mouse_event {};
+  child->processMouseDown(mouse_event);
+  REQUIRE(parent_mouse_downs == 1);
+}
