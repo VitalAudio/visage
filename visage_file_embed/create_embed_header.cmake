@@ -15,7 +15,7 @@ set(FILE_CONTENTS "${FILE_CONTENTS}#pragma once\n\n")
 set(FILE_CONTENTS "${FILE_CONTENTS}#include \"embedded_file.h\"\n")
 set(FILE_CONTENTS "${FILE_CONTENTS}#include <string>\n")
 set(FILE_CONTENTS "${FILE_CONTENTS}namespace ${VAR_NAMESPACE} {\n")
-set(FILE_CONTENTS "${FILE_CONTENTS}  ::visage::EmbeddedFile getFileByName(const std::string& filename);\n")
+set(FILE_CONTENTS "${FILE_CONTENTS}  ::visage::EmbeddedFile fileByName(const std::string& filename);\n")
 
 foreach (FILE ${FILE_LIST})
   string(REGEX MATCH "([^/]+)$" VAR_NAME ${FILE})
