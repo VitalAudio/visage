@@ -363,9 +363,11 @@ namespace visage {
       if (output_info == nullptr)
         continue;
 
-      if (output_info->crtc && output_info->connection == RR_Connected) {
-        XRRCrtcInfo* info = XRRGetCrtcInfo(display, screen_resources, output_info->crtc);
+      XRRCrtcInfo* info = nullptr;
+      if (output_info->crtc && output_info->connection == RR_Connected)
+        info = XRRGetCrtcInfo(display, screen_resources, output_info->crtc);
 
+      if (info) {
         IBounds bounds(info->x, info->y, info->width, info->height);
         if (result.bounds.width() == 0 || bounds.contains(point)) {
           result.bounds = bounds;
