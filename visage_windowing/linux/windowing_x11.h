@@ -268,8 +268,6 @@ namespace visage {
     void createWindow(IBounds bounds);
     IPoint retrieveWindowDimensions();
     void passEventToParent(XEvent& event);
-    int mouseButtonState() const;
-    int modifierState() const;
 
     ::Window windowUnderCursor(::Window inside);
     ::Window windowUnderCursor();

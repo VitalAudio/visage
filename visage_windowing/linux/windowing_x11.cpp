@@ -764,42 +764,26 @@ namespace visage {
     XFlush(display);
   }
 
-  int WindowX11::mouseButtonState() const {
-    X11Connection::DisplayLock lock(x11_);
-
-    ::Window root_return = 0, child_return = 0;
-    int root_x = 0, root_y = 0, win_x = 0, win_y = 0;
-    unsigned int mask_return = 0;
-
-    XQueryPointer(x11_->display(), window_handle_, &root_return, &child_return, &root_x, &root_y,
-                  &win_x, &win_y, &mask_return);
+  static int mouseButtonState(unsigned int state) {
     int result = 0;
-    if (mask_return & Button1Mask)
+    if (state & Button1Mask)
       result = result | kMouseButtonLeft;
-    if (mask_return & Button2Mask)
+    if (state & Button2Mask)
       result = result | kMouseButtonMiddle;
-    if (mask_return & Button3Mask)
+    if (state & Button3Mask)
       result = result | kMouseButtonRight;
     return result;
   }
 
-  int WindowX11::modifierState() const {
-    X11Connection::DisplayLock lock(x11_);
-
-    ::Window root_return, child_return;
-    int root_x, root_y, win_x, win_y;
-    unsigned int mask_return;
-
-    XQueryPointer(x11_->display(), window_handle_, &root_return, &child_return, &root_x, &root_y,
-                  &win_x, &win_y, &mask_return);
+  static int modifierState(unsigned int state) {
     int result = 0;
-    if (mask_return & ShiftMask)
+    if (state & ShiftMask)
       result = result | kModifierShift;
-    if (mask_return & ControlMask)
+    if (state & ControlMask)
       result = result | kModifierRegCtrl;
-    if (mask_return & Mod1Mask)
+    if (state & Mod1Mask)
       result = result | kModifierAlt;
-    if (mask_return & Mod4Mask)
+    if (state & Mod4Mask)
       result = result | kModifierMeta;
     return result;
   }
@@ -1356,7 +1340,8 @@ namespace visage {
         break;
 
       if (window_operation_ == 0) {
-        handleMouseMove(event.xmotion.x, event.xmotion.y, mouseButtonState(), modifierState());
+        handleMouseMove(event.xmotion.x, event.xmotion.y, mouseButtonState(event.xmotion.state),
+                        modifierState(event.xmotion.state));
         if (mouseRelativeMode())
           setNativeCursorPosition(mouse_down_position_);
       }
@@ -1366,14 +1351,17 @@ namespace visage {
       if (event.xbutton.button >= 4 && event.xbutton.button <= 7) {
         float y = (event.xbutton.button == 4 ? 1.0f : 0.0f) - (event.xbutton.button == 5 ? 1.0f : 0.0f);
         float x = (event.xbutton.button == 7 ? 1.0f : 0.0f) - (event.xbutton.button == 6 ? 1.0f : 0.0f);
-        handleMouseWheel(x, y, event.xbutton.x, event.xbutton.y, mouseButtonState(), modifierState());
+        handleMouseWheel(x, y, event.xbutton.x, event.xbutton.y,
+                         mouseButtonState(event.xbutton.state), modifierState(event.xbutton.state));
       }
       else {
         MouseButton button = buttonFromEvent(event);
         if (button == kMouseButtonNone)
           passEventToParent(event);
         else
-          handleMouseDown(button, event.xbutton.x, event.xbutton.y, mouseButtonState(), modifierState());
+          handleMouseDown(button, event.xbutton.x, event.xbutton.y,
+                          mouseButtonState(event.xbutton.state) | button,
+                          modifierState(event.xbutton.state));
 
         HitTestResult hit_test = handleHitTest(event.xbutton.x, event.xbutton.y);
 
@@ -1422,8 +1410,9 @@ namespace visage {
       if (button == kMouseButtonNone)
         passEventToParent(event);
       else
-        handleMouseUp(buttonFromEvent(event), event.xbutton.x, event.xbutton.y, mouseButtonState(),
-                      modifierState());
+        handleMouseUp(button, event.xbutton.x, event.xbutton.y,
+                      mouseButtonState(event.xbutton.state) & ~button,
+                      modifierState(event.xbutton.state));
 
       if (button == kMouseButtonLeft) {
         if (hit_test == HitTestResult::CloseButton &&
@@ -1467,11 +1456,11 @@ namespace visage {
       break;
     }
     case LeaveNotify: {
-      handleMouseLeave(mouseButtonState(), modifierState());
+      handleMouseLeave(mouseButtonState(event.xcrossing.state), modifierState(event.xcrossing.state));
       break;
     }
     case KeyPress: {
-      int modifier_state = modifierState();
+      int modifier_state = modifierState(event.xkey.state);
       std::string text = lookupText(input_context_, &event.xkey);
       if ((modifier_state & kModifierAlt) == 0 && !text.empty() && text[0] < 127)
         handleTextInput(text);
@@ -1494,7 +1483,7 @@ namespace visage {
       KeyCode key_code = translateKeyCode(keysym);
       bool used = false;
       if (key_code != KeyCode::Unknown)
-        used = handleKeyUp(key_code, modifierState());
+        used = handleKeyUp(key_code, modifierState(event.xkey.state));
 
       if (!used)
         passEventToParent(event);
