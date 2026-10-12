@@ -147,6 +147,8 @@ namespace visage {
         colors_.resize(resolution, colors_.back());
       else
         colors_.resize(resolution);
+      custom_stops_ = false;
+      evenlySpace();
     }
 
     bool operator<(const Gradient& other) const { return compare(*this, other) < 0; }

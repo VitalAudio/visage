@@ -98,6 +98,27 @@ TEST_CASE("Gradient color manipulation", "[graphics]") {
     REQUIRE(gradient.colors()[2] == red);
   }
 
+  SECTION("setResolution keeps positions in sync") {
+    Color red(1.0f, 1.0f, 0.0f, 0.0f);
+    Color blue(1.0f, 0.0f, 0.0f, 1.0f);
+    Gradient gradient(red);
+
+    gradient.setResolution(2);
+    gradient.setColor(1, blue);
+    REQUIRE(gradient.sample(0.0f) == red);
+    REQUIRE(gradient.sample(1.0f) == blue);
+    REQUIRE(gradient.sample(0.5f).red() == Approx(0.5f));
+    REQUIRE(Gradient::compare(gradient, Gradient(red, blue)) == 0);
+
+    Gradient decoded;
+    decoded.decode(gradient.encode());
+    REQUIRE(Gradient::compare(decoded, gradient) == 0);
+
+    gradient.setResolution(1);
+    REQUIRE(gradient.sample(0.5f) == red);
+    REQUIRE(Gradient::compare(gradient, Gradient(red)) == 0);
+  }
+
   SECTION("setColor modifies color at index") {
     Gradient gradient;
     gradient.setResolution(3);
