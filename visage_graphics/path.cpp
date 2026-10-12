@@ -532,6 +532,10 @@ namespace visage {
     if (dash_array.size() % 2 != 0)
       dash_total *= 2.0f;
 
+    static constexpr float kMaxDashPeriods = 1 << 20;
+    if (length() > dash_total * kMaxDashPeriods)
+      dash_array.clear();
+
     Path stroke_path;
     if (!dash_array.empty()) {
       if (dash_offset < 0.0f)

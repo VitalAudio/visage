@@ -399,3 +399,12 @@ TEST_CASE("Square join on a straight vertex", "[graphics]") {
   Path offset = path.offset(1.0f);
   REQUIRE(offset.numPoints() > 0);
 }
+
+TEST_CASE("Stroke with dashes smaller than float precision", "[graphics]") {
+  Path path;
+  path.moveTo(0, 0);
+  path.lineTo(1000, 0);
+
+  Path stroke = path.stroke(1.0f, Path::Join::Round, Path::EndCap::Round, { 1e-5f });
+  REQUIRE(stroke.numPoints() > 0);
+}
