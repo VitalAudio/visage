@@ -232,7 +232,7 @@ namespace visage {
   std::pair<int, int> TextEditor::lineRange(int line) const {
     int start_index = 0;
     int end_index = textLength();
-    line = std::max(line, 0);
+    line = std::max(0, std::min<int>(line, line_breaks_.size()));
 
     if (line > 0)
       start_index = line_breaks_[line - 1];

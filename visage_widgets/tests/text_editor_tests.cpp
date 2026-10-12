@@ -74,3 +74,21 @@ TEST_CASE("Text editor dead key", "[widgets]") {
   editor.processTextInput("e");
   REQUIRE(editor.text() == "abé");
 }
+
+TEST_CASE("Text editor switching off multi-line clears line breaks", "[widgets]") {
+  TextEditor editor;
+  editor.setBounds(0, 0, 60, 200);
+  editor.setMultiLine(true);
+  editor.setText("one two three four five six seven eight");
+  REQUIRE(editor.lineRange(1).first > 0);
+
+  editor.setMultiLine(false);
+  editor.setText("");
+  REQUIRE(editor.lineRange(0) == std::pair<int, int>(0, 0));
+}
+
+TEST_CASE("Text editor line range past the last line", "[widgets]") {
+  TextEditor editor;
+  editor.setText("abc");
+  REQUIRE(editor.lineRange(5) == std::pair<int, int>(0, 3));
+}

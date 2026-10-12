@@ -187,6 +187,8 @@ namespace visage {
         line_breaks_ = text_.font().lineBreaks(text_.text().c_str(), text_.text().length(),
                                                width() - 2 * xMargin());
       }
+      else
+        line_breaks_.clear();
     }
 
     void setText(const String& text) {
@@ -208,6 +210,7 @@ namespace visage {
       default_text_.setMultiLine(multi_line);
       if (multi_line)
         x_position_ = 0;
+      setLineBreaks();
     }
     void setSelectOnFocus(bool select_on_focus) { select_on_focus_ = select_on_focus; }
     void setJustification(Font::Justification justification) {
