@@ -1488,9 +1488,7 @@ namespace visage {
   void SvgParser::collectDefs(std::vector<Tag>& tags) {
     for (auto& tag : tags) {
       if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
-        std::string id = "#" + tag.data.attributes.at("id");
-        defs_[id] = tag;
-        defs_[id].data.attributes.erase("id");
+        defs_.emplace("#" + tag.data.attributes.at("id"), tag);
       }
       collectDefs(tag.children);
     }
@@ -1656,9 +1654,14 @@ namespace visage {
         tag.children.push_back(child);
       }
 
-      reference_ids.insert(reference_id);
+      std::string id = tag.data.attributes.count("id") ? "#" + tag.data.attributes.at("id") : "";
+      bool new_reference = reference_ids.insert(reference_id).second;
+      bool new_id = reference_ids.insert(id).second;
       resolveUses(tag.children, reference_ids, depth + 1);
-      reference_ids.erase(reference_id);
+      if (new_id)
+        reference_ids.erase(id);
+      if (new_reference)
+        reference_ids.erase(reference_id);
     }
   }
 

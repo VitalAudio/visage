@@ -46,6 +46,11 @@ TEST_CASE("Svg use", "[graphics]") {
   REQUIRE(numShapes(with_use.drawable()) == numShapes(without_use.drawable()) + 1);
 }
 
+TEST_CASE("Svg use references its ancestor", "[graphics]") {
+  Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><g id="g"><use href="#g" x="2"/><rect width="10" height="10"/></g></svg>)svg");
+  REQUIRE(numShapes(svg.drawable()) == 1);
+}
+
 static const SvgDrawable* firstShape(const SvgDrawable* drawable) {
   if (!drawable->command_list.empty())
     return drawable;
@@ -301,6 +306,14 @@ TEST_CASE("Svg rendering", "[graphics]") {
 
     Color element = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="1" height="1" style="background-color: red"/><svg><g/></svg></svg>)svg");
     REQUIRE(element.hexRed() == 0x00);
+  }
+
+  SECTION("Use references") {
+    Color duplicate = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><defs><rect id="r" width="10" height="10" fill="red"/><rect id="r" width="10" height="10" fill="blue"/></defs><use href="#r"/></svg>)svg");
+    REQUIRE(duplicate.hexRed() == 0xff);
+
+    Color css = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><style>#r { fill: red; }</style><defs><rect id="r" width="10" height="10"/></defs><use href="#r"/></svg>)svg");
+    REQUIRE(css.hexRed() == 0xff);
   }
 
   SECTION("Entity references") {
