@@ -1551,6 +1551,8 @@ namespace visage {
     }
     else if (key == "fill-rule")
       state.non_zero_fill = value == "nonzero";
+    else if (key == "clip-rule")
+      state.non_zero_clip = value == "nonzero";
     else if (key == "fill-opacity")
       tryReadFloat(state.fill_opacity, value);
     else if (key == "stroke") {

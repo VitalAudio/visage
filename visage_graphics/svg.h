@@ -119,6 +119,7 @@ namespace visage {
     GradientDef fill_gradient = GradientDef(0xff000000);
     float fill_opacity = 1.0f;
     bool non_zero_fill = true;
+    bool non_zero_clip = true;
 
     GradientDef stroke_gradient;
     float stroke_opacity = 1.0f;
@@ -241,8 +242,10 @@ namespace visage {
     }
 
     void gatherPaths(std::vector<Path>& paths) {
-      if (path.numPoints())
+      if (path.numPoints()) {
         paths.push_back(path);
+        paths.back().setFillRule(state.non_zero_clip ? Path::FillRule::NonZero : Path::FillRule::EvenOdd);
+      }
 
       for (auto& child : children)
         child->gatherPaths(paths);

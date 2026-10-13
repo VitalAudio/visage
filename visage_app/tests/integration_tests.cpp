@@ -838,4 +838,8 @@ TEST_CASE("Svg frame clip paths", "[integration]") {
   REQUIRE(transformed.sample(12, 12).hexRed() == 0xff);
   REQUIRE(transformed.sample(12, 12).hexGreen() == 0x00);
   REQUIRE(transformed.sample(17, 17).hexRed() == 0x00);
+
+  Screenshot even_odd = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><g clip-rule="evenodd"><clipPath id="c"><path d="M0 0h20v20h-20z M5 5h10v10h-10z"/></clipPath></g><rect width="20" height="20" fill="white" clip-path="url(#c)"/></svg>)svg");
+  REQUIRE(even_odd.sample(2, 2).hexRed() == 0xff);
+  REQUIRE(even_odd.sample(10, 10).hexRed() == 0x00);
 }
