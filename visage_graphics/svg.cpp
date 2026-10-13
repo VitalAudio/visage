@@ -246,6 +246,21 @@ namespace visage {
     return result * mult;
   }
 
+  inline float parseAngle(const std::string& str) {
+    auto suffix_pos = str.find_first_not_of("0123456789+-.eE");
+    auto units = suffix_pos != std::string::npos ? trimWhitespace(str.substr(suffix_pos)) : "";
+
+    float result = 0.0f;
+    tryReadFloat(result, str);
+    if (units == "rad")
+      return result * 180.0f / kPi;
+    if (units == "grad")
+      return result * 0.9f;
+    if (units == "turn")
+      return result * 360.0f;
+    return result;
+  }
+
   inline float parsePositionValue(const std::string& token, float range) {
     if (token == "top" || token == "left")
       return 0.0f;
@@ -1449,7 +1464,7 @@ namespace visage {
             marker->reverse_start_marker = orient == "auto-start-reverse";
             marker->use_angle = orient != "auto" && orient != "auto-start-reverse";
             if (marker->use_angle)
-              tryReadFloat(marker->marker_angle, orient);
+              marker->marker_angle = parseAngle(orient);
           }
 
           drawable.local_transform = drawable.initialTransform(view, view.width, view.height) *

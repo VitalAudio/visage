@@ -75,6 +75,14 @@ TEST_CASE("Svg marker orientation and units", "[graphics]") {
   Svg user_units = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m" markerUnits="userSpaceOnUse"><rect width="2" height="1"/></marker><path d="M5 5 L5 9" stroke-width="2" marker-start="url(#m)"/></svg>)svg");
   REQUIRE(user_units.drawable()->post_bounding_box.width() == 2.0f);
   REQUIRE(user_units.drawable()->post_bounding_box.height() == 1.0f);
+
+  for (const std::string& orient : { "0.25turn", "1.5707964rad", "100grad", "90deg" }) {
+    INFO(orient);
+    Svg rotated = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m" orient=")svg" + orient +
+                           R"svg("><rect width="2" height="1"/></marker><path d="M5 5 L5 9" marker-start="url(#m)"/></svg>)svg");
+    REQUIRE(std::abs(rotated.drawable()->post_bounding_box.width() - 1.0f) < 0.001f);
+    REQUIRE(std::abs(rotated.drawable()->post_bounding_box.height() - 2.0f) < 0.001f);
+  }
 }
 
 TEST_CASE("Svg marker properties", "[graphics]") {
