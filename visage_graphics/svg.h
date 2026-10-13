@@ -28,6 +28,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -113,7 +114,7 @@ namespace visage {
   };
 
   struct DrawableState {
-    GradientDef current_color = GradientDef(0xff000000);
+    GradientDef current_color = GradientDef::Type::CurrentColor;
     GradientDef fill_gradient = GradientDef(0xff000000);
     float fill_opacity = 1.0f;
     bool non_zero_fill = true;
@@ -366,7 +367,7 @@ namespace visage {
     bool loadDrawable(const Tag& tag, SvgDrawable* drawable) const;
 
     void loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack, SvgDrawable* drawable);
-    GradientDef parseGradient(const std::string& color_string);
+    std::optional<GradientDef> parseGradient(const std::string& color_string);
 
     void collectDefs(std::vector<Tag>& tags);
     void collectGradients(std::vector<Tag>& tags);

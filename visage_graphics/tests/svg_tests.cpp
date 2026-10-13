@@ -166,6 +166,28 @@ TEST_CASE("Svg rendering", "[graphics]") {
     REQUIRE(short_hex.hexBlue() == 0x00);
   }
 
+  SECTION("Color values") {
+    std::vector<std::string> red_fills = {
+      R"svg(<g fill="red"><rect width="10" height="10" fill="inherit"/></g>)svg",
+      R"svg(<g fill="red"><rect width="10" height="10" fill="#qqq"/></g>)svg",
+      R"svg(<rect width="10" height="10" fill="rgb(255 0 0)"/>)svg",
+      R"svg(<rect width="10" height="10" fill="url(#missing) red"/>)svg",
+      R"svg(<rect width="10" height="10" fill="RED"/>)svg",
+      R"svg(<rect width="10" height="10" fill="red icc-color(profile, 0.1)"/>)svg",
+      R"svg(<rect width="10" height="10" fill="currentColor" color="red"/>)svg",
+      R"svg(<linearGradient id="g"><stop stop-color="rgb(255, 0, 0)"/></linearGradient><rect width="10" height="10" fill="url(#g)"/>)svg",
+    };
+    for (const auto& fill : red_fills) {
+      INFO(fill);
+      Color color = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10">)svg" + fill + "</svg>");
+      REQUIRE(color.hexRed() == 0xff);
+      REQUIRE(color.hexGreen() == 0x00);
+    }
+
+    Color missing = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="url(#missing)"/></svg>)svg");
+    REQUIRE(missing.hexRed() == 0x00);
+  }
+
   SECTION("Hsl colors") {
     Color green = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="hsl(120, 100%, 50%)"/></svg>)svg");
     REQUIRE(green.hexRed() == 0x00);

@@ -459,7 +459,8 @@ namespace visage {
 
       Bounds bounding_box = path.boundingBox();
       auto fill_box = state.fill_gradient.user_space ? view_box : bounding_box;
-      fill_brush = state.fill_gradient.toBrush(fill_box);
+      fill_brush = state.fill_gradient.isCurrentColor() ? Brush::solid(0xff000000) :
+                                                          state.fill_gradient.toBrush(fill_box);
       fill_brush = fill_brush.withMultipliedAlpha(state.fill_opacity);
 
       strokePath(scale_matrix, view_box);
@@ -503,7 +504,8 @@ namespace visage {
                                 state.stroke_miter_limit);
     }
     auto stroke_box = state.stroke_gradient.user_space ? view_box : path.boundingBox();
-    stroke_brush = state.stroke_gradient.toBrush(stroke_box);
+    stroke_brush = state.stroke_gradient.isCurrentColor() ? Brush::solid(0xff000000) :
+                                                            state.stroke_gradient.toBrush(stroke_box);
     stroke_brush = stroke_brush.withMultipliedAlpha(stroke_opacity);
   }
 
@@ -694,7 +696,7 @@ namespace visage {
     return tag;
   }
 
-  Color translateColor(const std::string& color) {
+  std::optional<Color> translateColor(const std::string& color) {
     static const std::unordered_map<std::string, Color> named_colors = {
       { "aliceblue", Color(1, 0.941f, 0.973f, 1.0f) },
       { "antiquewhite", Color(1, 0.980f, 0.922f, 0.843f) },
@@ -850,13 +852,15 @@ namespace visage {
     if (it != named_colors.end())
       return it->second;
 
-    return Color::fromHexString(color);
+    return std::nullopt;
   }
+
+  std::optional<Color> parseColor(const std::string& color_string);
 
   Color parseStopColor(const Tag& tag) {
     Color color;
     if (tag.data.attributes.count("stop-color"))
-      color = translateColor(tag.data.attributes.at("stop-color"));
+      color = parseColor(tag.data.attributes.at("stop-color")).value_or(Color(0xff000000));
     if (tag.data.attributes.count("stop-opacity"))
       color = color.withAlpha(parseNumber(tag.data.attributes.at("stop-opacity"), 1.0f));
     if (tag.data.attributes.count("style")) {
@@ -869,7 +873,7 @@ namespace visage {
           std::string key = item.substr(0, pos);
           std::string value = item.substr(pos + 1);
           if (key == "stop-color")
-            color = translateColor(value);
+            color = parseColor(value).value_or(Color(0xff000000));
           else if (key == "stop-opacity")
             color = color.withAlpha(parseNumber(value, 1.0f));
         }
@@ -1023,13 +1027,19 @@ namespace visage {
     return chained_selectors.back();
   }
 
-  Color parseColor(const std::string& color_string) {
-    std::string color = removeWhitespace(color_string);
+  std::optional<Color> parseColor(const std::string& color_string) {
+    std::string color = trimWhitespace(color_string.substr(0, color_string.find("icc-color(")));
+    std::transform(color.begin(), color.end(), color.begin(), ::tolower);
 
     if (color == "none")
-      return {};
+      return Color();
+    if (color.empty())
+      return std::nullopt;
     if (color[0] == '#') {
       std::string hex = color.substr(1);
+      if (hex.find_first_not_of("0123456789abcdef") != std::string::npos ||
+          (hex.size() != 3 && hex.size() != 4 && hex.size() != 6 && hex.size() != 8))
+        return std::nullopt;
       if (hex.size() == 4 || hex.size() == 8)
         hex = hex.substr(hex.size() * 3 / 4) + hex.substr(0, hex.size() * 3 / 4);
       return Color::fromHexString(hex);
@@ -1037,15 +1047,16 @@ namespace visage {
 
     int pos = 0;
     auto tokens = parseFunctionTokens(color, pos);
+    tokens.erase(std::remove(tokens.begin(), tokens.end(), "/"), tokens.end());
     if (tokens.empty())
-      return {};
+      return std::nullopt;
     if (tokens.size() == 1)
       return translateColor(tokens[0]);
 
     if (tokens[0].substr(0, 3) == "rgb" && tokens.size() > 3) {
       float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;
-      return { alpha, parseNumber(tokens[1], 255.0f) / 255.0f,
-               parseNumber(tokens[2], 255.0f) / 255.0f, parseNumber(tokens[3], 255.0f) / 255.0f };
+      return Color(alpha, parseNumber(tokens[1], 255.0f) / 255.0f,
+                   parseNumber(tokens[2], 255.0f) / 255.0f, parseNumber(tokens[3], 255.0f) / 255.0f);
     }
     if (tokens[0].substr(0, 3) == "hsl" && tokens.size() > 3) {
       float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;
@@ -1055,7 +1066,7 @@ namespace visage {
       float value_saturation = value > 0.0f ? 2.0f * (1.0f - lightness / value) : 0.0f;
       return Color::fromAHSV(alpha, parseNumber(tokens[1], 360.0f), value_saturation, value);
     }
-    return {};
+    return std::nullopt;
   }
 
   SvgViewSettings loadSvgViewSettings(const Tag& tag) {
@@ -1418,22 +1429,31 @@ namespace visage {
     }
   }
 
-  GradientDef SvgParser::parseGradient(const std::string& color_string) {
-    std::string color = removeWhitespace(color_string);
+  std::optional<GradientDef> SvgParser::parseGradient(const std::string& color_string) {
+    std::string color = trimWhitespace(color_string);
     if (color.substr(0, 3) == "url") {
-      auto id = urlId(color_string);
+      auto id = urlId(color);
       if (gradients_.count(id) > 0)
         return gradients_.at(id);
+
+      std::string fallback = trimWhitespace(color.substr(std::min(color.find(')') + 1, color.size())));
+      if (fallback.empty())
+        return GradientDef();
+      color = fallback;
     }
 
-    if (color == "currentColor")
+    std::string lower = color;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    if (lower == "currentcolor")
       return GradientDef::Type::CurrentColor;
-    if (color == "context-fill")
+    if (lower == "context-fill")
       return GradientDef::Type::ContextFill;
-    if (color == "context-stroke")
+    if (lower == "context-stroke")
       return GradientDef::Type::ContextStroke;
 
-    return parseColor(color);
+    if (auto parsed = parseColor(color))
+      return GradientDef(*parsed);
+    return std::nullopt;
   }
 
   void SvgParser::parseStyleDefinition(const std::string& key, const std::string& value,
@@ -1442,16 +1462,22 @@ namespace visage {
       tryReadFloat(drawable->opacity, value);
     else if (key == "clip-path")
       drawable->clip_path_shape = value;
-    else if (key == "color")
-      state.current_color = parseGradient(value);
-    else if (key == "fill")
-      state.fill_gradient = parseGradient(value);
+    else if (key == "color") {
+      if (auto gradient = parseGradient(value))
+        state.current_color = *gradient;
+    }
+    else if (key == "fill") {
+      if (auto gradient = parseGradient(value))
+        state.fill_gradient = *gradient;
+    }
     else if (key == "fill-rule")
       state.non_zero_fill = value == "nonzero";
     else if (key == "fill-opacity")
       tryReadFloat(state.fill_opacity, value);
-    else if (key == "stroke")
-      state.stroke_gradient = parseGradient(value);
+    else if (key == "stroke") {
+      if (auto gradient = parseGradient(value))
+        state.stroke_gradient = *gradient;
+    }
     else if (key == "stroke-opacity")
       tryReadFloat(state.stroke_opacity, value);
     else if (key == "stroke-width")
@@ -1560,6 +1586,12 @@ namespace visage {
 
     loadDrawableStyle(tag, state_stack, drawable.get());
     drawable->state = state_stack.back();
+    if (!drawable->state.current_color.isCurrentColor()) {
+      if (drawable->state.fill_gradient.isCurrentColor())
+        drawable->state.fill_gradient = drawable->state.current_color;
+      if (drawable->state.stroke_gradient.isCurrentColor())
+        drawable->state.stroke_gradient = drawable->state.current_color;
+    }
 
     if (loadDrawable(tag, drawable.get())) {
       loadDrawableTransform(tag, drawable.get());
