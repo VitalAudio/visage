@@ -663,27 +663,34 @@ namespace visage {
     return tag_name == "script" || tag_name == "style" || tag_name == "title" || tag_name == "desc";
   }
 
-  Tag parseTagTree(const std::string& str, int& i) {
+  static constexpr int kMaxTagDepth = 256;
+
+  Tag parseTagTree(const std::string& str, int& i, int depth = 0) {
     Tag tag;
     tag.data = parseTag(str, i);
 
     if (tag.data.ignored || tag.data.is_self_closing || tag.data.is_closing || tag.data.name.empty())
       return tag;
 
+    if (depth >= kMaxTagDepth) {
+      i = str.size();
+      return {};
+    }
+
     if (isNonXmlTag(tag.data.name)) {
       tag.data.text = consumeNonXmlTillNextTag(str, i);
       return tag;
     }
 
-    Tag child = parseTagTree(str, i);
+    Tag child = parseTagTree(str, i, depth + 1);
     while (!child.data.is_closing && i < str.size()) {
       if (child.data.ignored || !child.data.name.empty())
         tag.children.push_back(child);
 
-      child = parseTagTree(str, i);
+      child = parseTagTree(str, i, depth + 1);
     }
 
-    VISAGE_ASSERT(tag.data.name == child.data.name);
+    VISAGE_ASSERT(i >= str.size() || tag.data.name == child.data.name);
     return tag;
   }
 
@@ -1330,7 +1337,10 @@ namespace visage {
     }
   }
 
-  void SvgParser::resolveUses(std::vector<Tag>& tags, std::set<std::string>& reference_ids) {
+  void SvgParser::resolveUses(std::vector<Tag>& tags, std::set<std::string>& reference_ids, int depth) {
+    if (depth >= kMaxTagDepth)
+      return;
+
     auto use_tag = [this](Tag& target, const std::string& reference_id) {
       if (defs_.count(reference_id) == 0)
         return;
@@ -1366,7 +1376,7 @@ namespace visage {
         use_tag(tag, reference_id);
 
       reference_ids.insert(reference_id);
-      resolveUses(tag.children, reference_ids);
+      resolveUses(tag.children, reference_ids, depth + 1);
       reference_ids.erase(reference_id);
     }
   }

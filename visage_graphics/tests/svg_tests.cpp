@@ -91,6 +91,18 @@ TEST_CASE("Svg malformed input", "[graphics]") {
     REQUIRE(svg.drawable());
   }
 
+  SECTION("Deeply nested groups") {
+    std::string data = R"svg(<svg viewBox="0 0 10 10">)svg";
+    for (int i = 0; i < 10000; ++i)
+      data += "<g>";
+    data += R"svg(<rect width="10" height="10"/>)svg";
+    for (int i = 0; i < 10000; ++i)
+      data += "</g>";
+    data += "</svg>";
+    Svg svg = parseSvg(data);
+    REQUIRE(svg.drawable());
+  }
+
   SECTION("Uses that reference each other") {
     Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><g id="a"><use href="#b"/></g><g id="b"><use href="#a"/></g></svg>)svg");
     REQUIRE(svg.drawable());
