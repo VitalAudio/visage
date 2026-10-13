@@ -775,3 +775,31 @@ TEST_CASE("Alpha transparency applies to children", "[integration]") {
   REQUIRE(app.takeScreenshot().data()[0] >= 0x3f);
   REQUIRE(app.takeScreenshot().data()[0] <= 0x41);
 }
+
+static Color svgFrameCenter(const std::string& data) {
+  ApplicationEditor app;
+  SvgFrame frame;
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  frame.load(reinterpret_cast<const uint8_t*>(data.data()), data.size());
+  frame.setBounds(0, 0, 20, 20);
+  app.addChild(frame);
+  app.setWindowless(20, 20);
+  app.drawWindow();
+  return app.takeScreenshot().sample(10, 10);
+}
+
+TEST_CASE("Svg frame opacity", "[integration]") {
+  Color translucent = svgFrameCenter(R"svg(<svg viewBox="0 0 10 10"><g opacity="0.5"><rect width="10" height="10" fill="red"/><rect width="10" height="10" fill="white" fill-opacity="0.5"/></g></svg>)svg");
+  REQUIRE(translucent.hexRed() >= 0x7f);
+  REQUIRE(translucent.hexRed() <= 0x81);
+  REQUIRE(translucent.hexGreen() >= 0x3f);
+  REQUIRE(translucent.hexGreen() <= 0x41);
+
+  REQUIRE(svgFrameCenter(R"svg(<svg viewBox="0 0 10 10"><g opacity="0"><rect width="10" height="10" fill="white"/></g></svg>)svg")
+              .hexRed() == 0x00);
+  REQUIRE(svgFrameCenter(R"svg(<svg viewBox="0 0 10 10"><defs><rect width="10" height="10" fill="white"/></defs></svg>)svg")
+              .hexRed() == 0x00);
+}

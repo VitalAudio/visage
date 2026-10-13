@@ -130,16 +130,13 @@ namespace visage {
     if (!state.visible || opacity <= 0.0f)
       return;
 
-    if (opacity < 1.0f)
-      canvas.setBlendMode(BlendMode::Composite);
-
     fill(canvas, context, x, y, width, height);
     stroke(canvas, context, x, y, width, height);
   }
 
   void SvgDrawable::drawAll(Canvas& canvas, ColorContext* context, float x, float y, float width,
                             float height) const {
-    if (is_defines)
+    if (is_defines || opacity <= 0.0f)
       return;
 
     draw(canvas, context, x, y, width, height);

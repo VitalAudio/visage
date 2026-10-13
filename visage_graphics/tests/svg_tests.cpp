@@ -120,6 +120,11 @@ TEST_CASE("Svg rendering", "[graphics]") {
     REQUIRE(color.hexRed() == 0x00);
   }
 
+  SECTION("Hidden group is not drawn") {
+    Color color = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><g opacity="0"><rect width="10" height="10" fill="red"/></g></svg>)svg");
+    REQUIRE(color.hexRed() == 0x00);
+  }
+
   SECTION("CDATA style") {
     Color color = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><style><![CDATA[ .a { fill: red; } ]]></style><rect class="a" width="10" height="10"/></svg>)svg");
     REQUIRE(color.hexRed() == 0xff);
