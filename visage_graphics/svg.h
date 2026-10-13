@@ -370,7 +370,7 @@ namespace visage {
     std::optional<GradientDef> parseGradient(const std::string& color_string);
 
     void collectDefs(std::vector<Tag>& tags);
-    void collectGradients(std::vector<Tag>& tags);
+    void collectGradients(std::vector<Tag>& tags, const std::string& current_color = "");
     void collectMarkers(std::vector<Tag>& tags);
     void resolveUses(std::vector<Tag>& tags, std::set<std::string>& reference_ids, int depth = 0);
     void parseCssStyle(const std::string& style);

@@ -857,28 +857,32 @@ namespace visage {
 
   std::optional<Color> parseColor(const std::string& color_string);
 
-  Color parseStopColor(const Tag& tag) {
-    Color color;
-    if (tag.data.attributes.count("stop-color"))
-      color = parseColor(tag.data.attributes.at("stop-color")).value_or(Color(0xff000000));
-    if (tag.data.attributes.count("stop-opacity"))
-      color = color.withAlpha(parseNumber(tag.data.attributes.at("stop-opacity"), 1.0f));
+  Color parseStopColor(const Tag& tag, const std::string& parent_stop_color,
+                       const std::string& current_color) {
+    std::map<std::string, std::string> properties(tag.data.attributes.begin(), tag.data.attributes.end());
     if (tag.data.attributes.count("style")) {
-      std::string style = tag.data.attributes.at("style");
-      std::stringstream ss(style);
+      std::stringstream ss(tag.data.attributes.at("style"));
       std::string item;
       while (std::getline(ss, item, ';')) {
         auto pos = item.find(':');
-        if (pos != std::string::npos) {
-          std::string key = item.substr(0, pos);
-          std::string value = item.substr(pos + 1);
-          if (key == "stop-color")
-            color = parseColor(value).value_or(Color(0xff000000));
-          else if (key == "stop-opacity")
-            color = color.withAlpha(parseNumber(value, 1.0f));
-        }
+        if (pos != std::string::npos)
+          properties[trimWhitespace(item.substr(0, pos))] = item.substr(pos + 1);
       }
     }
+
+    std::string stop_color = properties.count("stop-color") ?
+                                 trimWhitespace(properties["stop-color"]) :
+                                 "";
+    if (stop_color == "inherit")
+      stop_color = parent_stop_color;
+    std::string lower = stop_color;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    if (lower == "currentcolor")
+      stop_color = properties.count("color") ? properties["color"] : current_color;
+
+    Color color = parseColor(stop_color).value_or(Color(0xff000000));
+    if (properties.count("stop-opacity"))
+      color = color.withAlpha(color.alpha() * parseNumber(properties["stop-opacity"], 1.0f));
     return color;
   }
 
@@ -928,7 +932,7 @@ namespace visage {
     return matrix;
   }
 
-  GradientDef parseGradientTag(const Tag& tag) {
+  GradientDef parseGradientTag(const Tag& tag, const std::string& current_color) {
     GradientDef gradient_def;
     if (tag.data.name == "linearGradient") {
       gradient_def.type = GradientDef::Type::Linear;
@@ -970,14 +974,22 @@ namespace visage {
     if (tag.data.attributes.count("gradientUnits"))
       gradient_def.user_space = tag.data.attributes.at("gradientUnits") == "userSpaceOnUse";
 
+    std::string stop_color = tag.data.attributes.count("stop-color") ?
+                                 tag.data.attributes.at("stop-color") :
+                                 "";
+    float last_offset = 0.0f;
     for (auto& child : tag.children) {
       if (child.data.name != "stop")
         continue;
 
-      float offset = child.data.attributes.count("offset") ?
-                         parseNumber(child.data.attributes.at("offset"), 1.0f) :
-                         0.0f;
-      gradient_def.gradient.addColorStop(parseStopColor(child), offset);
+      std::string offset_string = child.data.attributes.count("offset") ?
+                                      trimWhitespace(child.data.attributes.at("offset")) :
+                                      "";
+      float offset = 0.0f;
+      if (offset_string.find_first_not_of("0123456789+-.eE%") == std::string::npos)
+        offset = parseNumber(offset_string, 1.0f);
+      last_offset = std::clamp(offset, last_offset, 1.0f);
+      gradient_def.gradient.addColorStop(parseStopColor(child, stop_color, current_color), last_offset);
     }
 
     return gradient_def;
@@ -1290,15 +1302,17 @@ namespace visage {
     }
   }
 
-  void SvgParser::collectGradients(std::vector<Tag>& tags) {
+  void SvgParser::collectGradients(std::vector<Tag>& tags, const std::string& current_color) {
     for (auto& tag : tags) {
+      std::string color = tag.data.attributes.count("color") ? tag.data.attributes.at("color") :
+                                                               current_color;
       if (tag.data.name == "linearGradient" || tag.data.name == "radialGradient") {
         if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
           std::string id = tag.data.attributes.at("id");
-          gradients_[id] = parseGradientTag(tag);
+          gradients_[id] = parseGradientTag(tag, color);
         }
       }
-      collectGradients(tag.children);
+      collectGradients(tag.children, color);
     }
   }
 

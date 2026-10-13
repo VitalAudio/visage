@@ -188,6 +188,23 @@ TEST_CASE("Svg rendering", "[graphics]") {
     REQUIRE(missing.hexRed() == 0x00);
   }
 
+  SECTION("Gradient stops") {
+    std::vector<std::string> red_gradients = {
+      R"svg(<linearGradient id="g"><stop offset="0.6" stop-color="red"/><stop offset="0" stop-color="blue"/></linearGradient>)svg",
+      R"svg(<linearGradient id="g"><stop offset="5mm" stop-color="blue"/><stop stop-color="red"/></linearGradient>)svg",
+      R"svg(<linearGradient id="g" stop-color="red"><stop stop-color="inherit"/></linearGradient>)svg",
+      R"svg(<linearGradient id="g" color="red"><stop stop-color="currentColor"/></linearGradient>)svg",
+      R"svg(<g color="red"><linearGradient id="g"><stop stop-color="currentColor"/></linearGradient></g>)svg",
+    };
+    for (const auto& gradient : red_gradients) {
+      INFO(gradient);
+      Color color = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10">)svg" + gradient +
+                                    R"svg(<rect width="10" height="10" fill="url(#g)"/></svg>)svg");
+      REQUIRE(color.hexRed() == 0xff);
+      REQUIRE(color.hexBlue() == 0x00);
+    }
+  }
+
   SECTION("Hsl colors") {
     Color green = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="hsl(120, 100%, 50%)"/></svg>)svg");
     REQUIRE(green.hexRed() == 0x00);
