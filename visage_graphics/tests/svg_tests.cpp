@@ -225,6 +225,21 @@ TEST_CASE("Svg rendering", "[graphics]") {
     REQUIRE(not_inherited.hexBlue() == 0x00);
   }
 
+  SECTION("User space gradients are relative to the view box") {
+    std::vector<std::string> red_gradients = {
+      R"svg(<linearGradient id="g" gradientUnits="userSpaceOnUse"><stop offset="0.9" stop-color="red"/><stop offset="0.9" stop-color="blue"/></linearGradient>)svg",
+      R"svg(<linearGradient id="g" gradientUnits="userSpaceOnUse" x1="60%" x2="100%"><stop offset="0.9" stop-color="red"/><stop offset="0.9" stop-color="blue"/></linearGradient>)svg",
+      R"svg(<radialGradient id="g" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="100%"><stop offset="0.9" stop-color="red"/><stop offset="0.9" stop-color="blue"/></radialGradient>)svg",
+    };
+    for (const auto& gradient : red_gradients) {
+      INFO(gradient);
+      Color color = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10">)svg" + gradient +
+                                    R"svg(<rect width="10" height="10" fill="url(#g)"/></svg>)svg");
+      REQUIRE(color.hexRed() == 0xff);
+      REQUIRE(color.hexBlue() == 0x00);
+    }
+  }
+
   SECTION("Gradient stops use canvas current color") {
     std::string data = R"svg(<svg viewBox="0 0 10 10"><linearGradient id="g"><stop stop-color="currentColor"/></linearGradient><rect width="10" height="10" fill="url(#g)"/></svg>)svg";
     Svg svg(reinterpret_cast<const unsigned char*>(data.data()), data.size());

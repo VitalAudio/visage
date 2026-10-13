@@ -955,37 +955,31 @@ namespace visage {
     return "";
   }
 
-  GradientDef parseGradientTag(const Tag& tag, const std::string& current_color) {
+  GradientDef parseGradientTag(const Tag& tag, const std::string& current_color, const Bounds& view_box) {
     GradientDef gradient_def;
+    if (tag.data.attributes.count("gradientUnits"))
+      gradient_def.user_space = tag.data.attributes.at("gradientUnits") == "userSpaceOnUse";
+
+    float width = gradient_def.user_space ? view_box.width() : 1.0f;
+    float height = gradient_def.user_space ? view_box.height() : 1.0f;
+    float diagonal = std::sqrt(0.5f * (width * width + height * height));
+    auto attribute = [&tag](const std::string& name, float max, float default_value) {
+      return tag.data.attributes.count(name) ? parseNumber(tag.data.attributes.at(name), max) : default_value;
+    };
+
     if (tag.data.name == "linearGradient") {
       gradient_def.type = GradientDef::Type::Linear;
-      if (tag.data.attributes.count("x1"))
-        gradient_def.point1.x = parseNumber(tag.data.attributes.at("x1"), 1.0f);
-      if (tag.data.attributes.count("y1"))
-        gradient_def.point1.y = parseNumber(tag.data.attributes.at("y1"), 1.0f);
-      if (tag.data.attributes.count("x2"))
-        gradient_def.point2.x = parseNumber(tag.data.attributes.at("x2"), 1.0f);
-      if (tag.data.attributes.count("y2"))
-        gradient_def.point2.y = parseNumber(tag.data.attributes.at("y2"), 1.0f);
+      gradient_def.point1 = Point(attribute("x1", width, 0.0f), attribute("y1", height, 0.0f));
+      gradient_def.point2 = Point(attribute("x2", width, width), attribute("y2", height, 0.0f));
     }
     else {
       gradient_def.type = GradientDef::Type::Radial;
-      gradient_def.point1.x = 0.5f;
-      gradient_def.point1.y = 0.5f;
-      gradient_def.point2.x = 0.5f;
-      gradient_def.point2.y = 0.5f;
-      if (tag.data.attributes.count("cx"))
-        gradient_def.point2.x = gradient_def.point1.x = parseNumber(tag.data.attributes.at("cx"), 1.0f);
-      if (tag.data.attributes.count("cy"))
-        gradient_def.point2.y = gradient_def.point1.y = parseNumber(tag.data.attributes.at("cy"), 1.0f);
-      if (tag.data.attributes.count("fx"))
-        gradient_def.point2.x = parseNumber(tag.data.attributes.at("fx"), 1.0f);
-      if (tag.data.attributes.count("fy"))
-        gradient_def.point2.y = parseNumber(tag.data.attributes.at("fy"), 1.0f);
-      if (tag.data.attributes.count("r"))
-        gradient_def.radius = parseNumber(tag.data.attributes.at("r"), 1.0f);
-      if (tag.data.attributes.count("fr"))
-        gradient_def.focal_radius = parseNumber(tag.data.attributes.at("fr"), 1.0f);
+      gradient_def.point1 = Point(attribute("cx", width, 0.5f * width),
+                                  attribute("cy", height, 0.5f * height));
+      gradient_def.point2 = Point(attribute("fx", width, gradient_def.point1.x),
+                                  attribute("fy", height, gradient_def.point1.y));
+      gradient_def.radius = attribute("r", diagonal, 0.5f * diagonal);
+      gradient_def.focal_radius = attribute("fr", diagonal, 0.0f);
     }
     if (tag.data.attributes.count("spreadMethod")) {
       std::string spread_method = tag.data.attributes.at("spreadMethod");
@@ -994,8 +988,6 @@ namespace visage {
     }
     if (tag.data.attributes.count("gradientTransform"))
       gradient_def.transform = parseTransform(tag.data.attributes.at("gradientTransform"));
-    if (tag.data.attributes.count("gradientUnits"))
-      gradient_def.user_space = tag.data.attributes.at("gradientUnits") == "userSpaceOnUse";
 
     std::string stop_color = tag.data.attributes.count("stop-color") ?
                                  tag.data.attributes.at("stop-color") :
@@ -1389,7 +1381,8 @@ namespace visage {
     collectGradientTags(tags, "", gradient_tags);
     for (const auto& gradient_tag : gradient_tags) {
       auto resolved = resolveGradientReferences(gradient_tag.second, gradient_tags);
-      gradients_[gradient_tag.first.substr(1)] = parseGradientTag(resolved.first, resolved.second);
+      gradients_[gradient_tag.first.substr(1)] = parseGradientTag(resolved.first, resolved.second,
+                                                                  view_.view_box);
     }
   }
 
