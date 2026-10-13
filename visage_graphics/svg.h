@@ -133,6 +133,9 @@ namespace visage {
     float stroke_miter_limit = 4.0f;
 
     bool visible = true;
+    Marker* marker_start = nullptr;
+    Marker* marker_mid = nullptr;
+    Marker* marker_end = nullptr;
   };
 
   struct SvgViewSettings {
@@ -334,9 +337,6 @@ namespace visage {
     Bounds post_bounding_box;
     std::vector<Path> clipping_paths;
     std::optional<Bounds> view_clip;
-    Marker* marker_start = nullptr;
-    Marker* marker_mid = nullptr;
-    Marker* marker_end = nullptr;
 
     bool is_clip_path = false;
     bool is_use = false;

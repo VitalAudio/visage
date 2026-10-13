@@ -77,6 +77,17 @@ TEST_CASE("Svg marker orientation and units", "[graphics]") {
   REQUIRE(user_units.drawable()->post_bounding_box.height() == 1.0f);
 }
 
+TEST_CASE("Svg marker properties", "[graphics]") {
+  Svg inherited = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m"><rect width="2" height="1"/></marker><g marker-start="url(#m)"><path d="M5 5 L5 9"/></g></svg>)svg");
+  REQUIRE(inherited.drawable()->post_bounding_box.width() == 2.0f);
+
+  Svg attribute = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m"><rect width="2" height="1"/></marker><path d="M5 5 L5 9" marker="url(#m)"/></svg>)svg");
+  REQUIRE(attribute.drawable()->post_bounding_box.width() == 0.0f);
+
+  Svg style = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m"><rect width="2" height="1"/></marker><path d="M5 5 L5 9" style="marker: url(#m)"/></svg>)svg");
+  REQUIRE(style.drawable()->post_bounding_box.width() == 2.0f);
+}
+
 TEST_CASE("Svg fill rule", "[graphics]") {
   Svg default_rule = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10"/></svg>)svg");
   REQUIRE(firstShape(default_rule.drawable())->path.fillRule() == Path::FillRule::NonZero);

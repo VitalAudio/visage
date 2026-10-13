@@ -1236,11 +1236,11 @@ namespace visage {
     if (drawable->command_list.empty())
       return false;
 
-    Marker* marker_current = drawable->marker_start;
+    Marker* marker_current = drawable->state.marker_start;
     int end_index = drawable->command_list.size() - 1;
     for (int i = 0; i < drawable->command_list.size(); ++i) {
       if (i == drawable->command_list.size() - 1)
-        marker_current = drawable->marker_end;
+        marker_current = drawable->state.marker_end;
 
       if (marker_current) {
         auto point = drawable->command_list[i].end;
@@ -1262,8 +1262,8 @@ namespace visage {
         drawable->children.push_back(std::move(marker));
       }
 
-      if (drawable->marker_mid)
-        marker_current = drawable->marker_mid;
+      if (drawable->state.marker_mid)
+        marker_current = drawable->state.marker_mid;
       else
         i = std::max(end_index - 1, i);
     }
@@ -1613,21 +1613,21 @@ namespace visage {
       drawable->display = value != "none";
     else if (key == "marker-start") {
       auto id = urlId(value);
-      drawable->marker_start = markers_.count(id) ? markers_.at(id).get() : nullptr;
+      state.marker_start = markers_.count(id) ? markers_.at(id).get() : nullptr;
     }
     else if (key == "marker-mid") {
       auto id = urlId(value);
-      drawable->marker_mid = markers_.count(id) ? markers_.at(id).get() : nullptr;
+      state.marker_mid = markers_.count(id) ? markers_.at(id).get() : nullptr;
     }
     else if (key == "marker-end") {
       auto id = urlId(value);
-      drawable->marker_end = markers_.count(id) ? markers_.at(id).get() : nullptr;
+      state.marker_end = markers_.count(id) ? markers_.at(id).get() : nullptr;
     }
     else if (key == "marker") {
       auto id = urlId(value);
-      drawable->marker_start = markers_.count(id) ? markers_.at(id).get() : nullptr;
-      drawable->marker_mid = drawable->marker_start;
-      drawable->marker_end = drawable->marker_start;
+      state.marker_start = markers_.count(id) ? markers_.at(id).get() : nullptr;
+      state.marker_mid = state.marker_start;
+      state.marker_end = state.marker_start;
     }
   }
 
@@ -1677,7 +1677,7 @@ namespace visage {
     for (auto& attribute : tag.data.attributes) {
       if (attribute.first == "style")
         parseStyleAttribute(attribute.second, state, drawable);
-      else
+      else if (attribute.first != "marker")
         parseStyleDefinition(attribute.first, attribute.second, state, drawable);
     }
   }
