@@ -66,6 +66,11 @@ namespace visage {
     }
 
     auto& onDraw() { return on_draw_; }
+    auto& onDrawMask() {
+      if (mask_frame_ == nullptr)
+        createMaskFrame();
+      return mask_frame_->onDraw();
+    }
     auto& onResize() { return on_resize_; }
     auto& onChildBoundsChanged() { return on_child_bounds_changed_; }
     auto& onChildAdded() { return on_child_added_; }
@@ -141,6 +146,8 @@ namespace visage {
     void redraw() {
       if (isVisible() && isDrawing() && !redrawing_)
         redrawing_ = requestRedraw();
+      if (mask_frame_)
+        mask_frame_->redraw();
     }
 
     void redrawAll() {
@@ -190,11 +197,6 @@ namespace visage {
 
     void setCached(bool cached) {
       cached_ = cached;
-      redraw();
-    }
-
-    void setMasked(bool masked) {
-      masked_ = masked;
       redraw();
     }
 
@@ -434,9 +436,10 @@ namespace visage {
     void initChildren();
     void destroyChildren();
     void eraseChild(Frame* child);
+    void createMaskFrame();
 
     bool requiresLayer() const {
-      return post_effect_ || backdrop_effect_ || cached_ || masked_ ||
+      return post_effect_ || backdrop_effect_ || cached_ || mask_frame_ ||
              alpha_transparency_ != 1.0f || layer_blend_mode_ != BlendMode::Composite;
     }
 
@@ -489,7 +492,7 @@ namespace visage {
     std::unique_ptr<BlurPostEffect> blur_effect_;
     PostEffect* backdrop_effect_ = nullptr;
     bool cached_ = false;
-    bool masked_ = false;
+    std::unique_ptr<Frame> mask_frame_;
     float alpha_transparency_ = 1.0f;
     BlendMode layer_blend_mode_ = BlendMode::Composite;
     Region region_;

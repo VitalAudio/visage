@@ -747,6 +747,42 @@ TEST_CASE("Translucent content in child with layer", "[integration]") {
   REQUIRE(screenshot.data()[0] <= 0x81);
 }
 
+TEST_CASE("Frame draw mask", "[integration]") {
+  ApplicationEditor app;
+  Frame frame;
+  Frame child;
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  child.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+  frame.onDrawMask() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill(0, 0, frame.width() / 2, frame.height());
+    canvas.setColor(0x80ffffff);
+    canvas.fill(frame.width() / 2, 0, frame.width() / 4, frame.height());
+  };
+
+  frame.addChild(child);
+  child.setBounds(0, 0, 80, 20);
+  frame.setBounds(0, 0, 40, 20);
+  app.addChild(frame);
+  app.setWindowless(80, 20);
+  app.drawWindow();
+  Screenshot screenshot = app.takeScreenshot();
+  REQUIRE(screenshot.sample(5, 10).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(25, 10).hexRed() >= 0x7f);
+  REQUIRE(screenshot.sample(25, 10).hexRed() <= 0x81);
+  REQUIRE(screenshot.sample(35, 10).hexRed() == 0x00);
+
+  frame.setBounds(0, 0, 80, 20);
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().sample(35, 10).hexRed() == 0xff);
+}
+
 TEST_CASE("Layer is cleared when it stops drawing", "[integration]") {
   ApplicationEditor app;
   Frame frame;

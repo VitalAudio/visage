@@ -372,11 +372,6 @@ TEST_CASE("Frame transparency and effects", "[ui]") {
     frame.setCached(true);
     frame.setCached(false);
   }
-
-  SECTION("Setting masked state") {
-    frame.setMasked(true);
-    frame.setMasked(false);
-  }
 }
 
 TEST_CASE("Frame on-top handling", "[ui]") {

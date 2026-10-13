@@ -23,7 +23,7 @@
 
 #include <visage/app.h>
 
-static void drawRgbCircles(visage::Canvas& canvas, float width, float height) {
+static void drawRgbCircles(visage::Canvas& canvas, float width, float height, bool mask = false) {
   static constexpr float kCircleRadiusRatio = 0.2f;
   static constexpr float kVennRadiusRatio = 0.13f;
   static constexpr float k60DegreeTriangleRatio = 0.866025403784f;
@@ -36,11 +36,11 @@ static void drawRgbCircles(visage::Canvas& canvas, float width, float height) {
   float start_x = width / 2.0f - circle_radius;
   float start_y = height / 2.0f - circle_radius;
 
-  canvas.setColor(0xffff0000);
+  canvas.setColor(mask ? 0xffffffff : 0xffff0000);
   canvas.circle(start_x, start_y + venn_radius, 2 * circle_radius);
-  canvas.setColor(0xff00ff00);
+  canvas.setColor(mask ? 0xffffffff : 0xff00ff00);
   canvas.circle(start_x - venn_offset, start_y - venn_radius * 0.5f, 2 * circle_radius);
-  canvas.setColor(0xff0000ff);
+  canvas.setColor(mask ? 0xffffffff : 0xff0000ff);
   canvas.circle(start_x + venn_offset, start_y - venn_radius * 0.5f, 2 * circle_radius);
 }
 
@@ -49,7 +49,6 @@ public:
   ExampleEditor() {
     addChild(&additive_frame_);
     addChild(&subtractive_frame_);
-    masked_frame_.setMasked(true);
     addChild(&masked_frame_);
     transparent_frame_.setAlphaTransparency(0.5f);
     addChild(&transparent_frame_);
@@ -88,17 +87,16 @@ public:
         last_x = x;
       }
 
-      canvas.setBlendMode(visage::BlendMode::MaskRemove);
       canvas.setColor(0xffffffff);
-      canvas.fill(0, 0, w, h);
+      canvas.text("Masked", font_, visage::Font::kCenter, 0, 0, w, 0.2f * h);
+    };
 
-      canvas.setBlendMode(visage::BlendMode::MaskAdd);
+    masked_frame_.onDrawMask() = [this](visage::Canvas& canvas) {
+      int w = masked_frame_.width();
+      int h = masked_frame_.height();
       canvas.setColor(0xffffffff);
-      drawRgbCircles(canvas, w, h);
-
-      canvas.setBlendMode(visage::BlendMode::Alpha);
-      canvas.setColor(0xffffffff);
-      canvas.text("Masked", font_, visage::Font::kCenter, 0, 0, w, 0.2f * masked_frame_.height());
+      drawRgbCircles(canvas, w, h, true);
+      canvas.text("Masked", font_, visage::Font::kCenter, 0, 0, w, 0.2f * h);
     };
 
     transparent_frame_.onDraw() = [this](visage::Canvas& canvas) {

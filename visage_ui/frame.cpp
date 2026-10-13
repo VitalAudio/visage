@@ -182,6 +182,9 @@ namespace visage {
         computeLayout(child);
     }
 
+    if (mask_frame_)
+      mask_frame_->setBounds(localBounds());
+
     on_resize_.callback();
     if (parent_)
       parent_->on_child_bounds_changed_.callback(this);
@@ -374,6 +377,16 @@ namespace visage {
     child->setEventHandler(nullptr);
     region_.removeRegion(child->region());
     children_.erase(std::find(children_.begin(), children_.end(), child));
+  }
+
+  void Frame::createMaskFrame() {
+    mask_frame_ = std::make_unique<Frame>("mask");
+    mask_frame_->setLayerBlendMode(BlendMode::Mult);
+    mask_frame_->setOnTop(true);
+    mask_frame_->setIgnoresMouseEvents(true, false);
+    addChild(mask_frame_.get());
+    mask_frame_->setBounds(localBounds());
+    redraw();
   }
 
   void Frame::setPostEffect(PostEffect* post_effect) {

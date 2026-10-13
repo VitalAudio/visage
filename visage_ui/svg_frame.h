@@ -92,16 +92,11 @@ namespace visage {
         addSubFrames(drawable);
 
         if (!drawable_->clipping_paths.empty()) {
-          setMasked(true);
-          clipping_frame_ = std::make_unique<Frame>();
-          clipping_frame_->setLayerBlendMode(BlendMode::Mult);
-          clipping_frame_->onDraw() = [this](Canvas& canvas) {
+          onDrawMask() = [this](Canvas& canvas) {
             canvas.setColor(0xffffffff);
             for (const auto& clipping_path : drawable_->clipping_paths)
               canvas.fill(clipping_path, -svgOrigin().x, -svgOrigin().y);
           };
-          addChild(clipping_frame_.get());
-          clipping_frame_->setOnTop(true);
         }
       }
 
@@ -157,13 +152,9 @@ namespace visage {
         IBounds box = nativeBoundingBox();
         for (auto& child : children_)
           child->setNativeBounds(child->nativeBoundingBox() + IPoint(-box.x(), -box.y()));
-
-        if (clipping_frame_)
-          clipping_frame_->setBounds(localBounds());
       }
 
     private:
-      std::unique_ptr<Frame> clipping_frame_;
       SvgDrawable* drawable_ = nullptr;
       std::vector<std::unique_ptr<SubFrame>> children_;
       std::vector<SvgDrawable*> child_drawables_;
