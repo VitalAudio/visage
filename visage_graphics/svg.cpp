@@ -1706,10 +1706,13 @@ namespace visage {
     std::string color = trimWhitespace(color_string);
     if (color.substr(0, 3) == "url") {
       auto id = urlId(color);
-      if (gradients_.count(id) > 0)
-        return gradients_.at(id);
-
       std::string fallback = trimWhitespace(color.substr(std::min(color.find(')') + 1, color.size())));
+      if (gradients_.count(id) > 0) {
+        GradientDef gradient = gradients_.at(id);
+        gradient.fallback = parseColor(fallback);
+        return gradient;
+      }
+
       if (fallback.empty())
         return GradientDef();
       color = fallback;

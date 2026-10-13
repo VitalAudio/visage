@@ -82,6 +82,9 @@ namespace visage {
     Brush toBrush(Bounds box) const {
       if (type == Type::Solid)
         return Brush::solid(gradient.colors().front());
+      if ((type == Type::Linear || type == Type::Radial) && !user_space &&
+          (box.width() == 0.0f || box.height() == 0.0f))
+        return fallback ? Brush::solid(*fallback) : Brush::none();
 
       GradientPosition position;
       if (type == Type::Radial) {
@@ -112,6 +115,7 @@ namespace visage {
     float focal_radius = 0.0f;
     float radius = 0.5f;
     std::vector<std::pair<int, float>> current_color_stops;
+    std::optional<Color> fallback;
   };
 
   struct DrawableState {

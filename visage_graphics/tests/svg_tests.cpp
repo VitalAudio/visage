@@ -316,6 +316,15 @@ TEST_CASE("Svg rendering", "[graphics]") {
     REQUIRE(css.hexRed() == 0xff);
   }
 
+  SECTION("Bounding box gradients on shapes without area") {
+    Color removed = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><linearGradient id="g"><stop stop-color="red"/></linearGradient><line x1="0" y1="5" x2="10" y2="5" stroke="url(#g)" stroke-width="4"/></svg>)svg");
+    REQUIRE(removed.hexRed() == 0x00);
+
+    Color fallback = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><linearGradient id="g"><stop stop-color="blue"/></linearGradient><line x1="0" y1="5" x2="10" y2="5" stroke="url(#g) red" stroke-width="4"/></svg>)svg");
+    REQUIRE(fallback.hexRed() == 0xff);
+    REQUIRE(fallback.hexBlue() == 0x00);
+  }
+
   SECTION("Entity references") {
     Color attribute = renderSvgCenter(R"svg(<!DOCTYPE svg [<!ENTITY red "fill:red;">]><svg viewBox="0 0 10 10"><rect width="10" height="10" style="&red;"/></svg>)svg");
     REQUIRE(attribute.hexRed() == 0xff);
