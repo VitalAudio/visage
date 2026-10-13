@@ -94,26 +94,11 @@ namespace visage {
         if (!drawable_->clipping_paths.empty()) {
           setMasked(true);
           clipping_frame_ = std::make_unique<Frame>();
+          clipping_frame_->setLayerBlendMode(BlendMode::Mult);
           clipping_frame_->onDraw() = [this](Canvas& canvas) {
-            float offset_x = -svgOrigin().x;
-            float offset_y = -svgOrigin().y;
-
-            for (int i = 0; i < drawable_->clipping_paths.size(); ++i) {
-              canvas.setBlendMode(BlendMode::Mult);
-              canvas.setColor(0xffffffff);
-              canvas.fill(drawable_->clipping_paths[i], offset_x, offset_y);
-              auto bounding_box = drawable_->clipping_paths[i].boundingBox();
-
-              canvas.setColor(0x00ffffff);
-              float min_x = bounding_box.x() + offset_x;
-              float max_x = bounding_box.right() + offset_x;
-              canvas.fill(0, 0, min_x, height());
-              canvas.fill(max_x, 0, width() - max_x, height());
-              float min_y = bounding_box.y() + offset_y;
-              float max_y = bounding_box.bottom() + offset_y;
-              canvas.fill(min_x, 0, max_x - min_x, min_y);
-              canvas.fill(min_x, max_y, max_x - min_x, height() - max_y);
-            }
+            canvas.setColor(0xffffffff);
+            for (const auto& clipping_path : drawable_->clipping_paths)
+              canvas.fill(clipping_path, -svgOrigin().x, -svgOrigin().y);
           };
           addChild(clipping_frame_.get());
           clipping_frame_->setOnTop(true);

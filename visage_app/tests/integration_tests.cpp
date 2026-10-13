@@ -825,3 +825,17 @@ TEST_CASE("Svg frame positioning", "[integration]") {
   Color offscreen = svgFrameCenter(R"svg(<svg viewBox="0 0 20 20"><rect x="-500" width="10" height="10" fill="white"/><rect width="20" height="20" fill="red"/></svg>)svg");
   REQUIRE(offscreen.hexRed() == 0xff);
 }
+
+TEST_CASE("Svg frame clip paths", "[integration]") {
+  Screenshot united = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c"><rect width="5" height="20"/><rect x="15" width="5" height="20"/></clipPath><rect width="20" height="20" fill="white" clip-path="url(#c)"/></svg>)svg");
+  REQUIRE(united.sample(2, 10).hexRed() == 0xff);
+  REQUIRE(united.sample(10, 10).hexRed() == 0x00);
+  REQUIRE(united.sample(17, 10).hexRed() == 0xff);
+
+  Screenshot transformed = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c"><rect width="10" height="10"/></clipPath><g transform="scale(0.5)" clip-path="url(#c)"><rect width="40" height="40" fill="white"/></g><g transform="translate(10 10) scale(0.5)" clip-path="url(#c)"><rect width="40" height="40" fill="red"/></g></svg>)svg");
+  REQUIRE(transformed.sample(2, 2).hexRed() == 0xff);
+  REQUIRE(transformed.sample(7, 7).hexRed() == 0x00);
+  REQUIRE(transformed.sample(12, 12).hexRed() == 0xff);
+  REQUIRE(transformed.sample(12, 12).hexGreen() == 0x00);
+  REQUIRE(transformed.sample(17, 17).hexRed() == 0x00);
+}

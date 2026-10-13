@@ -198,6 +198,12 @@ namespace visage {
       redraw();
     }
 
+    void setLayerBlendMode(BlendMode blend_mode) {
+      layer_blend_mode_ = blend_mode;
+      region_.setLayerBlendMode(blend_mode);
+      redraw();
+    }
+
     const std::string& name() const { return name_; }
     void setName(std::string name) { name_ = std::move(name); }
 
@@ -430,7 +436,8 @@ namespace visage {
     void eraseChild(Frame* child);
 
     bool requiresLayer() const {
-      return post_effect_ || backdrop_effect_ || cached_ || masked_ || alpha_transparency_ != 1.0f;
+      return post_effect_ || backdrop_effect_ || cached_ || masked_ ||
+             alpha_transparency_ != 1.0f || layer_blend_mode_ != BlendMode::Composite;
     }
 
     std::string name_;
@@ -484,6 +491,7 @@ namespace visage {
     bool cached_ = false;
     bool masked_ = false;
     float alpha_transparency_ = 1.0f;
+    BlendMode layer_blend_mode_ = BlendMode::Composite;
     Region region_;
     std::unique_ptr<Layout> layout_;
     bool drawing_ = true;

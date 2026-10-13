@@ -534,10 +534,9 @@ namespace visage {
                   Transform::translation(transform_origin_x, transform_origin_y);
     }
 
+    checkPathClipping(scale_matrix * local_transform.matrix, view_box, clip_paths);
     if (!transform.isIdentity())
       transformPaths(transform);
-
-    checkPathClipping(scale_matrix * local_transform.matrix, view_box, clip_paths);
   }
 
   void consumeWhiteSpace(const std::string& str, int& i) {

@@ -380,7 +380,6 @@ namespace visage {
 
     setUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
-    setBlendMode(BlendMode::Composite);
     setTimeUniform(layer.time());
     Layer* source_layer = batches[0].shapes->front().region->layer();
     setUniform<Uniforms::kAtlasScale>(1.0f / source_layer->width(), 1.0f / source_layer->height());

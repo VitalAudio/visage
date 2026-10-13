@@ -122,7 +122,7 @@ namespace visage {
 
       SampleRegion sample_region({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, brush, 0, 0, width_,
                                  height_, this, post_effect_, alpha_);
-      intermediate_region_->shape_batcher_.addShape(sample_region);
+      intermediate_region_->shape_batcher_.addShape(sample_region, layer_blend_mode_);
       canvas_->changePackedLayer(this, layer_index_, layer_index_);
     }
   }

@@ -246,9 +246,6 @@ namespace visage {
 
       for (auto& child : children)
         child->gatherPaths(paths);
-
-      path.clear();
-      stroke_path.clear();
     }
 
     void checkPathClipping(const Matrix& scale_matrix, const Bounds& view_box,
