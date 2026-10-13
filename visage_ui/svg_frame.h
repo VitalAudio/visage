@@ -127,7 +127,7 @@ namespace visage {
 
       void addSubFrames(SvgDrawable* drawable) {
         for (auto& child : drawable->children) {
-          if (child->is_defines || child->opacity <= 0.0f)
+          if (child->is_defines || child->is_clip_path || child->opacity <= 0.0f)
             continue;
 
           if (child->opacity != 1.0f || !child->clipping_paths.empty()) {

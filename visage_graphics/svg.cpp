@@ -136,7 +136,7 @@ namespace visage {
 
   void SvgDrawable::drawAll(Canvas& canvas, ColorContext* context, float x, float y, float width,
                             float height) const {
-    if (is_defines || opacity <= 0.0f)
+    if (is_defines || is_clip_path || opacity <= 0.0f)
       return;
 
     draw(canvas, context, x, y, width, height);

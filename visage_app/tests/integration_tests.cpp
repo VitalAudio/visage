@@ -811,6 +811,8 @@ TEST_CASE("Svg frame opacity", "[integration]") {
 
   REQUIRE(svgFrameCenter(R"svg(<svg viewBox="0 0 10 10"><defs><rect width="10" height="10" fill="white"/></defs></svg>)svg")
               .hexRed() == 0x00);
+  REQUIRE(svgFrameCenter(R"svg(<svg viewBox="0 0 10 10"><clipPath id="c"><rect width="10" height="10" fill="white"/></clipPath></svg>)svg")
+              .hexRed() == 0x00);
 }
 
 TEST_CASE("Svg frame positioning", "[integration]") {

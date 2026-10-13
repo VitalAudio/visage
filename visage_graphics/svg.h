@@ -229,7 +229,8 @@ namespace visage {
       }
       for (auto& child : children) {
         child->transformPaths(transform);
-        post_bounding_box = post_bounding_box.unioned(child->post_bounding_box);
+        if (!child->is_defines && !child->is_clip_path)
+          post_bounding_box = post_bounding_box.unioned(child->post_bounding_box);
       }
       for (auto& clip_path : clipping_paths)
         clip_path = clip_path.transformed(transform);
