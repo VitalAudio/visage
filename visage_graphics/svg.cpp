@@ -1724,6 +1724,8 @@ namespace visage {
       tryReadFloat(drawable->opacity, value);
     else if (key == "clip-path")
       drawable->clip_path_shape = value;
+    else if (key == "background-color")
+      background_color_ = parseColor(value);
     else if (key == "color") {
       if (auto gradient = parseGradient(value))
         state.current_color = *gradient;
@@ -1861,6 +1863,7 @@ namespace visage {
     }
 
     loadDrawableStyle(tag, state_stack, drawable.get());
+    std::optional<Color> background_color = std::exchange(background_color_, std::nullopt);
     drawable->state = state_stack.back();
     if (!drawable->state.current_color.isCurrentColor()) {
       if (drawable->state.fill_gradient.isCurrentColor())
@@ -1880,6 +1883,14 @@ namespace visage {
 
     bool is_svg = tag.data.name == "svg";
     SvgViewSettings parent_view = view_;
+    if (is_svg && svg_depth_ == 0 && background_color && view_.view_box.width() > 0.0f &&
+        view_.view_box.height() > 0.0f) {
+      auto background = std::make_unique<SvgDrawable>();
+      background->state.fill_gradient = GradientDef(*background_color);
+      background->command_list.addRectangle(view_.view_box.x(), view_.view_box.y(),
+                                            view_.view_box.width(), view_.view_box.height());
+      drawable->children.push_back(std::move(background));
+    }
     loadOffset(tag, drawable.get());
     if (is_svg && svg_depth_ > 0)
       loadViewport(tag, drawable.get());

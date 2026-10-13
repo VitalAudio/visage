@@ -277,6 +277,14 @@ TEST_CASE("Svg rendering", "[graphics]") {
     REQUIRE(unknown.hexRed() == 0x00);
   }
 
+  SECTION("Root background color") {
+    Color root = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10" style="background-color: red"></svg>)svg");
+    REQUIRE(root.hexRed() == 0xff);
+
+    Color element = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="1" height="1" style="background-color: red"/><svg><g/></svg></svg>)svg");
+    REQUIRE(element.hexRed() == 0x00);
+  }
+
   SECTION("Entity references") {
     Color attribute = renderSvgCenter(R"svg(<!DOCTYPE svg [<!ENTITY red "fill:red;">]><svg viewBox="0 0 10 10"><rect width="10" height="10" style="&red;"/></svg>)svg");
     REQUIRE(attribute.hexRed() == 0xff);

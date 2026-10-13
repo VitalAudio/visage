@@ -403,6 +403,7 @@ namespace visage {
     std::vector<std::pair<CssSelector, std::string>> style_lookup_;
     SvgViewSettings view_;
     int svg_depth_ = 0;
+    std::optional<Color> background_color_;
     float draw_width_ = 0.0f;
     float draw_height_ = 0.0f;
   };
