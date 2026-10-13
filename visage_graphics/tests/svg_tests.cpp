@@ -125,6 +125,35 @@ TEST_CASE("Svg rendering", "[graphics]") {
     REQUIRE(color.hexRed() == 0x00);
   }
 
+  SECTION("Colors with alpha") {
+    Color long_hex = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#ff000080"/></svg>)svg");
+    REQUIRE(long_hex.hexRed() >= 0x7f);
+    REQUIRE(long_hex.hexRed() <= 0x81);
+    REQUIRE(long_hex.hexBlue() == 0x00);
+
+    Color short_hex = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="#f008"/></svg>)svg");
+    REQUIRE(short_hex.hexRed() >= 0x87);
+    REQUIRE(short_hex.hexRed() <= 0x89);
+    REQUIRE(short_hex.hexBlue() == 0x00);
+  }
+
+  SECTION("Hsl colors") {
+    Color green = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="hsl(120, 100%, 50%)"/></svg>)svg");
+    REQUIRE(green.hexRed() == 0x00);
+    REQUIRE(green.hexGreen() == 0xff);
+    REQUIRE(green.hexBlue() == 0x00);
+
+    Color pale = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="hsl(240, 100%, 75%)"/></svg>)svg");
+    REQUIRE(pale.hexRed() >= 0x7f);
+    REQUIRE(pale.hexRed() <= 0x81);
+    REQUIRE(pale.hexBlue() == 0xff);
+  }
+
+  SECTION("Polygon with offset view box") {
+    Color color = renderSvgCenter(R"svg(<svg viewBox="10 10 10 10"><polygon points="10,10 20,10 20,20 10,20" fill="red"/></svg>)svg");
+    REQUIRE(color.hexRed() == 0xff);
+  }
+
   SECTION("CDATA style") {
     Color color = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><style><![CDATA[ .a { fill: red; } ]]></style><rect class="a" width="10" height="10"/></svg>)svg");
     REQUIRE(color.hexRed() == 0xff);

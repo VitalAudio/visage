@@ -1021,8 +1021,12 @@ namespace visage {
 
     if (color == "none")
       return {};
-    if (color[0] == '#')
-      return Color::fromHexString(color.substr(1));
+    if (color[0] == '#') {
+      std::string hex = color.substr(1);
+      if (hex.size() == 4 || hex.size() == 8)
+        hex = hex.substr(hex.size() * 3 / 4) + hex.substr(0, hex.size() * 3 / 4);
+      return Color::fromHexString(hex);
+    }
 
     int pos = 0;
     auto tokens = parseFunctionTokens(color, pos);
@@ -1038,9 +1042,11 @@ namespace visage {
     }
     if (tokens[0].substr(0, 3) == "hsl" && tokens.size() > 3) {
       float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;
-      return Color::fromAHSV(alpha, parseNumber(tokens[1], 360.0f) / 360.0f,
-                             parseNumber(tokens[2], 100.0f) * 0.01f,
-                             parseNumber(tokens[3], 100.0f) * 0.01f);
+      float saturation = parseNumber(tokens[2], 100.0f) * 0.01f;
+      float lightness = parseNumber(tokens[3], 100.0f) * 0.01f;
+      float value = lightness + saturation * std::min(lightness, 1.0f - lightness);
+      float value_saturation = value > 0.0f ? 2.0f * (1.0f - lightness / value) : 0.0f;
+      return Color::fromAHSV(alpha, parseNumber(tokens[1], 360.0f), value_saturation, value);
     }
     return {};
   }
@@ -1113,7 +1119,9 @@ namespace visage {
     else if ((tag.data.name == "polygon" || tag.data.name == "polyline") &&
              tag.data.attributes.count("points")) {
       auto points = splitArguments(tag.data.attributes.at("points"));
-      drawable->command_list = parsePolygonShape(points, 0, view_.view_box);
+      drawable->command_list = parsePolygonShape(points, 0,
+                                                 { 0.0f, 0.0f, view_.view_box.width(),
+                                                   view_.view_box.height() });
 
       if (tag.data.name == "polygon")
         drawable->command_list.close();
