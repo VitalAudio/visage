@@ -109,6 +109,7 @@ namespace visage {
 
   void Path::arcTo(float rx, float ry, float x_axis_rotation, bool large_arc, bool sweep_flag,
                    Point point, bool relative) {
+    current_control_points_ = ControlPoints::Linear;
     rx = std::abs(rx);
     ry = std::abs(ry);
     if (rx == 0.0f || ry == 0.0f) {

@@ -246,6 +246,7 @@ namespace visage {
         point += last_point_;
 
       last_point_ = point;
+      current_control_points_ = ControlPoints::Linear;
     }
 
     void moveTo(float x, float y, bool relative = false) { moveTo(Point(x, y), relative); }
@@ -258,6 +259,7 @@ namespace visage {
         point += last_point_;
 
       addPoint(point);
+      current_control_points_ = ControlPoints::Linear;
     }
 
     void lineTo(float x, float y, bool relative = false) { lineTo(Point(x, y), relative); }
@@ -290,6 +292,7 @@ namespace visage {
         addPoint(paths_.back().points.front());
 
       currentPath().closed = true;
+      current_control_points_ = ControlPoints::Linear;
     }
 
     void quadraticTo(Point control, Point end, bool relative = false) {
@@ -353,7 +356,7 @@ namespace visage {
         end += last_point_;
       }
       if (current_control_points_ != ControlPoints::Cubic)
-        smooth_control_point_ = end_control;
+        smooth_control_point_ = last_point_;
 
       bezierTo(smooth_control_point_, end_control, end);
     }

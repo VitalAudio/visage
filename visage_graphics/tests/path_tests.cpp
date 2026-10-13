@@ -376,6 +376,20 @@ TEST_CASE("SVG path parsing", "[graphics]") {
   }
 }
 
+static bool samePoints(const std::string& a, const std::string& b) {
+  Path path_a, path_b;
+  path_a.loadSvgPath(a);
+  path_b.loadSvgPath(b);
+  return path_a.subPaths()[0].points == path_b.subPaths()[0].points;
+}
+
+TEST_CASE("Smooth curves without a previous curve", "[graphics]") {
+  REQUIRE(samePoints("M0 0 S10 10 10 0", "M0 0 C0 0 10 10 10 0"));
+  REQUIRE(samePoints("M0 0 C0 10 10 10 10 0 L20 0 S30 10 30 0",
+                     "M0 0 C0 10 10 10 10 0 L20 0 C20 0 30 10 30 0"));
+  REQUIRE(samePoints("M0 0 Q5 10 10 0 L20 0 T30 0", "M0 0 Q5 10 10 0 L20 0 Q20 0 30 0"));
+}
+
 TEST_CASE("Arc with a huge radius", "[graphics]") {
   Path path;
   path.moveTo(0, 0);
