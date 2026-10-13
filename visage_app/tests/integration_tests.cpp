@@ -747,6 +747,34 @@ TEST_CASE("Translucent content in child with layer", "[integration]") {
   REQUIRE(screenshot.data()[0] <= 0x81);
 }
 
+TEST_CASE("Layer is cleared when it stops drawing", "[integration]") {
+  ApplicationEditor app;
+  Frame frame;
+  bool draw = true;
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  frame.onDraw() = [&](Canvas& canvas) {
+    if (draw) {
+      canvas.setColor(0xffffffff);
+      canvas.fill();
+    }
+  };
+
+  frame.setBounds(0, 0, 20, 20);
+  frame.setAlphaTransparency(0.5f);
+  app.addChild(frame);
+  app.setWindowless(20, 20);
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() >= 0x7f);
+
+  draw = false;
+  frame.redraw();
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == 0x00);
+}
+
 TEST_CASE("Alpha transparency applies to children", "[integration]") {
   ApplicationEditor app;
   Frame parent;

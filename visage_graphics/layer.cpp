@@ -307,7 +307,8 @@ namespace visage {
       else
         region_positions.emplace_back(region, invalid_rects_[region], 0, point.x, point.y);
     }
-    if (region_positions.empty())
+    bool clear = intermediate_layer_ && backdrop_count == 0;
+    if (region_positions.empty() && !clear)
       return submit_pass;
 
     const SubmitBatch* current_batch = nullptr;
@@ -321,7 +322,7 @@ namespace visage {
     if (bgfx::isValid(frame_buffer_data_->handle))
       bgfx::setViewFrameBuffer(submit_pass, frame_buffer_data_->handle);
 
-    if (intermediate_layer_ && backdrop_count == 0)
+    if (clear)
       clearInvalidRectAreas(submit_pass);
 
     while (!region_positions.empty()) {
