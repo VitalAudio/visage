@@ -409,6 +409,13 @@ namespace visage {
     if (is_clip_path)
       clip_paths[id] = this;
 
+    if (view_clip) {
+      Path clip_path;
+      clip_path.setResolutionMatrix(scale_matrix);
+      clip_path.addRectangle(view_clip->x(), view_clip->y(), view_clip->width(), view_clip->height());
+      clipping_paths.push_back(clip_path);
+    }
+
     int position = 0;
     auto tokens = parseFunctionTokens(clip_path_shape, position);
     if (tokens.empty())
@@ -1424,6 +1431,15 @@ namespace visage {
             x_offset = parseNumber(tag.data.attributes.at("refX"), view.width);
           if (tag.data.attributes.count("refY"))
             y_offset = parseNumber(tag.data.attributes.at("refY"), view.height);
+
+          std::string overflow = tag.data.attributes.count("overflow") ?
+                                     tag.data.attributes.at("overflow") :
+                                     "hidden";
+          if (overflow == "hidden" || overflow == "scroll") {
+            bool has_view_box = view.view_box.width() > 0.0f && view.view_box.height() > 0.0f;
+            drawable.view_clip = has_view_box ? view.view_box :
+                                                Bounds(0.0f, 0.0f, view.width, view.height);
+          }
 
           if (tag.data.attributes.count("markerUnits"))
             marker->stroke_width_units = tag.data.attributes.at("markerUnits") != "userSpaceOnUse";

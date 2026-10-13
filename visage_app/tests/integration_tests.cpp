@@ -854,6 +854,15 @@ TEST_CASE("Svg frame positioning", "[integration]") {
   REQUIRE(offscreen.hexRed() == 0xff);
 }
 
+TEST_CASE("Svg frame marker clipping", "[integration]") {
+  Screenshot clipped = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><marker id="m" markerUnits="userSpaceOnUse" markerWidth="5" markerHeight="5"><rect width="20" height="20" fill="white"/></marker><path d="M0 0 L0 20" marker-start="url(#m)"/></svg>)svg");
+  REQUIRE(clipped.sample(2, 2).hexRed() == 0xff);
+  REQUIRE(clipped.sample(10, 10).hexRed() == 0x00);
+
+  Screenshot visible = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><marker id="m" markerUnits="userSpaceOnUse" markerWidth="5" markerHeight="5" overflow="visible"><rect width="20" height="20" fill="white"/></marker><path d="M0 0 L0 20" marker-start="url(#m)"/></svg>)svg");
+  REQUIRE(visible.sample(10, 10).hexRed() == 0xff);
+}
+
 TEST_CASE("Svg frame clip paths", "[integration]") {
   Screenshot united = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c"><rect width="5" height="20"/><rect x="15" width="5" height="20"/></clipPath><rect width="20" height="20" fill="white" clip-path="url(#c)"/></svg>)svg");
   REQUIRE(united.sample(2, 10).hexRed() == 0xff);

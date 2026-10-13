@@ -333,6 +333,7 @@ namespace visage {
     Path stroke_path;
     Bounds post_bounding_box;
     std::vector<Path> clipping_paths;
+    std::optional<Bounds> view_clip;
     Marker* marker_start = nullptr;
     Marker* marker_mid = nullptr;
     Marker* marker_end = nullptr;
