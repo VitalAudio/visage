@@ -453,7 +453,7 @@ namespace visage {
 
           clip_drawable->gatherClipPaths(clipping_paths);
           for (auto& clip_path : clipping_paths) {
-            clip_path.transform(clip_drawable->local_transform *
+            clip_path.transform(clip_drawable->originTransform(view_box) *
                                 Transform::translation(bounding_box.x(), bounding_box.y()) *
                                 Transform::scale(bounding_box.width(), bounding_box.height()));
           }
@@ -580,11 +580,7 @@ namespace visage {
     for (auto& child : children)
       child->adjustPaths(scale_matrix * local_transform.matrix, view_box, clip_paths);
 
-    auto transform = local_transform;
-    if (transform_origin_x || transform_origin_y) {
-      transform = Transform::translation(-transform_origin_x, -transform_origin_y) * transform *
-                  Transform::translation(transform_origin_x, transform_origin_y);
-    }
+    auto transform = originTransform(view_box);
 
     checkPathClipping(scale_matrix * local_transform.matrix, view_box, clip_paths);
     if (!transform.isIdentity())
@@ -1748,17 +1744,24 @@ namespace visage {
     if (tag.data.attributes.count("transform-origin")) {
       auto args = splitArguments(tag.data.attributes.at("transform-origin"));
       if (!args.empty()) {
+        static const std::map<std::string, std::string> keywords = { { "left", "0%" },
+                                                                     { "top", "0%" },
+                                                                     { "center", "50%" },
+                                                                     { "right", "100%" },
+                                                                     { "bottom", "100%" } };
+        if (args.size() == 1)
+          args.push_back("center");
+        if (args[0] == "top" || args[0] == "bottom" || args[1] == "left" || args[1] == "right")
+          std::swap(args[0], args[1]);
         for (auto& arg : args) {
-          if (arg == "center")
-            arg = "50%";
+          if (keywords.count(arg))
+            arg = keywords.at(arg);
         }
 
         drawable->transform_origin_x = parseNumber(args[0], 1.0f);
-        if (args.size() > 1)
-          drawable->transform_origin_y = parseNumber(args[1], 1.0f);
-
+        drawable->transform_origin_y = parseNumber(args[1], 1.0f);
         drawable->transform_origin_x_ratio = args[0].find('%') != std::string::npos;
-        drawable->transform_origin_y_ratio = args.size() > 1 && args[1].find('%') != std::string::npos;
+        drawable->transform_origin_y_ratio = args[1].find('%') != std::string::npos;
       }
     }
   }

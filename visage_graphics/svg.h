@@ -262,6 +262,13 @@ namespace visage {
                      std::map<std::string, SvgDrawable*>& clip_paths);
     void strokePath(const Matrix& scale_matrix, const Bounds& view_box);
     void resolveContextPaint(const Brush& context_fill, const Brush& context_stroke);
+    Transform originTransform(const Bounds& view_box) const {
+      float origin_x = transform_origin_x * (transform_origin_x_ratio ? view_box.width() : 1.0f);
+      float origin_y = transform_origin_y * (transform_origin_y_ratio ? view_box.height() : 1.0f);
+      return Transform::translation(origin_x, origin_y) * local_transform *
+             Transform::translation(-origin_x, -origin_y);
+    }
+
     void setSize(const SvgViewSettings& view, float width, float height, float scale = 1.0f) {
       if (width == 0.0f || height == 0.0f)
         return;

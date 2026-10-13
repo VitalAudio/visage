@@ -22,6 +22,7 @@
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/svg.h"
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 using namespace visage;
@@ -65,6 +66,20 @@ TEST_CASE("Svg translate with one argument", "[graphics]") {
   Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><g transform="translate(5)"><rect width="5" height="10"/></g></svg>)svg");
   REQUIRE(svg.drawable()->post_bounding_box.x() == 5.0f);
   REQUIRE(svg.drawable()->post_bounding_box.y() == 0.0f);
+}
+
+TEST_CASE("Svg transform origin", "[graphics]") {
+  Svg rotated = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect x="5" width="5" height="2" transform="rotate(90)" transform-origin="5 5"/></svg>)svg");
+  REQUIRE(rotated.drawable()->post_bounding_box.x() == Catch::Approx(8.0f));
+  REQUIRE(rotated.drawable()->post_bounding_box.y() == Catch::Approx(5.0f));
+
+  Svg keywords = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" transform="scale(0.5)" transform-origin="bottom right"/></svg>)svg");
+  REQUIRE(keywords.drawable()->post_bounding_box.x() == 5.0f);
+  REQUIRE(keywords.drawable()->post_bounding_box.y() == 5.0f);
+
+  Svg single = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" transform="scale(0.5)" transform-origin="0"/></svg>)svg");
+  REQUIRE(single.drawable()->post_bounding_box.x() == 0.0f);
+  REQUIRE(single.drawable()->post_bounding_box.y() == 2.5f);
 }
 
 TEST_CASE("Svg marker orientation and units", "[graphics]") {
