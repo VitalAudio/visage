@@ -776,7 +776,7 @@ TEST_CASE("Alpha transparency applies to children", "[integration]") {
   REQUIRE(app.takeScreenshot().data()[0] <= 0x41);
 }
 
-static Color svgFrameCenter(const std::string& data) {
+static Screenshot svgFrameScreenshot(const std::string& data) {
   ApplicationEditor app;
   SvgFrame frame;
   app.onDraw() = [&](Canvas& canvas) {
@@ -788,7 +788,11 @@ static Color svgFrameCenter(const std::string& data) {
   app.addChild(frame);
   app.setWindowless(20, 20);
   app.drawWindow();
-  return app.takeScreenshot().sample(10, 10);
+  return app.takeScreenshot();
+}
+
+static Color svgFrameCenter(const std::string& data) {
+  return svgFrameScreenshot(data).sample(10, 10);
 }
 
 TEST_CASE("Svg frame opacity", "[integration]") {
@@ -807,4 +811,15 @@ TEST_CASE("Svg frame opacity", "[integration]") {
 
   REQUIRE(svgFrameCenter(R"svg(<svg viewBox="0 0 10 10"><defs><rect width="10" height="10" fill="white"/></defs></svg>)svg")
               .hexRed() == 0x00);
+}
+
+TEST_CASE("Svg frame positioning", "[integration]") {
+  Screenshot stroked = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><rect x="1" y="1" width="18" height="18" fill="none" stroke="white"/><rect x="5" y="5" width="10" height="10" fill="red"/></svg>)svg");
+  REQUIRE(stroked.sample(4, 10).hexRed() == 0x00);
+  REQUIRE(stroked.sample(5, 10).hexRed() == 0xff);
+  REQUIRE(stroked.sample(14, 10).hexRed() == 0xff);
+  REQUIRE(stroked.sample(15, 10).hexRed() == 0x00);
+
+  Color offscreen = svgFrameCenter(R"svg(<svg viewBox="0 0 20 20"><rect x="-500" width="10" height="10" fill="white"/><rect width="20" height="20" fill="red"/></svg>)svg");
+  REQUIRE(offscreen.hexRed() == 0xff);
 }

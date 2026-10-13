@@ -95,8 +95,8 @@ namespace visage {
           setMasked(true);
           clipping_frame_ = std::make_unique<Frame>();
           clipping_frame_->onDraw() = [this](Canvas& canvas) {
-            float offset_x = -drawable_->post_bounding_box.x();
-            float offset_y = -drawable_->post_bounding_box.y();
+            float offset_x = -svgOrigin().x;
+            float offset_y = -svgOrigin().y;
 
             for (int i = 0; i < drawable_->clipping_paths.size(); ++i) {
               canvas.setBlendMode(BlendMode::Mult);
@@ -145,9 +145,22 @@ namespace visage {
         }
       }
 
+      IBounds nativeBoundingBox() const {
+        const Bounds& box = drawable_->post_bounding_box;
+        int x = std::floor(box.x() * dpiScale());
+        int y = std::floor(box.y() * dpiScale());
+        return { x, y, static_cast<int>(std::ceil(box.right() * dpiScale())) - x,
+                 static_cast<int>(std::ceil(box.bottom() * dpiScale())) - y };
+      }
+
+      Point svgOrigin() const {
+        IBounds box = nativeBoundingBox();
+        return { box.x() / dpiScale(), box.y() / dpiScale() };
+      }
+
       void draw(Canvas& canvas) override {
-        float offset_x = -drawable_->post_bounding_box.x();
-        float offset_y = -drawable_->post_bounding_box.y();
+        float offset_x = -svgOrigin().x;
+        float offset_y = -svgOrigin().y;
 
         if (!content_only_)
           drawable_->draw(canvas, context_, offset_x, offset_y, width(), height());
@@ -156,9 +169,9 @@ namespace visage {
       }
 
       void resized() override {
+        IBounds box = nativeBoundingBox();
         for (auto& child : children_)
-          child->setBounds(child->drawable_->post_bounding_box +
-                           Point(-drawable_->post_bounding_box.x(), -drawable_->post_bounding_box.y()));
+          child->setNativeBounds(child->nativeBoundingBox() + IPoint(-box.x(), -box.y()));
 
         if (clipping_frame_)
           clipping_frame_->setBounds(localBounds());

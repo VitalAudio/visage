@@ -32,9 +32,8 @@ namespace visage {
     }
 
     if (sub_frame_) {
-      sub_frame_->setNativeBounds(m + svg_.drawable()->post_bounding_box.x() * dpiScale(),
-                                  m + svg_.drawable()->post_bounding_box.y() * dpiScale(),
-                                  nativeWidth() - 2 * m, nativeHeight() - 2 * m);
+      IBounds box = sub_frame_->nativeBoundingBox();
+      sub_frame_->setNativeBounds(box + IPoint(m, m));
     }
   }
 
