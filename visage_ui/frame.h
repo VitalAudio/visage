@@ -182,6 +182,7 @@ namespace visage {
         return;
 
       alpha_transparency_ = alpha;
+      region_.setAlpha(alpha);
       redraw();
     }
 

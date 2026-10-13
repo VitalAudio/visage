@@ -118,10 +118,10 @@ namespace visage {
       intermediate_region_->setBounds(x_, y_, width_, height_);
       intermediate_region_->clearAll();
       const PackedBrush* brush = intermediate_region_->addBrush(canvas_->gradientAtlas(),
-                                                                Brush::solid(0xffffffff));
+                                                                Brush::solid(Color(0xffffffff).withAlpha(alpha_)));
 
       SampleRegion sample_region({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, brush, 0, 0, width_,
-                                 height_, this, post_effect_);
+                                 height_, this, post_effect_, alpha_);
       intermediate_region_->shape_batcher_.addShape(sample_region);
       canvas_->changePackedLayer(this, layer_index_, layer_index_);
     }

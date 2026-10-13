@@ -737,11 +737,13 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     SampleRegion(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-                 float height, const Region* region, PostEffect* post_effect = nullptr);
+                 float height, const Region* region, PostEffect* post_effect = nullptr,
+                 float alpha = 1.0f);
 
     void setVertexData(Vertex* vertices) const;
 
     const Region* region = nullptr;
     PostEffect* post_effect = nullptr;
+    float alpha = 1.0f;
   };
 }

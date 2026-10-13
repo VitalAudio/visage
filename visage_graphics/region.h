@@ -117,6 +117,11 @@ namespace visage {
     }
     PostEffect* postEffect() const { return post_effect_; }
 
+    void setAlpha(float alpha) {
+      alpha_ = alpha;
+      setupIntermediateRegion();
+    }
+
     void setBackdropEffect(PostEffect* backdrop_effect);
     PostEffect* backdropEffect() const { return backdrop_effect_; }
 
@@ -168,6 +173,7 @@ namespace visage {
     Region* parent_ = nullptr;
     PostEffect* post_effect_ = nullptr;
     PostEffect* backdrop_effect_ = nullptr;
+    float alpha_ = 1.0f;
     ShapeBatcher shape_batcher_;
     std::vector<std::unique_ptr<PackedBrush>> brushes_;
     std::vector<std::unique_ptr<PackedBrush>> old_brushes_;

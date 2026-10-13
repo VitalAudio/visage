@@ -724,3 +724,54 @@ TEST_CASE("Frame redrawing itself after being redrawn by another frame", "[integ
     REQUIRE(draw_count == 1);
   }
 }
+
+TEST_CASE("Translucent content in child with layer", "[integration]") {
+  ApplicationEditor app;
+  Frame child;
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  child.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0x80ffffff);
+    canvas.fill();
+  };
+
+  child.setBounds(0, 0, 50, 50);
+  child.setCached(true);
+  app.addChild(child);
+  app.setWindowless(50, 50);
+  app.drawWindow();
+  Screenshot screenshot = app.takeScreenshot();
+  REQUIRE(screenshot.data()[0] >= 0x7f);
+  REQUIRE(screenshot.data()[0] <= 0x81);
+}
+
+TEST_CASE("Alpha transparency applies to children", "[integration]") {
+  ApplicationEditor app;
+  Frame parent;
+  Frame child;
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  child.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+
+  parent.setBounds(0, 0, 50, 50);
+  child.setBounds(0, 0, 50, 50);
+  parent.addChild(child);
+  parent.setAlphaTransparency(0.5f);
+  app.addChild(parent);
+  app.setWindowless(50, 50);
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().data()[0] >= 0x7f);
+  REQUIRE(app.takeScreenshot().data()[0] <= 0x81);
+
+  parent.setAlphaTransparency(0.25f);
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().data()[0] >= 0x3f);
+  REQUIRE(app.takeScreenshot().data()[0] <= 0x41);
+}
