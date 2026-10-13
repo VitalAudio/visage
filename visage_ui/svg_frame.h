@@ -83,8 +83,11 @@ namespace visage {
   private:
     class SubFrame : public Frame {
     public:
-      SubFrame(SvgDrawable* drawable, SvgDrawable::ColorContext* context) :
-          drawable_(drawable), context_(context) {
+      SubFrame(SvgDrawable* drawable, SvgDrawable::ColorContext* context, bool content_only = false) :
+          drawable_(drawable), context_(context), content_only_(content_only) {
+        if (content_only)
+          return;
+
         setAlphaTransparency(drawable_->opacity);
         addSubFrames(drawable);
 
@@ -123,20 +126,22 @@ namespace visage {
       }
 
       void addSubFrames(SvgDrawable* drawable) {
-        bool make_subframes = false;
         for (auto& child : drawable->children) {
           if (child->is_defines || child->opacity <= 0.0f)
             continue;
 
-          if (child->opacity != 1.0f || !child->clipping_paths.empty())
-            make_subframes = true;
-
-          if (make_subframes)
+          if (child->opacity != 1.0f || !child->clipping_paths.empty()) {
             addSubFrame(std::make_unique<SubFrame>(child.get(), context_));
-          else {
-            child_drawables_.push_back(child.get());
-            addSubFrames(child.get());
+            content_ = nullptr;
+            continue;
           }
+
+          if (content_ == nullptr) {
+            addSubFrame(std::make_unique<SubFrame>(drawable_, context_, true));
+            content_ = children_.back().get();
+          }
+          content_->child_drawables_.push_back(child.get());
+          addSubFrames(child.get());
         }
       }
 
@@ -144,7 +149,8 @@ namespace visage {
         float offset_x = -drawable_->post_bounding_box.x();
         float offset_y = -drawable_->post_bounding_box.y();
 
-        drawable_->draw(canvas, context_, offset_x, offset_y, width(), height());
+        if (!content_only_)
+          drawable_->draw(canvas, context_, offset_x, offset_y, width(), height());
         for (auto& child_drawable : child_drawables_)
           child_drawable->draw(canvas, context_, offset_x, offset_y, width(), height());
       }
@@ -163,7 +169,9 @@ namespace visage {
       SvgDrawable* drawable_ = nullptr;
       std::vector<std::unique_ptr<SubFrame>> children_;
       std::vector<SvgDrawable*> child_drawables_;
+      SubFrame* content_ = this;
       SvgDrawable::ColorContext* context_ = nullptr;
+      bool content_only_ = false;
     };
 
     void setDimensions();

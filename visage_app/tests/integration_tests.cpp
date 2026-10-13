@@ -800,6 +800,11 @@ TEST_CASE("Svg frame opacity", "[integration]") {
 
   REQUIRE(svgFrameCenter(R"svg(<svg viewBox="0 0 10 10"><g opacity="0"><rect width="10" height="10" fill="white"/></g></svg>)svg")
               .hexRed() == 0x00);
+
+  Color stacked = svgFrameCenter(R"svg(<svg viewBox="0 0 10 10"><g><rect width="10" height="10" fill="white" opacity="0.5"/></g><rect width="10" height="10" fill="red"/></svg>)svg");
+  REQUIRE(stacked.hexRed() == 0xff);
+  REQUIRE(stacked.hexGreen() == 0x00);
+
   REQUIRE(svgFrameCenter(R"svg(<svg viewBox="0 0 10 10"><defs><rect width="10" height="10" fill="white"/></defs></svg>)svg")
               .hexRed() == 0x00);
 }
