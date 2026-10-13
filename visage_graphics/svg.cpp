@@ -1474,8 +1474,8 @@ namespace visage {
               marker->marker_angle = parseAngle(orient);
           }
 
-          drawable.local_transform = drawable.initialTransform(view, view.width, view.height) *
-                                     Transform::translation(-x_offset, -y_offset);
+          Matrix view_scale = drawable.initialTransform(view, view.width, view.height).matrix;
+          drawable.local_transform = Transform(view_scale) * Transform::translation(-x_offset, -y_offset);
           markers_[id] = std::move(marker);
         }
       }

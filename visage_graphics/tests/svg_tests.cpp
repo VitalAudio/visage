@@ -85,6 +85,13 @@ TEST_CASE("Svg marker orientation and units", "[graphics]") {
   }
 }
 
+TEST_CASE("Svg marker reference point with viewBox", "[graphics]") {
+  Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m" viewBox="2 2 4 4" markerWidth="2" markerHeight="2" refX="4" refY="4"><rect x="4" y="4" width="2" height="2"/></marker><path d="M5 5 L5 9" marker-start="url(#m)"/></svg>)svg");
+  REQUIRE(svg.drawable()->post_bounding_box.x() == 5.0f);
+  REQUIRE(svg.drawable()->post_bounding_box.y() == 5.0f);
+  REQUIRE(svg.drawable()->post_bounding_box.width() == 1.0f);
+}
+
 TEST_CASE("Svg marker properties", "[graphics]") {
   Svg inherited = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m"><rect width="2" height="1"/></marker><g marker-start="url(#m)"><path d="M5 5 L5 9"/></g></svg>)svg");
   REQUIRE(inherited.drawable()->post_bounding_box.width() == 2.0f);
