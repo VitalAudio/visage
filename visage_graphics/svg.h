@@ -234,21 +234,24 @@ namespace visage {
       }
       for (auto& child : children) {
         child->transformPaths(transform);
-        if (!child->is_defines && !child->is_clip_path)
+        if (!child->is_defines && !child->is_clip_path && child->display)
           post_bounding_box = post_bounding_box.unioned(child->post_bounding_box);
       }
       for (auto& clip_path : clipping_paths)
         clip_path = clip_path.transformed(transform);
     }
 
-    void gatherPaths(std::vector<Path>& paths) {
-      if (path.numPoints()) {
-        paths.push_back(path);
-        paths.back().setFillRule(state.non_zero_clip ? Path::FillRule::NonZero : Path::FillRule::EvenOdd);
+    void gatherClipPaths(std::vector<Path>& paths) const {
+      for (const auto& child : children) {
+        const SvgDrawable* shape = child->is_use && child->children.size() == 1 ?
+                                       child->children.front().get() :
+                                       child.get();
+        if (child->display && shape->display && shape->state.visible && shape->path.numPoints()) {
+          paths.push_back(shape->path);
+          paths.back().setFillRule(shape->state.non_zero_clip ? Path::FillRule::NonZero :
+                                                                Path::FillRule::EvenOdd);
+        }
       }
-
-      for (auto& child : children)
-        child->gatherPaths(paths);
     }
 
     void checkPathClipping(const Matrix& scale_matrix, const Bounds& view_box,
@@ -312,6 +315,7 @@ namespace visage {
 
     std::string id;
     bool is_defines = false;
+    bool display = true;
     Path::CommandList command_list;
     std::vector<clone_ptr<SvgDrawable>> children;
 
@@ -334,6 +338,7 @@ namespace visage {
     Marker* marker_end = nullptr;
 
     bool is_clip_path = false;
+    bool is_use = false;
     bool is_clip_bounding_box = false;
     std::string clip_path_shape;
   };

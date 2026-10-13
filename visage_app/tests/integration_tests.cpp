@@ -870,4 +870,23 @@ TEST_CASE("Svg frame clip paths", "[integration]") {
   Screenshot even_odd = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><g clip-rule="evenodd"><clipPath id="c"><path d="M0 0h20v20h-20z M5 5h10v10h-10z"/></clipPath></g><rect width="20" height="20" fill="white" clip-path="url(#c)"/></svg>)svg");
   REQUIRE(even_odd.sample(2, 2).hexRed() == 0xff);
   REQUIRE(even_odd.sample(10, 10).hexRed() == 0x00);
+
+  std::vector<std::string> hidden = {
+    R"svg(<clipPath id="c"/>)svg",
+    R"svg(<clipPath id="c"><path d=""/></clipPath>)svg",
+    R"svg(<clipPath id="c"><rect width="20" height="20" visibility="hidden"/></clipPath>)svg",
+    R"svg(<clipPath id="c"><rect width="20" height="20" display="none"/></clipPath>)svg",
+    R"svg(<clipPath id="c"><g><rect width="20" height="20"/></g></clipPath>)svg",
+  };
+  for (const auto& clip_path : hidden) {
+    INFO(clip_path);
+    REQUIRE(svgFrameCenter(R"svg(<svg viewBox="0 0 20 20">)svg" + clip_path +
+                           R"svg(<rect width="20" height="20" fill="white" clip-path="url(#c)"/></svg>)svg")
+                .hexRed() == 0x00);
+  }
+
+  REQUIRE(svgFrameCenter(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c" display="none"><rect width="20" height="20"/></clipPath><rect width="20" height="20" fill="white" clip-path="url(#c)"/></svg>)svg")
+              .hexRed() == 0xff);
+  REQUIRE(svgFrameCenter(R"svg(<svg viewBox="0 0 20 20"><rect width="20" height="20" fill="white" clip-path="none"/></svg>)svg")
+              .hexRed() == 0xff);
 }

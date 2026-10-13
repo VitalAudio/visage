@@ -136,7 +136,7 @@ namespace visage {
 
   void SvgDrawable::drawAll(Canvas& canvas, ColorContext* context, float x, float y, float width,
                             float height) const {
-    if (is_defines || is_clip_path || opacity <= 0.0f)
+    if (is_defines || is_clip_path || !display || opacity <= 0.0f)
       return;
 
     draw(canvas, context, x, y, width, height);
@@ -434,14 +434,17 @@ namespace visage {
           clip_drawable->initPaths(scale, view_box);
           clip_drawable->adjustPaths(scale, view_box, clip_paths);
 
-          clip_drawable->gatherPaths(clipping_paths);
+          clip_drawable->gatherClipPaths(clipping_paths);
           for (auto& clip_path : clipping_paths) {
             clip_path.transform(Transform::translation(bounding_box.x(), bounding_box.y()) *
                                 Transform::scale(bounding_box.width(), bounding_box.height()));
           }
         }
         else
-          clip_drawable->gatherPaths(clipping_paths);
+          clip_drawable->gatherClipPaths(clipping_paths);
+
+        if (clipping_paths.empty())
+          clipping_paths.emplace_back();
       }
 
       return;
@@ -456,6 +459,8 @@ namespace visage {
       clip_path.loadCommands(parseEllipseShape(tokens, bounding_box));
     else if (tokens[0] == "polygon" || tokens[0] == "polyline")
       clip_path.loadCommands(parsePolygonShape(tokens, 1, bounding_box));
+    else
+      return;
 
     clipping_paths.push_back(clip_path);
   }
@@ -1580,7 +1585,7 @@ namespace visage {
     else if (key == "visibility")
       state.visible = value != "hidden";
     else if (key == "display")
-      state.visible = value != "none";
+      drawable->display = value != "none";
     else if (key == "marker-start") {
       auto id = urlId(value);
       drawable->marker_start = markers_.count(id) ? markers_.at(id).get() : nullptr;
@@ -1659,6 +1664,7 @@ namespace visage {
     state_stack.push_back(state_stack.back());
     auto drawable = std::make_unique<SvgDrawable>();
     drawable->is_defines = tag.data.name == "defs";
+    drawable->is_use = tag.data.name == "use";
 
     for (const auto& style : style_lookup_) {
       if (style.first.matches(tag))
