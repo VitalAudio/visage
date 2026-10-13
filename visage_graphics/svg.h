@@ -386,6 +386,7 @@ namespace visage {
     bool loadDrawable(const Tag& tag, SvgDrawable* drawable) const;
 
     void loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack, SvgDrawable* drawable);
+    void loadViewport(const Tag& tag, SvgDrawable* drawable);
     std::optional<GradientDef> parseGradient(const std::string& color_string);
 
     void collectDefs(std::vector<Tag>& tags);
@@ -401,6 +402,7 @@ namespace visage {
     std::map<std::string, std::unique_ptr<Marker>> markers_;
     std::vector<std::pair<CssSelector, std::string>> style_lookup_;
     SvgViewSettings view_;
+    int svg_depth_ = 0;
     float draw_width_ = 0.0f;
     float draw_height_ = 0.0f;
   };

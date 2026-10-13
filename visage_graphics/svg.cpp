@@ -1264,8 +1264,8 @@ namespace visage {
   }
 
   bool SvgParser::loadDrawable(const Tag& tag, SvgDrawable* drawable) const {
-    int view_width = view_.view_box.width() > 0.0f ? view_.view_box.width() : 1.0f;
-    int view_height = view_.view_box.height() > 0.0f ? view_.view_box.height() : 1.0f;
+    float view_width = view_.view_box.width() > 0.0f ? view_.view_box.width() : 1.0f;
+    float view_height = view_.view_box.height() > 0.0f ? view_.view_box.height() : 1.0f;
 
     float width = 0.0f;
     float height = 0.0f;
@@ -1429,7 +1429,7 @@ namespace visage {
   }
 
   void loadOffset(const Tag& tag, SvgDrawable* drawable) {
-    if (tag.data.name != "svg" && tag.data.name != "use")
+    if (tag.data.name != "use")
       return;
 
     float x = 0.0f, y = 0.0f;
@@ -1442,6 +1442,45 @@ namespace visage {
 
     if (x || y)
       drawable->local_transform = drawable->local_transform * Transform::translation(x, y);
+  }
+
+  std::optional<Bounds> viewportClip(const Tag& tag, const Transform& view_transform, float width,
+                                     float height) {
+    std::string overflow = tag.data.attributes.count("overflow") ?
+                               tag.data.attributes.at("overflow") :
+                               "hidden";
+    if (overflow != "hidden" && overflow != "scroll")
+      return std::nullopt;
+
+    Transform inverse = view_transform.inversed();
+    Point top_left = inverse * Point(0.0f, 0.0f);
+    Point bottom_right = inverse * Point(width, height);
+    return Bounds(top_left.x, top_left.y, bottom_right.x - top_left.x, bottom_right.y - top_left.y);
+  }
+
+  void SvgParser::loadViewport(const Tag& tag, SvgDrawable* drawable) {
+    auto length = [&](const char* name, float reference, float default_value) {
+      if (tag.data.attributes.count(name) == 0)
+        return default_value;
+      return parseNumber(tag.data.attributes.at(name), reference);
+    };
+
+    float parent_width = view_.view_box.width();
+    float parent_height = view_.view_box.height();
+    float x = length("x", parent_width, 0.0f);
+    float y = length("y", parent_height, 0.0f);
+    float width = length("width", parent_width, parent_width);
+    float height = length("height", parent_height, parent_height);
+
+    SvgViewSettings view = loadSvgViewSettings(tag);
+    if (tag.data.attributes.count("viewBox") == 0)
+      view.view_box = Bounds(0.0f, 0.0f, width, height);
+
+    Transform view_transform = drawable->initialTransform(view, width, height);
+    drawable->local_transform = Transform::translation(x, y) * view_transform;
+    drawable->view_clip = viewportClip(tag, view_transform, width, height);
+
+    view_.view_box = view.view_box;
   }
 
   void SvgParser::collectDefs(std::vector<Tag>& tags) {
@@ -1553,15 +1592,6 @@ namespace visage {
           if (tag.data.attributes.count("refY"))
             y_offset = parseNumber(tag.data.attributes.at("refY"), view_height);
 
-          std::string overflow = tag.data.attributes.count("overflow") ?
-                                     tag.data.attributes.at("overflow") :
-                                     "hidden";
-          if (overflow == "hidden" || overflow == "scroll") {
-            bool has_view_box = view.view_box.width() > 0.0f && view.view_box.height() > 0.0f;
-            drawable.view_clip = has_view_box ? view.view_box :
-                                                Bounds(0.0f, 0.0f, view.width, view.height);
-          }
-
           if (tag.data.attributes.count("markerUnits"))
             marker->stroke_width_units = tag.data.attributes.at("markerUnits") != "userSpaceOnUse";
 
@@ -1573,8 +1603,10 @@ namespace visage {
               marker->marker_angle = parseAngle(orient);
           }
 
-          Matrix view_scale = drawable.initialTransform(view, view.width, view.height).matrix;
-          drawable.local_transform = Transform(view_scale) * Transform::translation(-x_offset, -y_offset);
+          Transform view_transform = drawable.initialTransform(view, view.width, view.height);
+          drawable.view_clip = viewportClip(tag, view_transform, view.width, view.height);
+          drawable.local_transform = Transform(view_transform.matrix) *
+                                     Transform::translation(-x_offset, -y_offset);
           markers_[id] = std::move(marker);
         }
       }
@@ -1846,13 +1878,21 @@ namespace visage {
     if (tag.data.attributes.count("id"))
       drawable->id = tag.data.attributes.at("id");
 
+    bool is_svg = tag.data.name == "svg";
+    SvgViewSettings parent_view = view_;
     loadOffset(tag, drawable.get());
+    if (is_svg && svg_depth_ > 0)
+      loadViewport(tag, drawable.get());
     loadDrawableTransform(tag, drawable.get());
+
+    svg_depth_ += is_svg;
     for (auto& child_tag : tag.children) {
       auto child = computeDrawables(child_tag, state_stack);
       if (child)
         drawable->children.push_back(std::move(child));
     }
+    svg_depth_ -= is_svg;
+    view_ = parent_view;
 
     state_stack.pop_back();
     return drawable;

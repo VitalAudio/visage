@@ -82,6 +82,17 @@ TEST_CASE("Svg transform origin", "[graphics]") {
   REQUIRE(single.drawable()->post_bounding_box.y() == 2.5f);
 }
 
+TEST_CASE("Svg nested viewports", "[graphics]") {
+  Svg view_box = parseSvg(R"svg(<svg viewBox="0 0 10 10"><svg x="2" y="2" width="4" height="4" viewBox="0 0 2 2"><rect width="2" height="2"/></svg></svg>)svg");
+  REQUIRE(view_box.drawable()->post_bounding_box.x() == 2.0f);
+  REQUIRE(view_box.drawable()->post_bounding_box.width() == 4.0f);
+
+  Svg percent = parseSvg(R"svg(<svg viewBox="0 0 10 10"><svg x="50%" width="50%" height="50%"><rect width="100%" height="100%"/></svg></svg>)svg");
+  REQUIRE(percent.drawable()->post_bounding_box.x() == Catch::Approx(5.0f));
+  REQUIRE(percent.drawable()->post_bounding_box.width() == Catch::Approx(5.0f));
+  REQUIRE(percent.drawable()->post_bounding_box.height() == Catch::Approx(5.0f));
+}
+
 TEST_CASE("Svg marker orientation and units", "[graphics]") {
   Svg stroke_units = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m"><rect width="2" height="1"/></marker><path d="M5 5 L5 9" stroke-width="2" marker-start="url(#m)"/></svg>)svg");
   REQUIRE(stroke_units.drawable()->post_bounding_box.width() == 4.0f);
