@@ -39,7 +39,6 @@ set(BX_CONFIG_DEBUG OFF CACHE INTERNAL "" FORCE)
 set(BGFX_CONFIG_DEBUG_ANNOTATION ${VISAGE_ENABLE_GRAPHICS_DEBUG_LOGGING} CACHE INTERNAL "" FORCE)
 set(BGFX_AMALGAMATED ON CACHE INTERNAL "" FORCE)
 set(BGFX_CONFIG_MAX_FRAME_BUFFERS 1024 CACHE INTERNAL "" FORCE)
-set(BGFX_CONFIG_MAX_VIEWS 256 CACHE INTERNAL "" FORCE)
 set(BGFX_CONFIG_MAX_DRAW_CALLS 8192 CACHE INTERNAL "" FORCE)
 set(BGFX_WITH_WAYLAND OFF CACHE INTERNAL "" FORCE)
 set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
@@ -62,7 +61,7 @@ message(STATUS "VISAGE: Downloading graphics dependencies")
 set(CMAKE_MESSAGE_LOG_LEVEL "ERROR")
 FetchContent_Declare(bgfx GIT_REPOSITORY https://github.com/bkaradzic/bgfx.cmake.git
   GIT_SHALLOW TRUE
-  GIT_TAG v1.129.8958-499
+  GIT_TAG v1.166.9546-589
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(bgfx)
@@ -103,6 +102,8 @@ target_link_libraries(
 )
 
 include(embedded.cmake)
+
+target_compile_features(VisageGraphics PRIVATE cxx_std_20)
 
 target_include_directories(VisageGraphics
   PRIVATE

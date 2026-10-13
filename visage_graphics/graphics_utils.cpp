@@ -35,6 +35,25 @@
 #include <visage_utils/string_utils.h>
 
 namespace visage {
+  static constexpr const char* kWebGlPrelude =
+      "precision mediump float;\n"
+      "#define texture2DLod    textureLod\n"
+      "#define texture3DLod    textureLod\n"
+      "#define textureCubeLod  textureLod\n"
+      "#define texture2DGrad   textureGrad\n"
+      "#define texture3DGrad   textureGrad\n"
+      "#define textureCubeGrad textureGrad\n"
+      "#define varying        in\n"
+      "#define texture2D      texture\n"
+      "#define texture2DArray texture\n"
+      "#define texture2DProj  textureProj\n"
+      "#define shadow2D(_sampler, _coord) (textureProj(_sampler, vec4(_coord, 1.0) ) ) \n"
+      "#define shadow2DProj(_sampler, _coord) (textureProj(_sampler, _coord) )\n"
+      "#define texture3D   texture\n"
+      "#define textureCube texture\n"
+      "out vec4 bgfx_FragColor;\n"
+      "#define gl_FragColor bgfx_FragColor\n";
+
   static std::map<std::string, std::string> parseVarying(const std::string& input) {
     std::map<std::string, std::string> varying;
     std::istringstream file_stream(input);
@@ -100,6 +119,8 @@ namespace visage {
         uniform_header += (unsigned char)1;
         uniform_header += (unsigned char)0;
         uniform_header += (unsigned char)0;
+        uniform_header += (unsigned char)(type == "sampler2D" ? 2 : 0);
+        uniform_header += (unsigned char)0;
         uniform_header += (unsigned char)0;
 
         result.append("uniform ");
@@ -141,27 +162,7 @@ namespace visage {
   }
 
   static bool testCompileShader(const std::string& code, std::string& error) {
-    std::string head =
-        "#version 300 es\n"
-        "precision mediump float;\n"
-        "#define texture2DLod    textureLod\n"
-        "#define texture3DLod    textureLod\n"
-        "#define textureCubeLod  textureLod\n"
-        "#define texture2DGrad   textureGrad\n"
-        "#define texture3DGrad   textureGrad\n"
-        "#define textureCubeGrad textureGrad\n"
-        "#define varying        in\n"
-        "#define texture2D      texture\n"
-        "#define texture2DArray texture\n"
-        "#define texture2DProj  textureProj\n"
-        "#define shadow2D(_sampler, _coord) (textureProj(_sampler, vec4(_coord, 1.0) ) ) \n"
-        "#define shadow2DProj(_sampler, _coord) (textureProj(_sampler, _coord) )\n"
-        "#define texture3D   texture\n"
-        "#define textureCube texture\n"
-        "out vec4 bgfx_FragColor;\n"
-        "#define gl_FragColor bgfx_FragColor\n";
-
-    std::string full_shader = head + code;
+    std::string full_shader = "#version 300 es\n" + code;
     error = "";
     GLuint shader_id = glCreateShader(GL_FRAGMENT_SHADER);
     const GLchar* str = (const GLchar*)full_shader.c_str();
@@ -215,7 +216,7 @@ namespace visage {
     };
 
     std::string header = "FSH";
-    header += char(9);
+    header += char(12);
 
     bx::HashMurmur2A murmur {};
     murmur.begin();
@@ -223,6 +224,8 @@ namespace visage {
       murmur.add(input.c_str(), (uint32_t)input.size());
 
     write_int(header, murmur.end());
+    write_int(header, 0);
+    write_int(header, 0);
     write_int(header, 0);
     header += parseUniforms(result);
 
@@ -232,7 +235,7 @@ namespace visage {
       if (varying.count(input))
         varying_list += "varying highp " + varying[input] + " " + input + ";\n";
     }
-    result = varying_list + result;
+    result = kWebGlPrelude + varying_list + result;
 
     write_int(header, result.length());
     std::string error;

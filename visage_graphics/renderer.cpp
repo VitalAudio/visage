@@ -24,7 +24,6 @@
 #include "visage_utils/string_utils.h"
 
 #include <bgfx/bgfx.h>
-#include <bgfx/platform.h>
 
 namespace visage {
   class GraphicsCallbackHandler : public bgfx::CallbackI {
@@ -49,7 +48,7 @@ namespace visage {
     void cacheWrite(uint64_t, const void*, uint32_t) override { }
 
     void screenShot(const char* file_path, uint32_t width, uint32_t height, uint32_t pitch,
-                    const void* data, uint32_t size, bool y_flip) override {
+                    bgfx::TextureFormat::Enum format, const void* data, uint32_t size, bool y_flip) override {
       Renderer::instance().setScreenshotData(static_cast<const uint8_t*>(data), width, height, pitch, true);
     }
 
@@ -110,13 +109,14 @@ namespace visage {
     startRenderThread();
 
     bgfx::Init bgfx_init;
-    bgfx_init.resolution.numBackBuffers = 1;
-    bgfx_init.resolution.width = 0;
-    bgfx_init.resolution.height = 0;
+    bgfx_init.swapChain.numBackBuffers = 1;
+    bgfx_init.swapChain.width = 0;
+    bgfx_init.swapChain.height = 0;
+    bgfx_init.swapChain.formatColor = bgfx::TextureFormat::RGBA8;
     bgfx_init.callback = callback_handler_.get();
 
-    bgfx_init.platformData.ndt = display;
-    bgfx_init.platformData.nwh = model_window;
+    bgfx_init.swapChain.ndt = display;
+    bgfx_init.swapChain.nwh = model_window;
     bgfx_init.platformData.type = bgfx::NativeWindowHandleType::Default;
 
     bgfx::RendererType::Enum supported_renderers[bgfx::RendererType::Count];
@@ -132,15 +132,15 @@ namespace visage {
 #endif
 #elif VISAGE_MAC
     bgfx_init.type = bgfx::RendererType::Metal;
-    bgfx_init.resolution.width = 1;
-    bgfx_init.resolution.height = 1;
+    bgfx_init.swapChain.width = 1;
+    bgfx_init.swapChain.height = 1;
 #elif VISAGE_LINUX
     bgfx_init.type = bgfx::RendererType::Vulkan;
 #elif VISAGE_EMSCRIPTEN
     bgfx_init.type = bgfx::RendererType::OpenGLES;
 #endif
 
-    bgfx_init.resolution.reset = resetFlags();
+    bgfx_init.reset = resetFlags();
 
     for (int i = 0; i < num_supported && !supported_; ++i)
       supported_ = supported_renderers[i] == bgfx_init.type;
@@ -158,7 +158,10 @@ namespace visage {
 
   void Renderer::resetResolution(int width, int height) {
 #if VISAGE_MAC
-    bgfx::reset(width, height, resetFlags());
+    bgfx::SwapChain swap_chain;
+    swap_chain.width = width;
+    swap_chain.height = height;
+    bgfx::reset(resetFlags(), &swap_chain);
 #endif
   }
 

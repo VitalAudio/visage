@@ -56,7 +56,7 @@ namespace visage {
     setDimensions(width, height);
     composite_layer_.setWindowlessRender(width, height);
     Renderer::instance().initializeWindowless();
-    bgfx::reset(0, 0, BGFX_RESET_FLUSH_AFTER_RENDER | BGFX_RESET_FLIP_AFTER_RENDER);
+    bgfx::reset(BGFX_RESET_FLUSH_AFTER_RENDER | BGFX_RESET_FLIP_AFTER_RENDER);
   }
 
   void Canvas::setDimensions(int width, int height) {
@@ -192,32 +192,20 @@ namespace visage {
 
   std::vector<std::string> Canvas::debugInfo() const {
     static const std::vector<std::pair<unsigned long long, std::string>> caps_list {
-      { BGFX_CAPS_ALPHA_TO_COVERAGE, "Alpha to coverage is supported." },
       { BGFX_CAPS_BLEND_INDEPENDENT, "Blend independent is supported." },
       { BGFX_CAPS_COMPUTE, "Compute shaders are supported." },
       { BGFX_CAPS_CONSERVATIVE_RASTER, "Conservative rasterization is supported." },
       { BGFX_CAPS_DRAW_INDIRECT, "Draw indirect is supported." },
-      { BGFX_CAPS_FRAGMENT_DEPTH, "Fragment depth is available in fragment shader." },
       { BGFX_CAPS_FRAGMENT_ORDERING, "Fragment ordering is available in fragment shader." },
       { BGFX_CAPS_GRAPHICS_DEBUGGER, "Graphics debugger is present." },
       { BGFX_CAPS_HDR10, "HDR10 rendering is supported." },
-      { BGFX_CAPS_HIDPI, "HiDPI rendering is supported." },
       { BGFX_CAPS_IMAGE_RW, "Image Read/Write is supported." },
       { BGFX_CAPS_INDEX32, "32-bit indices are supported." },
-      { BGFX_CAPS_INSTANCING, "Instancing is supported." },
-      { BGFX_CAPS_OCCLUSION_QUERY, "Occlusion query is supported." },
       { BGFX_CAPS_RENDERER_MULTITHREADED, "Renderer is on separate thread." },
       { BGFX_CAPS_SWAP_CHAIN, "Multiple windows are supported." },
-      { BGFX_CAPS_TEXTURE_2D_ARRAY, "2D texture array is supported." },
-      { BGFX_CAPS_TEXTURE_3D, "3D textures are supported." },
-      { BGFX_CAPS_TEXTURE_BLIT, "Texture blit is supported." },
-      { BGFX_CAPS_TEXTURE_COMPARE_LEQUAL, "Texture compare less equal mode is supported." },
       { BGFX_CAPS_TEXTURE_CUBE_ARRAY, "Cubemap texture array is supported." },
       { BGFX_CAPS_TEXTURE_DIRECT_ACCESS, "CPU direct access to GPU texture memory." },
-      { BGFX_CAPS_TEXTURE_READ_BACK, "Read-back texture is supported." },
-      { BGFX_CAPS_VERTEX_ATTRIB_HALF, "Vertex attribute half-float is supported." },
       { BGFX_CAPS_VERTEX_ATTRIB_UINT10, "Vertex attribute 10_10_10_2 is supported." },
-      { BGFX_CAPS_VERTEX_ID, "Rendering with VertexID only is supported." },
       { BGFX_CAPS_VIEWPORT_LAYER_ARRAY, "Viewport layer is available in vertex shader." },
     };
 

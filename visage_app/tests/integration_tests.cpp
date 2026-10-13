@@ -811,6 +811,45 @@ TEST_CASE("Layer is cleared when it stops drawing", "[integration]") {
   REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == 0x00);
 }
 
+TEST_CASE("Backdrop frame keeps its content over a redrawing sibling", "[integration]") {
+  ApplicationEditor app;
+  Frame background;
+  Frame glass;
+  BlurPostEffect blur;
+  blur.setBlurRadius(10.0f);
+
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  background.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+    canvas.setColor(0xff0000ff);
+    canvas.circle(0, 0, 20);
+    background.redraw();
+  };
+  glass.setBackdropEffect(&blur);
+  glass.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xffff0000);
+    canvas.fill(5, 5, 10, 10);
+  };
+  glass.onDrawMask() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+
+  app.addChild(background);
+  app.addChild(glass);
+  background.setBounds(0, 0, 40, 40);
+  glass.setBounds(10, 10, 20, 20);
+  app.setWindowless(40, 40);
+  for (int i = 0; i < 3; ++i) {
+    app.drawWindow();
+    REQUIRE(app.takeScreenshot().sample(20, 20).hexRed() == 0xff);
+  }
+}
+
 TEST_CASE("Alpha transparency applies to children", "[integration]") {
   ApplicationEditor app;
   Frame parent;

@@ -78,10 +78,10 @@ namespace visage {
 
     static constexpr const char* profileArgument(Backend backend, ShaderType type) {
       switch (backend) {
-      case Backend::Glsl: return "120";
+      case Backend::Glsl: return "330";
       case Backend::Vulkan: return "spirv";
       case Backend::Metal: return "metal";
-      case Backend::Dx11: return type == ShaderType::Vertex ? "s_4_0 -O3" : "s_4_0 -O3";
+      case Backend::Dx11: return type == ShaderType::Vertex ? "s_4_0 -O 3" : "s_4_0 -O 3";
       default: return "";
       }
     }

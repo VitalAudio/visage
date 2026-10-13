@@ -174,13 +174,15 @@ namespace visage {
       frame_buffer_data_->format = bgfx::TextureFormat::RGBA8;
 
     if (window_handle_) {
-      frame_buffer_data_->handle = bgfx::createFrameBuffer(window_handle_, width_, height_,
-                                                           frame_buffer_data_->format);
+      bgfx::SwapChain swap_chain;
+      swap_chain.nwh = window_handle_;
+      swap_chain.width = width_;
+      swap_chain.height = height_;
+      swap_chain.formatColor = frame_buffer_data_->format;
+      frame_buffer_data_->handle = bgfx::createFrameBuffer(swap_chain);
     }
     else {
-      bool read_back = (bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_BLIT) &&
-                       (bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_READ_BACK);
-      if (headless_render_ && read_back) {
+      if (headless_render_) {
         uint64_t flags = BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK;
         frame_buffer_data_->read_back_handle = bgfx::createTexture2D(width_, height_, false, 1,
                                                                      bgfx::TextureFormat::RGBA8, flags);
@@ -358,12 +360,16 @@ namespace visage {
 
     if (screenshot_requested_ && bgfx::isValid(frame_buffer_data_->read_back_handle)) {
       screenshot_requested_ = false;
-      bgfx::blit(submit_pass + 1, frame_buffer_data_->read_back_handle, 0, 0,
-                 bgfx::getTexture(frame_buffer_data_->handle), 0, 0, width_, height_);
+      bgfx::TextureRegion read_back;
+      read_back.init(frame_buffer_data_->read_back_handle);
+      bgfx::TextureRegion source;
+      source.init(bgfx::getTexture(frame_buffer_data_->handle), 0, 0, width_, height_);
+      bgfx::blit(submit_pass + 1, read_back, source);
 
       screenshot_.setDimensions(width_, height_);
-      bgfx::readTexture(frame_buffer_data_->read_back_handle, screenshot_.data());
-      bgfx::frame();
+      uint32_t ready_frame = bgfx::read(read_back, screenshot_.data());
+      while (bgfx::frame() < ready_frame) {
+      }
     }
 
     submit_pass = submit_pass + 1;

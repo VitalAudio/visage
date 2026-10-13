@@ -120,12 +120,15 @@ namespace visage {
   }
 
   template<typename T>
-  static void submitBaseShapes(const BatchVector<T>& batches, BlendMode state, Layer& layer, int submit_pass) {
+  static void submitBaseShapes(const BatchVector<T>& batches, BlendMode state, Layer& layer, int submit_pass,
+                               void (*set_data_uniform)(const BatchVector<T>&) = nullptr) {
     auto quads = setupQuads(batches);
     if (quads.vertices == nullptr)
       return;
 
     setBlendMode(state);
+    if (set_data_uniform)
+      set_data_uniform(batches);
     submitShapes(layer, T::vertexShader(), T::fragmentShader(), quads.radial_gradient, submit_pass);
   }
 
@@ -137,41 +140,31 @@ namespace visage {
   template<>
   inline void submitShapes<PathFillWrapper>(const BatchVector<PathFillWrapper>& batches,
                                             BlendMode state, Layer& layer, int submit_pass) {
-    setBlendMode(state);
-    setPathDataUniform(batches);
-    submitBaseShapes(batches, state, layer, submit_pass);
+    submitBaseShapes(batches, state, layer, submit_pass, setPathDataUniform);
   }
 
   template<>
   inline void submitShapes<ImageWrapper>(const BatchVector<ImageWrapper>& batches, BlendMode state,
                                          Layer& layer, int submit_pass) {
-    setBlendMode(state);
-    setImageAtlasUniform(batches);
-    submitBaseShapes(batches, state, layer, submit_pass);
+    submitBaseShapes(batches, state, layer, submit_pass, setImageAtlasUniform);
   }
 
   template<>
   inline void submitShapes<GraphLineWrapper>(const BatchVector<GraphLineWrapper>& batches,
                                              BlendMode state, Layer& layer, int submit_pass) {
-    setBlendMode(state);
-    setGraphDataUniform(batches);
-    submitBaseShapes(batches, state, layer, submit_pass);
+    submitBaseShapes(batches, state, layer, submit_pass, setGraphDataUniform);
   }
 
   template<>
   inline void submitShapes<GraphFillWrapper>(const BatchVector<GraphFillWrapper>& batches,
                                              BlendMode state, Layer& layer, int submit_pass) {
-    setBlendMode(state);
-    setGraphDataUniform(batches);
-    submitBaseShapes(batches, state, layer, submit_pass);
+    submitBaseShapes(batches, state, layer, submit_pass, setGraphDataUniform);
   }
 
   template<>
   inline void submitShapes<HeatMapWrapper>(const BatchVector<HeatMapWrapper>& batches,
                                            BlendMode state, Layer& layer, int submit_pass) {
-    setBlendMode(state);
-    setHeatMapDataUniform(batches);
-    submitBaseShapes(batches, state, layer, submit_pass);
+    submitBaseShapes(batches, state, layer, submit_pass, setHeatMapDataUniform);
   }
 
   template<>
