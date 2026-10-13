@@ -205,6 +205,42 @@ TEST_CASE("Svg rendering", "[graphics]") {
     }
   }
 
+  SECTION("Gradient references") {
+    std::vector<std::string> red_gradients = {
+      R"svg(<linearGradient id="a"><stop stop-color="red"/></linearGradient><linearGradient id="b" href="#a"/><linearGradient id="g" xlink:href="#b"/>)svg",
+      R"svg(<linearGradient id="a"><stop stop-color="red"/></linearGradient><linearGradient id="b"><stop stop-color="blue"/></linearGradient><linearGradient id="g" href="#a" xlink:href="#b"/>)svg",
+      R"svg(<linearGradient id="a" color="red"><stop stop-color="currentColor"/></linearGradient><linearGradient id="g" href="#a" color="blue"/>)svg",
+      R"svg(<g color="red"><linearGradient id="a"><stop stop-color="currentColor"/></linearGradient></g><g color="blue"><linearGradient id="g" href="#a"/></g>)svg",
+      R"svg(<linearGradient id="a" stop-color="red"><stop stop-color="inherit"/></linearGradient><linearGradient id="g" href="#a" stop-color="blue"/>)svg",
+    };
+    for (const auto& gradient : red_gradients) {
+      INFO(gradient);
+      Color color = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10">)svg" + gradient +
+                                    R"svg(<rect width="10" height="10" fill="url(#g)"/></svg>)svg");
+      REQUIRE(color.hexRed() == 0xff);
+      REQUIRE(color.hexBlue() == 0x00);
+    }
+
+    Color not_inherited = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><linearGradient id="a" stop-color="blue"/><linearGradient id="g" href="#a"><stop stop-color="inherit"/></linearGradient><rect width="10" height="10" fill="url(#g)"/></svg>)svg");
+    REQUIRE(not_inherited.hexBlue() == 0x00);
+  }
+
+  SECTION("Gradient stops use canvas current color") {
+    std::string data = R"svg(<svg viewBox="0 0 10 10"><linearGradient id="g"><stop stop-color="currentColor"/></linearGradient><rect width="10" height="10" fill="url(#g)"/></svg>)svg";
+    Svg svg(reinterpret_cast<const unsigned char*>(data.data()), data.size());
+    svg.setDimensions(20, 20, 1.0f);
+    Canvas canvas;
+    canvas.setWindowless(20, 20);
+    canvas.setColor(0xffffffff);
+    canvas.fill(0, 0, 20, 20);
+    canvas.setColor(0xffff0000);
+    canvas.svg(svg, 0, 0);
+    canvas.submit();
+    Color color = canvas.takeScreenshot().sample(10, 10);
+    REQUIRE(color.hexRed() == 0xff);
+    REQUIRE(color.hexGreen() == 0x00);
+  }
+
   SECTION("Hsl colors") {
     Color green = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="hsl(120, 100%, 50%)"/></svg>)svg");
     REQUIRE(green.hexRed() == 0x00);

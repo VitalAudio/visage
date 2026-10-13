@@ -165,6 +165,18 @@ namespace visage {
     return false;
   }
 
+  Brush SvgDrawable::withCurrentColor(Brush brush, const GradientDef& gradient,
+                                      const Brush* current_color, float opacity) {
+    if (!current_color || current_color->isNone() ||
+        brush.gradient().numColors() != gradient.gradient.numColors())
+      return brush;
+
+    Color color = current_color->gradient().colors().front();
+    for (const auto& stop : gradient.current_color_stops)
+      brush.gradient().setColor(stop.first, color.withAlpha(color.alpha() * stop.second * opacity));
+    return brush;
+  }
+
   void SvgDrawable::fill(Canvas& canvas, ColorContext* context, float x, float y, float width,
                          float height) const {
     if (state.fill_opacity <= 0.0f)
@@ -174,7 +186,8 @@ namespace visage {
       if (fill_brush.isNone())
         return;
 
-      auto brush = fill_brush;
+      auto brush = withCurrentColor(fill_brush, state.fill_gradient, context->current_color,
+                                    state.fill_opacity);
       brush.transform(Transform::translation(x, y));
       canvas.setColor(brush);
       context->fill_color = &fill_brush;
@@ -192,7 +205,8 @@ namespace visage {
       if (stroke_brush.isNone())
         return;
 
-      auto brush = stroke_brush;
+      auto brush = withCurrentColor(stroke_brush, state.stroke_gradient, context->current_color,
+                                    state.stroke_opacity);
       brush.transform(Transform::translation(x, y));
       canvas.setColor(brush);
       context->stroke_color = &stroke_brush;
@@ -858,7 +872,7 @@ namespace visage {
   std::optional<Color> parseColor(const std::string& color_string);
 
   Color parseStopColor(const Tag& tag, const std::string& parent_stop_color,
-                       const std::string& current_color) {
+                       const std::string& current_color, bool& uses_current_color) {
     std::map<std::string, std::string> properties(tag.data.attributes.begin(), tag.data.attributes.end());
     if (tag.data.attributes.count("style")) {
       std::stringstream ss(tag.data.attributes.at("style"));
@@ -879,6 +893,7 @@ namespace visage {
     std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
     if (lower == "currentcolor")
       stop_color = properties.count("color") ? properties["color"] : current_color;
+    uses_current_color = lower == "currentcolor" && stop_color.empty();
 
     Color color = parseColor(stop_color).value_or(Color(0xff000000));
     if (properties.count("stop-opacity"))
@@ -930,6 +945,14 @@ namespace visage {
         matrix = matrix * Transform(args[0], args[2], args[4], args[1], args[3], args[5]);
     }
     return matrix;
+  }
+
+  static std::string hrefId(const Tag& tag) {
+    if (tag.data.attributes.count("href"))
+      return tag.data.attributes.at("href");
+    if (tag.data.attributes.count("xlink:href"))
+      return tag.data.attributes.at("xlink:href");
+    return "";
   }
 
   GradientDef parseGradientTag(const Tag& tag, const std::string& current_color) {
@@ -989,7 +1012,11 @@ namespace visage {
       if (offset_string.find_first_not_of("0123456789+-.eE%") == std::string::npos)
         offset = parseNumber(offset_string, 1.0f);
       last_offset = std::clamp(offset, last_offset, 1.0f);
-      gradient_def.gradient.addColorStop(parseStopColor(child, stop_color, current_color), last_offset);
+      bool uses_current_color = false;
+      Color color = parseStopColor(child, stop_color, current_color, uses_current_color);
+      if (uses_current_color)
+        gradient_def.current_color_stops.push_back({ gradient_def.gradient.numColors(), color.alpha() });
+      gradient_def.gradient.addColorStop(color, last_offset);
     }
 
     return gradient_def;
@@ -1302,17 +1329,67 @@ namespace visage {
     }
   }
 
-  void SvgParser::collectGradients(std::vector<Tag>& tags, const std::string& current_color) {
+  using GradientTags = std::map<std::string, std::pair<const Tag*, std::string>>;
+
+  static void collectGradientTags(const std::vector<Tag>& tags, const std::string& current_color,
+                                  GradientTags& gradient_tags) {
     for (auto& tag : tags) {
       std::string color = tag.data.attributes.count("color") ? tag.data.attributes.at("color") :
                                                                current_color;
-      if (tag.data.name == "linearGradient" || tag.data.name == "radialGradient") {
-        if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
-          std::string id = tag.data.attributes.at("id");
-          gradients_[id] = parseGradientTag(tag, color);
-        }
+      if ((tag.data.name == "linearGradient" || tag.data.name == "radialGradient") &&
+          tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
+        gradient_tags["#" + tag.data.attributes.at("id")] = { &tag, color };
       }
-      collectGradients(tag.children, color);
+      collectGradientTags(tag.children, color, gradient_tags);
+    }
+  }
+
+  static bool hasStops(const Tag& tag) {
+    return std::any_of(tag.children.begin(), tag.children.end(),
+                       [](const Tag& child) { return child.data.name == "stop"; });
+  }
+
+  static std::pair<Tag, std::string> resolveGradientReferences(const GradientTags::mapped_type& gradient,
+                                                               const GradientTags& gradient_tags) {
+    static const std::set<std::string> kShared = { "gradientUnits", "spreadMethod", "gradientTransform" };
+    static const std::set<std::string> kLinear = { "x1", "y1", "x2", "y2" };
+    static const std::set<std::string> kRadial = { "cx", "cy", "r", "fx", "fy", "fr" };
+    const Tag& tag = *gradient.first;
+    const auto& geometry = tag.data.name == "linearGradient" ? kLinear : kRadial;
+
+    Tag result = tag;
+    const GradientTags::mapped_type* stops = &gradient;
+    std::set<const Tag*> visited = { &tag };
+    const Tag* current = &tag;
+    while (true) {
+      auto it = gradient_tags.find(hrefId(*current));
+      if (it == gradient_tags.end() || visited.count(it->second.first))
+        break;
+
+      current = it->second.first;
+      visited.insert(current);
+      for (const auto& attribute : current->data.attributes) {
+        bool same_type = current->data.name == tag.data.name;
+        if (kShared.count(attribute.first) || (same_type && geometry.count(attribute.first)))
+          result.data.attributes.insert(attribute);
+      }
+      if (!hasStops(*stops->first) && hasStops(*current))
+        stops = &it->second;
+    }
+
+    result.children = stops->first->children;
+    result.data.attributes.erase("stop-color");
+    if (stops->first->data.attributes.count("stop-color"))
+      result.data.attributes["stop-color"] = stops->first->data.attributes.at("stop-color");
+    return { result, stops->second };
+  }
+
+  void SvgParser::collectGradients(std::vector<Tag>& tags) {
+    GradientTags gradient_tags;
+    collectGradientTags(tags, "", gradient_tags);
+    for (const auto& gradient_tag : gradient_tags) {
+      auto resolved = resolveGradientReferences(gradient_tag.second, gradient_tags);
+      gradients_[gradient_tag.first.substr(1)] = parseGradientTag(resolved.first, resolved.second);
     }
   }
 
@@ -1384,10 +1461,8 @@ namespace visage {
 
     for (auto& tag : tags) {
       std::string reference_id;
-      if (tag.data.name == "use" && tag.data.attributes.count("href"))
-        reference_id = tag.data.attributes.at("href");
-      else if (tag.data.attributes.count("xlink:href"))
-        reference_id = tag.data.attributes.at("xlink:href");
+      if (tag.data.name == "use")
+        reference_id = hrefId(tag);
 
       if (!reference_id.empty() && reference_ids.count(reference_id))
         continue;
@@ -1397,8 +1472,6 @@ namespace visage {
         use_tag(child, reference_id);
         tag.children.push_back(child);
       }
-      else
-        use_tag(tag, reference_id);
 
       reference_ids.insert(reference_id);
       resolveUses(tag.children, reference_ids, depth + 1);

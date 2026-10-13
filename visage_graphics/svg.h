@@ -111,6 +111,7 @@ namespace visage {
     Point point2 = Point(1.0f, 0.0f);
     float focal_radius = 0.0f;
     float radius = 0.5f;
+    std::vector<std::pair<int, float>> current_color_stops;
   };
 
   struct DrawableState {
@@ -156,6 +157,8 @@ namespace visage {
     void drawAll(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
     bool setContextColor(Canvas& canvas, const ColorContext* context, const GradientDef& gradient,
                          float color_opacity) const;
+    static Brush withCurrentColor(Brush brush, const GradientDef& gradient,
+                                  const Brush* current_color, float opacity);
     void fill(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
     void stroke(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
     bool hasFill() const { return !fill_brush.isNone() && state.fill_opacity > 0.0f; }
@@ -370,7 +373,7 @@ namespace visage {
     std::optional<GradientDef> parseGradient(const std::string& color_string);
 
     void collectDefs(std::vector<Tag>& tags);
-    void collectGradients(std::vector<Tag>& tags, const std::string& current_color = "");
+    void collectGradients(std::vector<Tag>& tags);
     void collectMarkers(std::vector<Tag>& tags);
     void resolveUses(std::vector<Tag>& tags, std::set<std::string>& reference_ids, int depth = 0);
     void parseCssStyle(const std::string& style);
