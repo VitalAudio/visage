@@ -1633,7 +1633,7 @@ namespace visage {
         target.children = reference.children;
 
       if (target.data.name.empty())
-        target.data.name = reference.data.name == "symbol" ? "g" : reference.data.name;
+        target.data.name = reference.data.name == "symbol" ? "svg" : reference.data.name;
     };
 
     for (auto& tag : tags) {
@@ -1647,6 +1647,12 @@ namespace visage {
       if (tag.data.name == "use") {
         Tag child;
         use_tag(child, reference_id);
+        if (child.data.name == "svg") {
+          for (const char* size : { "width", "height" }) {
+            if (tag.data.attributes.count(size))
+              child.data.attributes[size] = tag.data.attributes.at(size);
+          }
+        }
         tag.children.push_back(child);
       }
 

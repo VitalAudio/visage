@@ -93,6 +93,14 @@ TEST_CASE("Svg nested viewports", "[graphics]") {
   REQUIRE(percent.drawable()->post_bounding_box.height() == Catch::Approx(5.0f));
 }
 
+TEST_CASE("Svg use of symbol and svg viewports", "[graphics]") {
+  Svg symbol = parseSvg(R"svg(<svg viewBox="0 0 10 10"><symbol id="s" viewBox="0 0 1 1"><rect width="1" height="1"/></symbol><use href="#s" width="4" height="4"/></svg>)svg");
+  REQUIRE(symbol.drawable()->post_bounding_box.width() == 4.0f);
+
+  Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><defs><svg id="v" width="2" height="2" viewBox="0 0 1 1"><rect width="1" height="1"/></svg></defs><use href="#v" width="6" height="6"/></svg>)svg");
+  REQUIRE(svg.drawable()->post_bounding_box.width() == 6.0f);
+}
+
 TEST_CASE("Svg marker orientation and units", "[graphics]") {
   Svg stroke_units = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m"><rect width="2" height="1"/></marker><path d="M5 5 L5 9" stroke-width="2" marker-start="url(#m)"/></svg>)svg");
   REQUIRE(stroke_units.drawable()->post_bounding_box.width() == 4.0f);
