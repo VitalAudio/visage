@@ -776,6 +776,33 @@ namespace visage {
     return result + str.substr(last);
   }
 
+  void resolveNamespaces(std::vector<Tag>& tags, const std::map<std::string, std::string>& parent_namespaces) {
+    static const std::string kSvgNamespace = "http://www.w3.org/2000/svg";
+
+    for (auto& tag : tags) {
+      const auto* namespaces = &parent_namespaces;
+      std::map<std::string, std::string> declared;
+      for (const auto& attribute : tag.data.attributes) {
+        if (attribute.first != "xmlns" && attribute.first.compare(0, 6, "xmlns:") != 0)
+          continue;
+        if (declared.empty())
+          declared = parent_namespaces;
+        declared[attribute.first == "xmlns" ? "" : attribute.first.substr(6)] = attribute.second;
+        namespaces = &declared;
+      }
+
+      size_t colon = tag.data.name.find(':');
+      std::string prefix = colon == std::string::npos ? "" : tag.data.name.substr(0, colon);
+      auto name_space = namespaces->find(prefix);
+      if (name_space != namespaces->end() && name_space->second == kSvgNamespace)
+        tag.data.name = tag.data.name.substr(colon + 1);
+      else
+        tag.data.name.clear();
+
+      resolveNamespaces(tag.children, *namespaces);
+    }
+  }
+
   static constexpr int kMaxTagDepth = 256;
 
   Tag parseTagTree(const std::string& str, int& i, int depth = 0) {
@@ -1784,7 +1811,11 @@ namespace visage {
   }
 
   std::unique_ptr<SvgDrawable> SvgParser::computeDrawables(Tag& tag, std::vector<DrawableState>& state_stack) {
-    if (tag.data.ignored || tag.data.name == "marker" || tag.data.name == "mask")
+    static const std::set<std::string> kRenderedElements = {
+      "svg",  "g",    "a",      "switch",  "symbol", "defs",     "use",    "clipPath",
+      "path", "rect", "circle", "ellipse", "line",   "polyline", "polygon"
+    };
+    if (tag.data.ignored || kRenderedElements.count(tag.data.name) == 0)
       return nullptr;
 
     state_stack.push_back(state_stack.back());
@@ -1839,6 +1870,7 @@ namespace visage {
 
       root = parseTagTree(str, i);
     }
+    resolveNamespaces(tags, { { "", "http://www.w3.org/2000/svg" } });
 
     DrawableState state;
     for (auto& tag : tags) {

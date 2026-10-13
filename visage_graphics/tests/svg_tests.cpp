@@ -255,6 +255,17 @@ TEST_CASE("Svg rendering", "[graphics]") {
     REQUIRE(in_marker.hexGreen() == 0x00);
   }
 
+  SECTION("Namespaces and unknown elements") {
+    Color prefixed = renderSvgCenter(R"svg(<svg:svg xmlns:svg="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><svg:rect width="10" height="10" fill="red"/></svg:svg>)svg");
+    REQUIRE(prefixed.hexRed() == 0xff);
+
+    Color foreign = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><g xmlns="http://example.org"><rect width="10" height="10" fill="red"/></g></svg>)svg");
+    REQUIRE(foreign.hexRed() == 0x00);
+
+    Color unknown = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><random><rect width="10" height="10" fill="red"/></random></svg>)svg");
+    REQUIRE(unknown.hexRed() == 0x00);
+  }
+
   SECTION("Entity references") {
     Color attribute = renderSvgCenter(R"svg(<!DOCTYPE svg [<!ENTITY red "fill:red;">]><svg viewBox="0 0 10 10"><rect width="10" height="10" style="&red;"/></svg>)svg");
     REQUIRE(attribute.hexRed() == 0xff);
