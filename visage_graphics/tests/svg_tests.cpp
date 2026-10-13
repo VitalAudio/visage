@@ -135,6 +135,16 @@ TEST_CASE("Svg marker properties", "[graphics]") {
   REQUIRE(style.drawable()->post_bounding_box.width() == 2.0f);
 }
 
+TEST_CASE("Svg rect sizes and radii", "[graphics]") {
+  Svg negative = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="-10" height="10"/><rect width="10" height="-10"/></svg>)svg");
+  REQUIRE(numShapes(negative.drawable()) == 0);
+
+  Svg auto_radius = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" rx="-2" ry="3"/></svg>)svg");
+  const auto& corner = firstShape(auto_radius.drawable())->command_list[2];
+  REQUIRE(corner.type == 'A');
+  REQUIRE(corner.control1 == Point(3.0f, 3.0f));
+}
+
 TEST_CASE("Svg ellipse radii", "[graphics]") {
   Svg negative = parseSvg(R"svg(<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="-2"/><ellipse cx="5" cy="5" rx="-2" ry="-3"/></svg>)svg");
   REQUIRE(numShapes(negative.drawable()) == 0);

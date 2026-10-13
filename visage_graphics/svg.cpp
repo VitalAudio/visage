@@ -1300,22 +1300,24 @@ namespace visage {
         drawable->command_list.close();
     }
     else if (tag.data.name == "rect") {
-      float x = 0.0f, y = 0.0f, rx = 0.0f, ry = 0.0f;
+      if (width <= 0.0f || height <= 0.0f)
+        return false;
+
+      float x = 0.0f, y = 0.0f, rx = -1.0f, ry = -1.0f;
       if (tag.data.attributes.count("x"))
         x = parseNumber(tag.data.attributes.at("x"), view_width);
       if (tag.data.attributes.count("y"))
         y = parseNumber(tag.data.attributes.at("y"), view_height);
       if (tag.data.attributes.count("rx"))
         rx = parseNumber(tag.data.attributes.at("rx"), view_width);
-      if (tag.data.attributes.count("ry")) {
+      if (tag.data.attributes.count("ry"))
         ry = parseNumber(tag.data.attributes.at("ry"), view_height);
-        if (tag.data.attributes.count("rx") == 0)
-          rx = ry;
-      }
-      else
+      if (rx < 0.0f)
+        rx = ry;
+      if (ry < 0.0f)
         ry = rx;
 
-      if (rx > 0.0f || ry > 0.0f)
+      if (rx > 0.0f && ry > 0.0f)
         drawable->command_list.addRoundedRectangle(x, y, width, height, rx, ry);
       else
         drawable->command_list.addRectangle(x, y, width, height);
