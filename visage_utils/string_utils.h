@@ -237,11 +237,13 @@ namespace visage {
           --pos;
           if (string_[pos] == '9')
             result[pos] = '0';
-          else if (string_[pos] != '.') {
+          else if (string_[pos] != '.' && string_[pos] != '-') {
             ++result[pos];
             carry = false;
           }
         }
+        if (carry && result[0] == '-')
+          return U"-1" + result.substr(1);
         if (carry)
           return U"1" + result;
 
