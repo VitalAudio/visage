@@ -313,6 +313,60 @@ namespace visage {
     close();
   }
 
+  Point Path::CommandList::quadraticControl(int index) const {
+    if (at(index).type == 'Q')
+      return at(index).control1;
+
+    Point from = index > 0 ? at(index - 1).end : at(index).end;
+    if (at(index).type != 'T' || index == 0 || (at(index - 1).type != 'Q' && at(index - 1).type != 'T'))
+      return from;
+    return from * 2.0f - quadraticControl(index - 1);
+  }
+
+  std::pair<Point, Point> Path::CommandList::tangentPoints(int index) const {
+    const Command& command = at(index);
+    Point from = index > 0 ? at(index - 1).end : command.end;
+    if (command.type == 'Q' || command.type == 'T') {
+      Point control = quadraticControl(index);
+      return { control, control };
+    }
+    if (command.type == 'S') {
+      Point first = from;
+      if (index > 0 && at(index - 1).type == 'C')
+        first = from * 2.0f - at(index - 1).control2;
+      else if (index > 0 && at(index - 1).type == 'S')
+        first = from * 2.0f - at(index - 1).control1;
+      return { first, command.control1 };
+    }
+    if (command.type != 'A')
+      return { command.control1, command.control2 };
+
+    float rx = std::abs(command.control1.x);
+    float ry = std::abs(command.control1.y);
+    auto ellipse_rotation = Matrix::rotation(command.control2.x);
+    Point delta = ellipse_rotation.transposed() * (command.end - from);
+    if (rx == 0.0f || ry == 0.0f || delta.length() == 0.0f)
+      return { command.control1, command.control2 };
+
+    float radius_ratio = rx / ry;
+    delta.y *= radius_ratio;
+    float length = delta.length();
+    float radius = std::max(length * 0.5f, rx);
+    float center_offset = std::sqrt(std::max(0.0f, radius * radius - length * length * 0.25f));
+    Point normal = Point(delta.y, -delta.x) / length;
+    bool sweep = command.flags & kSweep;
+    if (static_cast<bool>(command.flags & kLargeArc) != sweep)
+      normal = -normal;
+
+    Point center = delta * 0.5f + normal * center_offset;
+    auto tangent = [&](Point position) {
+      Point result = sweep ? Point(-position.y, position.x) : Point(position.y, -position.x);
+      result.y /= radius_ratio;
+      return ellipse_rotation * result;
+    };
+    return { from + tangent(-center), command.end - tangent(delta - center) };
+  }
+
   void Path::CommandList::addCircle(float cx, float cy, float r) {
     addEllipse(cx, cy, r, r);
   }

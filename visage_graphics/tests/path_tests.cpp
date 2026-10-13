@@ -422,3 +422,19 @@ TEST_CASE("Stroke with dashes smaller than float precision", "[graphics]") {
   Path stroke = path.stroke(1.0f, Path::Join::Round, Path::EndCap::Round, { 1e-5f });
   REQUIRE(stroke.numPoints() > 0);
 }
+
+TEST_CASE("Path command directions", "[graphics]") {
+  auto arc = Path::parseSvgPath("M0 0 A10 10 0 0 1 20 0");
+  REQUIRE(arc.direction(0).x == Catch::Approx(0.0f).margin(1e-5f));
+  REQUIRE(arc.direction(0).y == Catch::Approx(-1.0f));
+  REQUIRE(arc.direction(1).x == Catch::Approx(0.0f).margin(1e-5f));
+  REQUIRE(arc.direction(1).y == Catch::Approx(1.0f));
+
+  auto smooth_cubic = Path::parseSvgPath("M0 0 C0 10 10 10 10 0 S20 -10 20 0");
+  REQUIRE(smooth_cubic.direction(1).x == Catch::Approx(0.0f).margin(1e-5f));
+  REQUIRE(smooth_cubic.direction(1).y == Catch::Approx(-1.0f));
+
+  auto smooth_quadratic = Path::parseSvgPath("M0 0 Q5 10 10 0 T20 0");
+  REQUIRE(smooth_quadratic.direction(2).x == Catch::Approx(1.0f / std::sqrt(5.0f)));
+  REQUIRE(smooth_quadratic.direction(2).y == Catch::Approx(2.0f / std::sqrt(5.0f)));
+}

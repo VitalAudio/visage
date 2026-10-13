@@ -152,6 +152,9 @@ namespace visage {
       void addEllipse(float cx, float cy, float rx, float ry);
       void addCircle(float cx, float cy, float r);
 
+      Point quadraticControl(int index) const;
+      std::pair<Point, Point> tangentPoints(int index) const;
+
       Point direction(int index) const {
         auto check_delta = [](const Point& current, const Point& check) {
           return check != Point(FLT_MAX, FLT_MAX) && check != current;
@@ -161,24 +164,24 @@ namespace visage {
         Point command = at(index).end;
         Point prev_point = command;
         for (int i = index; i >= 0 && prev_point == command; --i) {
-          const auto& prev = at(i);
-          if (check_delta(command, prev.end))
-            prev_point = prev.end;
-          else if (check_delta(command, prev.control2))
-            prev_point = prev.control2;
-          else if (check_delta(command, prev.control1))
-            prev_point = prev.control1;
+          auto [first, last] = tangentPoints(i);
+          if (check_delta(command, at(i).end))
+            prev_point = at(i).end;
+          else if (check_delta(command, last))
+            prev_point = last;
+          else if (check_delta(command, first))
+            prev_point = first;
         }
 
         Point next_point = command;
         for (int i = index + 1; i < size() && next_point == command; ++i) {
-          const auto& next = at(i);
-          if (check_delta(command, next.control1))
-            next_point = next.control1;
-          else if (check_delta(command, next.control2))
-            next_point = next.control2;
-          else if (check_delta(command, next.end))
-            next_point = next.end;
+          auto [first, last] = tangentPoints(i);
+          if (check_delta(command, first))
+            next_point = first;
+          else if (check_delta(command, last))
+            next_point = last;
+          else if (check_delta(command, at(i).end))
+            next_point = at(i).end;
         }
 
         Point prev_direction = (command - prev_point).normalized();
