@@ -61,6 +61,12 @@ TEST_CASE("Svg bounding box excludes undrawn content", "[graphics]") {
   REQUIRE(svg.drawable()->post_bounding_box.height() == 10.0f);
 }
 
+TEST_CASE("Svg translate with one argument", "[graphics]") {
+  Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><g transform="translate(5)"><rect width="5" height="10"/></g></svg>)svg");
+  REQUIRE(svg.drawable()->post_bounding_box.x() == 5.0f);
+  REQUIRE(svg.drawable()->post_bounding_box.y() == 0.0f);
+}
+
 TEST_CASE("Svg fill rule", "[graphics]") {
   Svg default_rule = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10"/></svg>)svg");
   REQUIRE(firstShape(default_rule.drawable())->path.fillRule() == Path::FillRule::NonZero);

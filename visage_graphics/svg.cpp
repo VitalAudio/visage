@@ -901,7 +901,7 @@ namespace visage {
         return matrix;
 
       if (tokens[0] == "translate") {
-        float y = args.size() > 1 ? args[1] : args[0];
+        float y = args.size() > 1 ? args[1] : 0.0f;
         matrix = matrix * Transform::translation(args[0], y);
       }
       else if (tokens[0] == "scale") {
