@@ -127,7 +127,7 @@ namespace visage {
 
   void SvgDrawable::draw(Canvas& canvas, ColorContext* context, float x, float y, float width,
                          float height) const {
-    if (!state.visible || opacity <= 0.0f || is_defines)
+    if (!state.visible || opacity <= 0.0f)
       return;
 
     if (opacity < 1.0f)
@@ -139,6 +139,9 @@ namespace visage {
 
   void SvgDrawable::drawAll(Canvas& canvas, ColorContext* context, float x, float y, float width,
                             float height) const {
+    if (is_defines)
+      return;
+
     draw(canvas, context, x, y, width, height);
     for (const auto& child : children)
       child->drawAll(canvas, context, x, y, width, height);
@@ -541,7 +544,15 @@ namespace visage {
     std::string result;
     int current = i;
     int size = str.size();
-    while (i < size && str[i] != '<') {
+    bool cdata = false;
+    while (i < size && (cdata || str[i] != '<' || str.compare(i, 9, "<![CDATA[") == 0)) {
+      if ((!cdata && str.compare(i, 9, "<![CDATA[") == 0) || (cdata && str.compare(i, 3, "]]>") == 0)) {
+        result += str.substr(current, i - current);
+        i += cdata ? 3 : 9;
+        current = i;
+        cdata = !cdata;
+        continue;
+      }
       if (str[i] == '/' && i + 1 < size && str[i + 1] == '*') {
         auto end_pos = str.find("*/", i);
         if (end_pos == std::string::npos) {

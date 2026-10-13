@@ -19,6 +19,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "visage_graphics/canvas.h"
 #include "visage_graphics/svg.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -93,5 +94,34 @@ TEST_CASE("Svg malformed input", "[graphics]") {
   SECTION("Uses that reference each other") {
     Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><g id="a"><use href="#b"/></g><g id="b"><use href="#a"/></g></svg>)svg");
     REQUIRE(svg.drawable());
+  }
+}
+
+static Color renderSvgCenter(const std::string& data) {
+  Svg svg(reinterpret_cast<const unsigned char*>(data.data()), data.size());
+  svg.setDimensions(20, 20, 1.0f);
+  Canvas canvas;
+  canvas.setWindowless(20, 20);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 20, 20);
+  canvas.svg(svg, 0, 0);
+  canvas.submit();
+  return canvas.takeScreenshot().sample(10, 10);
+}
+
+TEST_CASE("Svg rendering", "[graphics]") {
+  SECTION("Shapes are drawn") {
+    Color color = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="red"/></svg>)svg");
+    REQUIRE(color.hexRed() == 0xff);
+  }
+
+  SECTION("Defs are not drawn") {
+    Color color = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><defs><rect width="10" height="10" fill="red"/></defs></svg>)svg");
+    REQUIRE(color.hexRed() == 0x00);
+  }
+
+  SECTION("CDATA style") {
+    Color color = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><style><![CDATA[ .a { fill: red; } ]]></style><rect class="a" width="10" height="10"/></svg>)svg");
+    REQUIRE(color.hexRed() == 0xff);
   }
 }
