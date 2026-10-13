@@ -225,6 +225,14 @@ TEST_CASE("Svg rendering", "[graphics]") {
     REQUIRE(short_hex.hexBlue() == 0x00);
   }
 
+  SECTION("Entity references") {
+    Color attribute = renderSvgCenter(R"svg(<!DOCTYPE svg [<!ENTITY red "fill:red;">]><svg viewBox="0 0 10 10"><rect width="10" height="10" style="&red;"/></svg>)svg");
+    REQUIRE(attribute.hexRed() == 0xff);
+
+    Color element = renderSvgCenter(R"svg(<!DOCTYPE svg [<!ENTITY r "<rect width='10' height='10' fill='red'/>">]><svg viewBox="0 0 10 10"><g transform="translate(20 0)">&r;</g></svg>)svg");
+    REQUIRE(element.hexRed() == 0x00);
+  }
+
   SECTION("Color values") {
     std::vector<std::string> red_fills = {
       R"svg(<g fill="red"><rect width="10" height="10" fill="inherit"/></g>)svg",

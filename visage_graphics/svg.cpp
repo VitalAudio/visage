@@ -664,6 +664,9 @@ namespace visage {
 
     if (str[i] == '!' || str[i] == '?') {
       tag_data.ignored = true;
+      size_t subset = str.compare(i, 8, "!DOCTYPE") == 0 ? str.find_first_of("[>", i) : std::string::npos;
+      if (subset != std::string::npos && str[subset] == '[')
+        i = std::min(str.find(']', subset), str.size());
       consumeTillEndTag(str, i);
       return tag_data;
     }
@@ -705,6 +708,53 @@ namespace visage {
 
   bool isNonXmlTag(const std::string& tag_name) {
     return tag_name == "script" || tag_name == "style" || tag_name == "title" || tag_name == "desc";
+  }
+
+  std::string expandEntities(const std::string& str) {
+    static constexpr size_t kMaxExpansion = 16;
+
+    std::map<std::string, std::string> entities;
+    size_t pos = 0;
+    while ((pos = str.find("<!ENTITY", pos)) != std::string::npos) {
+      pos += 8;
+      size_t name_start = str.find_first_not_of(" \t\r\n", pos);
+      size_t name_end = str.find_first_of(" \t\r\n", name_start);
+      size_t quote = str.find_first_not_of(" \t\r\n", name_end);
+      if (quote == std::string::npos || (str[quote] != '"' && str[quote] != '\''))
+        continue;
+
+      size_t value_end = str.find(str[quote], quote + 1);
+      if (value_end == std::string::npos)
+        break;
+      entities[str.substr(name_start, name_end - name_start)] = str.substr(quote + 1,
+                                                                           value_end - quote - 1);
+      pos = value_end;
+    }
+    if (entities.empty())
+      return str;
+
+    std::string result;
+    size_t last = 0;
+    for (size_t i = 0; i < str.size(); ++i) {
+      if (str[i] != '&')
+        continue;
+
+      size_t end = i + 1;
+      while (end < str.size() && (std::isalnum(static_cast<unsigned char>(str[end])) || str[end] == '_' ||
+                                  str[end] == '-' || str[end] == '.' || str[end] == ':'))
+        end++;
+      if (end >= str.size() || str[end] != ';')
+        continue;
+
+      auto entity = entities.find(str.substr(i + 1, end - i - 1));
+      if (entity == entities.end() || result.size() + entity->second.size() > kMaxExpansion * str.size())
+        continue;
+
+      result += str.substr(last, i - last) + entity->second;
+      last = end + 1;
+      i = end;
+    }
+    return result + str.substr(last);
   }
 
   static constexpr int kMaxTagDepth = 256;
@@ -1749,7 +1799,7 @@ namespace visage {
   }
 
   void SvgParser::parseData(const unsigned char* data, int data_size) {
-    std::string str(reinterpret_cast<const char*>(data), data_size);
+    std::string str = expandEntities(std::string(reinterpret_cast<const char*>(data), data_size));
 
     std::vector<Tag> tags;
     int i = 0;
