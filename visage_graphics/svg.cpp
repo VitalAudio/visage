@@ -149,10 +149,6 @@ namespace visage {
     const Brush* context_brush = nullptr;
     if (gradient.type == GradientDef::Type::CurrentColor)
       context_brush = context->current_color;
-    else if (gradient.type == GradientDef::Type::ContextFill)
-      context_brush = context->fill_color;
-    else if (gradient.type == GradientDef::Type::ContextStroke)
-      context_brush = context->stroke_color;
 
     if (context_brush) {
       if (color_opacity == 1.0f)
@@ -190,7 +186,6 @@ namespace visage {
                                     state.fill_opacity);
       brush.transform(Transform::translation(x, y));
       canvas.setColor(brush);
-      context->fill_color = &fill_brush;
     }
 
     canvas.fill(path, x, y, width, height);
@@ -209,7 +204,6 @@ namespace visage {
                                     state.stroke_opacity);
       brush.transform(Transform::translation(x, y));
       canvas.setColor(brush);
-      context->stroke_color = &stroke_brush;
     }
 
     canvas.fill(stroke_path, x, y, width, height);
@@ -549,7 +543,36 @@ namespace visage {
     auto stroke_box = state.stroke_gradient.user_space ? view_box : path.boundingBox();
     stroke_brush = state.stroke_gradient.isCurrentColor() ? Brush::solid(0xff000000) :
                                                             state.stroke_gradient.toBrush(stroke_box);
+    stroke_alpha = stroke_opacity;
     stroke_brush = stroke_brush.withMultipliedAlpha(stroke_opacity);
+  }
+
+  void SvgDrawable::resolveContextPaint(const Brush& context_fill, const Brush& context_stroke) {
+    auto resolve = [&](Brush& brush, const GradientDef& gradient, float alpha) {
+      if (gradient.type == GradientDef::Type::ContextFill)
+        brush = context_fill.withMultipliedAlpha(alpha);
+      else if (gradient.type == GradientDef::Type::ContextStroke)
+        brush = context_stroke.withMultipliedAlpha(alpha);
+    };
+
+    resolve(fill_brush, state.fill_gradient, state.fill_opacity);
+    resolve(stroke_brush, state.stroke_gradient, stroke_alpha);
+
+    Brush use_fill, use_stroke;
+    if (is_use) {
+      use_fill = state.fill_gradient.toBrush(post_bounding_box).withMultipliedAlpha(state.fill_opacity);
+      use_stroke = state.stroke_gradient.toBrush(post_bounding_box).withMultipliedAlpha(state.stroke_opacity);
+      resolve(use_fill, state.fill_gradient, state.fill_opacity);
+      resolve(use_stroke, state.stroke_gradient, state.stroke_opacity);
+    }
+    for (auto& child : children) {
+      if (child->is_marker)
+        child->resolveContextPaint(fill_brush, stroke_brush);
+      else if (is_use)
+        child->resolveContextPaint(use_fill, use_stroke);
+      else
+        child->resolveContextPaint(context_fill, context_stroke);
+    }
   }
 
   void SvgDrawable::adjustPaths(const Matrix& scale_matrix, const Bounds& view_box,
@@ -1317,6 +1340,7 @@ namespace visage {
       if (marker_current) {
         auto point = drawable->command_list[i].end;
         auto marker = std::make_unique<SvgDrawable>(marker_current->drawable);
+        marker->is_marker = true;
         Transform rotation;
         if (marker_current->use_angle)
           rotation = Transform::rotation(marker_current->marker_angle);

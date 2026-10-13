@@ -149,8 +149,6 @@ namespace visage {
   struct SvgDrawable {
     struct ColorContext {
       const Brush* current_color = nullptr;
-      const Brush* fill_color = nullptr;
-      const Brush* stroke_color = nullptr;
     };
 
     SvgDrawable() = default;
@@ -263,6 +261,7 @@ namespace visage {
     void adjustPaths(const Matrix& scale_matrix, const Bounds& view_box,
                      std::map<std::string, SvgDrawable*>& clip_paths);
     void strokePath(const Matrix& scale_matrix, const Bounds& view_box);
+    void resolveContextPaint(const Brush& context_fill, const Brush& context_stroke);
     void setSize(const SvgViewSettings& view, float width, float height, float scale = 1.0f) {
       if (width == 0.0f || height == 0.0f)
         return;
@@ -273,6 +272,7 @@ namespace visage {
       initPaths(dpi_scale * initial_transform.matrix, view.view_box);
       adjustPaths(dpi_scale * initial_transform.matrix, view.view_box, clip_paths);
       transformPaths(initial_transform);
+      resolveContextPaint(Brush::none(), Brush::none());
     }
 
     void setSize(const SvgViewSettings& view) { setSize(view, view.width, view.height); }
@@ -332,6 +332,7 @@ namespace visage {
     DrawableState state;
     Brush fill_brush;
     Brush stroke_brush;
+    float stroke_alpha = 1.0f;
     Path path;
     Path stroke_path;
     Bounds post_bounding_box;
@@ -339,6 +340,7 @@ namespace visage {
     std::optional<Bounds> view_clip;
 
     bool is_clip_path = false;
+    bool is_marker = false;
     bool is_use = false;
     bool is_clip_bounding_box = false;
     std::string clip_path_shape;

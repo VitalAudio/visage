@@ -225,6 +225,15 @@ TEST_CASE("Svg rendering", "[graphics]") {
     REQUIRE(short_hex.hexBlue() == 0x00);
   }
 
+  SECTION("Context paint") {
+    Color in_use = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><defs><rect id="r" width="10" height="10" fill="context-fill"/></defs><use href="#r" fill="red"/></svg>)svg");
+    REQUIRE(in_use.hexRed() == 0xff);
+
+    Color in_marker = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><marker id="m" overflow="visible"><path d="M-5 -5 L-4 -4" stroke="lime"/><rect x="-5" y="-5" width="10" height="10" fill="context-stroke"/></marker><path d="M5 5 L5 6" stroke="red" marker-start="url(#m)"/></svg>)svg");
+    REQUIRE(in_marker.hexRed() == 0xff);
+    REQUIRE(in_marker.hexGreen() == 0x00);
+  }
+
   SECTION("Entity references") {
     Color attribute = renderSvgCenter(R"svg(<!DOCTYPE svg [<!ENTITY red "fill:red;">]><svg viewBox="0 0 10 10"><rect width="10" height="10" style="&red;"/></svg>)svg");
     REQUIRE(attribute.hexRed() == 0xff);
