@@ -1249,7 +1249,9 @@ namespace visage {
           rotation = Transform(direction.x, -direction.y, 0.0f, direction.y, direction.x, 0.0f);
         }
 
-        marker->local_transform = Transform::translation(point) * rotation * marker->local_transform;
+        float scale = marker_current->stroke_width_units ? drawable->state.stroke_width : 1.0f;
+        marker->local_transform = Transform::translation(point) * rotation *
+                                  Transform::scale(scale, scale) * marker->local_transform;
         drawable->children.push_back(std::move(marker));
       }
 
@@ -1409,6 +1411,8 @@ namespace visage {
               drawable.children.push_back(std::move(child));
           }
 
+          view.width = 3.0f;
+          view.height = 3.0f;
           if (tag.data.attributes.count("markerWidth"))
             view.width = parseNumber(tag.data.attributes.at("markerWidth"), view.width);
           if (tag.data.attributes.count("markerHeight"))
@@ -1420,6 +1424,9 @@ namespace visage {
             x_offset = parseNumber(tag.data.attributes.at("refX"), view.width);
           if (tag.data.attributes.count("refY"))
             y_offset = parseNumber(tag.data.attributes.at("refY"), view.height);
+
+          if (tag.data.attributes.count("markerUnits"))
+            marker->stroke_width_units = tag.data.attributes.at("markerUnits") != "userSpaceOnUse";
 
           if (tag.data.attributes.count("orient")) {
             std::string orient = tag.data.attributes.at("orient");

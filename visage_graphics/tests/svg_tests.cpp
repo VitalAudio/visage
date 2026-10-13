@@ -67,6 +67,16 @@ TEST_CASE("Svg translate with one argument", "[graphics]") {
   REQUIRE(svg.drawable()->post_bounding_box.y() == 0.0f);
 }
 
+TEST_CASE("Svg marker orientation and units", "[graphics]") {
+  Svg stroke_units = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m"><rect width="2" height="1"/></marker><path d="M5 5 L5 9" stroke-width="2" marker-start="url(#m)"/></svg>)svg");
+  REQUIRE(stroke_units.drawable()->post_bounding_box.width() == 4.0f);
+  REQUIRE(stroke_units.drawable()->post_bounding_box.height() == 2.0f);
+
+  Svg user_units = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m" markerUnits="userSpaceOnUse"><rect width="2" height="1"/></marker><path d="M5 5 L5 9" stroke-width="2" marker-start="url(#m)"/></svg>)svg");
+  REQUIRE(user_units.drawable()->post_bounding_box.width() == 2.0f);
+  REQUIRE(user_units.drawable()->post_bounding_box.height() == 1.0f);
+}
+
 TEST_CASE("Svg fill rule", "[graphics]") {
   Svg default_rule = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10"/></svg>)svg");
   REQUIRE(firstShape(default_rule.drawable())->path.fillRule() == Path::FillRule::NonZero);

@@ -346,7 +346,8 @@ namespace visage {
   struct Marker {
     SvgDrawable drawable;
     bool reverse_start_marker = false;
-    bool use_angle = false;
+    bool use_angle = true;
+    bool stroke_width_units = true;
     float marker_angle = 0.0f;
   };
 
