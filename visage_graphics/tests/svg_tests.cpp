@@ -100,6 +100,12 @@ TEST_CASE("Svg marker orientation and units", "[graphics]") {
   }
 }
 
+TEST_CASE("Svg marker percentages use the viewport", "[graphics]") {
+  Svg svg = parseSvg(R"svg(<svg viewBox="0 0 20 20"><marker id="m" viewBox="0 0 1 1" markerWidth="10%" markerHeight="10%"><rect width="1" height="1"/></marker><path d="M10 10 L10 18" marker-start="url(#m)"/></svg>)svg");
+  REQUIRE(svg.drawable()->post_bounding_box.width() == 1.0f);
+  REQUIRE(svg.drawable()->post_bounding_box.height() == 1.0f);
+}
+
 TEST_CASE("Svg marker reference point with viewBox", "[graphics]") {
   Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m" viewBox="2 2 4 4" markerWidth="2" markerHeight="2" refX="4" refY="4"><rect x="4" y="4" width="2" height="2"/></marker><path d="M5 5 L5 9" marker-start="url(#m)"/></svg>)svg");
   REQUIRE(svg.drawable()->post_bounding_box.x() == 5.0f);

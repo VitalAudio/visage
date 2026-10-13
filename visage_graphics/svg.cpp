@@ -1510,19 +1510,21 @@ namespace visage {
               drawable.children.push_back(std::move(child));
           }
 
+          float view_width = view_.view_box.width() > 0.0f ? view_.view_box.width() : 1.0f;
+          float view_height = view_.view_box.height() > 0.0f ? view_.view_box.height() : 1.0f;
           view.width = 3.0f;
           view.height = 3.0f;
           if (tag.data.attributes.count("markerWidth"))
-            view.width = parseNumber(tag.data.attributes.at("markerWidth"), view.width);
+            view.width = parseNumber(tag.data.attributes.at("markerWidth"), view_width);
           if (tag.data.attributes.count("markerHeight"))
-            view.height = parseNumber(tag.data.attributes.at("markerHeight"), view.height);
+            view.height = parseNumber(tag.data.attributes.at("markerHeight"), view_height);
 
           float x_offset = 0.0f;
           float y_offset = 0.0f;
           if (tag.data.attributes.count("refX"))
-            x_offset = parseNumber(tag.data.attributes.at("refX"), view.width);
+            x_offset = parseNumber(tag.data.attributes.at("refX"), view_width);
           if (tag.data.attributes.count("refY"))
-            y_offset = parseNumber(tag.data.attributes.at("refY"), view.height);
+            y_offset = parseNumber(tag.data.attributes.at("refY"), view_height);
 
           std::string overflow = tag.data.attributes.count("overflow") ?
                                      tag.data.attributes.at("overflow") :
