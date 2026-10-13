@@ -1209,6 +1209,11 @@ namespace visage {
       return translateColor(tokens[0]);
 
     if (tokens[0].substr(0, 3) == "rgb" && tokens.size() > 3) {
+      auto is_percent = [&](int index) { return tokens[index].find('%') != std::string::npos; };
+      bool mixed = is_percent(1) != is_percent(2) || is_percent(1) != is_percent(3);
+      if (mixed && color.find(',') != std::string::npos)
+        return std::nullopt;
+
       float alpha = tokens.size() > 4 ? parseNumber(tokens[4], 1.0f) : 1.0f;
       return Color(alpha, parseNumber(tokens[1], 255.0f) / 255.0f,
                    parseNumber(tokens[2], 255.0f) / 255.0f, parseNumber(tokens[3], 255.0f) / 255.0f);

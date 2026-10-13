@@ -351,6 +351,11 @@ TEST_CASE("Svg rendering", "[graphics]") {
       REQUIRE(color.hexGreen() == 0x00);
     }
 
+    Color mixed = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="rgb(255, 50%, 0)"/></svg>)svg");
+    REQUIRE(mixed.hexRed() == 0x00);
+    Color modern_mixed = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="rgb(255 0% 0)"/></svg>)svg");
+    REQUIRE(modern_mixed.hexRed() == 0xff);
+
     Color missing = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="url(#missing)"/></svg>)svg");
     REQUIRE(missing.hexRed() == 0x00);
   }
