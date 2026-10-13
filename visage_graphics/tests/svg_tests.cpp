@@ -149,6 +149,13 @@ TEST_CASE("Svg rendering", "[graphics]") {
     REQUIRE(color.hexRed() == 0x00);
   }
 
+  SECTION("Symbols are only drawn through use") {
+    Color hidden = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><symbol id="s"><rect width="10" height="10" fill="red"/></symbol></svg>)svg");
+    REQUIRE(hidden.hexRed() == 0x00);
+    Color used = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><symbol id="s"><rect width="10" height="10" fill="red"/></symbol><use href="#s"/></svg>)svg");
+    REQUIRE(used.hexRed() == 0xff);
+  }
+
   SECTION("Display none hides visible children") {
     Color color = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><g display="none"><rect width="10" height="10" fill="red" visibility="visible"/></g></svg>)svg");
     REQUIRE(color.hexRed() == 0x00);

@@ -432,11 +432,13 @@ namespace visage {
         if (clip_drawable->is_clip_bounding_box) {
           auto scale = scale_matrix * Matrix::scale(bounding_box.width(), bounding_box.height());
           clip_drawable->initPaths(scale, view_box);
-          clip_drawable->adjustPaths(scale, view_box, clip_paths);
+          for (auto& child : clip_drawable->children)
+            child->adjustPaths(scale, view_box, clip_paths);
 
           clip_drawable->gatherClipPaths(clipping_paths);
           for (auto& clip_path : clipping_paths) {
-            clip_path.transform(Transform::translation(bounding_box.x(), bounding_box.y()) *
+            clip_path.transform(clip_drawable->local_transform *
+                                Transform::translation(bounding_box.x(), bounding_box.y()) *
                                 Transform::scale(bounding_box.width(), bounding_box.height()));
           }
         }
@@ -1453,7 +1455,7 @@ namespace visage {
         target.children = reference.children;
 
       if (target.data.name.empty())
-        target.data.name = reference.data.name;
+        target.data.name = reference.data.name == "symbol" ? "g" : reference.data.name;
     };
 
     for (auto& tag : tags) {
@@ -1663,7 +1665,7 @@ namespace visage {
 
     state_stack.push_back(state_stack.back());
     auto drawable = std::make_unique<SvgDrawable>();
-    drawable->is_defines = tag.data.name == "defs";
+    drawable->is_defines = tag.data.name == "defs" || tag.data.name == "symbol";
     drawable->is_use = tag.data.name == "use";
 
     for (const auto& style : style_lookup_) {

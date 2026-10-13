@@ -889,4 +889,8 @@ TEST_CASE("Svg frame clip paths", "[integration]") {
               .hexRed() == 0xff);
   REQUIRE(svgFrameCenter(R"svg(<svg viewBox="0 0 20 20"><rect width="20" height="20" fill="white" clip-path="none"/></svg>)svg")
               .hexRed() == 0xff);
+
+  Screenshot bounding_box = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c" clipPathUnits="objectBoundingBox" transform="translate(10 10)"><rect width="0.5" height="0.5"/></clipPath><rect width="20" height="20" fill="white" clip-path="url(#c)"/></svg>)svg");
+  REQUIRE(bounding_box.sample(5, 5).hexRed() == 0x00);
+  REQUIRE(bounding_box.sample(15, 15).hexRed() == 0xff);
 }
