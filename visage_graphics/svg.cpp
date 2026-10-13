@@ -1225,7 +1225,7 @@ namespace visage {
         drawable->command_list.addRectangle(x, y, width, height);
     }
     else if (tag.data.name == "circle" || tag.data.name == "ellipse") {
-      float x = 0.0f, y = 0.0f, cx = 0.0f, cy = 0.0f, rx = 0.0f, ry = 0.0f;
+      float x = 0.0f, y = 0.0f, cx = 0.0f, cy = 0.0f, rx = -1.0f, ry = -1.0f;
       if (tag.data.attributes.count("x"))
         x = parseNumber(tag.data.attributes.at("x"), view_width);
       if (tag.data.attributes.count("y"))
@@ -1242,6 +1242,13 @@ namespace visage {
         rx = parseNumber(tag.data.attributes.at("rx"), view_width);
       if (tag.data.attributes.count("ry"))
         ry = parseNumber(tag.data.attributes.at("ry"), view_height);
+
+      if (rx < 0.0f)
+        rx = ry;
+      if (ry < 0.0f)
+        ry = rx;
+      if (rx <= 0.0f || ry <= 0.0f)
+        return false;
 
       drawable->command_list.addEllipse(x + cx, y + cy, rx, ry);
     }

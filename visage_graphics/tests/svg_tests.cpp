@@ -96,6 +96,17 @@ TEST_CASE("Svg marker properties", "[graphics]") {
   REQUIRE(style.drawable()->post_bounding_box.width() == 2.0f);
 }
 
+TEST_CASE("Svg ellipse radii", "[graphics]") {
+  Svg negative = parseSvg(R"svg(<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="-2"/><ellipse cx="5" cy="5" rx="-2" ry="-3"/></svg>)svg");
+  REQUIRE(numShapes(negative.drawable()) == 0);
+
+  Svg auto_radius = parseSvg(R"svg(<svg viewBox="0 0 10 10"><ellipse cx="5" cy="5" ry="2"/></svg>)svg");
+  REQUIRE(auto_radius.drawable()->post_bounding_box.width() == 4.0f);
+
+  Svg markers = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m"><rect width="1" height="1"/></marker><circle cx="5" cy="5" r="2" marker-mid="url(#m)"/></svg>)svg");
+  REQUIRE(numShapes(markers.drawable()) == 5);
+}
+
 TEST_CASE("Svg fill rule", "[graphics]") {
   Svg default_rule = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10"/></svg>)svg");
   REQUIRE(firstShape(default_rule.drawable())->path.fillRule() == Path::FillRule::NonZero);

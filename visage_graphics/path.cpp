@@ -305,8 +305,10 @@ namespace visage {
 
   void Path::CommandList::addEllipse(float cx, float cy, float rx, float ry) {
     moveTo(cx + rx, cy);
-    arcTo(rx, ry, 180.0f, false, true, Point(cx - rx, cy), false);
-    arcTo(rx, ry, 180.0f, false, true, Point(cx + rx, cy), false);
+    arcTo(rx, ry, 0.0f, false, true, Point(cx, cy + ry), false);
+    arcTo(rx, ry, 0.0f, false, true, Point(cx - rx, cy), false);
+    arcTo(rx, ry, 0.0f, false, true, Point(cx, cy - ry), false);
+    arcTo(rx, ry, 0.0f, false, true, Point(cx + rx, cy), false);
 
     close();
   }
