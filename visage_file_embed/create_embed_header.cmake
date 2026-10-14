@@ -10,6 +10,8 @@ if (NOT DEFINED VAR_NAMESPACE)
   message(FATAL_ERROR "Required VAR_NAMESPACE is not set")
 endif ()
 
+include(${CMAKE_CURRENT_LIST_DIR}/embedded_name.cmake)
+
 set(FILE_CONTENTS "// Generated file, do not edit\n")
 set(FILE_CONTENTS "${FILE_CONTENTS}#pragma once\n\n")
 set(FILE_CONTENTS "${FILE_CONTENTS}#include \"embedded_file.h\"\n")
@@ -18,8 +20,7 @@ set(FILE_CONTENTS "${FILE_CONTENTS}namespace ${VAR_NAMESPACE} {\n")
 set(FILE_CONTENTS "${FILE_CONTENTS}  ::visage::EmbeddedFile fileByName(const std::string& filename);\n")
 
 foreach (FILE ${FILE_LIST})
-  string(REGEX MATCH "([^/]+)$" VAR_NAME ${FILE})
-  string(REGEX REPLACE "\\.| |-" "_" VAR_NAME ${VAR_NAME})
+  embedded_variable_name("${FILE}" VAR_NAME)
   set(FILE_CONTENTS "${FILE_CONTENTS}  extern ::visage::EmbeddedFile ${VAR_NAME};\n")
 endforeach ()
 set(FILE_CONTENTS "${FILE_CONTENTS}}\n")

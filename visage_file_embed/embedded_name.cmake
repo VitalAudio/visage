@@ -1,0 +1,6 @@
+function(embedded_variable_name file output)
+  get_filename_component(name "${file}" NAME)
+  string(REGEX REPLACE "[ !-/:-@[-^`{-~]" "_" name "${name}")
+  string(REGEX REPLACE "^([0-9])" "_\\1" name "${name}")
+  set(${output} "${name}" PARENT_SCOPE)
+endfunction()
