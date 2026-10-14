@@ -127,16 +127,12 @@ TEST_CASE("Child process with stderr output", "[utils]") {
   REQUIRE(spawnChildProcess(command, argument, output, 1000));
   REQUIRE(String(output).trim().toUtf8() == "error message");
 #else
-  std::string command = "python3";
-  std::string argument = "-c import sys; sys.stderr.write('error message\\n')";
+  std::string command = "/bin/sh";
+  std::string argument = "-c \"echo error message 1>&2\"";
 
   std::string output;
-  if (spawnChildProcess(command, argument, output, 1000)) {
-    REQUIRE(String(output).trim().toUtf8() == "error message");
-  }
-  else {
-    REQUIRE(true);
-  }
+  REQUIRE(spawnChildProcess(command, argument, output, 1000));
+  REQUIRE(String(output).trim().toUtf8() == "error message");
 #endif
 }
 
@@ -185,6 +181,47 @@ TEST_CASE("Child process with spaces in arguments", "[utils]") {
   REQUIRE(String(output).trim().toUtf8() == "hello world test");
 }
 
+#if !VISAGE_WINDOWS
+TEST_CASE("Child process with quoted arguments", "[utils]") {
+  std::string output;
+  REQUIRE(spawnChildProcess("/usr/bin/printf", R"([%s] "two  words"  plain "a \"quote\"" "" a\b)",
+                            output, 1000));
+  REQUIRE(output == R"([two  words][plain][a "quote"][][a\b])");
+}
+
+TEST_CASE("Child process with a quoted path containing spaces", "[utils]") {
+  std::filesystem::path path = std::filesystem::temp_directory_path() /
+                               "visage child process test.txt";
+  {
+    std::ofstream file(path);
+    file << "contents";
+  }
+
+  std::string output;
+  bool result = spawnChildProcess("/bin/cat", "\"" + path.string() + "\"", output, 1000);
+  std::filesystem::remove(path);
+
+  REQUIRE(result);
+  REQUIRE(output == "contents");
+}
+
+TEST_CASE("Child process searches the path for commands", "[utils]") {
+  std::string output;
+  REQUIRE(spawnChildProcess("echo", "found", output, 1000));
+  REQUIRE(String(output).trim().toUtf8() == "found");
+}
+
+TEST_CASE("Child process inherits the environment", "[utils]") {
+  setenv("VISAGE_CHILD_PROCESS_TEST", "inherited", 1);
+  std::string output;
+  bool result = spawnChildProcess("/bin/sh", "-c \"echo $VISAGE_CHILD_PROCESS_TEST\"", output, 1000);
+  unsetenv("VISAGE_CHILD_PROCESS_TEST");
+
+  REQUIRE(result);
+  REQUIRE(String(output).trim().toUtf8() == "inherited");
+}
+#endif
+
 TEST_CASE("Child process immediate completion", "[utils]") {
 #if VISAGE_WINDOWS
   std::string command = "cmd.exe";
@@ -225,18 +262,15 @@ TEST_CASE("Child process with mixed stdout and stderr", "[utils]") {
   REQUIRE(trimmed.find("stdout") != std::string::npos);
   REQUIRE(trimmed.find("stderr") != std::string::npos);
 #else
-  std::string command = "python3";
-  std::string argument = "-c import sys; print('stdout'); sys.stderr.write('stderr\\n')";
+  std::string command = "/bin/sh";
+  std::string argument = "-c \"echo stdout; echo stderr 1>&2\"";
 
   std::string output;
-  if (spawnChildProcess(command, argument, output, 1000)) {
-    std::string trimmed = String(output).trim().toUtf8();
-    REQUIRE(trimmed.find("stdout") != std::string::npos);
-    REQUIRE(trimmed.find("stderr") != std::string::npos);
-  }
-  else {
-    REQUIRE(true);
-  }
+  REQUIRE(spawnChildProcess(command, argument, output, 1000));
+
+  std::string trimmed = String(output).trim().toUtf8();
+  REQUIRE(trimmed.find("stdout") != std::string::npos);
+  REQUIRE(trimmed.find("stderr") != std::string::npos);
 #endif
 }
 

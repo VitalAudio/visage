@@ -168,9 +168,9 @@ namespace visage {
     File temporary_shader = compile_path / shader_name;
     replaceFileWithText(temporary_shader, code);
 
-    std::string arguments = "-f " + temporary_shader.string() + " -i " + include_path.string() +
-                            " -o " + output_file.string() + " --type " + type + " --platform " +
-                            platform + " -p " + profile;
+    std::string arguments = "-f \"" + temporary_shader.string() + "\" -i \"" +
+                            include_path.string() + "\" -o \"" + output_file.string() +
+                            "\" --type " + type + " --platform " + platform + " -p " + profile;
 
     std::string output;
     if (!spawnChildProcess(compiler_path_, arguments, output)) {
