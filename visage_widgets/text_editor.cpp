@@ -304,6 +304,9 @@ namespace visage {
   }
 
   void TextEditor::deleteSelected() {
+    if (selectionStart() == selectionEnd())
+      return;
+
     undone_history_.clear();
 
     if (action_state_ != kDeleting)

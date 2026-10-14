@@ -134,3 +134,26 @@ TEST_CASE("Text editor end of a soft wrapped line keeps the caret on that line",
 
   REQUIRE(editor.positionToIndex({ 1000.0f, first_line_y }) == caret);
 }
+
+TEST_CASE("Text editor deleting nothing leaves the text and undo history alone", "[widgets]") {
+  TextEditor editor;
+  editor.setText("abc");
+  int changes = 0;
+  editor.onTextChange() += [&changes] { changes++; };
+
+  editor.processTextInput("d");
+  editor.undo();
+  REQUIRE(editor.text() == "abc");
+  REQUIRE(changes == 2);
+
+  editor.moveCaretToEnd(false);
+  editor.deleteForwards(false);
+  editor.moveCaretToTop(false);
+  editor.deleteBackwards(false);
+  editor.cutToClipboard();
+  REQUIRE(editor.text() == "abc");
+  REQUIRE(changes == 2);
+
+  editor.redo();
+  REQUIRE(editor.text() == "abcd");
+}
