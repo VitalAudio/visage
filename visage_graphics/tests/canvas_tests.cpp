@@ -917,6 +917,43 @@ TEST_CASE("Cached region keeps its content when a sibling adds a bloom effect", 
   REQUIRE(canvas.takeScreenshot().sample(48, 16).hexRed() == 0xff);
 }
 
+TEST_CASE("Backdrop updates when content within its blur radius changes", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(160, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(20.0f);
+  Region background;
+  Region neighbor;
+  Region glass;
+  canvas.addRegion(&background);
+  background.setBounds(0, 0, 160, 32);
+  canvas.addRegion(&neighbor);
+  neighbor.setBounds(80, 0, 18, 32);
+  canvas.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&blur);
+  glass.setBounds(100, 0, 60, 32);
+
+  auto fill = [&canvas](Region& region, unsigned int color) {
+    canvas.beginRegion(&region);
+    canvas.setColor(color);
+    canvas.fill(0, 0, region.width(), region.height());
+    canvas.endRegion();
+  };
+
+  fill(background, 0xff000000);
+  fill(neighbor, 0xffffffff);
+  canvas.beginRegion(&glass);
+  canvas.endRegion();
+  REQUIRE(canvas.takeScreenshot().sample(101, 16).hexRed() > 0x30);
+
+  neighbor.invalidate();
+  fill(neighbor, 0xff000000);
+  canvas.layer(0)->requestScreenshot();
+  canvas.submit();
+  REQUIRE(canvas.screenshot().sample(101, 16).hexRed() < 0x10);
+}
+
 TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BlurPostEffect blur; }
   { BloomPostEffect bloom; }
