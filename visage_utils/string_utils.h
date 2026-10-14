@@ -205,8 +205,6 @@ namespace visage {
     String(const wchar_t* string) : string_(convertToUtf32(string)) { }
     String(const char* string) : string_(convertToUtf32(string)) { }
 
-    String(const String& other) = default;
-
     explicit String(bool value) : String(value ? U"true" : U"false") { }
     String(char32_t character) { string_.push_back(character); }
     String(char character) {

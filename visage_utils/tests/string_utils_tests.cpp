@@ -24,6 +24,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <clocale>
+#include <type_traits>
 
 using namespace visage;
 
@@ -59,6 +60,11 @@ TEST_CASE("String conversion replaces invalid code points and surrogates", "[uti
   REQUIRE(String::convertUtf16ToUtf32(std::u16string { 'x', 0xDC00, 'y' }) == U"x\uFFFDy");
   REQUIRE(String::convertUtf16ToUtf32(std::u16string { 'x', 0xD800 }) == U"x\uFFFD");
   REQUIRE(String::convertUtf16ToUtf32(std::u16string { 'x', 0xD83D, 0xDE02 }) == U"x\U0001F602");
+}
+
+TEST_CASE("String moves without copying", "[utils]") {
+  REQUIRE(std::is_nothrow_move_constructible_v<String>);
+  REQUIRE(std::is_nothrow_move_assignable_v<String>);
 }
 
 TEST_CASE("Base 64 conversion", "[utils]") {
