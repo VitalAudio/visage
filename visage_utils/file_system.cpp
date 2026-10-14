@@ -247,16 +247,20 @@ namespace visage {
   }
 
   std::vector<File> searchForFiles(const File& directory, const std::string& regex) {
-    if (!std::filesystem::is_directory(directory))
+    std::error_code error;
+    if (!std::filesystem::is_directory(directory, error))
       return {};
 
     std::vector<File> matches;
     std::regex match_pattern(regex);
 
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(directory)) {
-      std::string file_name = entry.path().filename().string();
-      if (entry.is_regular_file() && std::regex_search(file_name, match_pattern))
-        matches.push_back(entry.path());
+    auto options = std::filesystem::directory_options::skip_permission_denied;
+    std::filesystem::recursive_directory_iterator entry(directory, options, error);
+    for (; !error && entry != std::filesystem::recursive_directory_iterator(); entry.increment(error)) {
+      std::error_code type_error;
+      std::string file_name = entry->path().filename().string();
+      if (entry->is_regular_file(type_error) && std::regex_search(file_name, match_pattern))
+        matches.push_back(entry->path());
     }
 
     return matches;

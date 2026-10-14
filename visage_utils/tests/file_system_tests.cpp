@@ -259,6 +259,27 @@ TEST_CASE("Search in non-existent directory", "[utils]") {
   REQUIRE(dirs.empty());
 }
 
+#if !VISAGE_WINDOWS
+TEST_CASE("Search for files skips unreadable directories", "[utils]") {
+  std::filesystem::path temp_dir = std::filesystem::temp_directory_path() /
+                                   "visage_test_search_unreadable";
+  std::filesystem::path locked = temp_dir / "locked";
+  std::filesystem::create_directories(locked);
+  (void)replaceFileWithText(temp_dir / "readable.txt", "content");
+  (void)replaceFileWithText(locked / "hidden.txt", "content");
+  std::filesystem::permissions(locked, std::filesystem::perms::none);
+
+  std::vector<File> files;
+  CHECK_NOTHROW(files = searchForFiles(temp_dir, ".*\\.txt"));
+
+  std::filesystem::permissions(locked, std::filesystem::perms::owner_all);
+  std::filesystem::remove_all(temp_dir);
+
+  if (geteuid() != 0)
+    REQUIRE(files.size() == 1);
+}
+#endif
+
 TEST_CASE("Write access check", "[utils]") {
   File temp_file = createTemporaryFile("access_test");
 
