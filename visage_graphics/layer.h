@@ -112,7 +112,8 @@ namespace visage {
     void setHdr(bool hdr, bool translucent = false) {
       hdr_ = hdr;
       translucent_ = translucent;
-      destroyFrameBuffer();
+      resizeFrameBuffer();
+      invalidate();
     }
     bool hdr() const { return hdr_; }
 
