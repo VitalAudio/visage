@@ -774,3 +774,20 @@ TEST_CASE("Canvas strokes a path at its logical width", "[graphics]") {
     REQUIRE(covered / 255.0f == Catch::Approx(4.0f * scale).margin(0.5f));
   }
 }
+
+TEST_CASE("Fill with no bounds fills the clamp bounds", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(10, 10);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 10, 10);
+  canvas.setClampBounds(5, 2, 5, 6);
+  canvas.setColor(0xffffffff);
+  canvas.fill();
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(screenshot.sample(7, 5).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(9, 7).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(2, 5).hexRed() == 0x00);
+  REQUIRE(screenshot.sample(7, 1).hexRed() == 0x00);
+  REQUIRE(screenshot.sample(7, 9).hexRed() == 0x00);
+}

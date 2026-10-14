@@ -120,7 +120,7 @@ namespace visage {
     }
 
     void fill() {
-      addShape(Fill(state_.clamp, state_.brush, state_.x, state_.y,
+      addShape(Fill(state_.clamp, state_.brush, state_.clamp.left, state_.clamp.top,
                     state_.clamp.right - state_.clamp.left, state_.clamp.bottom - state_.clamp.top));
     }
 
