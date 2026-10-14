@@ -491,7 +491,7 @@ namespace visage {
     if (!command_list.empty()) {
       path.clear();
       path.setFillRule(state.non_zero_fill ? Path::FillRule::NonZero : Path::FillRule::EvenOdd);
-      path.setResolutionMatrix(scale_matrix);
+      path.setResolutionMatrix(scale);
       path.loadCommands(command_list);
 
       Bounds bounding_box = path.boundingBox();
@@ -500,7 +500,7 @@ namespace visage {
                                                           state.fill_gradient.toBrush(fill_box);
       fill_brush = fill_brush.withMultipliedAlpha(state.fill_opacity);
 
-      strokePath(scale_matrix, view_box);
+      strokePath(scale, view_box);
     }
   }
 

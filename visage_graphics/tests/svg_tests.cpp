@@ -466,3 +466,23 @@ TEST_CASE("Svg rendering", "[graphics]") {
     REQUIRE(color.hexRed() == 0xff);
   }
 }
+
+TEST_CASE("Svg element transforms apply to curve resolution and stroke width", "[graphics]") {
+  auto first_shape = [](const std::string& data) {
+    Svg svg(reinterpret_cast<const unsigned char*>(data.data()), data.size());
+    svg.setDimensions(100, 100, 1.0f);
+    const SvgDrawable* drawable = svg.drawable();
+    while (drawable->command_list.empty())
+      drawable = drawable->children.front().get();
+    return std::make_pair(drawable->path.numPoints(), drawable->stroke_path.boundingBox().height());
+  };
+
+  auto scaled_circle = first_shape(R"svg(<svg viewBox="0 0 100 100"><circle r="2" transform="translate(50 50) scale(20)"/></svg>)svg");
+  auto large_circle = first_shape(R"svg(<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40"/></svg>)svg");
+  REQUIRE(scaled_circle.first == large_circle.first);
+
+  auto own_scale = first_shape(R"svg(<svg viewBox="0 0 100 100"><path d="M0 0.5L1 0.5" stroke="red" stroke-width="0.05" transform="scale(100)"/></svg>)svg");
+  auto parent_scale = first_shape(R"svg(<svg viewBox="0 0 100 100"><g transform="scale(100)"><path d="M0 0.5L1 0.5" stroke="red" stroke-width="0.05"/></g></svg>)svg");
+  REQUIRE(own_scale.second == Catch::Approx(5.0f));
+  REQUIRE(own_scale.second == Catch::Approx(parent_scale.second));
+}
