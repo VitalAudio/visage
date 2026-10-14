@@ -109,6 +109,15 @@ TEST_CASE("Load non-existent file", "[utils]") {
   REQUIRE(size == 10);
 }
 
+TEST_CASE("Loading a directory as a file", "[utils]") {
+  File directory = std::filesystem::temp_directory_path();
+  REQUIRE(loadFileAsString(directory).empty());
+
+  size_t size = 10;
+  REQUIRE(loadFileData(directory, size) == nullptr);
+  REQUIRE(size == 10);
+}
+
 TEST_CASE("Empty file operations", "[utils]") {
   File temp_file = createTemporaryFile("empty");
 
