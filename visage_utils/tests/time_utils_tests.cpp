@@ -77,13 +77,11 @@ TEST_CASE("Format time edge cases", "[utils]") {
   REQUIRE(percent_literal == "%");
 }
 
-TEST_CASE("Time consistency", "[utils]") {
-  Time time_point = now();
+TEST_CASE("Interval times use the steady clock", "[utils]") {
+  auto steady_time = std::chrono::steady_clock::now().time_since_epoch();
   long long ms_from_function = milliseconds();
 
-  auto time_point_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_point.time_since_epoch())
-                           .count();
-
-  long long difference = std::abs(time_point_ms - ms_from_function);
+  long long steady_ms = std::chrono::duration_cast<std::chrono::milliseconds>(steady_time).count();
+  long long difference = std::abs(steady_ms - ms_from_function);
   REQUIRE(difference < 10);
 }
