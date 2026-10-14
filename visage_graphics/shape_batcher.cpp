@@ -118,6 +118,12 @@ namespace visage {
     setUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
   }
 
+  float hdrConversion(const Layer& source, const Layer& destination) {
+    float source_scale = source.hdr() ? kHdrColorMultiplier : 1.0f;
+    float destination_scale = destination.hdr() ? kHdrColorMultiplier : 1.0f;
+    return destination_scale / source_scale;
+  }
+
   void setOriginFlipUniform(bool origin_flip) {
     setUniform<Uniforms::kOriginFlip>(origin_flip ? -1.0 : 1.0, origin_flip ? 1.0 : 0.0);
   }
@@ -388,7 +394,7 @@ namespace visage {
 
     setTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
     setUniformDimensions(layer.width(), layer.height());
-    float value = layer.hdr() ? kHdrColorMultiplier : 1.0f;
+    float value = hdrConversion(*source_layer, layer);
     setUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(layer.bottomLeftOrigin());
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
