@@ -141,14 +141,11 @@ namespace visage {
     return true;
   }
 
-  static bool readPipeWithSizeCheck(int pipe_fd, char* buffer, std::string& output, pid_t pid,
-                                    int out_pipe, int err_pipe, int* status) {
+  static bool readPipeWithSizeCheck(int pipe_fd, char* buffer, std::string& output) {
     ssize_t count;
     while ((count = read(pipe_fd, buffer, 255)) > 0) {
-      if (output.size() + count > kMaxOutputSize) {
-        terminateAndCleanup(pid, out_pipe, err_pipe, status);
+      if (output.size() + count > kMaxOutputSize)
         return false;
-      }
       output += std::string(buffer, count);
     }
     return true;
@@ -204,15 +201,16 @@ namespace visage {
         }
       }
 
-      if (!readPipeWithSizeCheck(out_pipe[0], buffer, output, pid, out_pipe[0], err_pipe[0], &status))
-        return false;
-
-      if (!readPipeWithSizeCheck(err_pipe[0], buffer, output, pid, out_pipe[0], err_pipe[0], &status))
-        return false;
+      bool output_fits = readPipeWithSizeCheck(out_pipe[0], buffer, output) &&
+                         readPipeWithSizeCheck(err_pipe[0], buffer, output);
 
       auto elapsed = std::chrono::steady_clock::now() - start_time;
-      if (std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > timeout_ms) {
-        terminateAndCleanup(pid, out_pipe[0], err_pipe[0], &status);
+      bool timed_out = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > timeout_ms;
+      if (!output_fits || (timed_out && !process_finished)) {
+        if (process_finished)
+          closePipes(out_pipe[0], err_pipe[0]);
+        else
+          terminateAndCleanup(pid, out_pipe[0], err_pipe[0], &status);
         return false;
       }
 
