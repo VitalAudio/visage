@@ -626,6 +626,37 @@ TEST_CASE("Canvas screenshot shows the current frame", "[graphics]") {
   }
 }
 
+TEST_CASE("Resizing a post effect region doesn't render extra frames", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 64);
+  BlurPostEffect blur;
+  blur.setBlurRadius(10.0f);
+  Region region;
+  canvas.addRegion(&region);
+  region.setNeedsLayer(true);
+  region.setPostEffect(&blur);
+  region.setBounds(0, 0, 32, 32);
+
+  auto frames = [&] {
+    uint32_t start = bgfx::frame();
+    region.clear();
+    region.invalidate();
+    canvas.beginRegion(&region);
+    canvas.setColor(0xffffffff);
+    canvas.fill(0, 0, region.width(), region.height());
+    canvas.endRegion();
+    canvas.submit();
+    return bgfx::frame() - start - 1;
+  };
+
+  frames();
+  frames();
+  uint32_t steady = frames();
+  region.setBounds(0, 0, 48, 48);
+  REQUIRE(frames() <= steady);
+  REQUIRE(canvas.takeScreenshot().sample(24, 24).hexRed() == 0xff);
+}
+
 TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BlurPostEffect blur; }
   { BloomPostEffect bloom; }
