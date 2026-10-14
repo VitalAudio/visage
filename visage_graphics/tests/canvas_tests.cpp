@@ -751,3 +751,26 @@ TEST_CASE("Translucent bloom keeps the alpha of its content", "[graphics]") {
   for (int i = 0; i <= 10; ++i)
     REQUIRE(screenshot.sample(i * 10 + 5, 5).hexRed() == Approx(255 * (1.0f - i / 10.0f)).margin(2));
 }
+
+TEST_CASE("Canvas strokes a path at its logical width", "[graphics]") {
+  for (float scale : { 1.0f, 2.0f }) {
+    Canvas canvas;
+    canvas.setDpiScale(scale);
+    canvas.setWindowless(20 * scale, 20 * scale);
+    canvas.setLogicalPixelScale();
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, 20, 20);
+
+    Path path;
+    path.moveTo(2, 10);
+    path.lineTo(18, 10);
+    canvas.setColor(0xffffffff);
+    canvas.stroke(path, 0, 0, 20, 20, 4.0f, Path::Join::Miter, Path::EndCap::Butt);
+
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    int covered = 0;
+    for (int y = 0; y < 20 * scale; ++y)
+      covered += screenshot.sample(10 * scale, y).hexRed();
+    REQUIRE(covered / 255.0f == Catch::Approx(4.0f * scale).margin(0.5f));
+  }
+}
