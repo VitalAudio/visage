@@ -65,7 +65,7 @@ namespace visage {
           if (bitmap.pixel_mode == FT_PIXEL_MODE_BGRA)
             dest[i] = reinterpret_cast<const unsigned int*>(row)[x];
           else
-            dest[i] = (row[x] << 24) + 0xffffff;
+            dest[i] = row[x] * 0x01010101u;
         }
       }
     }

@@ -355,8 +355,7 @@ namespace visage {
     setUniformDimensions(layer.width(), layer.height());
     setColorMult(layer.hdr());
     setUniform<Uniforms::kRadialGradient>(batches[0].shapes->front().radialGradient() ? 1.0f : 0.0f);
-    bgfx::submit(submit_pass,
-                 ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_tinted_texture));
+    bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_text));
   }
 
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass) {

@@ -114,7 +114,64 @@ TEST_CASE("Font variation selectors take no space", "[graphics]") {
   canvas.submit();
 }
 
+TEST_CASE("Text edges have matching color and alpha", "[graphics]") {
+  auto render = [](unsigned int background, unsigned int text_color) {
+    Canvas canvas;
+    canvas.setWindowless(120, 40);
+    canvas.setColor(background);
+    canvas.fill(0, 0, 120, 40);
+    Font font(24, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data));
+    canvas.setColor(text_color);
+    canvas.text("Masked", font, Font::kCenter, 0, 0, 120, 40);
+    return canvas.takeScreenshot();
+  };
+
+  Screenshot white_text = render(0xff000000, 0xffffffff);
+  Screenshot black_text = render(0xffffffff, 0xff000000);
+  int edges = 0;
+  for (int y = 0; y < 40; ++y) {
+    for (int x = 0; x < 120; ++x) {
+      int coverage = white_text.sample(x, y).hexRed();
+      int alpha = 0xff - black_text.sample(x, y).hexRed();
+      if (alpha > 0 && alpha < 0xff) {
+        ++edges;
+        REQUIRE(std::abs(coverage - alpha) <= 1);
+      }
+    }
+  }
+  REQUIRE(edges > 0);
+}
+
 #if VISAGE_LINUX
+TEST_CASE("Emoji edges are not darkened", "[graphics]") {
+  auto render = [](unsigned int background) {
+    Canvas canvas;
+    canvas.setWindowless(80, 80);
+    canvas.setColor(background);
+    canvas.fill(0, 0, 80, 80);
+    Font font(48, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data));
+    canvas.setColor(0xffffffff);
+    canvas.text(U"\U0001F600", font, Font::kCenter, 0, 0, 80, 80);
+    return canvas.takeScreenshot();
+  };
+
+  Screenshot on_black = render(0xff000000);
+  Screenshot on_white = render(0xffffffff);
+  int edges = 0;
+  for (int y = 0; y < 80; ++y) {
+    for (int x = 0; x < 80; ++x) {
+      Color black = on_black.sample(x, y);
+      float alpha = 1.0f - (on_white.sample(x, y).red() - black.red());
+      bool yellow = black.green() > 0.6f * black.red() && black.blue() < 0.5f * black.red() + 0.05f;
+      if (alpha > 0.15f && alpha < 0.85f && yellow) {
+        ++edges;
+        REQUIRE(black.red() == Catch::Approx(alpha).margin(0.05f));
+      }
+    }
+  }
+  REQUIRE(edges > 0);
+}
+
 TEST_CASE("Emoji rasterizer character missing from emoji font", "[graphics]") {
   static constexpr int kSize = 32;
   std::vector<unsigned int> buffer(kSize * kSize, 0);
@@ -125,7 +182,7 @@ TEST_CASE("Emoji rasterizer character missing from emoji font", "[graphics]") {
     if (pixel == 0)
       continue;
     ++drawn;
-    REQUIRE((pixel & 0xffffff) == 0xffffff);
+    REQUIRE(pixel == (pixel >> 24) * 0x01010101u);
   }
   REQUIRE(drawn > 0);
 }

@@ -175,7 +175,7 @@ namespace visage {
           const unsigned char* row = bitmap.buffer + y * bitmap.pitch;
           for (int x = 0; x < width; ++x) {
             unsigned char value = mono ? ((row[x / 8] >> (7 - x % 8)) & 1) * 0xff : row[x];
-            texture[y * packed_glyph->width + x] = (value << 24) + 0xffffff;
+            texture[y * packed_glyph->width + x] = value * 0x01010101u;
           }
         }
       }
