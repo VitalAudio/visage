@@ -80,6 +80,24 @@ TEST_CASE("Base 64 conversion", "[utils]") {
   REQUIRE(equal);
 }
 
+TEST_CASE("Base 64 decoding rejects malformed input", "[utils]") {
+  int size = 10;
+  REQUIRE(visage::decodeBase64Data("====", size) == nullptr);
+  REQUIRE(size == 0);
+  REQUIRE(visage::decodeBase64Data("Q===", size) == nullptr);
+  REQUIRE(visage::decodeBase64Data("QQ=A", size) == nullptr);
+  REQUIRE(visage::decodeBase64Data("QQ==QUJD", size) == nullptr);
+  REQUIRE(visage::decodeBase64Data("QUJDRA", size) == nullptr);
+
+  size = 10;
+  REQUIRE(visage::decodeBase64Data("QUJ!", size) == nullptr);
+  REQUIRE(size == 0);
+
+  std::unique_ptr<unsigned char[]> decoded = visage::decodeBase64Data("QUJDRA==", size);
+  REQUIRE(size == 4);
+  REQUIRE(std::string(decoded.get(), decoded.get() + size) == "ABCD");
+}
+
 TEST_CASE("String trim", "[utils]") {
   String test = "\n \t \r \nHello \n World \r Again\n \t \r \n";
   REQUIRE(test.trim().toUtf8() == "Hello \n World \r Again");
