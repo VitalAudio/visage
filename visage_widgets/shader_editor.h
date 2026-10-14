@@ -110,15 +110,21 @@ namespace visage {
 
     void watchShaders(const std::vector<std::string>& shaders) {
 #if !VISAGE_EMSCRIPTEN
-      for (const std::string& shader : shaders)
-        watched_edit_times_[shader] = 0;
+      {
+        std::lock_guard lock(watch_mutex_);
+        for (const std::string& shader : shaders)
+          watched_edit_times_[shader] = 0;
+      }
 
-      start();
+      if (!running())
+        start();
 #endif
     }
 
   private:
     void compileWaitingShader();
+    bool watching();
+    std::vector<std::string> watchedShaders();
     void loadShaderEditTimes();
     void checkShaderForEdits(const std::string& file_path);
     bool compileShader();
@@ -146,6 +152,7 @@ namespace visage {
     std::string shader_name_;
     std::function<void(std::string)> callback_ = nullptr;
     std::string shader_code_;
+    std::mutex watch_mutex_;
     std::map<std::string, int> watched_edit_times_;
   };
 
