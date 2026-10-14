@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdarg>
 
 namespace visage {
@@ -71,7 +72,7 @@ namespace visage {
     void remove() { count_--; }
 
   private:
-    int count_ = 0;
+    std::atomic<int> count_ = 0;
   };
 
   template<typename T>
