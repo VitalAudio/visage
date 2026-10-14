@@ -158,6 +158,7 @@ namespace visage {
     void addListener(Listener* listener) { listeners_.push_back(listener); }
     void resetOpenMenu() { menu_open_index_ = -1; }
     void setOpenMenu(int index) { menu_open_index_ = index; }
+    int openMenuIndex() const { return menu_open_index_; }
     void setOpacity(float opacity) {
       opacity_ = opacity;
       redraw();

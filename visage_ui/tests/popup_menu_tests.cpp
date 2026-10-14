@@ -550,3 +550,30 @@ TEST_CASE("PopupMenu calls onCancel once when dismissed by losing focus", "[ui]"
     REQUIRE(cancels == 0);
   }
 }
+
+TEST_CASE("PopupMenu sub menu starts at the top when switching sub menus", "[ui]") {
+  PopupMenu menu;
+  menu.addSubMenu(subMenu(30));
+  menu.addSubMenu(subMenu(40));
+
+  Frame root, source;
+  PopupMenuFrame* popup = showMenu(menu, root, source);
+  REQUIRE(popup);
+  auto* list = dynamic_cast<PopupList*>(popup->children()[0]);
+  auto* sub_list = dynamic_cast<PopupList*>(popup->children()[1]);
+
+  list->setHoverFromPosition({ 10, list->yForIndex(0) + 5 });
+  list->selectHoveredIndex();
+  sub_list->setYPosition(100);
+  REQUIRE(sub_list->yPosition() == 100);
+
+  list->setHoverFromPosition({ 10, list->yForIndex(1) + 5 });
+  list->selectHoveredIndex();
+  REQUIRE(sub_list->numOptions() == 40);
+  REQUIRE(sub_list->yPosition() == 0);
+  REQUIRE(sub_list->scrollableHeight() == sub_list->renderHeight());
+
+  sub_list->setYPosition(100);
+  list->selectHoveredIndex();
+  REQUIRE(sub_list->yPosition() == 100);
+}
