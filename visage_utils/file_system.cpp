@@ -21,8 +21,8 @@
 
 #include "file_system.h"
 
-#include <chrono>
 #include <fstream>
+#include <random>
 #include <regex>
 #include <string>
 
@@ -200,10 +200,21 @@ namespace visage {
   }
 
   File createTemporaryFile(const std::string& extension) {
-    auto now = std::chrono::system_clock::now().time_since_epoch();
-    long long ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-    std::string unique_file = std::to_string(ms) + "." + extension;
-    return std::filesystem::temp_directory_path() / unique_file;
+    static constexpr char kHexDigits[] = "0123456789abcdef";
+    static constexpr int kNameLength = 16;
+
+    std::random_device random_device;
+    File directory = std::filesystem::temp_directory_path();
+    File file;
+    std::error_code error;
+    do {
+      std::string name = "visage_";
+      for (int i = 0; i < kNameLength; ++i)
+        name.push_back(kHexDigits[random_device() % 16]);
+      file = directory / (name + "." + extension);
+    } while (std::filesystem::exists(file, error));
+
+    return file;
   }
 
   void createDirectory(const File& file) {

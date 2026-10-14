@@ -23,9 +23,8 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
-#include <chrono>
 #include <filesystem>
-#include <thread>
+#include <set>
 
 using namespace visage;
 
@@ -159,7 +158,6 @@ TEST_CASE("System directories", "[utils]") {
 
 TEST_CASE("Temporary file creation", "[utils]") {
   File temp1 = createTemporaryFile("test");
-  std::this_thread::sleep_for(std::chrono::milliseconds(1));
   File temp2 = createTemporaryFile("test");
 
   REQUIRE(temp1 != temp2);
@@ -168,6 +166,21 @@ TEST_CASE("Temporary file creation", "[utils]") {
 
   File temp_no_ext = createTemporaryFile("");
   REQUIRE(temp_no_ext.extension() == ".");
+}
+
+TEST_CASE("Temporary files are unique when created quickly", "[utils]") {
+  std::set<File> files;
+  for (int i = 0; i < 1000; ++i) {
+    File file = createTemporaryFile("test");
+    REQUIRE_FALSE(fileExists(file));
+    REQUIRE(replaceFileWithText(file, ""));
+    files.insert(file);
+  }
+
+  for (const File& file : files)
+    std::filesystem::remove(file);
+
+  REQUIRE(files.size() == 1000);
 }
 
 TEST_CASE("Search for files", "[utils]") {
