@@ -808,3 +808,22 @@ TEST_CASE("Super ellipse shape does not change with DPI scale", "[graphics]") {
     REQUIRE(screenshot.sample(92.5f * scale, 92.5f * scale).hexRed() == 0x00);
   }
 }
+
+TEST_CASE("Squircle centers are filled and squircle border centers are empty", "[graphics]") {
+  for (int size : { 100, 101 }) {
+    Canvas canvas;
+    canvas.setWindowless(2 * size, size);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, 2 * size, size);
+    canvas.setColor(0xffffffff);
+    canvas.squircle(0, 0, size);
+    canvas.squircleBorder(size, 0, size, 4.0f, 8.0f);
+
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    for (int offset = -2; offset <= 2; ++offset) {
+      REQUIRE(screenshot.sample(size / 2 + offset, size / 2).hexRed() == 0xff);
+      REQUIRE(screenshot.sample(size + size / 2 + offset, size / 2).hexRed() == 0x00);
+    }
+    REQUIRE(screenshot.sample(size + 3, size / 2).hexRed() == 0xff);
+  }
+}

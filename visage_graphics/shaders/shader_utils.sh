@@ -16,7 +16,9 @@ float sdSquircle(vec2 position, vec2 rectangle, float power) {
   vec2 normalized = abs(position) / rectangle;
   float distance = pow(pow(normalized.x, power) + pow(normalized.y, power), 1.0 / power);
   float len = length(position);
-  return distance * len - len;
+  if (len == 0.0)
+    return -min(rectangle.x, rectangle.y);
+  return len - len / distance;
 }
 
 float sdRectangle(vec2 position, vec2 rectangle) {
