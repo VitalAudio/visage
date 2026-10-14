@@ -94,5 +94,6 @@ namespace visage {
     std::deque<std::unique_ptr<UndoableAction>> actions_;
     std::deque<std::unique_ptr<UndoableAction>> undone_actions_;
     std::vector<Listener*> listeners_;
+    bool performing_action_ = false;
   };
 }

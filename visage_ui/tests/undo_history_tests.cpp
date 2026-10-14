@@ -362,3 +362,38 @@ TEST_CASE("UndoHistory setup function integration", "[ui]") {
     REQUIRE(setup_called);
   }
 }
+
+TEST_CASE("UndoHistory ignores actions pushed while undoing or redoing", "[ui]") {
+  UndoHistory history;
+  TestListener listener;
+  history.addListener(&listener);
+
+  int value = 0;
+  std::function<void(int)> set_value = [&](int new_value) {
+    int old_value = value;
+    value = new_value;
+    history.push(std::make_unique<LambdaAction>([&set_value, old_value] { set_value(old_value); },
+                                                [&set_value, new_value] { set_value(new_value); }));
+  };
+
+  set_value(1);
+  set_value(2);
+  REQUIRE(listener.action_added_count == 2);
+
+  history.undo();
+  REQUIRE(value == 1);
+  REQUIRE(history.canRedo());
+  history.undo();
+  REQUIRE(value == 0);
+  REQUIRE_FALSE(history.canUndo());
+
+  history.redo();
+  REQUIRE(value == 1);
+  history.redo();
+  REQUIRE(value == 2);
+  REQUIRE_FALSE(history.canRedo());
+
+  history.undo();
+  REQUIRE(value == 1);
+  REQUIRE(listener.action_added_count == 2);
+}

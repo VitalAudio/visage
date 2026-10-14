@@ -23,6 +23,9 @@
 
 namespace visage {
   void UndoHistory::push(std::unique_ptr<UndoableAction> action) {
+    if (performing_action_)
+      return;
+
     undone_actions_.clear();
     if (actions_.size() >= kMaxUndoHistory)
       actions_.pop_front();
@@ -34,13 +37,15 @@ namespace visage {
   }
 
   void UndoHistory::undo() {
-    if (!canUndo())
+    if (!canUndo() || performing_action_)
       return;
 
     std::unique_ptr<UndoableAction> action = std::move(actions_.back());
     actions_.pop_back();
+    performing_action_ = true;
     action->setup();
     action->undo();
+    performing_action_ = false;
     undone_actions_.push_back(std::move(action));
 
     for (Listener* listener : listeners_)
@@ -48,13 +53,15 @@ namespace visage {
   }
 
   void UndoHistory::redo() {
-    if (!canRedo())
+    if (!canRedo() || performing_action_)
       return;
 
     std::unique_ptr<UndoableAction> action = std::move(undone_actions_.back());
     undone_actions_.pop_back();
+    performing_action_ = true;
     action->setup();
     action->redo();
+    performing_action_ = false;
     actions_.push_back(std::move(action));
 
     for (Listener* listener : listeners_)
