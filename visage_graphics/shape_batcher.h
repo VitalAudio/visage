@@ -56,6 +56,7 @@ namespace visage {
   void setUniformDimensions(int width, int height);
   void setOriginFlipUniform(bool origin_flip);
   void setBlendMode(BlendMode draw_state);
+  float hdrConversion(const Layer& source, const Layer& destination);
 
   bool initTransientQuadBuffers(int num_quads, const bgfx::VertexLayout& layout,
                                 bgfx::TransientVertexBuffer* vertex_buffer,

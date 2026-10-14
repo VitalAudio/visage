@@ -90,7 +90,7 @@ namespace visage {
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
     setUniformDimensions(destination.width(), destination.height());
-    float value = hdr() ? 1.0f / kHdrColorMultiplier : 1.0f;
+    float value = hdrConversion(*source_layer, destination);
     setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(destination.bottomLeftOrigin());
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
@@ -371,7 +371,7 @@ namespace visage {
     setTexturePositions(batches, quads.vertices, 0);
     setUniformDimensions(destination.width(), destination.height());
 
-    float value = destination.hdr() ? kHdrColorMultiplier : 1.0f;
+    float value = hdrConversion(*region_->layer(), destination);
     setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(false);
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
@@ -518,7 +518,7 @@ namespace visage {
     float height_scale = 1.0f / source_layer->height();
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
-    float value = hdr() ? 1.0f / kHdrColorMultiplier : 1.0f;
+    float value = hdrConversion(*source_layer, destination);
     setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(destination.bottomLeftOrigin());
 
