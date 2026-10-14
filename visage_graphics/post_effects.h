@@ -63,6 +63,7 @@ namespace visage {
     UvVertex screen_vertices_[4] {};
     UvVertex inv_screen_vertices_[4] {};
     int format_ = 0;
+    const Region* region_ = nullptr;
   };
 
   class BlurPostEffect : public DownsamplePostEffect {

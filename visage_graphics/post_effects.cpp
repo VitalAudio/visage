@@ -131,6 +131,9 @@ namespace visage {
     static constexpr uint64_t kFrameBufferFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP |
                                                   BGFX_SAMPLER_V_CLAMP;
 
+    VISAGE_ASSERT(region_ == nullptr || region_ == region);
+    region_ = region;
+
     int full_width = region->width();
     int full_height = region->height();
     bgfx::TextureFormat::Enum format = static_cast<bgfx::TextureFormat::Enum>(region->layer()->frameBufferFormat());
