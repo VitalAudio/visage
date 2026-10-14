@@ -263,7 +263,10 @@ namespace visage {
 
     int index = font().widthOverflowIndex(text_.text().c_str() + range.first, range.second - range.first,
                                           position.first - line_x, true, text_.characterOverride());
-    return std::min(range.first + index, range.second);
+    int max_index = range.second;
+    if (line < line_breaks_.size() && max_index == line_breaks_[line])
+      max_index = std::max(range.first, max_index - 1);
+    return std::min(range.first + index, max_index);
   }
 
   bool TextEditor::enterPressed() {

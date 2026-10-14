@@ -116,3 +116,21 @@ TEST_CASE("Text editor single line input with newlines", "[widgets]") {
   editor.processTextInput("d\ne");
   REQUIRE(editor.text() == "abcd\ne");
 }
+
+TEST_CASE("Text editor end of a soft wrapped line keeps the caret on that line", "[widgets]") {
+  TextEditor editor;
+  editor.setBounds(0, 0, 60, 200);
+  editor.setMultiLine(true);
+  editor.setText("one two three four five six seven eight");
+  std::pair<int, int> first_line = editor.lineRange(0);
+  REQUIRE(first_line.second < editor.text().length());
+  float first_line_y = editor.indexToPosition(0).second;
+
+  editor.moveCaretToTop(false);
+  editor.processKeyPress(KeyEvent(KeyCode::End, 0, true));
+  int caret = editor.selectionStart();
+  REQUIRE(caret == first_line.second - 1);
+  REQUIRE(editor.indexToPosition(caret).second == first_line_y);
+
+  REQUIRE(editor.positionToIndex({ 1000.0f, first_line_y }) == caret);
+}
