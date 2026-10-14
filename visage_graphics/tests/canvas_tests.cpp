@@ -24,6 +24,7 @@
 #include "visage_graphics/gradient.h"
 #include "visage_graphics/post_effects.h"
 
+#include <bgfx/bgfx.h>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -580,6 +581,22 @@ TEST_CASE("Canvas gradient atlas growth", "[graphics]") {
     REQUIRE(std::abs(static_cast<int>(sample.hexRed()) - static_cast<int>(expected.hexRed())) <= 1);
     REQUIRE(std::abs(static_cast<int>(sample.hexBlue()) - static_cast<int>(expected.hexBlue())) <= 1);
   }
+}
+
+TEST_CASE("Windowless canvas resizes don't leak textures", "[graphics]") {
+  Canvas canvas;
+  auto screenshot = [&canvas](int size) {
+    canvas.setWindowless(size, size);
+    canvas.setColor(0xffff0000);
+    canvas.fill(0, 0, size, size);
+    canvas.takeScreenshot();
+  };
+
+  screenshot(16);
+  int textures = bgfx::getStats()->numTextures;
+  for (int i = 0; i < 8; ++i)
+    screenshot(17 + i);
+  REQUIRE(bgfx::getStats()->numTextures <= textures);
 }
 
 TEST_CASE("Canvas screenshot shows the current frame", "[graphics]") {

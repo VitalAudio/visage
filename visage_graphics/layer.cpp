@@ -199,6 +199,10 @@ namespace visage {
       bgfx::destroy(frame_buffer_data_->handle);
       frame_buffer_data_->handle = BGFX_INVALID_HANDLE;
     }
+    if (bgfx::isValid(frame_buffer_data_->read_back_handle)) {
+      bgfx::destroy(frame_buffer_data_->read_back_handle);
+      frame_buffer_data_->read_back_handle = BGFX_INVALID_HANDLE;
+    }
   }
 
   bgfx::FrameBufferHandle& Layer::frameBuffer() const {

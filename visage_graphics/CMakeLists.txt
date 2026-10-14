@@ -145,6 +145,10 @@ visage_add_test_target(
   TARGET VisageGraphicsTests
   TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
+if (TARGET VisageGraphicsTests)
+  target_link_libraries(VisageGraphicsTests PRIVATE bgfx)
+  target_compile_features(VisageGraphicsTests PRIVATE cxx_std_20)
+endif ()
 set_target_properties(freetype PROPERTIES FOLDER "visage/third_party")
 
 if (APPLE)
