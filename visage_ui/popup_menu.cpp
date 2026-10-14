@@ -365,8 +365,10 @@ namespace visage {
         source_index = i;
     }
 
+    bool reopening = lists_[source_index].openMenuIndex() == lists_[source_index].hoverIndex();
     lists_[source_index].setOpenMenu(lists_[source_index].hoverIndex());
     if (source_index < kMaxSubMenus - 1) {
+      reopening = reopening && lists_[source_index + 1].isVisible();
       lists_[source_index + 1].setOptions(option.options());
       int h = std::min(height(), lists_[source_index + 1].renderHeight());
       int w = lists_[source_index + 1].renderWidth();
@@ -381,6 +383,10 @@ namespace visage {
         x = lists_[source_index].x() - w;
 
       lists_[source_index + 1].setBounds(x, y, w, h);
+      if (!reopening) {
+        lists_[source_index + 1].setYPosition(0);
+        lists_[source_index + 1].setScrollableHeight(lists_[source_index + 1].renderHeight(), h);
+      }
       lists_[source_index + 1].setNoHover();
       lists_[source_index + 1].setVisible(true);
     }
