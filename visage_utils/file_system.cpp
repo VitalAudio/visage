@@ -107,29 +107,42 @@ namespace visage {
     return !stream.fail();
   }
 
-  std::unique_ptr<unsigned char[]> loadFileData(const File& file, size_t& size) {
-    std::ifstream stream(file, std::ios::binary | std::ios::ate);
+  static bool openRegularFile(const File& file, std::ifstream& stream, std::streamoff& length) {
+    std::error_code error;
+    if (!std::filesystem::is_regular_file(file, error))
+      return false;
+
+    stream.open(file, std::ios::binary | std::ios::ate);
     if (!stream)
+      return false;
+
+    length = stream.tellg();
+    stream.seekg(0, std::ios::beg);
+    return length >= 0 && stream;
+  }
+
+  std::unique_ptr<unsigned char[]> loadFileData(const File& file, size_t& size) {
+    std::ifstream stream;
+    std::streamoff length = 0;
+    if (!openRegularFile(file, stream, length))
       return {};
 
-    size = stream.tellg();
-    stream.seekg(0, std::ios::beg);
-
-    auto data = std::make_unique<unsigned char[]>(size);
-    stream.read(reinterpret_cast<char*>(data.get()), size);
+    auto data = std::make_unique<unsigned char[]>(length);
+    stream.read(reinterpret_cast<char*>(data.get()), length);
+    size = stream.gcount();
     return data;
   }
 
   std::string loadFileAsString(const File& file) {
-    std::ifstream stream(file, std::ios::binary);
-    if (!stream)
+    std::ifstream stream;
+    std::streamoff length = 0;
+    if (!openRegularFile(file, stream, length))
       return {};
 
-    stream.seekg(0, std::ios::end);
     std::string out;
-    out.resize(stream.tellg());
-    stream.seekg(0, std::ios::beg);
-    stream.read(out.data(), out.size());
+    out.resize(length);
+    stream.read(out.data(), length);
+    out.resize(stream.gcount());
     return out;
   }
 
