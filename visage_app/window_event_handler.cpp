@@ -267,27 +267,33 @@ namespace visage {
       return;
     }
 
-    temporary_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
-    if (temporary_frame_ != mouse_hovered_frame_) {
-      if (mouse_hovered_frame_) {
-        mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
-        mouse_event.event_frame = mouse_hovered_frame_;
-        mouse_hovered_frame_->processMouseExit(mouse_event);
-      }
-
-      if (temporary_frame_) {
-        mouse_event.position = mouse_event.window_position - temporary_frame_->positionInWindow();
-        mouse_event.event_frame = temporary_frame_;
-        temporary_frame_->processMouseEnter(mouse_event);
-      }
-      mouse_hovered_frame_ = temporary_frame_;
-      temporary_frame_ = nullptr;
-    }
-    else if (mouse_hovered_frame_) {
+    Frame* frame = content_frame_->frameAtPoint(mouse_event.window_position);
+    if (!setHoveredFrame(frame, mouse_event) && mouse_hovered_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
       mouse_event.event_frame = mouse_hovered_frame_;
       mouse_hovered_frame_->processMouseMove(mouse_event);
     }
+  }
+
+  bool WindowEventHandler::setHoveredFrame(Frame* frame, MouseEvent mouse_event) {
+    if (frame == mouse_hovered_frame_)
+      return false;
+
+    temporary_frame_ = frame;
+    if (mouse_hovered_frame_) {
+      mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
+      mouse_event.event_frame = mouse_hovered_frame_;
+      mouse_hovered_frame_->processMouseExit(mouse_event);
+    }
+
+    if (temporary_frame_) {
+      mouse_event.position = mouse_event.window_position - temporary_frame_->positionInWindow();
+      mouse_event.event_frame = temporary_frame_;
+      temporary_frame_->processMouseEnter(mouse_event);
+    }
+    mouse_hovered_frame_ = temporary_frame_;
+    temporary_frame_ = nullptr;
+    return true;
   }
 
   void WindowEventHandler::handleMouseDown(MouseButton button_id, int x, int y, int button_state,
@@ -363,24 +369,23 @@ namespace visage {
     mouse_event.precise_wheel_delta_y = precise_y;
     mouse_event.wheel_momentum = momentum;
 
-    mouse_hovered_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
-    if (mouse_hovered_frame_) {
-      temporary_frame_ = mouse_hovered_frame_;
-      bool used = false;
+    temporary_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
+    bool used = false;
+    while (!used && temporary_frame_) {
+      while (temporary_frame_ && temporary_frame_->ignoresMouseEvents())
+        temporary_frame_ = temporary_frame_->parent();
 
-      while (!used && temporary_frame_) {
-        while (temporary_frame_ && temporary_frame_->ignoresMouseEvents())
+      if (temporary_frame_) {
+        mouse_event.position = mouse_event.window_position - temporary_frame_->positionInWindow();
+        used = temporary_frame_->processMouseWheel(mouse_event);
+        if (temporary_frame_)
           temporary_frame_ = temporary_frame_->parent();
-
-        if (temporary_frame_) {
-          mouse_event.position = mouse_event.window_position - temporary_frame_->positionInWindow();
-          used = temporary_frame_->processMouseWheel(mouse_event);
-          if (temporary_frame_)
-            temporary_frame_ = temporary_frame_->parent();
-        }
       }
     }
     temporary_frame_ = nullptr;
+
+    if (mouse_down_frame_ == nullptr)
+      setHoveredFrame(content_frame_->frameAtPoint(mouse_event.window_position), mouse_event);
   }
 
   bool WindowEventHandler::isDragDropSource() {

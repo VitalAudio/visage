@@ -984,3 +984,58 @@ TEST_CASE("Svg frame clip paths", "[integration]") {
   REQUIRE(bounding_box.sample(5, 5).hexRed() == 0x00);
   REQUIRE(bounding_box.sample(15, 15).hexRed() == 0xff);
 }
+
+namespace {
+  class TestWindow : public Window {
+  public:
+    TestWindow(int width, int height) : Window(width, height) { }
+
+    void runEventLoop() override { }
+    void* nativeHandle() const override { return nullptr; }
+    void windowContentsResized(int width, int height) override { }
+    void show() override { }
+    void showMaximized() override { }
+    void hide() override { }
+    void close() override { }
+    bool isShowing() const override { return true; }
+    void setWindowTitle(const std::string& title) override { }
+    IPoint maxWindowDimensions() const override { return { 1000, 1000 }; }
+  };
+}
+
+TEST_CASE("Mouse wheel scrolling a frame under the mouse sends exit and enter", "[integration]") {
+  ApplicationEditor app;
+  Frame top;
+  Frame bottom;
+  int top_enters = 0, top_exits = 0, bottom_enters = 0, bottom_exits = 0;
+  top.onMouseEnter() = [&](const MouseEvent&) { top_enters++; };
+  top.onMouseExit() = [&](const MouseEvent&) { top_exits++; };
+  bottom.onMouseEnter() = [&](const MouseEvent&) { bottom_enters++; };
+  bottom.onMouseExit() = [&](const MouseEvent&) { bottom_exits++; };
+  app.onMouseWheel() = [&](const MouseEvent&) {
+    top.setBounds(0, 20, 40, 20);
+    bottom.setBounds(0, 0, 40, 20);
+    return true;
+  };
+
+  app.addChild(top);
+  app.addChild(bottom);
+  app.setBounds(0, 0, 40, 40);
+  top.setBounds(0, 0, 40, 20);
+  bottom.setBounds(0, 20, 40, 20);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  window.handleMouseMove(20, 10, 0, 0);
+  REQUIRE(top_enters == 1);
+
+  window.handleMouseWheel(0.0f, 1.0f, 20, 10, 0, 0);
+  REQUIRE(top_exits == 1);
+  REQUIRE(bottom_enters == 1);
+
+  window.handleMouseMove(21, 10, 0, 0);
+  REQUIRE(top_exits == 1);
+  REQUIRE(bottom_enters == 1);
+  REQUIRE(bottom_exits == 0);
+  app.removeFromWindow();
+}

@@ -86,6 +86,7 @@ namespace visage {
 
   private:
     Frame* dragDropFrame(Point point, const std::vector<std::string>& files) const;
+    bool setHoveredFrame(Frame* frame, MouseEvent mouse_event);
 
     ApplicationEditor* editor_ = nullptr;
     Window* window_ = nullptr;
