@@ -76,22 +76,25 @@ namespace visage {
   void ShaderCompiler::run() {
     compileWaitingShader();
 
-    while (!watched_edit_times_.empty() && shouldRun()) {
+    while (watching() && shouldRun()) {
       sleep(100);
       compileWaitingShader();
 
-      for (auto& shader : watched_edit_times_) {
+      for (const std::string& shader : watchedShaders()) {
         if (!shouldRun())
           break;
-        checkShaderForEdits(shader.first);
+        checkShaderForEdits(shader);
       }
     }
   }
 
   void ShaderCompiler::watchShaderFolder(const std::string& folder_path) {
     std::vector<File> files = searchForFiles(folder_path, ".sc$");
-    for (const auto& file : files)
-      watched_edit_times_[file.string()] = shaderEditTime(file.string());
+    {
+      std::lock_guard lock(watch_mutex_);
+      for (const auto& file : files)
+        watched_edit_times_[file.string()] = shaderEditTime(file.string());
+    }
 
 #ifndef VISAGE_EMSCRIPTEN
     if (!running())
@@ -104,23 +107,41 @@ namespace visage {
       compileShader();
   }
 
+  bool ShaderCompiler::watching() {
+    std::lock_guard lock(watch_mutex_);
+    return !watched_edit_times_.empty();
+  }
+
+  std::vector<std::string> ShaderCompiler::watchedShaders() {
+    std::lock_guard lock(watch_mutex_);
+    std::vector<std::string> shaders;
+    for (const auto& shader : watched_edit_times_)
+      shaders.push_back(shader.first);
+    return shaders;
+  }
+
   void ShaderCompiler::loadShaderEditTimes() {
+    std::lock_guard lock(watch_mutex_);
     for (auto& shader : watched_edit_times_)
       shader.second = shaderEditTime(shader.first);
   }
 
   void ShaderCompiler::checkShaderForEdits(const std::string& file_path) {
     int seconds = shaderEditTime(file_path);
-    if (watched_edit_times_[file_path] < seconds) {
+    {
+      std::lock_guard lock(watch_mutex_);
+      if (watched_edit_times_[file_path] >= seconds)
+        return;
       watched_edit_times_[file_path] = seconds;
-      std::string code = loadFileAsString(file_path);
-      std::string file_stem = fileStem(file_path);
-      setCode(file_stem, code, [](const std::string& error) {
-        if (!error.empty())
-          VISAGE_LOG(error);
-      });
-      compileShader();
     }
+
+    std::string code = loadFileAsString(file_path);
+    std::string file_stem = fileStem(file_path);
+    setCode(file_stem, code, [](const std::string& error) {
+      if (!error.empty())
+        VISAGE_LOG(error);
+    });
+    compileShader();
   }
 
   bool ShaderCompiler::compileShader() {
