@@ -33,6 +33,7 @@ namespace visage {
     virtual ~PostEffect() = default;
     virtual int preprocess(Region* region, int submit_pass) { return submit_pass; }
     virtual void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) { }
+    virtual float sampleRadius() const { return 0.0f; }
     void submitPassthrough(const BatchVector<SampleRegion>& batches, const Layer& destination,
                            int submit_pass) const;
     bool hdr() const { return hdr_; }
@@ -81,6 +82,7 @@ namespace visage {
 
     int preprocess(Region* region, int submit_pass) override;
     void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) override;
+    float sampleRadius() const override { return 3.0f * blur_radius_; }
 
     float blurRadius() const { return blur_radius_; }
     void setBlurRadius(float size) { blur_radius_ = std::max(0.0f, size); }
