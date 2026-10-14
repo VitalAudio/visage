@@ -605,7 +605,15 @@ namespace visage {
     int current = i;
     int size = str.size();
     bool cdata = false;
-    while (i < size && (cdata || str[i] != '<' || str.compare(i, 9, "<![CDATA[") == 0)) {
+    while (i < size && (cdata || str[i] != '<' || str.compare(i, 9, "<![CDATA[") == 0 ||
+                        str.compare(i, 4, "<!--") == 0)) {
+      if (!cdata && str.compare(i, 4, "<!--") == 0) {
+        result += str.substr(current, i - current);
+        size_t end = str.find("-->", i + 4);
+        i = end == std::string::npos ? size : end + 3;
+        current = i;
+        continue;
+      }
       if ((!cdata && str.compare(i, 9, "<![CDATA[") == 0) || (cdata && str.compare(i, 3, "]]>") == 0)) {
         result += str.substr(current, i - current);
         i += cdata ? 3 : 9;
@@ -678,6 +686,13 @@ namespace visage {
     i++;
     if (i >= str.size()) {
       VISAGE_ASSERT(false);
+      return tag_data;
+    }
+
+    if (str.compare(i, 3, "!--") == 0) {
+      tag_data.ignored = true;
+      size_t end = str.find("-->", i + 3);
+      i = end == std::string::npos ? str.size() : end + 3;
       return tag_data;
     }
 

@@ -40,6 +40,16 @@ static int numShapes(const SvgDrawable* drawable) {
   return count;
 }
 
+TEST_CASE("Svg comments containing tags", "[graphics]") {
+  Svg comment = parseSvg(R"svg(<svg viewBox="0 0 10 10"><!-- a > b <rect width="10" height="10"/> --><rect x="2" width="4" height="4"/></svg>)svg");
+  REQUIRE(numShapes(comment.drawable()) == 1);
+  REQUIRE(comment.drawable()->post_bounding_box.x() == 2.0f);
+
+  Svg description = parseSvg(R"svg(<svg viewBox="0 0 10 10"><desc>text <!-- <g opacity="0.5"><rect width="10" height="10"/></g> --> more</desc><rect x="2" width="4" height="4"/></svg>)svg");
+  REQUIRE(numShapes(description.drawable()) == 1);
+  REQUIRE(description.drawable()->post_bounding_box.width() == 4.0f);
+}
+
 TEST_CASE("Svg use", "[graphics]") {
   Svg without_use = parseSvg(R"svg(<svg viewBox="0 0 10 10"><defs><rect id="r" width="10" height="10"/></defs><g><g></g></g></svg>)svg");
   Svg with_use = parseSvg(R"svg(<svg viewBox="0 0 10 10"><defs><rect id="r" width="10" height="10"/></defs><g><g><use href="#r"/></g></g></svg>)svg");
