@@ -374,6 +374,23 @@ TEST_CASE("SVG path parsing", "[graphics]") {
     REQUIRE(Path::parseSvgPath("M0 0L5 5z,").back().type == 'Z');
     REQUIRE(Path::parseSvgPath("M0 0L5 5Z;").back().type == 'Z');
   }
+
+  SECTION("Errors keep the segments before them") {
+    REQUIRE(Path::parseSvgPath("M30 40 L110 160 L150").size() == 2);
+    REQUIRE(Path::parseSvgPath("M30 40 L110 160 L150#80").size() == 2);
+    REQUIRE(Path::parseSvgPath("L10 10 M0 0").empty());
+    REQUIRE(Path::parseSvgPath("M0 0 L10 10 Z 5 5").size() == 3);
+  }
+
+  SECTION("Arc flags") {
+    auto compact = Path::parseSvgPath("M100 100 a25 25 0 1025 -25");
+    REQUIRE(compact.size() == 2);
+    REQUIRE(compact[1].end == Point(125, 75));
+
+    REQUIRE(Path::parseSvgPath("M100 100 a25 25 0 -1 0 25 -25").size() == 1);
+    REQUIRE(Path::parseSvgPath("M100 100 a25 25 0 1 2 25 -25").size() == 1);
+    REQUIRE(Path::parseSvgPath("M100 100 a25 2501 025 -25").size() == 1);
+  }
 }
 
 static bool samePoints(const std::string& a, const std::string& b) {

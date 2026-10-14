@@ -165,118 +165,142 @@ namespace visage {
     }
   }
 
-  static float parseNumber(const std::string& str, size_t& i, bool bit_flags = false) {
-    std::string number;
-    while (i < str.size()) {
-      bool sign = str[i] == '-' || str[i] == '+';
-      bool exponent_sign = sign && !number.empty() && (number.back() == 'e' || number.back() == 'E');
-      if (std::isdigit(str[i]) || (number.empty() && sign) || exponent_sign || str[i] == '.' ||
-          str[i] == 'e' || str[i] == 'E') {
-        if (str[i] == '.') {
-          if (number.find('.') != std::string::npos)
-            return toFloat(number);
-        }
-        number += str[i++];
+  static void skipSeparators(const std::string& str, size_t& i) {
+    while (i < str.size() && (std::isspace(str[i]) || str[i] == ','))
+      ++i;
+  }
+
+  static bool parseNumber(const std::string& str, size_t& i, float& result) {
+    skipSeparators(str, i);
+    size_t start = i;
+    if (i < str.size() && (str[i] == '-' || str[i] == '+'))
+      ++i;
+
+    bool digits = false;
+    while (i < str.size() && std::isdigit(str[i])) {
+      ++i;
+      digits = true;
+    }
+    if (i < str.size() && str[i] == '.') {
+      ++i;
+      while (i < str.size() && std::isdigit(str[i])) {
+        ++i;
+        digits = true;
       }
-      else if (str[i] == ',' || std::isspace(str[i]) || sign) {
-        if (!number.empty())
-          return toFloat(number);
-        if (!sign)
+    }
+    if (!digits) {
+      i = start;
+      return false;
+    }
+
+    if (i < str.size() && (str[i] == 'e' || str[i] == 'E')) {
+      size_t exponent = i++;
+      if (i < str.size() && (str[i] == '-' || str[i] == '+'))
+        ++i;
+      if (i < str.size() && std::isdigit(str[i])) {
+        while (i < str.size() && std::isdigit(str[i]))
           ++i;
       }
-      else if (std::isalpha(str[i]))
-        break;
       else
-        ++i;
+        i = exponent;
+    }
 
-      if (bit_flags && !number.empty())
-        return toFloat(number);
+    result = toFloat(str.substr(start, i - start));
+    return true;
+  }
+
+  static bool parseFlag(const std::string& str, size_t& i, bool& result) {
+    skipSeparators(str, i);
+    if (i >= str.size() || (str[i] != '0' && str[i] != '1'))
+      return false;
+    result = str[i++] == '1';
+    return true;
+  }
+
+  static bool parseNumbers(const std::string& str, size_t& i, float* results, int count) {
+    for (int n = 0; n < count; ++n) {
+      if (!parseNumber(str, i, results[n]))
+        return false;
     }
-    if (number.empty()) {
-      VISAGE_ASSERT(false);
-      return 0.0f;
-    }
-    return toFloat(number);
+    return true;
   }
 
   Path::CommandList Path::parseSvgPath(const std::string& path) {
     CommandList commands;
     size_t i = 0;
     char command_char = 0;
-    while (i < path.size()) {
-      if (std::isspace(path[i])) {
+    while (true) {
+      while (i < path.size() && std::isspace(path[i]))
         ++i;
-        continue;
-      }
+      if (i >= path.size())
+        break;
 
-      size_t start = i;
-      char new_command = path[i];
-      if (std::isalpha(new_command)) {
-        command_char = new_command;
-        ++i;
-      }
+      if (std::isalpha(path[i]))
+        command_char = path[i++];
+      else if (command_char == 0)
+        break;
 
       char type = std::toupper(command_char);
       bool relative = std::islower(command_char);
+      if (commands.empty() && type != 'M')
+        break;
 
+      float v[6] {};
       if (type == 'M') {
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.moveTo(x, y, relative);
+        if (!parseNumbers(path, i, v, 2))
+          break;
+        commands.moveTo(v[0], v[1], relative);
         command_char = relative ? 'l' : 'L';
       }
       else if (type == 'L') {
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.lineTo(x, y, relative);
+        if (!parseNumbers(path, i, v, 2))
+          break;
+        commands.lineTo(v[0], v[1], relative);
       }
-      else if (type == 'H')
-        commands.horizontalTo(parseNumber(path, i), relative);
-      else if (type == 'V')
-        commands.verticalTo(parseNumber(path, i), relative);
-      else if (type == 'Z')
+      else if (type == 'H') {
+        if (!parseNumber(path, i, v[0]))
+          break;
+        commands.horizontalTo(v[0], relative);
+      }
+      else if (type == 'V') {
+        if (!parseNumber(path, i, v[0]))
+          break;
+        commands.verticalTo(v[0], relative);
+      }
+      else if (type == 'Z') {
         commands.close();
+        command_char = 0;
+      }
       else if (type == 'C') {
-        float cx1 = parseNumber(path, i);
-        float cy1 = parseNumber(path, i);
-        float cx2 = parseNumber(path, i);
-        float cy2 = parseNumber(path, i);
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.bezierTo(cx1, cy1, cx2, cy2, x, y, relative);
+        if (!parseNumbers(path, i, v, 6))
+          break;
+        commands.bezierTo(v[0], v[1], v[2], v[3], v[4], v[5], relative);
       }
       else if (type == 'S') {
-        float cx = parseNumber(path, i);
-        float cy = parseNumber(path, i);
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.smoothBezierTo(cx, cy, x, y, relative);
+        if (!parseNumbers(path, i, v, 4))
+          break;
+        commands.smoothBezierTo(v[0], v[1], v[2], v[3], relative);
       }
       else if (type == 'Q') {
-        float cx = parseNumber(path, i);
-        float cy = parseNumber(path, i);
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.quadraticTo(cx, cy, x, y, relative);
+        if (!parseNumbers(path, i, v, 4))
+          break;
+        commands.quadraticTo(v[0], v[1], v[2], v[3], relative);
       }
       else if (type == 'T') {
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.smoothQuadraticTo(x, y, relative);
+        if (!parseNumbers(path, i, v, 2))
+          break;
+        commands.smoothQuadraticTo(v[0], v[1], relative);
       }
       else if (type == 'A') {
-        float rx = parseNumber(path, i);
-        float ry = parseNumber(path, i);
-        float rotation = parseNumber(path, i);
-        bool large_arc = parseNumber(path, i, true);
-        bool sweep = parseNumber(path, i, true);
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.arcTo(rx, ry, rotation, large_arc, sweep, x, y, relative);
+        bool large_arc = false;
+        bool sweep = false;
+        if (!parseNumbers(path, i, v, 3) || !parseFlag(path, i, large_arc) ||
+            !parseFlag(path, i, sweep) || !parseNumber(path, i, v[3]) || !parseNumber(path, i, v[4]))
+          break;
+        commands.arcTo(v[0], v[1], v[2], large_arc, sweep, v[3], v[4], relative);
       }
-
-      if (i == start)
-        ++i;
+      else
+        break;
     }
     return commands;
   }
