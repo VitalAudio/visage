@@ -26,6 +26,10 @@
 #include <filesystem>
 #include <set>
 
+#if !VISAGE_WINDOWS
+#include <unistd.h>
+#endif
+
 using namespace visage;
 
 TEST_CASE("File existence check", "[utils]") {
@@ -254,3 +258,16 @@ TEST_CASE("Write access check", "[utils]") {
 
   std::filesystem::remove(temp_file);
 }
+
+TEST_CASE("Write access check for missing files", "[utils]") {
+  File missing = std::filesystem::temp_directory_path() / "visage_missing_write_access_test";
+  REQUIRE_FALSE(fileExists(missing));
+  REQUIRE_FALSE(hasWriteAccess(missing));
+}
+
+#if !VISAGE_WINDOWS
+TEST_CASE("Write access check for files owned by another user", "[utils]") {
+  if (geteuid() != 0)
+    REQUIRE_FALSE(hasWriteAccess("/etc/passwd"));
+}
+#endif
