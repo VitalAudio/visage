@@ -81,6 +81,7 @@ namespace visage {
 
     if (!make_visible)
       child->setVisible(false);
+    child->setDrawing(child->isVisible() && isDrawing());
 
     region_.addRegion(child->region());
 
