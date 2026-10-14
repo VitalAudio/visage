@@ -194,7 +194,8 @@ namespace visage {
     static int naturalCompare(const String& a, const String& b);
     static int naturalCompare(const std::u32string& a, const std::u32string& b);
     static int naturalCompare(const std::string& a, const std::string& b);
-    static std::string formatDecimal(double value);
+    static constexpr int kDecimalPlaces = 6;
+    static std::string formatDecimal(double value, int decimal_places = kDecimalPlaces);
 
     String() = default;
 
@@ -220,12 +221,14 @@ namespace visage {
     String(long long value) : String(std::to_string(value)) { }
     String(unsigned long long value) : String(std::to_string(value)) { }
     String(float value) : String(formatDecimal(value)) { removeTrailingZeros(); }
-    String(float value, int precision) : String(formatDecimal(value)) {
+    String(float value, int precision) :
+        String(formatDecimal(value, precision > kDecimalPlaces ? precision : kDecimalPlaces)) {
       *this = withPrecision(precision);
     }
 
     String(double value) : String(formatDecimal(value)) { removeTrailingZeros(); }
-    String(double value, int precision) : String(formatDecimal(value)) {
+    String(double value, int precision) :
+        String(formatDecimal(value, precision > kDecimalPlaces ? precision : kDecimalPlaces)) {
       *this = withPrecision(precision);
     }
 

@@ -196,10 +196,10 @@ namespace visage {
     return naturalCompare(convertToUtf32(a), convertToUtf32(b));
   }
 
-  std::string String::formatDecimal(double value) {
+  std::string String::formatDecimal(double value, int decimal_places) {
     std::ostringstream stream;
     stream.imbue(std::locale::classic());
-    stream << std::fixed << std::setprecision(6) << value;
+    stream << std::fixed << std::setprecision(decimal_places) << value;
     return stream.str();
   }
 

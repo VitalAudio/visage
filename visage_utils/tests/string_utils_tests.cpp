@@ -190,6 +190,9 @@ TEST_CASE("String numerical precision", "[utils]") {
   REQUIRE(test3.withPrecision(1).toUtf8() == "-10.0");
   REQUIRE(test3.withPrecision(2).toUtf8() == "-9.96");
   REQUIRE(String(-9.96, 1).toUtf8() == "-10.0");
+
+  REQUIRE(String(1.23456789, 8).toUtf8() == "1.23456789");
+  REQUIRE(String(0.15, 1).toUtf8() == "0.2");
 }
 
 TEST_CASE("String toFloat", "[utils]") {
