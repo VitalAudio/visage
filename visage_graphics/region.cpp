@@ -54,8 +54,12 @@ namespace visage {
       current++;
 
     backdrop_count_ = current;
-    for (auto& sub_region : sub_regions_)
-      current = sub_region->computeBackdropCount(current);
+    for (bool on_top : { false, true }) {
+      for (auto& sub_region : sub_regions_) {
+        if (sub_region->isOnTop() == on_top)
+          current = sub_region->computeBackdropCount(current);
+      }
+    }
     backdrop_count_children_ = current;
 
     if (intermediate_region_) {

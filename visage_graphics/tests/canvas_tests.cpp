@@ -791,6 +791,36 @@ TEST_CASE("Backdrop follows its region when an ancestor moves", "[graphics]") {
   REQUIRE(canvas.screenshot().sample(48, 16).hexRed() == 0x00);
 }
 
+TEST_CASE("On-top region draws above a backdrop sibling added after it", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(2.0f);
+  Region group;
+  Region popup;
+  Region glass;
+  canvas.addRegion(&group);
+  group.setBounds(0, 0, 64, 32);
+  group.addRegion(&popup);
+  popup.setOnTop(true);
+  popup.setBounds(16, 8, 32, 16);
+  group.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&blur);
+  glass.setBounds(0, 0, 64, 32);
+
+  canvas.beginRegion(&popup);
+  canvas.setColor(0xff00ff00);
+  canvas.fill(0, 0, popup.width(), popup.height());
+  canvas.endRegion();
+  canvas.beginRegion(&glass);
+  canvas.setColor(0xffff0000);
+  canvas.fill(0, 0, glass.width(), glass.height());
+  canvas.endRegion();
+  REQUIRE(canvas.takeScreenshot().sample(32, 16).hexGreen() == 0xff);
+  REQUIRE(canvas.screenshot().sample(32, 16).hexRed() == 0x00);
+}
+
 TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BlurPostEffect blur; }
   { BloomPostEffect bloom; }
