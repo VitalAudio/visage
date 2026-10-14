@@ -34,6 +34,16 @@ namespace visage {
     bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8;
   };
 
+  static bgfx::SwapChain swapChain(void* window_handle, int width, int height,
+                                   bgfx::TextureFormat::Enum format) {
+    bgfx::SwapChain swap_chain;
+    swap_chain.nwh = window_handle;
+    swap_chain.width = width;
+    swap_chain.height = height;
+    swap_chain.formatColor = format;
+    return swap_chain;
+  }
+
   static bgfx::TextureFormat::Enum hdrFormat() {
     static constexpr uint32_t kRequired = BGFX_CAPS_FORMAT_TEXTURE_2D | BGFX_CAPS_FORMAT_TEXTURE_FRAMEBUFFER;
     if ((bgfx::getCaps()->formats[bgfx::TextureFormat::RGBA16F] & kRequired) == kRequired)
@@ -181,14 +191,9 @@ namespace visage {
     else
       frame_buffer_data_->format = bgfx::TextureFormat::RGBA8;
 
-    if (window_handle_) {
-      bgfx::SwapChain swap_chain;
-      swap_chain.nwh = window_handle_;
-      swap_chain.width = width_;
-      swap_chain.height = height_;
-      swap_chain.formatColor = frame_buffer_data_->format;
-      frame_buffer_data_->handle = bgfx::createFrameBuffer(swap_chain);
-    }
+    if (window_handle_)
+      frame_buffer_data_->handle = bgfx::createFrameBuffer(swapChain(window_handle_, width_, height_,
+                                                                     frame_buffer_data_->format));
     else {
       if (headless_render_) {
         uint64_t flags = BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK;
@@ -200,6 +205,14 @@ namespace visage {
     }
 
     bottom_left_origin_ = bgfx::getCaps()->originBottomLeft;
+  }
+
+  void Layer::resizeFrameBuffer() {
+    if (window_handle_ && bgfx::isValid(frame_buffer_data_->handle))
+      bgfx::updateSwapChain(frame_buffer_data_->handle,
+                            swapChain(window_handle_, width_, height_, frame_buffer_data_->format));
+    else
+      destroyFrameBuffer();
   }
 
   void Layer::destroyFrameBuffer() {

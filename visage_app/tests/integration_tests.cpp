@@ -20,6 +20,7 @@
  */
 
 #include "visage/app.h"
+#include "visage_graphics/renderer.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -1057,6 +1058,29 @@ namespace {
     void setWindowTitle(const std::string& title) override { }
     IPoint maxWindowDimensions() const override { return { 1000, 1000 }; }
   };
+}
+
+TEST_CASE("Resizing a window many times keeps its swap chain valid", "[integration]") {
+#if VISAGE_LINUX
+  if (std::getenv("DISPLAY") == nullptr)
+    SKIP("No display");
+#endif
+  if (Renderer::instance().initialized())
+    SKIP("Renderer was already initialized without a window");
+
+  ApplicationEditor app;
+  app.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  std::unique_ptr<Window> window = createWindow(Dimension::nativePixels(100), Dimension::nativePixels(100));
+  app.addToWindow(window.get());
+  for (int i = 0; i < 100; ++i) {
+    window->handleResized(100 + i, 100 + i);
+    app.drawWindow();
+  }
+  REQUIRE(app.nativeWidth() == 199);
+  app.removeFromWindow();
 }
 
 TEST_CASE("Mouse wheel scrolling a frame under the mouse sends exit and enter", "[integration]") {

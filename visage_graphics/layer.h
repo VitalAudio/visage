@@ -38,6 +38,7 @@ namespace visage {
     ~Layer();
 
     void checkFrameBuffer();
+    void resizeFrameBuffer();
     void destroyFrameBuffer();
 
     bgfx::FrameBufferHandle& frameBuffer() const;
@@ -98,7 +99,7 @@ namespace visage {
 
       width_ = width;
       height_ = height;
-      destroyFrameBuffer();
+      resizeFrameBuffer();
       invalidate();
     }
     int width() const { return width_; }
