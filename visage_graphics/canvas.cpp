@@ -41,6 +41,7 @@ namespace visage {
 
     window_region_.setCanvas(this);
     window_region_.addRegion(&default_region_);
+    default_region_.setLayerBlendMode(BlendMode::Opaque);
     default_region_.setCanvas(this);
     default_region_.setNeedsLayer(true);
   }

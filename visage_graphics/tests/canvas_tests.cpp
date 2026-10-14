@@ -657,6 +657,24 @@ TEST_CASE("Resizing a post effect region doesn't render extra frames", "[graphic
   REQUIRE(canvas.takeScreenshot().sample(24, 24).hexRed() == 0xff);
 }
 
+TEST_CASE("Translucent frames don't accumulate on the composite", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(16, 16);
+
+  auto alpha = [&canvas] {
+    canvas.clearDrawnShapes();
+    canvas.setColor(0x80ffffff);
+    canvas.fill(0, 0, 16, 16);
+    return canvas.takeScreenshot().sample(8, 8).hexAlpha();
+  };
+
+  unsigned int first = alpha();
+  REQUIRE(first > 0x70);
+  REQUIRE(first < 0x90);
+  for (int i = 0; i < 3; ++i)
+    REQUIRE(alpha() == first);
+}
+
 TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BlurPostEffect blur; }
   { BloomPostEffect bloom; }
