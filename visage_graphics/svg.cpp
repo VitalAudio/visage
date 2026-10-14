@@ -136,7 +136,7 @@ namespace visage {
 
   void SvgDrawable::drawAll(Canvas& canvas, ColorContext* context, float x, float y, float width,
                             float height) const {
-    if (is_defines || is_clip_path || !display || opacity <= 0.0f)
+    if (is_defines || is_clip_path || mask_settings || !display || opacity <= 0.0f)
       return;
 
     draw(canvas, context, x, y, width, height);
@@ -575,10 +575,66 @@ namespace visage {
     }
   }
 
+  void SvgDrawable::applyColorMatrices() {
+    for (auto& child : children)
+      child->applyColorMatrices();
+    if (color_matrix)
+      transformColors(*color_matrix);
+  }
+
+  void SvgDrawable::transformColors(const ColorMatrix& matrix) {
+    auto transform = [&matrix](Brush& brush) {
+      for (int i = 0; i < brush.gradient().numColors(); ++i) {
+        const Color& color = brush.gradient().colors()[i];
+        float input[] = { color.red(), color.green(), color.blue(), color.alpha(), 1.0f };
+        float output[4] {};
+        for (int row = 0; row < 4; ++row) {
+          for (int column = 0; column < 5; ++column)
+            output[row] += matrix[row * 5 + column] * input[column];
+          output[row] = std::clamp(output[row], 0.0f, 1.0f);
+        }
+        brush.gradient().setColor(i, Color(output[3], output[0], output[1], output[2]));
+      }
+    };
+
+    transform(fill_brush);
+    transform(stroke_brush);
+    for (auto& child : children) {
+      if (!child->mask_settings)
+        child->transformColors(matrix);
+    }
+  }
+
+  void SvgDrawable::fitMask(SvgDrawable& mask, const Matrix& scale_matrix, const Bounds& view_box,
+                            std::map<std::string, SvgDrawable*>& clip_paths) const {
+    Bounds box = boundingBox();
+    if (mask.mask_settings->content_bounding_box) {
+      mask.local_transform = Transform::translation(box.x(), box.y()) *
+                             Transform::scale(box.width(), box.height());
+      mask.initPaths(scale_matrix, view_box);
+      mask.adjustPaths(scale_matrix, view_box, clip_paths);
+    }
+
+    Bounds region = mask.mask_settings->region;
+    if (!mask.mask_settings->user_space) {
+      region = Bounds(box.x() + region.x() * box.width(), box.y() + region.y() * box.height(),
+                      region.width() * box.width(), region.height() * box.height());
+    }
+
+    Path clip_path;
+    clip_path.setResolutionMatrix(scale_matrix);
+    clip_path.addRectangle(region.x(), region.y(), region.width(), region.height());
+    mask.clipping_paths = { clip_path };
+  }
+
   void SvgDrawable::adjustPaths(const Matrix& scale_matrix, const Bounds& view_box,
                                 std::map<std::string, SvgDrawable*>& clip_paths) {
     for (auto& child : children)
       child->adjustPaths(scale_matrix * local_transform.matrix, view_box, clip_paths);
+    for (auto& child : children) {
+      if (child->mask_settings)
+        fitMask(*child, scale_matrix * local_transform.matrix, view_box, clip_paths);
+    }
 
     auto transform = originTransform(view_box);
 
@@ -1505,6 +1561,75 @@ namespace visage {
     view_.view_box = view.view_box;
   }
 
+  void SvgParser::collectMasks(std::vector<Tag>& tags) {
+    for (auto& tag : tags) {
+      if (tag.data.name == "mask" && tag.data.attributes.count("id") &&
+          !tag.data.attributes.at("id").empty()) {
+        auto attribute = [&](const char* name, const char* default_value) {
+          return tag.data.attributes.count(name) ? tag.data.attributes.at(name) :
+                                                   std::string(default_value);
+        };
+
+        std::string mask_type = attribute("mask-type", "luminance");
+        std::stringstream style(attribute("style", ""));
+        std::string property;
+        while (std::getline(style, property, ';')) {
+          auto colon = property.find(':');
+          if (colon != std::string::npos &&
+              trimWhitespace(property.substr(0, colon)) == "mask-type")
+            mask_type = trimWhitespace(property.substr(colon + 1));
+        }
+
+        SvgDrawable::MaskSettings settings;
+        settings.alpha = mask_type == "alpha";
+        settings.user_space = attribute("maskUnits", "") == "userSpaceOnUse";
+        settings.content_bounding_box = attribute("maskContentUnits", "") == "objectBoundingBox";
+        float width = settings.user_space ? view_.view_box.width() : 1.0f;
+        float height = settings.user_space ? view_.view_box.height() : 1.0f;
+        settings.region = Bounds(parseNumber(attribute("x", "-10%"), width),
+                                 parseNumber(attribute("y", "-10%"), height),
+                                 parseNumber(attribute("width", "120%"), width),
+                                 parseNumber(attribute("height", "120%"), height));
+
+        std::vector<DrawableState> state_stack = { {} };
+        auto mask = std::make_unique<SvgDrawable>();
+        mask->mask_settings = settings;
+        for (auto& child_tag : tag.children) {
+          if (auto child = computeDrawables(child_tag, state_stack))
+            mask->children.push_back(std::move(child));
+        }
+        masks_.emplace(tag.data.attributes.at("id"), std::move(mask));
+      }
+      collectMasks(tag.children);
+    }
+  }
+
+  void SvgParser::collectFilters(std::vector<Tag>& tags) {
+    for (auto& tag : tags) {
+      if (tag.data.name == "filter" && tag.data.attributes.count("id") && tag.children.size() == 1) {
+        const auto& primitive = tag.children.front().data;
+        auto attribute = [&](const char* name) {
+          return primitive.attributes.count(name) ? primitive.attributes.at(name) : std::string();
+        };
+        auto values = splitArguments(attribute("values"));
+        if (primitive.name == "feColorMatrix" &&
+            (attribute("type").empty() || attribute("type") == "matrix") &&
+            (attribute("in").empty() || attribute("in") == "SourceGraphic") && values.size() == 20) {
+          ColorMatrix matrix;
+          for (int i = 0; i < matrix.size(); ++i)
+            matrix[i] = parseNumber(values[i], 1.0f);
+          filters_.emplace(tag.data.attributes.at("id"), matrix);
+        }
+      }
+      collectFilters(tag.children);
+    }
+  }
+
+  void SvgParser::attachMask(const std::string& id, SvgDrawable* drawable) const {
+    if (masks_.count(id))
+      drawable->children.push_back(std::make_unique<SvgDrawable>(*masks_.at(id)));
+  }
+
   void SvgParser::collectDefs(std::vector<Tag>& tags) {
     for (auto& tag : tags) {
       if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
@@ -1760,6 +1885,12 @@ namespace visage {
       drawable->clip_path_shape = value;
     else if (key == "background-color")
       background_color_ = parseColor(value);
+    else if (key == "mask")
+      mask_id_ = urlId(value);
+    else if (key == "filter") {
+      auto id = urlId(value);
+      drawable->color_matrix = filters_.count(id) ? std::optional(filters_.at(id)) : std::nullopt;
+    }
     else if (key == "color") {
       if (auto gradient = parseGradient(value))
         state.current_color = *gradient;
@@ -1898,6 +2029,7 @@ namespace visage {
 
     loadDrawableStyle(tag, state_stack, drawable.get());
     std::optional<Color> background_color = std::exchange(background_color_, std::nullopt);
+    std::string mask_id = std::exchange(mask_id_, "");
     drawable->state = state_stack.back();
     if (!drawable->state.current_color.isCurrentColor()) {
       if (drawable->state.fill_gradient.isCurrentColor())
@@ -1908,6 +2040,7 @@ namespace visage {
 
     if (loadDrawable(tag, drawable.get())) {
       loadDrawableTransform(tag, drawable.get());
+      attachMask(mask_id, drawable.get());
       state_stack.pop_back();
       return drawable;
     }
@@ -1938,6 +2071,7 @@ namespace visage {
     }
     svg_depth_ -= is_svg;
     view_ = parent_view;
+    attachMask(mask_id, drawable.get());
 
     state_stack.pop_back();
     return drawable;
@@ -1968,7 +2102,9 @@ namespace visage {
     resolveUses(tags, reference_ids);
     loadStyleTags(tags);
     collectGradients(tags);
+    collectFilters(tags);
     collectMarkers(tags);
+    collectMasks(tags);
 
     std::vector<DrawableState> state_stack;
     state_stack.push_back(state);

@@ -381,12 +381,27 @@ namespace visage {
 
   void Frame::createMaskFrame() {
     mask_frame_ = std::make_unique<Frame>("mask");
-    mask_frame_->setLayerBlendMode(BlendMode::Mult);
+    mask_frame_->setLayerBlendMode(BlendMode::MaskMult);
     mask_frame_->setOnTop(true);
     mask_frame_->setIgnoresMouseEvents(true, false);
     addChild(mask_frame_.get());
     mask_frame_->setBounds(localBounds());
+    setMaskType(mask_type_);
     redraw();
+  }
+
+  void Frame::setMaskType(MaskType mask_type) {
+    mask_type_ = mask_type;
+    if (mask_frame_ == nullptr)
+      return;
+
+    if (mask_type_ == MaskType::Luminance) {
+      if (luminance_mask_effect_ == nullptr)
+        luminance_mask_effect_ = std::make_unique<LuminanceMaskPostEffect>();
+      mask_frame_->setPostEffect(luminance_mask_effect_.get());
+    }
+    else if (mask_frame_->postEffect())
+      mask_frame_->removePostEffect();
   }
 
   void Frame::setPostEffect(PostEffect* post_effect) {

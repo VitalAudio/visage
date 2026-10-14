@@ -83,21 +83,55 @@ namespace visage {
   private:
     class SubFrame : public Frame {
     public:
-      SubFrame(SvgDrawable* drawable, SvgDrawable::ColorContext* context, bool content_only = false) :
+      SubFrame(SvgDrawable* drawable, SvgDrawable::ColorContext* context, bool content_only = false,
+               bool inside_clip = false) :
           drawable_(drawable), context_(context), content_only_(content_only) {
         if (content_only)
           return;
 
-        setAlphaTransparency(drawable_->opacity);
-        addSubFrames(drawable);
+        if (!inside_clip)
+          setAlphaTransparency(drawable_->opacity);
 
-        if (!drawable_->clipping_paths.empty()) {
-          onDrawMask() = [this](Canvas& canvas) {
-            canvas.setColor(0xffffffff);
-            for (const auto& clipping_path : drawable_->clipping_paths)
-              canvas.fill(clipping_path, -svgOrigin().x, -svgOrigin().y);
-          };
+        const SvgDrawable* mask = drawable_->maskContent();
+        bool clipped = !inside_clip && !drawable_->clipping_paths.empty();
+        if (clipped)
+          setClipMask();
+
+        if (clipped && mask) {
+          content_only_ = true;
+          addSubFrame(std::make_unique<SubFrame>(drawable_, context_, false, true));
+          return;
         }
+
+        addSubFrames(drawable);
+        if (mask)
+          setContentMask(mask);
+      }
+
+      void setClipMask() {
+        onDrawMask() = [this](Canvas& canvas) {
+          canvas.setColor(0xffffffff);
+          for (const auto& clipping_path : drawable_->clipping_paths)
+            canvas.fill(clipping_path, -svgOrigin().x, -svgOrigin().y);
+        };
+      }
+
+      void setContentMask(const SvgDrawable* mask) {
+        setMaskType(mask->mask_settings->alpha ? MaskType::Alpha : MaskType::Luminance);
+        onDrawMask() = [this, mask](Canvas& canvas) {
+          Point origin = svgOrigin();
+          for (const auto& child : mask->children)
+            child->drawAll(canvas, context_, -origin.x, -origin.y, width(), height());
+
+          canvas.setBlendMode(BlendMode::Composite);
+          canvas.setColor(0xff000000);
+          for (const auto& region : mask->clipping_paths) {
+            Path outside = region;
+            outside.setFillRule(Path::FillRule::EvenOdd);
+            outside.addRectangle(origin.x, origin.y, width(), height());
+            canvas.fill(outside, -origin.x, -origin.y);
+          }
+        };
       }
 
       void addSubFrame(std::unique_ptr<SubFrame> child) {
@@ -107,10 +141,11 @@ namespace visage {
 
       void addSubFrames(SvgDrawable* drawable) {
         for (auto& child : drawable->children) {
-          if (child->is_defines || child->is_clip_path || !child->display || child->opacity <= 0.0f)
+          if (child->is_defines || child->is_clip_path || child->mask_settings || !child->display ||
+              child->opacity <= 0.0f)
             continue;
 
-          if (child->opacity != 1.0f || !child->clipping_paths.empty()) {
+          if (child->opacity != 1.0f || !child->clipping_paths.empty() || child->maskContent()) {
             addSubFrame(std::make_unique<SubFrame>(child.get(), context_));
             content_ = nullptr;
             continue;

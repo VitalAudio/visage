@@ -137,8 +137,13 @@ namespace visage {
     std::map<std::string, UniformData> uniforms_;
     EmbeddedFile vertex_shader_;
     EmbeddedFile fragment_shader_;
-    BlendMode state_ = BlendMode::Alpha;
+    BlendMode state_ = BlendMode::Composite;
 
     VISAGE_LEAK_CHECKER(ShaderPostEffect)
+  };
+
+  class LuminanceMaskPostEffect : public ShaderPostEffect {
+  public:
+    LuminanceMaskPostEffect();
   };
 }

@@ -335,6 +335,12 @@ TEST_CASE("Svg rendering", "[graphics]") {
     REQUIRE(fallback.hexBlue() == 0x00);
   }
 
+  SECTION("Color matrix filters") {
+    Color filtered = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><filter id="f"><feColorMatrix values="0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"/></filter><rect width="10" height="10" fill="blue" filter="url(#f)"/></svg>)svg");
+    REQUIRE(filtered.hexRed() == 0xff);
+    REQUIRE(filtered.hexBlue() == 0x00);
+  }
+
   SECTION("Entity references") {
     Color attribute = renderSvgCenter(R"svg(<!DOCTYPE svg [<!ENTITY red "fill:red;">]><svg viewBox="0 0 10 10"><rect width="10" height="10" style="&red;"/></svg>)svg");
     REQUIRE(attribute.hexRed() == 0xff);

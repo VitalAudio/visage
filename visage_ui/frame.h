@@ -35,6 +35,11 @@
 namespace visage {
   class Frame;
 
+  enum class MaskType {
+    Alpha,
+    Luminance
+  };
+
   struct FrameEventHandler {
     std::function<void(Frame*)> request_redraw = nullptr;
     std::function<void(Frame*)> request_keyboard_focus = nullptr;
@@ -71,6 +76,8 @@ namespace visage {
         createMaskFrame();
       return mask_frame_->onDraw();
     }
+    void setMaskType(MaskType mask_type);
+    MaskType maskType() const { return mask_type_; }
     auto& onResize() { return on_resize_; }
     auto& onChildBoundsChanged() { return on_child_bounds_changed_; }
     auto& onChildAdded() { return on_child_added_; }
@@ -492,6 +499,8 @@ namespace visage {
     std::unique_ptr<BlurPostEffect> blur_effect_;
     PostEffect* backdrop_effect_ = nullptr;
     bool cached_ = false;
+    MaskType mask_type_ = MaskType::Alpha;
+    std::unique_ptr<LuminanceMaskPostEffect> luminance_mask_effect_;
     std::unique_ptr<Frame> mask_frame_;
     float alpha_transparency_ = 1.0f;
     BlendMode layer_blend_mode_ = BlendMode::Composite;

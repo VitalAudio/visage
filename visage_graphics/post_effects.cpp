@@ -500,7 +500,7 @@ namespace visage {
 
     setPostEffectUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
-    setBlendMode(BlendMode::Composite);
+    setBlendMode(state_);
     setPostEffectUniform<Uniforms::kTime>(destination.time());
 
     Layer* source_layer = batches[0].shapes->front().region->layer();
@@ -530,5 +530,10 @@ namespace visage {
 
     bgfx::ProgramHandle program = ProgramCache::programHandle(vertexShader(), fragmentShader());
     bgfx::submit(submit_pass, program);
+  }
+
+  LuminanceMaskPostEffect::LuminanceMaskPostEffect() :
+      ShaderPostEffect(shaders::vs_post_effect, shaders::fs_luminance_mask) {
+    setState(BlendMode::MaskMult);
   }
 }

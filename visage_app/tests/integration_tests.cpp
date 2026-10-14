@@ -783,6 +783,32 @@ TEST_CASE("Frame draw mask", "[integration]") {
   REQUIRE(app.takeScreenshot().sample(35, 10).hexRed() == 0xff);
 }
 
+TEST_CASE("Frame mask types", "[integration]") {
+  for (MaskType mask_type : { MaskType::Alpha, MaskType::Luminance }) {
+    ApplicationEditor app;
+    Frame frame;
+    frame.onDraw() = [&](Canvas& canvas) {
+      canvas.setColor(0xffffffff);
+      canvas.fill();
+    };
+    frame.setMaskType(mask_type);
+    frame.onDrawMask() = [&](Canvas& canvas) {
+      canvas.setColor(0xffffffff);
+      canvas.fill(0, 0, frame.width() / 2, frame.height());
+      canvas.setColor(0xff000000);
+      canvas.fill(frame.width() / 2, 0, frame.width() / 2, frame.height());
+    };
+
+    frame.setBounds(0, 0, 40, 20);
+    app.addChild(frame);
+    app.setWindowless(40, 20);
+    app.drawWindow();
+    Screenshot screenshot = app.takeScreenshot();
+    REQUIRE(screenshot.sample(10, 10).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(30, 10).hexRed() == (mask_type == MaskType::Alpha ? 0xff : 0x00));
+  }
+}
+
 TEST_CASE("Layer is cleared when it stops drawing", "[integration]") {
   ApplicationEditor app;
   Frame frame;
@@ -942,6 +968,36 @@ TEST_CASE("Svg frame nested viewport clipping", "[integration]") {
   Screenshot clipped = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><svg width="5" height="5"><rect width="20" height="20" fill="white"/></svg></svg>)svg");
   REQUIRE(clipped.sample(2, 2).hexRed() == 0xff);
   REQUIRE(clipped.sample(10, 10).hexRed() == 0x00);
+}
+
+TEST_CASE("Svg frame masks", "[integration]") {
+  Screenshot luminance = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><mask id="m"><rect width="10" height="20" fill="white"/><rect x="10" width="10" height="20" fill="black"/></mask><rect width="20" height="20" fill="white" mask="url(#m)"/></svg>)svg");
+  REQUIRE(luminance.sample(5, 10).hexRed() == 0xff);
+  REQUIRE(luminance.sample(15, 10).hexRed() == 0x00);
+
+  Screenshot region = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="10" height="20"><rect width="20" height="20" fill="white"/></mask><rect width="20" height="20" fill="white" mask="url(#m)"/></svg>)svg");
+  REQUIRE(region.sample(5, 10).hexRed() == 0xff);
+  REQUIRE(region.sample(15, 10).hexRed() == 0x00);
+
+  Screenshot filtered = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><filter id="f"><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/></filter><mask id="m"><rect width="10" height="20" filter="url(#f)"/></mask><rect width="20" height="20" fill="white" mask="url(#m)"/></svg>)svg");
+  REQUIRE(filtered.sample(5, 10).hexRed() == 0xff);
+  REQUIRE(filtered.sample(15, 10).hexRed() == 0x00);
+
+  Screenshot occluded = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><mask id="m"><rect width="20" height="20" fill="white"/><rect x="10" width="10" height="20" fill="black"/></mask><rect width="20" height="20" fill="white" mask="url(#m)"/></svg>)svg");
+  REQUIRE(occluded.sample(5, 10).hexRed() == 0xff);
+  REQUIRE(occluded.sample(15, 10).hexRed() == 0x00);
+
+  Screenshot clipped = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c"><rect width="20" height="10"/></clipPath><mask id="m"><rect width="10" height="20" fill="white"/></mask><rect width="20" height="20" fill="white" clip-path="url(#c)" mask="url(#m)"/></svg>)svg");
+  REQUIRE(clipped.sample(5, 5).hexRed() == 0xff);
+  REQUIRE(clipped.sample(15, 5).hexRed() == 0x00);
+  REQUIRE(clipped.sample(5, 15).hexRed() == 0x00);
+
+  for (const char* mask_type : { R"(mask-type="alpha")", R"(style="mask-type: alpha")" }) {
+    Screenshot alpha = svgFrameScreenshot(std::string(R"svg(<svg viewBox="0 0 20 20"><mask id="m" )svg") + mask_type +
+                                          R"svg(><rect width="10" height="20" fill="black"/></mask><rect width="20" height="20" fill="white" mask="url(#m)"/></svg>)svg");
+    REQUIRE(alpha.sample(5, 10).hexRed() == 0xff);
+    REQUIRE(alpha.sample(15, 10).hexRed() == 0x00);
+  }
 }
 
 TEST_CASE("Svg frame clip paths", "[integration]") {
