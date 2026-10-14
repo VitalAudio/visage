@@ -577,3 +577,28 @@ TEST_CASE("Frame added to a new parent", "[ui]") {
     REQUIRE(first_parent.children().size() == 1);
   }
 }
+
+TEST_CASE("Frame added to a new parent draws only when the new parent draws", "[ui]") {
+  Frame first_parent;
+  Frame second_parent;
+  Frame child;
+  Frame grandchild;
+  child.addChild(grandchild);
+
+  first_parent.addChild(child);
+  first_parent.setVisible(false);
+  REQUIRE_FALSE(child.isDrawing());
+
+  second_parent.addChild(child);
+  REQUIRE(child.isDrawing());
+  REQUIRE(grandchild.isDrawing());
+
+  first_parent.addChild(child);
+  REQUIRE_FALSE(child.isDrawing());
+  REQUIRE_FALSE(grandchild.isDrawing());
+
+  second_parent.addChild(child, false);
+  REQUIRE_FALSE(child.isVisible());
+  REQUIRE_FALSE(child.isDrawing());
+  REQUIRE_FALSE(grandchild.isDrawing());
+}
