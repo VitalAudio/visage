@@ -168,10 +168,10 @@ namespace visage {
       addShape(squircle);
     }
 
-    template<typename T1, typename T2, typename T3, typename T4, typename T5>
-    void superEllipse(const T1& x, const T2& y, const T3& width, const T4& height, const T5& power) {
+    template<typename T1, typename T2, typename T3, typename T4>
+    void superEllipse(const T1& x, const T2& y, const T3& width, const T4& height, float power) {
       addShape(Squircle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
-                        pixels(width), pixels(height), pixels(power)));
+                        pixels(width), pixels(height), power));
     }
 
     template<typename T1, typename T2, typename T3, typename T4>

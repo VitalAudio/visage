@@ -791,3 +791,20 @@ TEST_CASE("Fill with no bounds fills the clamp bounds", "[graphics]") {
   REQUIRE(screenshot.sample(7, 1).hexRed() == 0x00);
   REQUIRE(screenshot.sample(7, 9).hexRed() == 0x00);
 }
+
+TEST_CASE("Super ellipse shape does not change with DPI scale", "[graphics]") {
+  for (float scale : { 1.0f, 2.0f }) {
+    Canvas canvas;
+    canvas.setDpiScale(scale);
+    canvas.setWindowless(100 * scale, 100 * scale);
+    canvas.setLogicalPixelScale();
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, 100, 100);
+    canvas.setColor(0xffffffff);
+    canvas.superEllipse(0, 0, 100, 100, 4.0f);
+
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    REQUIRE(screenshot.sample(30 * scale, 50 * scale).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(92.5f * scale, 92.5f * scale).hexRed() == 0x00);
+  }
+}
