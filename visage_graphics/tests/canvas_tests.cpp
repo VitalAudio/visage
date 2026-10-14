@@ -724,3 +724,30 @@ TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BlurPostEffect blur; }
   { BloomPostEffect bloom; }
 }
+
+TEST_CASE("Translucent bloom keeps the alpha of its content", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(110, 10);
+  canvas.setColor(0xffffffff);
+  canvas.fill(0, 0, 110, 10);
+  BloomPostEffect bloom;
+  bloom.setBloomIntensity(0.0f);
+  bloom.setTranslucent(true);
+  Region region;
+  canvas.addRegion(&region);
+  region.setNeedsLayer(true);
+  region.setPostEffect(&bloom);
+  region.setBounds(0, 0, 110, 10);
+  region.clear();
+  region.invalidate();
+  canvas.beginRegion(&region);
+  for (int i = 0; i <= 10; ++i) {
+    canvas.setColor(Color(0xff000000).withAlpha(i / 10.0f));
+    canvas.fill(i * 10, 0, 10, 10);
+  }
+  canvas.endRegion();
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  for (int i = 0; i <= 10; ++i)
+    REQUIRE(screenshot.sample(i * 10 + 5, 5).hexRed() == Approx(255 * (1.0f - i / 10.0f)).margin(2));
+}

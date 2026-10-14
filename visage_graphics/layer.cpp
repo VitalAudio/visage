@@ -34,6 +34,13 @@ namespace visage {
     bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8;
   };
 
+  static bgfx::TextureFormat::Enum hdrFormat() {
+    static constexpr uint32_t kRequired = BGFX_CAPS_FORMAT_TEXTURE_2D | BGFX_CAPS_FORMAT_TEXTURE_FRAMEBUFFER;
+    if ((bgfx::getCaps()->formats[bgfx::TextureFormat::RGBA16F] & kRequired) == kRequired)
+      return bgfx::TextureFormat::RGBA16F;
+    return bgfx::TextureFormat::RGB10A2;
+  }
+
   struct RegionPosition {
     RegionPosition(Region* region, std::vector<IBounds> invalid_rects, int position, int x = 0, int y = 0) :
         region(region), invalid_rects(std::move(invalid_rects)), position(position), x(x), y(y) { }
@@ -169,7 +176,8 @@ namespace visage {
       return;
 
     if (hdr_)
-      frame_buffer_data_->format = bgfx::TextureFormat::RGB10A2;
+      frame_buffer_data_->format = translucent_ && !window_handle_ ? hdrFormat() :
+                                                                     bgfx::TextureFormat::RGB10A2;
     else
       frame_buffer_data_->format = bgfx::TextureFormat::RGBA8;
 
@@ -386,8 +394,12 @@ namespace visage {
   }
 
   void Layer::addRegion(Region* region) {
-    if (!hdr_ && region->postEffect() && region->postEffect()->hdr())
-      setHdr(true);
+    PostEffect* post_effect = region->postEffect();
+    if (post_effect && post_effect->hdr()) {
+      bool translucent = translucent_ || post_effect->translucent();
+      if (!hdr_ || translucent != translucent_)
+        setHdr(true, translucent);
+    }
 
     regions_.push_back(region);
   }
