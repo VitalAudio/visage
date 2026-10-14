@@ -486,3 +486,16 @@ TEST_CASE("Svg element transforms apply to curve resolution and stroke width", "
   REQUIRE(own_scale.second == Catch::Approx(5.0f));
   REQUIRE(own_scale.second == Catch::Approx(parent_scale.second));
 }
+
+TEST_CASE("Svg length units", "[graphics]") {
+  auto rect_width = [](const std::string& width) {
+    Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width=")svg" + width +
+                       R"svg(" height="10"/></svg>)svg");
+    return svg.drawable()->post_bounding_box.width();
+  };
+
+  REQUIRE(rect_width("4") == Catch::Approx(4.0f));
+  REQUIRE(rect_width(" 4px ") == Catch::Approx(4.0f));
+  REQUIRE(rect_width("8Q") == Catch::Approx(96.0f / 25.4f * 2.0f));
+  REQUIRE(rect_width("4mmx") == 0.0f);
+}

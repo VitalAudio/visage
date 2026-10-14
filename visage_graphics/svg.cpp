@@ -218,8 +218,9 @@ namespace visage {
   }
 
   inline float parseNumber(const std::string& str, float max) {
-    auto suffix_pos = str.find_first_not_of("0123456789+-.eE");
-    auto units = suffix_pos != std::string::npos ? trimWhitespace(str.substr(suffix_pos)) : "";
+    std::string value = trimWhitespace(str);
+    auto suffix_pos = value.find_first_not_of("0123456789+-.eE");
+    auto units = suffix_pos != std::string::npos ? trimWhitespace(value.substr(suffix_pos)) : "";
 
     float mult = 1.0f;
     if (units == "%")
@@ -230,13 +231,17 @@ namespace visage {
       mult = 96.0f / 2.54f;
     else if (units == "mm")
       mult = 96.0f / 25.4f;
+    else if (units == "Q")
+      mult = 96.0f / 101.6f;
     else if (units == "pt")
       mult = 96.0f / 72.0f;
     else if (units == "pc")
       mult = 16.0f;
+    else if (!units.empty() && units != "px")
+      return 0.0f;
 
     float result = 0.0f;
-    tryReadFloat(result, str);
+    tryReadFloat(result, value);
     return result * mult;
   }
 
