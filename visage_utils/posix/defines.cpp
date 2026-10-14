@@ -26,7 +26,7 @@
 #include <iostream>
 
 namespace visage {
-  inline void debugLogString(const char* file, unsigned int line, const String& log_message) {
+  void debugLogString(const char* file, unsigned int line, const String& log_message) {
     std::cerr << file << " (" << line << ") " << log_message.toUtf8();
     if (log_message.isEmpty() || log_message[log_message.size() - 1] != '\n')
       std::cerr << std::endl;
