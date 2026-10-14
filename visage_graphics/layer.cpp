@@ -328,7 +328,7 @@ namespace visage {
       }
 
       IPoint point = coordinatesForRegion(region);
-      if (region->isEmpty() || !region->shouldDraw(backdrop_count)) {
+      if (region->isEmpty() || region->backdropCount() != backdrop_count) {
         addSubRegions(region_positions, overlapping_regions,
                       { region, invalid_rects_[region], 0, point.x, point.y }, backdrop_count);
       }

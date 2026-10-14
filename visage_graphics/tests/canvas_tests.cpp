@@ -721,6 +721,44 @@ TEST_CASE("Blur radius matches the blurred spread", "[graphics]") {
   REQUIRE(measured_sigma(8.1f) / measured_sigma(7.9f) == Approx(8.1f / 7.9f).epsilon(0.02f));
 }
 
+TEST_CASE("Layered region with a backdrop child keeps its other children", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(2.0f);
+  Region panel;
+  Region child;
+  Region glass;
+  canvas.addRegion(&panel);
+  panel.setNeedsLayer(true);
+  panel.setBounds(0, 0, 64, 32);
+  panel.addRegion(&child);
+  child.setBounds(0, 0, 16, 16);
+  panel.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&blur);
+  glass.setBounds(40, 0, 16, 16);
+
+  auto fill = [&canvas](Region& region, unsigned int color) {
+    canvas.beginRegion(&region);
+    canvas.setColor(color);
+    canvas.fill(0, 0, region.width(), region.height());
+    canvas.endRegion();
+  };
+
+  fill(panel, 0xffff0000);
+  fill(child, 0xff00ff00);
+  canvas.beginRegion(&glass);
+  canvas.endRegion();
+  REQUIRE(canvas.takeScreenshot().sample(8, 8).hexGreen() == 0xff);
+  REQUIRE(canvas.screenshot().sample(8, 8).hexRed() == 0x00);
+
+  child.invalidate();
+  fill(child, 0xff00ff00);
+  REQUIRE(canvas.takeScreenshot().sample(8, 8).hexGreen() == 0xff);
+  REQUIRE(canvas.screenshot().sample(8, 8).hexRed() == 0x00);
+}
+
 TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BlurPostEffect blur; }
   { BloomPostEffect bloom; }
