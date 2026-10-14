@@ -102,6 +102,23 @@ TEST_CASE("ScrollBar mouse events", "[ui]") {
   }
 }
 
+TEST_CASE("ScrollBar drag keeps fractional mouse movement", "[ui]") {
+  ScrollBar scroll_bar;
+  scroll_bar.setBounds(0, 0, 20, 200);
+  scroll_bar.setViewPosition(400, 200, 0);
+  float scrolled = 0.0f;
+  scroll_bar.addScrollCallback([&scrolled](float position) { scrolled = position; });
+
+  MouseEvent event;
+  event.position = { 10.0f, 10.5f };
+  scroll_bar.mouseDown(event);
+  for (float y : { 11.0f, 11.5f, 12.0f }) {
+    event.position = { 10.0f, y };
+    scroll_bar.mouseDrag(event);
+  }
+  REQUIRE(scrolled == 3.0f);
+}
+
 TEST_CASE("ScrollBar resize handling", "[ui]") {
   ScrollBar scroll_bar;
 
@@ -154,6 +171,15 @@ TEST_CASE("ScrollableFrame scroll operations", "[ui]") {
     bool result = scrollable_frame.scrollDown();
     REQUIRE(result);
     REQUIRE(scrollable_frame.yPosition() > 50);
+  }
+
+  SECTION("Scroll down at bottom boundary") {
+    scrollable_frame.setScrollableHeight(400, 200);
+    scrollable_frame.setYPosition(190);
+    scrollable_frame.scrollDown();
+    REQUIRE(scrollable_frame.yPosition() == 200);
+    scrollable_frame.scrollDown();
+    REQUIRE(scrollable_frame.yPosition() == 200);
   }
 
   SECTION("Scroll up at top boundary") {

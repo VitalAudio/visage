@@ -82,7 +82,7 @@ namespace visage {
     Animation<float> color_;
     Animation<float> width_;
 
-    int last_drag_ = 0;
+    float last_drag_ = 0.0f;
 
     bool active_ = false;
     bool left_ = false;
@@ -143,7 +143,7 @@ namespace visage {
     }
 
     bool scrollDown() {
-      setYPosition(y_position_ + height() / 8);
+      setYPosition(std::max(0.0f, std::min(maxScroll(), y_position_ + height() / 8.0f)));
       return true;
     }
 
