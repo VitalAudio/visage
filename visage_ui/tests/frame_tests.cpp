@@ -602,3 +602,43 @@ TEST_CASE("Frame added to a new parent draws only when the new parent draws", "[
   REQUIRE_FALSE(child.isDrawing());
   REQUIRE_FALSE(grandchild.isDrawing());
 }
+
+TEST_CASE("Frame DPI change updates children before notifying", "[ui]") {
+  Frame parent;
+  Frame child;
+  parent.setBounds(0, 0, 400, 300);
+  parent.addChild(child);
+
+  float child_dpi_in_callback = 0.0f;
+  parent.onDpiChange() += [&] {
+    child_dpi_in_callback = child.dpiScale();
+    child.setBounds(0, 0, 75, 10);
+  };
+
+  parent.setDpiScale(2.0f);
+  REQUIRE(child_dpi_in_callback == 2.0f);
+  REQUIRE(child.nativeWidth() == 150);
+}
+
+TEST_CASE("Frame DPI change updates native bounds of children", "[ui]") {
+  Frame parent;
+  Frame child;
+  parent.setBounds(0, 0, 400, 300);
+  parent.addChild(child);
+  child.setBounds(10, 20, 100, 50);
+
+  parent.setDpiScale(2.0f);
+  REQUIRE(IBounds(child.nativeX(), child.nativeY(), child.nativeWidth(), child.nativeHeight()) ==
+          IBounds(20, 40, 200, 100));
+}
+
+TEST_CASE("Frame sized before being added uses the parent's DPI", "[ui]") {
+  Frame parent;
+  parent.setDpiScale(2.0f);
+  Frame child;
+  child.setBounds(10, 20, 100, 50);
+
+  parent.addChild(child);
+  REQUIRE(IBounds(child.nativeX(), child.nativeY(), child.nativeWidth(), child.nativeHeight()) ==
+          IBounds(20, 40, 200, 100));
+}

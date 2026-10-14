@@ -332,13 +332,15 @@ namespace visage {
       bool changed = dpi_scale_ != dpi_scale;
       dpi_scale_ = dpi_scale;
 
-      if (changed) {
-        on_dpi_change_.callback();
-        redraw();
-      }
-
       for (Frame* child : children_)
         child->setDpiScale(dpi_scale);
+
+      if (changed) {
+        on_dpi_change_.callback();
+        if (parent_)
+          setBounds(bounds_);
+        redraw();
+      }
     }
 
     float dpiScale() const { return dpi_scale_; }
