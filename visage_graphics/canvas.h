@@ -532,7 +532,12 @@ namespace visage {
       state_.current_region = region;
     }
 
-    void endRegion() { restoreState(); }
+    void endRegion() {
+      VISAGE_ASSERT(state_memory_.size() == 1);
+      if (state_memory_.size() > 1)
+        state_memory_.erase(state_memory_.begin() + 1, state_memory_.end());
+      restoreState();
+    }
 
     void setPalette(Palette* palette) { palette_ = palette; }
     void setPaletteOverride(theme::OverrideId override_id) {
