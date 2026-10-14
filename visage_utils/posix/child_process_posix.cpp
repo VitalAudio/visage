@@ -26,14 +26,27 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <spawn.h>
-#include <sstream>
 #include <string>
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
 #include <vector>
 
+#if VISAGE_MAC
+#include <crt_externs.h>
+#else
+extern char** environ;
+#endif
+
 namespace visage {
+  static char** environment() {
+#if VISAGE_MAC
+    return *_NSGetEnviron();
+#else
+    return environ;
+#endif
+  }
+
   static void closePipes(int out_pipe, int err_pipe) {
     close(out_pipe);
     close(err_pipe);
@@ -57,13 +70,53 @@ namespace visage {
     }
   }
 
+  static std::vector<std::string> splitArguments(const std::string& arguments) {
+    std::vector<std::string> result;
+    std::string argument;
+    bool has_argument = false;
+    bool quoted = false;
+    size_t backslashes = 0;
+
+    for (char c : arguments) {
+      if (c == '\\') {
+        backslashes++;
+        has_argument = true;
+        continue;
+      }
+
+      if (c == '"') {
+        argument.append(backslashes / 2, '\\');
+        if (backslashes % 2)
+          argument.push_back(c);
+        else
+          quoted = !quoted;
+        has_argument = true;
+      }
+      else {
+        argument.append(backslashes, '\\');
+        if ((c == ' ' || c == '\t') && !quoted) {
+          if (has_argument)
+            result.push_back(argument);
+          argument.clear();
+          has_argument = false;
+        }
+        else {
+          argument.push_back(c);
+          has_argument = true;
+        }
+      }
+      backslashes = 0;
+    }
+
+    argument.append(backslashes, '\\');
+    if (has_argument)
+      result.push_back(argument);
+    return result;
+  }
+
   static std::vector<char*> parseArguments(const std::string& command, const std::string& arguments,
                                            std::vector<std::string>& storage) {
-    std::istringstream stream(arguments);
-    std::string segment;
-    while (std::getline(stream, segment, ' '))
-      storage.push_back(segment);
-
+    storage = splitArguments(arguments);
     storage.insert(storage.begin(), command);
 
     std::vector<char*> args;
@@ -103,8 +156,6 @@ namespace visage {
 
   bool spawnChildProcess(const std::string& command, const std::string& arguments,
                          std::string& output, int timeout_ms) {
-    static constexpr char* kEnvironment[] = { nullptr };
-
     std::vector<std::string> arg_storage;
     std::vector<char*> args = parseArguments(command, arguments, arg_storage);
 
@@ -117,7 +168,7 @@ namespace visage {
 
     pid_t pid;
     int status;
-    int result = posix_spawn(&pid, command.c_str(), &file_actions, nullptr, args.data(), kEnvironment);
+    int result = posix_spawnp(&pid, command.c_str(), &file_actions, nullptr, args.data(), environment());
 
     posix_spawn_file_actions_destroy(&file_actions);
 
