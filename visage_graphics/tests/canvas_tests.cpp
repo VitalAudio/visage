@@ -890,6 +890,33 @@ TEST_CASE("Cached region next to a bloom region keeps its brightness", "[graphic
   REQUIRE(canvas.takeScreenshot().sample(48, 16).hexRed() == 0xff);
 }
 
+TEST_CASE("Cached region keeps its content when a sibling adds a bloom effect", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BloomPostEffect bloom;
+  Region glowing;
+  Region cached;
+  canvas.addRegion(&glowing);
+  glowing.setNeedsLayer(true);
+  glowing.setBounds(0, 0, 32, 32);
+  canvas.addRegion(&cached);
+  cached.setNeedsLayer(true);
+  cached.setBounds(32, 0, 32, 32);
+
+  canvas.beginRegion(&glowing);
+  canvas.setColor(0xff202020);
+  canvas.fill(0, 0, glowing.width(), glowing.height());
+  canvas.endRegion();
+  canvas.beginRegion(&cached);
+  canvas.setColor(0xffffffff);
+  canvas.fill(0, 0, cached.width(), cached.height());
+  canvas.endRegion();
+  REQUIRE(canvas.takeScreenshot().sample(48, 16).hexRed() == 0xff);
+
+  glowing.setPostEffect(&bloom);
+  REQUIRE(canvas.takeScreenshot().sample(48, 16).hexRed() == 0xff);
+}
+
 TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BlurPostEffect blur; }
   { BloomPostEffect bloom; }
