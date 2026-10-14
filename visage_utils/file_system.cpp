@@ -63,11 +63,8 @@ namespace visage {
       return false;
 
     stream.write(reinterpret_cast<const char*>(data), size);
-
-    if (stream.fail())
-      return false;
-
-    return true;
+    stream.close();
+    return !stream.fail();
   }
 
   bool replaceFileWithText(const File& file, const std::string& text) {
@@ -76,10 +73,8 @@ namespace visage {
       return false;
 
     stream << text;
-    if (stream.fail())
-      return false;
-
-    return true;
+    stream.close();
+    return !stream.fail();
   }
 
   bool hasWriteAccess(const File& file) {
@@ -101,10 +96,8 @@ namespace visage {
       return false;
 
     stream << text;
-    if (stream.fail())
-      return false;
-
-    return true;
+    stream.close();
+    return !stream.fail();
   }
 
   std::unique_ptr<unsigned char[]> loadFileData(const File& file, size_t& size) {
