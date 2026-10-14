@@ -128,8 +128,13 @@ namespace visage {
   }
 
   static bool setupPipes(int out_pipe[2], int err_pipe[2], posix_spawn_file_actions_t* file_actions) {
-    if (pipe(out_pipe) == -1 || pipe(err_pipe) == -1)
+    if (pipe(out_pipe) == -1)
       return false;
+
+    if (pipe(err_pipe) == -1) {
+      closePipes(out_pipe[0], out_pipe[1]);
+      return false;
+    }
 
     posix_spawn_file_actions_init(file_actions);
     posix_spawn_file_actions_adddup2(file_actions, out_pipe[1], STDOUT_FILENO);
