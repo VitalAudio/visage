@@ -170,7 +170,6 @@ namespace visage {
   template<>
   inline void submitShapes<ShaderWrapper>(const BatchVector<ShaderWrapper>& batches,
                                           BlendMode state, Layer& layer, int submit_pass) {
-    setBlendMode(state);
     submitShader(batches, layer, submit_pass);
   }
 

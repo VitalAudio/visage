@@ -23,6 +23,7 @@
 #include "visage_graphics/color.h"
 #include "visage_graphics/gradient.h"
 #include "visage_graphics/post_effects.h"
+#include "visage_graphics/shader.h"
 
 #include <bgfx/bgfx.h>
 #include <catch2/catch_approx.hpp>
@@ -826,4 +827,23 @@ TEST_CASE("Squircle centers are filled and squircle border centers are empty", "
     }
     REQUIRE(screenshot.sample(size + 3, size / 2).hexRed() == 0xff);
   }
+}
+
+TEST_CASE("Custom shaders draw with their own blend mode", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(20, 10);
+  canvas.setColor(0xff0000ff);
+  canvas.fill(0, 0, 20, 10);
+
+  Shader alpha(Fill::vertexShader(), Fill::fragmentShader(), BlendMode::Alpha);
+  Shader add(Fill::vertexShader(), Fill::fragmentShader(), BlendMode::Add);
+  canvas.setColor(0xffff0000);
+  canvas.shader(&alpha, 0, 0, 10, 10);
+  canvas.shader(&add, 10, 0, 10, 10);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(screenshot.sample(5, 5).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(5, 5).hexBlue() == 0x00);
+  REQUIRE(screenshot.sample(15, 5).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(15, 5).hexBlue() == 0xff);
 }
