@@ -63,7 +63,7 @@ namespace visage {
       if (flex_wrap_)
         results = flexChildWrap(children, flex_bounds, dpi_scale, bounding_box_);
       else
-        results = flexChildGroup(children, flex_bounds, dpi_scale, bounding_box_);
+        results = flexChildGroup(children, flex_bounds, flex_bounds, dpi_scale, bounding_box_);
 
       bounding_box_.setX(bounding_box_.x() - pad_left);
       bounding_box_.setY(bounding_box_.y() - pad_top);
@@ -131,7 +131,7 @@ namespace visage {
 
   private:
     std::vector<IBounds> flexChildGroup(const std::vector<const Layout*>& children, IBounds bounds,
-                                        float dpi_scale, IBounds& bounding_box) const;
+                                        IBounds container, float dpi_scale, IBounds& bounding_box) const;
 
     std::vector<int> alignCrossPositions(std::vector<int>& cross_sizes, int cross_area, int gap) const;
 
