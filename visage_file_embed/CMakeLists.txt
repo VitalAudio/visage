@@ -37,7 +37,7 @@ function(add_embedded_resources project include_filename namespace files)
     -DVAR_NAMESPACE=${namespace} -P "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/create_embed_header.cmake"
     COMMAND ${CMAKE_COMMAND} -DDEST_FILE=${lookup_file} -DINCLUDE_FILE=${include_filename} "-DFILE_LIST=${files}"
     -DVAR_NAMESPACE=${namespace} -P "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/create_file_lookup.cmake"
-    DEPENDS ${FILE_EMBEDDER_LIB} ${files} "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/create_embed_header.cmake"
+    DEPENDS ${files} "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/create_embed_header.cmake"
     "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/embedded_name.cmake"
     COMMENT "Generating C++ for embedded files..."
     VERBATIM
