@@ -27,43 +27,56 @@
 namespace visage {
   class String {
   public:
+    static constexpr char32_t kReplacementCharacter = 0xFFFD;
+
+    static bool isValidCharacter(char32_t character) {
+      return character < 0xD800 || (character > 0xDFFF && character <= 0x10FFFF);
+    }
+
     template<typename Utf32String>
     static Utf32String convertUtf8ToUtf32(const std::string& utf8_str) {
       Utf32String result;
       result.reserve(utf8_str.size());
 
-      for (size_t i = 0; i < utf8_str.size(); ++i) {
-        unsigned char ch = utf8_str[i];
-
-        if (ch < 0x80)  // ASCII character
+      size_t i = 0;
+      while (i < utf8_str.size()) {
+        unsigned char ch = utf8_str[i++];
+        if (ch < 0x80) {  // ASCII character
           result.push_back(ch);
-        else if (ch < 0xC0)  // Error on continuation byte
-          result.push_back('*');
-        else if (ch < 0xE0) {  // 2 byte character
-          if (i + 1 >= utf8_str.size())  // Error - unfinished character.
-            return result;
-
-          result.push_back(((ch & 0x1F) << 6) | (utf8_str[i + 1] & 0x3F));
-          i += 1;
+          continue;
         }
-        else if (ch < 0xF0) {  // 3 byte character
-          if (i + 2 >= utf8_str.size())  // Error - unfinished character.
-            return result;
 
-          result.push_back(((ch & 0x0F) << 12) | ((utf8_str[i + 1] & 0x3F) << 6) |
-                           (utf8_str[i + 2] & 0x3F));
-          i += 2;
+        int continuation_bytes = 0;
+        char32_t character = 0;
+        char32_t min_character = 0;
+        if (ch >= 0xC2 && ch < 0xE0) {  // 2 byte character
+          continuation_bytes = 1;
+          character = ch & 0x1F;
+          min_character = 0x80;
         }
-        else if (ch < 0xF8) {  // 4 byte character
-          if (i + 3 >= utf8_str.size())  // Error - unfinished character.
-            return result;
+        else if (ch >= 0xE0 && ch < 0xF0) {  // 3 byte character
+          continuation_bytes = 2;
+          character = ch & 0x0F;
+          min_character = 0x800;
+        }
+        else if (ch >= 0xF0 && ch < 0xF5) {  // 4 byte character
+          continuation_bytes = 3;
+          character = ch & 0x07;
+          min_character = 0x10000;
+        }
 
-          result.push_back(((ch & 0x07) << 18) | ((utf8_str[i + 1] & 0x3F) << 12) |
-                           ((utf8_str[i + 2] & 0x3F) << 6) | (utf8_str[i + 3] & 0x3F));
-          i += 3;
+        int read = 0;
+        while (read < continuation_bytes && i < utf8_str.size() &&
+               (static_cast<unsigned char>(utf8_str[i]) & 0xC0) == 0x80) {
+          character = (character << 6) | (utf8_str[i++] & 0x3F);
+          read++;
         }
-        else  // Error
-          return result;
+
+        if (continuation_bytes && read == continuation_bytes && character >= min_character &&
+            isValidCharacter(character))
+          result.push_back(character);
+        else
+          result.push_back(kReplacementCharacter);
       }
 
       return result;
@@ -74,7 +87,11 @@ namespace visage {
       std::string result;
       result.reserve(utf32_str.size() * 4);
 
-      for (auto character : utf32_str) {
+      for (auto value : utf32_str) {
+        char32_t character = static_cast<char32_t>(value);
+        if (!isValidCharacter(character))
+          character = kReplacementCharacter;
+
         if (character < 0x80)  // ASCII character
           result.push_back(static_cast<char>(character));
         else if (character < 0x800) {  // 2 byte character
@@ -86,14 +103,12 @@ namespace visage {
           result.push_back(static_cast<char>(((character >> 6) & 0x3F) | 0x80));
           result.push_back(static_cast<char>((character & 0x3F) | 0x80));
         }
-        else if (character < 0x110000) {  // 4 byte character
+        else {  // 4 byte character
           result.push_back(static_cast<char>((character >> 18) | 0xF0));
           result.push_back(static_cast<char>(((character >> 12) & 0x3F) | 0x80));
           result.push_back(static_cast<char>(((character >> 6) & 0x3F) | 0x80));
           result.push_back(static_cast<char>((character & 0x3F) | 0x80));
         }
-        else  // Error
-          return result;
       }
       return result;
     }
@@ -104,20 +119,18 @@ namespace visage {
       result.reserve(utf32_str.size());
 
       for (char32_t character : utf32_str) {
-        if (character <= 0xFFFF) {
-          if (character >= 0xD800 && character <= 0xDFFF)  // Error
-            return result;
+        if (!isValidCharacter(character))
+          character = kReplacementCharacter;
+
+        if (character < 0x10000)
           result.push_back(static_cast<char16_t>(character));
-        }
-        else if (character <= 0x10FFFF) {
+        else {
           character -= 0x10000;
           auto high_surrogate = static_cast<char16_t>((character >> 10) + 0xD800);
           auto low_surrogate = static_cast<char16_t>((character & 0x3FF) + 0xDC00);
           result.push_back(high_surrogate);
           result.push_back(low_surrogate);
         }
-        else  // Error
-          return result;
       }
       return result;
     }
@@ -129,21 +142,15 @@ namespace visage {
 
       for (size_t i = 0; i < utf16_str.size(); ++i) {
         char16_t ch = utf16_str[i];
+        bool high_surrogate = ch >= 0xD800 && ch <= 0xDBFF;
+        char16_t low_surrogate = i + 1 < utf16_str.size() ? utf16_str[i + 1] : 0;
 
-        if (ch >= 0xD800 && ch <= 0xDBFF) {  // 4 byte character
-          if (i + 1 >= utf16_str.size())  // Error - unfinished character
-            return result;
-
-          char16_t low_surrogate = utf16_str[++i];
-
-          if (low_surrogate < 0xDC00 || low_surrogate > 0xDFFF)  // Error - bad low surrogate
-            return result;
-
-          char32_t character = 0x10000 + ((ch - 0xD800) << 10) + (low_surrogate - 0xDC00);
-          result.push_back(character);
+        if (high_surrogate && low_surrogate >= 0xDC00 && low_surrogate <= 0xDFFF) {  // 4 byte character
+          result.push_back(0x10000 + ((ch - 0xD800) << 10) + (low_surrogate - 0xDC00));
+          ++i;
         }
-        else if (ch >= 0xDC00 && ch <= 0xDFFF)  // Error - missing high surrogate
-          return result;
+        else if (ch >= 0xD800 && ch <= 0xDFFF)
+          result.push_back(kReplacementCharacter);
         else  // 2 byte character
           result.push_back(static_cast<char32_t>(ch));
       }

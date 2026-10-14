@@ -36,6 +36,31 @@ TEST_CASE("String conversion", "[utils]") {
   REQUIRE(String(wide).toUtf32() == original);
 }
 
+TEST_CASE("String conversion replaces malformed UTF-8", "[utils]") {
+  REQUIRE(String("\xC3xyz").toUtf32() == U"\uFFFDxyz");
+  REQUIRE(String("xy\xE2\x82").toUtf32() == U"xy\uFFFD");
+  REQUIRE(String("\xF0\x9Fx").toUtf32() == U"\uFFFDx");
+  REQUIRE(String("\xFFx\xF8y").toUtf32() == U"\uFFFDx\uFFFDy");
+  REQUIRE(String("\x80x").toUtf32() == U"\uFFFDx");
+  REQUIRE(String("\xE0\x80\xAFx").toUtf32() == U"\uFFFDx");
+  REQUIRE(String("\xED\xA0\x80x").toUtf32() == U"\uFFFDx");
+  REQUIRE(String("\xF4\x90\x80\x80x").toUtf32() == U"\uFFFDx");
+  REQUIRE(String("\xC3\xA9\xF0\x9F\x98\x82").toUtf32() == U"\u00E9\U0001F602");
+}
+
+TEST_CASE("String conversion replaces invalid code points and surrogates", "[utils]") {
+  REQUIRE(String::convertToUtf8(std::u32string { 'x', 0x110000, 'y' }) == "x\xEF\xBF\xBDy");
+  REQUIRE(String::convertToUtf8(std::u32string { 'x', 0xD800, 'y' }) == "x\xEF\xBF\xBDy");
+  REQUIRE(String::convertUtf32ToUtf16<std::u16string>(std::u32string { 'x', 0xDC00, 'y' }) ==
+          u"x\uFFFDy");
+  REQUIRE(String::convertUtf32ToUtf16<std::u16string>(std::u32string { 'x', 0x110000, 'y' }) ==
+          u"x\uFFFDy");
+  REQUIRE(String::convertUtf16ToUtf32(std::u16string { 'x', 0xD800, 'y' }) == U"x\uFFFDy");
+  REQUIRE(String::convertUtf16ToUtf32(std::u16string { 'x', 0xDC00, 'y' }) == U"x\uFFFDy");
+  REQUIRE(String::convertUtf16ToUtf32(std::u16string { 'x', 0xD800 }) == U"x\uFFFD");
+  REQUIRE(String::convertUtf16ToUtf32(std::u16string { 'x', 0xD83D, 0xDE02 }) == U"x\U0001F602");
+}
+
 TEST_CASE("Base 64 conversion", "[utils]") {
   static constexpr int kMaxSize = 10000;
   int size = 1 + (rand() % (kMaxSize - 1));
