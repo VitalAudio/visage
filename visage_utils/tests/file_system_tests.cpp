@@ -183,6 +183,15 @@ TEST_CASE("Temporary files are unique when created quickly", "[utils]") {
   REQUIRE(files.size() == 1000);
 }
 
+#if VISAGE_LINUX
+TEST_CASE("File writes report errors when flushing fails", "[utils]") {
+  unsigned char data[] = { 1, 2, 3 };
+  REQUIRE_FALSE(replaceFileWithData("/dev/full", data, sizeof(data)));
+  REQUIRE_FALSE(replaceFileWithText("/dev/full", "text"));
+  REQUIRE_FALSE(appendTextToFile("/dev/full", "text"));
+}
+#endif
+
 TEST_CASE("Search for files", "[utils]") {
   std::filesystem::path temp_dir = std::filesystem::temp_directory_path() / "visage_test_search";
   std::filesystem::create_directories(temp_dir);
