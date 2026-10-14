@@ -23,6 +23,7 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <clocale>
 
 using namespace visage;
 
@@ -149,6 +150,21 @@ TEST_CASE("String toFloat", "[utils]") {
   REQUIRE(test2.toFloat() == Catch::Approx(0.0f));
   String test3 = "";
   REQUIRE(test3.toFloat() == Catch::Approx(0.0f));
+}
+
+TEST_CASE("String numbers ignore the C locale", "[utils]") {
+  std::string previous_locale = setlocale(LC_NUMERIC, nullptr);
+  for (const char* locale : { "de_DE.UTF-8", "de_DE.utf8", "en_DK.utf8", "fr_FR.UTF-8", "German" }) {
+    if (setlocale(LC_NUMERIC, locale))
+      break;
+  }
+
+  CHECK(String(1.5f).toUtf8() == "1.5");
+  CHECK(String(-2.25, 1).toUtf8() == "-2.3");
+  CHECK(String("1.5").toFloat() == 1.5f);
+  CHECK(String("-0.25").toFloat() == -0.25f);
+
+  setlocale(LC_NUMERIC, previous_locale.c_str());
 }
 
 TEST_CASE("String toInt", "[utils]") {

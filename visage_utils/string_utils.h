@@ -187,6 +187,7 @@ namespace visage {
     static int naturalCompare(const String& a, const String& b);
     static int naturalCompare(const std::u32string& a, const std::u32string& b);
     static int naturalCompare(const std::string& a, const std::string& b);
+    static std::string formatDecimal(double value);
 
     String() = default;
 
@@ -213,13 +214,13 @@ namespace visage {
     String(unsigned long value) : String(std::to_string(value)) { }
     String(long long value) : String(std::to_string(value)) { }
     String(unsigned long long value) : String(std::to_string(value)) { }
-    String(float value) : String(std::to_string(value)) { removeTrailingZeros(); }
-    String(float value, int precision) : String(std::to_string(value)) {
+    String(float value) : String(formatDecimal(value)) { removeTrailingZeros(); }
+    String(float value, int precision) : String(formatDecimal(value)) {
       *this = withPrecision(precision);
     }
 
-    String(double value) : String(std::to_string(value)) { removeTrailingZeros(); }
-    String(double value, int precision) : String(std::to_string(value)) {
+    String(double value) : String(formatDecimal(value)) { removeTrailingZeros(); }
+    String(double value, int precision) : String(formatDecimal(value)) {
       *this = withPrecision(precision);
     }
 
@@ -277,14 +278,7 @@ namespace visage {
     String removeCharacters(const String& characters) const;
     String removeEmojiVariations() const;
 
-    float toFloat() const {
-      try {
-        return std::stof(toUtf8());
-      }
-      catch (...) {
-        return 0.0f;
-      }
-    }
+    float toFloat() const;
 
     int toInt() const {
       try {

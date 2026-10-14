@@ -22,6 +22,9 @@
 #include "string_utils.h"
 
 #include <algorithm>
+#include <iomanip>
+#include <locale>
+#include <sstream>
 
 namespace visage {
   std::string encodeDataBase64(const unsigned char* data, size_t size) {
@@ -184,5 +187,21 @@ namespace visage {
 
   int String::naturalCompare(const std::string& a, const std::string& b) {
     return naturalCompare(convertToUtf32(a), convertToUtf32(b));
+  }
+
+  std::string String::formatDecimal(double value) {
+    std::ostringstream stream;
+    stream.imbue(std::locale::classic());
+    stream << std::fixed << std::setprecision(6) << value;
+    return stream.str();
+  }
+
+  float String::toFloat() const {
+    std::istringstream stream(toUtf8());
+    stream.imbue(std::locale::classic());
+    float result = 0.0f;
+    if (stream >> result)
+      return result;
+    return 0.0f;
   }
 }
