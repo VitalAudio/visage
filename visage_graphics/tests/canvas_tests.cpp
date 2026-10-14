@@ -821,6 +821,50 @@ TEST_CASE("On-top region draws above a backdrop sibling added after it", "[graph
   REQUIRE(canvas.screenshot().sample(32, 16).hexRed() == 0x00);
 }
 
+TEST_CASE("Layered region keeps its content when an ancestor changes layering", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  Region group;
+  Region group_child1;
+  Region group_child2;
+  Region panel;
+  Region child;
+  canvas.addRegion(&group);
+  group.setNeedsLayer(true);
+  group.setBounds(0, 0, 32, 32);
+  group.addRegion(&group_child1);
+  group_child1.setNeedsLayer(true);
+  group_child1.setBounds(0, 0, 4, 4);
+  group.addRegion(&group_child2);
+  group_child2.setNeedsLayer(true);
+  group_child2.setBounds(8, 0, 4, 4);
+  canvas.addRegion(&panel);
+  panel.setBounds(32, 0, 32, 32);
+  panel.addRegion(&child);
+  child.setNeedsLayer(true);
+  child.setBounds(4, 4, 8, 8);
+
+  auto fill = [&canvas](Region& region, unsigned int color) {
+    canvas.beginRegion(&region);
+    canvas.setColor(color);
+    canvas.fill(0, 0, region.width(), region.height());
+    canvas.endRegion();
+  };
+
+  fill(group, 0xff404040);
+  fill(group_child1, 0xffffffff);
+  fill(group_child2, 0xffffffff);
+  fill(panel, 0xff0000ff);
+  fill(child, 0xff00ff00);
+  REQUIRE(canvas.takeScreenshot().sample(40, 8).hexGreen() == 0xff);
+
+  panel.setNeedsLayer(true);
+  REQUIRE(canvas.takeScreenshot().sample(40, 8).hexGreen() == 0xff);
+
+  panel.setNeedsLayer(false);
+  REQUIRE(canvas.takeScreenshot().sample(40, 8).hexGreen() == 0xff);
+}
+
 TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BlurPostEffect blur; }
   { BloomPostEffect bloom; }
