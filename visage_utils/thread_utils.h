@@ -67,6 +67,7 @@ namespace visage {
       if (running())
         return;
 
+      stop();
       should_run_ = true;
       completed_ = false;
       thread_ = std::make_unique<std::thread>(&Thread::startRun, this);
@@ -101,7 +102,7 @@ namespace visage {
 
     const std::string& name() const { return name_; }
     bool shouldRun() const { return should_run_.load(); }
-    bool running() const { return thread_ && thread_->joinable(); }
+    bool running() const { return thread_ && !completed(); }
     bool completed() const { return completed_.load(); }
 
   private:
