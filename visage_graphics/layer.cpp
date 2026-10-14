@@ -425,6 +425,8 @@ namespace visage {
       invalidate();
       setDimensions(atlas_map_.width(), atlas_map_.height());
     }
+    else if (region->width() > 0 && region->height() > 0)
+      invalidateRectInRegion({ 0, 0, region->width(), region->height() }, region);
   }
 
   void Layer::removePackedRegion(const Region* region) {
