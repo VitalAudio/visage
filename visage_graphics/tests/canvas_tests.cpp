@@ -675,6 +675,51 @@ TEST_CASE("Translucent frames don't accumulate on the composite", "[graphics]") 
     REQUIRE(alpha() == first);
 }
 
+TEST_CASE("Blur radius matches the blurred spread", "[graphics]") {
+  static constexpr int kWidth = 512;
+  static constexpr int kHeight = 16;
+  static constexpr int kEdge = kWidth / 2;
+
+  Canvas canvas;
+  canvas.setWindowless(kWidth, kHeight);
+  BlurPostEffect blur;
+  Region region;
+  canvas.addRegion(&region);
+  region.setNeedsLayer(true);
+  region.setPostEffect(&blur);
+  region.setBounds(0, 0, kWidth, kHeight);
+
+  auto measured_sigma = [&](float radius) {
+    blur.setBlurRadius(radius);
+    region.clear();
+    region.invalidate();
+    canvas.beginRegion(&region);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, kWidth, kHeight);
+    canvas.setColor(0xffffffff);
+    canvas.fill(kEdge, 0, kWidth - kEdge, kHeight);
+    canvas.endRegion();
+    const Screenshot& screenshot = canvas.takeScreenshot();
+
+    auto crossing = [&screenshot](float level) {
+      float last = 0.0f;
+      for (int x = 0; x < kWidth; ++x) {
+        float value = screenshot.sample(x, kHeight / 2).hexRed() / 255.0f;
+        if (x > 0 && last < level && value >= level)
+          return x - 0.5f + (level - last) / (value - last);
+        last = value;
+      }
+      return 0.0f;
+    };
+    return (crossing(0.8413f) - crossing(0.1587f)) / 2.0f;
+  };
+
+  for (float radius : { 6.0f, 16.0f, 40.0f })
+    REQUIRE(measured_sigma(radius) == Approx(radius).epsilon(0.05f));
+
+  REQUIRE(measured_sigma(8.1f) / measured_sigma(7.9f) == Approx(8.1f / 7.9f).epsilon(0.02f));
+}
+
 TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BlurPostEffect blur; }
   { BloomPostEffect bloom; }

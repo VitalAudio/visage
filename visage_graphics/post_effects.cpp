@@ -213,21 +213,22 @@ namespace visage {
   BlurPostEffect::~BlurPostEffect() = default;
 
   int BlurPostEffect::preprocess(Region* region, int submit_pass) {
-    static constexpr float kMaxSigma = 4.0f;
+    static constexpr float kKernelSigma = 3.3f;
     checkBuffers(region, true);
 
     sigma_ = blur_radius_;
     if (sigma_ < kMinSigma)
       return submit_pass;
 
-    float adjusted_sigma = sigma_;
+    auto kernel_sigma = [this](int stages) {
+      float resample_variance = ((1 << (2 * stages + 2)) - 4) * 2.0f / 9.0f;
+      return std::sqrt(std::max(0.0f, sigma_ * sigma_ - resample_variance)) / (1 << stages);
+    };
+
     downsample_stages_ = 0;
-    while (adjusted_sigma > kMaxSigma) {
-      adjusted_sigma *= 0.5f;
-      downsample_stages_ += 1;
-    }
-    downsample_stages_ = std::min(kMaxDownsamples, downsample_stages_);
-    float transition = adjusted_sigma / kMaxSigma;
+    while (downsample_stages_ < kMaxDownsamples && kernel_sigma(downsample_stages_) > kKernelSigma)
+      downsample_stages_++;
+    float transition = std::min(1.0f, kernel_sigma(downsample_stages_) / kKernelSigma);
 
     int last_width = full_width_;
     int last_height = full_height_;
