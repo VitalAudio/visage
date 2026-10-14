@@ -28,6 +28,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <csignal>
+#include <filesystem>
+#include <fstream>
 #include <thread>
 
 using namespace visage;
@@ -69,6 +71,24 @@ TEST_CASE("Child process timeout", "[utils]") {
 
   REQUIRE(elapsed >= std::chrono::milliseconds(90));
 }
+
+#if !VISAGE_WINDOWS
+TEST_CASE("Child process timeout kills a child that ignores termination", "[utils]") {
+  std::filesystem::path script = std::filesystem::temp_directory_path() / "visage_ignore_term.sh";
+  {
+    std::ofstream file(script);
+    file << "trap '' TERM\nwhile :; do :; done\n";
+  }
+
+  std::string output;
+  auto start = std::chrono::steady_clock::now();
+  REQUIRE_FALSE(spawnChildProcess("/bin/sh", script.string(), output, 100));
+  auto elapsed = std::chrono::steady_clock::now() - start;
+  std::filesystem::remove(script);
+
+  REQUIRE(elapsed < std::chrono::seconds(2));
+}
+#endif
 
 TEST_CASE("Child process with multiple arguments", "[utils]") {
 #if VISAGE_WINDOWS

@@ -40,9 +40,21 @@ namespace visage {
   }
 
   static void terminateAndCleanup(pid_t pid, int out_pipe, int err_pipe, int* status) {
+    static constexpr int kTerminateTimeoutMs = 100;
+
     kill(pid, SIGTERM);
     closePipes(out_pipe, err_pipe);
-    waitpid(pid, status, 0);
+
+    auto start_time = std::chrono::steady_clock::now();
+    while (waitpid(pid, status, WNOHANG) == 0) {
+      auto elapsed = std::chrono::steady_clock::now() - start_time;
+      if (std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > kTerminateTimeoutMs) {
+        kill(pid, SIGKILL);
+        waitpid(pid, status, 0);
+        return;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
   }
 
   static std::vector<char*> parseArguments(const std::string& command, const std::string& arguments,
@@ -74,16 +86,6 @@ namespace visage {
     posix_spawn_file_actions_addclose(file_actions, out_pipe[1]);
     posix_spawn_file_actions_addclose(file_actions, err_pipe[1]);
     return true;
-  }
-
-  static void gracefulTerminate(pid_t pid, int* status) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    int termination_check = waitpid(pid, status, WNOHANG);
-    if (termination_check == 0) {
-      kill(pid, SIGKILL);
-      waitpid(pid, status, 0);
-    }
   }
 
   static bool readPipeWithSizeCheck(int pipe_fd, char* buffer, std::string& output, pid_t pid,
@@ -160,7 +162,6 @@ namespace visage {
       auto elapsed = std::chrono::steady_clock::now() - start_time;
       if (std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > timeout_ms) {
         terminateAndCleanup(pid, out_pipe[0], err_pipe[0], &status);
-        gracefulTerminate(pid, &status);
         return false;
       }
 
