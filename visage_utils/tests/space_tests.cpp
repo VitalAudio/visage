@@ -26,6 +26,12 @@
 
 using namespace visage;
 
+TEST_CASE("Point scalar division", "[utils]") {
+  Point point(4.0f, 8.0f);
+  REQUIRE(point / 2.0f == Point(2.0f, 4.0f));
+  REQUIRE(2.0f / point == Point(0.5f, 0.25f));
+}
+
 TEST_CASE("Bounds intersection", "[utils]") {
   IBounds bounds1(-1, -2, 10, 10);
   IBounds bounds2(7, 5, 15, 15);
