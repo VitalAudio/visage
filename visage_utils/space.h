@@ -79,7 +79,7 @@ namespace visage {
       return *this;
     }
     friend BasePoint operator/(T scalar, const BasePoint& point) {
-      return { point.x / scalar, point.y / scalar };
+      return { scalar / point.x, scalar / point.y };
     }
 
     bool operator==(const BasePoint& other) const noexcept { return x == other.x && y == other.y; }
