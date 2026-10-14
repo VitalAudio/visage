@@ -38,6 +38,7 @@ namespace visage {
                                    bgfx::TextureFormat::Enum format) {
     bgfx::SwapChain swap_chain;
     swap_chain.nwh = window_handle;
+    swap_chain.ndt = Renderer::instance().display();
     swap_chain.width = width;
     swap_chain.height = height;
     swap_chain.formatColor = format;

@@ -101,6 +101,9 @@ namespace visage {
   }
 
   void Renderer::initialize(void* model_window, void* display) {
+    if (display_ == nullptr)
+      display_ = display;
+
     if (initialized_)
       return;
 

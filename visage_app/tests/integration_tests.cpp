@@ -20,7 +20,6 @@
  */
 
 #include "visage/app.h"
-#include "visage_graphics/renderer.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -1065,8 +1064,6 @@ TEST_CASE("Resizing a window many times keeps its swap chain valid", "[integrati
   if (std::getenv("DISPLAY") == nullptr)
     SKIP("No display");
 #endif
-  if (Renderer::instance().initialized())
-    SKIP("Renderer was already initialized without a window");
 
   ApplicationEditor app;
   app.onDraw() = [](Canvas& canvas) {
@@ -1080,6 +1077,31 @@ TEST_CASE("Resizing a window many times keeps its swap chain valid", "[integrati
     app.drawWindow();
   }
   REQUIRE(app.nativeWidth() == 199);
+  app.removeFromWindow();
+}
+
+TEST_CASE("Window opens after rendering offscreen", "[integration]") {
+#if VISAGE_LINUX
+  if (std::getenv("DISPLAY") == nullptr)
+    SKIP("No display");
+#endif
+
+  Canvas canvas;
+  canvas.setWindowless(10, 10);
+  canvas.setColor(0xffffffff);
+  canvas.fill(0, 0, 10, 10);
+  REQUIRE(canvas.takeScreenshot().sample(5, 5).hexRed() == 0xff);
+
+  ApplicationEditor app;
+  app.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  std::unique_ptr<Window> window = createWindow(Dimension::nativePixels(100), Dimension::nativePixels(100));
+  app.addToWindow(window.get());
+  app.drawWindow();
+  app.drawWindow();
+  REQUIRE(app.nativeWidth() == 100);
   app.removeFromWindow();
 }
 

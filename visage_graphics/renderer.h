@@ -46,6 +46,7 @@ namespace visage {
     bool supported() const { return supported_; }
     bool swapChainSupported() const { return swap_chain_supported_; }
     bool initialized() const { return initialized_; }
+    void* display() const { return display_; }
 
   private:
     void startRenderThread();
@@ -53,6 +54,7 @@ namespace visage {
     void run() override;
 
     bool initialized_ = false;
+    void* display_ = nullptr;
     bool supported_ = false;
     bool swap_chain_supported_ = false;
 
