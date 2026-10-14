@@ -759,6 +759,38 @@ TEST_CASE("Layered region with a backdrop child keeps its other children", "[gra
   REQUIRE(canvas.screenshot().sample(8, 8).hexRed() == 0x00);
 }
 
+TEST_CASE("Backdrop follows its region when an ancestor moves", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(2.0f);
+  Region background;
+  Region parent;
+  Region glass;
+  canvas.addRegion(&background);
+  background.setBounds(0, 0, 64, 32);
+  canvas.addRegion(&parent);
+  parent.setBounds(0, 0, 32, 32);
+  parent.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&blur);
+  glass.setBounds(8, 8, 16, 16);
+
+  canvas.beginRegion(&background);
+  canvas.setColor(0xffff0000);
+  canvas.fill(0, 0, 32, 32);
+  canvas.setColor(0xff0000ff);
+  canvas.fill(32, 0, 32, 32);
+  canvas.endRegion();
+  canvas.beginRegion(&glass);
+  canvas.endRegion();
+  REQUIRE(canvas.takeScreenshot().sample(16, 16).hexRed() == 0xff);
+
+  parent.setBounds(32, 0, 32, 32);
+  REQUIRE(canvas.takeScreenshot().sample(48, 16).hexBlue() == 0xff);
+  REQUIRE(canvas.screenshot().sample(48, 16).hexRed() == 0x00);
+}
+
 TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BlurPostEffect blur; }
   { BloomPostEffect bloom; }

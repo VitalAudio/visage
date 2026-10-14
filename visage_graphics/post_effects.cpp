@@ -211,6 +211,40 @@ namespace visage {
     bgfx::setVertexBuffer(0, inverted ? handles_->inv_screen_vertex_buffer : handles_->screen_vertex_buffer);
   }
 
+  IPoint DownsamplePostEffect::sourcePosition(const Region* region) const {
+    IPoint position;
+    for (; region && region != region_; region = region->parent())
+      position += IPoint(region->x(), region->y());
+    return position;
+  }
+
+  void DownsamplePostEffect::setTexturePositions(const BatchVector<SampleRegion>& batches,
+                                                 PostEffectVertex* vertices, int level) const {
+    float scale_x = widths_[level] * 1.0f / full_width_;
+    float scale_y = heights_[level] * 1.0f / full_height_;
+    for (const auto& batch : batches) {
+      for (const SampleRegion& shape : *batch.shapes) {
+        IPoint position = sourcePosition(shape.region);
+        float left = position.x * scale_x;
+        float top = position.y * scale_y;
+        float right = (position.x + shape.width) * scale_x;
+        float bottom = (position.y + shape.height) * scale_y;
+        int pieces = numShapePieces(shape, batch.x, batch.y, *batch.invalid_rects);
+        for (int i = 0; i < pieces; ++i) {
+          vertices[0].texture_x = left;
+          vertices[0].texture_y = top;
+          vertices[1].texture_x = right;
+          vertices[1].texture_y = top;
+          vertices[2].texture_x = left;
+          vertices[2].texture_y = bottom;
+          vertices[3].texture_x = right;
+          vertices[3].texture_y = bottom;
+          vertices += kVerticesPerQuad;
+        }
+      }
+    }
+  }
+
   BlurPostEffect::BlurPostEffect() : DownsamplePostEffect(false) { }
 
   BlurPostEffect::~BlurPostEffect() = default;
@@ -334,16 +368,7 @@ namespace visage {
     int source_index = downsample_stages_ ? 1 : 0;
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[source_index]));
 
-    for (int i = 0; i < quads.num_shapes; ++i) {
-      quads.vertices[i * kVerticesPerQuad].texture_x = 0.0f;
-      quads.vertices[i * kVerticesPerQuad].texture_y = 0.0f;
-      quads.vertices[i * kVerticesPerQuad + 1].texture_x = widths_[0];
-      quads.vertices[i * kVerticesPerQuad + 1].texture_y = 0.0f;
-      quads.vertices[i * kVerticesPerQuad + 2].texture_x = 0.0f;
-      quads.vertices[i * kVerticesPerQuad + 2].texture_y = heights_[0];
-      quads.vertices[i * kVerticesPerQuad + 3].texture_x = widths_[0];
-      quads.vertices[i * kVerticesPerQuad + 3].texture_y = heights_[0];
-    }
+    setTexturePositions(batches, quads.vertices, 0);
     setUniformDimensions(destination.width(), destination.height());
 
     float value = destination.hdr() ? kHdrColorMultiplier : 1.0f;
@@ -461,16 +486,7 @@ namespace visage {
     if (quads.vertices == nullptr)
       return;
 
-    for (int i = 0; i < quads.num_shapes; ++i) {
-      quads.vertices[i * kVerticesPerQuad].texture_x = 0.0f;
-      quads.vertices[i * kVerticesPerQuad].texture_y = 0.0f;
-      quads.vertices[i * kVerticesPerQuad + 1].texture_x = widths_[1];
-      quads.vertices[i * kVerticesPerQuad + 1].texture_y = 0.0f;
-      quads.vertices[i * kVerticesPerQuad + 2].texture_x = 0.0f;
-      quads.vertices[i * kVerticesPerQuad + 2].texture_y = heights_[1];
-      quads.vertices[i * kVerticesPerQuad + 3].texture_x = widths_[1];
-      quads.vertices[i * kVerticesPerQuad + 3].texture_y = heights_[1];
-    }
+    setTexturePositions(batches, quads.vertices, 1);
 
     setBlendMode(BlendMode::Add);
 

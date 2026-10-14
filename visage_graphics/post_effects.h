@@ -57,6 +57,9 @@ namespace visage {
     void setInitialVertices(Region* region);
     void checkBuffers(const Region* region, bool full_resolution);
     void setScreenVertexBuffer(bool inverted);
+    IPoint sourcePosition(const Region* region) const;
+    void setTexturePositions(const BatchVector<SampleRegion>& batches, PostEffectVertex* vertices,
+                             int level) const;
 
     int full_width_ = 0;
     int full_height_ = 0;
