@@ -33,6 +33,7 @@
 #include <cstdlib>
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
+#include <unistd.h>
 #else
 #include <cstdlib>
 #include <dlfcn.h>
@@ -78,8 +79,14 @@ namespace visage {
   }
 
   bool hasWriteAccess(const File& file) {
-    std::filesystem::file_status status = std::filesystem::status(file);
-    return (status.permissions() & std::filesystem::perms::owner_write) != std::filesystem::perms::none;
+#if VISAGE_WINDOWS
+    std::error_code error;
+    std::filesystem::file_status status = std::filesystem::status(file, error);
+    return std::filesystem::exists(status) &&
+           (status.permissions() & std::filesystem::perms::owner_write) != std::filesystem::perms::none;
+#else
+    return access(file.c_str(), W_OK) == 0;
+#endif
   }
 
   bool fileExists(const File& file) {
