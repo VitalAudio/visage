@@ -128,7 +128,9 @@ namespace visage {
       container_.addChild(frame, make_visible);
     }
 
-    void addScrolledChild(Frame& frame, bool make_visible = true) { addScrolledChild(&frame); }
+    void addScrolledChild(Frame& frame, bool make_visible = true) {
+      addScrolledChild(&frame, make_visible);
+    }
 
     void addScrolledChild(std::unique_ptr<Frame> frame, bool make_visible = true) {
       container_.setVisible(true);

@@ -205,6 +205,11 @@ TEST_CASE("ScrollableFrame scrollable children", "[ui]") {
     scrollable_frame.addScrolledChild(&child_frame, false);
     REQUIRE_FALSE(child_frame.isVisible());
   }
+
+  SECTION("Adding scrolled child by reference with visibility control") {
+    scrollable_frame.addScrolledChild(child_frame, false);
+    REQUIRE_FALSE(child_frame.isVisible());
+  }
 }
 
 TEST_CASE("ScrollableFrame scroll bar configuration", "[ui]") {
