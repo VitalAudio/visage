@@ -723,7 +723,7 @@ namespace visage {
   }
 
   static void threadTimerCallback(WindowX11* window) {
-    ::Display* display = XOpenDisplay(nullptr);
+    ::Display* display = X11Connection::openDisplay();
     if (display == nullptr)
       return;
 
