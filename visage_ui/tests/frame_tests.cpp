@@ -21,6 +21,7 @@
 
 #include "visage_graphics/canvas.h"
 #include "visage_ui/frame.h"
+#include "visage_ui/svg_frame.h"
 #include "visage_utils/events.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -641,4 +642,17 @@ TEST_CASE("Frame sized before being added uses the parent's DPI", "[ui]") {
   parent.addChild(child);
   REQUIRE(IBounds(child.nativeX(), child.nativeY(), child.nativeWidth(), child.nativeHeight()) ==
           IBounds(20, 40, 200, 100));
+}
+
+TEST_CASE("SvgFrame ignores mouse events however it is constructed", "[ui]") {
+  static constexpr char kSvg[] = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">"
+                                 "<rect width=\"10\" height=\"10\"/></svg>";
+  const auto* data = reinterpret_cast<const uint8_t*>(kSvg);
+
+  SvgFrame from_nothing;
+  SvgFrame from_data(data, sizeof(kSvg) - 1);
+  SvgFrame from_file(EmbeddedFile { "icon.svg", data, sizeof(kSvg) - 1 });
+  REQUIRE(from_nothing.ignoresMouseEvents());
+  REQUIRE(from_data.ignoresMouseEvents());
+  REQUIRE(from_file.ignoresMouseEvents());
 }
