@@ -134,3 +134,42 @@ TEST_CASE("Dragging files over a frame with an invalid extension regex doesn't t
   REQUIRE_FALSE(window.handleFileDrop(10, 10, files));
   app.removeFromWindow();
 }
+
+TEST_CASE("Window doesn't draw an editor after it's removed from the window", "[integration]") {
+  ApplicationEditor app;
+  Frame child;
+  int draws = 0;
+  child.onDraw() = [&draws](Canvas&) { draws++; };
+  app.addChild(child);
+  app.setBounds(0, 0, 40, 40);
+  child.setBounds(0, 0, 40, 40);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  int draws_while_attached = draws;
+  app.removeFromWindow();
+
+  child.redraw();
+  window.drawCallback(1.0);
+  REQUIRE(draws == draws_while_attached);
+}
+
+TEST_CASE("Removing an editor from its window during the window's draw doesn't crash",
+          "[integration]") {
+  ApplicationEditor app;
+  Frame child;
+  int draws = 0;
+  child.onDraw() = [&draws](Canvas&) { draws++; };
+  app.addChild(child);
+  app.setBounds(0, 0, 40, 40);
+  child.setBounds(0, 0, 40, 40);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  int draws_while_attached = draws;
+
+  runOnEventThread([&app] { app.removeFromWindow(); });
+  child.redraw();
+  window.drawCallback(1.0);
+  REQUIRE(draws == draws_while_attached);
+}

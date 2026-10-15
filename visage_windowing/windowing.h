@@ -119,8 +119,10 @@ namespace visage {
     }
 
     void drawCallback(double time) const {
-      if (draw_callback_)
-        draw_callback_(time);
+      if (draw_callback_) {
+        std::function<void(double)> callback = draw_callback_;
+        callback(time);
+      }
     }
 
     bool isVisible() const { return visible_; }
