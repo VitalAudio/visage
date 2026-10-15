@@ -409,6 +409,9 @@ namespace visage {
     self.visage_window->handleTextInput(utf8);
 }
 
+- (void)doCommandBySelector:(SEL)selector {
+}
+
 - (void)moveLeft:(id)sender {
 }
 - (void)moveRight:(id)sender {
