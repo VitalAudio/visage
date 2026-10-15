@@ -192,8 +192,9 @@ namespace visage {
     }
 
     BaseMatrix inversed() const {
-      T det = matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0];
-      if (std::abs(det) < std::numeric_limits<T>::epsilon())
+      T det = determinant();
+      T scale = std::abs(matrix[0][0] * matrix[1][1]) + std::abs(matrix[0][1] * matrix[1][0]);
+      if (std::abs(det) <= std::numeric_limits<T>::epsilon() * scale)
         return { 0, 0, 0, 0 };
       return { matrix[1][1] / det, -matrix[0][1] / det, -matrix[1][0] / det, matrix[0][0] / det };
     }
