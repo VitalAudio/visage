@@ -32,8 +32,7 @@ namespace visage {
 
     actions_.push_back(std::move(action));
 
-    for (Listener* listener : listeners_)
-      listener->undoActionAdded();
+    notify(&Listener::undoActionAdded);
   }
 
   void UndoHistory::undo() {
@@ -48,8 +47,7 @@ namespace visage {
     performing_action_ = false;
     undone_actions_.push_back(std::move(action));
 
-    for (Listener* listener : listeners_)
-      listener->undoPerformed();
+    notify(&Listener::undoPerformed);
   }
 
   void UndoHistory::redo() {
@@ -64,7 +62,6 @@ namespace visage {
     performing_action_ = false;
     actions_.push_back(std::move(action));
 
-    for (Listener* listener : listeners_)
-      listener->redoPerformed();
+    notify(&Listener::redoPerformed);
   }
 }

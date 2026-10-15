@@ -397,3 +397,52 @@ TEST_CASE("UndoHistory ignores actions pushed while undoing or redoing", "[ui]")
   REQUIRE(value == 1);
   REQUIRE(listener.action_added_count == 2);
 }
+
+TEST_CASE("UndoHistory removed listeners are not notified", "[ui]") {
+  UndoHistory history;
+  TestListener kept;
+  TestListener removed;
+  history.addListener(&kept);
+  history.addListener(&removed);
+  history.removeListener(&removed);
+
+  history.push(std::make_unique<LambdaAction>([] {}, [] {}));
+  REQUIRE(kept.action_added_count == 1);
+  REQUIRE(removed.action_added_count == 0);
+}
+
+TEST_CASE("UndoHistory listener can remove listeners while being notified", "[ui]") {
+  class RemovingListener : public UndoHistory::Listener {
+  public:
+    explicit RemovingListener(UndoHistory& history) : history_(history) { }
+
+    void undoPerformed() override { }
+    void redoPerformed() override { }
+    void undoActionAdded() override {
+      action_added_count++;
+      history_.removeListener(to_remove);
+    }
+
+    UndoHistory::Listener* to_remove = nullptr;
+    int action_added_count = 0;
+
+  private:
+    UndoHistory& history_;
+  };
+
+  UndoHistory history;
+  TestListener later;
+  RemovingListener self_removing(history);
+  RemovingListener removes_later(history);
+  self_removing.to_remove = &self_removing;
+  removes_later.to_remove = &later;
+  history.addListener(&self_removing);
+  history.addListener(&removes_later);
+  history.addListener(&later);
+
+  history.push(std::make_unique<LambdaAction>([] {}, [] {}));
+  history.push(std::make_unique<LambdaAction>([] {}, [] {}));
+  REQUIRE(self_removing.action_added_count == 1);
+  REQUIRE(removes_later.action_added_count == 2);
+  REQUIRE(later.action_added_count == 0);
+}
