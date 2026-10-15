@@ -325,6 +325,8 @@ namespace visage {
   }
 
   static constexpr float kInchToMm = 25.4f;
+  static constexpr float kMinDpi = 50.0f;
+  static constexpr float kMaxDpi = 500.0f;
 
   static float screenDpi(Display* display) {
     int screen = DefaultScreen(display);
@@ -335,9 +337,6 @@ namespace visage {
   }
 
   static float monitorDpi(const XRRCrtcInfo* crtc, const XRROutputInfo* output, float screen_dpi) {
-    static constexpr float kMinDpi = 50.0f;
-    static constexpr float kMaxDpi = 500.0f;
-
     bool aspect_ratio_as_size = output->mm_width == 160 &&
                                 (output->mm_height == 90 || output->mm_height == 100);
     if (aspect_ratio_as_size)
@@ -355,8 +354,12 @@ namespace visage {
 
   static float resourceDpi(Display* display) {
     const char* resources = XResourceManagerString(display);
-    const char* dpi = resources ? std::strstr(resources, "Xft.dpi:") : nullptr;
-    return dpi ? std::strtof(dpi + std::strlen("Xft.dpi:"), nullptr) : 0.0f;
+    const char* dpi_setting = resources ? std::strstr(resources, "Xft.dpi:") : nullptr;
+    if (dpi_setting == nullptr)
+      return 0.0f;
+
+    float dpi = std::strtof(dpi_setting + std::strlen("Xft.dpi:"), nullptr);
+    return dpi >= kMinDpi && dpi <= kMaxDpi ? dpi : 0.0f;
   }
 
   static MonitorInfo monitorInfoForPosition(IPoint point) {
