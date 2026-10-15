@@ -262,7 +262,7 @@ namespace visage {
     case kVK_ANSI_M: return KeyCode::M;
     case kVK_ANSI_Period: return KeyCode::Period;
     case kVK_ANSI_Grave: return KeyCode::Grave;
-    case kVK_ANSI_KeypadDecimal: return KeyCode::KPDecimal;
+    case kVK_ANSI_KeypadDecimal: return KeyCode::KPPeriod;
     case kVK_ANSI_KeypadMultiply: return KeyCode::KPMultiply;
     case kVK_ANSI_KeypadPlus: return KeyCode::KPPlus;
     case kVK_ANSI_KeypadClear: return KeyCode::KPClear;
