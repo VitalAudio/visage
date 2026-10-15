@@ -23,6 +23,7 @@
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/emoji.h"
 #include "visage_graphics/font.h"
+#include "visage_utils/file_system.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -109,6 +110,54 @@ TEST_CASE("Font with 1-bit bitmap glyphs", "[graphics]") {
   for (int i = 0; i < screenshot.width() * screenshot.height(); ++i)
     lit += screenshot.data()[i * 4] > 0x80;
   REQUIRE(lit == 8);
+}
+
+TEST_CASE("Fonts with the same names but different data don't share a cache entry", "[graphics]") {
+  auto bdf = [](int advance) {
+    return std::string("STARTFONT 2.1\n"
+                       "FONT -test-mono-medium-r-normal--8-80-75-75-c-80-iso10646-1\n"
+                       "SIZE 8 75 75\n"
+                       "FONTBOUNDINGBOX 8 8 0 0\n"
+                       "STARTPROPERTIES 2\n"
+                       "FONT_ASCENT 8\n"
+                       "FONT_DESCENT 0\n"
+                       "ENDPROPERTIES\n"
+                       "CHARS 1\n"
+                       "STARTCHAR A\n"
+                       "ENCODING 65\n"
+                       "SWIDTH 500 0\n"
+                       "DWIDTH ") +
+           std::to_string(advance) +
+           " 0\n"
+           "BBX 8 8 0 0\n"
+           "BITMAP\n"
+           "80\n80\n80\n80\n80\n80\n80\n80\n"
+           "ENDCHAR\n"
+           "ENDFONT\n";
+  };
+
+  std::string narrow = bdf(8);
+  std::string wide = bdf(12);
+  Font narrow_font(8, reinterpret_cast<const unsigned char*>(narrow.data()), narrow.size(), 1.0f);
+  Font wide_font(8, reinterpret_cast<const unsigned char*>(wide.data()), wide.size(), 1.0f);
+  REQUIRE(narrow_font.stringWidth(U"A") == 8.0f);
+  REQUIRE(wide_font.stringWidth(U"A") == 12.0f);
+}
+
+TEST_CASE("Resized fonts share the cache with fonts loaded at that size", "[graphics]") {
+  File path = std::filesystem::temp_directory_path() / "visage_font_cache_test.ttf";
+  REQUIRE(replaceFileWithData(path, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data)));
+
+  Font file_font(16, path.string(), 1.0f);
+  Font data_font(16, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data), 1.0f);
+  REQUIRE(file_font.withSize(20).packedFont() == Font(20, path.string(), 1.0f).packedFont());
+  REQUIRE(file_font.withDpiScale(2.0f).packedFont() == Font(32, path.string(), 1.0f).packedFont());
+  REQUIRE(data_font.withSize(20).packedFont() ==
+          Font(20, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data), 1.0f).packedFont());
+  REQUIRE(file_font.withSize(20).stringWidth(U"Test") ==
+          data_font.withSize(20).stringWidth(U"Test"));
+
+  std::filesystem::remove(path);
 }
 
 TEST_CASE("Font variation selectors take no space", "[graphics]") {
