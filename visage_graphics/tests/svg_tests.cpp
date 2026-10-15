@@ -555,6 +555,8 @@ TEST_CASE("Svg css cascade order", "[graphics]") {
 
   REQUIRE(renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><style type="text/other">rect{fill:blue}</style><rect width="10" height="10" fill="red"/></svg>)svg")
               .hexRed() == 0xff);
+  REQUIRE(renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><style type="Text/CSS">rect{fill:red}</style><rect width="10" height="10" fill="blue"/></svg>)svg")
+              .hexRed() == 0xff);
 }
 
 TEST_CASE("Svg attribute character references", "[graphics]") {
