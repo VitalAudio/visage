@@ -177,3 +177,27 @@ TEST_CASE("Text editor word deletion handles non-ASCII letters and runs of space
   editor.deleteForwards(true);
   REQUIRE(editor.text() == "");
 }
+
+TEST_CASE("Text editor undo history is limited", "[widgets]") {
+  TextEditor editor;
+  for (int i = 0; i < 600; ++i) {
+    editor.processTextInput("a");
+    editor.deleteBackwards(false);
+  }
+
+  int undos = 0;
+  editor.onTextChange() += [&undos] { undos++; };
+  for (int i = 0; i < 2 * TextEditor::kMaxUndoHistory; ++i)
+    editor.undo();
+  REQUIRE(undos == TextEditor::kMaxUndoHistory);
+}
+
+TEST_CASE("Text editor setText clears the undo history", "[widgets]") {
+  TextEditor editor;
+  editor.processTextInput("typed");
+  editor.setText("replaced");
+  editor.undo();
+  REQUIRE(editor.text() == "replaced");
+  editor.redo();
+  REQUIRE(editor.text() == "replaced");
+}
