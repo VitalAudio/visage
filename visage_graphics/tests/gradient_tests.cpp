@@ -19,6 +19,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "visage_graphics/canvas.h"
 #include "visage_graphics/color.h"
 #include "visage_graphics/gradient.h"
 
@@ -511,5 +512,28 @@ TEST_CASE("Brush operations", "[graphics]") {
     REQUIRE(position.coefficientx2 == Approx(end_position.coefficientx2).margin(0.01f));
     REQUIRE(position.coefficienty2 == Approx(end_position.coefficienty2).margin(0.01f));
     REQUIRE(position.coefficientxy == Approx(end_position.coefficientxy).margin(0.01f));
+  }
+}
+
+TEST_CASE("Gradient atlas ignores leftover GPU memory", "[graphics]") {
+  {
+    Canvas previous;
+    previous.setWindowless(256, 256);
+    previous.setColor(0xff336699);
+    previous.fill(0, 0, previous.width(), previous.height());
+    previous.submit();
+    previous.takeScreenshot();
+  }
+
+  Canvas canvas;
+  canvas.setWindowless(64, 64);
+  canvas.setColor(0xffff0000);
+  canvas.fill(0, 0, canvas.width(), canvas.height());
+  canvas.submit();
+  const Screenshot& screenshot = canvas.takeScreenshot();
+
+  for (int y = 0; y < screenshot.height(); y += 9) {
+    for (int x = 0; x < screenshot.width(); x += 9)
+      REQUIRE(screenshot.sample(x, y).toARGB() == 0xffff0000);
   }
 }
