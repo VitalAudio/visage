@@ -927,6 +927,48 @@ TEST_CASE("Cached region next to a bloom region keeps its brightness", "[graphic
   REQUIRE(canvas.takeScreenshot().sample(48, 16).hexRed() == 0xff);
 }
 
+TEST_CASE("HDR layer edges ignore leftover GPU memory", "[graphics]") {
+  {
+    Canvas previous;
+    previous.setWindowless(128, 128);
+    previous.setColor(0xffffffff);
+    previous.fill(0, 0, previous.width(), previous.height());
+    previous.takeScreenshot();
+  }
+
+  Canvas canvas;
+  canvas.setWindowless(128, 64);
+  BloomPostEffect bloom;
+  bloom.setTranslucent(true);
+  bloom.setBloomIntensity(0.0f);
+  Region glowing;
+  Region plain;
+  canvas.addRegion(&glowing);
+  glowing.setNeedsLayer(true);
+  glowing.setPostEffect(&bloom);
+  glowing.setBounds(4, 4, 30, 30);
+  canvas.addRegion(&plain);
+  plain.setNeedsLayer(true);
+  plain.setBounds(70, 4, 30, 30);
+
+  canvas.setColor(0xff808080);
+  canvas.fill(0, 0, canvas.width(), canvas.height());
+  for (Region* region : { &glowing, &plain }) {
+    canvas.beginRegion(region);
+    canvas.setColor(0xffff0000);
+    canvas.fill(0, 0, region->width(), region->height());
+    canvas.endRegion();
+  }
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  for (Region* region : { &glowing, &plain }) {
+    for (int i = 0; i < region->width(); i += 7) {
+      REQUIRE(screenshot.sample(region->x() + region->width() - 1, region->y() + i).toARGB() == 0xffff0000);
+      REQUIRE(screenshot.sample(region->x() + i, region->y() + region->height() - 1).toARGB() == 0xffff0000);
+    }
+  }
+}
+
 TEST_CASE("Cached region keeps its content when a sibling adds a bloom effect", "[graphics]") {
   Canvas canvas;
   canvas.setWindowless(64, 32);

@@ -153,6 +153,7 @@ namespace visage {
     bool bottom_left_origin_ = false;
     bool hdr_ = false;
     bool translucent_ = false;
+    bool needs_full_clear_ = false;
     int width_ = 0;
     int height_ = 0;
     double render_time_ = 0.0;
