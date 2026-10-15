@@ -42,9 +42,9 @@ function(visage_embed_shaders project include_filename namespace original_shader
   foreach(SHADER ${original_shaders})
     get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
 
-    set(SHADER_TYPE "v")
-    if (${SHADER_NAME} MATCHES fs_*)
-      set(SHADER_TYPE "f")
+    set(SHADER_TYPE "f")
+    if (SHADER_NAME MATCHES "^v")
+      set(SHADER_TYPE "v")
     endif()
 
     if (OPENGLES)
