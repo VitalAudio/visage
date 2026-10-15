@@ -116,6 +116,22 @@ TEST_CASE("Svg use of symbol and svg viewports", "[graphics]") {
   REQUIRE(svg.drawable()->post_bounding_box.width() == 6.0f);
 }
 
+static bool hasMarkerReferences(const SvgDrawable* drawable) {
+  if (drawable->state.marker_start || drawable->state.marker_mid || drawable->state.marker_end)
+    return true;
+  for (const auto& child : drawable->children) {
+    if (hasMarkerReferences(child.get()))
+      return true;
+  }
+  return false;
+}
+
+TEST_CASE("Svg keeps no marker references after parsing", "[graphics]") {
+  Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m"><path d="M0 0L1 1" marker-end="url(#m)"/><rect width="2" height="1"/></marker><g marker-mid="url(#m)"><path d="M1 1L5 5L9 1" marker-start="url(#m)" marker-end="url(#m)"/></g></svg>)svg");
+  REQUIRE(numShapes(svg.drawable()) > 1);
+  REQUIRE_FALSE(hasMarkerReferences(svg.drawable()));
+}
+
 TEST_CASE("Svg marker orientation and units", "[graphics]") {
   Svg stroke_units = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m"><rect width="2" height="1"/></marker><path d="M5 5 L5 9" stroke-width="2" marker-start="url(#m)"/></svg>)svg");
   REQUIRE(stroke_units.drawable()->post_bounding_box.width() == 4.0f);

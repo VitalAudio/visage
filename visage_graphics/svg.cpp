@@ -2147,7 +2147,11 @@ namespace visage {
         drawable->state.stroke_gradient = drawable->state.current_color;
     }
 
-    if (loadDrawable(tag, drawable.get())) {
+    bool is_shape = loadDrawable(tag, drawable.get());
+    drawable->state.marker_start = nullptr;
+    drawable->state.marker_mid = nullptr;
+    drawable->state.marker_end = nullptr;
+    if (is_shape) {
       loadDrawableTransform(tag, drawable.get());
       attachMask(mask_id, drawable.get());
       state_stack.pop_back();
