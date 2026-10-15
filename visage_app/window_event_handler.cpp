@@ -176,6 +176,7 @@ namespace visage {
     temporary_frame_ = dragDropFrame(convertToLogical(IPoint(x, y)), files);
     if (mouse_down_frame_ == temporary_frame_ && temporary_frame_) {
       temporary_frame_ = nullptr;
+      handleFileDragLeave();
       return true;
     }
 
@@ -203,8 +204,11 @@ namespace visage {
       return false;
 
     temporary_frame_ = dragDropFrame(convertToLogical(IPoint(x, y)), files);
-    if (mouse_down_frame_ == temporary_frame_ && temporary_frame_)
+    if (mouse_down_frame_ == temporary_frame_ && temporary_frame_) {
+      temporary_frame_ = nullptr;
+      handleFileDragLeave();
       return false;
+    }
 
     if (drag_drop_target_frame_) {
       if (drag_drop_target_frame_ != temporary_frame_)
