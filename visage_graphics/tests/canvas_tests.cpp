@@ -600,6 +600,42 @@ TEST_CASE("Windowless canvas resizes don't leak textures", "[graphics]") {
   REQUIRE(bgfx::getStats()->numTextures <= textures);
 }
 
+TEST_CASE("Destroying blur and bloom effects doesn't leak vertex buffers", "[graphics]") {
+  auto draw_effects = [] {
+    Canvas canvas;
+    canvas.setWindowless(64, 32);
+    BlurPostEffect blur;
+    blur.setBlurRadius(4.0f);
+    BloomPostEffect bloom;
+    Region blurred;
+    Region bloomed;
+    canvas.addRegion(&blurred);
+    canvas.addRegion(&bloomed);
+    blurred.setNeedsLayer(true);
+    blurred.setPostEffect(&blur);
+    blurred.setBounds(0, 0, 32, 32);
+    bloomed.setNeedsLayer(true);
+    bloomed.setPostEffect(&bloom);
+    bloomed.setBounds(32, 0, 32, 32);
+
+    for (Region* region : { &blurred, &bloomed }) {
+      canvas.beginRegion(region);
+      canvas.setColor(0xffffffff);
+      canvas.fill(0, 0, region->width(), region->height());
+      canvas.endRegion();
+    }
+    canvas.takeScreenshot();
+  };
+
+  draw_effects();
+  bgfx::frame();
+  int vertex_buffers = bgfx::getStats()->numVertexBuffers;
+  for (int i = 0; i < 4; ++i)
+    draw_effects();
+  bgfx::frame();
+  REQUIRE(bgfx::getStats()->numVertexBuffers <= vertex_buffers);
+}
+
 TEST_CASE("Canvas screenshot shows the current frame", "[graphics]") {
   static constexpr int kSize = 16;
 

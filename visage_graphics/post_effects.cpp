@@ -57,6 +57,8 @@ namespace visage {
         bgfx::destroy(screen_index_buffer);
       if (bgfx::isValid(screen_vertex_buffer))
         bgfx::destroy(screen_vertex_buffer);
+      if (bgfx::isValid(inv_screen_vertex_buffer))
+        bgfx::destroy(inv_screen_vertex_buffer);
       destroyFrameBuffers();
     }
 
