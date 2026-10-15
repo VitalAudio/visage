@@ -221,6 +221,7 @@ namespace visage {
                                                            kFrameBufferFlags);
     }
 
+    needs_full_clear_ = true;
     bottom_left_origin_ = bgfx::getCaps()->originBottomLeft;
   }
 
@@ -355,17 +356,23 @@ namespace visage {
   }
 
   void Layer::clearInvalidRectAreas(int submit_pass) {
-    ShapeBatch<Fill> clear_batch(BlendMode::Opaque);
     std::vector<IBounds> invalid_rects;
-    for (auto& region_invalid_rects : invalid_rects_) {
-      for (const IBounds& rect : region_invalid_rects.second) {
-        invalid_rects.push_back(rect);
-        float x = rect.x();
-        float y = rect.y();
-        float width = rect.width();
-        float height = rect.height();
-        clear_batch.addShape(Fill({ x, y, x + width, y + height }, clear_brush_.get(), x, y, width, height));
-      }
+    if (needs_full_clear_)
+      invalid_rects.emplace_back(0, 0, width_, height_);
+    else {
+      for (auto& region_invalid_rects : invalid_rects_)
+        invalid_rects.insert(invalid_rects.end(), region_invalid_rects.second.begin(),
+                             region_invalid_rects.second.end());
+    }
+    needs_full_clear_ = false;
+
+    ShapeBatch<Fill> clear_batch(BlendMode::Opaque);
+    for (const IBounds& rect : invalid_rects) {
+      float x = rect.x();
+      float y = rect.y();
+      float width = rect.width();
+      float height = rect.height();
+      clear_batch.addShape(Fill({ x, y, x + width, y + height }, clear_brush_.get(), x, y, width, height));
     }
 
     PositionedBatch positioned_clear = { &clear_batch, &invalid_rects, 0, 0 };
