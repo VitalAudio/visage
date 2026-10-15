@@ -391,6 +391,11 @@ namespace visage {
     // Returns true if subtracting the other rectangle result in only one rectangle
     // Stores that rectangle in _result_
     bool subtract(const IBounds& other, IBounds& result) const {
+      if (!overlaps(other)) {
+        result = *this;
+        return true;
+      }
+
       bool left_edge_inside = x_ < other.x_ && other.x_ < right();
       bool right_edge_inside = x_ < other.right() && other.right() < right();
       bool top_edge_inside = y_ < other.y_ && other.y_ < bottom();
