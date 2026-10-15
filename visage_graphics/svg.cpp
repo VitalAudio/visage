@@ -876,13 +876,17 @@ namespace visage {
       return { "", "" };
 
     char quote_char = str[i++];
-    VISAGE_ASSERT(quote_char == '"' || quote_char == '\'');
+    if (quote_char != '"' && quote_char != '\'') {
+      int start = --i;
+      while (i < str.size() && !std::isspace(static_cast<unsigned char>(str[i])) && str[i] != '>' &&
+             str.compare(i, 2, "/>") != 0)
+        i++;
+      return { key, decodeXmlReferences(str.substr(start, i - start)) };
+    }
 
     int end = str.find(quote_char, i);
-    if (end == std::string::npos) {
-      VISAGE_ASSERT(false);
+    if (end == std::string::npos)
       return { "", "" };
-    }
 
     std::string value = str.substr(i, end - i);
     i = end + 1;
@@ -899,10 +903,8 @@ namespace visage {
       return tag_data;
 
     i++;
-    if (i >= str.size()) {
-      VISAGE_ASSERT(false);
+    if (i >= str.size())
       return tag_data;
-    }
 
     if (str.compare(i, 3, "!--") == 0) {
       tag_data.ignored = true;
@@ -930,7 +932,7 @@ namespace visage {
       tag_data.name += str[i++];
 
     if (tag_data.is_closing) {
-      VISAGE_ASSERT(!tag_data.name.empty() && i < str.size() && str[i] == '>');
+      consumeTillEndTag(str, i);
       return tag_data;
     }
 
@@ -940,18 +942,14 @@ namespace visage {
       attribute = parseAttribute(str, i);
     }
 
-    if (i >= str.size())
+    size_t end = str.find('>', i);
+    if (end == std::string::npos) {
+      i = str.size();
       return tag_data;
-
-    if (str[i] == '/') {
-      tag_data.is_self_closing = true;
-      i++;
     }
-    if (str[i] == '>')
-      i++;
-    else
-      VISAGE_ASSERT(false);
 
+    tag_data.is_self_closing = str[end - 1] == '/';
+    i = end + 1;
     return tag_data;
   }
 
