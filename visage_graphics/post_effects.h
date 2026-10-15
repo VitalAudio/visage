@@ -32,6 +32,9 @@ namespace visage {
 
     virtual ~PostEffect() = default;
     virtual int preprocess(Region* region, int submit_pass) { return submit_pass; }
+    virtual int preprocessBackdrop(Region* source, const Region* region, int submit_pass) {
+      return preprocess(source, submit_pass);
+    }
     virtual void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) { }
     virtual float sampleRadius() const { return 0.0f; }
     void submitPassthrough(const BatchVector<SampleRegion>& batches, const Layer& destination,
@@ -81,6 +84,7 @@ namespace visage {
     ~BlurPostEffect() override;
 
     int preprocess(Region* region, int submit_pass) override;
+    int preprocessBackdrop(Region* source, const Region* region, int submit_pass) override;
     void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) override;
     float sampleRadius() const override { return 3.0f * blur_radius_; }
 
@@ -88,6 +92,8 @@ namespace visage {
     void setBlurRadius(float size) { blur_radius_ = std::max(0.0f, size); }
 
   private:
+    int blur(Region* region, const Region* backdrop_child, int submit_pass);
+
     float blur_radius_ = 0.0f;
     float sigma_ = 0.0f;
     int downsample_stages_ = 0;

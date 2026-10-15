@@ -245,11 +245,84 @@ namespace visage {
     }
   }
 
+  static int compositeLayeredAncestors(const Region* region, const Region* source,
+                                       bgfx::FrameBufferHandle destination,
+                                       bgfx::IndexBufferHandle index_buffer, int submit_pass) {
+    std::vector<const Region*> ancestors;
+    for (const Region* parent = region->parent(); parent && parent != source; parent = parent->parent()) {
+      if (parent->needsLayer())
+        ancestors.push_back(parent);
+    }
+
+    for (auto it = ancestors.rbegin(); it != ancestors.rend(); ++it) {
+      const Region* ancestor = *it;
+      const Layer* layer = ancestor->layer();
+      IBounds visible(0, 0, ancestor->width(), ancestor->height());
+      IPoint position;
+      for (const Region* child = ancestor; child != source; child = child->parent()) {
+        IPoint offset(child->x(), child->y());
+        position += offset;
+        visible = (visible + offset).intersection({ 0, 0, child->parent()->width(), child->parent()->height() });
+      }
+      if (visible.width() <= 0 || visible.height() <= 0 || !bgfx::isValid(layer->frameBuffer()))
+        continue;
+
+      bgfx::TransientVertexBuffer vertex_buffer {};
+      bgfx::allocTransientVertexBuffer(&vertex_buffer, kVerticesPerQuad, UvVertex::layout());
+      UvVertex* vertices = reinterpret_cast<UvVertex*>(vertex_buffer.data);
+      if (vertices == nullptr)
+        return submit_pass;
+
+      bool flip = layer->bottomLeftOrigin();
+      IPoint slot = layer->coordinatesForRegion(ancestor) - position;
+      auto vertex_y = [&](int y) {
+        float ratio = y * 2.0f / source->height();
+        return flip ? ratio - 1.0f : 1.0f - ratio;
+      };
+      auto texture_v = [&](int y) {
+        float v = (slot.y + y) * 1.0f / layer->height();
+        return flip ? 1.0f - v : v;
+      };
+
+      for (int i = 0; i < kVerticesPerQuad; ++i) {
+        int x = i % 2 ? visible.right() : visible.x();
+        int y = i / 2 ? visible.bottom() : visible.y();
+        vertices[i].x = x * 2.0f / source->width() - 1.0f;
+        vertices[i].y = vertex_y(y);
+        vertices[i].u = (slot.x + x) * 1.0f / layer->width();
+        vertices[i].v = texture_v(y);
+      }
+
+      float color = hdrConversion(*layer, *source->layer());
+      setBlendMode(BlendMode::Composite);
+      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(layer->frameBuffer()));
+      setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
+      setPostEffectUniform<Uniforms::kMult>(color, color, color, 1.0f);
+      bgfx::setVertexBuffer(0, &vertex_buffer);
+      bgfx::setIndexBuffer(index_buffer);
+
+      bgfx::setViewFrameBuffer(submit_pass, destination);
+      bgfx::setViewRect(submit_pass, 0, 0, source->width(), source->height());
+      bgfx::setViewClear(submit_pass, BGFX_CLEAR_NONE);
+      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_mult));
+      submit_pass++;
+    }
+    return submit_pass;
+  }
+
   BlurPostEffect::BlurPostEffect() : DownsamplePostEffect(false) { }
 
   BlurPostEffect::~BlurPostEffect() = default;
 
   int BlurPostEffect::preprocess(Region* region, int submit_pass) {
+    return blur(region, nullptr, submit_pass);
+  }
+
+  int BlurPostEffect::preprocessBackdrop(Region* source, const Region* region, int submit_pass) {
+    return blur(source, region, submit_pass);
+  }
+
+  int BlurPostEffect::blur(Region* region, const Region* backdrop_child, int submit_pass) {
     static constexpr float kKernelSigma = 3.3f;
     checkBuffers(region, true);
 
@@ -300,6 +373,10 @@ namespace visage {
       }
 
       submit_pass++;
+      if (i == 0 && backdrop_child) {
+        submit_pass = compositeLayeredAncestors(backdrop_child, region, destination,
+                                                handles_->screen_index_buffer, submit_pass);
+      }
       source = destination;
     }
 

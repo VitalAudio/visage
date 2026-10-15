@@ -954,6 +954,142 @@ TEST_CASE("Backdrop updates when content within its blur radius changes", "[grap
   REQUIRE(canvas.screenshot().sample(101, 16).hexRed() < 0x10);
 }
 
+TEST_CASE("Layered region with a backdrop child draws translucent content once", "[graphics]") {
+  for (bool with_background : { false, true }) {
+    Canvas canvas;
+    canvas.setWindowless(64, 32);
+    BlurPostEffect blur;
+    blur.setBlurRadius(2.0f);
+    Region background;
+    Region panel;
+    Region child;
+    Region glass;
+    if (with_background) {
+      canvas.addRegion(&background);
+      background.setBounds(0, 0, 64, 32);
+    }
+    canvas.addRegion(&panel);
+    panel.setNeedsLayer(true);
+    panel.setBounds(0, 0, 64, 32);
+    panel.addRegion(&child);
+    child.setBounds(0, 0, 16, 16);
+    panel.addRegion(&glass);
+    glass.setNeedsLayer(true);
+    glass.setBackdropEffect(&blur);
+    glass.setBounds(40, 0, 16, 16);
+
+    canvas.beginRegion(&background);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, 64, 32);
+    canvas.endRegion();
+    canvas.beginRegion(&child);
+    canvas.setColor(0x80ffffff);
+    canvas.fill(0, 0, 16, 16);
+    canvas.endRegion();
+    canvas.beginRegion(&glass);
+    canvas.endRegion();
+
+    unsigned int red = canvas.takeScreenshot().sample(8, 8).hexRed();
+    REQUIRE(red > 0x78);
+    REQUIRE(red < 0x88);
+  }
+}
+
+TEST_CASE("Backdrop inside layered regions blurs their content behind it", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect inner_blur;
+  inner_blur.setBlurRadius(2.0f);
+  BlurPostEffect outer_blur;
+  outer_blur.setBlurRadius(2.0f);
+  Region outer;
+  Region inner;
+  Region inner_glass;
+  Region outer_glass;
+  canvas.addRegion(&outer);
+  outer.setNeedsLayer(true);
+  outer.setBounds(0, 0, 64, 32);
+  outer.addRegion(&inner);
+  inner.setNeedsLayer(true);
+  inner.setBounds(0, 0, 32, 32);
+  inner.addRegion(&inner_glass);
+  inner_glass.setNeedsLayer(true);
+  inner_glass.setBackdropEffect(&inner_blur);
+  inner_glass.setBounds(8, 8, 16, 16);
+  outer.addRegion(&outer_glass);
+  outer_glass.setNeedsLayer(true);
+  outer_glass.setBackdropEffect(&outer_blur);
+  outer_glass.setBounds(40, 8, 16, 16);
+
+  auto split = [&canvas](Region& region, int edge, unsigned int left, unsigned int right) {
+    canvas.beginRegion(&region);
+    canvas.setColor(left);
+    canvas.fill(0, 0, edge, region.height());
+    canvas.setColor(right);
+    canvas.fill(edge, 0, region.width() - edge, region.height());
+    canvas.endRegion();
+  };
+
+  split(outer, 48, 0xff0000ff, 0xff00ff00);
+  split(inner, 16, 0xffff0000, 0xff0000ff);
+  canvas.beginRegion(&inner_glass);
+  canvas.endRegion();
+  canvas.beginRegion(&outer_glass);
+  canvas.endRegion();
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(screenshot.sample(15, 16).hexRed() < 0xe0);
+  REQUIRE(screenshot.sample(15, 16).hexBlue() > 0x20);
+  REQUIRE(screenshot.sample(15, 16).hexGreen() == 0x00);
+  REQUIRE(screenshot.sample(47, 16).hexBlue() < 0xe0);
+  REQUIRE(screenshot.sample(47, 16).hexGreen() > 0x20);
+  REQUIRE(screenshot.sample(47, 16).hexRed() == 0x00);
+}
+
+TEST_CASE("Backdrop sees through cached ancestors but not translucent ones", "[graphics]") {
+  for (bool translucent : { false, true }) {
+    Canvas canvas;
+    canvas.setWindowless(64, 32);
+    BlurPostEffect blur;
+    blur.setBlurRadius(4.0f);
+    Region background;
+    Region group;
+    Region glass;
+    canvas.addRegion(&background);
+    background.setBounds(0, 0, 64, 32);
+    canvas.addRegion(&group);
+    group.setNeedsLayer(true);
+    group.setBounds(0, 0, 64, 32);
+    if (translucent)
+      group.setAlpha(0.5f);
+    group.addRegion(&glass);
+    glass.setNeedsLayer(true);
+    glass.setBackdropEffect(&blur);
+    glass.setBounds(16, 8, 32, 16);
+
+    canvas.beginRegion(&background);
+    canvas.setColor(0xffff0000);
+    canvas.fill(0, 0, 32, 32);
+    canvas.setColor(0xff0000ff);
+    canvas.fill(32, 0, 32, 32);
+    canvas.endRegion();
+    canvas.beginRegion(&group);
+    canvas.endRegion();
+    canvas.beginRegion(&glass);
+    canvas.endRegion();
+
+    Color edge = canvas.takeScreenshot().sample(31, 16);
+    if (translucent) {
+      REQUIRE(edge.hexRed() > 0xf0);
+      REQUIRE(edge.hexBlue() < 0x10);
+    }
+    else {
+      REQUIRE(edge.hexRed() < 0xe0);
+      REQUIRE(edge.hexBlue() > 0x20);
+    }
+  }
+}
+
 TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BlurPostEffect blur; }
   { BloomPostEffect bloom; }

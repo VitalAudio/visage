@@ -71,7 +71,7 @@ namespace visage {
   }
 
   int Canvas::submit(int submit_pass) {
-    default_region_.computeBackdropCount();
+    int backdrop_count = window_region_.computeBackdropCount();
     int submission = submit_pass;
     int last_submission = submission - 1;
 
@@ -93,7 +93,7 @@ namespace visage {
 
     if (submission > submit_pass) {
       composite_layer_.invalidate();
-      submission = composite_layer_.submit(submission, 0);
+      submission = composite_layer_.submit(submission, backdrop_count);
       bgfx::frame();
       if (render_frame_ == 0)
         bgfx::frame();
