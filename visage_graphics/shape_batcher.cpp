@@ -73,6 +73,26 @@ namespace visage {
     return 0;
   }
 
+  static constexpr uint64_t compositeBlendModeValue(BlendMode blend_mode) {
+    switch (blend_mode) {
+    case BlendMode::Alpha: return blendModeValue(BlendMode::Composite);
+    case BlendMode::Add:
+      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE);
+    case BlendMode::Sub:
+      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+             BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE,
+                                            BGFX_STATE_BLEND_ZERO, BGFX_STATE_BLEND_ONE) |
+             BGFX_STATE_BLEND_EQUATION_SEPARATE(BGFX_STATE_BLEND_EQUATION_REVSUB,
+                                                BGFX_STATE_BLEND_EQUATION_ADD);
+    case BlendMode::Mult:
+      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+             BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_DST_COLOR, BGFX_STATE_BLEND_INV_SRC_ALPHA,
+                                            BGFX_STATE_BLEND_ZERO, BGFX_STATE_BLEND_ONE);
+    default: return blendModeValue(blend_mode);
+    }
+  }
+
   void setBlendMode(BlendMode blend_mode) {
     bgfx::setState(blendModeValue(blend_mode));
   }
@@ -381,7 +401,8 @@ namespace visage {
                  ProgramCache::programHandle(shader->vertexShader(), shader->fragmentShader()));
   }
 
-  void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass) {
+  static void submitSampleRegions(const BatchVector<SampleRegion>& batches, uint64_t state,
+                                  const Layer& layer, int submit_pass) {
     auto quads = setupQuads(batches);
     if (quads.vertices == nullptr)
       return;
@@ -397,7 +418,19 @@ namespace visage {
     float value = hdrConversion(*source_layer, layer);
     setUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(layer.bottomLeftOrigin());
+    bgfx::setState(state);
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                           SampleRegion::fragmentShader()));
+  }
+
+  void submitSampleRegions(const BatchVector<SampleRegion>& batches, BlendMode blend_mode,
+                           const Layer& layer, int submit_pass) {
+    static constexpr uint64_t kMultiplyUncovered = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+                                                   BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_INV_DST_ALPHA,
+                                                                         BGFX_STATE_BLEND_ONE);
+
+    submitSampleRegions(batches, compositeBlendModeValue(blend_mode), layer, submit_pass);
+    if (blend_mode == BlendMode::Mult)
+      submitSampleRegions(batches, kMultiplyUncovered, layer, submit_pass);
   }
 }

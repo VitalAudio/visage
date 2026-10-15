@@ -78,7 +78,8 @@ namespace visage {
 
   void submitText(const BatchVector<TextBlock>& batches, const Layer& layer, int submit_pass);
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass);
-  void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass);
+  void submitSampleRegions(const BatchVector<SampleRegion>& batches, BlendMode blend_mode,
+                           const Layer& layer, int submit_pass);
 
   template<typename V>
   struct QuadVertices {
@@ -188,10 +189,8 @@ namespace visage {
 
     if (post_effect)
       post_effect->submit(batches, layer, submit_pass);
-    else {
-      setBlendMode(state);
-      submitSampleRegions(batches, layer, submit_pass);
-    }
+    else
+      submitSampleRegions(batches, state, layer, submit_pass);
   }
 
   class SubmitBatch;

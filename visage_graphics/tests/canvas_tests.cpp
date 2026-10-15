@@ -1149,6 +1149,62 @@ TEST_CASE("Layered region whose backdrop children draw nothing still composites"
   REQUIRE(canvas.takeScreenshot().sample(56, 16).hexRed() == 0xff);
 }
 
+TEST_CASE("Layer blend modes handle translucent content", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(128, 32);
+  Region background;
+  Region add;
+  Region subtract;
+  Region multiply;
+  Region group;
+  Region grouped_multiply;
+  canvas.addRegion(&background);
+  background.setBounds(0, 0, 128, 32);
+  for (Region* region : { &add, &subtract, &multiply, &group }) {
+    canvas.addRegion(region);
+    region->setNeedsLayer(true);
+  }
+  add.setBounds(0, 0, 32, 32);
+  add.setLayerBlendMode(BlendMode::Add);
+  add.setAlpha(0.5f);
+  subtract.setBounds(32, 0, 32, 32);
+  subtract.setLayerBlendMode(BlendMode::Sub);
+  subtract.setAlpha(0.5f);
+  multiply.setBounds(64, 0, 32, 32);
+  multiply.setLayerBlendMode(BlendMode::Mult);
+  group.setBounds(96, 0, 32, 32);
+  group.addRegion(&grouped_multiply);
+  grouped_multiply.setNeedsLayer(true);
+  grouped_multiply.setLayerBlendMode(BlendMode::Mult);
+  grouped_multiply.setBounds(0, 0, 32, 32);
+
+  auto fill = [&canvas](Region& region, unsigned int color, int width) {
+    canvas.beginRegion(&region);
+    canvas.setColor(color);
+    canvas.fill(0, 0, width, region.height());
+    canvas.endRegion();
+  };
+
+  fill(background, 0xff406080, 128);
+  fill(add, 0xff806040, 32);
+  fill(subtract, 0xff202020, 32);
+  fill(multiply, 0xff808080, 16);
+  fill(grouped_multiply, 0xff808080, 32);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  auto expect = [&screenshot](int x, unsigned int color) {
+    Color sample = screenshot.sample(x, 16);
+    REQUIRE(std::abs(static_cast<int>(sample.hexRed()) - static_cast<int>((color >> 16) & 0xff)) <= 2);
+    REQUIRE(std::abs(static_cast<int>(sample.hexGreen()) - static_cast<int>((color >> 8) & 0xff)) <= 2);
+    REQUIRE(std::abs(static_cast<int>(sample.hexBlue()) - static_cast<int>(color & 0xff)) <= 2);
+  };
+  expect(16, 0x8090a0);
+  expect(48, 0x305070);
+  expect(72, 0x203040);
+  expect(88, 0x406080);
+  expect(112, 0x808080);
+}
+
 TEST_CASE("Blurred regions share temporary frame buffers", "[graphics]") {
   static constexpr int kNumBlurred = 8;
 
