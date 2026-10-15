@@ -1000,6 +1000,22 @@ TEST_CASE("Svg frame masks", "[integration]") {
   }
 }
 
+TEST_CASE("Svg frame clip paths clipped by other clip paths", "[integration]") {
+  Screenshot nested = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="top"><rect width="20" height="10"/></clipPath><clipPath id="left" clip-path="url(#top)"><rect width="10" height="20"/></clipPath><rect width="20" height="20" fill="white" clip-path="url(#left)"/></svg>)svg");
+  REQUIRE(nested.sample(5, 5).hexRed() == 0xff);
+  REQUIRE(nested.sample(15, 5).hexRed() == 0x00);
+  REQUIRE(nested.sample(5, 15).hexRed() == 0x00);
+  REQUIRE(nested.sample(15, 15).hexRed() == 0x00);
+
+  Screenshot empty = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="empty"/><clipPath id="left" clip-path="url(#empty)"><rect width="10" height="20"/></clipPath><rect width="20" height="20" fill="white" clip-path="url(#left)"/></svg>)svg");
+  REQUIRE(empty.sample(5, 5).hexRed() == 0x00);
+
+  Screenshot cycle = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="left" clip-path="url(#top)"><rect width="10" height="20"/></clipPath><clipPath id="top" clip-path="url(#left)"><rect width="20" height="10"/></clipPath><rect width="20" height="20" fill="white" clip-path="url(#left)"/></svg>)svg");
+  REQUIRE(cycle.sample(5, 5).hexRed() == 0xff);
+  REQUIRE(cycle.sample(15, 5).hexRed() == 0x00);
+  REQUIRE(cycle.sample(5, 15).hexRed() == 0x00);
+}
+
 TEST_CASE("Svg frame clip paths", "[integration]") {
   Screenshot united = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c"><rect width="5" height="20"/><rect x="15" width="5" height="20"/></clipPath><rect width="20" height="20" fill="white" clip-path="url(#c)"/></svg>)svg");
   REQUIRE(united.sample(2, 10).hexRed() == 0xff);

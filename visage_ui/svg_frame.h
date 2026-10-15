@@ -84,22 +84,23 @@ namespace visage {
     class SubFrame : public Frame {
     public:
       SubFrame(SvgDrawable* drawable, SvgDrawable::ColorContext* context, bool content_only = false,
-               bool inside_clip = false) :
+               int clip_level = 0) :
           drawable_(drawable), context_(context), content_only_(content_only) {
         if (content_only)
           return;
 
-        if (!inside_clip)
+        if (clip_level == 0)
           setAlphaTransparency(drawable_->opacity);
 
         const SvgDrawable* mask = drawable_->maskContent();
-        bool clipped = !inside_clip && !drawable_->clipping_paths.empty();
+        int num_clips = drawable_->clipping_paths.empty() ? 0 : drawable_->clip_intersections.size() + 1;
+        bool clipped = clip_level < num_clips;
         if (clipped)
-          setClipMask();
+          setClipMask(clip_level);
 
-        if (clipped && mask) {
+        if (clipped && (mask || clip_level + 1 < num_clips)) {
           content_only_ = true;
-          addSubFrame(std::make_unique<SubFrame>(drawable_, context_, false, true));
+          addSubFrame(std::make_unique<SubFrame>(drawable_, context_, false, clip_level + 1));
           return;
         }
 
@@ -108,10 +109,15 @@ namespace visage {
           setContentMask(mask);
       }
 
-      void setClipMask() {
-        onDrawMask() = [this](Canvas& canvas) {
+      void setClipMask(int clip_level) {
+        onDrawMask() = [this, clip_level](Canvas& canvas) {
+          if (clip_level > drawable_->clip_intersections.size())
+            return;
+
+          const auto& clipping_paths = clip_level ? drawable_->clip_intersections[clip_level - 1] :
+                                                    drawable_->clipping_paths;
           canvas.setColor(0xffffffff);
-          for (const auto& clipping_path : drawable_->clipping_paths)
+          for (const auto& clipping_path : clipping_paths)
             canvas.fill(clipping_path, -svgOrigin().x, -svgOrigin().y);
         };
       }

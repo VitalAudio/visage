@@ -455,6 +455,7 @@ namespace visage {
   void SvgDrawable::checkPathClipping(const Matrix& scale_matrix, const Bounds& view_box,
                                       std::map<std::string, SvgDrawable*>& clip_paths) {
     clipping_paths.clear();
+    clip_intersections.clear();
 
     if (is_clip_path)
       clip_paths[id] = this;
@@ -483,27 +484,42 @@ namespace visage {
       bounding_box = boundingBox();
 
     if (tokens[0] == "url") {
-      auto url_id = urlId(clip_path_shape);
-      if (clip_paths.count(url_id)) {
-        auto& clip_drawable = clip_paths.at(url_id);
+      auto gather = [&](SvgDrawable* clip_drawable, std::vector<Path>& paths) {
         if (clip_drawable->is_clip_bounding_box) {
           auto scale = scale_matrix * Matrix::scale(bounding_box.width(), bounding_box.height());
           clip_drawable->initPaths(scale, view_box);
           for (auto& child : clip_drawable->children)
             child->adjustPaths(scale, view_box, clip_paths);
 
-          clip_drawable->gatherClipPaths(clipping_paths);
-          for (auto& clip_path : clipping_paths) {
+          clip_drawable->gatherClipPaths(paths);
+          for (auto& clip_path : paths) {
             clip_path.transform(clip_drawable->originTransform(view_box) *
                                 Transform::translation(bounding_box.x(), bounding_box.y()) *
                                 Transform::scale(bounding_box.width(), bounding_box.height()));
           }
         }
         else
-          clip_drawable->gatherClipPaths(clipping_paths);
+          clip_drawable->gatherClipPaths(paths);
 
-        if (clipping_paths.empty())
-          clipping_paths.emplace_back();
+        if (paths.empty())
+          paths.emplace_back();
+      };
+
+      auto url_id = urlId(clip_path_shape);
+      if (clip_paths.count(url_id)) {
+        SvgDrawable* clip_drawable = clip_paths.at(url_id);
+        gather(clip_drawable, clipping_paths);
+
+        std::set<const SvgDrawable*> visited = { clip_drawable };
+        while (true) {
+          std::string nested_id = urlId(clip_drawable->clip_path_shape);
+          if (clip_paths.count(nested_id) == 0 || visited.count(clip_paths.at(nested_id)))
+            break;
+
+          clip_drawable = clip_paths.at(nested_id);
+          visited.insert(clip_drawable);
+          gather(clip_drawable, clip_intersections.emplace_back());
+        }
       }
 
       return;

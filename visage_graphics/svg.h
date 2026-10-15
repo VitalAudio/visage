@@ -258,6 +258,10 @@ namespace visage {
       }
       for (auto& clip_path : clipping_paths)
         clip_path = clip_path.transformed(transform);
+      for (auto& intersection : clip_intersections) {
+        for (auto& clip_path : intersection)
+          clip_path = clip_path.transformed(transform);
+      }
     }
 
     void gatherClipPaths(std::vector<Path>& paths) const {
@@ -375,6 +379,7 @@ namespace visage {
     Path stroke_path;
     Bounds post_bounding_box;
     std::vector<Path> clipping_paths;
+    std::vector<std::vector<Path>> clip_intersections;
     std::optional<Bounds> view_clip;
     std::optional<MaskSettings> mask_settings;
     std::optional<ColorMatrix> color_matrix;
