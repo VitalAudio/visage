@@ -1556,6 +1556,34 @@ TEST_CASE("Bloom glow stays in place when part of its region redraws", "[graphic
   }
 }
 
+TEST_CASE("Bloom inside a transparent layered region keeps what's behind it", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  canvas.setColor(0xffff0000);
+  canvas.fill(0, 0, 64, 32);
+  BloomPostEffect bloom;
+  Region container;
+  Region glowing;
+  canvas.addRegion(&container);
+  container.setNeedsLayer(true);
+  container.setBounds(0, 0, 64, 32);
+  container.addRegion(&glowing);
+  glowing.setNeedsLayer(true);
+  glowing.setPostEffect(&bloom);
+  glowing.setBounds(16, 0, 32, 32);
+
+  canvas.beginRegion(&glowing);
+  canvas.setColor(0xffffffff);
+  canvas.fill(14, 14, 4, 4);
+  canvas.endRegion();
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  for (int x : { 18, 24, 40, 44 }) {
+    INFO("x " << x);
+    REQUIRE(screenshot.sample(x, 2).hexRed() == 0xff);
+  }
+}
+
 TEST_CASE("Canvas strokes a path at its logical width", "[graphics]") {
   for (float scale : { 1.0f, 2.0f }) {
     Canvas canvas;
