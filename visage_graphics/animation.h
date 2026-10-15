@@ -24,7 +24,6 @@
 #include "visage_utils/time_utils.h"
 
 #include <algorithm>
-#include <limits>
 
 namespace visage {
   template<typename T>
@@ -107,8 +106,8 @@ namespace visage {
     T update() {
       long long ms = time::milliseconds();
       float delta = 1.0f;
-      if (time_ > std::numeric_limits<float>::epsilon())
-        delta = (ms - last_ms_) / time_;
+      if (time_ > 0)
+        delta = (ms - last_ms_) / static_cast<float>(time_);
       last_ms_ = ms;
 
       if (targeting_)
@@ -122,7 +121,7 @@ namespace visage {
   private:
     T source_;
     T target_;
-    T time_ = kRegularTime;
+    int time_ = kRegularTime;
     long long last_ms_ = 0;
 
     EasingFunction forward_easing_ = kLinear;
