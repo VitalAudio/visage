@@ -37,13 +37,19 @@ namespace visage {
     static constexpr char32_t kUmlautCharacter = U'\u00A8';
     static constexpr char32_t kCircumflexCharacter = U'\u02C6';
 
-    static bool isAlphaNumeric(char character) {
+    static bool isAlphaNumeric(char32_t character) {
       return (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') ||
              (character >= '0' && character <= '9');
     }
 
-    static bool isVariableCharacter(char character) {
-      return isAlphaNumeric(character) || character == '_';
+    static bool isWhiteSpace(char32_t character) {
+      return character == ' ' || character == '\t' || character == '\n' || character == '\r' ||
+             character == 0xa0 || (character >= 0x2000 && character <= 0x200b) || character == 0x3000;
+    }
+
+    static bool isVariableCharacter(char32_t character) {
+      return isAlphaNumeric(character) || character == '_' ||
+             (character >= 0x80 && !isWhiteSpace(character));
     }
 
     enum ActionState {

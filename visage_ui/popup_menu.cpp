@@ -306,6 +306,9 @@ namespace visage {
 
   void PopupMenuFrame::focusChanged(bool is_focused, bool was_clicked) {
     if (!is_focused && isVisible()) {
+      if (!done_ && opacity_animation_.isTargeting())
+        menu_.onCancel().callback();
+
       startTimer(1);
       opacity_animation_.target(false);
     }
@@ -362,21 +365,28 @@ namespace visage {
         source_index = i;
     }
 
+    bool reopening = lists_[source_index].openMenuIndex() == lists_[source_index].hoverIndex();
     lists_[source_index].setOpenMenu(lists_[source_index].hoverIndex());
     if (source_index < kMaxSubMenus - 1) {
+      reopening = reopening && lists_[source_index + 1].isVisible();
       lists_[source_index + 1].setOptions(option.options());
-      int h = lists_[source_index + 1].renderHeight();
+      int h = std::min(height(), lists_[source_index + 1].renderHeight());
       int w = lists_[source_index + 1].renderWidth();
-      int y = list->y() + selection_y;
+      int y = list->y() + selection_y - list->yPosition();
       int bottom = y + h;
       int x = lists_[source_index].right();
       int right = x + w;
       if (bottom > height())
         y = height() - h;
+      y = std::max(0, y);
       if (right > width())
         x = lists_[source_index].x() - w;
 
       lists_[source_index + 1].setBounds(x, y, w, h);
+      if (!reopening) {
+        lists_[source_index + 1].setYPosition(0);
+        lists_[source_index + 1].setScrollableHeight(lists_[source_index + 1].renderHeight(), h);
+      }
       lists_[source_index + 1].setNoHover();
       lists_[source_index + 1].setVisible(true);
     }
@@ -390,7 +400,8 @@ namespace visage {
     hover_index_ = -1;
     for (auto& sub_list : lists_) {
       if (sub_list.isVisible() && sub_list.bounds().contains(position)) {
-        sub_list.setHoverFromPosition(position - sub_list.topLeft() + Point(0, list->yPosition()));
+        sub_list.setHoverFromPosition(position - sub_list.topLeft() + Point(0, sub_list.yPosition()));
+        sub_list.redraw();
 
         hover_list_ = &sub_list;
         hover_index_ = hover_list_->hoverIndex();

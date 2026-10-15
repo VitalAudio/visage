@@ -50,7 +50,7 @@ namespace visage {
     }
   }
 
-  inline bool EventTimer::checkTimer(long long current_time) {
+  bool EventTimer::checkTimer(long long current_time) {
     VISAGE_ASSERT(isRunning());
 
     if (current_time - last_run_time_ >= ms_) {

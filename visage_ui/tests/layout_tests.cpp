@@ -580,3 +580,59 @@ TEST_CASE("Layout flex alignment", "[ui]") {
   REQUIRE(results[8] == IBounds(610, 10, 180, 90));
   REQUIRE(results[9] == IBounds(590, 110, 200, 100));
 }
+
+TEST_CASE("Layout flex wrap reverse rows", "[ui]") {
+  Layout layout;
+  layout.setPadding(10_npx);
+  layout.setFlex(true);
+  layout.setFlexRows(false);
+  layout.setFlexWrapReverse(true);
+
+  Layout child0, child1, child2;
+  std::vector<const Layout*> layouts = { &child0, &child1, &child2 };
+  for (Layout* child : { &child0, &child1, &child2 }) {
+    child->setWidth(40_npx);
+    child->setHeight(20_npx);
+  }
+
+  auto results = layout.flexPositions(layouts, { 0, 0, 120, 120 }, 2.0f);
+  REQUIRE(results.size() == 3);
+  REQUIRE(results[0] == IBounds(10, 90, 40, 20));
+  REQUIRE(results[1] == IBounds(50, 90, 40, 20));
+  REQUIRE(results[2] == IBounds(10, 70, 40, 20));
+}
+
+TEST_CASE("Layout flex wrap percentages", "[ui]") {
+  Layout layout;
+  layout.setFlex(true);
+  layout.setFlexWrap(true);
+
+  Layout child0, child1, child2;
+  std::vector<const Layout*> layouts = { &child0, &child1, &child2 };
+  child0.setWidth(50_vw);
+  child0.setHeight(40_npx);
+  child1.setWidth(25_vw);
+  child1.setHeight(40_npx);
+  child2.setWidth(10_npx);
+  child2.setHeight(40_npx);
+
+  auto results = layout.flexPositions(layouts, { 0, 0, 200, 100 }, 2.0f);
+  REQUIRE(results.size() == 3);
+  REQUIRE(results[0] == IBounds(0, 0, 100, 40));
+  REQUIRE(results[1] == IBounds(0, 40, 50, 40));
+  REQUIRE(results[2] == IBounds(100, 0, 10, 40));
+
+  layout.setFlexRows(false);
+  child0.setWidth(40_npx);
+  child0.setHeight(50_vh);
+  child1.setWidth(40_npx);
+  child1.setHeight(25_vh);
+  child2.setWidth(40_npx);
+  child2.setHeight(10_npx);
+
+  results = layout.flexPositions(layouts, { 0, 0, 100, 200 }, 2.0f);
+  REQUIRE(results.size() == 3);
+  REQUIRE(results[0] == IBounds(0, 0, 40, 100));
+  REQUIRE(results[1] == IBounds(40, 0, 40, 50));
+  REQUIRE(results[2] == IBounds(0, 100, 40, 10));
+}

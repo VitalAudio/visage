@@ -116,3 +116,64 @@ TEST_CASE("Text editor single line input with newlines", "[widgets]") {
   editor.processTextInput("d\ne");
   REQUIRE(editor.text() == "abcd\ne");
 }
+
+TEST_CASE("Text editor end of a soft wrapped line keeps the caret on that line", "[widgets]") {
+  TextEditor editor;
+  editor.setBounds(0, 0, 60, 200);
+  editor.setMultiLine(true);
+  editor.setText("one two three four five six seven eight");
+  std::pair<int, int> first_line = editor.lineRange(0);
+  REQUIRE(first_line.second < editor.text().length());
+  float first_line_y = editor.indexToPosition(0).second;
+
+  editor.moveCaretToTop(false);
+  editor.processKeyPress(KeyEvent(KeyCode::End, 0, true));
+  int caret = editor.selectionStart();
+  REQUIRE(caret == first_line.second - 1);
+  REQUIRE(editor.indexToPosition(caret).second == first_line_y);
+
+  REQUIRE(editor.positionToIndex({ 1000.0f, first_line_y }) == caret);
+}
+
+TEST_CASE("Text editor deleting nothing leaves the text and undo history alone", "[widgets]") {
+  TextEditor editor;
+  editor.setText("abc");
+  int changes = 0;
+  editor.onTextChange() += [&changes] { changes++; };
+
+  editor.processTextInput("d");
+  editor.undo();
+  REQUIRE(editor.text() == "abc");
+  REQUIRE(changes == 2);
+
+  editor.moveCaretToEnd(false);
+  editor.deleteForwards(false);
+  editor.moveCaretToTop(false);
+  editor.deleteBackwards(false);
+  editor.cutToClipboard();
+  REQUIRE(editor.text() == "abc");
+  REQUIRE(changes == 2);
+
+  editor.redo();
+  REQUIRE(editor.text() == "abcd");
+}
+
+TEST_CASE("Text editor word deletion handles non-ASCII letters and runs of spaces", "[widgets]") {
+  TextEditor editor;
+  editor.setText("one naïve");
+  editor.deleteBackwards(true);
+  REQUIRE(editor.text() == "one ");
+
+  editor.setText("one   two");
+  editor.deleteBackwards(true);
+  REQUIRE(editor.text() == "one   ");
+  editor.deleteBackwards(true);
+  REQUIRE(editor.text() == "");
+
+  editor.setText("one   two");
+  editor.moveCaretToTop(false);
+  editor.deleteForwards(true);
+  REQUIRE(editor.text() == "   two");
+  editor.deleteForwards(true);
+  REQUIRE(editor.text() == "");
+}

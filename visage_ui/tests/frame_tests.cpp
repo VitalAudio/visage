@@ -21,6 +21,7 @@
 
 #include "visage_graphics/canvas.h"
 #include "visage_ui/frame.h"
+#include "visage_ui/svg_frame.h"
 #include "visage_utils/events.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -576,4 +577,82 @@ TEST_CASE("Frame added to a new parent", "[ui]") {
     first_parent.addChild(child);
     REQUIRE(first_parent.children().size() == 1);
   }
+}
+
+TEST_CASE("Frame added to a new parent draws only when the new parent draws", "[ui]") {
+  Frame first_parent;
+  Frame second_parent;
+  Frame child;
+  Frame grandchild;
+  child.addChild(grandchild);
+
+  first_parent.addChild(child);
+  first_parent.setVisible(false);
+  REQUIRE_FALSE(child.isDrawing());
+
+  second_parent.addChild(child);
+  REQUIRE(child.isDrawing());
+  REQUIRE(grandchild.isDrawing());
+
+  first_parent.addChild(child);
+  REQUIRE_FALSE(child.isDrawing());
+  REQUIRE_FALSE(grandchild.isDrawing());
+
+  second_parent.addChild(child, false);
+  REQUIRE_FALSE(child.isVisible());
+  REQUIRE_FALSE(child.isDrawing());
+  REQUIRE_FALSE(grandchild.isDrawing());
+}
+
+TEST_CASE("Frame DPI change updates children before notifying", "[ui]") {
+  Frame parent;
+  Frame child;
+  parent.setBounds(0, 0, 400, 300);
+  parent.addChild(child);
+
+  float child_dpi_in_callback = 0.0f;
+  parent.onDpiChange() += [&] {
+    child_dpi_in_callback = child.dpiScale();
+    child.setBounds(0, 0, 75, 10);
+  };
+
+  parent.setDpiScale(2.0f);
+  REQUIRE(child_dpi_in_callback == 2.0f);
+  REQUIRE(child.nativeWidth() == 150);
+}
+
+TEST_CASE("Frame DPI change updates native bounds of children", "[ui]") {
+  Frame parent;
+  Frame child;
+  parent.setBounds(0, 0, 400, 300);
+  parent.addChild(child);
+  child.setBounds(10, 20, 100, 50);
+
+  parent.setDpiScale(2.0f);
+  REQUIRE(IBounds(child.nativeX(), child.nativeY(), child.nativeWidth(), child.nativeHeight()) ==
+          IBounds(20, 40, 200, 100));
+}
+
+TEST_CASE("Frame sized before being added uses the parent's DPI", "[ui]") {
+  Frame parent;
+  parent.setDpiScale(2.0f);
+  Frame child;
+  child.setBounds(10, 20, 100, 50);
+
+  parent.addChild(child);
+  REQUIRE(IBounds(child.nativeX(), child.nativeY(), child.nativeWidth(), child.nativeHeight()) ==
+          IBounds(20, 40, 200, 100));
+}
+
+TEST_CASE("SvgFrame ignores mouse events however it is constructed", "[ui]") {
+  static constexpr char kSvg[] = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">"
+                                 "<rect width=\"10\" height=\"10\"/></svg>";
+  const auto* data = reinterpret_cast<const uint8_t*>(kSvg);
+
+  SvgFrame from_nothing;
+  SvgFrame from_data(data, sizeof(kSvg) - 1);
+  SvgFrame from_file(EmbeddedFile { "icon.svg", data, sizeof(kSvg) - 1 });
+  REQUIRE(from_nothing.ignoresMouseEvents());
+  REQUIRE(from_data.ignoresMouseEvents());
+  REQUIRE(from_file.ignoresMouseEvents());
 }

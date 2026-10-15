@@ -105,11 +105,21 @@ namespace visage {
     hdr_text_.setMaxCharacters(kDecimalSigFigs + 1);
 
     hex_text_.onEnterKey() += [this] { requestKeyboardFocus(); };
+    hex_text_.onFocusChange() += [this](bool is_focused, bool) {
+      if (!is_focused)
+        hex_text_.setText(color_.toRGBHexString());
+    };
     alpha_text_.onEnterKey() += [this] { requestKeyboardFocus(); };
     hdr_text_.onEnterKey() += [this] { requestKeyboardFocus(); };
 
     hex_text_.onTextChange() += [this] {
-      color_ = Color::fromHexString(hex_text_.text().toUtf8());
+      std::string hex = hex_text_.text().toUtf8();
+      if (hex.size() != 6 || hex.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
+        return;
+
+      color_ = Color::fromHexString(hex);
+      color_.setAlpha(alpha_);
+      color_.setHdr(hdr_);
       hue_.setHue(color_.hue());
       value_saturation_.setValue(color_.value());
       value_saturation_.setSaturation(color_.saturation());

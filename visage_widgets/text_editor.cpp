@@ -263,7 +263,10 @@ namespace visage {
 
     int index = font().widthOverflowIndex(text_.text().c_str() + range.first, range.second - range.first,
                                           position.first - line_x, true, text_.characterOverride());
-    return std::min(range.first + index, range.second);
+    int max_index = range.second;
+    if (line < line_breaks_.size() && max_index == line_breaks_[line])
+      max_index = std::max(range.first, max_index - 1);
+    return std::min(range.first + index, max_index);
   }
 
   bool TextEditor::enterPressed() {
@@ -301,6 +304,9 @@ namespace visage {
   }
 
   void TextEditor::deleteSelected() {
+    if (selectionStart() == selectionEnd())
+      return;
+
     undone_history_.clear();
 
     if (action_state_ != kDeleting)
@@ -384,7 +390,11 @@ namespace visage {
   }
 
   int TextEditor::beginningOfWord() const {
-    int index = caret_position_ - 1;
+    int index = caret_position_;
+    while (index > 0 && isWhiteSpace(text_.text()[index - 1]))
+      --index;
+
+    --index;
     while (index > 0 && isVariableCharacter(text_.text()[index - 1]))
       --index;
     return std::max(0, index);
@@ -392,7 +402,11 @@ namespace visage {
 
   int TextEditor::endOfWord() const {
     int string_length = textLength();
-    int index = caret_position_ + 1;
+    int index = caret_position_;
+    while (index < string_length && isWhiteSpace(text_.text()[index]))
+      ++index;
+
+    ++index;
     while (index < string_length && isVariableCharacter(text_.text()[index]))
       ++index;
     return std::min(string_length, index);
