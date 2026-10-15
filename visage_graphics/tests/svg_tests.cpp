@@ -715,6 +715,38 @@ TEST_CASE("Svg opacity values are clamped and validated", "[graphics]") {
           0x00);
 }
 
+TEST_CASE("Svg malformed tags", "[graphics]") {
+  SECTION("Whitespace in closing tags") {
+    Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><g ><rect width="10" height="10"/></g
+><rect x="2" width="2" height="2"/></svg >)svg");
+    REQUIRE(numShapes(svg.drawable()) == 2);
+    REQUIRE(svg.drawable()->post_bounding_box.width() == 10.0f);
+  }
+
+  SECTION("Unquoted attributes") {
+    Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect x=2 width=4 height=4/><rect x="6" width="2" height="2"/></svg>)svg");
+    REQUIRE(numShapes(svg.drawable()) == 2);
+    REQUIRE(svg.drawable()->post_bounding_box.x() == 2.0f);
+    REQUIRE(svg.drawable()->post_bounding_box.width() == 6.0f);
+  }
+
+  SECTION("Junk inside a tag") {
+    Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect x="2" "junk" width="4"/><rect width="10" height="10"/></svg>)svg");
+    REQUIRE(numShapes(svg.drawable()) == 1);
+    REQUIRE(svg.drawable()->post_bounding_box.width() == 10.0f);
+  }
+
+  SECTION("Unterminated attribute") {
+    Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10"/><rect x="2)svg");
+    REQUIRE(svg.drawable());
+  }
+
+  SECTION("Truncated tag") {
+    Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10"/><)svg");
+    REQUIRE(svg.drawable());
+  }
+}
+
 TEST_CASE("Svg attribute character references", "[graphics]") {
   Svg numeric = parseSvg(R"svg(<svg viewBox="0 0 10 10"><path d="M&#x20;1&#x20;1&#32;L&#32;9&#x9;9z" stroke="red"/></svg>)svg");
   REQUIRE(numeric.drawable()->post_bounding_box.width() == Catch::Approx(8.0f).margin(1.0f));
