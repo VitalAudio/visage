@@ -1074,7 +1074,7 @@ namespace visage {
     Tag child = parseTagTree(str, i, depth + 1);
     while ((!child.data.is_closing || child.data.name != tag.data.name) && i < str.size()) {
       if (!child.data.is_closing && (child.data.ignored || !child.data.name.empty()))
-        tag.children.push_back(child);
+        tag.children.push_back(std::move(child));
 
       child = parseTagTree(str, i, depth + 1);
     }
@@ -1981,7 +1981,7 @@ namespace visage {
               child.data.attributes[size] = tag.data.attributes.at(size);
           }
         }
-        tag.children.push_back(child);
+        tag.children.push_back(std::move(child));
       }
 
       std::string id = tag.data.attributes.count("id") ? "#" + tag.data.attributes.at("id") : "";
@@ -2299,7 +2299,7 @@ namespace visage {
     Tag root = parseTagTree(str, i);
     while (root.data.ignored || !root.data.name.empty()) {
       if (!root.data.ignored && !root.data.is_closing)
-        tags.push_back(root);
+        tags.push_back(std::move(root));
 
       root = parseTagTree(str, i);
     }
