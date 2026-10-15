@@ -512,6 +512,14 @@ TEST_CASE("Svg stray closing tags", "[graphics]") {
               .hexRed() == 0xff);
 }
 
+TEST_CASE("Svg whitespace around attribute equals", "[graphics]") {
+  Svg svg = parseSvg("<svg viewBox=\"0 0 10 10\"><rect x = \"2\" width\n=\n\"2\" height\t= "
+                     "\"2\"/><rect x=\"6\" width=\"2\" height=\"2\"/></svg>");
+  REQUIRE(numShapes(svg.drawable()) == 2);
+  REQUIRE(svg.drawable()->post_bounding_box.x() == 2.0f);
+  REQUIRE(svg.drawable()->post_bounding_box.width() == 6.0f);
+}
+
 TEST_CASE("Svg attribute character references", "[graphics]") {
   Svg numeric = parseSvg(R"svg(<svg viewBox="0 0 10 10"><path d="M&#x20;1&#x20;1&#32;L&#32;9&#x9;9z" stroke="red"/></svg>)svg");
   REQUIRE(numeric.drawable()->post_bounding_box.width() == Catch::Approx(8.0f).margin(1.0f));

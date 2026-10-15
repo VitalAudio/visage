@@ -759,14 +759,19 @@ namespace visage {
   std::pair<std::string, std::string> parseAttribute(const std::string& str, int& i) {
     std::string key;
     consumeWhiteSpace(str, i);
-    while (i < str.size() && str[i] != '=' && str[i] != ' ' && str[i] != '\t' && str[i] != '>' &&
-           str[i] != '/')
+    while (i < str.size() && str[i] != '=' && str[i] != ' ' && str[i] != '\t' && str[i] != '\n' &&
+           str[i] != '\r' && str[i] != '>' && str[i] != '/')
       key += str[i++];
 
+    consumeWhiteSpace(str, i);
     if (key.empty() || i >= str.size() - 1 || str[i] != '=')
       return { "", "" };
 
     i++;
+    consumeWhiteSpace(str, i);
+    if (i >= str.size())
+      return { "", "" };
+
     char quote_char = str[i++];
     VISAGE_ASSERT(quote_char == '"' || quote_char == '\'');
 
