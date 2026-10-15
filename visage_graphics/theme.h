@@ -49,13 +49,12 @@
 
 namespace visage::theme {
   static std::string nameFromPath(const std::string& file_path) {
-    size_t start = file_path.find_last_of("\\/");
+    size_t separator = file_path.find_last_of("\\/");
+    size_t start = separator == std::string::npos ? 0 : separator + 1;
     size_t end = file_path.find_last_of('.');
-    if (start == std::string::npos)
-      start = 0;
-    if (end == std::string::npos)
+    if (end == std::string::npos || end < start)
       end = file_path.length();
-    return file_path.substr(start + 1, end - start - 1);
+    return file_path.substr(start, end - start);
   }
 
   class ColorId {

@@ -87,6 +87,14 @@ TEST_CASE("Palette values decode under a comma decimal locale", "[graphics]") {
   REQUIRE(value == 0.25f);
 }
 
+TEST_CASE("Theme group names come from the file name", "[graphics]") {
+  REQUIRE(theme::nameFromPath("/src/widgets/button.cpp") == "button");
+  REQUIRE(theme::nameFromPath("C:\\src\\button.cpp") == "button");
+  REQUIRE(theme::nameFromPath("button.cpp") == "button");
+  REQUIRE(theme::nameFromPath("button") == "button");
+  REQUIRE(theme::nameFromPath("widgets.v2/button") == "button");
+}
+
 TEST_CASE("Gradient decode bad data", "[graphics]") {
   Gradient gradient;
   gradient.decode("");
