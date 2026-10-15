@@ -69,4 +69,23 @@ TEST_CASE("X11 DPI falls back to the screen DPI when outputs report no size", "[
   float expected_dpi = std::round(screen_dpi / 24.0f) * 24.0f;
   REQUIRE(visage::defaultDpiScale() * visage::Window::kDefaultDpi == Catch::Approx(expected_dpi));
 }
+
+TEST_CASE("X11 ignores an Xft.dpi setting outside the sane range", "[integration]") {
+  Display* display = std::getenv("DISPLAY") ? XOpenDisplay(nullptr) : nullptr;
+  if (display == nullptr)
+    SKIP("No display");
+
+  const char* resources = XResourceManagerString(display);
+  const char* setting = resources ? std::strstr(resources, "Xft.dpi:") : nullptr;
+  float xft_dpi = setting ? std::strtof(setting + std::strlen("Xft.dpi:"), nullptr) : 0.0f;
+  bool unsized = onlyUnsizedOutputs(display);
+  int screen = DefaultScreen(display);
+  float screen_dpi = DisplayWidth(display, screen) * 25.4f / DisplayWidthMM(display, screen);
+  XCloseDisplay(display);
+  if (setting == nullptr || (xft_dpi >= 50.0f && xft_dpi <= 500.0f) || !unsized)
+    SKIP("The display has no out of range Xft.dpi or its outputs report a size");
+
+  float expected_dpi = std::round(screen_dpi / 24.0f) * 24.0f;
+  REQUIRE(visage::defaultDpiScale() * visage::Window::kDefaultDpi == Catch::Approx(expected_dpi));
+}
 #endif
