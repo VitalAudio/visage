@@ -111,3 +111,26 @@ TEST_CASE("Dragging files back over their source frame exits the previous target
   REQUIRE(target.drops == 1);
   app.removeFromWindow();
 }
+
+TEST_CASE("Dragging files over a frame with an invalid extension regex doesn't throw",
+          "[integration]") {
+  class BadRegexFrame : public Frame {
+  public:
+    bool receivesDragDropFiles() override { return true; }
+    std::string dragDropFileExtensionRegex() override { return "(wav"; }
+  };
+
+  ApplicationEditor app;
+  BadRegexFrame frame;
+  app.addChild(frame);
+  app.setBounds(0, 0, 40, 40);
+  frame.setBounds(0, 0, 40, 40);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  std::vector<std::string> files = { "/tmp/file.wav" };
+  REQUIRE_NOTHROW(window.handleFileDrag(10, 10, files));
+  REQUIRE_FALSE(window.handleFileDrag(10, 10, files));
+  REQUIRE_FALSE(window.handleFileDrop(10, 10, files));
+  app.removeFromWindow();
+}
