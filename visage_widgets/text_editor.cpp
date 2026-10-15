@@ -99,9 +99,6 @@ namespace visage {
   }
 
   TextEditor::TextEditor(const std::string& name) : ScrollableFrame(name) {
-    undo_history_.reserve(kMaxUndoHistory);
-    undone_history_.reserve(kMaxUndoHistory);
-
     setAcceptsKeystrokes(true);
     text_.setFont(Font(10, fonts::Lato_Regular_ttf, 1.0f));
     default_text_.setFont(Font(10, fonts::Lato_Regular_ttf, 1.0f));

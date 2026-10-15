@@ -198,6 +198,9 @@ namespace visage {
     }
 
     void setText(const String& text) {
+      undo_history_.clear();
+      undone_history_.clear();
+      action_state_ = kNone;
       if (max_characters_)
         text_.setText(text.substring(0, max_characters_));
       else
@@ -244,7 +247,11 @@ namespace visage {
     float xMarginSize() const {
       return set_x_margin_ ? set_x_margin_ : paletteValue(TextEditorMarginX);
     }
-    void addUndoPosition() { undo_history_.emplace_back(text_.text(), caret_position_); }
+    void addUndoPosition() {
+      if (undo_history_.size() >= kMaxUndoHistory)
+        undo_history_.erase(undo_history_.begin());
+      undo_history_.emplace_back(text_.text(), caret_position_);
+    }
 
     CallbackList<void()> on_text_change_;
     CallbackList<void()> on_enter_key_;
