@@ -483,6 +483,23 @@ TEST_CASE("Path offset stroke and combine work on const paths", "[graphics]") {
   REQUIRE(path.combine(path).subPaths().size() == 2);
 }
 
+TEST_CASE("Path rotation matches Transform rotation", "[graphics]") {
+  Path path;
+  path.moveTo(1, 0);
+  path.lineTo(2, 1);
+
+  Path rotated = path.rotated(90.0f);
+  Path transformed = path.transformed(Transform::rotation(90.0f));
+  REQUIRE(rotated.subPaths()[0].points[0].x == Catch::Approx(0.0f).margin(1e-5f));
+  REQUIRE(rotated.subPaths()[0].points[0].y == Catch::Approx(1.0f));
+  for (int i = 0; i < 2; ++i) {
+    REQUIRE(rotated.subPaths()[0].points[i].x ==
+            Catch::Approx(transformed.subPaths()[0].points[i].x).margin(1e-5f));
+    REQUIRE(rotated.subPaths()[0].points[i].y ==
+            Catch::Approx(transformed.subPaths()[0].points[i].y).margin(1e-5f));
+  }
+}
+
 TEST_CASE("Path command directions", "[graphics]") {
   auto arc = Path::parseSvgPath("M0 0 A10 10 0 0 1 20 0");
   REQUIRE(arc.direction(0).x == Catch::Approx(0.0f).margin(1e-5f));
