@@ -31,6 +31,7 @@ namespace visage {
     static WindowEmscripten* runningInstance() { return running_instance_; }
 
     WindowEmscripten(int width, int height);
+    ~WindowEmscripten() override;
 
     void* initWindow() const override { return (void*)"#canvas"; }
     void* nativeHandle() const override { return (void*)"#canvas"; }
