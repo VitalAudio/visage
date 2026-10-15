@@ -1500,6 +1500,62 @@ TEST_CASE("Translucent bloom glows like opaque bloom", "[graphics]") {
   }
 }
 
+TEST_CASE("Bloom glow stays in place when part of its region redraws", "[graphics]") {
+  auto render = [](bool redraw_part) -> Screenshot {
+    Canvas canvas;
+    canvas.setWindowless(96, 64);
+    BloomPostEffect bloom;
+    bloom.setBloomSize(16.0f);
+    bloom.setBloomIntensity(0.6f);
+    Region glowing;
+    Region overlap;
+    canvas.addRegion(&glowing);
+    glowing.setNeedsLayer(true);
+    glowing.setPostEffect(&bloom);
+    glowing.setBounds(16, 0, 64, 64);
+    canvas.addRegion(&overlap);
+    overlap.setBounds(0, 0, 48, 64);
+
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.beginRegion(&glowing);
+    canvas.setColor(Color(0xffff8040, 1.5f));
+    canvas.circle(16, 16, 32);
+    canvas.endRegion();
+
+    auto draw_stripe = [&](unsigned int color) {
+      overlap.clear();
+      overlap.invalidate();
+      canvas.beginRegion(&overlap);
+      canvas.setColor(color);
+      canvas.fill(0, 0, 8, overlap.height());
+      canvas.endRegion();
+    };
+
+    if (!redraw_part) {
+      draw_stripe(0xff00ff00);
+      return canvas.takeScreenshot();
+    }
+
+    draw_stripe(0xff0000ff);
+    canvas.submit();
+    draw_stripe(0xff00ff00);
+    canvas.layer(0)->requestScreenshot();
+    canvas.submit();
+    return canvas.layer(0)->screenshot();
+  };
+
+  Screenshot full = render(false);
+  Screenshot partial = render(true);
+  for (int y = 0; y < 64; y += 3) {
+    for (int x = 16; x < 80; x += 3) {
+      INFO("x " << x << " y " << y);
+      REQUIRE(partial.sample(x, y).hexRed() == Approx(full.sample(x, y).hexRed()).margin(2));
+      REQUIRE(partial.sample(x, y).hexGreen() == Approx(full.sample(x, y).hexGreen()).margin(2));
+    }
+  }
+}
+
 TEST_CASE("Canvas strokes a path at its logical width", "[graphics]") {
   for (float scale : { 1.0f, 2.0f }) {
     Canvas canvas;

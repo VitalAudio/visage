@@ -619,12 +619,16 @@ namespace visage {
     if (quads.vertices == nullptr)
       return;
 
-    setTexturePositions(batches, quads.vertices, 1);
+    setTexturePositions(batches, quads.vertices, 0);
+    for (int i = 0; i < quads.num_shapes * kVerticesPerQuad; ++i) {
+      quads.vertices[i].value1 = 1.0f;
+      quads.vertices[i].value2 = 0.0f;
+    }
 
     setBlendMode(BlendMode::Add);
 
-    float width_scale = 1.0f / widths_[1];
-    float height_scale = 1.0f / heights_[1];
+    float width_scale = 1.0f / widths_[0];
+    float height_scale = 1.0f / heights_[0];
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
     float mult = bloom_intensity_ * Color::kGradientNormalization;
     setPostEffectUniform<Uniforms::kColorMult>(mult, mult, mult, 1.0f);
