@@ -82,7 +82,7 @@ namespace visage {
 
     setPostEffectUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
-    setBlendMode(BlendMode::Composite);
+    setBlendMode(BlendMode::Alpha);
     setPostEffectUniform<Uniforms::kTime>(destination.time());
 
     Layer* source_layer = batches[0].shapes->front().region->layer();
@@ -306,7 +306,7 @@ namespace visage {
       }
 
       float color = hdrConversion(*layer, *source->layer());
-      setBlendMode(BlendMode::Composite);
+      setBlendMode(BlendMode::Alpha);
       setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(layer->frameBuffer()));
       setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
       setPostEffectUniform<Uniforms::kMult>(color, color, color, 1.0f);
@@ -491,7 +491,7 @@ namespace visage {
 
     setPostEffectUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
-    setBlendMode(BlendMode::Composite);
+    setBlendMode(BlendMode::Alpha);
     setPostEffectUniform<Uniforms::kTime>(destination.time());
 
     float width_scale = 1.0f / widths_[0];
@@ -641,7 +641,6 @@ namespace visage {
 
     setPostEffectUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
-    setBlendMode(state_);
     setPostEffectUniform<Uniforms::kTime>(destination.time());
 
     Layer* source_layer = batches[0].shapes->front().region->layer();
@@ -669,8 +668,7 @@ namespace visage {
     for (const auto& uniform : uniforms_)
       bgfx::setUniform(UniformCache::uniformHandle(uniform.first.c_str()), uniform.second.data);
 
-    bgfx::ProgramHandle program = ProgramCache::programHandle(vertexShader(), fragmentShader());
-    bgfx::submit(submit_pass, program);
+    submitBlended(state_, submit_pass, ProgramCache::programHandle(vertexShader(), fragmentShader()));
   }
 
   LuminanceMaskPostEffect::LuminanceMaskPostEffect() :

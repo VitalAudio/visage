@@ -129,7 +129,7 @@ namespace visage {
           for (const auto& child : mask->children)
             child->drawAll(canvas, context_, -origin.x, -origin.y, width(), height());
 
-          canvas.setBlendMode(BlendMode::Composite);
+          canvas.setBlendMode(BlendMode::Alpha);
           canvas.setColor(0xff000000);
           for (const auto& region : mask->clipping_paths) {
             Path outside = region;

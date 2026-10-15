@@ -1205,6 +1205,57 @@ TEST_CASE("Layer blend modes handle translucent content", "[graphics]") {
   expect(112, 0x808080);
 }
 
+TEST_CASE("Shape blend modes handle translucent content", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(128, 32);
+  Region background;
+  Region multiply_layer;
+  Region add_layer;
+  canvas.addRegion(&background);
+  background.setBounds(0, 0, 128, 32);
+  for (Region* region : { &multiply_layer, &add_layer }) {
+    canvas.addRegion(region);
+    region->setNeedsLayer(true);
+  }
+  multiply_layer.setBounds(64, 0, 32, 32);
+  add_layer.setBounds(96, 0, 32, 32);
+
+  canvas.beginRegion(&background);
+  canvas.setColor(0xff406080);
+  canvas.fill(0, 0, 128, 32);
+  canvas.setBlendMode(BlendMode::Mult);
+  canvas.setColor(0xff808080);
+  canvas.circle(0, 0, 32);
+  canvas.setColor(0x80808080);
+  canvas.fill(32, 0, 32, 32);
+  canvas.endRegion();
+
+  canvas.beginRegion(&multiply_layer);
+  canvas.setBlendMode(BlendMode::Mult);
+  canvas.setColor(0xff808080);
+  canvas.fill(0, 0, 32, 32);
+  canvas.endRegion();
+
+  canvas.beginRegion(&add_layer);
+  canvas.setBlendMode(BlendMode::Add);
+  canvas.setColor(0x80ff0000);
+  canvas.fill(0, 0, 32, 32);
+  canvas.endRegion();
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  auto expect = [&screenshot](int x, int y, unsigned int color) {
+    Color sample = screenshot.sample(x, y);
+    REQUIRE(std::abs(static_cast<int>(sample.hexRed()) - static_cast<int>((color >> 16) & 0xff)) <= 2);
+    REQUIRE(std::abs(static_cast<int>(sample.hexGreen()) - static_cast<int>((color >> 8) & 0xff)) <= 2);
+    REQUIRE(std::abs(static_cast<int>(sample.hexBlue()) - static_cast<int>(color & 0xff)) <= 2);
+  };
+  expect(2, 2, 0x406080);
+  expect(16, 16, 0x203040);
+  expect(48, 16, 0x304860);
+  expect(80, 16, 0x808080);
+  expect(112, 16, 0xa03040);
+}
+
 TEST_CASE("Blurred regions share temporary frame buffers", "[graphics]") {
   static constexpr int kNumBlurred = 8;
 

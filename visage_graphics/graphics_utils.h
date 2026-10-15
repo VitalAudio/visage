@@ -44,7 +44,6 @@ namespace bgfx {
 namespace visage {
   enum class BlendMode {
     Opaque,
-    Composite,
     Alpha,
     Add,
     Sub,
