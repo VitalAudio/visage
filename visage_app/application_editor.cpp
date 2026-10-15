@@ -125,7 +125,8 @@ namespace visage {
     window_->setDrawCallback([this](double time) {
       canvas_->updateTime(time);
       EventManager::instance().checkEventTimers();
-      drawWindow();
+      if (window_)
+        drawWindow();
     });
 
     drawWindow();
@@ -143,6 +144,8 @@ namespace visage {
 
   void ApplicationEditor::removeFromWindow() {
     window_event_handler_ = nullptr;
+    if (window_)
+      window_->setDrawCallback(nullptr);
     window_ = nullptr;
     canvas_->removeFromWindow();
   }
