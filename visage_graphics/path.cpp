@@ -110,7 +110,7 @@ namespace visage {
     rx = std::abs(rx);
     ry = std::abs(ry);
     if (rx == 0.0f || ry == 0.0f) {
-      lineTo(point);
+      lineTo(point, relative);
       return;
     }
 

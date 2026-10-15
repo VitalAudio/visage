@@ -463,6 +463,13 @@ TEST_CASE("Stroke dash pattern restarts for each subpath", "[graphics]") {
   REQUIRE(second_max == Catch::Approx(5.0f).margin(1e-4f));
 }
 
+TEST_CASE("Relative arc with zero radius", "[graphics]") {
+  Path path;
+  path.moveTo(5, 5);
+  path.arcTo(0.0f, 0.0f, 0.0f, false, false, Point(1, 2), true);
+  REQUIRE(path.subPaths().back().points.back() == Point(6, 7));
+}
+
 TEST_CASE("Path command directions", "[graphics]") {
   auto arc = Path::parseSvgPath("M0 0 A10 10 0 0 1 20 0");
   REQUIRE(arc.direction(0).x == Catch::Approx(0.0f).margin(1e-5f));
