@@ -370,3 +370,12 @@ TEST_CASE("KeyEvent repeat handling", "[ui]") {
   REQUIRE(repeat_event.isRepeat());
   REQUIRE_FALSE(normal_event.isRepeat());
 }
+TEST_CASE("EventTimer checkTimer runs the timer once it is due", "[ui]") {
+  TestEventTimer timer;
+  timer.startTimer(50);
+  long long now = time::milliseconds();
+
+  REQUIRE_FALSE(timer.checkTimer(now));
+  REQUIRE(timer.checkTimer(now + 1000));
+  REQUIRE(timer.callback_count == 1);
+}
