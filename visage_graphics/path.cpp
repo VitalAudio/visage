@@ -147,7 +147,7 @@ namespace visage {
     if (!sweep_flag)
       arc_angle = -arc_angle;
 
-    Point adjusted_radius = resolution_matrix_ * Point(rx, ry);
+    Point adjusted_radius = resolution_matrix_ * Point(radius, radius / radius_ratio);
     float max_radius = std::max(std::abs(adjusted_radius.x), std::abs(adjusted_radius.y));
     float max_delta_radians = maxDeltaRadians(error_tolerance_ / max_radius);
     int num_points = std::ceil(std::abs(arc_angle) / max_delta_radians);

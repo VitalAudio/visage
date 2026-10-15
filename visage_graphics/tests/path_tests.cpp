@@ -455,3 +455,14 @@ TEST_CASE("Path command directions", "[graphics]") {
   REQUIRE(smooth_quadratic.direction(2).x == Catch::Approx(1.0f / std::sqrt(5.0f)));
   REQUIRE(smooth_quadratic.direction(2).y == Catch::Approx(2.0f / std::sqrt(5.0f)));
 }
+
+TEST_CASE("Enlarged arc radii keep their curve resolution", "[graphics]") {
+  auto arc_points = [](float radius) {
+    Path path;
+    path.moveTo(0, 0);
+    path.arcTo(radius, radius, 0.0f, false, true, Point(100, 0));
+    return path.numPoints();
+  };
+
+  REQUIRE(arc_points(1.0f) == arc_points(50.0f));
+}
