@@ -38,6 +38,42 @@ namespace visage {
     return input;
   }
 
+  static std::string decodeXmlReferences(const std::string& value) {
+    static const std::unordered_map<std::string, std::string> kNamed = {
+      { "quot", "\"" }, { "apos", "'" }, { "lt", "<" }, { "gt", ">" }, { "amp", "&" }
+    };
+
+    std::string result;
+    for (size_t i = 0; i < value.size(); ++i) {
+      size_t end = value[i] == '&' ? value.find(';', i) : std::string::npos;
+      if (end == std::string::npos) {
+        result += value[i];
+        continue;
+      }
+
+      std::string name = value.substr(i + 1, end - i - 1);
+      if (kNamed.count(name))
+        result += kNamed.at(name);
+      else if (name.size() > 1 && name[0] == '#') {
+        bool hex = name[1] == 'x' || name[1] == 'X';
+        char* parse_end = nullptr;
+        const char* digits = name.c_str() + (hex ? 2 : 1);
+        unsigned long code = std::strtoul(digits, &parse_end, hex ? 16 : 10);
+        if (parse_end == digits || *parse_end || code == 0 || code > 0x10ffff) {
+          result += value[i];
+          continue;
+        }
+        result += String::convertToUtf8(std::u32string(1, static_cast<char32_t>(code)));
+      }
+      else {
+        result += value[i];
+        continue;
+      }
+      i = end;
+    }
+    return result;
+  }
+
   static std::vector<std::string> splitArguments(const std::string& str) {
     std::string with_spaces = unescape(str, ",", " ");
 
@@ -726,13 +762,7 @@ namespace visage {
 
     std::string value = str.substr(i, end - i);
     i = end + 1;
-    value = unescape(value, "&quot;", "\"");
-    value = unescape(value, "&apos;", "'");
-    value = unescape(value, "&lt;", "<");
-    value = unescape(value, "&gt;", ">");
-    value = unescape(value, "&amp;", "&");
-
-    return { key, value };
+    return { key, decodeXmlReferences(value) };
   }
 
   TagData parseTag(const std::string& str, int& i) {

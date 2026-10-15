@@ -499,3 +499,12 @@ TEST_CASE("Svg length units", "[graphics]") {
   REQUIRE(rect_width("8Q") == Catch::Approx(96.0f / 25.4f * 2.0f));
   REQUIRE(rect_width("4mmx") == 0.0f);
 }
+
+TEST_CASE("Svg attribute character references", "[graphics]") {
+  Svg numeric = parseSvg(R"svg(<svg viewBox="0 0 10 10"><path d="M&#x20;1&#x20;1&#32;L&#32;9&#x9;9z" stroke="red"/></svg>)svg");
+  REQUIRE(numeric.drawable()->post_bounding_box.width() == Catch::Approx(8.0f).margin(1.0f));
+  REQUIRE(numeric.drawable()->post_bounding_box.height() == Catch::Approx(8.0f).margin(1.0f));
+
+  Svg named = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect id="a&amp;b" x="&#50;" width="4" height="4"/></svg>)svg");
+  REQUIRE(named.drawable()->post_bounding_box.x() == 2.0f);
+}
