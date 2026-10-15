@@ -470,33 +470,39 @@ namespace visage {
     return Brush::solid(theme::ColorId::defaultColor(color_id));
   }
 
+  UndoHistory* Frame::undoHistory() const {
+    if (auto history = dynamic_cast<UndoHistory*>(const_cast<Frame*>(this)))
+      return history;
+    return findParent<UndoHistory>();
+  }
+
   void Frame::addUndoableAction(std::unique_ptr<UndoableAction> action) const {
-    UndoHistory* history = findParent<UndoHistory>();
+    UndoHistory* history = undoHistory();
     if (history)
       history->push(std::move(action));
   }
 
   void Frame::triggerUndo() const {
-    UndoHistory* history = findParent<UndoHistory>();
+    UndoHistory* history = undoHistory();
     if (history)
       history->undo();
   }
 
   void Frame::triggerRedo() const {
-    UndoHistory* history = findParent<UndoHistory>();
+    UndoHistory* history = undoHistory();
     if (history)
       history->redo();
   }
 
   bool Frame::canUndo() const {
-    UndoHistory* history = findParent<UndoHistory>();
+    UndoHistory* history = undoHistory();
     if (history)
       return history->canUndo();
     return false;
   }
 
   bool Frame::canRedo() const {
-    UndoHistory* history = findParent<UndoHistory>();
+    UndoHistory* history = undoHistory();
     if (history)
       return history->canRedo();
     return false;
