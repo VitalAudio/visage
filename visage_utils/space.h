@@ -484,8 +484,10 @@ namespace visage {
         x_(other.x()), y_(other.y()), width_(other.width()), height_(other.height()) { }
 
     IBounds round() const {
-      return { static_cast<int>(std::round(x_)), static_cast<int>(std::round(y_)),
-               static_cast<int>(std::round(width_)), static_cast<int>(std::round(height_)) };
+      int x = static_cast<int>(std::round(x_));
+      int y = static_cast<int>(std::round(y_));
+      return { x, y, static_cast<int>(std::round(right())) - x,
+               static_cast<int>(std::round(bottom())) - y };
     }
 
     float x() const { return x_; }
