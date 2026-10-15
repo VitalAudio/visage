@@ -60,17 +60,6 @@ namespace visage {
       instance().faces_.erase(face);
     }
 
-    static std::string idForFont(const unsigned char* data, int data_size) {
-      FT_Face face = newMemoryFace(data, data_size);
-      if (face == nullptr)
-        return "";
-
-      std::string id = std::string(face->family_name ? face->family_name : "") + "-" +
-                       std::string(face->style_name ? face->style_name : "");
-      doneFace(face);
-      return id;
-    }
-
   private:
     FreeTypeLibrary() { FT_Init_FreeType(&library_); }
     ~FreeTypeLibrary() {
@@ -82,6 +71,10 @@ namespace visage {
     std::set<FT_Face> faces_;
     FT_Library library_ = nullptr;
   };
+
+  static std::string packedFontId(const std::string& type_face_id, int size) {
+    return type_face_id + " - " + std::to_string(size);
+  }
 
   class TypeFace {
   public:
@@ -126,13 +119,10 @@ namespace visage {
   public:
     static constexpr int kChannels = 4;
 
-    PackedFont(const std::string& id, int size, const unsigned char* data, int data_size) :
-        id_(id), size_(size), data_size_(data_size) {
-      data_ = std::make_unique<unsigned char[]>(data_size);
-      std::memcpy(data_.get(), data, data_size);
-      type_face_ = std::make_unique<TypeFace>(size, data_.get(), data_size);
-      std::unique_ptr<PackedGlyph[]> glyphs = std::make_unique<PackedGlyph[]>(type_face_->numGlyphs());
-
+    PackedFont(const std::string& type_face_id, int size, const unsigned char* data, int data_size) :
+        type_face_id_(type_face_id), id_(packedFontId(type_face_id, size)), size_(size),
+        data_(data), data_size_(data_size) {
+      type_face_ = std::make_unique<TypeFace>(size, data, data_size);
       packed_glyphs_['\n'] = Font::kNullPackedGlyph;
     }
 
@@ -247,8 +237,9 @@ namespace visage {
     bgfx::TextureHandle& textureHandle() { return texture_handle_; }
     int lineHeight() const { return type_face_->lineHeight(); }
     int size() const { return size_; }
-    const unsigned char* data() const { return data_.get(); }
+    const unsigned char* data() const { return data_; }
     int dataSize() const { return data_size_; }
+    const std::string& typeFaceId() const { return type_face_id_; }
     const std::string& id() const { return id_; }
 
   private:
@@ -266,9 +257,10 @@ namespace visage {
 
     PackedAtlasMap<char32_t> atlas_map_;
     std::unique_ptr<TypeFace> type_face_;
+    std::string type_face_id_;
     std::string id_;
     int size_ = 0;
-    std::unique_ptr<unsigned char[]> data_;
+    const unsigned char* data_ = nullptr;
     int data_size_ = 0;
 
     std::map<char32_t, PackedGlyph> packed_glyphs_;
@@ -301,6 +293,12 @@ namespace visage {
     packed_font_ = FontCache::loadPackedFont(native_size_, file_path);
   }
 
+  Font::Font(float size, const PackedFont* packed_font, float dpi_scale) :
+      size_(size), dpi_scale_(dpi_scale) {
+    native_size_ = std::round(size * (dpi_scale ? dpi_scale : 1.0f));
+    packed_font_ = FontCache::loadPackedFont(native_size_, packed_font);
+  }
+
   Font::Font(const Font& other) {
     size_ = other.size_;
     native_size_ = other.native_size_;
@@ -323,15 +321,11 @@ namespace visage {
   }
 
   Font Font::withDpiScale(float dpi_scale) const {
-    if (packed_font_ == nullptr)
-      return { size_, nullptr, 0, dpi_scale };
-    return { size_, packed_font_->data(), packed_font_->dataSize(), dpi_scale };
+    return { size_, packed_font_, dpi_scale };
   }
 
   Font Font::withSize(float size) const {
-    if (packed_font_ == nullptr)
-      return { size, nullptr, 0, dpi_scale_ };
-    return { size, packed_font_->data(), packed_font_->dataSize(), dpi_scale_ };
+    return { size, packed_font_, dpi_scale_ };
   }
 
   const PackedGlyph* Font::packedGlyph(char32_t character) const {
@@ -515,11 +509,15 @@ namespace visage {
   FontCache::~FontCache() = default;
 
   PackedFont* FontCache::loadPackedFont(int size, const std::string& file_path) {
-    std::string id = "file: " + file_path + " - " + std::to_string(size);
+    std::string type_face_id = "file: " + file_path;
+    std::string id = packedFontId(type_face_id, size);
+    if (instance()->cache_.count(id))
+      return instance()->incrementPackedFont(id);
+
     File file(file_path);
     size_t file_size = 0;
     std::unique_ptr<unsigned char[]> data = loadFileData(file, file_size);
-    return instance()->createOrLoadPackedFont(id, size, data.get(), file_size);
+    return instance()->createOrLoadPackedFont(type_face_id, size, data.get(), file_size);
   }
 
   PackedFont* FontCache::loadPackedFont(const PackedFont* packed_font) {
@@ -528,11 +526,20 @@ namespace visage {
     return instance()->incrementPackedFont(packed_font->id());
   }
 
+  PackedFont* FontCache::loadPackedFont(int size, const PackedFont* packed_font) {
+    if (packed_font == nullptr)
+      return nullptr;
+    return instance()->createOrLoadPackedFont(packed_font->typeFaceId(), size, packed_font->data(),
+                                              packed_font->dataSize());
+  }
+
   PackedFont* FontCache::loadPackedFont(int size, const unsigned char* font_data, int data_size) {
     if (font_data == nullptr)
       return nullptr;
-    std::string id = FreeTypeLibrary::idForFont(font_data, data_size) + " - " + std::to_string(size);
-    return instance()->createOrLoadPackedFont(id, size, font_data, data_size);
+
+    const unsigned char* stored_data = instance()->storedTypeFaceData(font_data, data_size).data;
+    std::string type_face_id = "data: " + std::to_string(reinterpret_cast<uintptr_t>(stored_data));
+    return instance()->createOrLoadPackedFont(type_face_id, size, stored_data, data_size);
   }
 
   PackedFont* FontCache::incrementPackedFont(const std::string& id) {
@@ -540,22 +547,28 @@ namespace visage {
     return cache_[id].get();
   }
 
-  PackedFont* FontCache::createOrLoadPackedFont(const std::string& id, int size,
+  FontCache::TypeFaceData FontCache::storedTypeFaceData(const unsigned char* data, int data_size) {
+    TypeFaceData type_face_data(data, data_size);
+    auto it = type_face_data_lookup_.find(type_face_data);
+    if (it == type_face_data_lookup_.end()) {
+      auto saved_data = std::make_unique<unsigned char[]>(data_size);
+      if (data_size)
+        std::memcpy(saved_data.get(), data, data_size);
+      type_face_data.data = saved_data.get();
+      it = type_face_data_lookup_.emplace(type_face_data, std::move(saved_data)).first;
+    }
+    return it->first;
+  }
+
+  PackedFont* FontCache::createOrLoadPackedFont(const std::string& type_face_id, int size,
                                                 const unsigned char* font_data, int data_size) {
     VISAGE_ASSERT(Thread::isMainThread());
 
+    std::string id = packedFontId(type_face_id, size);
     if (cache_.count(id) == 0) {
-      TypeFaceData type_face_data(font_data, data_size);
-      if (type_face_data_lookup_.count(type_face_data) == 0) {
-        auto saved_data = std::make_unique<unsigned char[]>(data_size);
-        std::memcpy(saved_data.get(), font_data, data_size);
-        type_face_data.data = saved_data.get();
-        type_face_data_lookup_[type_face_data] = std::move(saved_data);
-      }
-
-      type_face_data.data = type_face_data_lookup_[type_face_data].get();
+      TypeFaceData type_face_data = storedTypeFaceData(font_data, data_size);
       type_face_data_ref_count_[type_face_data]++;
-      cache_[id] = std::make_unique<PackedFont>(id, size, font_data, data_size);
+      cache_[id] = std::make_unique<PackedFont>(type_face_id, size, type_face_data.data, data_size);
     }
 
     return incrementPackedFont(id);
@@ -575,14 +588,14 @@ namespace visage {
         ++it;
       else {
         TypeFaceData type_face_data(it->first->data(), it->first->dataSize());
+        cache_.erase(it->first->id());
+        it = ref_count_.erase(it);
+
         type_face_data_ref_count_[type_face_data]--;
         if (type_face_data_ref_count_[type_face_data] == 0) {
           type_face_data_ref_count_.erase(type_face_data);
           type_face_data_lookup_.erase(type_face_data);
         }
-
-        cache_.erase(it->first->id());
-        it = ref_count_.erase(it);
       }
     }
     has_stale_fonts_ = false;
