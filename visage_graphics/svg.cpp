@@ -24,6 +24,7 @@
 #include "canvas.h"
 
 #include <optional>
+#include <tuple>
 #include <unordered_map>
 
 namespace visage {
@@ -1929,10 +1930,25 @@ namespace visage {
     }
   }
 
+  static std::tuple<size_t, size_t, size_t> cssSpecificity(const CssSelector& selector) {
+    std::tuple<size_t, size_t, size_t> specificity = { !selector.id.empty(), selector.classes.size(),
+                                                       !selector.tag_name.empty() };
+    if (!selector.parents.empty()) {
+      auto parent = cssSpecificity(selector.parents.front());
+      std::get<0>(specificity) += std::get<0>(parent);
+      std::get<1>(specificity) += std::get<1>(parent);
+      std::get<2>(specificity) += std::get<2>(parent);
+    }
+    return specificity;
+  }
+
   void SvgParser::loadStyleTags(std::vector<Tag>& tags) {
     for (auto& tag : tags) {
-      if (tag.data.name == "style")
-        parseCssStyle(tag.data.text);
+      if (tag.data.name == "style") {
+        auto type = tag.data.attributes.find("type");
+        if (type == tag.data.attributes.end() || type->second.empty() || type->second == "text/css")
+          parseCssStyle(tag.data.text);
+      }
       else
         loadStyleTags(tag.children);
     }
@@ -2093,11 +2109,17 @@ namespace visage {
     auto& state = state_stack.back();
 
     for (auto& attribute : tag.data.attributes) {
-      if (attribute.first == "style")
-        parseStyleAttribute(attribute.second, state, drawable);
-      else if (attribute.first != "marker")
+      if (attribute.first != "style" && attribute.first != "marker")
         parseStyleDefinition(attribute.first, attribute.second, state, drawable);
     }
+
+    for (const auto& style : style_lookup_) {
+      if (style.first.matches(tag, tag_parents_))
+        parseStyleAttribute(style.second, state, drawable);
+    }
+
+    if (tag.data.attributes.count("style"))
+      parseStyleAttribute(tag.data.attributes.at("style"), state, drawable);
   }
 
   std::unique_ptr<SvgDrawable> SvgParser::computeDrawables(Tag& tag, std::vector<DrawableState>& state_stack) {
@@ -2112,11 +2134,6 @@ namespace visage {
     auto drawable = std::make_unique<SvgDrawable>();
     drawable->is_defines = tag.data.name == "defs" || tag.data.name == "symbol";
     drawable->is_use = tag.data.name == "use";
-
-    for (const auto& style : style_lookup_) {
-      if (style.first.matches(tag, tag_parents_))
-        parseStyleAttribute(style.second, state_stack.back(), drawable.get());
-    }
 
     loadDrawableStyle(tag, state_stack, drawable.get());
     std::optional<Color> background_color = std::exchange(background_color_, std::nullopt);
@@ -2193,6 +2210,9 @@ namespace visage {
     resolveUses(tags, reference_ids);
     collectTagParents(tags, nullptr);
     loadStyleTags(tags);
+    std::stable_sort(style_lookup_.begin(), style_lookup_.end(), [](const auto& a, const auto& b) {
+      return cssSpecificity(a.first) < cssSpecificity(b.first);
+    });
     collectGradients(tags);
     collectFilters(tags);
     collectMarkers(tags);

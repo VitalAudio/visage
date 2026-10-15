@@ -538,6 +538,25 @@ TEST_CASE("Svg css combinators", "[graphics]") {
   REQUIRE_FALSE(red("g rect", R"svg(<rect width="10" height="10"/>)svg"));
 }
 
+TEST_CASE("Svg css cascade order", "[graphics]") {
+  auto red = [](const std::string& style, const std::string& body) {
+    return renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><style>)svg" + style + "</style>" + body + "</svg>")
+               .hexRed() == 0xff;
+  };
+
+  REQUIRE(red(".a{fill:red}", R"svg(<rect class="a" width="10" height="10" fill="blue"/>)svg"));
+  REQUIRE(red("g rect{fill:red}", R"svg(<g><rect width="10" height="10" fill="blue"/></g>)svg"));
+  REQUIRE(red("rect{fill:blue}", R"svg(<rect width="10" height="10" style="fill:red"/>)svg"));
+  REQUIRE(red("#r{fill:red} rect{fill:blue}", R"svg(<rect id="r" width="10" height="10"/>)svg"));
+  REQUIRE(red(".a{fill:red} rect{fill:blue}", R"svg(<rect class="a" width="10" height="10"/>)svg"));
+  REQUIRE(red("g rect{fill:red} rect{fill:blue}", R"svg(<g><rect width="10" height="10"/></g>)svg"));
+  REQUIRE(red("rect{fill:blue} rect{fill:red}", R"svg(<rect width="10" height="10"/>)svg"));
+  REQUIRE(red("g{fill:blue}", R"svg(<g><rect width="10" height="10" fill="red"/></g>)svg"));
+
+  REQUIRE(renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><style type="text/other">rect{fill:blue}</style><rect width="10" height="10" fill="red"/></svg>)svg")
+              .hexRed() == 0xff);
+}
+
 TEST_CASE("Svg attribute character references", "[graphics]") {
   Svg numeric = parseSvg(R"svg(<svg viewBox="0 0 10 10"><path d="M&#x20;1&#x20;1&#32;L&#32;9&#x9;9z" stroke="red"/></svg>)svg");
   REQUIRE(numeric.drawable()->post_bounding_box.width() == Catch::Approx(8.0f).margin(1.0f));
