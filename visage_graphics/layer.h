@@ -139,10 +139,7 @@ namespace visage {
     }
     bool isHeadlessRender() const { return headless_render_; }
 
-    void removeFromWindow() {
-      window_handle_ = nullptr;
-      destroyFrameBuffer();
-    }
+    bool removeFromWindow();
 
     void clear() {
       regions_.clear();
