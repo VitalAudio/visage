@@ -439,18 +439,7 @@ namespace visage {
 
     void translate(float x, float y) { translate(Point(x, y)); }
 
-    void rotate(float angle) {
-      Point row1 = { cosf(angle), sinf(angle) };
-      Point row2 = { -sinf(angle), cosf(angle) };
-      for (auto& path : paths_) {
-        for (Point& point : path.points) {
-          float x = point.x;
-          float y = point.y;
-          point.x = row1.x * x + row1.y * y;
-          point.y = row2.x * x + row2.y * y;
-        }
-      }
-    }
+    void rotate(float angle) { transform(Transform::rotation(angle)); }
 
     Path rotated(float angle) const {
       Path result = *this;
