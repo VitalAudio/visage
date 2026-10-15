@@ -625,7 +625,7 @@ namespace visage {
       quads.vertices[i].value2 = 0.0f;
     }
 
-    setBlendMode(BlendMode::Add);
+    bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ADD);
 
     float width_scale = 1.0f / widths_[0];
     float height_scale = 1.0f / heights_[0];
