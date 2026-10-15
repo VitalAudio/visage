@@ -35,5 +35,5 @@ void main() {
 
   float mult = sign(pos.y - center_y);
   float alpha = 1.0 - smoothed(-0.5 * fade, 0.5 * fade, mult * (pos.y - line_y)) * smoothed(-0.5, 0.5, mult * (pos.y - center_y));
-  gl_FragColor.a = gl_FragColor.a * alpha;
+  gl_FragColor = clampToAlpha(gl_FragColor * alpha);
 }

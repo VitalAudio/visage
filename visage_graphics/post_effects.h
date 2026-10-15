@@ -153,7 +153,7 @@ namespace visage {
     std::map<std::string, UniformData> uniforms_;
     EmbeddedFile vertex_shader_;
     EmbeddedFile fragment_shader_;
-    BlendMode state_ = BlendMode::Composite;
+    BlendMode state_ = BlendMode::Alpha;
 
     VISAGE_LEAK_CHECKER(ShaderPostEffect)
   };

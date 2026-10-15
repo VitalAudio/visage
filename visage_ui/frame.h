@@ -447,7 +447,7 @@ namespace visage {
 
     bool requiresLayer() const {
       return post_effect_ || backdrop_effect_ || cached_ || mask_frame_ ||
-             alpha_transparency_ != 1.0f || layer_blend_mode_ != BlendMode::Composite;
+             alpha_transparency_ != 1.0f || layer_blend_mode_ != BlendMode::Alpha;
     }
 
     std::string name_;
@@ -503,7 +503,7 @@ namespace visage {
     std::unique_ptr<LuminanceMaskPostEffect> luminance_mask_effect_;
     std::unique_ptr<Frame> mask_frame_;
     float alpha_transparency_ = 1.0f;
-    BlendMode layer_blend_mode_ = BlendMode::Composite;
+    BlendMode layer_blend_mode_ = BlendMode::Alpha;
     Region region_;
     std::unique_ptr<Layout> layout_;
     bool drawing_ = true;

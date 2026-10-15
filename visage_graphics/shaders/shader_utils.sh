@@ -59,7 +59,12 @@ uniform vec4 u_radial_gradient;
 uniform vec4 u_color_mult;
 
 vec4 sampleGradient(sampler2D gradient_texture, vec2 texture_pos1, vec2 texture_pos2, float t) {
-  return u_color_mult * texture2D(gradient_texture, mix(texture_pos1, texture_pos2, t));
+  vec4 color = u_color_mult * texture2D(gradient_texture, mix(texture_pos1, texture_pos2, t));
+  return vec4(color.rgb * color.a, color.a);
+}
+
+vec4 clampToAlpha(vec4 color) {
+  return vec4(min(color.rgb, color.aaa), color.a);
 }
 
 vec4 gradient(sampler2D gradient_texture, vec4 texture_pos, vec4 gradient_pos1, vec4 gradient_pos2, vec2 position) {

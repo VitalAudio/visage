@@ -40,42 +40,9 @@ namespace visage {
     case BlendMode::Opaque:
       return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
              BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ZERO);
-    case BlendMode::Composite:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
     case BlendMode::Alpha:
       return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA,
-                                            BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
-    case BlendMode::Add:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
-    case BlendMode::Sub:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE) |
-             BGFX_STATE_BLEND_EQUATION_SEPARATE(BGFX_STATE_BLEND_EQUATION_REVSUB,
-                                                BGFX_STATE_BLEND_EQUATION_ADD);
-    case BlendMode::Mult:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_MULTIPLY;
-    case BlendMode::MaskAdd:
-      return BGFX_STATE_WRITE_A |
              BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
-    case BlendMode::MaskRemove:
-      return BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE) |
-             BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_REVSUB);
-    case BlendMode::MaskMult:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ZERO, BGFX_STATE_BLEND_SRC_ALPHA);
-    }
-
-    VISAGE_ASSERT(false);
-    return 0;
-  }
-
-  static constexpr uint64_t compositeBlendModeValue(BlendMode blend_mode) {
-    switch (blend_mode) {
-    case BlendMode::Alpha: return blendModeValue(BlendMode::Composite);
     case BlendMode::Add:
       return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
              BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE);
@@ -89,12 +56,36 @@ namespace visage {
       return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
              BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_DST_COLOR, BGFX_STATE_BLEND_INV_SRC_ALPHA,
                                             BGFX_STATE_BLEND_ZERO, BGFX_STATE_BLEND_ONE);
-    default: return blendModeValue(blend_mode);
+    case BlendMode::MaskAdd:
+      return BGFX_STATE_WRITE_A |
+             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+    case BlendMode::MaskRemove:
+      return BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE) |
+             BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_REVSUB);
+    case BlendMode::MaskMult:
+      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ZERO, BGFX_STATE_BLEND_SRC_ALPHA);
     }
+
+    VISAGE_ASSERT(false);
+    return 0;
   }
 
   void setBlendMode(BlendMode blend_mode) {
     bgfx::setState(blendModeValue(blend_mode));
+  }
+
+  void submitBlended(BlendMode blend_mode, int submit_pass, bgfx::ProgramHandle program) {
+    static constexpr uint64_t kMultiplyUncovered = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+                                                   BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_INV_DST_ALPHA,
+                                                                         BGFX_STATE_BLEND_ONE);
+
+    setBlendMode(blend_mode);
+    if (blend_mode == BlendMode::Mult) {
+      bgfx::submit(submit_pass, program, 0, BGFX_DISCARD_NONE);
+      bgfx::setState(kMultiplyUncovered);
+    }
+    bgfx::submit(submit_pass, program);
   }
 
   template<const char* name>
@@ -180,7 +171,7 @@ namespace visage {
     return vertex_buffer.data;
   }
 
-  void submitShapes(const Layer& layer, const EmbeddedFile& vertex_shader,
+  void submitShapes(const Layer& layer, BlendMode blend_mode, const EmbeddedFile& vertex_shader,
                     const EmbeddedFile& fragment_shader, bool radial_gradient, int submit_pass) {
     setTimeUniform(layer.time());
     setUniformDimensions(layer.width(), layer.height());
@@ -189,7 +180,7 @@ namespace visage {
     GradientAtlas* gradient_atlas = layer.gradientAtlas();
     setUniform<Uniforms::kRadialGradient>(radial_gradient ? 1.0f : 0.0f);
     setTexture<Uniforms::kGradient>(0, gradient_atlas->colorTextureHandle());
-    bgfx::submit(submit_pass, ProgramCache::programHandle(vertex_shader, fragment_shader));
+    submitBlended(blend_mode, submit_pass, ProgramCache::programHandle(vertex_shader, fragment_shader));
   }
 
   void setImageAtlasUniform(ImageAtlas* atlas) {
@@ -244,7 +235,8 @@ namespace visage {
     return std::accumulate(invalid_rects.begin(), invalid_rects.end(), 0, count_pieces);
   }
 
-  void submitText(const BatchVector<TextBlock>& batches, const Layer& layer, int submit_pass) {
+  void submitText(const BatchVector<TextBlock>& batches, BlendMode blend_mode, const Layer& layer,
+                  int submit_pass) {
     if (batches.empty() || batches[0].shapes->empty())
       return;
 
@@ -381,7 +373,8 @@ namespace visage {
     setUniformDimensions(layer.width(), layer.height());
     setColorMult(layer.hdr());
     setUniform<Uniforms::kRadialGradient>(batches[0].shapes->front().radialGradient() ? 1.0f : 0.0f);
-    bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_text));
+    submitBlended(blend_mode, submit_pass,
+                  ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_text));
   }
 
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass) {
@@ -391,18 +384,17 @@ namespace visage {
 
     Shader* shader = batches[0].shapes->front().shader;
     setUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
-    setBlendMode(shader->state());
     setTimeUniform(layer.time());
     setUniformDimensions(layer.width(), layer.height());
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
     setColorMult(layer.hdr());
     setOriginFlipUniform(layer.bottomLeftOrigin());
-    bgfx::submit(submit_pass,
-                 ProgramCache::programHandle(shader->vertexShader(), shader->fragmentShader()));
+    submitBlended(shader->state(), submit_pass,
+                  ProgramCache::programHandle(shader->vertexShader(), shader->fragmentShader()));
   }
 
-  static void submitSampleRegions(const BatchVector<SampleRegion>& batches, uint64_t state,
-                                  const Layer& layer, int submit_pass) {
+  void submitSampleRegions(const BatchVector<SampleRegion>& batches, BlendMode blend_mode,
+                           const Layer& layer, int submit_pass) {
     auto quads = setupQuads(batches);
     if (quads.vertices == nullptr)
       return;
@@ -418,19 +410,8 @@ namespace visage {
     float value = hdrConversion(*source_layer, layer);
     setUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(layer.bottomLeftOrigin());
-    bgfx::setState(state);
-    bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
-                                                          SampleRegion::fragmentShader()));
-  }
-
-  void submitSampleRegions(const BatchVector<SampleRegion>& batches, BlendMode blend_mode,
-                           const Layer& layer, int submit_pass) {
-    static constexpr uint64_t kMultiplyUncovered = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                                                   BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_INV_DST_ALPHA,
-                                                                         BGFX_STATE_BLEND_ONE);
-
-    submitSampleRegions(batches, compositeBlendModeValue(blend_mode), layer, submit_pass);
-    if (blend_mode == BlendMode::Mult)
-      submitSampleRegions(batches, kMultiplyUncovered, layer, submit_pass);
+    submitBlended(blend_mode, submit_pass,
+                  ProgramCache::programHandle(SampleRegion::vertexShader(),
+                                              SampleRegion::fragmentShader()));
   }
 }

@@ -46,5 +46,5 @@ void main() {
   }
 
   float alpha = 1.0 - smoothed(-0.5, 0.5, sqrt(distance) - thickness);
-  gl_FragColor.a = gl_FragColor.a * alpha;
+  gl_FragColor = clampToAlpha(gl_FragColor * alpha);
 }
