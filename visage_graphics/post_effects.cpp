@@ -165,10 +165,9 @@ namespace visage {
 
     handles_->screen_index_buffer = bgfx::createIndexBuffer(bgfx::makeRef(visage::kQuadTriangles,
                                                                           sizeof(visage::kQuadTriangles)));
-    const bgfx::Memory* vertex_memory = bgfx::makeRef(screen_vertices_, sizeof(screen_vertices_));
+    const bgfx::Memory* vertex_memory = bgfx::copy(screen_vertices_, sizeof(screen_vertices_));
     handles_->screen_vertex_buffer = bgfx::createVertexBuffer(vertex_memory, UvVertex::layout());
-    const bgfx::Memory* inv_vertex_memory = bgfx::makeRef(inv_screen_vertices_,
-                                                          sizeof(inv_screen_vertices_));
+    const bgfx::Memory* inv_vertex_memory = bgfx::copy(inv_screen_vertices_, sizeof(inv_screen_vertices_));
     handles_->inv_screen_vertex_buffer = bgfx::createVertexBuffer(inv_vertex_memory, UvVertex::layout());
   }
 
