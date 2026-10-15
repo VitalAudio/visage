@@ -340,9 +340,11 @@ namespace visage {
       temporary_frame_ = nullptr;
     }
 
-    mouse_event.event_frame = mouse_hovered_frame_;
-    if (exited && mouse_hovered_frame_)
+    if (exited && mouse_hovered_frame_) {
+      mouse_event.position = mouse_event.window_position - mouse_hovered_frame_->positionInWindow();
+      mouse_event.event_frame = mouse_hovered_frame_;
       mouse_hovered_frame_->processMouseEnter(mouse_event);
+    }
   }
 
   void WindowEventHandler::handleMouseEnter(int x, int y) {
