@@ -81,6 +81,18 @@ namespace visage {
       return it != native_window_lookup_.end() ? it->second : nullptr;
     }
 
+    WindowX11* pluginWindow() const {
+      WindowX11* active = WindowX11::lastActiveWindow();
+      if (active && active->isPluginWindow())
+        return active;
+
+      for (auto& window : native_window_lookup_) {
+        if (window.second->isPluginWindow())
+          return window.second;
+      }
+      return nullptr;
+    }
+
   private:
     NativeWindowLookup() = default;
     ~NativeWindowLookup() = default;
@@ -124,6 +136,13 @@ namespace visage {
     return result;
   }
 
+  static std::string utf8ToLatin1(const std::string& text) {
+    std::string result;
+    for (char32_t c : String::convertToUtf32(text))
+      result += c < 0x100 ? static_cast<char>(c) : '?';
+    return result;
+  }
+
   std::string readClipboardText() {
     static constexpr int kSleepWait = 5;
     static constexpr int kMaxWaitTime = 250;
@@ -136,7 +155,8 @@ namespace visage {
     ::Window selection_owner = XGetSelectionOwner(display, x11->clipboard());
     if (selection_owner == None)
       return "";
-    if (selection_owner == SharedMessageWindow::handle())
+    if (selection_owner == SharedMessageWindow::handle() ||
+        NativeWindowLookup::instance().findWindow(selection_owner))
       return _clipboard_text;
 
     Atom selection_property = XInternAtom(display, "VISAGE_SELECT", False);
@@ -182,12 +202,17 @@ namespace visage {
   void setClipboardText(const std::string& text) {
     _clipboard_text = text;
 
-    X11Connection* x11 = X11Connection::globalInstance();
+    WindowX11* plugin_window = NativeWindowLookup::instance().pluginWindow();
+    X11Connection* x11 = plugin_window ? plugin_window->x11Connection() : X11Connection::globalInstance();
     if (x11->display() == nullptr)
       return;
 
-    XSetSelectionOwner(x11->display(), XA_PRIMARY, SharedMessageWindow::handle(), CurrentTime);
-    XSetSelectionOwner(x11->display(), x11->clipboard(), SharedMessageWindow::handle(), CurrentTime);
+    ::Window owner = plugin_window ? (::Window)plugin_window->nativeHandle() :
+                                     SharedMessageWindow::handle();
+    X11Connection::DisplayLock lock(x11);
+    XSetSelectionOwner(x11->display(), XA_PRIMARY, owner, CurrentTime);
+    XSetSelectionOwner(x11->display(), x11->clipboard(), owner, CurrentTime);
+    XSync(x11->display(), False);
   }
 
   void setCursorStyle(MouseCursor style) {
@@ -799,6 +824,18 @@ namespace visage {
     timer_thread_.reset();
 
     X11Connection::DisplayLock lock(x11_);
+    WindowX11* next_owner = isPluginWindow() ? NativeWindowLookup::instance().pluginWindow() : nullptr;
+    if (next_owner) {
+      X11Connection* next_x11 = next_owner->x11Connection();
+      X11Connection::DisplayLock next_lock(next_x11);
+      for (Atom selection : { (Atom)XA_PRIMARY, x11_->clipboard() }) {
+        if (XGetSelectionOwner(x11_->display(), selection) == window_handle_)
+          XSetSelectionOwner(next_x11->display(), selection, (::Window)next_owner->nativeHandle(),
+                             CurrentTime);
+      }
+      XSync(next_x11->display(), False);
+    }
+
     if (parent_handle_ && dragDropProxy(parent_handle_) == window_handle_) {
       XDeleteProperty(x11_->display(), parent_handle_, x11_->dndAware());
       XDeleteProperty(x11_->display(), parent_handle_, x11_->dndProxy());
@@ -1369,8 +1406,7 @@ namespace visage {
   void WindowX11::processMessageWindowEvent(XEvent& event) {
     switch (event.type) {
     case SelectionRequest: {
-      X11Connection* x11 = X11Connection::globalInstance();
-      X11Connection::DisplayLock lock(x11);
+      X11Connection::DisplayLock lock(x11_);
       XSelectionRequestEvent* request = &event.xselectionrequest;
 
       XSelectionEvent result = { 0 };
@@ -1382,16 +1418,16 @@ namespace visage {
       result.target = request->target;
       result.property = None;
 
-      if (request->target == x11->targets()) {
-        Atom supported_types[] = { x11->targets(), x11->utf8String(), XA_STRING };
+      if (request->target == x11_->targets()) {
+        Atom supported_types[] = { x11_->targets(), x11_->utf8String(), XA_STRING };
         XChangeProperty(request->display, request->requestor, request->property, XA_ATOM, 32,
                         PropModeReplace, (unsigned char*)supported_types, 3);
         result.property = request->property;
       }
-      else if (request->target == x11->utf8String() || request->target == XA_STRING) {
+      else if (request->target == x11_->utf8String() || request->target == XA_STRING) {
+        std::string text = request->target == XA_STRING ? utf8ToLatin1(_clipboard_text) : _clipboard_text;
         XChangeProperty(request->display, request->requestor, request->property, request->target, 8,
-                        PropModeReplace, (unsigned char*)_clipboard_text.c_str(),
-                        _clipboard_text.length());
+                        PropModeReplace, (unsigned char*)text.c_str(), text.length());
         result.property = request->property;
       }
 
@@ -1447,6 +1483,8 @@ namespace visage {
       XSelectionRequestEvent* request = &event.xselectionrequest;
       if (request->selection == x11_->dndSelection())
         sendDragDropSelectionNotify(request);
+      else
+        processMessageWindowEvent(event);
       break;
     }
     case SelectionNotify: {
