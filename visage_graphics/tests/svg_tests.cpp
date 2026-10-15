@@ -24,6 +24,7 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <clocale>
 
 using namespace visage;
 
@@ -573,6 +574,51 @@ TEST_CASE("Svg css cascade order", "[graphics]") {
               .hexRed() == 0xff);
   REQUIRE(renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><style type="Text/CSS">rect{fill:red}</style><rect width="10" height="10" fill="blue"/></svg>)svg")
               .hexRed() == 0xff);
+}
+
+TEST_CASE("Svg numbers ignore the C locale", "[graphics]") {
+  std::string previous_locale = std::setlocale(LC_NUMERIC, nullptr);
+  const char* comma_locale = nullptr;
+  for (const char* name : { "de_DE.UTF-8", "de_DE.utf8", "fr_FR.UTF-8", "fr_FR.utf8", "en_DK.UTF-8",
+                            "en_DK.utf8", "German_Germany.1252" }) {
+    if (std::setlocale(LC_NUMERIC, name)) {
+      comma_locale = name;
+      break;
+    }
+  }
+  if (comma_locale == nullptr) {
+    WARN("No locale with a comma decimal separator is installed");
+    return;
+  }
+
+  Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect x="1.5" width="2.5" height="2.5" transform="translate(0.5)"/></svg>)svg");
+  Path path;
+  path.loadSvgPath("M0 0L1.5 2.5");
+  Bounds rect_bounds = svg.drawable()->post_bounding_box;
+  Bounds path_bounds = path.boundingBox();
+  std::setlocale(LC_NUMERIC, previous_locale.c_str());
+
+  REQUIRE(rect_bounds.x() == Catch::Approx(2.0f));
+  REQUIRE(rect_bounds.width() == Catch::Approx(2.5f));
+  REQUIRE(path_bounds.width() == Catch::Approx(1.5f));
+  REQUIRE(path_bounds.height() == Catch::Approx(2.5f));
+}
+
+TEST_CASE("Svg numbers read their leading number", "[graphics]") {
+  auto read = [](const std::string& string) {
+    float value = -1.0f;
+    return readFloat(string, value) ? value : -1.0f;
+  };
+
+  REQUIRE(read("2em") == 2.0f);
+  REQUIRE(read("1e+") == 1.0f);
+  REQUIRE(read("1ex") == 1.0f);
+  REQUIRE(read(" -.5px") == -0.5f);
+  REQUIRE(read("1.5e2") == 150.0f);
+  REQUIRE(read("+3.") == 3.0f);
+  REQUIRE(read(".") == -1.0f);
+  REQUIRE(read("abc") == -1.0f);
+  REQUIRE(read("") == -1.0f);
 }
 
 TEST_CASE("Svg attribute character references", "[graphics]") {
