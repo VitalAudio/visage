@@ -316,18 +316,30 @@ namespace visage {
     return MonitorInfo::kDefaultRefreshRate;
   }
 
-  static float monitorDpi(const XRRCrtcInfo* crtc, const XRROutputInfo* output) {
-    static constexpr float kInchToMm = 25.4f;
+  static constexpr float kInchToMm = 25.4f;
+
+  static float screenDpi(Display* display) {
+    int screen = DefaultScreen(display);
+    int width_mm = DisplayWidthMM(display, screen);
+    if (width_mm <= 0)
+      return Window::kDefaultDpi;
+    return DisplayWidth(display, screen) * kInchToMm / width_mm;
+  }
+
+  static float monitorDpi(const XRRCrtcInfo* crtc, const XRROutputInfo* output, float screen_dpi) {
     static constexpr float kMinDpi = 50.0f;
     static constexpr float kMaxDpi = 500.0f;
 
     bool aspect_ratio_as_size = output->mm_width == 160 &&
                                 (output->mm_height == 90 || output->mm_height == 100);
-    if (output->mm_width == 0 || aspect_ratio_as_size)
+    if (aspect_ratio_as_size)
       return Window::kDefaultDpi;
 
-    bool rotated = crtc->rotation & (RR_Rotate_90 | RR_Rotate_270);
-    float dpi = (rotated ? crtc->height : crtc->width) * kInchToMm / output->mm_width;
+    float dpi = screen_dpi;
+    if (output->mm_width) {
+      bool rotated = crtc->rotation & (RR_Rotate_90 | RR_Rotate_270);
+      dpi = (rotated ? crtc->height : crtc->width) * kInchToMm / output->mm_width;
+    }
     if (dpi < kMinDpi || dpi > kMaxDpi)
       return Window::kDefaultDpi;
     return dpi;
@@ -352,6 +364,7 @@ namespace visage {
     MonitorInfo result;
     result.bounds = default_bounds;
     float resource_dpi = resourceDpi(display);
+    float screen_dpi = screenDpi(display);
 
     XRRScreenResources* screen_resources = XRRGetScreenResourcesCurrent(display, x11->rootWindow());
     if (screen_resources == nullptr)
@@ -371,7 +384,7 @@ namespace visage {
         IBounds bounds(info->x, info->y, info->width, info->height);
         if (result.bounds.width() == 0 || bounds.contains(point)) {
           result.bounds = bounds;
-          float dpi = resource_dpi > 0.0f ? resource_dpi : monitorDpi(info, output_info);
+          float dpi = resource_dpi > 0.0f ? resource_dpi : monitorDpi(info, output_info, screen_dpi);
           result.dpi = std::round(dpi * kDpiAdjustment) / kDpiAdjustment;
           result.refresh_rate = refreshRate(screen_resources, info);
         }
