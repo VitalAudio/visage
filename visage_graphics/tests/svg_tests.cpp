@@ -520,6 +520,24 @@ TEST_CASE("Svg whitespace around attribute equals", "[graphics]") {
   REQUIRE(svg.drawable()->post_bounding_box.width() == 6.0f);
 }
 
+TEST_CASE("Svg css combinators", "[graphics]") {
+  auto red = [](const std::string& style, const std::string& body) {
+    return renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><style>)svg" + style +
+                           "{fill:red}</style>" + body + "</svg>")
+               .hexRed() == 0xff;
+  };
+
+  std::string nested = R"svg(<g class="a"><g><rect width="10" height="10"/></g></g>)svg";
+  REQUIRE(red("g rect", nested));
+  REQUIRE(red(".a rect", nested));
+  REQUIRE(red("svg .a\n\tg  >  rect", nested));
+  REQUIRE(red("g > rect", nested));
+  REQUIRE_FALSE(red(".a > rect", nested));
+  REQUIRE_FALSE(red("svg > rect", nested));
+  REQUIRE_FALSE(red("rect g", nested));
+  REQUIRE_FALSE(red("g rect", R"svg(<rect width="10" height="10"/>)svg"));
+}
+
 TEST_CASE("Svg attribute character references", "[graphics]") {
   Svg numeric = parseSvg(R"svg(<svg viewBox="0 0 10 10"><path d="M&#x20;1&#x20;1&#32;L&#32;9&#x9;9z" stroke="red"/></svg>)svg");
   REQUIRE(numeric.drawable()->post_bounding_box.width() == Catch::Approx(8.0f).margin(1.0f));

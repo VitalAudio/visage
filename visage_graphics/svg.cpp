@@ -138,8 +138,35 @@ namespace visage {
     return id;
   }
 
-  bool CssSelector::matches(const Tag& tag) const {
-    // TODO support attributes, pseudo-classes, and chaining selectors
+  bool CssSelector::matches(const Tag& tag, const std::map<const Tag*, const Tag*>& tag_parents) const {
+    if (!matchesTag(tag))
+      return false;
+    if (parents.empty())
+      return true;
+
+    std::vector<const Tag*> ancestors = { &tag };
+    for (auto parent = tag_parents.find(&tag); parent != tag_parents.end();
+         parent = tag_parents.find(parent->second))
+      ancestors.push_back(parent->second);
+
+    std::vector<bool> matched(ancestors.size(), false);
+    matched[0] = true;
+    for (const CssSelector* selector = this; !selector->parents.empty();
+         selector = &selector->parents.front()) {
+      std::vector<bool> next(ancestors.size(), false);
+      bool descendant = false;
+      for (int i = 1; i < ancestors.size(); ++i) {
+        descendant = descendant || matched[i - 1];
+        bool linked = selector->direct_child ? matched[i - 1] : descendant;
+        next[i] = linked && selector->parents.front().matchesTag(*ancestors[i]);
+      }
+      matched = std::move(next);
+    }
+    return std::find(matched.begin(), matched.end(), true) != matched.end();
+  }
+
+  bool CssSelector::matchesTag(const Tag& tag) const {
+    // TODO support attributes and pseudo-classes
 
     if (!tag_name.empty() && tag.data.name != tag_name)
       return false;
@@ -1876,7 +1903,8 @@ namespace visage {
       if (brace_close == std::string::npos)
         break;
 
-      std::string selectors = removeWhitespace(style.substr(pos, brace_open - pos));
+      std::string selectors = style.substr(pos, brace_open - pos);
+      std::replace_if(selectors.begin(), selectors.end(), [](char c) { return std::isspace(c); }, ' ');
       std::stringstream ss(selectors);
 
       std::string rules = style.substr(brace_open + 1, brace_close - brace_open - 1);
@@ -1890,6 +1918,14 @@ namespace visage {
           style_lookup_.emplace_back(*selector, rules);
       }
       pos = brace_close + 1;
+    }
+  }
+
+  void SvgParser::collectTagParents(const std::vector<Tag>& tags, const Tag* parent) {
+    for (const auto& tag : tags) {
+      if (parent)
+        tag_parents_[&tag] = parent;
+      collectTagParents(tag.children, &tag);
     }
   }
 
@@ -2078,7 +2114,7 @@ namespace visage {
     drawable->is_use = tag.data.name == "use";
 
     for (const auto& style : style_lookup_) {
-      if (style.first.matches(tag))
+      if (style.first.matches(tag, tag_parents_))
         parseStyleAttribute(style.second, state_stack.back(), drawable.get());
     }
 
@@ -2155,6 +2191,7 @@ namespace visage {
     collectDefs(tags);
     std::set<std::string> reference_ids;
     resolveUses(tags, reference_ids);
+    collectTagParents(tags, nullptr);
     loadStyleTags(tags);
     collectGradients(tags);
     collectFilters(tags);

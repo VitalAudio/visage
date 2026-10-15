@@ -59,7 +59,8 @@ namespace visage {
     std::vector<std::string> classes;
     std::vector<CssSelector> parents;
 
-    bool matches(const Tag& tag) const;
+    bool matches(const Tag& tag, const std::map<const Tag*, const Tag*>& tag_parents) const;
+    bool matchesTag(const Tag& tag) const;
   };
 
   struct GradientDef {
@@ -436,6 +437,7 @@ namespace visage {
     void resolveUses(std::vector<Tag>& tags, std::set<std::string>& reference_ids, int depth = 0);
     void parseCssStyle(const std::string& style);
     void loadStyleTags(std::vector<Tag>& tags);
+    void collectTagParents(const std::vector<Tag>& tags, const Tag* parent);
 
     std::unique_ptr<SvgDrawable> drawable_;
     std::map<std::string, Tag> defs_;
@@ -444,6 +446,7 @@ namespace visage {
     std::map<std::string, std::unique_ptr<SvgDrawable>> masks_;
     std::map<std::string, ColorMatrix> filters_;
     std::vector<std::pair<CssSelector, std::string>> style_lookup_;
+    std::map<const Tag*, const Tag*> tag_parents_;
     SvgViewSettings view_;
     int svg_depth_ = 0;
     std::optional<Color> background_color_;
