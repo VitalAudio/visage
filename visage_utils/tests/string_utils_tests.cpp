@@ -24,6 +24,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <clocale>
+#include <limits>
 #include <type_traits>
 
 using namespace visage;
@@ -193,6 +194,23 @@ TEST_CASE("String numerical precision", "[utils]") {
 
   REQUIRE(String(1.23456789, 8).toUtf8() == "1.23456789");
   REQUIRE(String(0.15, 1).toUtf8() == "0.2");
+
+  REQUIRE(test1.withPrecision(-2).toUtf8() == "0");
+  REQUIRE(test1.withPrecision(-5).toUtf8() == "0");
+  REQUIRE(String(1234.5, -1).toUtf8() == "1230");
+  REQUIRE(String(1234.5, -2).toUtf8() == "1200");
+  REQUIRE(String(1250.0, -2).toUtf8() == "1300");
+  REQUIRE(String(995.0, -1).toUtf8() == "1000");
+  REQUIRE(String(50.0, -2).toUtf8() == "100");
+  REQUIRE(String(49.0, -2).toUtf8() == "0");
+  REQUIRE(String(12.5, -3).toUtf8() == "0");
+  REQUIRE(String(-1250.0f, -2).toUtf8() == "-1300");
+  REQUIRE(String(-4.0, -1).toUtf8() == "0");
+  REQUIRE(String("1234").withPrecision(-1).toUtf8() == "1230");
+  REQUIRE(String("abc").withPrecision(-1).toUtf8() == "abc");
+  REQUIRE(String(54.0, -2).toUtf8() == "100");
+  REQUIRE(String(54.0, -3).toUtf8() == "0");
+  REQUIRE(String(54.0, std::numeric_limits<int>::min()).toUtf8() == "0");
 }
 
 TEST_CASE("String toFloat", "[utils]") {
