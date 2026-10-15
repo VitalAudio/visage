@@ -42,3 +42,32 @@ TEST_CASE("PaletteColorEditor edited palette changed", "[widgets]") {
   REQUIRE(first_palette.numColors() == 1);
   REQUIRE(second_palette.numColors() == 0);
 }
+
+static int visibleTextEditors(Frame* frame) {
+  int count = 0;
+  for (Frame* child : frame->children()) {
+    if (!child->isVisible())
+      continue;
+    if (dynamic_cast<TextEditor*>(child))
+      count++;
+    count += visibleTextEditors(child);
+  }
+  return count;
+}
+
+TEST_CASE("PaletteValueEditor edits palettes with more than 500 values", "[widgets]") {
+  Palette palette;
+  for (int i = 0; i < 600; ++i) {
+    theme::ValueId value_id = theme::ValueId::nextId("Value" + std::to_string(i),
+                                                     "tests/many_values.cpp", 1.0f);
+    palette.setValue(value_id, 2.0f);
+  }
+
+  auto editor = std::make_unique<PaletteValueEditor>(&palette);
+  editor->setBounds(0, 0, 400, 800);
+  editor->toggleExpandGroup("many_values");
+  REQUIRE(visibleTextEditors(editor.get()) == 600);
+
+  editor->toggleExpandGroup("many_values");
+  REQUIRE(visibleTextEditors(editor.get()) == 0);
+}

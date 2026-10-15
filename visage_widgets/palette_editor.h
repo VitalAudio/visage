@@ -124,7 +124,6 @@ namespace visage {
   class PaletteValueEditor : public ScrollableFrame {
   public:
     static constexpr int kValueIdHeight = 70;
-    static constexpr int kMaxValues = 500;
 
     explicit PaletteValueEditor(Palette* palette);
 
@@ -164,10 +163,12 @@ namespace visage {
     theme::OverrideId currentOverrideId() const { return current_override_id_; }
 
   private:
+    TextEditor& textEditor(int index);
+
     Palette* palette_ = nullptr;
     theme::OverrideId current_override_id_;
     std::set<std::string> expanded_groups_;
-    TextEditor text_editors_[kMaxValues];
+    std::vector<std::unique_ptr<TextEditor>> text_editors_;
 
     VISAGE_LEAK_CHECKER(PaletteValueEditor)
   };
