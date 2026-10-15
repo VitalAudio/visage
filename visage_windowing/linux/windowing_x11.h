@@ -59,9 +59,15 @@ namespace visage {
 
     class DisplayLock {
     public:
-      explicit DisplayLock(const X11Connection* x11) : x11_(x11) { XLockDisplay(x11_->display()); }
+      explicit DisplayLock(const X11Connection* x11) : x11_(x11) {
+        if (x11_->display())
+          XLockDisplay(x11_->display());
+      }
 
-      ~DisplayLock() { XUnlockDisplay(x11_->display()); }
+      ~DisplayLock() {
+        if (x11_->display())
+          XUnlockDisplay(x11_->display());
+      }
 
     private:
       const X11Connection* x11_;
@@ -126,7 +132,8 @@ namespace visage {
     ~X11Connection() {
       if (input_method_)
         XCloseIM(input_method_);
-      XCloseDisplay(display_);
+      if (display_)
+        XCloseDisplay(display_);
     }
 
     ::Display* display() const { return display_; }
