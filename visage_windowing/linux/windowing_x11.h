@@ -26,6 +26,8 @@
 #include "windowing.h"
 
 #include <atomic>
+#include <chrono>
+#include <cstdlib>
 #include <map>
 #include <thread>
 #include <X11/Xatom.h>
@@ -43,6 +45,8 @@ namespace visage {
 
   class X11Connection {
   public:
+    static constexpr int kOpenAttempts = 4;
+    static constexpr int kOpenRetryMs = 10;
     static constexpr int kDndVersion = 5;
     static constexpr int kNumDndActions = 2;
     static constexpr int kNumDndTypes = 1;
@@ -54,6 +58,8 @@ namespace visage {
 
     static X11Connection* globalInstance() {
       static X11Connection* connection = new X11Connection();
+      if (connection->display_ == nullptr)
+        connection->connect(1);
       return connection;
     }
 
@@ -90,8 +96,22 @@ namespace visage {
       Cursor multi_directional_resize_cursor;
     };
 
-    X11Connection() {
-      display_ = XOpenDisplay(nullptr);
+    static ::Display* openDisplay(int attempts = kOpenAttempts) {
+      const char* display_name = std::getenv("DISPLAY");
+      bool retry = display_name && display_name[0];
+      for (int i = 0;; ++i) {
+        if (::Display* display = XOpenDisplay(nullptr))
+          return display;
+        if (!retry || i + 1 >= attempts)
+          return nullptr;
+        std::this_thread::sleep_for(std::chrono::milliseconds(kOpenRetryMs << i));
+      }
+    }
+
+    X11Connection() { connect(kOpenAttempts); }
+
+    void connect(int attempts) {
+      display_ = openDisplay(attempts);
       if (display_ == nullptr)
         return;
 
