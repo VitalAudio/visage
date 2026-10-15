@@ -1507,6 +1507,49 @@ TEST_CASE("Svg frame clip paths use the referencing element's coordinates", "[in
   REQUIRE(rotated.sample(15, 17).hexRed() == 0x00);
 }
 
+TEST_CASE("Svg frame inset clip shapes", "[integration]") {
+  auto inset = [](const std::string& shape) {
+    return svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><rect width="20" height="20" fill="white" clip-path=")svg" +
+                              shape + R"svg("/></svg>)svg");
+  };
+
+  Screenshot bottom_right = inset("inset(0 round 0 0 10px 0)");
+  REQUIRE(bottom_right.sample(19, 19).hexRed() == 0x00);
+  REQUIRE(bottom_right.sample(0, 19).hexRed() == 0xff);
+
+  Screenshot two_radii = inset("inset(0 round 0 10px)");
+  REQUIRE(two_radii.sample(19, 0).hexRed() == 0x00);
+  REQUIRE(two_radii.sample(0, 19).hexRed() == 0x00);
+  REQUIRE(two_radii.sample(0, 0).hexRed() == 0xff);
+  REQUIRE(two_radii.sample(19, 19).hexRed() == 0xff);
+
+  Screenshot rounded = inset("inset(5px round 2px)");
+  REQUIRE(rounded.sample(2, 10).hexRed() == 0x00);
+  REQUIRE(rounded.sample(10, 17).hexRed() == 0x00);
+  REQUIRE(rounded.sample(10, 10).hexRed() == 0xff);
+
+  Screenshot uniform = inset("inset(5px)");
+  REQUIRE(uniform.sample(2, 10).hexRed() == 0x00);
+  REQUIRE(uniform.sample(17, 10).hexRed() == 0x00);
+  REQUIRE(uniform.sample(10, 17).hexRed() == 0x00);
+  REQUIRE(uniform.sample(10, 10).hexRed() == 0xff);
+
+  Screenshot vertical_horizontal = inset("inset(2px 5px)");
+  REQUIRE(vertical_horizontal.sample(10, 1).hexRed() == 0x00);
+  REQUIRE(vertical_horizontal.sample(3, 10).hexRed() == 0x00);
+  REQUIRE(vertical_horizontal.sample(10, 3).hexRed() == 0xff);
+
+  Screenshot three = inset("inset(0 0 0 round 0 10px 0)");
+  REQUIRE(three.sample(10, 10).hexRed() == 0xff);
+  REQUIRE(three.sample(19, 0).hexRed() == 0x00);
+  REQUIRE(three.sample(0, 19).hexRed() == 0x00);
+  REQUIRE(three.sample(19, 19).hexRed() == 0xff);
+
+  Screenshot overlapping = inset("inset(60%)");
+  REQUIRE(overlapping.sample(10, 10).hexRed() == 0x00);
+  REQUIRE(overlapping.sample(9, 9).hexRed() == 0x00);
+}
+
 TEST_CASE("Svg frame clip paths", "[integration]") {
   Screenshot united = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c"><rect width="5" height="20"/><rect x="15" width="5" height="20"/></clipPath><rect width="20" height="20" fill="white" clip-path="url(#c)"/></svg>)svg");
   REQUIRE(united.sample(2, 10).hexRed() == 0xff);

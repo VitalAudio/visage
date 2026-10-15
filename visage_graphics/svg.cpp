@@ -450,44 +450,45 @@ namespace visage {
     return path;
   }
 
+  static constexpr int kBoxSideIndices[4][4] = { { 0, 0, 0, 0 }, { 0, 1, 0, 1 }, { 0, 1, 2, 1 }, { 0, 1, 2, 3 } };
+
   bool parseBorderRadius(float* results, std::vector<std::string>& tokens, const Bounds& bounding_box) {
     auto r_it = std::find(tokens.begin(), tokens.end(), "round");
     if (r_it == tokens.end())
       return false;
     r_it++;
-    if (r_it == tokens.end())
-      return false;
 
     auto y_it = std::find(r_it, tokens.end(), "/");
-    int x_range = std::distance(r_it, y_it);
-    if (x_range == 0)
+    int x_count = std::distance(r_it, y_it);
+    if (x_count == 0 || x_count > 4)
       return false;
-    int x_index = std::distance(tokens.begin(), r_it);
+
     for (int i = 0; i < 4; ++i) {
-      int index = x_index + i % x_range;
-      float dim = (i % 2) ? bounding_box.height() : bounding_box.width();
-      results[4 + i] = results[i] = parseNumber(tokens[index], dim);
+      const std::string& radius = *(r_it + kBoxSideIndices[x_count - 1][i]);
+      results[i] = parseNumber(radius, bounding_box.width());
+      results[4 + i] = parseNumber(radius, bounding_box.height());
     }
 
-    if (y_it != tokens.end() && std::next(y_it) != tokens.end()) {
-      y_it = std::next(y_it);
-      int y_range = std::distance(y_it, tokens.end());
-      int y_index = std::distance(tokens.begin(), y_it);
-      for (int i = 0; i < 4; ++i) {
-        int index = y_index + i % y_range;
-        float dim = (i % 2) ? bounding_box.height() : bounding_box.width();
-        results[4 + i] = parseNumber(tokens[index], dim);
-      }
+    if (y_it != tokens.end()) {
+      y_it++;
+      int y_count = std::distance(y_it, tokens.end());
+      if (y_count == 0 || y_count > 4)
+        return true;
+
+      for (int i = 0; i < 4; ++i)
+        results[4 + i] = parseNumber(*(y_it + kBoxSideIndices[y_count - 1][i]), bounding_box.height());
     }
     return true;
   }
 
   Path::CommandList parseRectShape(std::vector<std::string>& tokens, const Bounds& bounding_box) {
     static constexpr int kNumInsets = 4;
+    int num_insets = std::distance(tokens.begin(), std::find(tokens.begin(), tokens.end(), "round")) - 1;
+    num_insets = std::min(num_insets, kNumInsets);
     float insets[kNumInsets] {};
-    for (int i = 0; i < tokens.size() - 1 && i < kNumInsets; ++i) {
+    for (int i = 0; num_insets > 0 && i < kNumInsets; ++i) {
       float dim = (i % 2) ? bounding_box.width() : bounding_box.height();
-      insets[i] = parseNumber(tokens[i + 1], dim);
+      insets[i] = parseNumber(tokens[1 + kBoxSideIndices[num_insets - 1][i]], dim);
     }
 
     Path::CommandList path;
@@ -496,9 +497,12 @@ namespace visage {
     float y = bounding_box.y() + insets[0];
     float width = bounding_box.width() - insets[1] - insets[3];
     float height = bounding_box.height() - insets[2] - insets[0];
+    if (width <= 0.0f || height <= 0.0f)
+      return path;
+
     if (parseBorderRadius(rs, tokens, bounding_box)) {
-      path.addRoundedRectangle(x, y, width, height, rs[0], rs[4], rs[1], rs[5], rs[2], rs[6], rs[3],
-                               rs[7]);
+      path.addRoundedRectangle(x, y, width, height, rs[0], rs[4], rs[1], rs[5], rs[3], rs[7], rs[2],
+                               rs[6]);
     }
     else
       path.addRectangle(x, y, width, height);
