@@ -157,3 +157,23 @@ TEST_CASE("Text editor deleting nothing leaves the text and undo history alone",
   editor.redo();
   REQUIRE(editor.text() == "abcd");
 }
+
+TEST_CASE("Text editor word deletion handles non-ASCII letters and runs of spaces", "[widgets]") {
+  TextEditor editor;
+  editor.setText("one naïve");
+  editor.deleteBackwards(true);
+  REQUIRE(editor.text() == "one ");
+
+  editor.setText("one   two");
+  editor.deleteBackwards(true);
+  REQUIRE(editor.text() == "one   ");
+  editor.deleteBackwards(true);
+  REQUIRE(editor.text() == "");
+
+  editor.setText("one   two");
+  editor.moveCaretToTop(false);
+  editor.deleteForwards(true);
+  REQUIRE(editor.text() == "   two");
+  editor.deleteForwards(true);
+  REQUIRE(editor.text() == "");
+}
