@@ -208,6 +208,7 @@ namespace visage {
     virtual void toggleValueChanged() { }
     void setToggledAndNotify(bool toggled) override {
       toggled_ = toggled;
+      toggleValueChanged();
       redraw();
       notify(toggled);
     }
