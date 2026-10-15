@@ -327,8 +327,7 @@ namespace visage {
   void Layer::checkBackdropInvalidation(const std::vector<IBounds>& top_level_invalid_rects) {
     for (Region* region : regions_) {
       if (region->backdropEffect()) {
-        int outset = std::ceil(region->backdropEffect()->sampleRadius());
-        IBounds bounds(-outset, -outset, region->width() + 2 * outset, region->height() + 2 * outset);
+        IBounds bounds(0, 0, region->width(), region->height());
         Region* parent = region;
         while (parent) {
           bounds = bounds + IPoint(parent->x(), parent->y());

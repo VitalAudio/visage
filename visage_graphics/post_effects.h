@@ -37,7 +37,6 @@ namespace visage {
     }
     virtual void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) { }
     virtual bool appliedInPlace() const { return false; }
-    virtual float sampleRadius() const { return 0.0f; }
     void submitPassthrough(const BatchVector<SampleRegion>& batches, const Layer& destination,
                            int submit_pass) const;
     bool hdr() const { return hdr_; }
@@ -59,7 +58,7 @@ namespace visage {
     ~DownsamplePostEffect() override;
 
   protected:
-    void setInitialVertices(Region* region);
+    void setInitialVertices(Region* region, const IBounds& rect);
     void checkScreenBuffers();
     void setLevelDimensions(int width, int height);
     void checkBuffers(const Region* region, bool full_resolution);
@@ -77,6 +76,7 @@ namespace visage {
     UvVertex inv_screen_vertices_[4] {};
     int format_ = 0;
     const Region* region_ = nullptr;
+    IPoint source_origin_;
   };
 
   class BlurPostEffect : public DownsamplePostEffect {
@@ -90,7 +90,6 @@ namespace visage {
     int preprocessBackdrop(Region* source, const Region* region, int submit_pass) override;
     void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) override;
     bool appliedInPlace() const override { return true; }
-    float sampleRadius() const override { return 3.0f * blur_radius_; }
 
     float blurRadius() const { return blur_radius_; }
     void setBlurRadius(float size) { blur_radius_ = std::max(0.0f, size); }

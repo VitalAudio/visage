@@ -917,7 +917,7 @@ TEST_CASE("Cached region keeps its content when a sibling adds a bloom effect", 
   REQUIRE(canvas.takeScreenshot().sample(48, 16).hexRed() == 0xff);
 }
 
-TEST_CASE("Backdrop updates when content within its blur radius changes", "[graphics]") {
+TEST_CASE("Backdrop only blurs the content under it", "[graphics]") {
   Canvas canvas;
   canvas.setWindowless(160, 32);
   BlurPostEffect blur;
@@ -945,13 +945,10 @@ TEST_CASE("Backdrop updates when content within its blur radius changes", "[grap
   fill(neighbor, 0xffffffff);
   canvas.beginRegion(&glass);
   canvas.endRegion();
-  REQUIRE(canvas.takeScreenshot().sample(101, 16).hexRed() > 0x30);
+  REQUIRE(canvas.takeScreenshot().sample(101, 16).hexRed() < 0x10);
 
-  neighbor.invalidate();
-  fill(neighbor, 0xff000000);
-  canvas.layer(0)->requestScreenshot();
-  canvas.submit();
-  REQUIRE(canvas.screenshot().sample(101, 16).hexRed() < 0x10);
+  neighbor.setBounds(100, 0, 18, 32);
+  REQUIRE(canvas.takeScreenshot().sample(125, 16).hexRed() > 0x30);
 }
 
 TEST_CASE("Layered region with a backdrop child draws translucent content once", "[graphics]") {
