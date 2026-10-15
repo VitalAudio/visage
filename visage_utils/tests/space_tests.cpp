@@ -54,6 +54,14 @@ TEST_CASE("Bounds subtract without overlap", "[utils]") {
   REQUIRE(result == bounds);
 }
 
+TEST_CASE("Bounds round keeps adjacent bounds adjacent", "[utils]") {
+  Bounds left(10.5f, 10.5f, 10.5f, 10.5f);
+  Bounds right(21.0f, 10.5f, 10.5f, 10.5f);
+  Bounds below(10.5f, 21.0f, 10.5f, 10.5f);
+  REQUIRE(left.round().right() == right.round().x());
+  REQUIRE(left.round().bottom() == below.round().y());
+}
+
 TEST_CASE("Bounds intersection", "[utils]") {
   IBounds bounds1(-1, -2, 10, 10);
   IBounds bounds2(7, 5, 15, 15);
