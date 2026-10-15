@@ -596,6 +596,18 @@ namespace visage {
     }
   }
 
+  static EM_BOOL focusCallback(int event_type, const EmscriptenFocusEvent* event, void* user_data) {
+    WindowEmscripten* window = WindowEmscripten::runningInstance();
+    if (window == nullptr)
+      return false;
+
+    if (event_type == EMSCRIPTEN_EVENT_FOCUS)
+      window->handleFocusGained();
+    else if (event_type == EMSCRIPTEN_EVENT_BLUR)
+      window->handleFocusLost();
+    return false;
+  }
+
   static EM_BOOL resizeCallback(int event_type, const EmscriptenUiEvent* event, void* user_data) {
     WindowEmscripten* window = WindowEmscripten::runningInstance();
     if (event == nullptr || window == nullptr)
@@ -623,6 +635,9 @@ namespace visage {
     emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, nullptr, true, keyCallback);
     emscripten_set_keypress_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, nullptr, true, keyCallback);
     setupPasteCallback();
+
+    emscripten_set_focus_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, false, focusCallback);
+    emscripten_set_blur_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, false, focusCallback);
 
     emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true, resizeCallback);
 
