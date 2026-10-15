@@ -29,8 +29,8 @@ namespace visage {
   public:
     SvgFrame() { setIgnoresMouseEvents(true, false); }
 
-    SvgFrame(const EmbeddedFile& file) { load(file); }
-    SvgFrame(const uint8_t* data, size_t size) { load(data, size); }
+    SvgFrame(const EmbeddedFile& file) : SvgFrame() { load(file); }
+    SvgFrame(const uint8_t* data, size_t size) : SvgFrame() { load(data, size); }
 
     void load(const Svg& svg) {
       svg_ = svg;
