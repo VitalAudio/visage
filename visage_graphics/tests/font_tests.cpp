@@ -47,6 +47,8 @@ static std::filesystem::path uniqueTempPath(const std::string& name) {
   return std::filesystem::temp_directory_path() / (std::to_string(process_id) + "_" + name);
 }
 
+static Font global_font;
+
 TEST_CASE("Font embedded test", "[graphics]") {
   Font font(16, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data));
   Canvas canvas;
@@ -268,3 +270,8 @@ TEST_CASE("Emoji rasterizer character missing from emoji font", "[graphics]") {
   REQUIRE(drawn > 0);
 }
 #endif
+
+TEST_CASE("A Font held in a global is released after the font cache", "[graphics]") {
+  global_font = Font(10, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data));
+  REQUIRE(global_font.packedFont());
+}
