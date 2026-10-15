@@ -45,6 +45,15 @@ TEST_CASE("Matrix inverse of small scales", "[utils]") {
   REQUIRE(integer_singular.matrix[0][0] == 0);
 }
 
+TEST_CASE("Bounds subtract without overlap", "[utils]") {
+  IBounds bounds(0, 0, 10, 10);
+  IBounds result;
+  REQUIRE(bounds.subtract(IBounds(20, 2, 5, 20), result));
+  REQUIRE(result == bounds);
+  REQUIRE(bounds.subtract(IBounds(20, 2, 5, 5), result));
+  REQUIRE(result == bounds);
+}
+
 TEST_CASE("Bounds intersection", "[utils]") {
   IBounds bounds1(-1, -2, 10, 10);
   IBounds bounds2(7, 5, 15, 15);
