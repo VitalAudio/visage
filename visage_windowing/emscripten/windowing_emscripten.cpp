@@ -156,18 +156,7 @@ namespace visage {
   }
 
   void showMessageBox(std::string title, std::string message) {
-    std::string escaped_message;
-    for (char c : message) {
-      if (c == '"')
-        escaped_message += "\\\"";
-      else if (c == '\\')
-        escaped_message += "\\\\";
-      else
-        escaped_message += c;
-    }
-
-    std::string script = "alert(\"" + escaped_message + "\");";
-    emscripten_run_script(script.c_str());
+    EM_ASM({ alert(UTF8ToString($0)); }, message.c_str());
   }
 
   void runLoop() {
@@ -632,7 +621,7 @@ namespace visage {
   }
 
   void WindowEmscripten::setWindowTitle(const std::string& title) {
-    emscripten_run_script(("document.title = '" + title + "';").c_str());
+    EM_ASM({ document.title = UTF8ToString($0); }, title.c_str());
   }
 
   IPoint WindowEmscripten::maxWindowDimensions() const {
