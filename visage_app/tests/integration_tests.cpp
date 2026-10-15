@@ -837,6 +837,38 @@ TEST_CASE("Layer is cleared when it stops drawing", "[integration]") {
   REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == 0x00);
 }
 
+TEST_CASE("Hiding a frame releases the layers of the frames inside it", "[integration]") {
+  ApplicationEditor app;
+  Frame parent;
+  Frame child;
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  child.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+
+  parent.setBounds(0, 0, 20, 20);
+  child.setBounds(0, 0, 20, 20);
+  child.setAlphaTransparency(0.5f);
+  parent.addChild(child);
+  app.addChild(parent);
+  app.setWindowless(20, 20);
+  app.drawWindow();
+  REQUIRE(child.region()->needsLayer());
+
+  parent.setVisible(false);
+  app.drawWindow();
+  REQUIRE_FALSE(child.region()->needsLayer());
+
+  parent.setVisible(true);
+  app.drawWindow();
+  REQUIRE(child.region()->needsLayer());
+  REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == Approx(0x80).margin(1));
+}
+
 TEST_CASE("Backdrop frame keeps its content over a redrawing sibling", "[integration]") {
   ApplicationEditor app;
   Frame background;
