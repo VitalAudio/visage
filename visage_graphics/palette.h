@@ -22,6 +22,7 @@
 #pragma once
 
 #include "color.h"
+#include "gradient.h"
 #include "theme.h"
 
 #include <map>

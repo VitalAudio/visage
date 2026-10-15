@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "color.h"
 #include "visage_utils/space.h"
 
 #include <cstdint>

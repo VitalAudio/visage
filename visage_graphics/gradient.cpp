@@ -22,6 +22,7 @@
 #include "gradient.h"
 
 #include <bgfx/bgfx.h>
+#include <sstream>
 
 namespace visage {
 
