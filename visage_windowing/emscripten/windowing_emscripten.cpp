@@ -35,8 +35,9 @@ namespace visage {
 
 extern "C" void pasteCallback(const char* text) {
   visage::clipboard_text_ = text;
-  visage::WindowEmscripten::runningInstance()->handleKeyDown(visage::KeyCode::V,
-                                                             visage::Modifiers::kModifierRegCtrl, 0);
+  visage::WindowEmscripten* window = visage::WindowEmscripten::runningInstance();
+  if (window)
+    window->handleKeyDown(visage::KeyCode::V, visage::Modifiers::kModifierRegCtrl, 0);
 }
 
 namespace visage {
@@ -160,7 +161,9 @@ namespace visage {
   }
 
   void runLoop() {
-    WindowEmscripten::runningInstance()->runLoopCallback();
+    WindowEmscripten* window = WindowEmscripten::runningInstance();
+    if (window)
+      window->runLoopCallback();
   }
 
   void WindowEmscripten::runLoopCallback() {
@@ -175,6 +178,11 @@ namespace visage {
     WindowEmscripten::running_instance_ = this;
     setDpiScale(defaultDpiScale());
     start_microseconds_ = time::microseconds();
+  }
+
+  WindowEmscripten::~WindowEmscripten() {
+    if (running_instance_ == this)
+      running_instance_ = nullptr;
   }
 
   static MouseButton mouseButton(const EmscriptenMouseEvent* event) {
@@ -227,7 +235,7 @@ namespace visage {
   }
 
   static EM_BOOL mouseCallback(int event_type, const EmscriptenMouseEvent* event, void* user_data) {
-    WindowEmscripten* window = (WindowEmscripten*)user_data;
+    WindowEmscripten* window = WindowEmscripten::runningInstance();
 
     if (event == nullptr || window == nullptr)
       return false;
@@ -266,7 +274,7 @@ namespace visage {
   static EM_BOOL wheelCallback(int event_type, const EmscriptenWheelEvent* event, void* user_data) {
     static constexpr float kPreciseScrollingScale = 0.01f;
 
-    WindowEmscripten* window = (WindowEmscripten*)user_data;
+    WindowEmscripten* window = WindowEmscripten::runningInstance();
     if (event_type != EMSCRIPTEN_EVENT_WHEEL || window == nullptr)
       return true;
 
@@ -550,7 +558,7 @@ namespace visage {
   }
 
   static EM_BOOL keyCallback(int event_type, const EmscriptenKeyboardEvent* event, void* user_data) {
-    WindowEmscripten* window = (WindowEmscripten*)user_data;
+    WindowEmscripten* window = WindowEmscripten::runningInstance();
     if (event == nullptr || window == nullptr)
       return false;
 
@@ -580,7 +588,7 @@ namespace visage {
   }
 
   static EM_BOOL resizeCallback(int event_type, const EmscriptenUiEvent* event, void* user_data) {
-    WindowEmscripten* window = (WindowEmscripten*)user_data;
+    WindowEmscripten* window = WindowEmscripten::runningInstance();
     if (event == nullptr || window == nullptr)
       return false;
 
@@ -596,18 +604,18 @@ namespace visage {
 
   void WindowEmscripten::runEventLoop() {
     static const char* canvas = "#canvas";
-    emscripten_set_mousedown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, mouseCallback);
-    emscripten_set_mouseup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, mouseCallback);
-    emscripten_set_mousemove_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, mouseCallback);
+    emscripten_set_mousedown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true, mouseCallback);
+    emscripten_set_mouseup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true, mouseCallback);
+    emscripten_set_mousemove_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true, mouseCallback);
 
-    emscripten_set_wheel_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, wheelCallback);
+    emscripten_set_wheel_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true, wheelCallback);
 
-    emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, keyCallback);
-    emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, keyCallback);
-    emscripten_set_keypress_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, keyCallback);
+    emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, nullptr, true, keyCallback);
+    emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, nullptr, true, keyCallback);
+    emscripten_set_keypress_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, nullptr, true, keyCallback);
     setupPasteCallback();
 
-    emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, resizeCallback);
+    emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true, resizeCallback);
 
     setDpiScale(defaultDpiScale());
     emscripten_set_element_css_size("canvas", clientWidth() / dpiScale(), clientHeight() / dpiScale());
