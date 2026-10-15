@@ -401,13 +401,13 @@ namespace visage {
     void addEllipse(float cx, float cy, float rx, float ry);
     void addCircle(float cx, float cy, float r);
 
-    Path combine(Path& other, FillRule fill_rule = FillRule::EvenOdd) const;
-    SubPath singlePointOffset(Point point, float amount, EndCap end_cap);
+    Path combine(const Path& other, FillRule fill_rule = FillRule::EvenOdd) const;
+    SubPath singlePointOffset(Point point, float amount, EndCap end_cap) const;
     Path offset(float amount, Join join = Join::Square, EndCap end_cap = EndCap::Butt,
-                float miter_limit = kDefaultMiterLimit);
+                float miter_limit = kDefaultMiterLimit) const;
     Path stroke(float stroke_width, Join join = Join::Round, EndCap end_cap = EndCap::Round,
                 std::vector<float> dash_array = {}, float dash_offset = 0.0f,
-                float miter_limit = kDefaultMiterLimit);
+                float miter_limit = kDefaultMiterLimit) const;
 
     Path scaled(float mult) const {
       Path result = *this;
@@ -525,7 +525,7 @@ namespace visage {
     const Matrix& resolutionMatrix() const { return resolution_matrix_; }
 
   private:
-    Path offset(float amount, Join join, Join inner_join, EndCap end_cap, float miter_limit);
+    Path offset(float amount, Join join, Join inner_join, EndCap end_cap, float miter_limit) const;
 
     static Point deltaFromLine(const Point& point, const Point& line_from, const Point& line_to) {
       if (line_from == line_to)

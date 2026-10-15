@@ -450,7 +450,7 @@ namespace visage {
     }
   }
 
-  Path Path::combine(Path& other, FillRule fill_rule) const {
+  Path Path::combine(const Path& other, FillRule fill_rule) const {
     Path combined = *this;
     for (auto& path : other.paths_)
       combined.paths_.push_back(path);
@@ -458,7 +458,7 @@ namespace visage {
     return combined;
   }
 
-  Path::SubPath Path::singlePointOffset(Point point, float amount, EndCap end_cap) {
+  Path::SubPath Path::singlePointOffset(Point point, float amount, EndCap end_cap) const {
     SubPath sub_path;
     if (amount < 0.0)
       return sub_path;
@@ -488,11 +488,11 @@ namespace visage {
     return sub_path;
   }
 
-  Path Path::offset(float amount, Join join, EndCap end_cap, float miter_limit) {
+  Path Path::offset(float amount, Join join, EndCap end_cap, float miter_limit) const {
     return offset(amount, join, Join::Miter, end_cap, miter_limit);
   }
 
-  Path Path::offset(float amount, Join join, Join inner_join, EndCap end_cap, float miter_limit) {
+  Path Path::offset(float amount, Join join, Join inner_join, EndCap end_cap, float miter_limit) const {
     static constexpr float kMinOffset = 0.001f;
     Path result;
 
@@ -599,7 +599,7 @@ namespace visage {
   }
 
   Path Path::stroke(float stroke_width, Join join, EndCap end_cap, std::vector<float> dash_array,
-                    float dash_offset, float miter_limit) {
+                    float dash_offset, float miter_limit) const {
     float dash_total = 0.0f;
     for (auto& dash : dash_array)
       dash_total += dash;

@@ -470,6 +470,19 @@ TEST_CASE("Relative arc with zero radius", "[graphics]") {
   REQUIRE(path.subPaths().back().points.back() == Point(6, 7));
 }
 
+TEST_CASE("Path offset stroke and combine work on const paths", "[graphics]") {
+  Path source;
+  source.moveTo(0, 0);
+  source.lineTo(10, 0);
+  source.lineTo(10, 10);
+  source.close();
+
+  const Path& path = source;
+  REQUIRE(path.offset(1.0f).numPoints() > 0);
+  REQUIRE(path.stroke(1.0f).numPoints() > 0);
+  REQUIRE(path.combine(path).subPaths().size() == 2);
+}
+
 TEST_CASE("Path command directions", "[graphics]") {
   auto arc = Path::parseSvgPath("M0 0 A10 10 0 0 1 20 0");
   REQUIRE(arc.direction(0).x == Catch::Approx(0.0f).margin(1e-5f));
