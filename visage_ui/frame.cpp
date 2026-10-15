@@ -386,6 +386,7 @@ namespace visage {
     mask_frame_->setIgnoresMouseEvents(true, false);
     addChild(mask_frame_.get());
     mask_frame_->setBounds(localBounds());
+    region_.setMasked(true);
     setMaskType(mask_type_);
     redraw();
   }

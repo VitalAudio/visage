@@ -118,8 +118,11 @@ namespace visage {
       if (invalid_rects.empty())
         continue;
 
-      if (overlaps)
-        new_overlapping.emplace_back(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
+      if (overlaps) {
+        int position = should_draw ? 0 : sub_region->numSubmitBatches();
+        new_overlapping.emplace_back(sub_region, std::move(invalid_rects), position, bounds.x(),
+                                     bounds.y());
+      }
       else if (sub_region->isEmpty() || !should_draw) {
         std::vector<RegionPosition> child_overlap;
         RegionPosition region(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
@@ -316,16 +319,12 @@ namespace visage {
         continue;
 
       if (region->backdropEffect() && region->backdropCount() == backdrop_count) {
-        auto parent = region->parent();
-        auto backdrop_region = parent;
-        while (parent->parent()) {
-          parent = parent->parent();
-          if (parent->needsLayer())
-            backdrop_region = parent;
-        }
+        Region* backdrop_root = region->parent();
+        while (backdrop_root && !backdrop_root->isBackdropRoot())
+          backdrop_root = backdrop_root->parent();
 
-        if (backdrop_region && backdrop_region->needsLayer())
-          submit_pass = region->backdropEffect()->preprocess(backdrop_region, submit_pass);
+        if (backdrop_root)
+          submit_pass = region->backdropEffect()->preprocessBackdrop(backdrop_root, region, submit_pass);
       }
 
       IPoint point = coordinatesForRegion(region);

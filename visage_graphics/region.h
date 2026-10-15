@@ -91,11 +91,9 @@ namespace visage {
     int backdropCountChildren() const { return backdrop_count_children_; }
     int computeBackdropCount(int current = 0);
     bool shouldDraw(int backdrop_count) {
-      if (backdrop_count_ == backdrop_count)
-        return true;
       if (intermediate_region_)
-        return backdrop_count_ < backdrop_count && backdrop_count_children_ >= backdrop_count;
-      return false;
+        return backdrop_count_children_ == backdrop_count;
+      return backdrop_count_ == backdrop_count;
     }
 
     void invalidateRect(IBounds rect);
@@ -131,6 +129,11 @@ namespace visage {
     PostEffect* backdropEffect() const { return backdrop_effect_; }
 
     bool needsLayer() const { return intermediate_region_.get(); }
+    void setMasked(bool masked) { masked_ = masked; }
+    bool isBackdropRoot() const {
+      return needsLayer() && (masked_ || post_effect_ || backdrop_effect_ || alpha_ != 1.0f ||
+                              layer_blend_mode_ != BlendMode::Composite);
+    }
     Region* intermediateRegion() const { return intermediate_region_.get(); }
 
     const PackedBrush* addBrush(GradientAtlas* atlas, const Brush& brush) {
@@ -179,6 +182,7 @@ namespace visage {
     PostEffect* post_effect_ = nullptr;
     PostEffect* backdrop_effect_ = nullptr;
     float alpha_ = 1.0f;
+    bool masked_ = false;
     BlendMode layer_blend_mode_ = BlendMode::Composite;
     ShapeBatcher shape_batcher_;
     std::vector<std::unique_ptr<PackedBrush>> brushes_;
