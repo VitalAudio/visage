@@ -123,6 +123,7 @@ namespace visage {
       clipboard_ = XInternAtom(display_, "CLIPBOARD", False);
       utf8_string_ = XInternAtom(display_, "UTF8_STRING", False);
       targets_ = XInternAtom(display_, "TARGETS", False);
+      incr_ = XInternAtom(display_, "INCR", False);
       timer_event_ = XInternAtom(display_, "VISAGE_TIMER_EVENT", False);
       delete_message_ = XInternAtom(display_, "WM_DELETE_WINDOW", False);
       dnd_aware_ = XInternAtom(display_, "XdndAware", False);
@@ -161,6 +162,7 @@ namespace visage {
     Atom clipboard() const { return clipboard_; }
     Atom utf8String() const { return utf8_string_; }
     Atom targets() const { return targets_; }
+    Atom incr() const { return incr_; }
     Atom timerEvent() const { return timer_event_; }
     Atom* deleteMessageRef() { return &delete_message_; }
     Atom deleteMessage() const { return delete_message_; }
@@ -202,6 +204,7 @@ namespace visage {
     Atom clipboard_ = 0;
     Atom utf8_string_ = 0;
     Atom targets_ = 0;
+    Atom incr_ = 0;
     Atom timer_event_ = 0;
     Atom delete_message_ = 0;
     Atom dnd_aware_ = 0;
@@ -241,7 +244,7 @@ namespace visage {
                                        ButtonPressMask | ButtonReleaseMask | StructureNotifyMask |
                                        EnterWindowMask | LeaveWindowMask | PointerMotionMask |
                                        Button1MotionMask | Button2MotionMask | Button3MotionMask |
-                                       VisibilityChangeMask | FocusChangeMask;
+                                       VisibilityChangeMask | FocusChangeMask | PropertyChangeMask;
 
     static constexpr int kMinWidth = 80;
     static constexpr int kMinHeight = 80;
@@ -311,11 +314,14 @@ namespace visage {
     void sendDragDropDrop(::Window source, ::Window target) const;
     void sendDragDropSelectionNotify(XSelectionRequestEvent* request) const;
     void sendDragDropFinished(::Window source, ::Window target, bool accepted_drag) const;
+    void setDragDropFiles(std::string uri_list);
 
     X11Connection* x11_ = nullptr;
     std::unique_ptr<X11Connection> plugin_x11_;
     DragDropOutState drag_drop_out_state_;
     std::vector<std::string> drag_drop_files_;
+    bool drag_drop_incremental_ = false;
+    std::string drag_drop_data_;
     int drag_drop_target_x_ = 0;
     int drag_drop_target_y_ = 0;
     int hover_window_operation_ = 0;
