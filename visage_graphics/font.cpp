@@ -506,7 +506,9 @@ namespace visage {
     FreeTypeLibrary::instance();
   }
 
-  FontCache::~FontCache() = default;
+  FontCache::~FontCache() {
+    destroyed() = true;
+  }
 
   PackedFont* FontCache::loadPackedFont(int size, const std::string& file_path) {
     std::string type_face_id = "file: " + file_path;

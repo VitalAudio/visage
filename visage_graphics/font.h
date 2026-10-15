@@ -191,7 +191,13 @@ namespace visage {
     static PackedFont* loadPackedFont(int size, const unsigned char* font_data, int data_size);
 
     static void returnPackedFont(PackedFont* packed_font) {
-      instance()->decrementPackedFont(packed_font);
+      if (!destroyed())
+        instance()->decrementPackedFont(packed_font);
+    }
+
+    static bool& destroyed() {
+      static bool destroyed = false;
+      return destroyed;
     }
 
     FontCache();
