@@ -1945,8 +1945,9 @@ namespace visage {
   void SvgParser::loadStyleTags(std::vector<Tag>& tags) {
     for (auto& tag : tags) {
       if (tag.data.name == "style") {
-        auto type = tag.data.attributes.find("type");
-        if (type == tag.data.attributes.end() || type->second.empty() || type->second == "text/css")
+        std::string type = tag.data.attributes.count("type") ? tag.data.attributes.at("type") : "";
+        std::transform(type.begin(), type.end(), type.begin(), ::tolower);
+        if (type.empty() || type == "text/css")
           parseCssStyle(tag.data.text);
       }
       else
