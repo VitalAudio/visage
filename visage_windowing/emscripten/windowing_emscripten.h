@@ -40,7 +40,7 @@ namespace visage {
     void windowContentsResized(int width, int height) override;
     void show() override { }
     void showMaximized() override;
-    bool maximized() { return false; }
+    bool maximized() const { return maximized_; }
     void hide() override { }
     void close() override { }
     bool isShowing() const override { return true; }
