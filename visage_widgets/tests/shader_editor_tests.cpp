@@ -26,6 +26,7 @@
 #include <atomic>
 #include <catch2/catch_test_macros.hpp>
 #include <filesystem>
+#include <thread>
 
 #if VISAGE_WINDOWS
 #include <process.h>
@@ -98,4 +99,20 @@ TEST_CASE("Shader compiler compiles code sent while its thread is finishing", "[
   REQUIRE(first == 1);
   REQUIRE(second == 1);
   compiler.stop();
+}
+
+TEST_CASE("ShaderEditor compile results arriving after it's deleted are ignored", "[widgets]") {
+  static constexpr char kShader[] = "void main() { }";
+  EmbeddedFile shader = { "test_shader.sc", reinterpret_cast<const unsigned char*>(kShader),
+                          static_cast<int>(sizeof(kShader) - 1) };
+
+  auto editor = std::make_unique<ShaderEditor>();
+  editor->setShader(shader, shader);
+  auto* text_editor = dynamic_cast<TextEditor*>(editor->children()[0]);
+  REQUIRE(text_editor);
+  text_editor->processTextInput(" ");
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  editor.reset();
+  EventManager::instance().checkEventTimers();
 }

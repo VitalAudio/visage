@@ -249,7 +249,10 @@ namespace visage {
     editor_.onTextChange() += [this] {
       if (shader_.data) {
         std::string text = editor_.text().toUtf8();
-        auto callback = [this](const std::string& error) {
+        auto callback = [this, alive = std::weak_ptr<bool>(alive_)](const std::string& error) {
+          if (alive.expired())
+            return;
+
           error_.setText(error);
           status_.redraw();
           redraw();

@@ -181,5 +181,6 @@ namespace visage {
     TextEditor error_;
     TextEditor editor_;
     Frame status_;
+    std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
   };
 }
