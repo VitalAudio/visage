@@ -74,18 +74,43 @@ namespace visage {
   }
 
   void ShaderCompiler::run() {
-    compileWaitingShader();
-
-    while (watching() && shouldRun()) {
-      sleep(100);
+    while (shouldRun()) {
       compileWaitingShader();
-
-      for (const std::string& shader : watchedShaders()) {
-        if (!shouldRun())
-          break;
-        checkShaderForEdits(shader);
+      if (watching()) {
+        sleep(100);
+        for (const std::string& shader : watchedShaders()) {
+          if (!shouldRun())
+            break;
+          checkShaderForEdits(shader);
+        }
       }
+      else if (finishIfIdle())
+        return;
     }
+
+    std::lock_guard lock(worker_mutex_);
+    worker_running_ = false;
+  }
+
+  void ShaderCompiler::wakeWorker() {
+    {
+      std::lock_guard lock(worker_mutex_);
+      if (worker_running_)
+        return;
+      worker_running_ = true;
+    }
+
+    stop();
+    start();
+  }
+
+  bool ShaderCompiler::finishIfIdle() {
+    std::lock_guard lock(worker_mutex_);
+    if (compiling() || watching())
+      return false;
+
+    worker_running_ = false;
+    return true;
   }
 
   void ShaderCompiler::watchShaderFolder(const std::string& folder_path) {
@@ -97,8 +122,7 @@ namespace visage {
     }
 
 #ifndef VISAGE_EMSCRIPTEN
-    if (!running())
-      start();
+    wakeWorker();
 #endif
   }
 
