@@ -1087,6 +1087,68 @@ TEST_CASE("Backdrop sees through cached ancestors but not translucent ones", "[g
   }
 }
 
+TEST_CASE("Backdrop passes run when an earlier backdrop region draws nothing", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect hidden_blur;
+  hidden_blur.setBlurRadius(2.0f);
+  BlurPostEffect blur;
+  blur.setBlurRadius(2.0f);
+  Region background;
+  Region hidden;
+  Region glass;
+  canvas.addRegion(&background);
+  background.setBounds(0, 0, 64, 32);
+  canvas.addRegion(&hidden);
+  hidden.setBounds(0, 0, 16, 16);
+  hidden.setBackdropEffect(&hidden_blur);
+  hidden.setVisible(false);
+  canvas.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&blur);
+  glass.setBounds(32, 0, 32, 32);
+
+  canvas.beginRegion(&background);
+  canvas.setColor(0xff0000ff);
+  canvas.fill(0, 0, 64, 32);
+  canvas.endRegion();
+  canvas.beginRegion(&glass);
+  canvas.setColor(0xffff0000);
+  canvas.fill(8, 8, 16, 16);
+  canvas.endRegion();
+
+  REQUIRE(canvas.takeScreenshot().sample(48, 16).hexRed() == 0xff);
+}
+
+TEST_CASE("Layered region whose backdrop children draw nothing still composites", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect outer_blur;
+  outer_blur.setBlurRadius(2.0f);
+  BlurPostEffect inner_blur;
+  inner_blur.setBlurRadius(2.0f);
+  Region container;
+  Region hidden;
+  Region inner;
+  canvas.addRegion(&container);
+  container.setNeedsLayer(true);
+  container.setBounds(0, 0, 64, 32);
+  container.addRegion(&hidden);
+  hidden.setBounds(8, 8, 32, 16);
+  hidden.setBackdropEffect(&outer_blur);
+  hidden.setVisible(false);
+  hidden.addRegion(&inner);
+  inner.setBounds(0, 0, 16, 16);
+  inner.setBackdropEffect(&inner_blur);
+
+  canvas.beginRegion(&container);
+  canvas.setColor(0xffff0000);
+  canvas.fill(0, 0, 64, 32);
+  canvas.endRegion();
+
+  REQUIRE(canvas.takeScreenshot().sample(56, 16).hexRed() == 0xff);
+}
+
 TEST_CASE("Blurred regions share temporary frame buffers", "[graphics]") {
   static constexpr int kNumBlurred = 8;
 
