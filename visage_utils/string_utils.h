@@ -233,6 +233,9 @@ namespace visage {
     }
 
     String withPrecision(int precision) const {
+      if (precision < 0)
+        return roundedToPowerOfTen(precision);
+
       size_t pos = find('.');
 
       if (pos == std::u32string::npos)
@@ -403,6 +406,40 @@ namespace visage {
     }
 
   private:
+    String roundedToPowerOfTen(int precision) const {
+      size_t end = string_.find('.');
+      if (end == std::u32string::npos)
+        end = string_.length();
+      bool negative = end > 0 && string_[0] == '-';
+      size_t start = negative ? 1 : 0;
+      if (start == end)
+        return string_;
+      for (size_t i = start; i < end; ++i) {
+        if (string_[i] < '0' || string_[i] > '9')
+          return string_;
+      }
+
+      int digit_count = static_cast<int>(end - start);
+      if (precision < -digit_count)
+        return U"0";
+
+      int zeros = -precision;
+      std::u32string digits = std::u32string(zeros, '0') + string_.substr(start, end - start);
+      size_t keep = digits.length() - zeros;
+      bool carry = digits[keep] >= '5';
+      std::u32string result = digits.substr(0, keep);
+      for (size_t i = keep; i > 0 && carry; --i) {
+        carry = result[i - 1] == '9';
+        result[i - 1] = carry ? '0' : result[i - 1] + 1;
+      }
+      result += std::u32string(zeros, '0');
+
+      size_t first_digit = result.find_first_not_of('0');
+      if (first_digit == std::u32string::npos)
+        return U"0";
+      return (negative ? U"-" : U"") + result.substr(first_digit);
+    }
+
     std::u32string string_;
   };
 
