@@ -49,8 +49,9 @@ namespace visage {
 
 - (void)invoke:(id)sender {
   const visage::PopupMenu* menu = (const visage::PopupMenu*)[[sender representedObject] pointerValue];
-  menu->onSelection().callback(menu->id());
-  visage::NativeMenu::menu().onSelection().callback(menu->id());
+  int id = menu->id();
+  menu->onSelection().callback(id);
+  visage::NativeMenu::menu().onSelection().callback(id);
 }
 @end
 
