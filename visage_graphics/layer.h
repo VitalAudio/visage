@@ -43,6 +43,9 @@ namespace visage {
 
     bgfx::FrameBufferHandle& frameBuffer() const;
     int frameBufferFormat() const;
+    bgfx::FrameBufferHandle temporaryFrameBuffer(int width, int height);
+    void releaseTemporaryFrameBuffer(bgfx::FrameBufferHandle handle);
+    void destroyIdleTemporaryFrameBuffers();
 
     GradientAtlas* gradientAtlas() const { return gradient_atlas_; }
 
@@ -91,6 +94,10 @@ namespace visage {
 
     void invalidateRectInRegion(IBounds rect, const Region* region);
     bool anyInvalidRects() const { return !invalid_rects_.empty(); }
+    bool hasInvalidRects(const Region* region) const {
+      auto it = invalid_rects_.find(region);
+      return it != invalid_rects_.end() && !it->second.empty();
+    }
     void clearInvalidRects() { invalid_rects_.clear(); }
 
     void setDimensions(int width, int height) {
@@ -143,6 +150,8 @@ namespace visage {
     }
 
   private:
+    int preprocessPostEffects(int submit_pass, int backdrop_count);
+
     bool bottom_left_origin_ = false;
     bool hdr_ = false;
     bool translucent_ = false;

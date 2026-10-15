@@ -78,6 +78,8 @@ namespace visage {
     Region* region = this;
     while (region->parent_) {
       if (region->needsLayer()) {
+        if (region->post_effect_ && region->post_effect_->appliedInPlace())
+          rect = { 0, 0, region->width_, region->height_ };
         canvas_->invalidateRectInRegion(rect, region, layer_index);
         --layer_index;
 
@@ -117,8 +119,9 @@ namespace visage {
       const PackedBrush* brush = intermediate_region_->addBrush(canvas_->gradientAtlas(),
                                                                 Brush::solid(Color(0xffffffff).withAlpha(alpha_)));
 
+      PostEffect* composite_effect = post_effect_ && !post_effect_->appliedInPlace() ? post_effect_ : nullptr;
       SampleRegion sample_region({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, brush, 0, 0, width_,
-                                 height_, this, post_effect_, alpha_);
+                                 height_, this, composite_effect, alpha_);
       intermediate_region_->shape_batcher_.addShape(sample_region, layer_blend_mode_);
       canvas_->changePackedLayer(this, layer_index_, layer_index_);
     }

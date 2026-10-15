@@ -36,6 +36,7 @@ namespace visage {
       return preprocess(source, submit_pass);
     }
     virtual void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) { }
+    virtual bool appliedInPlace() const { return false; }
     virtual float sampleRadius() const { return 0.0f; }
     void submitPassthrough(const BatchVector<SampleRegion>& batches, const Layer& destination,
                            int submit_pass) const;
@@ -59,6 +60,8 @@ namespace visage {
 
   protected:
     void setInitialVertices(Region* region);
+    void checkScreenBuffers();
+    void setLevelDimensions(int width, int height);
     void checkBuffers(const Region* region, bool full_resolution);
     void setScreenVertexBuffer(bool inverted);
     IPoint sourcePosition(const Region* region) const;
@@ -86,6 +89,7 @@ namespace visage {
     int preprocess(Region* region, int submit_pass) override;
     int preprocessBackdrop(Region* source, const Region* region, int submit_pass) override;
     void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) override;
+    bool appliedInPlace() const override { return true; }
     float sampleRadius() const override { return 3.0f * blur_radius_; }
 
     float blurRadius() const { return blur_radius_; }
@@ -95,8 +99,6 @@ namespace visage {
     int blur(Region* region, const Region* backdrop_child, int submit_pass);
 
     float blur_radius_ = 0.0f;
-    float sigma_ = 0.0f;
-    int downsample_stages_ = 0;
 
     VISAGE_LEAK_CHECKER(BlurPostEffect)
   };
