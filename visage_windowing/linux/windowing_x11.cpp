@@ -112,7 +112,7 @@ namespace visage {
       X11Connection* x11 = X11Connection::globalInstance();
       ::Display* display = x11->display();
       window_handle_ = XCreateSimpleWindow(display, x11->rootWindow(), -100, -100, 1, 1, 0, 0, 0);
-      XSelectInput(display, window_handle_, StructureNotifyMask);
+      XSelectInput(display, window_handle_, StructureNotifyMask | PropertyChangeMask);
       XFlush(display);
     }
 
@@ -143,60 +143,92 @@ namespace visage {
     return result;
   }
 
-  std::string readClipboardText() {
+  static bool waitForWindowEvent(Display* display, ::Window window, int type, XEvent& event) {
     static constexpr int kSleepWait = 5;
     static constexpr int kMaxWaitTime = 250;
-    static constexpr int kTries = kMaxWaitTime / kSleepWait;
+    for (int i = 0; i < kMaxWaitTime / kSleepWait; ++i) {
+      if (XCheckTypedWindowEvent(display, window, type, &event))
+        return true;
+      Thread::sleep(kSleepWait);
+    }
+    return false;
+  }
+
+  static Atom takeWindowProperty(Display* display, ::Window window, Atom property, std::string& data) {
+    Atom type = None;
+    int format = 0;
+    unsigned long num_items = 0, bytes_after = 0;
+    unsigned char* value = nullptr;
+    XGetWindowProperty(display, window, property, 0, ~0, True, AnyPropertyType, &type, &format,
+                       &num_items, &bytes_after, &value);
+    if (value) {
+      if (format == 8)
+        data.append(reinterpret_cast<char*>(value), num_items);
+      XFree(value);
+    }
+    return type;
+  }
+
+  static bool readIncrementalProperty(Display* display, ::Window window, Atom property, Atom& type,
+                                      std::string& data) {
+    XEvent event;
+    while (waitForWindowEvent(display, window, PropertyNotify, event)) {
+      if (event.xproperty.atom != property || event.xproperty.state != PropertyNewValue)
+        continue;
+
+      std::string chunk;
+      Atom chunk_type = takeWindowProperty(display, window, property, chunk);
+      if (chunk_type == None)
+        continue;
+
+      type = chunk_type;
+      if (chunk.empty())
+        return true;
+      data += chunk;
+    }
+    return false;
+  }
+
+  std::string readClipboardText() {
     X11Connection* x11 = X11Connection::globalInstance();
     if (x11->display() == nullptr)
       return {};
     Display* display = x11->display();
+    ::Window window = SharedMessageWindow::handle();
 
     ::Window selection_owner = XGetSelectionOwner(display, x11->clipboard());
     if (selection_owner == None)
       return "";
-    if (selection_owner == SharedMessageWindow::handle() ||
-        NativeWindowLookup::instance().findWindow(selection_owner))
+    if (selection_owner == window || NativeWindowLookup::instance().findWindow(selection_owner))
       return _clipboard_text;
 
+    std::string result;
+    Atom type = None;
     Atom selection_property = XInternAtom(display, "VISAGE_SELECT", False);
     for (Atom target : { x11->utf8String(), XA_STRING }) {
-      XConvertSelection(display, x11->clipboard(), target, selection_property,
-                        SharedMessageWindow::handle(), CurrentTime);
+      XConvertSelection(display, x11->clipboard(), target, selection_property, window, CurrentTime);
 
       XEvent event;
-      bool replied = false;
-      for (int i = 0; i < kTries && !replied; ++i) {
-        replied = XCheckTypedWindowEvent(display, SharedMessageWindow::handle(), SelectionNotify, &event);
-        if (!replied)
-          Thread::sleep(kSleepWait);
-      }
-      if (!replied)
-        return "";
+      if (!waitForWindowEvent(display, window, SelectionNotify, event))
+        break;
       if (event.xselection.property != selection_property)
         continue;
 
-      Atom actual_type;
-      int actual_format = 0;
-      unsigned long num_items = 0, bytes_after = 0;
-      unsigned char* property = nullptr;
-      XGetWindowProperty(display, SharedMessageWindow::handle(), selection_property, 0, ~0, True,
-                         AnyPropertyType, &actual_type, &actual_format, &num_items, &bytes_after,
-                         &property);
-      std::string result;
-      if (property && (actual_type == x11->utf8String() || actual_type == XA_STRING)) {
-        if (num_items && property[num_items - 1] == 0)
-          num_items--;
-        result = std::string(reinterpret_cast<char*>(property), num_items);
-        if (actual_type == XA_STRING)
-          result = latin1ToUtf8(result);
-      }
-      if (property)
-        XFree(property);
-      return result;
+      type = takeWindowProperty(display, window, selection_property, result);
+      if (type == x11->incr() && !readIncrementalProperty(display, window, selection_property, type, result))
+        type = None;
+      break;
     }
 
-    return "";
+    XEvent property_event;
+    while (XCheckTypedWindowEvent(display, window, PropertyNotify, &property_event))
+      continue;
+
+    if (type != x11->utf8String() && type != XA_STRING)
+      return "";
+    if (!result.empty() && result.back() == 0)
+      result.pop_back();
+    return type == XA_STRING ? latin1ToUtf8(result) : result;
   }
 
   void setClipboardText(const std::string& text) {
@@ -1448,12 +1480,28 @@ namespace visage {
     }
   }
 
+  void WindowX11::setDragDropFiles(std::string uri_list) {
+    if (!uri_list.empty() && uri_list.back() == 0)
+      uri_list.pop_back();
+
+    std::stringstream stream(uri_list);
+    std::string line;
+    drag_drop_files_.clear();
+    while (std::getline(stream, line)) {
+      std::string trimmed = String(line).trim().toUtf8();
+      if (!trimmed.empty() && trimmed[0] != '#')
+        drag_drop_files_.push_back(filePath(trimmed));
+    }
+  }
+
   void WindowX11::processEvent(XEvent& event) {
     switch (event.type) {
     case ClientMessage: {
       if (event.xclient.message_type == x11_->dndEnter()) {
         X11Connection::DisplayLock lock(x11_);
         drag_drop_files_.clear();
+        drag_drop_incremental_ = false;
+        drag_drop_data_.clear();
         XConvertSelection(x11_->display(), x11_->dndSelection(), x11_->dndUriList(),
                           x11_->dndUriList(), window_handle_, CurrentTime);
         XFlush(x11_->display());
@@ -1500,37 +1548,33 @@ namespace visage {
     }
     case SelectionNotify: {
       X11Connection::DisplayLock lock(x11_);
-
-      if (event.xselection.selection == x11_->dndSelection()) {
-        if (event.xselection.property) {
-          Atom actual_type;
-          int actual_format;
-          unsigned long num_items = 0, bytes_after = 0;
-          unsigned char* files_string = nullptr;
-
-          XGetWindowProperty(x11_->display(), event.xany.window, event.xselection.property, 0, ~0,
-                             False, AnyPropertyType, &actual_type, &actual_format, &num_items,
-                             &bytes_after, &files_string);
-
-          if (files_string) {
-            std::vector<std::string> result;
-            if (num_items && files_string[num_items - 1] == 0)
-              num_items--;
-
-            std::stringstream stream(std::string((char*)files_string, num_items));
-            std::string line;
-
-            drag_drop_files_.clear();
-            while (std::getline(stream, line)) {
-              std::string trimmed = String(line).trim().toUtf8();
-              if (!trimmed.empty() && trimmed[0] != '#')
-                drag_drop_files_.push_back(filePath(trimmed));
-            }
-
-            XFree(files_string);
-          }
-        }
+      if (event.xselection.selection == x11_->dndSelection() && event.xselection.property) {
+        std::string uri_list;
+        Atom type = takeWindowProperty(x11_->display(), event.xselection.requestor,
+                                       event.xselection.property, uri_list);
+        drag_drop_incremental_ = type == x11_->incr();
+        if (!drag_drop_incremental_ && type != None)
+          setDragDropFiles(uri_list);
       }
+      break;
+    }
+    case PropertyNotify: {
+      if (!drag_drop_incremental_ || event.xproperty.atom != x11_->dndUriList() ||
+          event.xproperty.state != PropertyNewValue)
+        break;
+
+      X11Connection::DisplayLock lock(x11_);
+      std::string chunk;
+      if (takeWindowProperty(x11_->display(), window_handle_, event.xproperty.atom, chunk) == None)
+        break;
+
+      if (chunk.empty()) {
+        drag_drop_incremental_ = false;
+        setDragDropFiles(drag_drop_data_);
+        drag_drop_data_.clear();
+      }
+      else
+        drag_drop_data_ += chunk;
       break;
     }
     case MotionNotify: {
