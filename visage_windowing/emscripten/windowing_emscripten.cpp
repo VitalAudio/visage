@@ -200,7 +200,7 @@ namespace visage {
     if (event->buttons & 1)
       state |= kMouseButtonLeft;
     if (event->buttons & 2)
-      state |= kMouseButtonMiddle;
+      state |= kMouseButtonRight;
     if (event->buttons & 4)
       state |= kMouseButtonMiddle;
     return state;
