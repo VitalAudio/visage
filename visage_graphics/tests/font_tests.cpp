@@ -58,6 +58,22 @@ TEST_CASE("Font invalid data", "[graphics]") {
   }
 }
 
+TEST_CASE("Default font measures and draws as empty", "[graphics]") {
+  Font font = Font().withDpiScale(1.0f);
+  REQUIRE(font.packedFont() == nullptr);
+  REQUIRE(font.stringWidth(U"Test") == 0.0f);
+  REQUIRE(font.stringWidth(U"Test", 4, U'*') == 0.0f);
+  REQUIRE(font.lineHeight() == 0.0f);
+  REQUIRE(font.capitalHeight() == 0.0f);
+  REQUIRE(font.widthOverflowIndex(U"Test", 4, 10.0f) == 4);
+  REQUIRE(font.lineBreaks(U"Test\ntest", 9, 10.0f).size() == 1);
+
+  Canvas canvas;
+  canvas.setWindowless(100, 50);
+  canvas.text("Test", Font(), Font::Justification::kCenter, 0, 0, 100, 50);
+  canvas.submit();
+}
+
 TEST_CASE("Font with 1-bit bitmap glyphs", "[graphics]") {
   static constexpr char kBdf[] = "STARTFONT 2.1\n"
                                  "FONT -test-mono-medium-r-normal--8-80-75-75-c-80-iso10646-1\n"
