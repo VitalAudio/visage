@@ -53,6 +53,13 @@ namespace visage {
     composite_layer_.addRegion(&window_region_);
   }
 
+  void Canvas::removeFromWindow() {
+    if (composite_layer_.removeFromWindow()) {
+      bgfx::frame();
+      bgfx::frame();
+    }
+  }
+
   void Canvas::setWindowless(int width, int height) {
     setDimensions(width, height);
     composite_layer_.setWindowlessRender(width, height);

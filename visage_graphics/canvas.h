@@ -87,7 +87,7 @@ namespace visage {
     }
 
     void setWindowless(int width, int height);
-    void removeFromWindow() { composite_layer_.removeFromWindow(); }
+    void removeFromWindow();
 
     int width() const { return composite_layer_.width(); }
     int height() const { return composite_layer_.height(); }

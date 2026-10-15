@@ -232,6 +232,13 @@ namespace visage {
       destroyFrameBuffer();
   }
 
+  bool Layer::removeFromWindow() {
+    bool had_swap_chain = window_handle_ && bgfx::isValid(frame_buffer_data_->handle);
+    window_handle_ = nullptr;
+    destroyFrameBuffer();
+    return had_swap_chain;
+  }
+
   void Layer::destroyFrameBuffer() {
     if (bgfx::isValid(frame_buffer_data_->handle)) {
       bgfx::destroy(frame_buffer_data_->handle);

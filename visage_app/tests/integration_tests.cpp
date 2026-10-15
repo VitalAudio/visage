@@ -1415,6 +1415,36 @@ TEST_CASE("Resizing a window many times keeps its swap chain valid", "[integrati
   app.removeFromWindow();
 }
 
+TEST_CASE("Destroying a window right after resizing it leaves no swap chain work behind",
+          "[integration]") {
+#if VISAGE_LINUX
+  if (std::getenv("DISPLAY") == nullptr)
+    SKIP("No display");
+#endif
+
+  {
+    ApplicationEditor app;
+    app.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0xff000000);
+      canvas.fill();
+    };
+    std::unique_ptr<Window> window = createWindow(Dimension::nativePixels(100),
+                                                  Dimension::nativePixels(100));
+    app.addToWindow(window.get());
+    for (int i = 0; i < 20; ++i) {
+      window->handleResized(100 + i, 100 + i);
+      app.drawWindow();
+    }
+    app.removeFromWindow();
+  }
+
+  Canvas canvas;
+  canvas.setWindowless(10, 10);
+  canvas.setColor(0xffff0000);
+  canvas.fill(0, 0, 10, 10);
+  REQUIRE(canvas.takeScreenshot().sample(5, 5).hexRed() == 0xff);
+}
+
 TEST_CASE("Window opens after rendering offscreen", "[integration]") {
 #if VISAGE_LINUX
   if (std::getenv("DISPLAY") == nullptr)
