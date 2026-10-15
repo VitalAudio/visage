@@ -683,6 +683,11 @@ namespace visage {
 - (void)viewWillMoveToWindow:(NSWindow*)new_window {
   [super viewWillMoveToWindow:new_window];
 
+  if (self.window)
+    [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                    name:NSWindowDidChangeOcclusionStateNotification
+                                                  object:self.window];
+
   if (new_window) {
     [new_window setAcceptsMouseMovedEvents:YES];
     [new_window setIgnoresMouseEvents:NO];
