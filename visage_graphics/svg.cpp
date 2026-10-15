@@ -945,14 +945,13 @@ namespace visage {
     }
 
     Tag child = parseTagTree(str, i, depth + 1);
-    while (!child.data.is_closing && i < str.size()) {
-      if (child.data.ignored || !child.data.name.empty())
+    while ((!child.data.is_closing || child.data.name != tag.data.name) && i < str.size()) {
+      if (!child.data.is_closing && (child.data.ignored || !child.data.name.empty()))
         tag.children.push_back(child);
 
       child = parseTagTree(str, i, depth + 1);
     }
 
-    VISAGE_ASSERT(i >= str.size() || tag.data.name == child.data.name);
     return tag;
   }
 
@@ -2135,7 +2134,7 @@ namespace visage {
     int i = 0;
     Tag root = parseTagTree(str, i);
     while (root.data.ignored || !root.data.name.empty()) {
-      if (!root.data.ignored)
+      if (!root.data.ignored && !root.data.is_closing)
         tags.push_back(root);
 
       root = parseTagTree(str, i);
