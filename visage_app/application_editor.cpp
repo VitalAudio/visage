@@ -61,7 +61,7 @@ namespace visage {
     top_level_->addChild(this);
 
     event_handler_.request_redraw = [this](Frame* frame) {
-      if (std::find(stale_children_.begin(), stale_children_.end(), frame) == stale_children_.end())
+      if (stale_set_.insert(frame).second)
         stale_children_.push_back(frame);
     };
     event_handler_.request_keyboard_focus = [this](Frame* frame) {
@@ -74,9 +74,8 @@ namespace visage {
 
       if (window_event_handler_)
         window_event_handler_->giveUpFocus(frame);
-      auto pos = std::find(stale_children_.begin(), stale_children_.end(), frame);
-      if (pos != stale_children_.end())
-        stale_children_.erase(pos);
+      if (stale_set_.erase(frame))
+        stale_children_.erase(std::find(stale_children_.begin(), stale_children_.end(), frame));
     };
     event_handler_.set_mouse_relative_mode = [this](bool relative) {
       if (window_)
@@ -170,15 +169,18 @@ namespace visage {
 
   void ApplicationEditor::drawStaleChildren() {
     drawing_children_.clear();
+    drawing_set_.clear();
     std::swap(stale_children_, drawing_children_);
+    std::swap(stale_set_, drawing_set_);
     for (Frame* child : drawing_children_) {
       if (child->isDrawing())
         child->drawToRegion(*canvas_);
     }
     for (int i = 0; i < stale_children_.size();) {
       Frame* child = stale_children_[i];
-      if (std::find(drawing_children_.begin(), drawing_children_.end(), child) == drawing_children_.end()) {
+      if (drawing_set_.insert(child).second) {
         stale_children_.erase(stale_children_.begin() + i);
+        stale_set_.erase(child);
         drawing_children_.push_back(child);
         child->drawToRegion(*canvas_);
       }
@@ -186,6 +188,7 @@ namespace visage {
         ++i;
     }
     drawing_children_.clear();
+    drawing_set_.clear();
   }
 
   void ApplicationEditor::adjustWindowDimensions(int* width, int* height, bool horizontal_resize,

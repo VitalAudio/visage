@@ -23,6 +23,8 @@
 
 #include "visage_ui/frame.h"
 
+#include <unordered_set>
+
 namespace visage {
   class ApplicationEditor;
   class Canvas;
@@ -124,6 +126,8 @@ namespace visage {
 
     std::vector<Frame*> stale_children_;
     std::vector<Frame*> drawing_children_;
+    std::unordered_set<Frame*> stale_set_;
+    std::unordered_set<Frame*> drawing_set_;
 
     VISAGE_LEAK_CHECKER(ApplicationEditor)
   };
