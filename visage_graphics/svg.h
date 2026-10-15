@@ -506,7 +506,7 @@ namespace visage {
 
   private:
     void setDrawableDimensions(int width, int height, float scale) {
-      if (width != draw_width_ || height != draw_height_) {
+      if (width != draw_width_ || height != draw_height_ || scale != draw_scale_) {
         draw_width_ = width;
         draw_height_ = height;
         draw_scale_ = scale;
