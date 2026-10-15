@@ -26,6 +26,42 @@
 
 using namespace visage;
 
+TEST_CASE("Point scalar division", "[utils]") {
+  Point point(4.0f, 8.0f);
+  REQUIRE(point / 2.0f == Point(2.0f, 4.0f));
+  REQUIRE(2.0f / point == Point(0.5f, 0.25f));
+}
+
+TEST_CASE("Matrix inverse of small scales", "[utils]") {
+  Matrix inverse = Matrix::scale(1e-4f, 1e-4f).inversed();
+  REQUIRE(inverse.matrix[0][0] == Catch::Approx(1e4f));
+  REQUIRE(inverse.matrix[1][1] == Catch::Approx(1e4f));
+
+  Matrix singular = Matrix(1.0f, 2.0f, 2.0f, 4.0f).inversed();
+  REQUIRE(singular.matrix[0][0] == 0.0f);
+  REQUIRE(singular.matrix[1][1] == 0.0f);
+
+  IMatrix integer_singular = IMatrix(1, 2, 2, 4).inversed();
+  REQUIRE(integer_singular.matrix[0][0] == 0);
+}
+
+TEST_CASE("Bounds subtract without overlap", "[utils]") {
+  IBounds bounds(0, 0, 10, 10);
+  IBounds result;
+  REQUIRE(bounds.subtract(IBounds(20, 2, 5, 20), result));
+  REQUIRE(result == bounds);
+  REQUIRE(bounds.subtract(IBounds(20, 2, 5, 5), result));
+  REQUIRE(result == bounds);
+}
+
+TEST_CASE("Bounds round keeps adjacent bounds adjacent", "[utils]") {
+  Bounds left(10.5f, 10.5f, 10.5f, 10.5f);
+  Bounds right(21.0f, 10.5f, 10.5f, 10.5f);
+  Bounds below(10.5f, 21.0f, 10.5f, 10.5f);
+  REQUIRE(left.round().right() == right.round().x());
+  REQUIRE(left.round().bottom() == below.round().y());
+}
+
 TEST_CASE("Bounds intersection", "[utils]") {
   IBounds bounds1(-1, -2, 10, 10);
   IBounds bounds2(7, 5, 15, 15);

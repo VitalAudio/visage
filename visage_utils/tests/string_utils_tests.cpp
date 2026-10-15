@@ -23,6 +23,9 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <clocale>
+#include <limits>
+#include <type_traits>
 
 using namespace visage;
 
@@ -33,6 +36,36 @@ TEST_CASE("String conversion", "[utils]") {
   std::wstring wide = test.toWide();
   REQUIRE(String(std).toUtf32() == original);
   REQUIRE(String(wide).toUtf32() == original);
+}
+
+TEST_CASE("String conversion replaces malformed UTF-8", "[utils]") {
+  REQUIRE(String("\xC3xyz").toUtf32() == U"\uFFFDxyz");
+  REQUIRE(String("xy\xE2\x82").toUtf32() == U"xy\uFFFD");
+  REQUIRE(String("\xF0\x9Fx").toUtf32() == U"\uFFFDx");
+  REQUIRE(String("\xFFx\xF8y").toUtf32() == U"\uFFFDx\uFFFDy");
+  REQUIRE(String("\x80x").toUtf32() == U"\uFFFDx");
+  REQUIRE(String("\xE0\x80\xAFx").toUtf32() == U"\uFFFDx");
+  REQUIRE(String("\xED\xA0\x80x").toUtf32() == U"\uFFFDx");
+  REQUIRE(String("\xF4\x90\x80\x80x").toUtf32() == U"\uFFFDx");
+  REQUIRE(String("\xC3\xA9\xF0\x9F\x98\x82").toUtf32() == U"\u00E9\U0001F602");
+}
+
+TEST_CASE("String conversion replaces invalid code points and surrogates", "[utils]") {
+  REQUIRE(String::convertToUtf8(std::u32string { 'x', 0x110000, 'y' }) == "x\xEF\xBF\xBDy");
+  REQUIRE(String::convertToUtf8(std::u32string { 'x', 0xD800, 'y' }) == "x\xEF\xBF\xBDy");
+  REQUIRE(String::convertUtf32ToUtf16<std::u16string>(std::u32string { 'x', 0xDC00, 'y' }) ==
+          u"x\uFFFDy");
+  REQUIRE(String::convertUtf32ToUtf16<std::u16string>(std::u32string { 'x', 0x110000, 'y' }) ==
+          u"x\uFFFDy");
+  REQUIRE(String::convertUtf16ToUtf32(std::u16string { 'x', 0xD800, 'y' }) == U"x\uFFFDy");
+  REQUIRE(String::convertUtf16ToUtf32(std::u16string { 'x', 0xDC00, 'y' }) == U"x\uFFFDy");
+  REQUIRE(String::convertUtf16ToUtf32(std::u16string { 'x', 0xD800 }) == U"x\uFFFD");
+  REQUIRE(String::convertUtf16ToUtf32(std::u16string { 'x', 0xD83D, 0xDE02 }) == U"x\U0001F602");
+}
+
+TEST_CASE("String moves without copying", "[utils]") {
+  REQUIRE(std::is_nothrow_move_constructible_v<String>);
+  REQUIRE(std::is_nothrow_move_assignable_v<String>);
 }
 
 TEST_CASE("Base 64 conversion", "[utils]") {
@@ -52,6 +85,24 @@ TEST_CASE("Base 64 conversion", "[utils]") {
     equal = equal && random_data[i] == decoded[i];
 
   REQUIRE(equal);
+}
+
+TEST_CASE("Base 64 decoding rejects malformed input", "[utils]") {
+  int size = 10;
+  REQUIRE(visage::decodeBase64Data("====", size) == nullptr);
+  REQUIRE(size == 0);
+  REQUIRE(visage::decodeBase64Data("Q===", size) == nullptr);
+  REQUIRE(visage::decodeBase64Data("QQ=A", size) == nullptr);
+  REQUIRE(visage::decodeBase64Data("QQ==QUJD", size) == nullptr);
+  REQUIRE(visage::decodeBase64Data("QUJDRA", size) == nullptr);
+
+  size = 10;
+  REQUIRE(visage::decodeBase64Data("QUJ!", size) == nullptr);
+  REQUIRE(size == 0);
+
+  std::unique_ptr<unsigned char[]> decoded = visage::decodeBase64Data("QUJDRA==", size);
+  REQUIRE(size == 4);
+  REQUIRE(std::string(decoded.get(), decoded.get() + size) == "ABCD");
 }
 
 TEST_CASE("String trim", "[utils]") {
@@ -140,6 +191,26 @@ TEST_CASE("String numerical precision", "[utils]") {
   REQUIRE(test3.withPrecision(1).toUtf8() == "-10.0");
   REQUIRE(test3.withPrecision(2).toUtf8() == "-9.96");
   REQUIRE(String(-9.96, 1).toUtf8() == "-10.0");
+
+  REQUIRE(String(1.23456789, 8).toUtf8() == "1.23456789");
+  REQUIRE(String(0.15, 1).toUtf8() == "0.2");
+
+  REQUIRE(test1.withPrecision(-2).toUtf8() == "0");
+  REQUIRE(test1.withPrecision(-5).toUtf8() == "0");
+  REQUIRE(String(1234.5, -1).toUtf8() == "1230");
+  REQUIRE(String(1234.5, -2).toUtf8() == "1200");
+  REQUIRE(String(1250.0, -2).toUtf8() == "1300");
+  REQUIRE(String(995.0, -1).toUtf8() == "1000");
+  REQUIRE(String(50.0, -2).toUtf8() == "100");
+  REQUIRE(String(49.0, -2).toUtf8() == "0");
+  REQUIRE(String(12.5, -3).toUtf8() == "0");
+  REQUIRE(String(-1250.0f, -2).toUtf8() == "-1300");
+  REQUIRE(String(-4.0, -1).toUtf8() == "0");
+  REQUIRE(String("1234").withPrecision(-1).toUtf8() == "1230");
+  REQUIRE(String("abc").withPrecision(-1).toUtf8() == "abc");
+  REQUIRE(String(54.0, -2).toUtf8() == "100");
+  REQUIRE(String(54.0, -3).toUtf8() == "0");
+  REQUIRE(String(54.0, std::numeric_limits<int>::min()).toUtf8() == "0");
 }
 
 TEST_CASE("String toFloat", "[utils]") {
@@ -149,6 +220,21 @@ TEST_CASE("String toFloat", "[utils]") {
   REQUIRE(test2.toFloat() == Catch::Approx(0.0f));
   String test3 = "";
   REQUIRE(test3.toFloat() == Catch::Approx(0.0f));
+}
+
+TEST_CASE("String numbers ignore the C locale", "[utils]") {
+  std::string previous_locale = setlocale(LC_NUMERIC, nullptr);
+  for (const char* locale : { "de_DE.UTF-8", "de_DE.utf8", "en_DK.utf8", "fr_FR.UTF-8", "German" }) {
+    if (setlocale(LC_NUMERIC, locale))
+      break;
+  }
+
+  CHECK(String(1.5f).toUtf8() == "1.5");
+  CHECK(String(-2.25, 1).toUtf8() == "-2.3");
+  CHECK(String("1.5").toFloat() == 1.5f);
+  CHECK(String("-0.25").toFloat() == -0.25f);
+
+  setlocale(LC_NUMERIC, previous_locale.c_str());
 }
 
 TEST_CASE("String toInt", "[utils]") {

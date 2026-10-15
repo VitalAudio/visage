@@ -79,7 +79,7 @@ namespace visage {
       return *this;
     }
     friend BasePoint operator/(T scalar, const BasePoint& point) {
-      return { point.x / scalar, point.y / scalar };
+      return { scalar / point.x, scalar / point.y };
     }
 
     bool operator==(const BasePoint& other) const noexcept { return x == other.x && y == other.y; }
@@ -192,8 +192,9 @@ namespace visage {
     }
 
     BaseMatrix inversed() const {
-      T det = matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0];
-      if (std::abs(det) < std::numeric_limits<T>::epsilon())
+      T det = determinant();
+      T scale = std::abs(matrix[0][0] * matrix[1][1]) + std::abs(matrix[0][1] * matrix[1][0]);
+      if (std::abs(det) <= std::numeric_limits<T>::epsilon() * scale)
         return { 0, 0, 0, 0 };
       return { matrix[1][1] / det, -matrix[0][1] / det, -matrix[1][0] / det, matrix[0][0] / det };
     }
@@ -390,6 +391,11 @@ namespace visage {
     // Returns true if subtracting the other rectangle result in only one rectangle
     // Stores that rectangle in _result_
     bool subtract(const IBounds& other, IBounds& result) const {
+      if (!overlaps(other)) {
+        result = *this;
+        return true;
+      }
+
       bool left_edge_inside = x_ < other.x_ && other.x_ < right();
       bool right_edge_inside = x_ < other.right() && other.right() < right();
       bool top_edge_inside = y_ < other.y_ && other.y_ < bottom();
@@ -478,8 +484,10 @@ namespace visage {
         x_(other.x()), y_(other.y()), width_(other.width()), height_(other.height()) { }
 
     IBounds round() const {
-      return { static_cast<int>(std::round(x_)), static_cast<int>(std::round(y_)),
-               static_cast<int>(std::round(width_)), static_cast<int>(std::round(height_)) };
+      int x = static_cast<int>(std::round(x_));
+      int y = static_cast<int>(std::round(y_));
+      return { x, y, static_cast<int>(std::round(right())) - x,
+               static_cast<int>(std::round(bottom())) - y };
     }
 
     float x() const { return x_; }

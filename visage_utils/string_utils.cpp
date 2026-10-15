@@ -22,6 +22,9 @@
 #include "string_utils.h"
 
 #include <algorithm>
+#include <iomanip>
+#include <locale>
+#include <sstream>
 
 namespace visage {
   std::string encodeDataBase64(const unsigned char* data, size_t size) {
@@ -46,6 +49,10 @@ namespace visage {
   }
 
   std::unique_ptr<unsigned char[]> decodeBase64Data(const std::string& string, int& size) {
+    size = 0;
+    if (string.size() % 4)
+      return nullptr;
+
     int groups = string.size() / 4;
     int write_index = 0;
 
@@ -67,13 +74,16 @@ namespace visage {
       return 65;
     };
 
-    for (size_t i = 0; i + 3 < string.length(); i += 4) {
+    for (size_t i = 0; i < string.length(); i += 4) {
       unsigned char value0 = base64_value(string[i]);
       unsigned char value1 = base64_value(string[i + 1]);
       unsigned char value2 = base64_value(string[i + 2]);
       unsigned char value3 = base64_value(string[i + 3]);
 
-      if (value0 > 64 || value1 > 64 || value2 > 64 || value3 > 64)
+      bool padded = value2 == 64 || value3 == 64;
+      bool last_group = i + 4 == string.length();
+      if (value0 > 63 || value1 > 63 || value2 > 64 || value3 > 64 ||
+          (value2 == 64 && value3 != 64) || (padded && !last_group))
         return nullptr;
 
       result[write_index++] = (value0 << 2) | (value1 >> 4);
@@ -184,5 +194,21 @@ namespace visage {
 
   int String::naturalCompare(const std::string& a, const std::string& b) {
     return naturalCompare(convertToUtf32(a), convertToUtf32(b));
+  }
+
+  std::string String::formatDecimal(double value, int decimal_places) {
+    std::ostringstream stream;
+    stream.imbue(std::locale::classic());
+    stream << std::fixed << std::setprecision(decimal_places) << value;
+    return stream.str();
+  }
+
+  float String::toFloat() const {
+    std::istringstream stream(toUtf8());
+    stream.imbue(std::locale::classic());
+    float result = 0.0f;
+    if (stream >> result)
+      return result;
+    return 0.0f;
   }
 }
