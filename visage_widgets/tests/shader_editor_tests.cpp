@@ -19,9 +19,11 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "visage_ui/events.h"
 #include "visage_utils/file_system.h"
 #include "visage_widgets/shader_editor.h"
 
+#include <atomic>
 #include <catch2/catch_test_macros.hpp>
 #include <filesystem>
 
@@ -47,4 +49,38 @@ TEST_CASE("Shader compiler watches folders added while it runs", "[widgets]") {
   REQUIRE(compiler.running());
   compiler.stop();
   std::filesystem::remove_all(root);
+}
+
+TEST_CASE("Shader compiler compiles code sent while its thread is finishing", "[widgets]") {
+  class SlowExitCompiler : public ShaderCompiler {
+  public:
+    void run() override {
+      ShaderCompiler::run();
+      finishing = true;
+      while (!release && shouldRun())
+        sleep(1);
+    }
+
+    std::atomic<bool> finishing = false;
+    std::atomic<bool> release = false;
+  };
+
+  SlowExitCompiler compiler;
+  int first = 0;
+  int second = 0;
+  compiler.compile("fs_first", "", [&first](const std::string&) { first++; });
+  for (int i = 0; i < 2000 && !compiler.finishing; ++i)
+    Thread::sleep(1);
+  REQUIRE(compiler.finishing);
+
+  compiler.compile("fs_second", "", [&second](const std::string&) { second++; });
+  compiler.release = true;
+  for (int i = 0; i < 2000 && second == 0; ++i) {
+    EventManager::instance().checkEventTimers();
+    Thread::sleep(1);
+  }
+
+  REQUIRE(first == 1);
+  REQUIRE(second == 1);
+  compiler.stop();
 }

@@ -94,10 +94,7 @@ namespace visage {
       compileWebGlShader(shader_name, std::move(code), callback);
 #else
       setCode(shader_name, std::move(code), std::move(callback));
-      if (completed()) {
-        stop();
-        start();
-      }
+      wakeWorker();
 #endif
     }
 
@@ -116,12 +113,13 @@ namespace visage {
           watched_edit_times_[shader] = 0;
       }
 
-      if (!running())
-        start();
+      wakeWorker();
 #endif
     }
 
   private:
+    void wakeWorker();
+    bool finishIfIdle();
     void compileWaitingShader();
     bool watching();
     std::vector<std::string> watchedShaders();
@@ -147,6 +145,8 @@ namespace visage {
     }
 
     std::atomic<bool> new_code_ = false;
+    std::mutex worker_mutex_;
+    bool worker_running_ = false;
     std::string compiler_path_;
     std::mutex code_mutex_;
     std::string shader_name_;
