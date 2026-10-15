@@ -41,11 +41,13 @@ namespace visage {
     void draw(Canvas& canvas) override;
 
     void setY(int index, float y) {
+      VISAGE_ASSERT(index >= 0 && index < num_bars_);
       bars_[index].top = y;
       redraw();
     }
 
     void positionBar(int index, float x, float y, float width, float height) {
+      VISAGE_ASSERT(index >= 0 && index < num_bars_);
       bars_[index] = { x, y, x + width, y + height };
       redraw();
     }
