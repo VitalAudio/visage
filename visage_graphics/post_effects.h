@@ -32,7 +32,11 @@ namespace visage {
 
     virtual ~PostEffect() = default;
     virtual int preprocess(Region* region, int submit_pass) { return submit_pass; }
+    virtual int preprocessBackdrop(Region* source, const Region* region, int submit_pass) {
+      return preprocess(source, submit_pass);
+    }
     virtual void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) { }
+    virtual bool appliedInPlace() const { return false; }
     void submitPassthrough(const BatchVector<SampleRegion>& batches, const Layer& destination,
                            int submit_pass) const;
     bool hdr() const { return hdr_; }
@@ -54,9 +58,14 @@ namespace visage {
     ~DownsamplePostEffect() override;
 
   protected:
-    void setInitialVertices(Region* region);
+    void setInitialVertices(Region* region, const IBounds& rect);
+    void checkScreenBuffers();
+    void setLevelDimensions(int width, int height);
     void checkBuffers(const Region* region, bool full_resolution);
     void setScreenVertexBuffer(bool inverted);
+    IPoint sourcePosition(const Region* region) const;
+    void setTexturePositions(const BatchVector<SampleRegion>& batches, PostEffectVertex* vertices,
+                             int level) const;
 
     int full_width_ = 0;
     int full_height_ = 0;
@@ -67,6 +76,7 @@ namespace visage {
     UvVertex inv_screen_vertices_[4] {};
     int format_ = 0;
     const Region* region_ = nullptr;
+    IPoint source_origin_;
   };
 
   class BlurPostEffect : public DownsamplePostEffect {
@@ -77,15 +87,17 @@ namespace visage {
     ~BlurPostEffect() override;
 
     int preprocess(Region* region, int submit_pass) override;
+    int preprocessBackdrop(Region* source, const Region* region, int submit_pass) override;
     void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) override;
+    bool appliedInPlace() const override { return true; }
 
     float blurRadius() const { return blur_radius_; }
     void setBlurRadius(float size) { blur_radius_ = std::max(0.0f, size); }
 
   private:
+    int blur(Region* region, const Region* backdrop_child, int submit_pass);
+
     float blur_radius_ = 0.0f;
-    float sigma_ = 0.0f;
-    int downsample_stages_ = 0;
 
     VISAGE_LEAK_CHECKER(BlurPostEffect)
   };
@@ -141,7 +153,7 @@ namespace visage {
     std::map<std::string, UniformData> uniforms_;
     EmbeddedFile vertex_shader_;
     EmbeddedFile fragment_shader_;
-    BlendMode state_ = BlendMode::Composite;
+    BlendMode state_ = BlendMode::Alpha;
 
     VISAGE_LEAK_CHECKER(ShaderPostEffect)
   };

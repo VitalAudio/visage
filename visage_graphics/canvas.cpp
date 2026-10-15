@@ -71,29 +71,30 @@ namespace visage {
   }
 
   int Canvas::submit(int submit_pass) {
-    default_region_.computeBackdropCount();
-    int submission = submit_pass;
-    int last_submission = submission - 1;
-
-    submission = path_atlas_.updatePaths(submission);
+    int backdrop_count = window_region_.computeBackdropCount();
+    int submission = path_atlas_.updatePaths(submit_pass);
 
     for (int i = 2; i < layers_.size(); ++i) {
       if (!layers_[1]->invalidRects().empty())
         layers_[i]->checkBackdropInvalidation(layers_[1]->invalidRects().begin()->second);
     }
 
-    for (int backdrop = 0; submission != last_submission; backdrop++) {
-      last_submission = submission;
+    int layers_start = submission;
+    for (int backdrop = 0; backdrop <= backdrop_count; ++backdrop) {
       for (int i = layers_.size() - 1; i > 0; --i)
         submission = layers_[i]->submit(submission, backdrop);
+      if (submission == layers_start)
+        break;
     }
 
-    for (int i = 1; i < layers_.size(); ++i)
+    for (int i = 1; i < layers_.size(); ++i) {
       layers_[i]->clearInvalidRects();
+      layers_[i]->destroyIdleTemporaryFrameBuffers();
+    }
 
     if (submission > submit_pass) {
       composite_layer_.invalidate();
-      submission = composite_layer_.submit(submission, 0);
+      submission = composite_layer_.submit(submission, backdrop_count);
       bgfx::frame();
       if (render_frame_ == 0)
         bgfx::frame();

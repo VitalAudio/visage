@@ -600,6 +600,42 @@ TEST_CASE("Windowless canvas resizes don't leak textures", "[graphics]") {
   REQUIRE(bgfx::getStats()->numTextures <= textures);
 }
 
+TEST_CASE("Destroying blur and bloom effects doesn't leak vertex buffers", "[graphics]") {
+  auto draw_effects = [] {
+    Canvas canvas;
+    canvas.setWindowless(64, 32);
+    BlurPostEffect blur;
+    blur.setBlurRadius(4.0f);
+    BloomPostEffect bloom;
+    Region blurred;
+    Region bloomed;
+    canvas.addRegion(&blurred);
+    canvas.addRegion(&bloomed);
+    blurred.setNeedsLayer(true);
+    blurred.setPostEffect(&blur);
+    blurred.setBounds(0, 0, 32, 32);
+    bloomed.setNeedsLayer(true);
+    bloomed.setPostEffect(&bloom);
+    bloomed.setBounds(32, 0, 32, 32);
+
+    for (Region* region : { &blurred, &bloomed }) {
+      canvas.beginRegion(region);
+      canvas.setColor(0xffffffff);
+      canvas.fill(0, 0, region->width(), region->height());
+      canvas.endRegion();
+    }
+    canvas.takeScreenshot();
+  };
+
+  draw_effects();
+  bgfx::frame();
+  int vertex_buffers = bgfx::getStats()->numVertexBuffers;
+  for (int i = 0; i < 4; ++i)
+    draw_effects();
+  bgfx::frame();
+  REQUIRE(bgfx::getStats()->numVertexBuffers <= vertex_buffers);
+}
+
 TEST_CASE("Canvas screenshot shows the current frame", "[graphics]") {
   static constexpr int kSize = 16;
 
@@ -721,6 +757,670 @@ TEST_CASE("Blur radius matches the blurred spread", "[graphics]") {
   REQUIRE(measured_sigma(8.1f) / measured_sigma(7.9f) == Approx(8.1f / 7.9f).epsilon(0.02f));
 }
 
+TEST_CASE("Layered region with a backdrop child keeps its other children", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(2.0f);
+  Region panel;
+  Region child;
+  Region glass;
+  canvas.addRegion(&panel);
+  panel.setNeedsLayer(true);
+  panel.setBounds(0, 0, 64, 32);
+  panel.addRegion(&child);
+  child.setBounds(0, 0, 16, 16);
+  panel.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&blur);
+  glass.setBounds(40, 0, 16, 16);
+
+  auto fill = [&canvas](Region& region, unsigned int color) {
+    canvas.beginRegion(&region);
+    canvas.setColor(color);
+    canvas.fill(0, 0, region.width(), region.height());
+    canvas.endRegion();
+  };
+
+  fill(panel, 0xffff0000);
+  fill(child, 0xff00ff00);
+  canvas.beginRegion(&glass);
+  canvas.endRegion();
+  REQUIRE(canvas.takeScreenshot().sample(8, 8).hexGreen() == 0xff);
+  REQUIRE(canvas.screenshot().sample(8, 8).hexRed() == 0x00);
+
+  child.invalidate();
+  fill(child, 0xff00ff00);
+  REQUIRE(canvas.takeScreenshot().sample(8, 8).hexGreen() == 0xff);
+  REQUIRE(canvas.screenshot().sample(8, 8).hexRed() == 0x00);
+}
+
+TEST_CASE("Backdrop follows its region when an ancestor moves", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(2.0f);
+  Region background;
+  Region parent;
+  Region glass;
+  canvas.addRegion(&background);
+  background.setBounds(0, 0, 64, 32);
+  canvas.addRegion(&parent);
+  parent.setBounds(0, 0, 32, 32);
+  parent.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&blur);
+  glass.setBounds(8, 8, 16, 16);
+
+  canvas.beginRegion(&background);
+  canvas.setColor(0xffff0000);
+  canvas.fill(0, 0, 32, 32);
+  canvas.setColor(0xff0000ff);
+  canvas.fill(32, 0, 32, 32);
+  canvas.endRegion();
+  canvas.beginRegion(&glass);
+  canvas.endRegion();
+  REQUIRE(canvas.takeScreenshot().sample(16, 16).hexRed() == 0xff);
+
+  parent.setBounds(32, 0, 32, 32);
+  REQUIRE(canvas.takeScreenshot().sample(48, 16).hexBlue() == 0xff);
+  REQUIRE(canvas.screenshot().sample(48, 16).hexRed() == 0x00);
+}
+
+TEST_CASE("On-top region draws above a backdrop sibling added after it", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(2.0f);
+  Region group;
+  Region popup;
+  Region glass;
+  canvas.addRegion(&group);
+  group.setBounds(0, 0, 64, 32);
+  group.addRegion(&popup);
+  popup.setOnTop(true);
+  popup.setBounds(16, 8, 32, 16);
+  group.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&blur);
+  glass.setBounds(0, 0, 64, 32);
+
+  canvas.beginRegion(&popup);
+  canvas.setColor(0xff00ff00);
+  canvas.fill(0, 0, popup.width(), popup.height());
+  canvas.endRegion();
+  canvas.beginRegion(&glass);
+  canvas.setColor(0xffff0000);
+  canvas.fill(0, 0, glass.width(), glass.height());
+  canvas.endRegion();
+  REQUIRE(canvas.takeScreenshot().sample(32, 16).hexGreen() == 0xff);
+  REQUIRE(canvas.screenshot().sample(32, 16).hexRed() == 0x00);
+}
+
+TEST_CASE("Layered region keeps its content when an ancestor changes layering", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  Region group;
+  Region group_child1;
+  Region group_child2;
+  Region panel;
+  Region child;
+  canvas.addRegion(&group);
+  group.setNeedsLayer(true);
+  group.setBounds(0, 0, 32, 32);
+  group.addRegion(&group_child1);
+  group_child1.setNeedsLayer(true);
+  group_child1.setBounds(0, 0, 4, 4);
+  group.addRegion(&group_child2);
+  group_child2.setNeedsLayer(true);
+  group_child2.setBounds(8, 0, 4, 4);
+  canvas.addRegion(&panel);
+  panel.setBounds(32, 0, 32, 32);
+  panel.addRegion(&child);
+  child.setNeedsLayer(true);
+  child.setBounds(4, 4, 8, 8);
+
+  auto fill = [&canvas](Region& region, unsigned int color) {
+    canvas.beginRegion(&region);
+    canvas.setColor(color);
+    canvas.fill(0, 0, region.width(), region.height());
+    canvas.endRegion();
+  };
+
+  fill(group, 0xff404040);
+  fill(group_child1, 0xffffffff);
+  fill(group_child2, 0xffffffff);
+  fill(panel, 0xff0000ff);
+  fill(child, 0xff00ff00);
+  REQUIRE(canvas.takeScreenshot().sample(40, 8).hexGreen() == 0xff);
+
+  panel.setNeedsLayer(true);
+  REQUIRE(canvas.takeScreenshot().sample(40, 8).hexGreen() == 0xff);
+
+  panel.setNeedsLayer(false);
+  REQUIRE(canvas.takeScreenshot().sample(40, 8).hexGreen() == 0xff);
+}
+
+TEST_CASE("Cached region next to a bloom region keeps its brightness", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BloomPostEffect bloom;
+  Region glowing;
+  Region cached;
+  canvas.addRegion(&glowing);
+  glowing.setNeedsLayer(true);
+  glowing.setPostEffect(&bloom);
+  glowing.setBounds(0, 0, 32, 32);
+  canvas.addRegion(&cached);
+  cached.setNeedsLayer(true);
+  cached.setBounds(32, 0, 32, 32);
+
+  canvas.beginRegion(&glowing);
+  canvas.setColor(0xff202020);
+  canvas.fill(0, 0, glowing.width(), glowing.height());
+  canvas.endRegion();
+  canvas.beginRegion(&cached);
+  canvas.setColor(0xffffffff);
+  canvas.fill(0, 0, cached.width(), cached.height());
+  canvas.endRegion();
+  REQUIRE(canvas.takeScreenshot().sample(48, 16).hexRed() == 0xff);
+}
+
+TEST_CASE("Cached region keeps its content when a sibling adds a bloom effect", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BloomPostEffect bloom;
+  Region glowing;
+  Region cached;
+  canvas.addRegion(&glowing);
+  glowing.setNeedsLayer(true);
+  glowing.setBounds(0, 0, 32, 32);
+  canvas.addRegion(&cached);
+  cached.setNeedsLayer(true);
+  cached.setBounds(32, 0, 32, 32);
+
+  canvas.beginRegion(&glowing);
+  canvas.setColor(0xff202020);
+  canvas.fill(0, 0, glowing.width(), glowing.height());
+  canvas.endRegion();
+  canvas.beginRegion(&cached);
+  canvas.setColor(0xffffffff);
+  canvas.fill(0, 0, cached.width(), cached.height());
+  canvas.endRegion();
+  REQUIRE(canvas.takeScreenshot().sample(48, 16).hexRed() == 0xff);
+
+  glowing.setPostEffect(&bloom);
+  REQUIRE(canvas.takeScreenshot().sample(48, 16).hexRed() == 0xff);
+}
+
+TEST_CASE("Backdrop only blurs the content under it", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(160, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(20.0f);
+  Region background;
+  Region neighbor;
+  Region glass;
+  canvas.addRegion(&background);
+  background.setBounds(0, 0, 160, 32);
+  canvas.addRegion(&neighbor);
+  neighbor.setBounds(80, 0, 18, 32);
+  canvas.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&blur);
+  glass.setBounds(100, 0, 60, 32);
+
+  auto fill = [&canvas](Region& region, unsigned int color) {
+    canvas.beginRegion(&region);
+    canvas.setColor(color);
+    canvas.fill(0, 0, region.width(), region.height());
+    canvas.endRegion();
+  };
+
+  fill(background, 0xff000000);
+  fill(neighbor, 0xffffffff);
+  canvas.beginRegion(&glass);
+  canvas.endRegion();
+  REQUIRE(canvas.takeScreenshot().sample(101, 16).hexRed() < 0x10);
+
+  neighbor.setBounds(100, 0, 18, 32);
+  REQUIRE(canvas.takeScreenshot().sample(125, 16).hexRed() > 0x30);
+}
+
+TEST_CASE("Layered region with a backdrop child draws translucent content once", "[graphics]") {
+  for (bool with_background : { false, true }) {
+    Canvas canvas;
+    canvas.setWindowless(64, 32);
+    BlurPostEffect blur;
+    blur.setBlurRadius(2.0f);
+    Region background;
+    Region panel;
+    Region child;
+    Region glass;
+    if (with_background) {
+      canvas.addRegion(&background);
+      background.setBounds(0, 0, 64, 32);
+    }
+    canvas.addRegion(&panel);
+    panel.setNeedsLayer(true);
+    panel.setBounds(0, 0, 64, 32);
+    panel.addRegion(&child);
+    child.setBounds(0, 0, 16, 16);
+    panel.addRegion(&glass);
+    glass.setNeedsLayer(true);
+    glass.setBackdropEffect(&blur);
+    glass.setBounds(40, 0, 16, 16);
+
+    canvas.beginRegion(&background);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, 64, 32);
+    canvas.endRegion();
+    canvas.beginRegion(&child);
+    canvas.setColor(0x80ffffff);
+    canvas.fill(0, 0, 16, 16);
+    canvas.endRegion();
+    canvas.beginRegion(&glass);
+    canvas.endRegion();
+
+    unsigned int red = canvas.takeScreenshot().sample(8, 8).hexRed();
+    REQUIRE(red > 0x78);
+    REQUIRE(red < 0x88);
+  }
+}
+
+TEST_CASE("Backdrop inside layered regions blurs their content behind it", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect inner_blur;
+  inner_blur.setBlurRadius(2.0f);
+  BlurPostEffect outer_blur;
+  outer_blur.setBlurRadius(2.0f);
+  Region outer;
+  Region inner;
+  Region inner_glass;
+  Region outer_glass;
+  canvas.addRegion(&outer);
+  outer.setNeedsLayer(true);
+  outer.setBounds(0, 0, 64, 32);
+  outer.addRegion(&inner);
+  inner.setNeedsLayer(true);
+  inner.setBounds(0, 0, 32, 32);
+  inner.addRegion(&inner_glass);
+  inner_glass.setNeedsLayer(true);
+  inner_glass.setBackdropEffect(&inner_blur);
+  inner_glass.setBounds(8, 8, 16, 16);
+  outer.addRegion(&outer_glass);
+  outer_glass.setNeedsLayer(true);
+  outer_glass.setBackdropEffect(&outer_blur);
+  outer_glass.setBounds(40, 8, 16, 16);
+
+  auto split = [&canvas](Region& region, int edge, unsigned int left, unsigned int right) {
+    canvas.beginRegion(&region);
+    canvas.setColor(left);
+    canvas.fill(0, 0, edge, region.height());
+    canvas.setColor(right);
+    canvas.fill(edge, 0, region.width() - edge, region.height());
+    canvas.endRegion();
+  };
+
+  split(outer, 48, 0xff0000ff, 0xff00ff00);
+  split(inner, 16, 0xffff0000, 0xff0000ff);
+  canvas.beginRegion(&inner_glass);
+  canvas.endRegion();
+  canvas.beginRegion(&outer_glass);
+  canvas.endRegion();
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(screenshot.sample(15, 16).hexRed() < 0xe0);
+  REQUIRE(screenshot.sample(15, 16).hexBlue() > 0x20);
+  REQUIRE(screenshot.sample(15, 16).hexGreen() == 0x00);
+  REQUIRE(screenshot.sample(47, 16).hexBlue() < 0xe0);
+  REQUIRE(screenshot.sample(47, 16).hexGreen() > 0x20);
+  REQUIRE(screenshot.sample(47, 16).hexRed() == 0x00);
+}
+
+TEST_CASE("Backdrop sees through cached ancestors but not translucent ones", "[graphics]") {
+  for (bool translucent : { false, true }) {
+    Canvas canvas;
+    canvas.setWindowless(64, 32);
+    BlurPostEffect blur;
+    blur.setBlurRadius(4.0f);
+    Region background;
+    Region group;
+    Region glass;
+    canvas.addRegion(&background);
+    background.setBounds(0, 0, 64, 32);
+    canvas.addRegion(&group);
+    group.setNeedsLayer(true);
+    group.setBounds(0, 0, 64, 32);
+    if (translucent)
+      group.setAlpha(0.5f);
+    group.addRegion(&glass);
+    glass.setNeedsLayer(true);
+    glass.setBackdropEffect(&blur);
+    glass.setBounds(16, 8, 32, 16);
+
+    canvas.beginRegion(&background);
+    canvas.setColor(0xffff0000);
+    canvas.fill(0, 0, 32, 32);
+    canvas.setColor(0xff0000ff);
+    canvas.fill(32, 0, 32, 32);
+    canvas.endRegion();
+    canvas.beginRegion(&group);
+    canvas.endRegion();
+    canvas.beginRegion(&glass);
+    canvas.endRegion();
+
+    Color edge = canvas.takeScreenshot().sample(31, 16);
+    if (translucent) {
+      REQUIRE(edge.hexRed() > 0xf0);
+      REQUIRE(edge.hexBlue() < 0x10);
+    }
+    else {
+      REQUIRE(edge.hexRed() < 0xe0);
+      REQUIRE(edge.hexBlue() > 0x20);
+    }
+  }
+}
+
+TEST_CASE("Backdrop passes run when an earlier backdrop region draws nothing", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect hidden_blur;
+  hidden_blur.setBlurRadius(2.0f);
+  BlurPostEffect blur;
+  blur.setBlurRadius(2.0f);
+  Region background;
+  Region hidden;
+  Region glass;
+  canvas.addRegion(&background);
+  background.setBounds(0, 0, 64, 32);
+  canvas.addRegion(&hidden);
+  hidden.setBounds(0, 0, 16, 16);
+  hidden.setBackdropEffect(&hidden_blur);
+  hidden.setVisible(false);
+  canvas.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&blur);
+  glass.setBounds(32, 0, 32, 32);
+
+  canvas.beginRegion(&background);
+  canvas.setColor(0xff0000ff);
+  canvas.fill(0, 0, 64, 32);
+  canvas.endRegion();
+  canvas.beginRegion(&glass);
+  canvas.setColor(0xffff0000);
+  canvas.fill(8, 8, 16, 16);
+  canvas.endRegion();
+
+  REQUIRE(canvas.takeScreenshot().sample(48, 16).hexRed() == 0xff);
+}
+
+TEST_CASE("Layered region whose backdrop children draw nothing still composites", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect outer_blur;
+  outer_blur.setBlurRadius(2.0f);
+  BlurPostEffect inner_blur;
+  inner_blur.setBlurRadius(2.0f);
+  Region container;
+  Region hidden;
+  Region inner;
+  canvas.addRegion(&container);
+  container.setNeedsLayer(true);
+  container.setBounds(0, 0, 64, 32);
+  container.addRegion(&hidden);
+  hidden.setBounds(8, 8, 32, 16);
+  hidden.setBackdropEffect(&outer_blur);
+  hidden.setVisible(false);
+  hidden.addRegion(&inner);
+  inner.setBounds(0, 0, 16, 16);
+  inner.setBackdropEffect(&inner_blur);
+
+  canvas.beginRegion(&container);
+  canvas.setColor(0xffff0000);
+  canvas.fill(0, 0, 64, 32);
+  canvas.endRegion();
+
+  REQUIRE(canvas.takeScreenshot().sample(56, 16).hexRed() == 0xff);
+}
+
+TEST_CASE("Layer blend modes handle translucent content", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(128, 32);
+  Region background;
+  Region add;
+  Region subtract;
+  Region multiply;
+  Region group;
+  Region grouped_multiply;
+  canvas.addRegion(&background);
+  background.setBounds(0, 0, 128, 32);
+  for (Region* region : { &add, &subtract, &multiply, &group }) {
+    canvas.addRegion(region);
+    region->setNeedsLayer(true);
+  }
+  add.setBounds(0, 0, 32, 32);
+  add.setLayerBlendMode(BlendMode::Add);
+  add.setAlpha(0.5f);
+  subtract.setBounds(32, 0, 32, 32);
+  subtract.setLayerBlendMode(BlendMode::Sub);
+  subtract.setAlpha(0.5f);
+  multiply.setBounds(64, 0, 32, 32);
+  multiply.setLayerBlendMode(BlendMode::Mult);
+  group.setBounds(96, 0, 32, 32);
+  group.addRegion(&grouped_multiply);
+  grouped_multiply.setNeedsLayer(true);
+  grouped_multiply.setLayerBlendMode(BlendMode::Mult);
+  grouped_multiply.setBounds(0, 0, 32, 32);
+
+  auto fill = [&canvas](Region& region, unsigned int color, int width) {
+    canvas.beginRegion(&region);
+    canvas.setColor(color);
+    canvas.fill(0, 0, width, region.height());
+    canvas.endRegion();
+  };
+
+  fill(background, 0xff406080, 128);
+  fill(add, 0xff806040, 32);
+  fill(subtract, 0xff202020, 32);
+  fill(multiply, 0xff808080, 16);
+  fill(grouped_multiply, 0xff808080, 32);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  auto expect = [&screenshot](int x, unsigned int color) {
+    Color sample = screenshot.sample(x, 16);
+    REQUIRE(std::abs(static_cast<int>(sample.hexRed()) - static_cast<int>((color >> 16) & 0xff)) <= 2);
+    REQUIRE(std::abs(static_cast<int>(sample.hexGreen()) - static_cast<int>((color >> 8) & 0xff)) <= 2);
+    REQUIRE(std::abs(static_cast<int>(sample.hexBlue()) - static_cast<int>(color & 0xff)) <= 2);
+  };
+  expect(16, 0x8090a0);
+  expect(48, 0x305070);
+  expect(72, 0x203040);
+  expect(88, 0x406080);
+  expect(112, 0x808080);
+}
+
+TEST_CASE("Shape blend modes handle translucent content", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(128, 32);
+  Region background;
+  Region multiply_layer;
+  Region add_layer;
+  canvas.addRegion(&background);
+  background.setBounds(0, 0, 128, 32);
+  for (Region* region : { &multiply_layer, &add_layer }) {
+    canvas.addRegion(region);
+    region->setNeedsLayer(true);
+  }
+  multiply_layer.setBounds(64, 0, 32, 32);
+  add_layer.setBounds(96, 0, 32, 32);
+
+  canvas.beginRegion(&background);
+  canvas.setColor(0xff406080);
+  canvas.fill(0, 0, 128, 32);
+  canvas.setBlendMode(BlendMode::Mult);
+  canvas.setColor(0xff808080);
+  canvas.circle(0, 0, 32);
+  canvas.setColor(0x80808080);
+  canvas.fill(32, 0, 32, 32);
+  canvas.endRegion();
+
+  canvas.beginRegion(&multiply_layer);
+  canvas.setBlendMode(BlendMode::Mult);
+  canvas.setColor(0xff808080);
+  canvas.fill(0, 0, 32, 32);
+  canvas.endRegion();
+
+  canvas.beginRegion(&add_layer);
+  canvas.setBlendMode(BlendMode::Add);
+  canvas.setColor(0x80ff0000);
+  canvas.fill(0, 0, 32, 32);
+  canvas.endRegion();
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  auto expect = [&screenshot](int x, int y, unsigned int color) {
+    Color sample = screenshot.sample(x, y);
+    REQUIRE(std::abs(static_cast<int>(sample.hexRed()) - static_cast<int>((color >> 16) & 0xff)) <= 2);
+    REQUIRE(std::abs(static_cast<int>(sample.hexGreen()) - static_cast<int>((color >> 8) & 0xff)) <= 2);
+    REQUIRE(std::abs(static_cast<int>(sample.hexBlue()) - static_cast<int>(color & 0xff)) <= 2);
+  };
+  expect(2, 2, 0x406080);
+  expect(16, 16, 0x203040);
+  expect(48, 16, 0x304860);
+  expect(80, 16, 0x808080);
+  expect(112, 16, 0xa03040);
+}
+
+TEST_CASE("Blurred regions share temporary frame buffers", "[graphics]") {
+  static constexpr int kNumBlurred = 8;
+
+  Canvas canvas;
+  canvas.setWindowless(256, 32);
+  BlurPostEffect blurs[kNumBlurred];
+  Region regions[kNumBlurred];
+  for (int i = 0; i < kNumBlurred; ++i) {
+    canvas.addRegion(&regions[i]);
+    regions[i].setNeedsLayer(true);
+    regions[i].setBounds(i * 32, 0, 16, 16);
+  }
+
+  auto frame_buffers = [&] {
+    for (Region& region : regions) {
+      region.invalidate();
+      canvas.beginRegion(&region);
+      canvas.setColor(0xffffffff);
+      canvas.fill(0, 0, region.width(), region.height());
+      canvas.endRegion();
+    }
+    canvas.submit();
+    return bgfx::getStats()->numFrameBuffers;
+  };
+
+  int without_blur = frame_buffers();
+  for (int i = 0; i < kNumBlurred; ++i) {
+    blurs[i].setBlurRadius(3.0f);
+    regions[i].setPostEffect(&blurs[i]);
+  }
+  REQUIRE(frame_buffers() - without_blur <= 2);
+}
+
+TEST_CASE("Blurred regions only blur again when their content changes", "[graphics]") {
+  auto draws_per_frame = [](int num_blurred) {
+    Canvas canvas;
+    canvas.setWindowless(256, 32);
+    std::vector<BlurPostEffect> blurs(num_blurred);
+    std::vector<Region> regions(num_blurred);
+    Region animated;
+    canvas.addRegion(&animated);
+    animated.setNeedsLayer(true);
+    animated.setBounds(0, 0, 16, 16);
+    for (int i = 0; i < num_blurred; ++i) {
+      canvas.addRegion(&regions[i]);
+      regions[i].setNeedsLayer(true);
+      regions[i].setBounds(32 + i * 32, 0, 16, 16);
+      blurs[i].setBlurRadius(10.0f);
+      regions[i].setPostEffect(&blurs[i]);
+      canvas.beginRegion(&regions[i]);
+      canvas.setColor(0xffffffff);
+      canvas.fill(0, 0, 16, 16);
+      canvas.endRegion();
+    }
+
+    for (int frame = 0; frame < 3; ++frame) {
+      animated.invalidate();
+      canvas.beginRegion(&animated);
+      canvas.setColor(frame % 2 ? 0xffff0000 : 0xff0000ff);
+      canvas.fill(0, 0, 16, 16);
+      canvas.endRegion();
+      canvas.submit();
+    }
+    return bgfx::getStats()->numDraw;
+  };
+
+  REQUIRE(draws_per_frame(5) == draws_per_frame(0));
+}
+
+TEST_CASE("One blur effect can be shared by several regions", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(2.0f);
+  Region left;
+  Region right;
+  canvas.addRegion(&left);
+  left.setNeedsLayer(true);
+  left.setPostEffect(&blur);
+  left.setBounds(0, 0, 32, 32);
+  canvas.addRegion(&right);
+  right.setNeedsLayer(true);
+  right.setPostEffect(&blur);
+  right.setBounds(32, 0, 32, 32);
+
+  auto fill = [&canvas](Region& region, unsigned int color) {
+    canvas.beginRegion(&region);
+    canvas.setColor(color);
+    canvas.fill(0, 0, region.width(), region.height());
+    canvas.endRegion();
+  };
+
+  fill(left, 0xffff0000);
+  fill(right, 0xff0000ff);
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(screenshot.sample(16, 16).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(16, 16).hexBlue() == 0x00);
+  REQUIRE(screenshot.sample(48, 16).hexBlue() == 0xff);
+  REQUIRE(screenshot.sample(48, 16).hexRed() == 0x00);
+}
+
+TEST_CASE("Blurred region with a hidden backdrop child still blurs", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(4.0f);
+  BlurPostEffect backdrop;
+  backdrop.setBlurRadius(4.0f);
+  Region blurred;
+  Region glass;
+  canvas.addRegion(&blurred);
+  blurred.setNeedsLayer(true);
+  blurred.setPostEffect(&blur);
+  blurred.setBounds(0, 0, 64, 32);
+  blurred.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&backdrop);
+  glass.setBounds(0, 0, 8, 8);
+  glass.setVisible(false);
+
+  canvas.beginRegion(&blurred);
+  canvas.setColor(0xffffffff);
+  canvas.fill(0, 0, 32, 32);
+  canvas.setColor(0xff000000);
+  canvas.fill(32, 0, 32, 32);
+  canvas.endRegion();
+  REQUIRE(canvas.takeScreenshot().sample(30, 16).hexRed() < 0xf0);
+}
+
 TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BlurPostEffect blur; }
   { BloomPostEffect bloom; }
@@ -751,6 +1451,137 @@ TEST_CASE("Translucent bloom keeps the alpha of its content", "[graphics]") {
   const Screenshot& screenshot = canvas.takeScreenshot();
   for (int i = 0; i <= 10; ++i)
     REQUIRE(screenshot.sample(i * 10 + 5, 5).hexRed() == Approx(255 * (1.0f - i / 10.0f)).margin(2));
+}
+
+TEST_CASE("Translucent bloom glows like opaque bloom", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(200, 100);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 200, 100);
+  BloomPostEffect opaque_bloom;
+  BloomPostEffect translucent_bloom;
+  translucent_bloom.setTranslucent(true);
+  for (BloomPostEffect* bloom : { &opaque_bloom, &translucent_bloom }) {
+    bloom->setBloomSize(16.0f);
+    bloom->setBloomIntensity(0.6f);
+  }
+  Region opaque;
+  Region outer;
+  Region inner;
+  Region translucent;
+  canvas.addRegion(&opaque);
+  canvas.addRegion(&outer);
+  outer.addRegion(&inner);
+  inner.addRegion(&translucent);
+  for (Region* region : { &opaque, &outer, &inner, &translucent })
+    region->setNeedsLayer(true);
+  opaque.setPostEffect(&opaque_bloom);
+  translucent.setPostEffect(&translucent_bloom);
+  opaque.setBounds(0, 0, 100, 100);
+  outer.setBounds(100, 0, 100, 100);
+  inner.setBounds(0, 0, 100, 100);
+  translucent.setBounds(0, 0, 100, 100);
+
+  for (Region* region : { &opaque, &translucent }) {
+    canvas.beginRegion(region);
+    canvas.setColor(Color(0xffff8040, 1.5f));
+    canvas.circle(40, 40, 20);
+    canvas.endRegion();
+  }
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(screenshot.sample(62, 50).hexRed() > 0x40);
+  for (int x : { 62, 70, 80 }) {
+    Color opaque_glow = screenshot.sample(x, 50);
+    Color translucent_glow = screenshot.sample(x + 100, 50);
+    REQUIRE(translucent_glow.hexRed() == Approx(opaque_glow.hexRed()).margin(6));
+    REQUIRE(translucent_glow.hexGreen() == Approx(opaque_glow.hexGreen()).margin(6));
+    REQUIRE(translucent_glow.hexBlue() == Approx(opaque_glow.hexBlue()).margin(6));
+  }
+}
+
+TEST_CASE("Bloom glow stays in place when part of its region redraws", "[graphics]") {
+  auto render = [](bool redraw_part) -> Screenshot {
+    Canvas canvas;
+    canvas.setWindowless(96, 64);
+    BloomPostEffect bloom;
+    bloom.setBloomSize(16.0f);
+    bloom.setBloomIntensity(0.6f);
+    Region glowing;
+    Region overlap;
+    canvas.addRegion(&glowing);
+    glowing.setNeedsLayer(true);
+    glowing.setPostEffect(&bloom);
+    glowing.setBounds(16, 0, 64, 64);
+    canvas.addRegion(&overlap);
+    overlap.setBounds(0, 0, 48, 64);
+
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.beginRegion(&glowing);
+    canvas.setColor(Color(0xffff8040, 1.5f));
+    canvas.circle(16, 16, 32);
+    canvas.endRegion();
+
+    auto draw_stripe = [&](unsigned int color) {
+      overlap.clear();
+      overlap.invalidate();
+      canvas.beginRegion(&overlap);
+      canvas.setColor(color);
+      canvas.fill(0, 0, 8, overlap.height());
+      canvas.endRegion();
+    };
+
+    if (!redraw_part) {
+      draw_stripe(0xff00ff00);
+      return canvas.takeScreenshot();
+    }
+
+    draw_stripe(0xff0000ff);
+    canvas.submit();
+    draw_stripe(0xff00ff00);
+    canvas.layer(0)->requestScreenshot();
+    canvas.submit();
+    return canvas.layer(0)->screenshot();
+  };
+
+  Screenshot full = render(false);
+  Screenshot partial = render(true);
+  for (int y = 0; y < 64; y += 3) {
+    for (int x = 16; x < 80; x += 3) {
+      INFO("x " << x << " y " << y);
+      REQUIRE(partial.sample(x, y).hexRed() == Approx(full.sample(x, y).hexRed()).margin(2));
+      REQUIRE(partial.sample(x, y).hexGreen() == Approx(full.sample(x, y).hexGreen()).margin(2));
+    }
+  }
+}
+
+TEST_CASE("Bloom inside a transparent layered region keeps what's behind it", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  canvas.setColor(0xffff0000);
+  canvas.fill(0, 0, 64, 32);
+  BloomPostEffect bloom;
+  Region container;
+  Region glowing;
+  canvas.addRegion(&container);
+  container.setNeedsLayer(true);
+  container.setBounds(0, 0, 64, 32);
+  container.addRegion(&glowing);
+  glowing.setNeedsLayer(true);
+  glowing.setPostEffect(&bloom);
+  glowing.setBounds(16, 0, 32, 32);
+
+  canvas.beginRegion(&glowing);
+  canvas.setColor(0xffffffff);
+  canvas.fill(14, 14, 4, 4);
+  canvas.endRegion();
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  for (int x : { 18, 24, 40, 44 }) {
+    INFO("x " << x);
+    REQUIRE(screenshot.sample(x, 2).hexRed() == 0xff);
+  }
 }
 
 TEST_CASE("Canvas strokes a path at its logical width", "[graphics]") {

@@ -876,6 +876,36 @@ TEST_CASE("Backdrop frame keeps its content over a redrawing sibling", "[integra
   }
 }
 
+TEST_CASE("Backdrop inside a masked frame only blurs the frame's content", "[integration]") {
+  ApplicationEditor app;
+  Frame group;
+  Frame glass;
+  BlurPostEffect blur;
+  blur.setBlurRadius(4.0f);
+
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xffff0000);
+    canvas.fill(0, 0, 32, 32);
+    canvas.setColor(0xff0000ff);
+    canvas.fill(32, 0, 32, 32);
+  };
+  group.onDrawMask() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+  glass.setBackdropEffect(&blur);
+
+  app.addChild(group);
+  group.addChild(glass);
+  group.setBounds(0, 0, 64, 32);
+  glass.setBounds(16, 8, 32, 16);
+  app.setWindowless(64, 32);
+  app.drawWindow();
+  Color edge = app.takeScreenshot().sample(31, 16);
+  REQUIRE(edge.hexRed() > 0xf0);
+  REQUIRE(edge.hexBlue() < 0x10);
+}
+
 TEST_CASE("Alpha transparency applies to children", "[integration]") {
   ApplicationEditor app;
   Frame parent;

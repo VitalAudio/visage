@@ -136,8 +136,13 @@ namespace visage {
       texture_ = std::make_unique<GradientAtlasTexture>();
 
     if (!bgfx::isValid(texture_->handle)) {
-      texture_->handle = bgfx::createTexture2D(atlas_map_.width(), atlas_map_.height(), false, 1,
-                                               bgfx::TextureFormat::RGBA16F);
+      int width = atlas_map_.width();
+      int height = atlas_map_.height();
+      texture_->handle = bgfx::createTexture2D(width, height, false, 1, bgfx::TextureFormat::RGBA16F);
+      std::unique_ptr<uint64_t[]> clear = std::make_unique<uint64_t[]>(width * height);
+      bgfx::updateTexture2D(texture_->handle, 0, 0, 0, 0, width, height,
+                            bgfx::copy(clear.get(), width * height * sizeof(uint64_t)));
+      repacked_ = true;
     }
 
     if (repacked_) {

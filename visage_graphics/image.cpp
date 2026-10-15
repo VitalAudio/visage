@@ -62,6 +62,11 @@ namespace visage {
       }
     }
 
+    void clear() {
+      std::unique_ptr<unsigned char[]> zeros = std::make_unique<unsigned char[]>(width_ * height_ * 4);
+      updateTexture(zeros.get(), 0, 0, width_, height_);
+    }
+
     void updateTexture(const unsigned char* data, int x, int y, int width, int height) {
       VISAGE_ASSERT(bgfx::isValid(texture_handle_));
       bgfx::updateTexture2D(texture_handle_, 0, 0, x, y, width, height,
@@ -186,6 +191,7 @@ namespace visage {
     VISAGE_ASSERT(texture_.get());
     if (!texture_->hasHandle() || repacked_) {
       texture_->checkHandle();
+      texture_->clear();
       for (auto& image : images_) {
         if (stale_images_.count(image.first) == 0)
           updateImage(image.second.get());

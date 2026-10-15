@@ -56,6 +56,8 @@ namespace visage {
   void setUniformDimensions(int width, int height);
   void setOriginFlipUniform(bool origin_flip);
   void setBlendMode(BlendMode draw_state);
+  void submitBlended(BlendMode blend_mode, int submit_pass, bgfx::ProgramHandle program);
+  float hdrConversion(const Layer& source, const Layer& destination);
 
   bool initTransientQuadBuffers(int num_quads, const bgfx::VertexLayout& layout,
                                 bgfx::TransientVertexBuffer* vertex_buffer,
@@ -66,7 +68,7 @@ namespace visage {
     return reinterpret_cast<T*>(initQuadVerticesWithLayout(num_quads, T::layout()));
   }
 
-  void submitShapes(const Layer& layer, const EmbeddedFile& vertex_shader,
+  void submitShapes(const Layer& layer, BlendMode blend_mode, const EmbeddedFile& vertex_shader,
                     const EmbeddedFile& fragment_shader, bool radial_gradient, int submit_pass);
 
   void setImageAtlasUniform(const BatchVector<ImageWrapper>& batches);
@@ -75,9 +77,11 @@ namespace visage {
   void setHeatMapDataUniform(const BatchVector<HeatMapWrapper>& batches);
   void setPathDataUniform(const BatchVector<PathFillWrapper>& batches);
 
-  void submitText(const BatchVector<TextBlock>& batches, const Layer& layer, int submit_pass);
+  void submitText(const BatchVector<TextBlock>& batches, BlendMode blend_mode, const Layer& layer,
+                  int submit_pass);
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass);
-  void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass);
+  void submitSampleRegions(const BatchVector<SampleRegion>& batches, BlendMode blend_mode,
+                           const Layer& layer, int submit_pass);
 
   template<typename V>
   struct QuadVertices {
@@ -126,10 +130,9 @@ namespace visage {
     if (quads.vertices == nullptr)
       return;
 
-    setBlendMode(state);
     if (set_data_uniform)
       set_data_uniform(batches);
-    submitShapes(layer, T::vertexShader(), T::fragmentShader(), quads.radial_gradient, submit_pass);
+    submitShapes(layer, state, T::vertexShader(), T::fragmentShader(), quads.radial_gradient, submit_pass);
   }
 
   template<typename T>
@@ -176,8 +179,7 @@ namespace visage {
   template<>
   inline void submitShapes<TextBlock>(const BatchVector<TextBlock>& batches, BlendMode state,
                                       Layer& layer, int submit_pass) {
-    setBlendMode(state);
-    submitText(batches, layer, submit_pass);
+    submitText(batches, state, layer, submit_pass);
   }
 
   template<>
@@ -187,10 +189,8 @@ namespace visage {
 
     if (post_effect)
       post_effect->submit(batches, layer, submit_pass);
-    else {
-      setBlendMode(state);
-      submitSampleRegions(batches, layer, submit_pass);
-    }
+    else
+      submitSampleRegions(batches, state, layer, submit_pass);
   }
 
   class SubmitBatch;

@@ -7,5 +7,6 @@ SAMPLER2D(s_texture, 1);
 
 void main() {
   vec4 color = gradient(s_gradient, v_gradient_texture_pos, v_gradient_pos, v_gradient_pos2, v_position);
-  gl_FragColor = color * texture2D(s_texture, v_coordinates);
+  vec4 texel = texture2D(s_texture, v_coordinates);
+  gl_FragColor = clampToAlpha(color * vec4(texel.rgb * texel.a, texel.a));
 }
