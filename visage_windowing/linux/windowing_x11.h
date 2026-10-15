@@ -280,6 +280,7 @@ namespace visage {
     IPoint maxWindowDimensions() const override;
     MonitorInfo monitorInfo() { return monitor_info_; }
     X11Connection* x11Connection() { return x11_; }
+    bool isPluginWindow() const { return plugin_x11_ != nullptr; }
     bool timerThreadRunning() { return timer_thread_running_.load(); }
     double drawTime() const;
     int timerMs() const { return timer_microseconds_.load() / 1000; }
