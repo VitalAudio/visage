@@ -588,7 +588,7 @@ namespace visage {
       int dest_width = widths_[i];
       int dest_height = heights_[i];
 
-      setBlendMode(BlendMode::Add);
+      bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_BLEND_ADD);
 
       setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[i + 1]));
       setPostEffectUniform<Uniforms::kResampleValues>(dest_width * 0.5f / widths_[i + 1],

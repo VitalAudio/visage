@@ -1417,6 +1417,53 @@ TEST_CASE("Translucent bloom keeps the alpha of its content", "[graphics]") {
     REQUIRE(screenshot.sample(i * 10 + 5, 5).hexRed() == Approx(255 * (1.0f - i / 10.0f)).margin(2));
 }
 
+TEST_CASE("Translucent bloom glows like opaque bloom", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(200, 100);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 200, 100);
+  BloomPostEffect opaque_bloom;
+  BloomPostEffect translucent_bloom;
+  translucent_bloom.setTranslucent(true);
+  for (BloomPostEffect* bloom : { &opaque_bloom, &translucent_bloom }) {
+    bloom->setBloomSize(16.0f);
+    bloom->setBloomIntensity(0.6f);
+  }
+  Region opaque;
+  Region outer;
+  Region inner;
+  Region translucent;
+  canvas.addRegion(&opaque);
+  canvas.addRegion(&outer);
+  outer.addRegion(&inner);
+  inner.addRegion(&translucent);
+  for (Region* region : { &opaque, &outer, &inner, &translucent })
+    region->setNeedsLayer(true);
+  opaque.setPostEffect(&opaque_bloom);
+  translucent.setPostEffect(&translucent_bloom);
+  opaque.setBounds(0, 0, 100, 100);
+  outer.setBounds(100, 0, 100, 100);
+  inner.setBounds(0, 0, 100, 100);
+  translucent.setBounds(0, 0, 100, 100);
+
+  for (Region* region : { &opaque, &translucent }) {
+    canvas.beginRegion(region);
+    canvas.setColor(Color(0xffff8040, 1.5f));
+    canvas.circle(40, 40, 20);
+    canvas.endRegion();
+  }
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(screenshot.sample(62, 50).hexRed() > 0x40);
+  for (int x : { 62, 70, 80 }) {
+    Color opaque_glow = screenshot.sample(x, 50);
+    Color translucent_glow = screenshot.sample(x + 100, 50);
+    REQUIRE(translucent_glow.hexRed() == Approx(opaque_glow.hexRed()).margin(6));
+    REQUIRE(translucent_glow.hexGreen() == Approx(opaque_glow.hexGreen()).margin(6));
+    REQUIRE(translucent_glow.hexBlue() == Approx(opaque_glow.hexBlue()).margin(6));
+  }
+}
+
 TEST_CASE("Canvas strokes a path at its logical width", "[graphics]") {
   for (float scale : { 1.0f, 2.0f }) {
     Canvas canvas;
