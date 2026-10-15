@@ -334,6 +334,10 @@ namespace visage {
     return { size, packed_font_->data(), packed_font_->dataSize(), dpi_scale_ };
   }
 
+  const PackedGlyph* Font::packedGlyph(char32_t character) const {
+    return packed_font_ ? packed_font_->packedGlyph(character) : &kNullPackedGlyph;
+  }
+
   int Font::nativeWidthOverflowIndex(const char32_t* string, int string_length, float width,
                                      bool round, int character_override) const {
     float string_width = 0;
@@ -343,7 +347,7 @@ namespace visage {
         character = character_override;
       const PackedGlyph* packed_char = &kNullPackedGlyph;
       if (!isIgnored(character))
-        packed_char = packed_font_->packedGlyph(character);
+        packed_char = packedGlyph(character);
 
       float advance = packed_char->x_advance;
       float break_point = advance;
@@ -364,14 +368,14 @@ namespace visage {
       return 0.0f;
 
     if (character_override) {
-      float advance = packed_font_->packedGlyph(character_override)->x_advance;
+      float advance = packedGlyph(character_override)->x_advance;
       return advance * length;
     }
 
     float width = 0.0f;
     for (int i = 0; i < length; ++i) {
       if (!isNewLine(string[i]) && !isIgnored(string[i]))
-        width += packed_font_->packedGlyph(string[i])->x_advance;
+        width += packedGlyph(string[i])->x_advance;
     }
 
     return width;
@@ -401,7 +405,7 @@ namespace visage {
       char32_t character = character_override ? character_override : text[i];
       const PackedGlyph* packed_glyph = &kNullPackedGlyph;
       if (!isIgnored(character))
-        packed_glyph = packed_font_->packedGlyph(character);
+        packed_glyph = packedGlyph(character);
 
       quads[i].packed_glyph = packed_glyph;
       quads[i].x = pen_x + packed_glyph->x_offset;
@@ -475,27 +479,31 @@ namespace visage {
   }
 
   int Font::nativeLineHeight() const {
-    return packed_font_->lineHeight();
+    return packed_font_ ? packed_font_->lineHeight() : 0;
   }
 
   float Font::nativeCapitalHeight() const {
-    return packed_font_->packedGlyph('T')->y_offset;
+    return packedGlyph('T')->y_offset;
   }
 
   float Font::nativeLowerDipHeight() const {
-    const PackedGlyph* glyph = packed_font_->packedGlyph('y');
+    const PackedGlyph* glyph = packedGlyph('y');
     return glyph->y_offset + glyph->height;
   }
 
   int Font::atlasWidth() const {
-    return packed_font_->atlasWidth();
+    return packed_font_ ? packed_font_->atlasWidth() : 0;
   }
 
   int Font::atlasHeight() const {
-    return packed_font_->atlasHeight();
+    return packed_font_ ? packed_font_->atlasHeight() : 0;
   }
 
   const bgfx::TextureHandle& Font::textureHandle() const {
+    static const bgfx::TextureHandle kInvalidHandle = BGFX_INVALID_HANDLE;
+    if (packed_font_ == nullptr)
+      return kInvalidHandle;
+
     packed_font_->checkInit();
     return packed_font_->textureHandle();
   }

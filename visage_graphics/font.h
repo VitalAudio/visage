@@ -130,6 +130,7 @@ namespace visage {
     const PackedFont* packedFont() const { return packed_font_; }
 
   private:
+    const PackedGlyph* packedGlyph(char32_t character) const;
     int nativeWidthOverflowIndex(const char32_t* string, int string_length, float width,
                                  bool round = false, int character_override = 0) const;
     float nativeStringWidth(const char32_t* string, int length, int character_override = 0) const;
