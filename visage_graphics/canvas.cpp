@@ -88,8 +88,10 @@ namespace visage {
         submission = layers_[i]->submit(submission, backdrop);
     }
 
-    for (int i = 1; i < layers_.size(); ++i)
+    for (int i = 1; i < layers_.size(); ++i) {
       layers_[i]->clearInvalidRects();
+      layers_[i]->destroyIdleTemporaryFrameBuffers();
+    }
 
     if (submission > submit_pass) {
       composite_layer_.invalidate();

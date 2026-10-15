@@ -26,12 +26,23 @@
 #include "renderer.h"
 
 #include <bgfx/bgfx.h>
+#include <chrono>
 
 namespace visage {
+  struct TemporaryFrameBuffer {
+    bgfx::FrameBufferHandle handle = BGFX_INVALID_HANDLE;
+    int width = 0;
+    int height = 0;
+    bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8;
+    bool in_use = false;
+    std::chrono::steady_clock::time_point last_used;
+  };
+
   struct FrameBufferData {
     bgfx::TextureHandle read_back_handle = BGFX_INVALID_HANDLE;
     bgfx::FrameBufferHandle handle = BGFX_INVALID_HANDLE;
     bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8;
+    std::vector<TemporaryFrameBuffer> temporaries;
   };
 
   static bgfx::SwapChain swapChain(void* window_handle, int width, int height,
@@ -180,6 +191,8 @@ namespace visage {
 
   Layer::~Layer() {
     destroyFrameBuffer();
+    for (TemporaryFrameBuffer& temporary : frame_buffer_data_->temporaries)
+      bgfx::destroy(temporary.handle);
   }
 
   void Layer::checkFrameBuffer() {
@@ -236,6 +249,53 @@ namespace visage {
 
   int Layer::frameBufferFormat() const {
     return frame_buffer_data_->format;
+  }
+
+  bgfx::FrameBufferHandle Layer::temporaryFrameBuffer(int width, int height) {
+    static constexpr uint64_t kFrameBufferFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP |
+                                                  BGFX_SAMPLER_V_CLAMP;
+
+    bgfx::TextureFormat::Enum format = frame_buffer_data_->format;
+    for (TemporaryFrameBuffer& temporary : frame_buffer_data_->temporaries) {
+      if (!temporary.in_use && temporary.width == width && temporary.height == height &&
+          temporary.format == format) {
+        temporary.in_use = true;
+        temporary.last_used = std::chrono::steady_clock::now();
+        return temporary.handle;
+      }
+    }
+
+    TemporaryFrameBuffer temporary;
+    temporary.handle = bgfx::createFrameBuffer(width, height, format, kFrameBufferFlags);
+    temporary.width = width;
+    temporary.height = height;
+    temporary.format = format;
+    temporary.in_use = true;
+    temporary.last_used = std::chrono::steady_clock::now();
+    frame_buffer_data_->temporaries.push_back(temporary);
+    return temporary.handle;
+  }
+
+  void Layer::releaseTemporaryFrameBuffer(bgfx::FrameBufferHandle handle) {
+    for (TemporaryFrameBuffer& temporary : frame_buffer_data_->temporaries) {
+      if (temporary.handle.idx == handle.idx)
+        temporary.in_use = false;
+    }
+  }
+
+  void Layer::destroyIdleTemporaryFrameBuffers() {
+    static constexpr std::chrono::seconds kMaxIdleTime(3);
+
+    auto now = std::chrono::steady_clock::now();
+    auto& temporaries = frame_buffer_data_->temporaries;
+    auto idle = [now](const TemporaryFrameBuffer& temporary) {
+      if (temporary.in_use || now - temporary.last_used <= kMaxIdleTime)
+        return false;
+
+      bgfx::destroy(temporary.handle);
+      return true;
+    };
+    temporaries.erase(std::remove_if(temporaries.begin(), temporaries.end(), idle), temporaries.end());
   }
 
   void Layer::invalidateRectInRegion(IBounds rect, const Region* region) {
@@ -318,7 +378,7 @@ namespace visage {
       if (region->backdropCount() > backdrop_count || region->backdropCountChildren() < backdrop_count)
         continue;
 
-      if (region->backdropEffect() && region->backdropCount() == backdrop_count) {
+      if (region->backdropEffect() && region->backdropCount() == backdrop_count && hasInvalidRects(region)) {
         Region* backdrop_root = region->parent();
         while (backdrop_root && !backdrop_root->isBackdropRoot())
           backdrop_root = backdrop_root->parent();
@@ -337,7 +397,7 @@ namespace visage {
     }
     bool clear = intermediate_layer_ && backdrop_count == 0;
     if (region_positions.empty() && !clear)
-      return submit_pass;
+      return preprocessPostEffects(submit_pass, backdrop_count);
 
     const SubmitBatch* current_batch = nullptr;
     std::vector<PositionedBatch> batches;
@@ -398,12 +458,16 @@ namespace visage {
       }
     }
 
-    submit_pass = submit_pass + 1;
-    for (Region* region : regions_) {
-      if (region->postEffect())
-        submit_pass = region->postEffect()->preprocess(region, submit_pass);
-    }
+    return preprocessPostEffects(submit_pass + 1, backdrop_count);
+  }
 
+  int Layer::preprocessPostEffects(int submit_pass, int backdrop_count) {
+    for (Region* region : regions_) {
+      if (region->postEffect() && region->backdropCountChildren() == backdrop_count &&
+          hasInvalidRects(region)) {
+        submit_pass = region->postEffect()->preprocess(region, submit_pass);
+      }
+    }
     return submit_pass;
   }
 

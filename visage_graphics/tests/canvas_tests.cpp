@@ -1090,6 +1090,135 @@ TEST_CASE("Backdrop sees through cached ancestors but not translucent ones", "[g
   }
 }
 
+TEST_CASE("Blurred regions share temporary frame buffers", "[graphics]") {
+  static constexpr int kNumBlurred = 8;
+
+  Canvas canvas;
+  canvas.setWindowless(256, 32);
+  BlurPostEffect blurs[kNumBlurred];
+  Region regions[kNumBlurred];
+  for (int i = 0; i < kNumBlurred; ++i) {
+    canvas.addRegion(&regions[i]);
+    regions[i].setNeedsLayer(true);
+    regions[i].setBounds(i * 32, 0, 16, 16);
+  }
+
+  auto frame_buffers = [&] {
+    for (Region& region : regions) {
+      region.invalidate();
+      canvas.beginRegion(&region);
+      canvas.setColor(0xffffffff);
+      canvas.fill(0, 0, region.width(), region.height());
+      canvas.endRegion();
+    }
+    canvas.submit();
+    return bgfx::getStats()->numFrameBuffers;
+  };
+
+  int without_blur = frame_buffers();
+  for (int i = 0; i < kNumBlurred; ++i) {
+    blurs[i].setBlurRadius(3.0f);
+    regions[i].setPostEffect(&blurs[i]);
+  }
+  REQUIRE(frame_buffers() - without_blur <= 2);
+}
+
+TEST_CASE("Blurred regions only blur again when their content changes", "[graphics]") {
+  auto draws_per_frame = [](int num_blurred) {
+    Canvas canvas;
+    canvas.setWindowless(256, 32);
+    std::vector<BlurPostEffect> blurs(num_blurred);
+    std::vector<Region> regions(num_blurred);
+    Region animated;
+    canvas.addRegion(&animated);
+    animated.setNeedsLayer(true);
+    animated.setBounds(0, 0, 16, 16);
+    for (int i = 0; i < num_blurred; ++i) {
+      canvas.addRegion(&regions[i]);
+      regions[i].setNeedsLayer(true);
+      regions[i].setBounds(32 + i * 32, 0, 16, 16);
+      blurs[i].setBlurRadius(10.0f);
+      regions[i].setPostEffect(&blurs[i]);
+      canvas.beginRegion(&regions[i]);
+      canvas.setColor(0xffffffff);
+      canvas.fill(0, 0, 16, 16);
+      canvas.endRegion();
+    }
+
+    for (int frame = 0; frame < 3; ++frame) {
+      animated.invalidate();
+      canvas.beginRegion(&animated);
+      canvas.setColor(frame % 2 ? 0xffff0000 : 0xff0000ff);
+      canvas.fill(0, 0, 16, 16);
+      canvas.endRegion();
+      canvas.submit();
+    }
+    return bgfx::getStats()->numDraw;
+  };
+
+  REQUIRE(draws_per_frame(5) == draws_per_frame(0));
+}
+
+TEST_CASE("One blur effect can be shared by several regions", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(2.0f);
+  Region left;
+  Region right;
+  canvas.addRegion(&left);
+  left.setNeedsLayer(true);
+  left.setPostEffect(&blur);
+  left.setBounds(0, 0, 32, 32);
+  canvas.addRegion(&right);
+  right.setNeedsLayer(true);
+  right.setPostEffect(&blur);
+  right.setBounds(32, 0, 32, 32);
+
+  auto fill = [&canvas](Region& region, unsigned int color) {
+    canvas.beginRegion(&region);
+    canvas.setColor(color);
+    canvas.fill(0, 0, region.width(), region.height());
+    canvas.endRegion();
+  };
+
+  fill(left, 0xffff0000);
+  fill(right, 0xff0000ff);
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(screenshot.sample(16, 16).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(16, 16).hexBlue() == 0x00);
+  REQUIRE(screenshot.sample(48, 16).hexBlue() == 0xff);
+  REQUIRE(screenshot.sample(48, 16).hexRed() == 0x00);
+}
+
+TEST_CASE("Blurred region with a hidden backdrop child still blurs", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(4.0f);
+  BlurPostEffect backdrop;
+  backdrop.setBlurRadius(4.0f);
+  Region blurred;
+  Region glass;
+  canvas.addRegion(&blurred);
+  blurred.setNeedsLayer(true);
+  blurred.setPostEffect(&blur);
+  blurred.setBounds(0, 0, 64, 32);
+  blurred.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&backdrop);
+  glass.setBounds(0, 0, 8, 8);
+  glass.setVisible(false);
+
+  canvas.beginRegion(&blurred);
+  canvas.setColor(0xffffffff);
+  canvas.fill(0, 0, 32, 32);
+  canvas.setColor(0xff000000);
+  canvas.fill(32, 0, 32, 32);
+  canvas.endRegion();
+  REQUIRE(canvas.takeScreenshot().sample(30, 16).hexRed() < 0xf0);
+}
+
 TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BlurPostEffect blur; }
   { BloomPostEffect bloom; }

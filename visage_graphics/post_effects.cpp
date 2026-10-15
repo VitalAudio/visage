@@ -48,6 +48,7 @@ namespace visage {
     bgfx::VertexBufferHandle inv_screen_vertex_buffer = BGFX_INVALID_HANDLE;
     bgfx::FrameBufferHandle downsample_buffers1[DownsamplePostEffect::kMaxDownsamples + 1] {};
     bgfx::FrameBufferHandle downsample_buffers2[DownsamplePostEffect::kMaxDownsamples + 1] {};
+    bgfx::FrameBufferHandle backdrop = BGFX_INVALID_HANDLE;
 
     ~DownsampleHandles() { destroy(); }
 
@@ -138,19 +139,9 @@ namespace visage {
     int full_height = region->height();
     bgfx::TextureFormat::Enum format = static_cast<bgfx::TextureFormat::Enum>(region->layer()->frameBufferFormat());
 
-    if (!bgfx::isValid(handles_->screen_index_buffer)) {
-      handles_->screen_index_buffer = bgfx::createIndexBuffer(bgfx::makeRef(visage::kQuadTriangles,
-                                                                            sizeof(visage::kQuadTriangles)));
-      const bgfx::Memory* vertex_memory = bgfx::makeRef(screen_vertices_, sizeof(screen_vertices_));
-      handles_->screen_vertex_buffer = bgfx::createVertexBuffer(vertex_memory, UvVertex::layout());
-      const bgfx::Memory* inv_vertex_memory = bgfx::makeRef(inv_screen_vertices_,
-                                                            sizeof(inv_screen_vertices_));
-      handles_->inv_screen_vertex_buffer = bgfx::createVertexBuffer(inv_vertex_memory, UvVertex::layout());
-    }
-
+    checkScreenBuffers();
     if (full_width != full_width_ || full_height != full_height_ || format_ != format) {
-      full_width_ = full_width;
-      full_height_ = full_height;
+      setLevelDimensions(full_width, full_height);
       format_ = format;
       handles_->destroyFrameBuffers();
     }
@@ -158,14 +149,34 @@ namespace visage {
     if (!bgfx::isValid(handles_->downsample_buffers1[1])) {
       int start_index = full_resolution ? 0 : 1;
       for (int i = start_index; i <= kMaxDownsamples; ++i) {
-        int scale = 1 << i;
-        widths_[i] = std::max(1, (full_width + scale - 1) / scale);
-        heights_[i] = std::max(1, (full_height + scale - 1) / scale);
         handles_->downsample_buffers1[i] = bgfx::createFrameBuffer(widths_[i], heights_[i], format,
                                                                    kFrameBufferFlags);
         handles_->downsample_buffers2[i] = bgfx::createFrameBuffer(widths_[i], heights_[i], format,
                                                                    kFrameBufferFlags);
       }
+    }
+  }
+
+  void DownsamplePostEffect::checkScreenBuffers() {
+    if (bgfx::isValid(handles_->screen_index_buffer))
+      return;
+
+    handles_->screen_index_buffer = bgfx::createIndexBuffer(bgfx::makeRef(visage::kQuadTriangles,
+                                                                          sizeof(visage::kQuadTriangles)));
+    const bgfx::Memory* vertex_memory = bgfx::makeRef(screen_vertices_, sizeof(screen_vertices_));
+    handles_->screen_vertex_buffer = bgfx::createVertexBuffer(vertex_memory, UvVertex::layout());
+    const bgfx::Memory* inv_vertex_memory = bgfx::makeRef(inv_screen_vertices_,
+                                                          sizeof(inv_screen_vertices_));
+    handles_->inv_screen_vertex_buffer = bgfx::createVertexBuffer(inv_vertex_memory, UvVertex::layout());
+  }
+
+  void DownsamplePostEffect::setLevelDimensions(int width, int height) {
+    full_width_ = width;
+    full_height_ = height;
+    for (int i = 0; i <= kMaxDownsamples; ++i) {
+      int scale = 1 << i;
+      widths_[i] = std::max(1, (width + scale - 1) / scale);
+      heights_[i] = std::max(1, (height + scale - 1) / scale);
     }
   }
 
@@ -314,37 +325,52 @@ namespace visage {
 
   BlurPostEffect::~BlurPostEffect() = default;
 
+  static void setRegionView(int submit_pass, Region* region) {
+    Layer* layer = region->layer();
+    IBounds bounds = layer->boundsForRegion(region);
+    bgfx::setViewFrameBuffer(submit_pass, layer->frameBuffer());
+    bgfx::setViewRect(submit_pass, bounds.x(), bounds.y(), bounds.width(), bounds.height());
+    bgfx::setViewClear(submit_pass, BGFX_CLEAR_NONE);
+  }
+
   int BlurPostEffect::preprocess(Region* region, int submit_pass) {
     return blur(region, nullptr, submit_pass);
   }
 
   int BlurPostEffect::preprocessBackdrop(Region* source, const Region* region, int submit_pass) {
+    region_ = source;
     return blur(source, region, submit_pass);
   }
 
   int BlurPostEffect::blur(Region* region, const Region* backdrop_child, int submit_pass) {
     static constexpr float kKernelSigma = 3.3f;
-    checkBuffers(region, true);
 
-    sigma_ = blur_radius_;
-    if (sigma_ < kMinSigma)
+    bool in_place = backdrop_child == nullptr;
+    float sigma = blur_radius_;
+    if (in_place && sigma < kMinSigma)
       return submit_pass;
 
-    auto kernel_sigma = [this](int stages) {
+    Layer* layer = region->layer();
+    bool inverted = layer->bottomLeftOrigin();
+    checkScreenBuffers();
+    setLevelDimensions(region->width(), region->height());
+
+    auto kernel_sigma = [sigma](int stages) {
       float resample_variance = ((1 << (2 * stages + 2)) - 4) * 2.0f / 9.0f;
-      return std::sqrt(std::max(0.0f, sigma_ * sigma_ - resample_variance)) / (1 << stages);
+      return std::sqrt(std::max(0.0f, sigma * sigma - resample_variance)) / (1 << stages);
     };
 
-    downsample_stages_ = 0;
-    while (downsample_stages_ < kMaxDownsamples && kernel_sigma(downsample_stages_) > kKernelSigma)
-      downsample_stages_++;
-    float transition = std::min(1.0f, kernel_sigma(downsample_stages_) / kKernelSigma);
+    int stages = 0;
+    while (sigma >= kMinSigma && stages < kMaxDownsamples && kernel_sigma(stages) > kKernelSigma)
+      stages++;
+    float transition = std::min(1.0f, kernel_sigma(stages) / kKernelSigma);
 
+    bgfx::FrameBufferHandle levels[kMaxDownsamples + 1];
     int last_width = full_width_;
     int last_height = full_height_;
 
-    bgfx::FrameBufferHandle source = region->layer()->frameBuffer();
-    for (int i = 0; i <= downsample_stages_; ++i) {
+    bgfx::FrameBufferHandle source = layer->frameBuffer();
+    for (int i = 0; i <= stages; ++i) {
       int downsample_width = widths_[i];
       int downsample_height = heights_[i];
       float x_downsample_scale = downsample_width * 2.0f / last_width;
@@ -352,13 +378,13 @@ namespace visage {
       last_width = downsample_width;
       last_height = downsample_height;
 
-      bgfx::FrameBufferHandle destination = handles_->downsample_buffers1[i];
+      levels[i] = layer->temporaryFrameBuffer(downsample_width, downsample_height);
       setBlendMode(BlendMode::Opaque);
       setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source));
       setPostEffectUniform<Uniforms::kPixelSize>(1.0f / last_width, 1.0f / last_height);
       bgfx::setIndexBuffer(handles_->screen_index_buffer);
 
-      bgfx::setViewFrameBuffer(submit_pass, destination);
+      bgfx::setViewFrameBuffer(submit_pass, levels[i]);
       bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
 
       if (i == 0) {
@@ -367,68 +393,79 @@ namespace visage {
         bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
       }
       else {
-        setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
+        setScreenVertexBuffer(inverted);
         setPostEffectUniform<Uniforms::kResampleValues>(x_downsample_scale, y_downsample_scale);
         bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_blur_sample));
       }
 
       submit_pass++;
       if (i == 0 && backdrop_child) {
-        submit_pass = compositeLayeredAncestors(backdrop_child, region, destination,
+        submit_pass = compositeLayeredAncestors(backdrop_child, region, levels[0],
                                                 handles_->screen_index_buffer, submit_pass);
       }
-      source = destination;
+      source = levels[i];
     }
 
-    setBlendMode(BlendMode::Opaque);
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source));
-    setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
+    if (sigma >= kMinSigma) {
+      bgfx::FrameBufferHandle scratch = layer->temporaryFrameBuffer(last_width, last_height);
+      setBlendMode(BlendMode::Opaque);
+      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source));
+      setScreenVertexBuffer(inverted);
 
-    bgfx::setIndexBuffer(handles_->screen_index_buffer);
-    bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers2[downsample_stages_]);
-    bgfx::setViewRect(submit_pass, 0, 0, last_width, last_height);
-    setPostEffectUniform<Uniforms::kPixelSize>(transition / last_width, 0.0f);
-    bgfx::submit(submit_pass,
-                 ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
-    submit_pass++;
-
-    setBlendMode(BlendMode::Opaque);
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers2[downsample_stages_]));
-    setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
-
-    bgfx::setIndexBuffer(handles_->screen_index_buffer);
-    bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers1[downsample_stages_]);
-    bgfx::setViewRect(submit_pass, 0, 0, last_width, last_height);
-    setPostEffectUniform<Uniforms::kPixelSize>(0.0f, transition / last_height);
-    bgfx::submit(submit_pass,
-                 ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
-    submit_pass++;
-
-    for (int i = downsample_stages_; i > 1; --i) {
-      int dest_width = widths_[i - 1];
-      int dest_height = heights_[i - 1];
-
-      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[i]));
-      setPostEffectUniform<Uniforms::kResampleValues>(dest_width * 0.5f / widths_[i],
-                                                      dest_height * 0.5f / heights_[i]);
-      setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
       bgfx::setIndexBuffer(handles_->screen_index_buffer);
-      bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers1[i - 1]);
-      bgfx::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
+      bgfx::setViewFrameBuffer(submit_pass, scratch);
+      bgfx::setViewRect(submit_pass, 0, 0, last_width, last_height);
+      setPostEffectUniform<Uniforms::kPixelSize>(transition / last_width, 0.0f);
+      bgfx::submit(submit_pass,
+                   ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
+      submit_pass++;
 
       setBlendMode(BlendMode::Opaque);
-      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
+      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(scratch));
+      setScreenVertexBuffer(inverted);
+
+      bgfx::setIndexBuffer(handles_->screen_index_buffer);
+      if (in_place && stages == 0)
+        setRegionView(submit_pass, region);
+      else {
+        bgfx::setViewFrameBuffer(submit_pass, levels[stages]);
+        bgfx::setViewRect(submit_pass, 0, 0, last_width, last_height);
+      }
+      setPostEffectUniform<Uniforms::kPixelSize>(0.0f, transition / last_height);
+      bgfx::submit(submit_pass,
+                   ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
       submit_pass++;
+      layer->releaseTemporaryFrameBuffer(scratch);
+
+      for (int i = stages; i > (in_place ? 0 : 1); --i) {
+        int dest_width = widths_[i - 1];
+        int dest_height = heights_[i - 1];
+
+        setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(levels[i]));
+        setPostEffectUniform<Uniforms::kResampleValues>(dest_width * 0.5f / widths_[i],
+                                                        dest_height * 0.5f / heights_[i]);
+        setScreenVertexBuffer(inverted);
+        bgfx::setIndexBuffer(handles_->screen_index_buffer);
+        if (i == 1 && in_place)
+          setRegionView(submit_pass, region);
+        else {
+          bgfx::setViewFrameBuffer(submit_pass, levels[i - 1]);
+          bgfx::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
+        }
+
+        setBlendMode(BlendMode::Opaque);
+        bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
+        submit_pass++;
+      }
     }
 
+    handles_->backdrop = levels[stages ? 1 : 0];
+    for (int i = 0; i <= stages; ++i)
+      layer->releaseTemporaryFrameBuffer(levels[i]);
     return submit_pass;
   }
 
   void BlurPostEffect::submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) {
-    if (sigma_ < kMinSigma) {
-      submitPassthrough(batches, destination, submit_pass);
-      return;
-    }
     auto quads = setupQuads(batches);
     if (quads.vertices == nullptr)
       return;
@@ -441,9 +478,7 @@ namespace visage {
     float width_scale = 1.0f / widths_[0];
     float height_scale = 1.0f / heights_[0];
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
-
-    int source_index = downsample_stages_ ? 1 : 0;
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[source_index]));
+    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->backdrop));
 
     setTexturePositions(batches, quads.vertices, 0);
     setUniformDimensions(destination.width(), destination.height());
