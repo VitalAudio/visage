@@ -621,6 +621,24 @@ TEST_CASE("Svg numbers read their leading number", "[graphics]") {
   REQUIRE(read("") == -1.0f);
 }
 
+static int numPathPoints(const SvgDrawable* drawable) {
+  int count = drawable->path.numPoints();
+  for (const auto& child : drawable->children)
+    count += numPathPoints(child.get());
+  return count;
+}
+
+TEST_CASE("Svg dimensions with only a scale change", "[graphics]") {
+  std::string data = R"svg(<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="5"/></svg>)svg";
+  Svg rescaled(reinterpret_cast<const unsigned char*>(data.data()), data.size());
+  rescaled.setDimensions(10, 10, 1.0f);
+  rescaled.setDimensions(10, 10, 8.0f);
+  Svg fresh(reinterpret_cast<const unsigned char*>(data.data()), data.size());
+  fresh.setDimensions(10, 10, 8.0f);
+  REQUIRE(numPathPoints(fresh.drawable()) > numPathPoints(parseSvg(data).drawable()));
+  REQUIRE(numPathPoints(rescaled.drawable()) == numPathPoints(fresh.drawable()));
+}
+
 TEST_CASE("Svg attribute character references", "[graphics]") {
   Svg numeric = parseSvg(R"svg(<svg viewBox="0 0 10 10"><path d="M&#x20;1&#x20;1&#32;L&#32;9&#x9;9z" stroke="red"/></svg>)svg");
   REQUIRE(numeric.drawable()->post_bounding_box.width() == Catch::Approx(8.0f).margin(1.0f));
