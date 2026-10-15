@@ -206,9 +206,18 @@ namespace visage {
     return state;
   }
 
+  static bool isMac() {
+    static const bool mac = EM_ASM_INT({
+      var data = navigator.userAgentData;
+      var platform = data && data.platform ? data.platform : navigator.platform;
+      return new RegExp("mac|iphone|ipad|ipod", "i").test(platform || "") ? 1 : 0;
+    });
+    return mac;
+  }
+
   static int keyboardModifiers(const EmscriptenMouseEvent* event) {
     int state = 0;
-    bool mac = EM_ASM_INT({ return clientInformation.vendor.search("Apple"); }) >= 0;
+    bool mac = isMac();
     if (event->ctrlKey)
       state |= mac ? Modifiers::kModifierMacCtrl : Modifiers::kModifierRegCtrl;
     if (event->altKey)
@@ -222,7 +231,7 @@ namespace visage {
 
   static int keyboardModifiers(const EmscriptenKeyboardEvent* event) {
     int state = 0;
-    bool mac = EM_ASM_INT({ return clientInformation.vendor.search("Apple"); }) >= 0;
+    bool mac = isMac();
     if (event->ctrlKey)
       state |= mac ? Modifiers::kModifierMacCtrl : Modifiers::kModifierRegCtrl;
     if (event->altKey)
