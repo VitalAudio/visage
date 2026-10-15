@@ -32,12 +32,9 @@
 
 namespace visage {
   static float toFloat(const std::string& str) {
-    try {
-      return std::stof(str);
-    }
-    catch (...) {
-      return 0.0f;
-    }
+    float result = 0.0f;
+    readFloat(str, result);
+    return result;
   }
 
   template<typename T>

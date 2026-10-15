@@ -274,11 +274,7 @@ namespace visage {
   }
 
   inline void tryReadFloat(float& result, const std::string& string) {
-    try {
-      result = std::stof(string);
-    }
-    catch (...) {
-    }
+    readFloat(string, result);
   }
 
   inline float parseNumber(const std::string& str, float max) {
@@ -1190,12 +1186,8 @@ namespace visage {
 
       std::vector<float> args;
       for (int i = 1; i < tokens.size(); ++i) {
-        try {
-          args.push_back(std::stof(tokens[i]));
-        }
-        catch (...) {
+        if (!readFloat(tokens[i], args.emplace_back()))
           return matrix;
-        }
       }
 
       if (args.empty())

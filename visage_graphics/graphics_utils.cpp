@@ -22,6 +22,9 @@
 #include "graphics_utils.h"
 
 #include <bgfx/bgfx.h>
+#include <cctype>
+#include <locale>
+#include <sstream>
 #include <vector>
 
 #define STB_RECT_PACK_IMPLEMENTATION
@@ -258,6 +261,57 @@ namespace visage {
 #endif
 
 namespace visage {
+  bool readFloat(const std::string& string, float& result) {
+    thread_local std::istringstream stream = [] {
+      std::istringstream classic_stream;
+      classic_stream.imbue(std::locale::classic());
+      return classic_stream;
+    }();
+
+    size_t start = string.find_first_not_of(" \t\n\r\f\v");
+    if (start == std::string::npos)
+      return false;
+
+    auto is_digit = [&](size_t i) {
+      return i < string.size() && std::isdigit(static_cast<unsigned char>(string[i]));
+    };
+    size_t end = start;
+    if (string[end] == '+' || string[end] == '-')
+      end++;
+    size_t digits_start = end;
+    while (is_digit(end))
+      end++;
+    size_t num_digits = end - digits_start;
+    if (end < string.size() && string[end] == '.') {
+      size_t fraction_start = ++end;
+      while (is_digit(end))
+        end++;
+      num_digits += end - fraction_start;
+    }
+    if (num_digits == 0)
+      return false;
+
+    if (end < string.size() && (string[end] == 'e' || string[end] == 'E')) {
+      size_t exponent = end + 1;
+      if (exponent < string.size() && (string[exponent] == '+' || string[exponent] == '-'))
+        exponent++;
+      if (is_digit(exponent)) {
+        end = exponent;
+        while (is_digit(end))
+          end++;
+      }
+    }
+
+    stream.clear();
+    stream.str(string.substr(start, end - start));
+    float value = 0.0f;
+    if (!(stream >> value))
+      return false;
+
+    result = value;
+    return true;
+  }
+
   struct PackedAtlasData {
     stbrp_context pack_context {};
     std::unique_ptr<stbrp_node[]> pack_nodes;
