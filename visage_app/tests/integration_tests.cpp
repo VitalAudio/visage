@@ -1548,6 +1548,35 @@ TEST_CASE("Svg frame clip paths", "[integration]") {
   REQUIRE(bounding_box.sample(15, 15).hexRed() == 0xff);
 }
 
+TEST_CASE("Svg frame clip shapes with a reference box", "[integration]") {
+  auto clipped = [](const std::string& clip_path) {
+    return svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><rect x="10" width="10" height="20" fill="white" clip-path=")svg" +
+                              clip_path + R"svg("/></svg>)svg");
+  };
+
+  Screenshot view_box = clipped("inset(0 0 0 50%) view-box");
+  REQUIRE(view_box.sample(12, 10).hexRed() == 0xff);
+  REQUIRE(view_box.sample(17, 10).hexRed() == 0xff);
+
+  Screenshot no_space = clipped("inset(0 0 0 50%)view-box");
+  REQUIRE(no_space.sample(12, 10).hexRed() == 0xff);
+
+  Screenshot fill_box = clipped("inset(0 0 0 50%) fill-box");
+  REQUIRE(fill_box.sample(12, 10).hexRed() == 0x00);
+  REQUIRE(fill_box.sample(17, 10).hexRed() == 0xff);
+
+  Screenshot unstroked_stroke_box = clipped("inset(0 0 0 50%) stroke-box");
+  REQUIRE(unstroked_stroke_box.sample(12, 10).hexRed() == 0x00);
+  REQUIRE(unstroked_stroke_box.sample(17, 10).hexRed() == 0xff);
+
+  auto stroked = [](const std::string& box) {
+    return svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><rect x="10" width="10" height="20" fill="white" stroke="white" stroke-width="8" clip-path="inset(0 0 0 25%) )svg" +
+                              box + R"svg("/></svg>)svg");
+  };
+  REQUIRE(stroked("stroke-box").sample(11, 10).hexRed() == 0xff);
+  REQUIRE(stroked("fill-box").sample(11, 10).hexRed() == 0x00);
+}
+
 namespace {
   class TestWindow : public Window {
   public:
