@@ -597,7 +597,10 @@ namespace visage {
       return nullptr;
 
     IBounds bounds = computeWindowBounds(width, height);
-    return std::make_unique<WindowX11>(bounds.width(), bounds.height(), parent_handle);
+    auto window = std::make_unique<WindowX11>(bounds.width(), bounds.height(), parent_handle);
+    if (window->x11Connection()->display() == nullptr)
+      return nullptr;
+    return window;
   }
 
   X11Connection::Cursors::Cursors(Display* display) {
@@ -748,7 +751,13 @@ namespace visage {
   }
 
   static void threadTimerCallback(WindowX11* window) {
+    static constexpr int kReconnectMs = 100;
+
     ::Display* display = X11Connection::openDisplay();
+    while (display == nullptr && window->timerThreadRunning()) {
+      Thread::sleep(kReconnectMs);
+      display = X11Connection::openDisplay();
+    }
     if (display == nullptr)
       return;
 
@@ -779,6 +788,8 @@ namespace visage {
     acquireErrorHandler();
     plugin_x11_ = std::make_unique<X11Connection>();
     x11_ = plugin_x11_.get();
+    if (x11_->display() == nullptr)
+      return;
 
     monitor_info_ = activeMonitorInfo();
     X11Connection::DisplayLock lock(x11_);
@@ -825,7 +836,7 @@ namespace visage {
 
     X11Connection::DisplayLock lock(x11_);
     WindowX11* next_owner = isPluginWindow() ? NativeWindowLookup::instance().pluginWindow() : nullptr;
-    if (next_owner) {
+    if (next_owner && x11_->display()) {
       X11Connection* next_x11 = next_owner->x11Connection();
       X11Connection::DisplayLock next_lock(next_x11);
       for (Atom selection : { (Atom)XA_PRIMARY, x11_->clipboard() }) {
