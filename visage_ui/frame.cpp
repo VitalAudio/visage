@@ -48,8 +48,10 @@ namespace visage {
     drawing_ = drawing;
     if (drawing_)
       redraw();
-    else
+    else {
       redrawing_ = false;
+      region_.setNeedsLayer(false);
+    }
 
     for (Frame* child : children_) {
       if (child->isVisible() && child->isDrawing() != drawing_)
