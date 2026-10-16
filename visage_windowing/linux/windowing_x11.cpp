@@ -644,13 +644,49 @@ namespace visage {
     }
   }
 
+  struct ErrorHandler {
+    int windows = 0;
+    bool installed = false;
+    XErrorHandler previous = nullptr;
+  };
+
+  static ErrorHandler& errorHandler() {
+    static ErrorHandler handler;
+    return handler;
+  }
+
+  static void acquireErrorHandler() {
+    ErrorHandler& handler = errorHandler();
+    if (handler.windows++)
+      return;
+
+    XErrorHandler previous = XSetErrorHandler(nullptr);
+    XErrorHandler default_handler = XSetErrorHandler(previous);
+    handler.installed = previous == default_handler;
+    if (handler.installed) {
+      handler.previous = previous;
+      XSetErrorHandler(X11Connection::xErrorHandler);
+    }
+  }
+
+  static void releaseErrorHandler() {
+    ErrorHandler& handler = errorHandler();
+    if (--handler.windows || !handler.installed)
+      return;
+
+    handler.installed = false;
+    XErrorHandler current = XSetErrorHandler(handler.previous);
+    if (current != X11Connection::xErrorHandler)
+      XSetErrorHandler(current);
+  }
+
   WindowX11* WindowX11::last_active_window_ = nullptr;
 
   WindowX11::WindowX11(int x, int y, int width, int height, Decoration decoration) :
       Window(width, height), decoration_(decoration) {
     if (std::strcmp(setlocale(LC_CTYPE, nullptr), "C") == 0)
       setlocale(LC_CTYPE, "");
-    XSetErrorHandler(X11Connection::xErrorHandler);
+    acquireErrorHandler();
     x11_ = X11Connection::globalInstance();
 
     monitor_info_ = activeMonitorInfo();
@@ -712,6 +748,7 @@ namespace visage {
     static constexpr long kEmbedVersion = 0;
     static constexpr long kEmbedMapped = 1;
 
+    acquireErrorHandler();
     plugin_x11_ = std::make_unique<X11Connection>();
     x11_ = plugin_x11_.get();
 
@@ -767,6 +804,10 @@ namespace visage {
       XDestroyIC(input_context_);
     if (window_handle_)
       XDestroyWindow(x11_->display(), window_handle_);
+
+    if (x11_->display())
+      XSync(x11_->display(), False);
+    releaseErrorHandler();
   }
 
   double WindowX11::drawTime() const {
