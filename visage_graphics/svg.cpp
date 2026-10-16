@@ -1803,12 +1803,22 @@ namespace visage {
       drawable->children.push_back(std::make_unique<SvgDrawable>(*masks_.at(id)));
   }
 
-  void SvgParser::collectDefs(std::vector<Tag>& tags) {
+  static void collectUseReferences(const std::vector<Tag>& tags, std::set<std::string>& references) {
+    for (const auto& tag : tags) {
+      if (tag.data.name == "use")
+        references.insert(hrefId(tag));
+      collectUseReferences(tag.children, references);
+    }
+  }
+
+  void SvgParser::collectDefs(std::vector<Tag>& tags, const std::set<std::string>& references) {
     for (auto& tag : tags) {
       if (tag.data.attributes.count("id") && !tag.data.attributes.at("id").empty()) {
-        defs_.emplace("#" + tag.data.attributes.at("id"), tag);
+        std::string id = "#" + tag.data.attributes.at("id");
+        if (references.count(id))
+          defs_.try_emplace(id, tag);
       }
-      collectDefs(tag.children);
+      collectDefs(tag.children, references);
     }
   }
 
@@ -2299,7 +2309,9 @@ namespace visage {
         view_ = loadSvgViewSettings(tag);
     }
 
-    collectDefs(tags);
+    std::set<std::string> use_references;
+    collectUseReferences(tags, use_references);
+    collectDefs(tags, use_references);
     std::set<std::string> reference_ids;
     resolveUses(tags, reference_ids);
     collectTagParents(tags, nullptr);
