@@ -445,8 +445,12 @@ namespace visage {
 
     static GradientPosition radial(const Point& center, float radius_x, float radius_y,
                                    Point focal_center, float focal_radius = 0.0f) {
+      static constexpr float kMaxFocalRadius = 0.999f;
       radius_x = std::max(0.0001f, radius_x);
       radius_y = std::max(0.0001f, radius_y);
+
+      if (focal_radius == 1.0f)
+        focal_radius = kMaxFocalRadius;
 
       GradientPosition position;
       position.point1 = center;
