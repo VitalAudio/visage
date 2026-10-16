@@ -47,6 +47,7 @@ void main() {
 
   col *= 1.4 - 0.14 / length(w);
   vec4 color = gradient(s_gradient, v_gradient_texture_pos, v_gradient_pos, v_gradient_pos2, v_position);
-  gl_FragColor = max(0.0, col) * color;
+  float amount = max(0.0, col);
+  gl_FragColor = vec4(color.rgb * amount * min(amount, 1.0), color.a * amount);
 }
 
