@@ -164,6 +164,7 @@ namespace visage {
     }
 
     Region* region() { return &region_; }
+    Region* outerRegion() { return mask_group_ ? mask_group_.get() : &region_; }
 
     void setPostEffect(PostEffect* post_effect);
     PostEffect* postEffect() const { return post_effect_; }
@@ -196,7 +197,7 @@ namespace visage {
         return;
 
       alpha_transparency_ = alpha;
-      region_.setAlpha(alpha);
+      outerRegion()->setAlpha(alpha);
       redraw();
     }
 
@@ -209,7 +210,7 @@ namespace visage {
 
     void setLayerBlendMode(BlendMode blend_mode) {
       layer_blend_mode_ = blend_mode;
-      region_.setLayerBlendMode(blend_mode);
+      outerRegion()->setLayerBlendMode(blend_mode);
       redraw();
     }
 
@@ -446,8 +447,9 @@ namespace visage {
     void createMaskFrame();
 
     bool requiresLayer() const {
-      return post_effect_ || backdrop_effect_ || cached_ || mask_frame_ ||
-             alpha_transparency_ != 1.0f || layer_blend_mode_ != BlendMode::Alpha;
+      return post_effect_ || backdrop_effect_ || cached_ ||
+             (mask_group_ == nullptr &&
+              (alpha_transparency_ != 1.0f || layer_blend_mode_ != BlendMode::Alpha));
     }
 
     std::string name_;
@@ -505,6 +507,7 @@ namespace visage {
     float alpha_transparency_ = 1.0f;
     BlendMode layer_blend_mode_ = BlendMode::Alpha;
     Region region_;
+    std::unique_ptr<Region> mask_group_;
     std::unique_ptr<Layout> layout_;
     bool drawing_ = true;
     bool redrawing_ = false;

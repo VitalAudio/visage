@@ -31,6 +31,8 @@ namespace visage {
     }
 
     region_.setVisible(visible);
+    if (mask_group_)
+      mask_group_->setVisible(visible);
     if (visible)
       redraw();
     else
@@ -57,7 +59,7 @@ namespace visage {
 
   void Frame::setOnTop(bool on_top) {
     on_top_ = on_top;
-    region_.setOnTop(on_top);
+    outerRegion()->setOnTop(on_top);
     redraw();
   }
 
@@ -82,7 +84,7 @@ namespace visage {
     if (!make_visible)
       child->setVisible(false);
 
-    region_.addRegion(child->region());
+    region_.addRegion(child->outerRegion());
 
     child->setDpiScale(dpi_scale_);
     if (initialized_)
@@ -104,7 +106,7 @@ namespace visage {
     if (child == nullptr || child->parent_ != this)
       return;
 
-    child->region()->invalidate();
+    child->outerRegion()->invalidate();
     child->notifyRemoveFromHierarchy();
     eraseChild(child);
     child->notifyHierarchyChanged();
@@ -174,8 +176,10 @@ namespace visage {
 
     bounds_ = bounds;
     native_bounds_ = new_native_bounds;
-    region_.setBounds(native_bounds_.x(), native_bounds_.y(), native_bounds_.width(),
-                      native_bounds_.height());
+    outerRegion()->setBounds(native_bounds_.x(), native_bounds_.y(), native_bounds_.width(),
+                             native_bounds_.height());
+    if (mask_group_)
+      region_.setBounds(0, 0, native_bounds_.width(), native_bounds_.height());
     computeLayout();
     if (layout_ == nullptr || !layout_->flex()) {
       for (Frame* child : children_)
@@ -349,6 +353,8 @@ namespace visage {
 
     redrawing_ = false;
     region_.invalidate();
+    if (mask_group_)
+      mask_group_->setNeedsLayer(true);
     region_.setNeedsLayer(requiresLayer());
     if (width() <= 0 || height() <= 0) {
       region_.clear();
@@ -375,7 +381,8 @@ namespace visage {
   void Frame::eraseChild(Frame* child) {
     child->parent_ = nullptr;
     child->setEventHandler(nullptr);
-    region_.removeRegion(child->region());
+    if (Region* parent = child->outerRegion()->parent())
+      parent->removeRegion(child->outerRegion());
     children_.erase(std::find(children_.begin(), children_.end(), child));
   }
 
@@ -385,8 +392,25 @@ namespace visage {
     mask_frame_->setOnTop(true);
     mask_frame_->setIgnoresMouseEvents(true, false);
     addChild(mask_frame_.get());
+    region_.removeRegion(mask_frame_->region());
+
+    mask_group_ = std::make_unique<Region>();
+    if (Region* parent = region_.parent())
+      parent->replaceRegion(&region_, mask_group_.get());
+    mask_group_->addRegion(&region_);
+    mask_group_->addRegion(mask_frame_->region());
+    mask_group_->setMasked(true);
+    mask_group_->setVisible(visible_);
+    mask_group_->setOnTop(on_top_);
+    mask_group_->setAlpha(alpha_transparency_);
+    mask_group_->setLayerBlendMode(layer_blend_mode_);
+    mask_group_->setBounds(native_bounds_.x(), native_bounds_.y(), native_bounds_.width(),
+                           native_bounds_.height());
+    region_.setOnTop(false);
+    region_.setAlpha(1.0f);
+    region_.setLayerBlendMode(BlendMode::Alpha);
+    region_.setBounds(0, 0, native_bounds_.width(), native_bounds_.height());
     mask_frame_->setBounds(localBounds());
-    region_.setMasked(true);
     setMaskType(mask_type_);
     redraw();
   }
