@@ -438,7 +438,7 @@ namespace visage {
     void loadViewport(const Tag& tag, SvgDrawable* drawable);
     std::optional<GradientDef> parseGradient(const std::string& color_string);
 
-    void collectDefs(std::vector<Tag>& tags);
+    void collectDefs(std::vector<Tag>& tags, const std::set<std::string>& references);
     void collectGradients(std::vector<Tag>& tags);
     void collectMarkers(std::vector<Tag>& tags);
     void collectMasks(std::vector<Tag>& tags);
