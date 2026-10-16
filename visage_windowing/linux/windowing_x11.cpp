@@ -876,7 +876,8 @@ namespace visage {
   IPoint WindowX11::retrieveWindowDimensions() {
     X11Connection::DisplayLock lock(x11_);
     XWindowAttributes attributes;
-    XGetWindowAttributes(x11_->display(), window_handle_, &attributes);
+    if (XGetWindowAttributes(x11_->display(), window_handle_, &attributes) == 0)
+      return { clientWidth(), clientHeight() };
 
     return { attributes.width, attributes.height };
   }
@@ -1322,11 +1323,13 @@ namespace visage {
 
       if (event.xany.window == parent_handle_ && event.type == ConfigureNotify) {
         XWindowAttributes attributes;
+        Status status;
         {
           X11Connection::DisplayLock lock(x11_);
-          XGetWindowAttributes(x11_->display(), parent_handle_, &attributes);
+          status = XGetWindowAttributes(x11_->display(), parent_handle_, &attributes);
         }
-        setNativeWindowSize(attributes.width, attributes.height);
+        if (status)
+          setNativeWindowSize(attributes.width, attributes.height);
       }
       else if (event.xany.window == window_handle_ && event.type == ClientMessage &&
                event.xclient.message_type == x11_->timerEvent()) {
