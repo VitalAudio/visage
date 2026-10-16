@@ -1165,6 +1165,50 @@ TEST_CASE("Luminance frame mask applies to a bloom frame's output", "[integratio
   REQUIRE(screenshot.sample(50, 10).hexRed() == 0x00);
 }
 
+TEST_CASE("Masked frames blur what's behind them with their own backdrop effect", "[integration]") {
+  auto render = [](int mask_corner) {
+    ApplicationEditor app;
+    Frame glass;
+    BlurPostEffect blur;
+    blur.setBlurRadius(12.0f);
+    app.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0xffff0000);
+      canvas.fill(0, 0, 40, 60);
+      canvas.setColor(0xff0000ff);
+      canvas.fill(40, 0, 40, 60);
+    };
+    glass.setBackdropEffect(&blur);
+    glass.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0x20ffffff);
+      canvas.fill();
+    };
+    if (mask_corner >= 0) {
+      glass.onDrawMask() = [&glass, mask_corner](Canvas& canvas) {
+        canvas.setColor(0xffffffff);
+        canvas.roundedRectangle(0, 0, glass.width(), glass.height(), mask_corner);
+      };
+    }
+
+    app.addChild(glass);
+    glass.setBounds(10, 10, 60, 40);
+    app.setWindowless(80, 60);
+    app.drawWindow();
+    return app.takeScreenshot();
+  };
+
+  Screenshot unmasked = render(-1);
+  REQUIRE(unmasked.sample(38, 30).hexRed() < 0xc0);
+  REQUIRE(unmasked.sample(42, 30).hexRed() > 0x40);
+  for (int mask_corner : { 0, 12 }) {
+    Screenshot masked = render(mask_corner);
+    for (int x : { 34, 38, 42, 46 }) {
+      INFO("mask corner " << mask_corner << " x " << x);
+      REQUIRE(masked.sample(x, 30).hexRed() == Approx(unmasked.sample(x, 30).hexRed()).margin(2));
+      REQUIRE(masked.sample(x, 30).hexBlue() == Approx(unmasked.sample(x, 30).hexBlue()).margin(2));
+    }
+  }
+}
+
 TEST_CASE("Backdrop inside a masked frame only blurs the frame's content", "[integration]") {
   ApplicationEditor app;
   Frame group;
