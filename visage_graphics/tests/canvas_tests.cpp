@@ -25,6 +25,7 @@
 #include "visage_graphics/post_effects.h"
 #include "visage_graphics/renderer.h"
 #include "visage_graphics/shader.h"
+#include "visage_graphics/shape_batcher.h"
 
 #include <bgfx/bgfx.h>
 #include <catch2/catch_approx.hpp>
@@ -583,6 +584,20 @@ TEST_CASE("Canvas gradient atlas growth", "[graphics]") {
     REQUIRE(std::abs(static_cast<int>(sample.hexRed()) - static_cast<int>(expected.hexRed())) <= 1);
     REQUIRE(std::abs(static_cast<int>(sample.hexBlue()) - static_cast<int>(expected.hexBlue())) <= 1);
   }
+}
+
+TEST_CASE("Recycled shape batches keep their shape type", "[graphics]") {
+  int freed_owner = 0;
+  ShapeBatcher batcher;
+  Fill fill({}, nullptr, 0, 0, 10, 10);
+  fill.batch_id = &freed_owner;
+  batcher.addShape(fill);
+  batcher.clear();
+
+  Rectangle rectangle({}, nullptr, 0, 0, 10, 10);
+  rectangle.batch_id = &freed_owner;
+  batcher.addShape(rectangle);
+  REQUIRE(dynamic_cast<ShapeBatch<Rectangle>*>(batcher.batchAtIndex(0)) != nullptr);
 }
 
 TEST_CASE("Windowless canvas resizes don't leak textures", "[graphics]") {

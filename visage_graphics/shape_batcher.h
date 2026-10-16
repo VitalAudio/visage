@@ -206,6 +206,7 @@ namespace visage {
   public:
     explicit SubmitBatch(BlendMode blend_mode) : blend_mode_(blend_mode) { }
     virtual ~SubmitBatch() = default;
+    virtual const void* type() const = 0;
     virtual void clear() = 0;
     virtual void submit(Layer& layer, int submit_pass, const std::vector<PositionedBatch>& others) = 0;
 
@@ -220,8 +221,12 @@ namespace visage {
     }
 
     const void* id() const { return id_; }
-    bool match(const void* id, BlendMode blend_mode, bool radial_gradient) const {
-      return id_ == id && blend_mode_ == blend_mode && radial_gradient_ == radial_gradient;
+    bool match(const void* shape_type, const void* id, BlendMode blend_mode, bool radial_gradient) const {
+      return type() == shape_type && id_ == id && blend_mode_ == blend_mode &&
+             radial_gradient_ == radial_gradient;
+    }
+    bool sortsAfter(const void* shape_type, const void* id) const {
+      return id_ > id || (id_ == id && type() > shape_type);
     }
     bool match(const SubmitBatch* other) const { return compare(other) == 0; }
 
@@ -236,6 +241,10 @@ namespace visage {
       if (id_ < other->id_)
         return -1;
       if (id_ > other->id_)
+        return 1;
+      if (type() < other->type())
+        return -1;
+      if (type() > other->type())
         return 1;
       if (blend_mode_ < other->blend_mode_)
         return -1;
@@ -270,8 +279,15 @@ namespace visage {
   template<typename T>
   class ShapeBatch : public SubmitBatch {
   public:
+    static const void* typeId() {
+      static int type = 0;
+      return &type;
+    }
+
     explicit ShapeBatch(BlendMode blend_mode) : SubmitBatch(blend_mode) { }
     ~ShapeBatch() override = default;
+
+    const void* type() const override { return typeId(); }
 
     void clear() override {
       clearAreas();
@@ -282,8 +298,8 @@ namespace visage {
       BatchVector<T> batch_list;
       batch_list.reserve(batches.size());
       for (const PositionedBatch& batch : batches) {
-        VISAGE_ASSERT(batch.batch->id() == id());
-        const std::vector<T>* shapes = &reinterpret_cast<ShapeBatch<T>*>(batch.batch)->shapes_;
+        VISAGE_ASSERT(batch.batch->type() == type() && batch.batch->id() == id());
+        const std::vector<T>* shapes = &static_cast<ShapeBatch<T>*>(batch.batch)->shapes_;
         batch_list.emplace_back(shapes, batch.invalid_rects, batch.x, batch.y);
       }
       submitShapes(batch_list, blendMode(), layer, submit_pass);
@@ -301,9 +317,10 @@ namespace visage {
   class ShapeBatcher {
   public:
     void clear() {
+      unused_batches_.clear();
       for (auto& batch : batches_) {
         batch->clear();
-        unused_batches_[batch->id()].push_back(std::move(batch));
+        unused_batches_[{ batch->id(), batch->type() }].push_back(std::move(batch));
       }
       batches_.clear();
     }
@@ -313,16 +330,16 @@ namespace visage {
         batch->submit(layer, submit_pass, {});
     }
 
-    int autoBatchIndex(const BaseShape& shape, BlendMode blend) const {
+    int autoBatchIndex(const void* shape_type, const BaseShape& shape, BlendMode blend) const {
       int match = batches_.size();
       int insert = batches_.size();
       for (int i = batches_.size() - 1; i >= 0; --i) {
         SubmitBatch* batch = batches_[i].get();
-        if (batch->match(shape.batch_id, blend, shape.radialGradient()))
+        if (batch->match(shape_type, shape.batch_id, blend, shape.radialGradient()))
           match = i;
         if (batch->overlapsShape(shape))
           break;
-        if (batch->id() > shape.batch_id)
+        if (batch->sortsAfter(shape_type, shape.batch_id))
           insert = i;
       }
       if (match < batches_.size())
@@ -337,32 +354,34 @@ namespace visage {
       return batches_.size() - 1;
     }
 
-    int batchIndex(const BaseShape& shape, BlendMode blend) const {
+    int batchIndex(const void* shape_type, const BaseShape& shape, BlendMode blend) const {
       if (manual_batching_)
         return manualBatchIndex(shape);
-      return autoBatchIndex(shape, blend);
+      return autoBatchIndex(shape_type, shape, blend);
     }
 
     template<typename T>
     ShapeBatch<T>* createNewBatch(const void* id, BlendMode blend, int insert_index) {
-      if (!unused_batches_[id].empty()) {
-        auto batch = std::move(unused_batches_[id].back());
-        unused_batches_[id].pop_back();
+      auto& unused = unused_batches_[{ id, ShapeBatch<T>::typeId() }];
+      if (!unused.empty()) {
+        auto batch = std::move(unused.back());
+        unused.pop_back();
         batch->setBlendMode(blend);
         batches_.insert(batches_.begin() + insert_index, std::move(batch));
       }
       else
         batches_.insert(batches_.begin() + insert_index, std::make_unique<ShapeBatch<T>>(blend));
 
-      return reinterpret_cast<ShapeBatch<T>*>(batches_[insert_index].get());
+      return static_cast<ShapeBatch<T>*>(batches_[insert_index].get());
     }
 
     template<typename T>
     void addShape(T shape, BlendMode blend = BlendMode::Alpha) {
-      int batch_index = batchIndex(shape, blend);
+      const void* shape_type = ShapeBatch<T>::typeId();
+      int batch_index = batchIndex(shape_type, shape, blend);
       bool match = batch_index < batches_.size() &&
-                   batches_[batch_index]->match(shape.batch_id, blend, shape.radialGradient());
-      ShapeBatch<T>* batch = match ? reinterpret_cast<ShapeBatch<T>*>(batches_[batch_index].get()) :
+                   batches_[batch_index]->match(shape_type, shape.batch_id, blend, shape.radialGradient());
+      ShapeBatch<T>* batch = match ? static_cast<ShapeBatch<T>*>(batches_[batch_index].get()) :
                                      createNewBatch<T>(shape.batch_id, blend, batch_index);
 
       batch->addShape(std::move(shape));
@@ -376,7 +395,7 @@ namespace visage {
 
   private:
     std::vector<std::unique_ptr<SubmitBatch>> batches_;
-    std::map<const void*, std::vector<std::unique_ptr<SubmitBatch>>> unused_batches_;
+    std::map<std::pair<const void*, const void*>, std::vector<std::unique_ptr<SubmitBatch>>> unused_batches_;
     bool manual_batching_ = false;
   };
 }
