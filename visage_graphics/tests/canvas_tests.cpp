@@ -1678,3 +1678,33 @@ TEST_CASE("Custom shaders draw with their own blend mode", "[graphics]") {
   REQUIRE(screenshot.sample(15, 5).hexRed() == 0xff);
   REQUIRE(screenshot.sample(15, 5).hexBlue() == 0xff);
 }
+
+TEST_CASE("Moving a layered region keeps its atlas slot", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(200, 50);
+  Region moving;
+  Region still;
+  for (Region* region : { &moving, &still }) {
+    canvas.addRegion(region);
+    region->setNeedsLayer(true);
+  }
+  moving.setBounds(0, 0, 40, 40);
+  still.setBounds(100, 0, 40, 40);
+  for (Region* region : { &moving, &still }) {
+    canvas.beginRegion(region);
+    canvas.setColor(0xffffffff);
+    canvas.fill(0, 0, 40, 40);
+    canvas.endRegion();
+  }
+  canvas.takeScreenshot();
+
+  Layer* layer = moving.layer();
+  IPoint slot = layer->coordinatesForRegion(&moving);
+  for (int x = 1; x <= 20; ++x) {
+    moving.setBounds(x, 0, 40, 40);
+    REQUIRE(layer->coordinatesForRegion(&moving).x == slot.x);
+    REQUIRE(layer->coordinatesForRegion(&moving).y == slot.y);
+    REQUIRE(layer->invalidRects().count(&still) == 0);
+  }
+  REQUIRE(canvas.takeScreenshot().sample(55, 20).hexRed() == 0xff);
+}

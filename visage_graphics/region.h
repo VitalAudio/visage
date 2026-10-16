@@ -59,11 +59,15 @@ namespace visage {
 
     void setBounds(int x, int y, int width, int height) {
       invalidate();
+      bool resized = width != width_ || height != height_;
       x_ = x;
       y_ = y;
       width_ = width;
       height_ = height;
-      setupIntermediateRegion();
+      if (resized)
+        setupIntermediateRegion();
+      else if (intermediate_region_)
+        intermediate_region_->setBounds(x_, y_, width_, height_);
       invalidate();
     }
 
