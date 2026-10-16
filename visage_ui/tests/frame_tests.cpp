@@ -535,6 +535,22 @@ TEST_CASE("Frame removed by its own mouse event", "[ui]") {
   REQUIRE(parent_mouse_downs == 1);
 }
 
+TEST_CASE("Frame removed with its parent by its own mouse event", "[ui]") {
+  Frame list;
+  auto owned_row = std::make_unique<Frame>();
+  Frame* row = owned_row.get();
+  list.addChild(std::move(owned_row));
+  auto owned_button = std::make_unique<Frame>();
+  Frame* button = owned_button.get();
+  row->addChild(std::move(owned_button));
+
+  button->onMouseUp() += [&](const MouseEvent&) { list.removeChild(row); };
+
+  MouseEvent mouse_event {};
+  button->processMouseUp(mouse_event);
+  REQUIRE(list.children().empty());
+}
+
 TEST_CASE("Frame remove child that isn't a child", "[ui]") {
   Frame parent;
   Frame other_parent;

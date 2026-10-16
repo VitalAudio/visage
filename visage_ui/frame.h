@@ -240,6 +240,11 @@ namespace visage {
     }
     Frame* parent() const { return parent_; }
     const std::vector<Frame*>& children() const { return children_; }
+    std::weak_ptr<bool> aliveToken() {
+      if (alive_ == nullptr)
+        alive_ = std::make_shared<bool>(true);
+      return alive_;
+    }
 
     void setEventHandler(FrameEventHandler* handler) {
       event_handler_ = handler;
@@ -422,12 +427,15 @@ namespace visage {
     UndoHistory* undoHistory() const;
     void propagateMouseEvent(const MouseEvent& e, void (Frame::*handler)(const MouseEvent&)) {
       Frame* frame = parent_;
+      std::weak_ptr<bool> frame_alive = frame ? frame->aliveToken() : std::weak_ptr<bool>();
       (this->*handler)(e);
-      while (frame) {
+      while (frame && !frame_alive.expired()) {
         Frame* parent = frame->parent_;
+        std::weak_ptr<bool> parent_alive = parent ? parent->aliveToken() : std::weak_ptr<bool>();
         if (frame->receiveChildMouseEvents())
           (frame->*handler)(e);
         frame = parent;
+        frame_alive = parent_alive;
       }
     }
 
@@ -494,6 +502,7 @@ namespace visage {
     std::map<Frame*, std::unique_ptr<Frame>> owned_children_;
     Frame* parent_ = nullptr;
     FrameEventHandler* event_handler_ = nullptr;
+    std::shared_ptr<bool> alive_;
 
     float dpi_scale_ = 1.0f;
     Palette* palette_ = nullptr;
