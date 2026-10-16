@@ -1771,3 +1771,28 @@ TEST_CASE("Gradient average weighs each stop by the span it covers", "[graphics]
   REQUIRE(offset.average().red() == Approx(0.625f).margin(0.001f));
   REQUIRE(offset.average().blue() == Approx(0.375f).margin(0.001f));
 }
+
+TEST_CASE("Zero-length segments draw a dot only with rounded ends", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(40, 20);
+  Region flat;
+  Region rounded;
+  for (Region* region : { &flat, &rounded })
+    canvas.addRegion(region);
+  flat.setBounds(0, 0, 20, 20);
+  rounded.setBounds(20, 0, 20, 20);
+
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 40, 20);
+  canvas.beginRegion(&flat);
+  canvas.setColor(0xffffffff);
+  canvas.segment(10, 10, 10, 10, 4, false);
+  canvas.endRegion();
+  canvas.beginRegion(&rounded);
+  canvas.setColor(0xffffffff);
+  canvas.segment(10, 10, 10, 10, 4, true);
+  canvas.endRegion();
+
+  REQUIRE(flat.numSubmitBatches() == 0);
+  REQUIRE(canvas.takeScreenshot().sample(30, 10).hexRed() == 0xff);
+}

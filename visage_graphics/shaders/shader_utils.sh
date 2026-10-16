@@ -87,7 +87,8 @@ vec4 gradient(sampler2D gradient_texture, vec4 texture_pos, vec4 gradient_pos1, 
 float sdSegment(vec2 position, vec2 point1, vec2 point2) {
   vec2 position_delta = position - point1;
   vec2 line_delta = point2 - point1;
-  float t = clamp(dot(position_delta, line_delta) / dot(line_delta, line_delta), 0.0, 1.0);
+  float length_squared = dot(line_delta, line_delta);
+  float t = length_squared > 0.0 ? clamp(dot(position_delta, line_delta) / length_squared, 0.0, 1.0) : 0.0;
   return length(position_delta - line_delta * t);
 }
 
