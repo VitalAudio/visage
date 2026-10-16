@@ -1529,3 +1529,60 @@ TEST_CASE("Mouse wheel scrolling a frame under the mouse sends exit and enter", 
   REQUIRE(bottom_exits == 0);
   app.removeFromWindow();
 }
+
+TEST_CASE("Backdrop frames redraw what's under them when their layer repacks", "[integration]") {
+  auto render = [](bool fade_after_first_draw, unsigned int glass_color) {
+    ApplicationEditor app;
+    Frame capture;
+    Frame glass;
+    Frame overlapping_glass;
+    Frame fading;
+    BlurPostEffect blur;
+    BlurPostEffect overlapping_blur;
+    blur.setBlurRadius(10.0f);
+    overlapping_blur.setBlurRadius(16.0f);
+    Canvas* canvas = nullptr;
+    capture.onDraw() = [&](Canvas& capture_canvas) {
+      canvas = &capture_canvas;
+      capture_canvas.layer(0)->requestScreenshot();
+      capture_canvas.setColor(0xff00ffff);
+      capture_canvas.fill(0, 0, 2, 2);
+    };
+    auto fill = [](Frame& frame, unsigned int color) {
+      frame.onDraw() = [&frame, color](Canvas& canvas) {
+        canvas.setColor(color);
+        canvas.fill(0, 0, frame.width(), frame.height());
+      };
+    };
+    fill(glass, glass_color);
+    fill(overlapping_glass, 0x20000000);
+    fill(fading, 0xff808080);
+
+    capture.setBounds(0, 0, 2, 2);
+    glass.setBounds(100, 80, 180, 120);
+    glass.setBackdropEffect(&blur);
+    overlapping_glass.setBounds(220, 120, 180, 120);
+    overlapping_glass.setBackdropEffect(&overlapping_blur);
+    fading.setBounds(260, 220, 160, 80);
+    if (!fade_after_first_draw)
+      fading.setAlphaTransparency(0.6f);
+    for (Frame* frame : { &capture, &glass, &overlapping_glass, &fading })
+      app.addChild(frame);
+
+    app.setWindowless(480, 320);
+    fading.setAlphaTransparency(0.6f);
+    capture.redraw();
+    app.drawWindow();
+    return canvas->layer(0)->screenshot();
+  };
+
+  render(false, 0xff000000);
+  Screenshot screenshot = render(true, 0x30ffffff);
+  Screenshot expected = render(false, 0x30ffffff);
+  for (int y = 2; y < 320; y += 2) {
+    for (int x = 2; x < 480; x += 2) {
+      INFO("x " << x << " y " << y);
+      REQUIRE(screenshot.sample(x, y).hexRed() == Approx(expected.sample(x, y).hexRed()).margin(2));
+    }
+  }
+}

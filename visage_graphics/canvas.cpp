@@ -81,6 +81,8 @@ namespace visage {
     int backdrop_count = window_region_.computeBackdropCount();
     int submission = path_atlas_.updatePaths(submit_pass);
 
+    for (int i = 2; i < layers_.size(); ++i)
+      layers_[i]->invalidateBackdropsIfAllInvalidated();
     for (int i = 2; i < layers_.size(); ++i) {
       if (!layers_[1]->invalidRects().empty())
         layers_[i]->checkBackdropInvalidation(layers_[1]->invalidRects().begin()->second);

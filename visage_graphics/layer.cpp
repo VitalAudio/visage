@@ -332,6 +332,17 @@ namespace visage {
     moveToVector(invalid_rects, invalid_rect_pieces_);
   }
 
+  void Layer::invalidateBackdropsIfAllInvalidated() {
+    if (!invalidated_all_)
+      return;
+
+    invalidated_all_ = false;
+    for (Region* region : regions_) {
+      if (region->backdropEffect())
+        region->invalidate();
+    }
+  }
+
   void Layer::checkBackdropInvalidation(const std::vector<IBounds>& top_level_invalid_rects) {
     for (Region* region : regions_) {
       if (region->backdropEffect()) {
