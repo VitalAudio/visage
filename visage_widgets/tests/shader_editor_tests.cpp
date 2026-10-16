@@ -27,13 +27,28 @@
 #include <catch2/catch_test_macros.hpp>
 #include <filesystem>
 
+#if VISAGE_WINDOWS
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
+
 using namespace visage;
+
+static std::filesystem::path uniqueTempPath(const std::string& name) {
+#if VISAGE_WINDOWS
+  int process_id = _getpid();
+#else
+  int process_id = getpid();
+#endif
+  return std::filesystem::temp_directory_path() / (std::to_string(process_id) + "_" + name);
+}
 
 TEST_CASE("Shader compiler watches folders added while it runs", "[widgets]") {
   static constexpr int kFolders = 20;
   static constexpr int kShadersPerFolder = 20;
 
-  std::filesystem::path root = std::filesystem::temp_directory_path() / "visage_shader_watch_test";
+  std::filesystem::path root = uniqueTempPath("visage_shader_watch_test");
   for (int folder = 0; folder < kFolders; ++folder) {
     std::filesystem::create_directories(root / std::to_string(folder));
     for (int i = 0; i < kShadersPerFolder; ++i)
