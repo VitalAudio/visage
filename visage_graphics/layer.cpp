@@ -497,6 +497,15 @@ namespace visage {
     return submit_pass;
   }
 
+  void Layer::matchMaskGroupsToHdr(const Layer& destination) {
+    if (hdr_ || !destination.hdr())
+      return;
+
+    if (std::any_of(regions_.begin(), regions_.end(),
+                    [](const Region* region) { return region->maskedRegion(); }))
+      setHdr(true, true);
+  }
+
   void Layer::addRegion(Region* region) {
     PostEffect* post_effect = region->postEffect();
     if (post_effect && post_effect->hdr()) {
