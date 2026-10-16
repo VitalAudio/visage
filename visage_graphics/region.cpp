@@ -31,6 +31,15 @@ namespace visage {
     sub_regions_.erase(std::find(sub_regions_.begin(), sub_regions_.end(), region));
   }
 
+  void Region::replaceRegion(Region* region, Region* replacement) {
+    VISAGE_ASSERT(replacement->parent_ == nullptr);
+    *std::find(sub_regions_.begin(), sub_regions_.end(), region) = replacement;
+    region->parent_ = nullptr;
+    replacement->parent_ = this;
+    replacement->setCanvas(canvas_);
+    replacement->setLayerIndex(layer_index_);
+  }
+
   void Region::setCanvas(Canvas* canvas) {
     if (canvas_ == canvas)
       return;
