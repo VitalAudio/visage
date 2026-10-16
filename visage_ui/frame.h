@@ -418,6 +418,7 @@ namespace visage {
     bool canRedo() const;
 
   private:
+    UndoHistory* undoHistory() const;
     void propagateMouseEvent(const MouseEvent& e, void (Frame::*handler)(const MouseEvent&)) {
       Frame* frame = parent_;
       (this->*handler)(e);

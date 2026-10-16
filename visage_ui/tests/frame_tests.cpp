@@ -656,3 +656,24 @@ TEST_CASE("SvgFrame ignores mouse events however it is constructed", "[ui]") {
   REQUIRE(from_data.ignoresMouseEvents());
   REQUIRE(from_file.ignoresMouseEvents());
 }
+
+TEST_CASE("Frame undo helpers use the frame itself when it is the undo history", "[ui]") {
+  class HistoryFrame : public Frame,
+                       public UndoHistory { };
+
+  HistoryFrame frame;
+  Frame child;
+  frame.addChild(child);
+  int value = 0;
+
+  frame.addUndoableAction(std::make_unique<LambdaAction>([&value] { value = 1; },
+                                                         [&value] { value = 2; }));
+  REQUIRE(frame.Frame::canUndo());
+  REQUIRE(child.canUndo());
+
+  frame.triggerUndo();
+  REQUIRE(value == 1);
+  REQUIRE(frame.Frame::canRedo());
+  frame.triggerRedo();
+  REQUIRE(value == 2);
+}
