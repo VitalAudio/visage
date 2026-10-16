@@ -27,9 +27,25 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <filesystem>
+
+#if VISAGE_WINDOWS
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 
 using namespace visage;
 using namespace Catch;
+
+static std::filesystem::path uniqueTempPath(const std::string& name) {
+#if VISAGE_WINDOWS
+  int process_id = _getpid();
+#else
+  int process_id = getpid();
+#endif
+  return std::filesystem::temp_directory_path() / (std::to_string(process_id) + "_" + name);
+}
 
 TEST_CASE("Font embedded test", "[graphics]") {
   Font font(16, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data));
@@ -145,7 +161,7 @@ TEST_CASE("Fonts with the same names but different data don't share a cache entr
 }
 
 TEST_CASE("Resized fonts share the cache with fonts loaded at that size", "[graphics]") {
-  File path = std::filesystem::temp_directory_path() / "visage_font_cache_test.ttf";
+  File path = uniqueTempPath("visage_font_cache_test.ttf");
   REQUIRE(replaceFileWithData(path, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data)));
 
   Font file_font(16, path.string(), 1.0f);
