@@ -26,11 +26,22 @@
 #include <filesystem>
 #include <set>
 
-#if !VISAGE_WINDOWS
+#if VISAGE_WINDOWS
+#include <process.h>
+#else
 #include <unistd.h>
 #endif
 
 using namespace visage;
+
+static std::filesystem::path uniqueTempPath(const std::string& name) {
+#if VISAGE_WINDOWS
+  int process_id = _getpid();
+#else
+  int process_id = getpid();
+#endif
+  return std::filesystem::temp_directory_path() / (std::to_string(process_id) + "_" + name);
+}
 
 TEST_CASE("File existence check", "[utils]") {
   File temp_file = createTemporaryFile("txt");
@@ -206,7 +217,7 @@ TEST_CASE("File writes report errors when flushing fails", "[utils]") {
 #endif
 
 TEST_CASE("Search for files", "[utils]") {
-  std::filesystem::path temp_dir = std::filesystem::temp_directory_path() / "visage_test_search";
+  std::filesystem::path temp_dir = uniqueTempPath("visage_test_search");
   std::filesystem::create_directories(temp_dir);
 
   (void)replaceFileWithText(temp_dir / "test1.txt", "content");
@@ -228,8 +239,7 @@ TEST_CASE("Search for files", "[utils]") {
 }
 
 TEST_CASE("Search for directories", "[utils]") {
-  std::filesystem::path temp_dir = std::filesystem::temp_directory_path() /
-                                   "visage_test_dir_search";
+  std::filesystem::path temp_dir = uniqueTempPath("visage_test_dir_search");
   std::filesystem::create_directories(temp_dir);
 
   std::filesystem::create_directories(temp_dir / "testdir1");
@@ -261,8 +271,7 @@ TEST_CASE("Search in non-existent directory", "[utils]") {
 
 #if !VISAGE_WINDOWS
 TEST_CASE("Search for files skips unreadable directories", "[utils]") {
-  std::filesystem::path temp_dir = std::filesystem::temp_directory_path() /
-                                   "visage_test_search_unreadable";
+  std::filesystem::path temp_dir = uniqueTempPath("visage_test_search_unreadable");
   std::filesystem::path locked = temp_dir / "locked";
   std::filesystem::create_directories(locked);
   (void)replaceFileWithText(temp_dir / "readable.txt", "content");
