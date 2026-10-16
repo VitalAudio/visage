@@ -1708,3 +1708,19 @@ TEST_CASE("Moving a layered region keeps its atlas slot", "[graphics]") {
   }
   REQUIRE(canvas.takeScreenshot().sample(55, 20).hexRed() == 0xff);
 }
+
+TEST_CASE("Rounded triangle with collinear points records no shapes", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(80, 20);
+  Region region;
+  canvas.addRegion(&region);
+  region.setBounds(0, 0, 3010, 3010);
+
+  canvas.beginRegion(&region);
+  canvas.setColor(0xffffffff);
+  canvas.roundedTriangle(5, 10, 20, 10, 35, 10, 3);
+  canvas.roundedTriangleBorder(45, 10, 60, 10, 75, 10, 3, 4);
+  canvas.roundedTriangle(0.1f, 0.1f, 1000.3f, 1000.3f, 3000.7f, 3000.7f, 3);
+  canvas.endRegion();
+  REQUIRE(region.numSubmitBatches() == 0);
+}

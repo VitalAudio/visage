@@ -715,7 +715,10 @@ namespace visage {
       float inscribed_circle_x = (d_bc * a_x + d_ca * b_x + d_ab * c_x) / perimeter;
       float inscribed_circle_y = (d_bc * a_y + d_ca * b_y + d_ab * c_y) / perimeter;
       float s = perimeter * 0.5f;
-      float inscribed_circle_radius = sqrtf(s * (s - d_ab) * (s - d_bc) * (s - d_ca)) / s;
+      float area = std::abs((b_x - a_x) * (c_y - a_y) - (b_y - a_y) * (c_x - a_x)) * 0.5f;
+      float inscribed_circle_radius = area / s;
+      if (inscribed_circle_radius <= 0.0f)
+        return;
 
       rounding = std::min(rounding, inscribed_circle_radius);
       float shrinking = rounding / inscribed_circle_radius;
