@@ -32,7 +32,17 @@
 #include <fstream>
 #include <thread>
 
+#if !VISAGE_WINDOWS
+#include <unistd.h>
+#endif
+
 using namespace visage;
+
+#if !VISAGE_WINDOWS
+static std::filesystem::path uniqueTempPath(const std::string& name) {
+  return std::filesystem::temp_directory_path() / (std::to_string(getpid()) + "_" + name);
+}
+#endif
 
 TEST_CASE("Child process doesn't exist", "[utils]") {
   std::string command = "asdfjkasdfjkabjbizkejzvbieizieizeiezize";
@@ -74,7 +84,7 @@ TEST_CASE("Child process timeout", "[utils]") {
 
 #if !VISAGE_WINDOWS
 TEST_CASE("Child process timeout kills a child that ignores termination", "[utils]") {
-  std::filesystem::path script = std::filesystem::temp_directory_path() / "visage_ignore_term.sh";
+  std::filesystem::path script = uniqueTempPath("visage_ignore_term.sh");
   {
     std::ofstream file(script);
     file << "trap '' TERM\nwhile :; do :; done\n";
@@ -190,8 +200,7 @@ TEST_CASE("Child process with quoted arguments", "[utils]") {
 }
 
 TEST_CASE("Child process with a quoted path containing spaces", "[utils]") {
-  std::filesystem::path path = std::filesystem::temp_directory_path() /
-                               "visage child process test.txt";
+  std::filesystem::path path = uniqueTempPath("visage child process test.txt");
   {
     std::ofstream file(path);
     file << "contents";
