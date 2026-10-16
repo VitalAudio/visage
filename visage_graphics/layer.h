@@ -57,6 +57,7 @@ namespace visage {
 
     void setIntermediateLayer(bool intermediate_layer) { intermediate_layer_ = intermediate_layer; }
     void addRegion(Region* region);
+    void matchMaskGroupsToHdr(const Layer& destination);
     void removeRegion(const Region* region) {
       auto it = std::find(regions_.begin(), regions_.end(), region);
       if (it != regions_.end())

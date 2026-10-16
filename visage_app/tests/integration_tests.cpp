@@ -1209,6 +1209,81 @@ TEST_CASE("Masked frames blur what's behind them with their own backdrop effect"
   }
 }
 
+TEST_CASE("A full mask keeps a frame's HDR output for an outer bloom", "[integration]") {
+  static constexpr int kWidth = 96;
+  static constexpr int kHeight = 64;
+  enum Inner {
+    kPlain,
+    kBloom,
+    kShader
+  };
+  auto render = [](bool outer_translucent, Inner inner_kind, bool masked) {
+    ApplicationEditor app;
+    Frame outer;
+    Frame inner;
+    BloomPostEffect outer_bloom;
+    outer_bloom.setBloomSize(10.0f);
+    outer_bloom.setBloomIntensity(0.8f);
+    outer_bloom.setTranslucent(outer_translucent);
+    BloomPostEffect inner_bloom;
+    inner_bloom.setBloomSize(6.0f);
+    inner_bloom.setBloomIntensity(0.5f);
+    inner_bloom.setTranslucent(true);
+    ShaderPostEffect shader(test_shaders::vs_test_post_effect, test_shaders::fs_test_opaque);
+    app.onDraw() = [](Canvas& canvas) {
+      for (int x = 0; x < kWidth; x += 8) {
+        canvas.setColor(x % 16 ? 0xff304050 : 0xffa0c0e0);
+        canvas.fill(x, 0, 8, kHeight);
+      }
+    };
+    outer.onDraw() = [&outer](Canvas& canvas) {
+      canvas.setColor(0xc0204080);
+      canvas.fill(0, 0, outer.width() / 3, outer.height());
+    };
+    inner.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(Color(0xffff8040, 2.5f));
+      canvas.fill(8, 8, 16, 12);
+      canvas.setColor(0x80ffffff);
+      canvas.fill(28, 8, 12, 20);
+    };
+    if (masked) {
+      inner.onDrawMask() = [](Canvas& canvas) {
+        canvas.setColor(0xffffffff);
+        canvas.fill();
+      };
+    }
+
+    outer.setPostEffect(&outer_bloom);
+    if (inner_kind == kBloom)
+      inner.setPostEffect(&inner_bloom);
+    else if (inner_kind == kShader)
+      inner.setPostEffect(&shader);
+    app.addChild(outer);
+    outer.setBounds(8, 4, 80, 56);
+    outer.addChild(inner);
+    inner.setBounds(16, 8, 48, 40);
+    app.setWindowless(kWidth, kHeight);
+    app.drawWindow();
+    return app.takeScreenshot();
+  };
+
+  for (bool outer_translucent : { true, false }) {
+    for (Inner inner_kind : { kPlain, kBloom, kShader }) {
+      Screenshot unmasked = render(outer_translucent, inner_kind, false);
+      Screenshot masked = render(outer_translucent, inner_kind, true);
+      for (int y = 1; y < kHeight; y += 2) {
+        for (int x = 1; x < kWidth; x += 2) {
+          INFO("outer translucent " << outer_translucent << " inner " << inner_kind << " x " << x
+                                    << " y " << y);
+          REQUIRE(masked.sample(x, y).hexRed() == Approx(unmasked.sample(x, y).hexRed()).margin(2));
+          REQUIRE(masked.sample(x, y).hexGreen() == Approx(unmasked.sample(x, y).hexGreen()).margin(2));
+          REQUIRE(masked.sample(x, y).hexBlue() == Approx(unmasked.sample(x, y).hexBlue()).margin(2));
+        }
+      }
+    }
+  }
+}
+
 TEST_CASE("Backdrop inside a masked frame only blurs the frame's content", "[integration]") {
   ApplicationEditor app;
   Frame group;
