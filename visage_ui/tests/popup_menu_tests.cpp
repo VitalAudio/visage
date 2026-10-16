@@ -471,7 +471,7 @@ TEST_CASE("PopupMenu sub menu opens next to its scrolled option", "[ui]") {
   auto* sub_list = dynamic_cast<PopupList*>(popup->children()[1]);
 
   list->setYPosition(200);
-  list->setHoverFromPosition({ 10, list->yForIndex(15) + 5 });
+  list->setHoverFromPosition({ 10, list->yForIndex(15) + 5.0f });
   REQUIRE(list->hoverIndex() == 15);
   list->selectHoveredIndex();
 
@@ -489,7 +489,7 @@ TEST_CASE("PopupMenu long sub menu fits in the window", "[ui]") {
   auto* list = dynamic_cast<PopupList*>(popup->children()[0]);
   auto* sub_list = dynamic_cast<PopupList*>(popup->children()[1]);
 
-  list->setHoverFromPosition({ 10, list->yForIndex(0) + 5 });
+  list->setHoverFromPosition({ 10, list->yForIndex(0) + 5.0f });
   list->selectHoveredIndex();
 
   REQUIRE(sub_list->isVisible());
@@ -507,7 +507,7 @@ TEST_CASE("PopupMenu hover uses the scroll position of the hovered list", "[ui]"
   auto* list = dynamic_cast<PopupList*>(popup->children()[0]);
   auto* sub_list = dynamic_cast<PopupList*>(popup->children()[1]);
 
-  list->setHoverFromPosition({ 10, list->yForIndex(0) + 5 });
+  list->setHoverFromPosition({ 10, list->yForIndex(0) + 5.0f });
   list->selectHoveredIndex();
   sub_list->setYPosition(100);
 
@@ -562,12 +562,12 @@ TEST_CASE("PopupMenu sub menu starts at the top when switching sub menus", "[ui]
   auto* list = dynamic_cast<PopupList*>(popup->children()[0]);
   auto* sub_list = dynamic_cast<PopupList*>(popup->children()[1]);
 
-  list->setHoverFromPosition({ 10, list->yForIndex(0) + 5 });
+  list->setHoverFromPosition({ 10, list->yForIndex(0) + 5.0f });
   list->selectHoveredIndex();
   sub_list->setYPosition(100);
   REQUIRE(sub_list->yPosition() == 100);
 
-  list->setHoverFromPosition({ 10, list->yForIndex(1) + 5 });
+  list->setHoverFromPosition({ 10, list->yForIndex(1) + 5.0f });
   list->selectHoveredIndex();
   REQUIRE(sub_list->numOptions() == 40);
   REQUIRE(sub_list->yPosition() == 0);
