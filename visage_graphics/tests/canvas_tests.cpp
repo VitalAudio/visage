@@ -23,6 +23,7 @@
 #include "visage_graphics/color.h"
 #include "visage_graphics/gradient.h"
 #include "visage_graphics/post_effects.h"
+#include "visage_graphics/renderer.h"
 #include "visage_graphics/shader.h"
 
 #include <bgfx/bgfx.h>
@@ -1849,4 +1850,28 @@ TEST_CASE("Radial gradients with focal radii at or beyond the radius render like
   require_color(61, 20, 0x9b0064);
   require_color(61, 1, 0xff0000);
   require_color(95, 20, 0xeb0015);
+}
+
+TEST_CASE("Renderer reads captured screenshots in their format and row order", "[graphics]") {
+  struct Capture {
+    const void* data;
+    int format;
+    bool y_flip;
+  };
+
+  static const uint8_t kBgraBottomUp[] = { 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0xff };
+  static const uint8_t kRgbaTopDown[] = { 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0xff };
+  static const uint32_t kRgb10A2TopDown[] = { 0xc00003ff, 0xfff00000 };
+  for (const Capture& capture : { Capture { kBgraBottomUp, bgfx::TextureFormat::BGRA8, true },
+                                  Capture { kRgbaTopDown, bgfx::TextureFormat::RGBA8, false },
+                                  Capture { kRgb10A2TopDown, bgfx::TextureFormat::RGB10A2, false } }) {
+    INFO("format " << capture.format);
+    Renderer::instance().setScreenshotData(static_cast<const uint8_t*>(capture.data), 1, 2, 4,
+                                           capture.format, capture.y_flip);
+    const Screenshot& screenshot = Renderer::instance().screenshot();
+    REQUIRE(screenshot.sample(0, 0).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(0, 0).hexBlue() == 0x00);
+    REQUIRE(screenshot.sample(0, 1).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(0, 1).hexBlue() == 0xff);
+  }
 }
