@@ -22,6 +22,7 @@
 #include "visage_widgets/button.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <vector>
 
 using namespace visage;
 
@@ -226,4 +227,18 @@ TEST_CASE("ButtonChangeAction after button is deleted", "[widgets]") {
 
   action.undo();
   action.redo();
+}
+
+TEST_CASE("ToggleButton setToggledAndNotify calls toggleValueChanged", "[widgets]") {
+  class WatchedToggle : public ToggleButton {
+  public:
+    void toggleValueChanged() override { values.push_back(toggled()); }
+
+    std::vector<bool> values;
+  };
+
+  WatchedToggle toggle_button;
+  toggle_button.setToggledAndNotify(true);
+  toggle_button.setToggledAndNotify(false);
+  REQUIRE(toggle_button.values == std::vector<bool> { true, false });
 }

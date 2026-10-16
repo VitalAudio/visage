@@ -59,8 +59,14 @@ namespace visage {
     }
 
     bool isFilled() const { return filled_; }
-    void setFilled(bool fill) { filled_ = fill; }
-    void setFillCenter(FillCenter fill_center) { fill_center_ = fill_center; }
+    void setFilled(bool fill) {
+      filled_ = fill;
+      redraw();
+    }
+    void setFillCenter(FillCenter fill_center) {
+      fill_center_ = fill_center;
+      redraw();
+    }
     void setFillCenter(float center) {
       custom_fill_center_ = center;
       fill_center_ = kCustom;
@@ -71,8 +77,14 @@ namespace visage {
     int numPoints() const { return data_.numPoints(); }
 
     bool active() const { return active_; }
-    void setActive(bool active) { active_ = active; }
-    void setFillAlphaMult(float mult) { fill_alpha_mult_ = mult; }
+    void setActive(bool active) {
+      active_ = active;
+      redraw();
+    }
+    void setFillAlphaMult(float mult) {
+      fill_alpha_mult_ = mult;
+      redraw();
+    }
 
   private:
     void drawLine(Canvas& canvas, theme::ColorId color_id);
