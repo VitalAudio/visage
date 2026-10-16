@@ -54,6 +54,7 @@ namespace visage {
     }
 
     void removeRegion(Region* region);
+    void replaceRegion(Region* region, Region* replacement);
     void setCanvas(Canvas* canvas);
 
     void setBounds(int x, int y, int width, int height) {

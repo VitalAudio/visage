@@ -21,8 +21,10 @@
 
 #include "visage/app.h"
 
+#include <algorithm>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <embedded/test_shaders.h>
 #include <visage/ui.h>
 #include <visage/widgets.h>
 
@@ -874,6 +876,261 @@ TEST_CASE("Backdrop frame keeps its content over a redrawing sibling", "[integra
     app.drawWindow();
     REQUIRE(app.takeScreenshot().sample(20, 20).hexRed() == 0xff);
   }
+}
+
+TEST_CASE("Frame mask applies to on-top children added after it", "[integration]") {
+  ApplicationEditor app;
+  Frame frame;
+  Frame added_on_top;
+  Frame made_on_top;
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  frame.onDrawMask() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill(0, 0, frame.width() / 2, frame.height());
+  };
+  for (Frame* child : { &added_on_top, &made_on_top }) {
+    child->onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0xffffffff);
+      canvas.fill();
+    };
+  }
+
+  added_on_top.setOnTop(true);
+  frame.addChild(added_on_top);
+  frame.addChild(made_on_top);
+  made_on_top.setOnTop(true);
+  added_on_top.setBounds(0, 0, 40, 10);
+  made_on_top.setBounds(0, 10, 40, 10);
+  frame.setBounds(0, 0, 40, 20);
+  app.addChild(frame);
+  app.setWindowless(40, 20);
+  app.drawWindow();
+  Screenshot screenshot = app.takeScreenshot();
+  REQUIRE(screenshot.sample(10, 5).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(30, 5).hexRed() == 0x00);
+  REQUIRE(screenshot.sample(10, 15).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(30, 15).hexRed() == 0x00);
+}
+
+TEST_CASE("Frame mask applies after its blur", "[integration]") {
+  ApplicationEditor app;
+  Frame frame;
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  frame.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+  frame.onDrawMask() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill(0, 0, frame.width() / 2, frame.height());
+  };
+
+  frame.setBlurRadius(8.0f);
+  frame.setBounds(0, 0, 80, 80);
+  app.addChild(frame);
+  app.setWindowless(80, 80);
+  app.drawWindow();
+  Screenshot screenshot = app.takeScreenshot();
+  REQUIRE(screenshot.sample(38, 40).hexRed() >= 0xfd);
+  REQUIRE(screenshot.sample(42, 40).hexRed() <= 0x02);
+}
+
+TEST_CASE("Frame mask clips its bloom glow", "[integration]") {
+  auto render = [](int mask_width) {
+    ApplicationEditor app;
+    Frame frame;
+    BloomPostEffect bloom;
+    bloom.setBloomSize(16.0f);
+    bloom.setBloomIntensity(0.6f);
+    app.onDraw() = [&](Canvas& canvas) {
+      canvas.setColor(0xff000000);
+      canvas.fill();
+    };
+    frame.onDraw() = [&](Canvas& canvas) {
+      canvas.setColor(Color(0xffff8040, 1.5f));
+      canvas.fill(24, 16, 14, 32);
+    };
+    frame.onDrawMask() = [mask_width](Canvas& canvas) {
+      canvas.setColor(0xffffffff);
+      canvas.fill(0, 0, mask_width, 64);
+    };
+
+    frame.setPostEffect(&bloom);
+    frame.setBounds(0, 0, 80, 64);
+    app.addChild(frame);
+    app.setWindowless(80, 64);
+    app.drawWindow();
+    return app.takeScreenshot();
+  };
+
+  Screenshot full = render(80);
+  Screenshot masked = render(40);
+  REQUIRE(full.sample(44, 32).hexRed() > 0x10);
+  for (int x : { 41, 44, 50 })
+    REQUIRE(masked.sample(x, 32).hexRed() == 0x00);
+  for (int x : { 16, 20, 39 }) {
+    INFO("x " << x);
+    REQUIRE(masked.sample(x, 32).hexRed() == Approx(full.sample(x, 32).hexRed()).margin(2));
+    REQUIRE(masked.sample(x, 32).hexGreen() == Approx(full.sample(x, 32).hexGreen()).margin(2));
+  }
+}
+
+TEST_CASE("Masked frames blend their effect's masked output with their layer blend mode",
+          "[integration]") {
+  static constexpr int kWidth = 60;
+  static constexpr int kHeight = 40;
+  enum Effect {
+    kBlur,
+    kBloom,
+    kShader
+  };
+  auto render = [](Effect effect, BlendMode blend_mode, int mask_width, bool backdrop, bool with_frame) {
+    ApplicationEditor app;
+    Frame frame;
+    BloomPostEffect bloom;
+    bloom.setBloomSize(8.0f);
+    bloom.setBloomIntensity(0.3f);
+    ShaderPostEffect opaque(test_shaders::vs_test_post_effect, test_shaders::fs_test_opaque);
+    if (backdrop) {
+      app.onDraw() = [](Canvas& canvas) {
+        canvas.setColor(0xff304050);
+        canvas.fill(0, 0, kWidth / 2, kHeight);
+        canvas.setColor(0xffa0c0e0);
+        canvas.fill(kWidth / 2, 0, kWidth / 2, kHeight);
+      };
+    }
+    frame.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0x80c06040);
+      canvas.fill(0, 0, kWidth * 3 / 4, kHeight);
+      canvas.setColor(0xff2040c0);
+      canvas.fill(10, 10, 20, 20);
+    };
+    frame.onDrawMask() = [mask_width](Canvas& canvas) {
+      canvas.setColor(0xffffffff);
+      canvas.fill(0, 0, mask_width, kHeight);
+    };
+
+    if (effect == kBlur)
+      frame.setBlurRadius(6.0f);
+    else if (effect == kBloom)
+      frame.setPostEffect(&bloom);
+    else
+      frame.setPostEffect(&opaque);
+    frame.setLayerBlendMode(blend_mode);
+    frame.setBounds(0, 0, kWidth, kHeight);
+    if (with_frame)
+      app.addChild(frame);
+    app.setWindowless(kWidth, kHeight);
+    app.drawWindow();
+    return app.takeScreenshot();
+  };
+
+  auto blend = [](BlendMode blend_mode, float backdrop, float source, float source_alpha) {
+    float result = source + backdrop * (1.0f - source_alpha);
+    if (blend_mode == BlendMode::Add)
+      result = source + backdrop;
+    else if (blend_mode == BlendMode::Sub)
+      result = backdrop - source;
+    else if (blend_mode == BlendMode::Mult)
+      result = source * backdrop + backdrop * (1.0f - source_alpha);
+    return std::clamp(result, 0.0f, 1.0f);
+  };
+
+  Screenshot backdrop = render(kBlur, BlendMode::Alpha, kWidth, true, false);
+  for (Effect effect : { kBlur, kBloom, kShader }) {
+    Screenshot source = render(effect, BlendMode::Alpha, kWidth, false, true);
+    for (BlendMode blend_mode : { BlendMode::Alpha, BlendMode::Add, BlendMode::Sub, BlendMode::Mult }) {
+      Screenshot screenshot = render(effect, blend_mode, kWidth / 2, true, true);
+      for (int y = 1; y < kHeight; y += 2) {
+        for (int x = 1; x < kWidth; x += 2) {
+          Color source_color = x < kWidth / 2 ? source.sample(x, y) : Color(0);
+          Color background = backdrop.sample(x, y);
+          Color result = screenshot.sample(x, y);
+          float source_alpha = source_color.hexAlpha() / 255.0f;
+          INFO("effect " << effect << " blend mode " << static_cast<int>(blend_mode) << " x " << x
+                         << " y " << y);
+          REQUIRE(result.hexRed() == Approx(255.0f * blend(blend_mode, background.hexRed() / 255.0f,
+                                                           source_color.hexRed() / 255.0f, source_alpha))
+                                         .margin(2));
+          REQUIRE(result.hexGreen() == Approx(255.0f * blend(blend_mode, background.hexGreen() / 255.0f,
+                                                             source_color.hexGreen() / 255.0f, source_alpha))
+                                           .margin(2));
+          REQUIRE(result.hexBlue() == Approx(255.0f * blend(blend_mode, background.hexBlue() / 255.0f,
+                                                            source_color.hexBlue() / 255.0f, source_alpha))
+                                          .margin(2));
+        }
+      }
+    }
+  }
+}
+
+TEST_CASE("Masking a frame keeps its place among its siblings", "[integration]") {
+  ApplicationEditor app;
+  Frame below;
+  Frame above;
+  below.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(0xffff0000);
+    canvas.fill();
+  };
+  above.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(0xff0000ff);
+    canvas.fill();
+  };
+
+  below.setBounds(0, 0, 30, 20);
+  above.setBounds(20, 0, 20, 20);
+  app.addChild(below);
+  app.addChild(above);
+  below.onDrawMask() = [](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+  app.setWindowless(40, 20);
+  app.drawWindow();
+  Screenshot screenshot = app.takeScreenshot();
+  REQUIRE(screenshot.sample(10, 10).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(25, 10).hexBlue() == 0xff);
+  REQUIRE(screenshot.sample(25, 10).hexRed() == 0x00);
+}
+
+TEST_CASE("Luminance frame mask applies to a bloom frame's output", "[integration]") {
+  ApplicationEditor app;
+  Frame frame;
+  BloomPostEffect bloom;
+  bloom.setBloomIntensity(0.0f);
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  frame.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+  frame.setMaskType(MaskType::Luminance);
+  frame.onDrawMask() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill(0, 0, 20, 20);
+    canvas.setColor(0xff808080);
+    canvas.fill(20, 0, 20, 20);
+    canvas.setColor(0xff000000);
+    canvas.fill(40, 0, 20, 20);
+  };
+
+  frame.setPostEffect(&bloom);
+  frame.setBounds(0, 0, 60, 20);
+  app.addChild(frame);
+  app.setWindowless(60, 20);
+  app.drawWindow();
+  Screenshot screenshot = app.takeScreenshot();
+  REQUIRE(screenshot.sample(10, 10).hexRed() == Approx(0xff).margin(2));
+  REQUIRE(screenshot.sample(30, 10).hexRed() == Approx(0x80).margin(2));
+  REQUIRE(screenshot.sample(50, 10).hexRed() == 0x00);
 }
 
 TEST_CASE("Backdrop inside a masked frame only blurs the frame's content", "[integration]") {
