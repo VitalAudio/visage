@@ -1006,6 +1006,7 @@ namespace visage {
 
   void resolveNamespaces(std::vector<Tag>& tags, const std::map<std::string, std::string>& parent_namespaces) {
     static const std::string kSvgNamespace = "http://www.w3.org/2000/svg";
+    static const std::string kXlinkNamespace = "http://www.w3.org/1999/xlink";
 
     for (auto& tag : tags) {
       const auto* namespaces = &parent_namespaces;
@@ -1018,6 +1019,24 @@ namespace visage {
         declared[attribute.first == "xmlns" ? "" : attribute.first.substr(6)] = attribute.second;
         namespaces = &declared;
       }
+
+      std::vector<std::pair<std::string, std::string>> xlink_attributes;
+      for (auto it = tag.data.attributes.begin(); it != tag.data.attributes.end();) {
+        size_t attribute_colon = it->first.find(':');
+        std::string attribute_prefix = it->first.substr(0, attribute_colon);
+        if (attribute_colon != std::string::npos && attribute_prefix != "xmlns" &&
+            attribute_prefix != "xlink") {
+          auto attribute_namespace = namespaces->find(attribute_prefix);
+          if (attribute_namespace != namespaces->end() && attribute_namespace->second == kXlinkNamespace) {
+            xlink_attributes.emplace_back("xlink:" + it->first.substr(attribute_colon + 1), it->second);
+            it = tag.data.attributes.erase(it);
+            continue;
+          }
+        }
+        ++it;
+      }
+      for (auto& attribute : xlink_attributes)
+        tag.data.attributes.emplace(std::move(attribute));
 
       size_t colon = tag.data.name.find(':');
       std::string prefix = colon == std::string::npos ? "" : tag.data.name.substr(0, colon);
