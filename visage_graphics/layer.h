@@ -49,6 +49,7 @@ namespace visage {
 
     GradientAtlas* gradientAtlas() const { return gradient_atlas_; }
 
+    void invalidateBackdropsIfAllInvalidated();
     void checkBackdropInvalidation(const std::vector<IBounds>& top_level_invalid_rects);
     bool hasBackdropEffect() const;
     void clearInvalidRectAreas(int submit_pass);
@@ -86,6 +87,7 @@ namespace visage {
       invalid_rects_.clear();
       for (const auto& region : regions_)
         invalid_rects_[region].push_back(boundsForRegion(region));
+      invalidated_all_ = true;
     }
 
     const std::map<const Region*, std::vector<IBounds>>& invalidRects() const {
@@ -170,6 +172,7 @@ namespace visage {
     PackedAtlasMap<const Region*> atlas_map_;
     std::map<const Region*, std::vector<IBounds>> invalid_rects_;
     std::vector<IBounds> invalid_rect_pieces_;
+    bool invalidated_all_ = false;
     std::vector<Region*> regions_;
   };
 }
