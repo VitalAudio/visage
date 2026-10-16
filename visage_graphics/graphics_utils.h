@@ -82,6 +82,8 @@ namespace visage {
     int bottom;
   };
 
+  int maxTextureDimension();
+
   class AtlasPacker {
   public:
     AtlasPacker();
@@ -126,8 +128,6 @@ namespace visage {
     }
 
     void pack(int start_width = kDefaultWidth, int start_height = kDefaultWidth) {
-      static constexpr int kMaxDimension = 1 << 14;
-
       checkRemovedRects();
       if (packed_rects_.size() == 1) {
         width_ = std::max(1, packed_rects_[0].w + packer_.padding());
@@ -136,19 +136,21 @@ namespace visage {
           VISAGE_ASSERT(false);
       }
       else if (!packed_rects_.empty()) {
-        width_ = std::max(kDefaultWidth, start_width);
-        height_ = std::max(kDefaultWidth, start_height);
+        int max_dimension = maxTextureDimension();
+        width_ = fixed_width_ ? fixed_width_ :
+                                std::min(max_dimension, std::max(kDefaultWidth, start_width));
+        height_ = std::min(max_dimension, std::max(kDefaultWidth, start_height));
 
-        while (width_ < kMaxDimension * 2 || height_ < kMaxDimension * 2) {
-          width_ = fixed_width_ ? fixed_width_ : std::min(kMaxDimension, width_);
-          height_ = std::min(kMaxDimension, height_);
-          if (packer_.pack(packed_rects_, width_, height_))
+        while (!packer_.pack(packed_rects_, width_, height_)) {
+          if (!fixed_width_ && width_ <= height_ && width_ < max_dimension)
+            width_ = std::min(max_dimension, width_ * 2);
+          else if (height_ < max_dimension)
+            height_ = std::min(max_dimension, height_ * 2);
+          else {
+            VISAGE_ASSERT(false);
             return;
-
-          width_ *= 2;
-          height_ *= 2;
+          }
         }
-        VISAGE_ASSERT(false);
       }
     }
 

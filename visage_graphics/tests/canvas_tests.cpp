@@ -1932,3 +1932,20 @@ TEST_CASE("Renderer reads captured screenshots in their format and row order", "
     REQUIRE(screenshot.sample(0, 1).hexBlue() == 0xff);
   }
 }
+
+TEST_CASE("Layer atlas grows one side at a time", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 64);
+  Region first;
+  Region second;
+  for (Region* region : { &first, &second }) {
+    canvas.addRegion(region);
+    region->setNeedsLayer(true);
+    region->setBounds(0, 0, 3840, 2160);
+  }
+
+  Layer* layer = first.layer();
+  REQUIRE(layer->width() * layer->height() <= 4096 * 8192);
+  REQUIRE(layer->width() <= bgfx::getCaps()->limits.maxTextureSize);
+  REQUIRE(layer->height() <= bgfx::getCaps()->limits.maxTextureSize);
+}
