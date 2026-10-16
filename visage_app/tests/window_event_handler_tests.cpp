@@ -64,3 +64,73 @@ TEST_CASE("Mouse up over another frame sends it an enter relative to itself", "[
   REQUIRE(bottom_enter_position == Point(15, 5));
   app.removeFromWindow();
 }
+
+TEST_CASE("Dragging files back over their source frame exits the previous target",
+          "[integration]") {
+  class DropFrame : public Frame {
+  public:
+    bool receivesDragDropFiles() override { return true; }
+    void dragFilesEnter(const std::vector<std::string>&) override { enters++; }
+    void dragFilesExit() override { exits++; }
+    void dropFiles(const std::vector<std::string>&) override { drops++; }
+
+    int enters = 0;
+    int exits = 0;
+    int drops = 0;
+  };
+
+  ApplicationEditor app;
+  DropFrame source;
+  DropFrame target;
+  app.addChild(source);
+  app.addChild(target);
+  app.setBounds(0, 0, 40, 40);
+  source.setBounds(0, 0, 40, 20);
+  target.setBounds(0, 20, 40, 20);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  std::vector<std::string> files = { "/tmp/file.wav" };
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+
+  REQUIRE(window.handleFileDrag(10, 30, files));
+  REQUIRE(target.enters == 1);
+
+  window.handleFileDrag(10, 10, files);
+  REQUIRE(target.exits == 1);
+
+  REQUIRE_FALSE(window.handleFileDrop(10, 10, files));
+  REQUIRE(target.exits == 1);
+  REQUIRE(source.drops == 0);
+  REQUIRE(target.drops == 0);
+
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+  REQUIRE(window.handleFileDrag(10, 30, files));
+  REQUIRE(target.enters == 2);
+  REQUIRE(window.handleFileDrop(10, 30, files));
+  REQUIRE(target.drops == 1);
+  app.removeFromWindow();
+}
+
+TEST_CASE("Dragging files over a frame with an invalid extension regex doesn't throw",
+          "[integration]") {
+  class BadRegexFrame : public Frame {
+  public:
+    bool receivesDragDropFiles() override { return true; }
+    std::string dragDropFileExtensionRegex() override { return "(wav"; }
+  };
+
+  ApplicationEditor app;
+  BadRegexFrame frame;
+  app.addChild(frame);
+  app.setBounds(0, 0, 40, 40);
+  frame.setBounds(0, 0, 40, 40);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  std::vector<std::string> files = { "/tmp/file.wav" };
+  REQUIRE_NOTHROW(window.handleFileDrag(10, 10, files));
+  REQUIRE_FALSE(window.handleFileDrag(10, 10, files));
+  REQUIRE_FALSE(window.handleFileDrop(10, 10, files));
+  app.removeFromWindow();
+}

@@ -176,6 +176,7 @@ namespace visage {
     temporary_frame_ = dragDropFrame(convertToLogical(IPoint(x, y)), files);
     if (mouse_down_frame_ == temporary_frame_ && temporary_frame_) {
       temporary_frame_ = nullptr;
+      handleFileDragLeave();
       return true;
     }
 
@@ -203,8 +204,11 @@ namespace visage {
       return false;
 
     temporary_frame_ = dragDropFrame(convertToLogical(IPoint(x, y)), files);
-    if (mouse_down_frame_ == temporary_frame_ && temporary_frame_)
+    if (mouse_down_frame_ == temporary_frame_ && temporary_frame_) {
+      temporary_frame_ = nullptr;
+      handleFileDragLeave();
       return false;
+    }
 
     if (drag_drop_target_frame_) {
       if (drag_drop_target_frame_ != temporary_frame_)
@@ -407,20 +411,40 @@ namespace visage {
     drag_drop_source_frame_ = nullptr;
   }
 
-  Frame* WindowEventHandler::dragDropFrame(Point point, const std::vector<std::string>& files) const {
-    auto receives_files = [](Frame* frame, const std::vector<std::string>& files) {
+  const std::regex* WindowEventHandler::dragDropRegex(const std::string& pattern) {
+    auto existing = drag_drop_regexes_.find(pattern);
+    if (existing != drag_drop_regexes_.end())
+      return existing->second.get();
+
+    std::unique_ptr<std::regex> regex;
+    try {
+      regex = std::make_unique<std::regex>(pattern);
+    }
+    catch (const std::regex_error&) {
+    }
+
+    const std::regex* result = regex.get();
+    drag_drop_regexes_[pattern] = std::move(regex);
+    return result;
+  }
+
+  Frame* WindowEventHandler::dragDropFrame(Point point, const std::vector<std::string>& files) {
+    auto receives_files = [this](Frame* frame, const std::vector<std::string>& files) {
       int num_files = files.size();
       if (!frame->receivesDragDropFiles() || (num_files > 1 && !frame->receivesMultipleDragDropFiles()))
         return false;
 
-      std::regex regex(frame->dragDropFileExtensionRegex());
+      const std::regex* regex = dragDropRegex(frame->dragDropFileExtensionRegex());
+      if (regex == nullptr)
+        return false;
+
       for (auto& path : files) {
         size_t extension_position = path.find_last_of('.');
         std::string extension;
         if (extension_position != std::string::npos)
           extension = path.substr(extension_position);
 
-        if (!std::regex_search(extension, regex))
+        if (!std::regex_search(extension, *regex))
           return false;
       }
       return true;

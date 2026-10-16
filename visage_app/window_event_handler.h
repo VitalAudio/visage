@@ -25,6 +25,10 @@
 #include "visage_ui/events.h"
 #include "visage_windowing/windowing.h"
 
+#include <map>
+#include <memory>
+#include <regex>
+
 namespace visage {
   class Frame;
 
@@ -85,7 +89,8 @@ namespace visage {
     void cleanupDragDropSource() override;
 
   private:
-    Frame* dragDropFrame(Point point, const std::vector<std::string>& files) const;
+    Frame* dragDropFrame(Point point, const std::vector<std::string>& files);
+    const std::regex* dragDropRegex(const std::string& pattern);
     bool setHoveredFrame(Frame* frame, MouseEvent mouse_event);
 
     ApplicationEditor* editor_ = nullptr;
@@ -97,6 +102,7 @@ namespace visage {
     Frame* keyboard_focused_frame_ = nullptr;
     Frame* drag_drop_target_frame_ = nullptr;
     Frame* drag_drop_source_frame_ = nullptr;
+    std::map<std::string, std::unique_ptr<std::regex>> drag_drop_regexes_;
 
     Point last_mouse_position_ = { 0, 0 };
     HitTestResult current_hit_test_ = HitTestResult::Client;

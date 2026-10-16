@@ -110,10 +110,14 @@ namespace visage {
   }
 
   void ApplicationWindow::runEventLoop() {
-    window_->runEventLoop();
+    if (window_)
+      window_->runEventLoop();
   }
 
   void ApplicationWindow::showWindow(bool maximized) {
+    if (window_ == nullptr)
+      return;
+
     if (!title_.empty())
       window_->setWindowTitle(title_);
     if (always_on_top_)

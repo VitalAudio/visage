@@ -129,6 +129,8 @@ namespace visage {
     static constexpr int kMaxWaitTime = 250;
     static constexpr int kTries = kMaxWaitTime / kSleepWait;
     X11Connection* x11 = X11Connection::globalInstance();
+    if (x11->display() == nullptr)
+      return {};
     X11Connection::DisplayLock lock(x11);
     Display* display = x11->display();
 
@@ -182,6 +184,9 @@ namespace visage {
     _clipboard_text = text;
 
     X11Connection* x11 = X11Connection::globalInstance();
+    if (x11->display() == nullptr)
+      return;
+
     XSetSelectionOwner(x11->display(), XA_PRIMARY, SharedMessageWindow::handle(), CurrentTime);
     XSetSelectionOwner(x11->display(), x11->clipboard(), SharedMessageWindow::handle(), CurrentTime);
   }
@@ -291,6 +296,9 @@ namespace visage {
 
   static IPoint nativeCursorScreenPosition() {
     X11Connection* x11 = X11Connection::globalInstance();
+    if (x11->display() == nullptr)
+      return {};
+
     X11Connection::DisplayLock lock(x11);
 
     ::Window root_return, child_return;
@@ -343,6 +351,9 @@ namespace visage {
     static constexpr float kDpiAdjustment = 4.0f / Window::kDefaultDpi;
 
     X11Connection* x11 = X11Connection::globalInstance();
+    if (x11->display() == nullptr)
+      return {};
+
     X11Connection::DisplayLock lock(x11);
     Display* display = x11->display();
 
@@ -431,6 +442,9 @@ namespace visage {
     IBounds bounds = computeWindowBounds(Dimension::viewMinPercent(30.0f),
                                          Dimension::viewMinPercent(20.0f));
     X11Connection* x11 = X11Connection::globalInstance();
+    if (x11->display() == nullptr)
+      return;
+
     X11Connection::DisplayLock lock(x11);
     Display* display = x11->display();
     int screen = DefaultScreen(display);
@@ -513,6 +527,9 @@ namespace visage {
 
   std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
                                        const Dimension& height, Window::Decoration decoration) {
+    if (X11Connection::globalInstance()->display() == nullptr)
+      return nullptr;
+
     IBounds bounds = computeWindowBounds(width, height);
     MonitorInfo monitor_info = activeMonitorInfo();
     int window_x = x.computeInt(monitor_info.dpi / Window::kDefaultDpi, monitor_info.bounds.width(),
@@ -532,6 +549,9 @@ namespace visage {
 
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle) {
+    if (X11Connection::globalInstance()->display() == nullptr)
+      return nullptr;
+
     IBounds bounds = computeWindowBounds(width, height);
     return std::make_unique<WindowX11>(bounds.width(), bounds.height(), parent_handle);
   }
