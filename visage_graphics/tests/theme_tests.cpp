@@ -24,10 +24,13 @@
 #include "visage_graphics/theme.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <clocale>
+#include <string>
 
 using namespace visage;
 
 VISAGE_THEME_COLOR(TestThemeColor, 0xff000000);
+VISAGE_THEME_VALUE(TestThemeValue, 1.0f);
 VISAGE_THEME_PALETTE_OVERRIDE(TestThemeOverride);
 
 TEST_CASE("Palette override is separate from global", "[graphics]") {
@@ -63,6 +66,33 @@ TEST_CASE("Palette decode bad data", "[graphics]") {
 
   palette.decode("Global\nTestThemeColor@0\n");
   REQUIRE(palette.color(theme::OverrideId(), TestThemeColor, brush));
+}
+
+TEST_CASE("Palette values decode under a comma decimal locale", "[graphics]") {
+  Palette palette;
+  palette.setValue(TestThemeValue, 0.25f);
+  std::string encoded = palette.encode();
+
+  std::string previous_locale = setlocale(LC_NUMERIC, nullptr);
+  for (const char* locale : { "de_DE.UTF-8", "de_DE.utf8", "en_DK.utf8", "fr_FR.UTF-8", "German" }) {
+    if (setlocale(LC_NUMERIC, locale))
+      break;
+  }
+  Palette decoded;
+  decoded.decode(encoded);
+  setlocale(LC_NUMERIC, previous_locale.c_str());
+
+  float value = 0.0f;
+  REQUIRE(decoded.value(theme::OverrideId(), TestThemeValue, value));
+  REQUIRE(value == 0.25f);
+}
+
+TEST_CASE("Theme group names come from the file name", "[graphics]") {
+  REQUIRE(theme::nameFromPath("/src/widgets/button.cpp") == "button");
+  REQUIRE(theme::nameFromPath("C:\\src\\button.cpp") == "button");
+  REQUIRE(theme::nameFromPath("button.cpp") == "button");
+  REQUIRE(theme::nameFromPath("button") == "button");
+  REQUIRE(theme::nameFromPath("widgets.v2/button") == "button");
 }
 
 TEST_CASE("Gradient decode bad data", "[graphics]") {

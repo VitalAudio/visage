@@ -23,6 +23,7 @@
 
 #include "gradient.h"
 #include "theme.h"
+#include "visage_utils/string_utils.h"
 
 #include <algorithm>
 #include <iomanip>
@@ -125,6 +126,7 @@ namespace visage {
 
   std::string Palette::encode() const {
     std::ostringstream stream;
+    stream.imbue(std::locale::classic());
     stream << std::setprecision(std::numeric_limits<float>::max_digits10);
 
     for (const auto& override_group : color_map_) {
@@ -155,6 +157,7 @@ namespace visage {
 
   void Palette::decode(const std::string& data) {
     std::istringstream stream(data);
+    stream.imbue(std::locale::classic());
     std::map<std::string, theme::OverrideId> override_name_map = theme::OverrideId::nameIdMap();
     std::map<std::string, theme::ColorId> color_name_map = theme::ColorId::nameIdMap();
     std::map<std::string, theme::ValueId> value_name_map = theme::ValueId::nameIdMap();
@@ -198,12 +201,7 @@ namespace visage {
         std::size_t split_position = value_mapping.find(kEncodingSeparator);
         std::string key = value_mapping.substr(0, split_position);
         if (known_override && split_position != std::string::npos && value_name_map.count(key)) {
-          float value = 0.0f;
-          try {
-            value = std::stof(value_mapping.substr(split_position + 1));
-          }
-          catch (...) {
-          }
+          float value = String(value_mapping.substr(split_position + 1)).toFloat();
           value_map_[override_id][value_name_map[key]] = value;
         }
 
