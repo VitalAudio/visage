@@ -1724,3 +1724,50 @@ TEST_CASE("Rounded triangle with collinear points records no shapes", "[graphics
   canvas.endRegion();
   REQUIRE(region.numSubmitBatches() == 0);
 }
+
+TEST_CASE("Zero-length linear gradients paint a solid color like Chrome", "[graphics]") {
+  std::string svg_data = R"svg(<svg viewBox="0 0 60 20" width="60" height="20">
+    <linearGradient id="pad" x1="0.5" y1="0.5" x2="0.5" y2="0.5">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </linearGradient>
+    <linearGradient id="repeat" x1="0.5" y1="0.5" x2="0.5" y2="0.5" spreadMethod="repeat">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </linearGradient>
+    <linearGradient id="reflect" x1="0.5" y1="0.5" x2="0.5" y2="0.5" spreadMethod="reflect">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </linearGradient>
+    <rect width="20" height="20" fill="url(#pad)"/>
+    <rect x="20" width="20" height="20" fill="url(#repeat)"/>
+    <rect x="40" width="20" height="20" fill="url(#reflect)"/>
+  </svg>)svg";
+  Canvas canvas;
+  canvas.setWindowless(80, 20);
+  Svg svg(reinterpret_cast<const unsigned char*>(svg_data.data()), static_cast<int>(svg_data.size()));
+  canvas.svg(svg, 0, 0, 60, 20);
+  canvas.setColor(Brush::linear(Color(0xffff0000), Color(0xff0000ff), Point(70, 10), Point(70, 10)));
+  canvas.fill(60, 0, 20, 20);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  for (int x : { 10, 70 }) {
+    INFO("x " << x);
+    REQUIRE(screenshot.sample(x, 10).hexRed() <= 0x02);
+    REQUIRE(screenshot.sample(x, 10).hexBlue() >= 0xfd);
+  }
+  for (int x : { 30, 50 }) {
+    INFO("x " << x);
+    REQUIRE(screenshot.sample(x, 10).hexRed() == Approx(0x80).margin(2));
+    REQUIRE(screenshot.sample(x, 10).hexBlue() == Approx(0x80).margin(2));
+  }
+}
+
+TEST_CASE("Gradient average weighs each stop by the span it covers", "[graphics]") {
+  Gradient gradient(0xffff0000, 0xff0000ff);
+  REQUIRE(gradient.average().hexRed() == Approx(0x80).margin(1));
+  REQUIRE(gradient.average().hexBlue() == Approx(0x80).margin(1));
+
+  Gradient offset;
+  offset.addColorStop(Color(0xffff0000), 0.25f);
+  offset.addColorStop(Color(0xff0000ff), 1.0f);
+  REQUIRE(offset.average().red() == Approx(0.625f).margin(0.001f));
+  REQUIRE(offset.average().blue() == Approx(0.375f).margin(0.001f));
+}

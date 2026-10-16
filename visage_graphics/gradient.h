@@ -130,6 +130,24 @@ namespace visage {
       return colors_[index - 1].interpolateWith(colors_[index], local_t);
     }
 
+    Color average() const {
+      if (colors_.empty())
+        return {};
+
+      Color result = colors_.front();
+      float total_weight = positions_.front();
+      auto add = [&](const Color& color, float weight) {
+        if (weight <= 0.0f)
+          return;
+        total_weight += weight;
+        result = result.interpolateWith(color, weight / total_weight);
+      };
+      for (int i = 1; i < colors_.size(); ++i)
+        add(colors_[i - 1].interpolateWith(colors_[i], 0.5f), positions_[i] - positions_[i - 1]);
+      add(colors_.back(), 1.0f - positions_.back());
+      return result;
+    }
+
     int numColors() const { return colors_.size(); }
     void setRepeat(bool repeat) { repeat_ = repeat; }
     void setReflect(bool reflect) { reflect_ = reflect; }
@@ -394,8 +412,11 @@ namespace visage {
         auto delta = point2 - point1;
         auto transformed_delta = transform.matrix * delta;
         auto dual = transform.matrix.transposed().inversed() * delta;
-        auto new_delta = dual * (dual.dot(transformed_delta) / dual.dot(dual));
-        result.point2 = result.point1 + new_delta;
+        float dual_length_squared = dual.dot(dual);
+        if (dual_length_squared > 0.0f)
+          result.point2 = result.point1 + dual * (dual.dot(transformed_delta) / dual_length_squared);
+        else
+          result.point2 = result.point1;
       }
       return result;
     }
@@ -636,10 +657,12 @@ namespace visage {
     }
 
     PackedBrush(GradientAtlas* atlas, const Gradient& gradient, const GradientPosition& position) :
-        atlas_(atlas), position_(position), gradient_(atlas->addGradient(gradient)) { }
+        atlas_(atlas), position_(position),
+        gradient_(atlas->addGradient(packedGradient(gradient, position))) { }
 
     PackedBrush(GradientAtlas* atlas, const Brush& brush) :
-        atlas_(atlas), position_(brush.position()), gradient_(atlas->addGradient(brush.gradient())) { }
+        atlas_(atlas), position_(brush.position()),
+        gradient_(atlas->addGradient(packedGradient(brush.gradient(), brush.position()))) { }
 
     const GradientAtlas::PackedGradient* gradient() const { return &gradient_; }
     const GradientPosition& position() const { return position_; }
@@ -649,6 +672,16 @@ namespace visage {
     Brush originalBrush() const { return Brush(gradient_.gradient(), position_); }
 
   private:
+    static Gradient packedGradient(const Gradient& gradient, const GradientPosition& position) {
+      bool zero_length = position.shape == GradientPosition::InterpolationShape::PointsLinear &&
+                         position.point1 == position.point2;
+      if (!zero_length || gradient.numColors() <= 1)
+        return gradient;
+      if (gradient.repeat() || gradient.reflect())
+        return Gradient(gradient.average());
+      return Gradient(gradient.colors().back());
+    }
+
     GradientAtlas* atlas_ = nullptr;
     GradientPosition position_;
     GradientAtlas::PackedGradient gradient_;

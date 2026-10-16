@@ -39,7 +39,8 @@ float sdRoundedDiamond(vec2 position, vec2 diamond, float rounding) {
 
 float linearGradient(vec2 point_from, vec2 point_to, vec2 position) {
   vec2 delta = point_to - point_from;
-  return dot(position - point_from, delta) / dot(delta, delta);
+  float length_squared = dot(delta, delta);
+  return length_squared > 0.0 ? dot(position - point_from, delta) / length_squared : 1.0;
 }
 
 vec2 radialGradient(vec2 position, vec2 focal_point, vec4 coefficient) {
