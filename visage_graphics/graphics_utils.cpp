@@ -342,6 +342,12 @@ namespace visage {
     packed_ = false;
   }
 
+  int maxTextureDimension() {
+    static constexpr int kDefaultMaxDimension = 1 << 14;
+    int max_texture_size = bgfx::getCaps()->limits.maxTextureSize;
+    return max_texture_size ? std::min(kDefaultMaxDimension, max_texture_size) : kDefaultMaxDimension;
+  }
+
   bool AtlasPacker::pack(std::vector<PackedRect>& rects, int width, int height) {
     data_->pack_nodes = std::make_unique<stbrp_node[]>(width);
     std::vector<stbrp_rect> packed_rects;
