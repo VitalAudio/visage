@@ -1277,9 +1277,11 @@ namespace visage {
         continue;
 
       if (event.xany.window == parent_handle_ && event.type == ConfigureNotify) {
-        X11Connection::DisplayLock lock(x11_);
         XWindowAttributes attributes;
-        XGetWindowAttributes(x11_->display(), parent_handle_, &attributes);
+        {
+          X11Connection::DisplayLock lock(x11_);
+          XGetWindowAttributes(x11_->display(), parent_handle_, &attributes);
+        }
         setNativeWindowSize(attributes.width, attributes.height);
       }
       else if (event.xany.window == window_handle_ && event.type == ClientMessage &&
@@ -1332,8 +1334,8 @@ namespace visage {
   void WindowX11::processEvent(XEvent& event) {
     switch (event.type) {
     case ClientMessage: {
-      X11Connection::DisplayLock lock(x11_);
       if (event.xclient.message_type == x11_->dndEnter()) {
+        X11Connection::DisplayLock lock(x11_);
         drag_drop_files_.clear();
         XConvertSelection(x11_->display(), x11_->dndSelection(), x11_->dndUriList(),
                           x11_->dndUriList(), window_handle_, CurrentTime);
@@ -1413,15 +1415,16 @@ namespace visage {
       break;
     }
     case MotionNotify: {
-      X11Connection::DisplayLock lock(x11_);
       last_active_window_ = this;
 
       if (window_operation_ & kMoveWindow) {
+        X11Connection::DisplayLock lock(x11_);
         int x_offset = event.xmotion.x_root - dragging_window_position_.x;
         int y_offset = event.xmotion.y_root - dragging_window_position_.y;
         XMoveWindow(x11_->display(), window_handle_, x_offset, y_offset);
       }
       else if (window_operation_) {
+        X11Connection::DisplayLock lock(x11_);
         ::Window root;
         int window_x, window_y;
         unsigned int window_width, window_height, border, depth;
@@ -1719,23 +1722,25 @@ namespace visage {
   }
 
   void WindowX11::show() {
-    X11Connection::DisplayLock lock(x11_);
-
-    XSizeHints* size_hints = XAllocSizeHints();
-    ::Window handle = parent_handle_ ? parent_handle_ : window_handle_;
-    long supplied_return;
-    XGetWMNormalHints(x11_->display(), handle, size_hints, &supplied_return);
     int min_width = kMinWidth;
     int min_height = kMinHeight;
     handleAdjustResize(&min_width, &min_height, true, true);
-    size_hints->min_width = min_width;
-    size_hints->min_height = min_height;
-    XSetWMNormalHints(x11_->display(), handle, size_hints);
-    XFree(size_hints);
 
-    XMapWindow(x11_->display(), window_handle_);
-    XSetWMProtocols(x11_->display(), window_handle_, x11_->deleteMessageRef(), 1);
-    XFlush(x11_->display());
+    {
+      X11Connection::DisplayLock lock(x11_);
+      XSizeHints* size_hints = XAllocSizeHints();
+      ::Window handle = parent_handle_ ? parent_handle_ : window_handle_;
+      long supplied_return;
+      XGetWMNormalHints(x11_->display(), handle, size_hints, &supplied_return);
+      size_hints->min_width = min_width;
+      size_hints->min_height = min_height;
+      XSetWMNormalHints(x11_->display(), handle, size_hints);
+      XFree(size_hints);
+
+      XMapWindow(x11_->display(), window_handle_);
+      XSetWMProtocols(x11_->display(), window_handle_, x11_->deleteMessageRef(), 1);
+      XFlush(x11_->display());
+    }
     handleWindowShown();
   }
 
@@ -1772,10 +1777,12 @@ namespace visage {
   }
 
   void WindowX11::hide() {
-    X11Connection::DisplayLock lock(x11_);
-    ::Display* display = x11_->display();
-    XUnmapWindow(display, window_handle_);
-    XFlush(display);
+    {
+      X11Connection::DisplayLock lock(x11_);
+      ::Display* display = x11_->display();
+      XUnmapWindow(display, window_handle_);
+      XFlush(display);
+    }
     handleWindowHidden();
   }
 
