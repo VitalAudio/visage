@@ -595,7 +595,7 @@ namespace visage {
 
     void addSegment(float a_x, float a_y, float b_x, float b_y, float thickness,
                     bool rounded = false, float pixel_width = 1.0f) {
-      if (thickness <= 0.0f)
+      if (thickness <= 0.0f || (!rounded && a_x == b_x && a_y == b_y))
         return;
 
       float x = std::min(a_x, b_x) - thickness;
