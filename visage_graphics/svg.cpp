@@ -40,6 +40,12 @@ namespace visage {
     return input;
   }
 
+  static std::string toLowerAscii(std::string string) {
+    auto to_lower = [](char c) { return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + 32) : c; };
+    std::transform(string.begin(), string.end(), string.begin(), to_lower);
+    return string;
+  }
+
   static std::string decodeXmlReferences(const std::string& value) {
     static const std::unordered_map<std::string, std::string> kNamed = {
       { "quot", "\"" }, { "apos", "'" }, { "lt", "<" }, { "gt", ">" }, { "amp", "&" }
@@ -1234,8 +1240,7 @@ namespace visage {
                                  "";
     if (stop_color == "inherit")
       stop_color = parent_stop_color;
-    std::string lower = stop_color;
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    std::string lower = toLowerAscii(stop_color);
     if (lower == "currentcolor")
       stop_color = properties.count("color") ? properties["color"] : current_color;
     uses_current_color = lower == "currentcolor" && stop_color.empty();
@@ -1404,7 +1409,7 @@ namespace visage {
 
   std::optional<Color> parseColor(const std::string& color_string) {
     std::string color = trimWhitespace(color_string.substr(0, color_string.find("icc-color(")));
-    std::transform(color.begin(), color.end(), color.begin(), ::tolower);
+    color = toLowerAscii(color);
 
     if (color == "none")
       return Color();
@@ -2012,7 +2017,7 @@ namespace visage {
     for (auto& tag : tags) {
       if (tag.data.name == "style") {
         std::string type = tag.data.attributes.count("type") ? tag.data.attributes.at("type") : "";
-        std::transform(type.begin(), type.end(), type.begin(), ::tolower);
+        type = toLowerAscii(type);
         if (type.empty() || type == "text/css")
           parseCssStyle(tag.data.text);
       }
@@ -2037,8 +2042,7 @@ namespace visage {
       color = fallback;
     }
 
-    std::string lower = color;
-    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+    std::string lower = toLowerAscii(color);
     if (lower == "currentcolor")
       return GradientDef::Type::CurrentColor;
     if (lower == "context-fill")
