@@ -571,12 +571,10 @@ namespace visage {
     if (tokens.empty())
       return;
 
-    std::string remaining = clip_path_shape.substr(position);
+    std::string remaining = trimWhitespace(clip_path_shape.substr(position));
     Bounds bounding_box;
     if (remaining == "fill-box")
       bounding_box = boundingFillBox();
-    else if (remaining == "stroke-box")
-      bounding_box = boundingStrokeBox();
     else if (remaining == "view-box")
       bounding_box = view_box;
     else
