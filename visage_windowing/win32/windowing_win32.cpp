@@ -1096,6 +1096,8 @@ namespace visage {
       SetFocus(hwnd);
       handleMouseDown(kMouseButtonLeft, GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param),
                       mouseButtonState(w_param), keyboardModifiers());
+      if (!IsWindow(hwnd))
+        return 0;
 
       if (isDragDropSource()) {
         File file = startDragDropSource();
