@@ -131,7 +131,6 @@ namespace visage {
     X11Connection* x11 = X11Connection::globalInstance();
     if (x11->display() == nullptr)
       return {};
-    X11Connection::DisplayLock lock(x11);
     Display* display = x11->display();
 
     ::Window selection_owner = XGetSelectionOwner(display, x11->clipboard());
@@ -461,7 +460,6 @@ namespace visage {
     if (x11->display() == nullptr)
       return;
 
-    X11Connection::DisplayLock lock(x11);
     Display* display = x11->display();
     int screen = DefaultScreen(display);
 
@@ -491,9 +489,14 @@ namespace visage {
 
     XMapWindow(display, message_window);
     XFlush(display);
+    static constexpr int kSleepWait = 10;
     XEvent event;
     while (true) {
-      XIfEvent(display, &event, isWindowEvent, reinterpret_cast<XPointer>(&message_window));
+      if (!XCheckIfEvent(display, &event, isWindowEvent, reinterpret_cast<XPointer>(&message_window))) {
+        Thread::sleep(kSleepWait);
+        continue;
+      }
+
       if (event.type == Expose)
         drawMessageBox(bounds.width(), bounds.height(), display, message_window, gc, message);
 
