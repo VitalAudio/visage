@@ -1796,3 +1796,57 @@ TEST_CASE("Zero-length segments draw a dot only with rounded ends", "[graphics]"
   REQUIRE(flat.numSubmitBatches() == 0);
   REQUIRE(canvas.takeScreenshot().sample(30, 10).hexRed() == 0xff);
 }
+
+TEST_CASE("Radial gradients with focal radii at or beyond the radius render like Chrome",
+          "[graphics]") {
+  std::string svg_data = R"svg(<svg viewBox="0 0 100 40" width="100" height="40">
+    <radialGradient id="same" r="0.5" fr="0.5">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </radialGradient>
+    <radialGradient id="offset" r="0.5" fx="0.3" fr="0.5">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </radialGradient>
+    <radialGradient id="wide" r="0.25" fr="0.5">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </radialGradient>
+    <radialGradient id="offset_wide" r="0.25" fx="0.4" fr="0.5">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </radialGradient>
+    <rect width="20" height="20" fill="url(#same)"/>
+    <rect x="20" width="20" height="20" fill="url(#offset)"/>
+    <rect x="40" width="20" height="20" fill="url(#wide)"/>
+    <rect x="60" width="40" height="40" fill="url(#offset_wide)"/>
+  </svg>)svg";
+  Canvas canvas;
+  canvas.setWindowless(100, 40);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 100, 40);
+  Svg svg(reinterpret_cast<const unsigned char*>(svg_data.data()), static_cast<int>(svg_data.size()));
+  canvas.svg(svg, 0, 0, 100, 40);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  auto require_color = [&](int x, int y, unsigned int expected) {
+    INFO("x " << x << " y " << y);
+    Color color = screenshot.sample(x, y);
+    REQUIRE(color.hexRed() == Approx((expected >> 16) & 0xff).margin(3));
+    REQUIRE(color.hexBlue() == Approx(expected & 0xff).margin(3));
+  };
+
+  require_color(10, 10, 0xff0000);
+  require_color(1, 10, 0xff0000);
+  require_color(1, 1, 0x0000ff);
+
+  Color offset = screenshot.sample(30, 10);
+  REQUIRE(offset.hexRed() + offset.hexBlue() > 0xf0);
+
+  require_color(50, 10, 0x0000ff);
+  Color ramp = screenshot.sample(57, 10);
+  REQUIRE(ramp.hexRed() > 0x40);
+  REQUIRE(ramp.hexBlue() > 0x40);
+  require_color(41, 1, 0xff0000);
+
+  require_color(65, 20, 0x5200ad);
+  require_color(61, 20, 0x9b0064);
+  require_color(61, 1, 0xff0000);
+  require_color(95, 20, 0xeb0015);
+}
