@@ -752,3 +752,14 @@ TEST_CASE("Svg dashes ending or starting exactly at a corner don't join around i
   for (const Point& point : starting_points)
     REQUIRE(!(point.x > 64.0f && point.y < 16.0f));
 }
+
+TEST_CASE("Svg use with a custom XLink prefix", "[graphics]") {
+  Svg without_use = parseSvg(R"svg(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><defs><rect id="r" width="10" height="10"/></defs></svg>)svg");
+  Svg with_use = parseSvg(R"svg(<svg xmlns="http://www.w3.org/2000/svg" xmlns:x="http://www.w3.org/1999/xlink" viewBox="0 0 10 10"><defs><rect id="r" width="10" height="10"/></defs><use x:href="#r"/></svg>)svg");
+  Svg other_namespace = parseSvg(R"svg(<svg xmlns="http://www.w3.org/2000/svg" xmlns:x="http://example.com/other" viewBox="0 0 10 10"><defs><rect id="r" width="10" height="10"/></defs><use x:href="#r"/></svg>)svg");
+  REQUIRE(numShapes(with_use.drawable()) == numShapes(without_use.drawable()) + 1);
+  REQUIRE(numShapes(other_namespace.drawable()) == numShapes(without_use.drawable()));
+
+  Color gradient = renderSvgCenter(R"svg(<svg xmlns="http://www.w3.org/2000/svg" xmlns:l="http://www.w3.org/1999/xlink" viewBox="0 0 10 10"><linearGradient id="a"><stop stop-color="red"/></linearGradient><linearGradient id="b" l:href="#a"/><rect width="10" height="10" fill="url(#b)"/></svg>)svg");
+  REQUIRE(gradient.hexRed() == 0xff);
+}
