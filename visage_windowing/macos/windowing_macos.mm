@@ -370,6 +370,9 @@ namespace visage {
 }
 
 - (void)keyDown:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
   bool command = [event modifierFlags] & NSEventModifierFlagCommand;
   bool q_or_w = [[event charactersIgnoringModifiers] isEqualToString:@"q"] ||
                 [[event charactersIgnoringModifiers] isEqualToString:@"w"];
@@ -388,12 +391,18 @@ namespace visage {
 }
 
 - (void)keyUp:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
   visage::KeyCode key_code = visage::translateKeyCode([event keyCode]);
   if (!self.visage_window->handleKeyUp(key_code, [self keyboardModifiers:event]))
     [super keyUp:event];
 }
 
 - (void)insertText:(id)string {
+  if (self.visage_window == nullptr)
+    return;
+
   self.visage_window->handleTextInput([string UTF8String]);
 }
 
@@ -490,6 +499,9 @@ namespace visage {
 }
 
 - (void)scrollWheel:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
   static constexpr float kPreciseScrollingScale = 0.008f;
   visage::Point point = [self eventPosition:event];
   float delta_x = [event deltaX];
@@ -506,26 +518,42 @@ namespace visage {
 }
 
 - (void)mouseMoved:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
   visage::Point point = [self eventPosition:event];
   self.visage_window->handleMouseMove(point.x, point.y, [self mouseButtonState],
                                       [self keyboardModifiers:event]);
 }
 
 - (void)mouseEntered:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
   visage::Point point = [self eventPosition:event];
   self.visage_window->handleMouseMove(point.x, point.y, [self mouseButtonState],
                                       [self keyboardModifiers:event]);
 }
 
 - (void)mouseExited:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
   self.visage_window->handleMouseLeave([self mouseButtonState], [self keyboardModifiers:event]);
 }
 
 - (void)mouseDown:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
+  __attribute__((objc_precise_lifetime)) VisageAppView* keep_alive = self;
   visage::Point point = [self eventPosition:event];
   self.mouse_down_screen_position = [self mouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonLeft, point.x, point.y,
                                       [self mouseButtonState], [self keyboardModifiers:event]);
+  if (self.visage_window == nullptr)
+    return;
+
   [self makeKeyWindow];
   if (self.visage_window->isDragDropSource()) {
     visage::File file = self.visage_window->startDragDropSource();
@@ -551,12 +579,18 @@ namespace visage {
 }
 
 - (void)mouseUp:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
   visage::Point point = [self eventPosition:event];
   self.visage_window->handleMouseUp(visage::kMouseButtonLeft, point.x, point.y,
                                     [self mouseButtonState], [self keyboardModifiers:event]);
 }
 
 - (void)mouseDragged:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
   visage::Point point = [self eventPosition:event];
   self.visage_window->handleMouseMove(point.x, point.y, [self mouseButtonState],
                                       [self keyboardModifiers:event]);
@@ -564,20 +598,33 @@ namespace visage {
 }
 
 - (void)rightMouseDown:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
+  __attribute__((objc_precise_lifetime)) VisageAppView* keep_alive = self;
   visage::Point point = [self eventPosition:event];
   self.mouse_down_screen_position = [self mouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonRight, point.x, point.y,
                                       [self mouseButtonState], [self keyboardModifiers:event]);
+  if (self.visage_window == nullptr)
+    return;
+
   [self makeKeyWindow];
 }
 
 - (void)rightMouseUp:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
   visage::Point point = [self eventPosition:event];
   self.visage_window->handleMouseUp(visage::kMouseButtonRight, point.x, point.y,
                                     [self mouseButtonState], [self keyboardModifiers:event]);
 }
 
 - (void)rightMouseDragged:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
   visage::Point point = [self eventPosition:event];
   self.visage_window->handleMouseMove(point.x, point.y, [self mouseButtonState],
                                       [self keyboardModifiers:event]);
@@ -585,17 +632,27 @@ namespace visage {
 }
 
 - (void)otherMouseDown:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
   if ([event buttonNumber] != 2)
     return;
 
+  __attribute__((objc_precise_lifetime)) VisageAppView* keep_alive = self;
   visage::Point point = [self eventPosition:event];
   self.mouse_down_screen_position = [self mouseScreenPosition];
   self.visage_window->handleMouseDown(visage::kMouseButtonMiddle, point.x, point.y,
                                       [self mouseButtonState], [self keyboardModifiers:event]);
+  if (self.visage_window == nullptr)
+    return;
+
   [self makeKeyWindow];
 }
 
 - (void)otherMouseUp:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
   if ([event buttonNumber] != 2)
     return;
 
@@ -605,6 +662,9 @@ namespace visage {
 }
 
 - (void)otherMouseDragged:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
   visage::Point point = [self eventPosition:event];
   self.visage_window->handleMouseMove(point.x, point.y, [self mouseButtonState],
                                       [self keyboardModifiers:event]);
