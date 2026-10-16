@@ -1469,11 +1469,13 @@ namespace visage {
         ::Window root;
         int window_x, window_y;
         unsigned int window_width, window_height, border, depth;
-        XGetGeometry(x11_->display(), window_handle_, &root, &window_x, &window_y, &window_width,
-                     &window_height, &border, &depth);
         ::Window child;
-        XTranslateCoordinates(x11_->display(), window_handle_, x11_->rootWindow(), 0, 0, &window_x,
-                              &window_y, &child);
+        if (!XGetGeometry(x11_->display(), window_handle_, &root, &window_x, &window_y,
+                          &window_width, &window_height, &border, &depth) ||
+            !XTranslateCoordinates(x11_->display(), window_handle_, x11_->rootWindow(), 0, 0,
+                                   &window_x, &window_y, &child)) {
+          break;
+        }
         int window_right = window_x + window_width;
         int window_bottom = window_y + window_height;
 
