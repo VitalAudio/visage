@@ -127,9 +127,10 @@ namespace visage {
     void requestScreenshot();
     const Screenshot& screenshot() const;
     void pairToWindow(void* window_handle, int width, int height) {
+      if (window_handle != window_handle_)
+        destroyFrameBuffer();
       window_handle_ = window_handle;
       setDimensions(width, height);
-      destroyFrameBuffer();
     }
 
     void setWindowlessRender(int width, int height) {

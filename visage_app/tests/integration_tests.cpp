@@ -1445,6 +1445,29 @@ TEST_CASE("Destroying a window right after resizing it leaves no swap chain work
   REQUIRE(canvas.takeScreenshot().sample(5, 5).hexRed() == 0xff);
 }
 
+TEST_CASE("Adding an editor to the window it's already in keeps its swap chain valid",
+          "[integration]") {
+#if VISAGE_LINUX
+  if (std::getenv("DISPLAY") == nullptr)
+    SKIP("No display");
+#endif
+
+  ApplicationEditor app;
+  app.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  std::unique_ptr<Window> window = createWindow(Dimension::nativePixels(100),
+                                                Dimension::nativePixels(100));
+  for (int i = 0; i < 10; ++i) {
+    app.addToWindow(window.get());
+    app.drawWindow();
+    app.drawWindow();
+  }
+  REQUIRE(app.nativeWidth() == 100);
+  app.removeFromWindow();
+}
+
 TEST_CASE("Window opens after rendering offscreen", "[integration]") {
 #if VISAGE_LINUX
   if (std::getenv("DISPLAY") == nullptr)
