@@ -23,6 +23,7 @@
 #include "visage_graphics/color.h"
 #include "visage_graphics/gradient.h"
 #include "visage_graphics/post_effects.h"
+#include "visage_graphics/renderer.h"
 #include "visage_graphics/shader.h"
 
 #include <bgfx/bgfx.h>
@@ -1707,4 +1708,170 @@ TEST_CASE("Moving a layered region keeps its atlas slot", "[graphics]") {
     REQUIRE(layer->invalidRects().count(&still) == 0);
   }
   REQUIRE(canvas.takeScreenshot().sample(55, 20).hexRed() == 0xff);
+}
+
+TEST_CASE("Rounded triangle with collinear points records no shapes", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(80, 20);
+  Region region;
+  canvas.addRegion(&region);
+  region.setBounds(0, 0, 3010, 3010);
+
+  canvas.beginRegion(&region);
+  canvas.setColor(0xffffffff);
+  canvas.roundedTriangle(5, 10, 20, 10, 35, 10, 3);
+  canvas.roundedTriangleBorder(45, 10, 60, 10, 75, 10, 3, 4);
+  canvas.roundedTriangle(0.1f, 0.1f, 1000.3f, 1000.3f, 3000.7f, 3000.7f, 3);
+  canvas.endRegion();
+  REQUIRE(region.numSubmitBatches() == 0);
+}
+
+TEST_CASE("Zero-length linear gradients paint a solid color like Chrome", "[graphics]") {
+  std::string svg_data = R"svg(<svg viewBox="0 0 60 20" width="60" height="20">
+    <linearGradient id="pad" x1="0.5" y1="0.5" x2="0.5" y2="0.5">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </linearGradient>
+    <linearGradient id="repeat" x1="0.5" y1="0.5" x2="0.5" y2="0.5" spreadMethod="repeat">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </linearGradient>
+    <linearGradient id="reflect" x1="0.5" y1="0.5" x2="0.5" y2="0.5" spreadMethod="reflect">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </linearGradient>
+    <rect width="20" height="20" fill="url(#pad)"/>
+    <rect x="20" width="20" height="20" fill="url(#repeat)"/>
+    <rect x="40" width="20" height="20" fill="url(#reflect)"/>
+  </svg>)svg";
+  Canvas canvas;
+  canvas.setWindowless(80, 20);
+  Svg svg(reinterpret_cast<const unsigned char*>(svg_data.data()), static_cast<int>(svg_data.size()));
+  canvas.svg(svg, 0, 0, 60, 20);
+  canvas.setColor(Brush::linear(Color(0xffff0000), Color(0xff0000ff), Point(70, 10), Point(70, 10)));
+  canvas.fill(60, 0, 20, 20);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  for (int x : { 10, 70 }) {
+    INFO("x " << x);
+    REQUIRE(screenshot.sample(x, 10).hexRed() <= 0x02);
+    REQUIRE(screenshot.sample(x, 10).hexBlue() >= 0xfd);
+  }
+  for (int x : { 30, 50 }) {
+    INFO("x " << x);
+    REQUIRE(screenshot.sample(x, 10).hexRed() == Approx(0x80).margin(2));
+    REQUIRE(screenshot.sample(x, 10).hexBlue() == Approx(0x80).margin(2));
+  }
+}
+
+TEST_CASE("Gradient average weighs each stop by the span it covers", "[graphics]") {
+  Gradient gradient(0xffff0000, 0xff0000ff);
+  REQUIRE(gradient.average().hexRed() == Approx(0x80).margin(1));
+  REQUIRE(gradient.average().hexBlue() == Approx(0x80).margin(1));
+
+  Gradient offset;
+  offset.addColorStop(Color(0xffff0000), 0.25f);
+  offset.addColorStop(Color(0xff0000ff), 1.0f);
+  REQUIRE(offset.average().red() == Approx(0.625f).margin(0.001f));
+  REQUIRE(offset.average().blue() == Approx(0.375f).margin(0.001f));
+}
+
+TEST_CASE("Zero-length segments draw a dot only with rounded ends", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(40, 20);
+  Region flat;
+  Region rounded;
+  for (Region* region : { &flat, &rounded })
+    canvas.addRegion(region);
+  flat.setBounds(0, 0, 20, 20);
+  rounded.setBounds(20, 0, 20, 20);
+
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 40, 20);
+  canvas.beginRegion(&flat);
+  canvas.setColor(0xffffffff);
+  canvas.segment(10, 10, 10, 10, 4, false);
+  canvas.endRegion();
+  canvas.beginRegion(&rounded);
+  canvas.setColor(0xffffffff);
+  canvas.segment(10, 10, 10, 10, 4, true);
+  canvas.endRegion();
+
+  REQUIRE(flat.numSubmitBatches() == 0);
+  REQUIRE(canvas.takeScreenshot().sample(30, 10).hexRed() == 0xff);
+}
+
+TEST_CASE("Radial gradients with focal radii at or beyond the radius render like Chrome",
+          "[graphics]") {
+  std::string svg_data = R"svg(<svg viewBox="0 0 100 40" width="100" height="40">
+    <radialGradient id="same" r="0.5" fr="0.5">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </radialGradient>
+    <radialGradient id="offset" r="0.5" fx="0.3" fr="0.5">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </radialGradient>
+    <radialGradient id="wide" r="0.25" fr="0.5">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </radialGradient>
+    <radialGradient id="offset_wide" r="0.25" fx="0.4" fr="0.5">
+      <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+    </radialGradient>
+    <rect width="20" height="20" fill="url(#same)"/>
+    <rect x="20" width="20" height="20" fill="url(#offset)"/>
+    <rect x="40" width="20" height="20" fill="url(#wide)"/>
+    <rect x="60" width="40" height="40" fill="url(#offset_wide)"/>
+  </svg>)svg";
+  Canvas canvas;
+  canvas.setWindowless(100, 40);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 100, 40);
+  Svg svg(reinterpret_cast<const unsigned char*>(svg_data.data()), static_cast<int>(svg_data.size()));
+  canvas.svg(svg, 0, 0, 100, 40);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  auto require_color = [&](int x, int y, unsigned int expected) {
+    INFO("x " << x << " y " << y);
+    Color color = screenshot.sample(x, y);
+    REQUIRE(color.hexRed() == Approx((expected >> 16) & 0xff).margin(3));
+    REQUIRE(color.hexBlue() == Approx(expected & 0xff).margin(3));
+  };
+
+  require_color(10, 10, 0xff0000);
+  require_color(1, 10, 0xff0000);
+  require_color(1, 1, 0x0000ff);
+
+  Color offset = screenshot.sample(30, 10);
+  REQUIRE(offset.hexRed() + offset.hexBlue() > 0xf0);
+
+  require_color(50, 10, 0x0000ff);
+  Color ramp = screenshot.sample(57, 10);
+  REQUIRE(ramp.hexRed() > 0x40);
+  REQUIRE(ramp.hexBlue() > 0x40);
+  require_color(41, 1, 0xff0000);
+
+  require_color(65, 20, 0x5200ad);
+  require_color(61, 20, 0x9b0064);
+  require_color(61, 1, 0xff0000);
+  require_color(95, 20, 0xeb0015);
+}
+
+TEST_CASE("Renderer reads captured screenshots in their format and row order", "[graphics]") {
+  struct Capture {
+    const void* data;
+    int format;
+    bool y_flip;
+  };
+
+  static const uint8_t kBgraBottomUp[] = { 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0xff };
+  static const uint8_t kRgbaTopDown[] = { 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0xff };
+  static const uint32_t kRgb10A2TopDown[] = { 0xc00003ff, 0xfff00000 };
+  for (const Capture& capture : { Capture { kBgraBottomUp, bgfx::TextureFormat::BGRA8, true },
+                                  Capture { kRgbaTopDown, bgfx::TextureFormat::RGBA8, false },
+                                  Capture { kRgb10A2TopDown, bgfx::TextureFormat::RGB10A2, false } }) {
+    INFO("format " << capture.format);
+    Renderer::instance().setScreenshotData(static_cast<const uint8_t*>(capture.data), 1, 2, 4,
+                                           capture.format, capture.y_flip);
+    const Screenshot& screenshot = Renderer::instance().screenshot();
+    REQUIRE(screenshot.sample(0, 0).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(0, 0).hexBlue() == 0x00);
+    REQUIRE(screenshot.sample(0, 1).hexRed() == 0x00);
+    REQUIRE(screenshot.sample(0, 1).hexBlue() == 0xff);
+  }
 }

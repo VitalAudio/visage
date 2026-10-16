@@ -39,7 +39,7 @@ namespace visage {
 
     void initializeWindowless() { initialize(windowlessContext(), nullptr); }
     void initialize(void* model_window, void* display);
-    void setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool blue_red);
+    void setScreenshotData(const uint8_t* data, int width, int height, int pitch, int format, bool y_flip);
     const Screenshot& screenshot() const { return screenshot_; }
 
     const std::string& errorMessage() const { return error_message_; }

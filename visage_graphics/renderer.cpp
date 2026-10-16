@@ -24,6 +24,8 @@
 #include "visage_utils/string_utils.h"
 
 #include <bgfx/bgfx.h>
+#include <bimg/bimg.h>
+#include <bx/allocator.h>
 
 namespace visage {
   class GraphicsCallbackHandler : public bgfx::CallbackI {
@@ -49,7 +51,8 @@ namespace visage {
 
     void screenShot(const char* file_path, uint32_t width, uint32_t height, uint32_t pitch,
                     bgfx::TextureFormat::Enum format, const void* data, uint32_t size, bool y_flip) override {
-      Renderer::instance().setScreenshotData(static_cast<const uint8_t*>(data), width, height, pitch, true);
+      Renderer::instance().setScreenshotData(static_cast<const uint8_t*>(data), width, height,
+                                             pitch, format, y_flip);
     }
 
     void captureBegin(uint32_t, uint32_t, uint32_t, bgfx::TextureFormat::Enum, bool) override { }
@@ -168,7 +171,21 @@ namespace visage {
 #endif
   }
 
-  void Renderer::setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool blue_red) {
-    screenshot_ = Screenshot(data, width, height, pitch, blue_red);
+  void Renderer::setScreenshotData(const uint8_t* data, int width, int height, int pitch,
+                                   int format, bool y_flip) {
+    if (format == bgfx::TextureFormat::RGBA8 || format == bgfx::TextureFormat::BGRA8) {
+      screenshot_ = Screenshot(data, width, height, pitch, format == bgfx::TextureFormat::BGRA8, y_flip);
+      return;
+    }
+
+    bx::DefaultAllocator allocator;
+    std::vector<uint8_t> converted(width * height * 4);
+    auto source_format = static_cast<bimg::TextureFormat::Enum>(format);
+    VISAGE_ASSERT(pitch * 8 == width * bimg::getBitsPerPixel(source_format));
+    if (bimg::imageConvert(&allocator, converted.data(), bimg::TextureFormat::RGBA8, data,
+                           source_format, width, height, 1))
+      screenshot_ = Screenshot(converted.data(), width, height, width * 4, false, y_flip);
+    else
+      screenshot_ = Screenshot();
   }
 }

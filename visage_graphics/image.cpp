@@ -96,7 +96,7 @@ namespace visage {
     if (images_.count(image) == 0) {
       int width = image.width;
       int height = image.height;
-      if (image.width == 0) {
+      if (image.width == 0 && image.data && image.data_size > 0) {
         bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image.data, image.data_size);
         if (image_container) {
           width = image_container->m_width;
@@ -165,6 +165,9 @@ namespace visage {
                               packed_rect.h);
       return;
     }
+    if (image->image.data == nullptr || image->image.data_size <= 0)
+      return;
+
     bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image->image.data,
                                                              image->image.data_size,
                                                              bimg::TextureFormat::RGBA8);

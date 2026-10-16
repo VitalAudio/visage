@@ -104,3 +104,21 @@ TEST_CASE("Image atlas ignores leftover GPU memory", "[graphics]") {
 
   requireTransparentEdges(canvas.takeScreenshot(), 40, 40, 30);
 }
+
+TEST_CASE("Canvas skips images without image data", "[graphics]") {
+  static const unsigned char kNoData[] = { 0 };
+  std::vector<unsigned char> empty;
+  Canvas canvas;
+  canvas.setWindowless(30, 10);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 30, 10);
+  canvas.setColor(0xffffffff);
+  canvas.image(nullptr, 0, 0, 0, 10, 10);
+  canvas.image(empty.data(), static_cast<int>(empty.size()), 10, 0, 10, 10);
+  canvas.image(kNoData, 0, 20, 0, 10, 10);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(screenshot.sample(5, 5).hexRed() == 0);
+  REQUIRE(screenshot.sample(15, 5).hexRed() == 0);
+  REQUIRE(screenshot.sample(25, 5).hexRed() == 0);
+}
