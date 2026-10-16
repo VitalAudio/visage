@@ -404,6 +404,8 @@ namespace visage {
 
       if (region->backdropEffect() && region->backdropCount() == backdrop_count && hasInvalidRects(region)) {
         Region* backdrop_root = region->parent();
+        if (backdrop_root && backdrop_root->maskedRegion() == region)
+          backdrop_root = backdrop_root->parent();
         while (backdrop_root && !backdrop_root->isBackdropRoot())
           backdrop_root = backdrop_root->parent();
 

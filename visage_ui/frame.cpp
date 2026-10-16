@@ -402,7 +402,7 @@ namespace visage {
       parent->replaceRegion(&region_, mask_group_.get());
     mask_group_->addRegion(&region_);
     mask_group_->addRegion(mask_frame_->region());
-    mask_group_->setMasked(true);
+    mask_group_->setMaskedRegion(&region_);
     mask_group_->setVisible(visible_);
     mask_group_->setOnTop(on_top_);
     mask_group_->setAlpha(alpha_transparency_);

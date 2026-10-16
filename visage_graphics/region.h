@@ -134,10 +134,11 @@ namespace visage {
     PostEffect* backdropEffect() const { return backdrop_effect_; }
 
     bool needsLayer() const { return intermediate_region_.get(); }
-    void setMasked(bool masked) { masked_ = masked; }
+    void setMaskedRegion(Region* region) { masked_region_ = region; }
+    Region* maskedRegion() const { return masked_region_; }
     bool isBackdropRoot() const {
-      return needsLayer() && (masked_ || post_effect_ || backdrop_effect_ || alpha_ != 1.0f ||
-                              layer_blend_mode_ != BlendMode::Alpha);
+      return needsLayer() && (masked_region_ || post_effect_ || backdrop_effect_ ||
+                              alpha_ != 1.0f || layer_blend_mode_ != BlendMode::Alpha);
     }
     Region* intermediateRegion() const { return intermediate_region_.get(); }
 
@@ -187,7 +188,7 @@ namespace visage {
     PostEffect* post_effect_ = nullptr;
     PostEffect* backdrop_effect_ = nullptr;
     float alpha_ = 1.0f;
-    bool masked_ = false;
+    Region* masked_region_ = nullptr;
     BlendMode layer_blend_mode_ = BlendMode::Alpha;
     ShapeBatcher shape_batcher_;
     std::vector<std::unique_ptr<PackedBrush>> brushes_;
