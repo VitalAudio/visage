@@ -466,3 +466,84 @@ TEST_CASE("Enlarged arc radii keep their curve resolution", "[graphics]") {
 
   REQUIRE(arc_points(1.0f) == arc_points(50.0f));
 }
+
+static std::vector<Point> clipToHalfPlane(const std::vector<Point>& polygon, Point normal, float offset) {
+  std::vector<Point> result;
+  for (int i = 0; i < polygon.size(); ++i) {
+    Point from = polygon[i];
+    Point to = polygon[(i + 1) % polygon.size()];
+    float from_distance = normal.dot(from) - offset;
+    float to_distance = normal.dot(to) - offset;
+    if (from_distance <= 0.0f)
+      result.push_back(from);
+    if ((from_distance < 0.0f) != (to_distance < 0.0f))
+      result.push_back(from + (to - from) * (from_distance / (from_distance - to_distance)));
+  }
+  return result;
+}
+
+static float pixelCoverage(const std::vector<std::vector<Point>>& polygons, int x, int y) {
+  float coverage = 0.0f;
+  for (std::vector<Point> polygon : polygons) {
+    polygon = clipToHalfPlane(polygon, { -1.0f, 0.0f }, -x);
+    polygon = clipToHalfPlane(polygon, { 1.0f, 0.0f }, x + 1);
+    polygon = clipToHalfPlane(polygon, { 0.0f, -1.0f }, -y);
+    polygon = clipToHalfPlane(polygon, { 0.0f, 1.0f }, y + 1);
+    float area = 0.0f;
+    for (int i = 0; i < polygon.size(); ++i)
+      area += polygon[i].cross(polygon[(i + 1) % polygon.size()]);
+    coverage += std::abs(area) * 0.5f;
+  }
+  return coverage;
+}
+
+TEST_CASE("Path fill coverage is the area of each pixel inside the path", "[graphics]") {
+  static constexpr int kWidth = 100;
+  static constexpr int kHeight = 40;
+
+  std::vector<std::vector<std::vector<Point>>> shapes = {
+    { { { 10.25f, 10.4f }, { 90.75f, 10.4f }, { 90.75f, 30.6f }, { 10.25f, 30.6f } } },
+    { { { 20.3f, 8.2f }, { 80.3f, 8.2f }, { 50.3f, 32.2f } } },
+    { { { 50.26f, 2.4f }, { 54.2f, 37.4f }, { 46.3f, 37.4f } } },
+    { { { 10, 10 }, { 20, 10 }, { 20, 20 }, { 10, 20 } },
+      { { 30, 10 }, { 30, 20 }, { 40, 20 }, { 40, 10 } },
+      { { 50, 10 }, { 60, 10 }, { 60, 20 }, { 50, 20 } },
+      { { 60, 10 }, { 70, 10 }, { 70, 20 }, { 60, 20 } } },
+  };
+
+  for (int s = 0; s < shapes.size(); ++s) {
+    Path path;
+    for (const auto& polygon : shapes[s]) {
+      path.moveTo(polygon[0]);
+      for (int i = 1; i < polygon.size(); ++i)
+        path.lineTo(polygon[i]);
+      path.close();
+    }
+
+    Canvas canvas;
+    canvas.setWindowless(kWidth, kHeight);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, kWidth, kHeight);
+    canvas.setColor(0xffffffff);
+    canvas.fill(path, 0, 0, kWidth, kHeight);
+
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    float max_error = 0.0f;
+    int worst_x = 0;
+    int worst_y = 0;
+    for (int y = 0; y < kHeight; ++y) {
+      for (int x = 0; x < kWidth; ++x) {
+        float expected = std::min(1.0f, pixelCoverage(shapes[s], x, y));
+        float error = std::abs(screenshot.sample(x, y).hexRed() / 255.0f - expected);
+        if (error > max_error) {
+          max_error = error;
+          worst_x = x;
+          worst_y = y;
+        }
+      }
+    }
+
+    INFO("shape " << s << ", worst pixel " << worst_x << ", " << worst_y << ", error " << max_error * 255.0f);
+    REQUIRE(max_error < 0.02f);
+  }
+}

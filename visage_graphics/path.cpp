@@ -903,7 +903,6 @@ namespace visage {
 
     bool origin_flip = bgfx::getCaps()->originBottomLeft;
     setPathUniform<Uniforms::kColor>(1.0f);
-    setPathUniform<Uniforms::kOriginFlip>(origin_flip ? -1.0 : 1.0);
 
     if (origin_flip)
       setPathUniform<Uniforms::kBounds>(2.0f / width_, 2.0f / height_, -1.0f, -1.0f);
