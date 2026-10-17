@@ -26,7 +26,6 @@
 #include "renderer.h"
 
 #include <bgfx/bgfx.h>
-#include <chrono>
 
 namespace visage {
   struct TemporaryFrameBuffer {
@@ -35,7 +34,7 @@ namespace visage {
     int height = 0;
     bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8;
     bool in_use = false;
-    std::chrono::steady_clock::time_point last_used;
+    unsigned int last_used = 0;
   };
 
   struct FrameBufferData {
@@ -43,6 +42,7 @@ namespace visage {
     bgfx::FrameBufferHandle handle = BGFX_INVALID_HANDLE;
     bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8;
     std::vector<TemporaryFrameBuffer> temporaries;
+    unsigned int submits = 0;
   };
 
   static bgfx::SwapChain swapChain(void* window_handle, int width, int height,
@@ -268,7 +268,7 @@ namespace visage {
       if (!temporary.in_use && temporary.width == width && temporary.height == height &&
           temporary.format == format) {
         temporary.in_use = true;
-        temporary.last_used = std::chrono::steady_clock::now();
+        temporary.last_used = frame_buffer_data_->submits;
         return temporary.handle;
       }
     }
@@ -279,7 +279,7 @@ namespace visage {
     temporary.height = height;
     temporary.format = format;
     temporary.in_use = true;
-    temporary.last_used = std::chrono::steady_clock::now();
+    temporary.last_used = frame_buffer_data_->submits;
     frame_buffer_data_->temporaries.push_back(temporary);
     return temporary.handle;
   }
@@ -292,12 +292,12 @@ namespace visage {
   }
 
   void Layer::destroyIdleTemporaryFrameBuffers() {
-    static constexpr std::chrono::seconds kMaxIdleTime(3);
+    static constexpr unsigned int kMaxIdleSubmits = 8;
 
-    auto now = std::chrono::steady_clock::now();
+    unsigned int current_submit = frame_buffer_data_->submits++;
     auto& temporaries = frame_buffer_data_->temporaries;
-    auto idle = [now](const TemporaryFrameBuffer& temporary) {
-      if (temporary.in_use || now - temporary.last_used <= kMaxIdleTime)
+    auto idle = [current_submit](const TemporaryFrameBuffer& temporary) {
+      if (temporary.in_use || current_submit - temporary.last_used < kMaxIdleSubmits)
         return false;
 
       bgfx::destroy(temporary.handle);
