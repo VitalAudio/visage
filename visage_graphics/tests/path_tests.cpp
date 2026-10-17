@@ -25,6 +25,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <complex>
+#include <limits>
 #include <random>
 #include <set>
 
@@ -438,6 +439,28 @@ TEST_CASE("Stroke with dashes smaller than float precision", "[graphics]") {
 
   Path stroke = path.stroke(1.0f, Path::Join::Round, Path::EndCap::Round, { 1e-5f });
   REQUIRE(stroke.numPoints() > 0);
+}
+
+TEST_CASE("Stroke dash pattern restarts for each subpath", "[graphics]") {
+  Path path;
+  path.moveTo(0, 0);
+  path.lineTo(7, 0);
+  path.moveTo(0, 10);
+  path.lineTo(7, 10);
+
+  Path stroke = path.stroke(1.0f, Path::Join::Miter, Path::EndCap::Butt, { 5.0f });
+  float second_min = std::numeric_limits<float>::max();
+  float second_max = std::numeric_limits<float>::lowest();
+  for (const auto& sub_path : stroke.subPaths()) {
+    for (const auto& point : sub_path.points) {
+      if (point.y > 5.0f) {
+        second_min = std::min(second_min, point.x);
+        second_max = std::max(second_max, point.x);
+      }
+    }
+  }
+  REQUIRE(second_min == Catch::Approx(0.0f).margin(1e-4f));
+  REQUIRE(second_max == Catch::Approx(5.0f).margin(1e-4f));
 }
 
 TEST_CASE("Path command directions", "[graphics]") {

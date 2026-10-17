@@ -621,22 +621,25 @@ namespace visage {
       else
         dash_offset = std::fmod(dash_offset, dash_total);
 
-      int dash_index = 0;
-      bool fill = true;
-      float dash_length = dash_array[0];
-      while (dash_offset > dash_length) {
-        dash_offset -= dash_length;
-        dash_index = (dash_index + 1) % dash_array.size();
-        dash_length = dash_array[dash_index];
-        fill = !fill;
+      int start_dash_index = 0;
+      bool start_fill = true;
+      float start_dash_length = dash_array[0];
+      while (dash_offset > start_dash_length) {
+        dash_offset -= start_dash_length;
+        start_dash_index = (start_dash_index + 1) % dash_array.size();
+        start_dash_length = dash_array[start_dash_index];
+        start_fill = !start_fill;
       }
 
-      dash_length -= dash_offset;
+      start_dash_length -= dash_offset;
 
       for (auto& path : paths_) {
         if (path.points.empty())
           continue;
 
+        int dash_index = start_dash_index;
+        bool fill = start_fill;
+        float dash_length = start_dash_length;
         auto prev = path.points[0];
         stroke_path.moveTo(prev);
         for (int i = 1; i < path.points.size(); ++i) {
