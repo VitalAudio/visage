@@ -166,6 +166,11 @@ namespace visage {
       const Brush* current_color = nullptr;
     };
 
+    struct ClipPaths {
+      std::shared_ptr<const std::vector<Path>> paths;
+      Transform transform;
+    };
+
     SvgDrawable() = default;
     SvgDrawable(const SvgDrawable& other) = default;
     SvgDrawable& operator=(const SvgDrawable& other) = default;
@@ -257,11 +262,11 @@ namespace visage {
         if (!child->is_defines && !child->is_clip_path && !child->mask_settings && child->display)
           post_bounding_box = post_bounding_box.unioned(child->post_bounding_box);
       }
-      for (auto& clip_path : clipping_paths)
-        clip_path = clip_path.transformed(transform);
+      for (auto& clip : clipping_paths)
+        clip.transform = transform * clip.transform;
       for (auto& intersection : clip_intersections) {
-        for (auto& clip_path : intersection)
-          clip_path = clip_path.transformed(transform);
+        for (auto& clip : intersection)
+          clip.transform = transform * clip.transform;
       }
     }
 
@@ -284,6 +289,7 @@ namespace visage {
     void adjustPaths(const Matrix& scale_matrix, const Bounds& view_box,
                      std::map<std::string, SvgDrawable*>& clip_paths);
     void collectClipPaths(std::map<std::string, SvgDrawable*>& clip_paths);
+    std::shared_ptr<const std::vector<Path>> clipOutline(const Matrix& scale_matrix, const Bounds& view_box);
     void strokePath(const Matrix& scale_matrix, const Bounds& view_box);
     void resolveContextPaint(const Brush& context_fill, const Brush& context_stroke);
     void applyColorMatrices();
@@ -381,12 +387,10 @@ namespace visage {
     Path path;
     Path stroke_path;
     Bounds post_bounding_box;
-    std::vector<Path> clipping_paths;
-    std::vector<std::vector<Path>> clip_intersections;
-    std::vector<Path> clip_cache;
-    Matrix clip_cache_matrix;
-    Bounds clip_cache_bounds;
-    bool clip_cache_valid = false;
+    std::vector<ClipPaths> clipping_paths;
+    std::vector<std::vector<ClipPaths>> clip_intersections;
+    std::map<int, std::shared_ptr<const std::vector<Path>>> clip_cache;
+    float clip_cache_resolution = 0.0f;
     std::optional<Bounds> view_clip;
     std::optional<MaskSettings> mask_settings;
     std::optional<ColorMatrix> color_matrix;
