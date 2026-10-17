@@ -1949,3 +1949,54 @@ TEST_CASE("Layer atlas grows one side at a time", "[graphics]") {
   REQUIRE(layer->width() <= bgfx::getCaps()->limits.maxTextureSize);
   REQUIRE(layer->height() <= bgfx::getCaps()->limits.maxTextureSize);
 }
+
+TEST_CASE("Blur resized every frame doesn't pile up frame buffers", "[graphics]") {
+  static constexpr int kFrames = 400;
+
+  Canvas canvas;
+  canvas.setWindowless(260, 140);
+  BlurPostEffect blur;
+  blur.setBlurRadius(300.0f);
+  Region region;
+  canvas.addRegion(&region);
+  region.setNeedsLayer(true);
+  region.setPostEffect(&blur);
+
+  for (int i = 0; i < kFrames; ++i) {
+    region.setBounds(0, 0, 50 + (i * 4) % 200, 50 + 4 * (i / 50));
+    canvas.beginRegion(&region);
+    canvas.setColor(0xffff0000);
+    canvas.fill(0, 0, region.width() / 2, region.height());
+    canvas.setColor(0xff0000ff);
+    canvas.fill(region.width() / 2, 0, region.width() - region.width() / 2, region.height());
+    canvas.endRegion();
+    canvas.submit();
+  }
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(bgfx::getStats()->numFrameBuffers < 200);
+  Color center = screenshot.sample(region.width() / 2, region.height() / 2);
+  REQUIRE(center.hexRed() > 0x20);
+  REQUIRE(center.hexBlue() > 0x20);
+}
+
+TEST_CASE("Temporary frame buffers are reused when their sizes come back", "[graphics]") {
+  static constexpr int kSizes = 64;
+  static constexpr int kPeriod = 4;
+
+  Canvas canvas;
+  canvas.setWindowless(64, 64);
+  Layer* layer = canvas.layer(1);
+  bgfx::FrameBufferHandle handles[kSizes];
+
+  for (int submit = 0; submit < 4 * kPeriod; ++submit) {
+    for (int i = submit % kPeriod; i < kSizes; i += kPeriod) {
+      bgfx::FrameBufferHandle handle = layer->temporaryFrameBuffer(16 + i, 16);
+      if (submit >= kPeriod)
+        REQUIRE(handle.idx == handles[i].idx);
+      handles[i] = handle;
+      layer->releaseTemporaryFrameBuffer(handle);
+    }
+    layer->destroyIdleTemporaryFrameBuffers();
+  }
+}
