@@ -22,6 +22,7 @@
 #include "visage/app.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <functional>
 
 using namespace visage;
 
@@ -172,4 +173,178 @@ TEST_CASE("Removing an editor from its window during the window's draw doesn't c
   child.redraw();
   window.drawCallback(1.0);
   REQUIRE(draws == draws_while_attached);
+}
+
+namespace {
+  class FocusFrame : public Frame {
+  public:
+    FocusFrame() { setAcceptsKeystrokes(true); }
+
+    void focusChanged(bool is_focused, bool) override {
+      focus_changes.push_back(is_focused);
+      if (!is_focused && on_blur)
+        on_blur();
+    }
+    bool keyPress(const KeyEvent&) override {
+      key_presses++;
+      return true;
+    }
+
+    std::vector<bool> focus_changes;
+    std::function<void()> on_blur;
+    int key_presses = 0;
+  };
+}
+
+TEST_CASE("Hiding or removing the focused frame takes its keyboard focus away", "[integration]") {
+  ApplicationEditor app;
+  Frame panel;
+  FocusFrame field;
+  app.addChild(panel);
+  panel.addChild(field);
+  app.setBounds(0, 0, 40, 40);
+  panel.setBounds(0, 0, 40, 40);
+  field.setBounds(0, 0, 40, 40);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+
+  SECTION("Hiding a parent") {
+    window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+    window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+    REQUIRE(field.focus_changes == std::vector<bool> { true });
+
+    panel.setVisible(false);
+    REQUIRE(field.focus_changes == std::vector<bool> { true, false });
+    window.handleKeyDown(KeyCode::A, 0, false);
+    REQUIRE(field.key_presses == 0);
+  }
+
+  SECTION("Removing from the parent") {
+    window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+    window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+    panel.removeChild(field);
+    REQUIRE(field.focus_changes == std::vector<bool> { true, false });
+    window.handleKeyDown(KeyCode::A, 0, false);
+    REQUIRE(field.key_presses == 0);
+  }
+
+  app.removeFromWindow();
+}
+
+TEST_CASE("A blur handler can remove the frame losing focus", "[integration]") {
+  ApplicationEditor app;
+  Frame panel;
+  Frame sibling;
+  auto owned_field = std::make_unique<FocusFrame>();
+  FocusFrame* field = owned_field.get();
+  app.addChild(panel);
+  panel.addChild(std::move(owned_field));
+  panel.addChild(sibling);
+  app.setBounds(0, 0, 40, 40);
+  panel.setBounds(0, 0, 40, 40);
+  field->setBounds(0, 0, 40, 20);
+  sibling.setBounds(0, 20, 40, 20);
+  field->on_blur = [&panel, field] { panel.removeChild(field); };
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+
+  SECTION("Removing it") {
+    panel.removeChild(field);
+    REQUIRE(panel.children() == std::vector<Frame*> { &sibling });
+  }
+
+  SECTION("Hiding it") {
+    field->setVisible(false);
+    REQUIRE(panel.children() == std::vector<Frame*> { &sibling });
+  }
+
+  app.removeFromWindow();
+}
+
+TEST_CASE("Hiding a frame doesn't take focus from another frame", "[integration]") {
+  ApplicationEditor app;
+  Frame panel;
+  FocusFrame first;
+  FocusFrame second;
+  app.addChild(panel);
+  panel.addChild(first);
+  app.addChild(second);
+  app.setBounds(0, 0, 40, 40);
+  panel.setBounds(0, 0, 40, 20);
+  first.setBounds(0, 0, 40, 20);
+  second.setBounds(0, 20, 40, 20);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+  panel.removeChild(first);
+  panel.addChild(first);
+  window.handleMouseDown(kMouseButtonLeft, 10, 30, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 30, 0, 0);
+  REQUIRE(second.focus_changes == std::vector<bool> { true });
+
+  first.setVisible(false);
+  REQUIRE(second.focus_changes == std::vector<bool> { true });
+  window.handleKeyDown(KeyCode::A, 0, false);
+  REQUIRE(second.key_presses == 1);
+  app.removeFromWindow();
+}
+
+TEST_CASE("A blur handler can delete the parent of the frame losing focus", "[integration]") {
+  ApplicationEditor app;
+  auto panel = std::make_unique<Frame>();
+  FocusFrame field;
+  app.addChild(panel.get());
+  panel->addChild(field);
+  app.setBounds(0, 0, 40, 40);
+  panel->setBounds(0, 0, 40, 40);
+  field.setBounds(0, 0, 40, 40);
+  field.on_blur = [&panel] { panel.reset(); };
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+
+  panel->removeChild(&field);
+  REQUIRE(panel == nullptr);
+  REQUIRE(field.focus_changes == std::vector<bool> { true, false });
+  app.removeFromWindow();
+}
+
+TEST_CASE("Removing or hiding the focused frame in an unfocused window blurs it once",
+          "[integration]") {
+  ApplicationEditor app;
+  Frame panel;
+  FocusFrame field;
+  app.addChild(panel);
+  panel.addChild(field);
+  app.setBounds(0, 0, 40, 40);
+  panel.setBounds(0, 0, 40, 40);
+  field.setBounds(0, 0, 40, 40);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+  window.handleFocusLost();
+  REQUIRE(field.focus_changes == std::vector<bool> { true, false });
+
+  SECTION("Removing") {
+    panel.removeChild(field);
+  }
+
+  SECTION("Hiding") {
+    field.setVisible(false);
+  }
+
+  REQUIRE(field.focus_changes == std::vector<bool> { true, false });
+  window.handleFocusGained();
+  REQUIRE(field.focus_changes == std::vector<bool> { true, false });
+  app.removeFromWindow();
 }

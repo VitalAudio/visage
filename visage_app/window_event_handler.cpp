@@ -35,13 +35,14 @@ namespace visage {
     window_->clearEventHandler();
   }
 
-  void WindowEventHandler::setKeyboardFocus(Frame* frame) {
-    if (keyboard_focused_frame_)
-      keyboard_focused_frame_->processFocusChanged(false, false);
-
+  void WindowEventHandler::changeKeyboardFocus(Frame* frame, bool was_clicked) {
+    Frame* previous = keyboard_focused_frame_;
     keyboard_focused_frame_ = frame;
+    if (previous && previous != frame && (previous->hasKeyboardFocus() || !previous->acceptsKeystrokes()))
+      previous->processFocusChanged(false, was_clicked);
+
     if (keyboard_focused_frame_)
-      keyboard_focused_frame_->processFocusChanged(true, false);
+      keyboard_focused_frame_->processFocusChanged(true, was_clicked);
   }
 
   void WindowEventHandler::giveUpFocus(Frame* frame) {
@@ -306,17 +307,11 @@ namespace visage {
     mouse_event.repeat_click_count = repeat;
 
     mouse_down_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
-    temporary_frame_ = mouse_down_frame_;
-    while (temporary_frame_ && !temporary_frame_->acceptsKeystrokes())
-      temporary_frame_ = temporary_frame_->parent();
+    Frame* focus_frame = mouse_down_frame_;
+    while (focus_frame && !focus_frame->acceptsKeystrokes())
+      focus_frame = focus_frame->parent();
 
-    if (keyboard_focused_frame_ && temporary_frame_ != keyboard_focused_frame_)
-      keyboard_focused_frame_->processFocusChanged(false, true);
-
-    keyboard_focused_frame_ = temporary_frame_;
-    temporary_frame_ = nullptr;
-    if (keyboard_focused_frame_)
-      keyboard_focused_frame_->processFocusChanged(true, true);
+    changeKeyboardFocus(focus_frame, true);
 
     if (mouse_down_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();

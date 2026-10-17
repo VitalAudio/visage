@@ -68,6 +68,9 @@ namespace visage {
       if (window_event_handler_)
         window_event_handler_->setKeyboardFocus(frame);
     };
+    event_handler_.keyboard_focused_frame = [this]() -> Frame* {
+      return window_event_handler_ ? window_event_handler_->keyboardFocusedFrame() : nullptr;
+    };
     event_handler_.remove_from_hierarchy = [this](Frame* frame) {
       // Do not edit the hierarchy during draw() calls
       VISAGE_ASSERT(drawing_children_.empty());

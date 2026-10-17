@@ -39,6 +39,9 @@ namespace visage {
       redrawing_ = false;
 
     setDrawing(visible && (parent_ == nullptr || parent_->isDrawing()));
+
+    if (!visible && keyboardFocusInside() && event_handler_->request_keyboard_focus)
+      event_handler_->request_keyboard_focus(nullptr);
   }
 
   void Frame::setDrawing(bool drawing) {
@@ -109,16 +112,17 @@ namespace visage {
     if (child == nullptr || child->parent_ != this)
       return;
 
+    Frame* focused = child->keyboardFocusInside();
     child->outerRegion()->invalidate();
     child->notifyRemoveFromHierarchy();
     eraseChild(child);
     child->notifyHierarchyChanged();
     on_child_removed_.callback(child);
 
-    if (owned_children_.count(child))
-      owned_children_.erase(child);
-
+    auto owned = owned_children_.extract(child);
     computeLayout();
+    if (focused && (focused->hasKeyboardFocus() || !focused->acceptsKeystrokes()))
+      focused->processFocusChanged(false, false);
   }
 
   void Frame::removeAllChildren() {
@@ -494,6 +498,18 @@ namespace visage {
     }
 
     return Brush::solid(theme::ColorId::defaultColor(color_id));
+  }
+
+  Frame* Frame::keyboardFocusInside() const {
+    if (event_handler_ == nullptr || event_handler_->keyboard_focused_frame == nullptr)
+      return nullptr;
+
+    Frame* focused = event_handler_->keyboard_focused_frame();
+    for (const Frame* frame = focused; frame; frame = frame->parent_) {
+      if (frame == this)
+        return focused;
+    }
+    return nullptr;
   }
 
   UndoHistory* Frame::undoHistory() const {
