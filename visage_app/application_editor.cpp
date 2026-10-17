@@ -93,6 +93,7 @@ namespace visage {
   }
 
   ApplicationEditor::~ApplicationEditor() {
+    removeFromWindow();
     top_level_->setEventHandler(nullptr);
   }
 
@@ -125,10 +126,10 @@ namespace visage {
     window_event_handler_ = std::make_unique<WindowEventHandler>(this, top_level_.get());
     checkFixedAspectRatio();
 
-    window_->setDrawCallback([this](double time) {
+    window_->setDrawCallback([this, alive = aliveToken()](double time) {
       canvas_->updateTime(time);
       EventManager::instance().checkEventTimers();
-      if (window_)
+      if (!alive.expired() && window_)
         drawWindow();
     });
 
