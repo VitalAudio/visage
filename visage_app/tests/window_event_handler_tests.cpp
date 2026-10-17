@@ -23,6 +23,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <functional>
+#include <thread>
 
 using namespace visage;
 
@@ -64,6 +65,39 @@ TEST_CASE("Mouse up over another frame sends it an enter relative to itself", "[
   window.handleMouseUp(kMouseButtonLeft, 15, 25, 0, 0);
   REQUIRE(bottom_enter_position == Point(15, 5));
   app.removeFromWindow();
+}
+
+TEST_CASE("Editors can be deleted while attached or inside their draw callback", "[integration]") {
+  class ActionTimer : public EventTimer {
+  public:
+    void timerCallback() override {
+      stopTimer();
+      action();
+    }
+
+    std::function<void()> action;
+  };
+
+  TestWindow window(40, 40);
+  auto app = std::make_unique<ApplicationEditor>();
+  app->setBounds(0, 0, 40, 40);
+  app->addToWindow(&window);
+
+  SECTION("By a timer during the draw callback") {
+    ActionTimer timer;
+    timer.action = [&app] { app.reset(); };
+    timer.startTimer(1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    window.drawCallback(0.0);
+    REQUIRE(app == nullptr);
+  }
+
+  SECTION("While attached") {
+    app.reset();
+  }
+
+  window.drawCallback(0.0);
+  window.handleMouseMove(10, 10, 0, 0);
 }
 
 TEST_CASE("Dragging files back over their source frame exits the previous target",
