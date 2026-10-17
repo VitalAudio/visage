@@ -38,6 +38,24 @@ TEST_CASE("Text editor text input callbacks", "[widgets]") {
   REQUIRE(input_text == "a");
 }
 
+TEST_CASE("Text editor deleted by its text change handler", "[widgets]") {
+  TextEditor* editor = new TextEditor();
+  editor->setText("abc");
+  editor->onTextChange() += [&editor] {
+    delete editor;
+    editor = nullptr;
+  };
+
+  SECTION("Paste") {
+    editor->processKeyPress(KeyEvent(KeyCode::V, kModifierRegCtrl | kModifierCmd, true));
+  }
+  SECTION("Text input") {
+    editor->processTextInput("d");
+  }
+
+  CHECK(editor == nullptr);
+}
+
 TEST_CASE("Text editor dead key at max characters", "[widgets]") {
   TextEditor editor;
   editor.setMaxCharacters(3);

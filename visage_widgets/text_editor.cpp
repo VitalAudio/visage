@@ -897,8 +897,10 @@ namespace visage {
     selection_position_ = caret_position_;
     makeCaretVisible();
 
+    std::weak_ptr<bool> alive = aliveToken();
     on_text_change_.callback();
-    redraw();
+    if (!alive.expired())
+      redraw();
     return max_text;
   }
 
