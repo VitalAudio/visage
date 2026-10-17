@@ -19,9 +19,11 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <bgfx/bgfx.h>
 #include <catch2/catch_session.hpp>
 #include <catch2/reporters/catch_reporter_event_listener.hpp>
 #include <catch2/reporters/catch_reporter_registrars.hpp>
+#include <visage/graphics.h>
 
 namespace {
   Catch::Totals run_totals;
@@ -32,12 +34,23 @@ namespace {
 
     void testRunEnded(const Catch::TestRunStats& stats) override { run_totals = stats.totals; }
   };
+
+  void finishGpuWork() {
+    static constexpr int kFramesToFinishGpuWork = 4;
+    if (!visage::Renderer::instance().initialized())
+      return;
+
+    for (int i = 0; i < kFramesToFinishGpuWork; ++i)
+      bgfx::frame();
+    visage::Renderer::instance().stop();
+  }
 }
 
 CATCH_REGISTER_LISTENER(TotalsListener)
 
 int main(int argc, char* argv[]) {
   int result = Catch::Session().run(argc, argv);
+  finishGpuWork();
   if (run_totals.assertions.failed > 0 || run_totals.testCases.failed > 0)
     return 1;
   return result;
