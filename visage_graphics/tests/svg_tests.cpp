@@ -62,6 +62,21 @@ TEST_CASE("Svg use references its ancestor", "[graphics]") {
   REQUIRE(numShapes(svg.drawable()) == 1);
 }
 
+static void clipPointCounts(const SvgDrawable* drawable, std::vector<int>& counts) {
+  if (!drawable->clipping_paths.empty())
+    counts.push_back(drawable->clipping_paths.front().numPoints());
+  for (const auto& child : drawable->children)
+    clipPointCounts(child.get(), counts);
+}
+
+TEST_CASE("Svg clip paths follow the resolution of each element using them", "[graphics]") {
+  Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><clipPath id="c"><circle cx="5" cy="5" r="4"/></clipPath><rect width="10" height="10" clip-path="url(#c)"/><g transform="scale(8)"><rect width="10" height="10" clip-path="url(#c)"/></g></svg>)svg");
+  std::vector<int> counts;
+  clipPointCounts(svg.drawable(), counts);
+  REQUIRE(counts.size() == 2);
+  REQUIRE(counts[1] > counts[0]);
+}
+
 static const SvgDrawable* firstShape(const SvgDrawable* drawable) {
   if (!drawable->command_list.empty())
     return drawable;
