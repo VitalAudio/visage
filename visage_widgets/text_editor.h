@@ -25,6 +25,8 @@
 #include "visage_ui/frame.h"
 #include "visage_ui/scroll_bar.h"
 
+#include <set>
+
 namespace visage {
   class TextEditor : public ScrollableFrame {
   public:
@@ -128,6 +130,7 @@ namespace visage {
     void doubleClick(const MouseEvent& e);
     void tripleClick(const MouseEvent& e);
     bool handleDeadKey(const KeyEvent& key);
+    bool handleKeyPress(const KeyEvent& key);
     bool keyPress(const KeyEvent& key) override;
     bool keyRelease(const KeyEvent& key) override;
     bool receivesTextInput() override { return active_; }
@@ -271,6 +274,7 @@ namespace visage {
     bool select_on_focus_ = false;
     bool mouse_focus_ = false;
     bool active_ = true;
+    std::set<KeyCode> consumed_keys_;
 
     theme::ColorId background_color_id_ = TextEditorBackground;
     float background_rounding_ = 1.0f;

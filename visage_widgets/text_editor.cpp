@@ -506,7 +506,7 @@ namespace visage {
     return true;
   }
 
-  bool TextEditor::keyPress(const KeyEvent& key) {
+  bool TextEditor::handleKeyPress(const KeyEvent& key) {
     redraw();
 
     bool modifier = key.isMainModifier();
@@ -602,8 +602,21 @@ namespace visage {
     return key.modifierMask() == 0 || key.modifierMask() == kModifierShift;
   }
 
+  bool TextEditor::keyPress(const KeyEvent& key) {
+    std::weak_ptr<bool> alive = aliveToken();
+    bool used = handleKeyPress(key);
+    if (alive.expired() || !hasKeyboardFocus())
+      return used;
+
+    if (used)
+      consumed_keys_.insert(key.keyCode());
+    else
+      consumed_keys_.erase(key.keyCode());
+    return used;
+  }
+
   bool TextEditor::keyRelease(const KeyEvent& key) {
-    return active_;
+    return consumed_keys_.erase(key.keyCode()) > 0;
   }
 
   String TextEditor::translateDeadKeyText(const String& text) const {
@@ -634,6 +647,7 @@ namespace visage {
   void TextEditor::focusChanged(bool is_focused, bool was_clicked) {
     redraw();
     if (!is_focused) {
+      consumed_keys_.clear();
       if (dead_key_entry_ != DeadKey::None) {
         dead_key_entry_ = DeadKey::None;
         selection_position_ = caret_position_;
