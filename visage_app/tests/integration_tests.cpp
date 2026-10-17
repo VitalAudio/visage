@@ -1454,6 +1454,44 @@ TEST_CASE("Svg frame clip paths clipped by other clip paths", "[integration]") {
   REQUIRE(cycle.sample(5, 15).hexRed() == 0x00);
 }
 
+TEST_CASE("Svg frame clip paths defined after use", "[integration]") {
+  Screenshot forward = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><rect width="20" height="20" fill="white" clip-path="url(#c)"/><clipPath id="c"><rect width="10" height="20"/></clipPath></svg>)svg");
+  REQUIRE(forward.sample(5, 10).hexRed() == 0xff);
+  REQUIRE(forward.sample(15, 10).hexRed() == 0x00);
+
+  Screenshot nested = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><g><rect width="20" height="20" fill="white" clip-path="url(#c)"/></g><g><defs><clipPath id="c"><circle cx="10" cy="10" r="5"/></clipPath></defs></g></svg>)svg");
+  REQUIRE(nested.sample(10, 10).hexRed() == 0xff);
+  REQUIRE(nested.sample(2, 2).hexRed() == 0x00);
+
+  Screenshot duplicate = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c"><rect width="10" height="20"/></clipPath><clipPath id="c"><rect x="10" width="10" height="20"/></clipPath><rect width="20" height="20" fill="white" clip-path="url(#c)"/></svg>)svg");
+  REQUIRE(duplicate.sample(5, 10).hexRed() == 0xff);
+  REQUIRE(duplicate.sample(15, 10).hexRed() == 0x00);
+}
+
+TEST_CASE("Svg frame clip paths use the referencing element's coordinates", "[integration]") {
+  Screenshot outside = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><g transform="translate(4 0)"><clipPath id="c"><rect width="4" height="20"/></clipPath></g><rect width="20" height="20" fill="white" clip-path="url(#c)"/></svg>)svg");
+  REQUIRE(outside.sample(2, 10).hexRed() == 0xff);
+  REQUIRE(outside.sample(6, 10).hexRed() == 0x00);
+
+  Screenshot used = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><g id="g" transform="translate(2 0)"><clipPath id="c"><rect width="4" height="4"/></clipPath><rect width="8" height="8" fill="white" clip-path="url(#c)"/></g><use href="#g" x="10" y="10"/></svg>)svg");
+  REQUIRE(used.sample(3, 2).hexRed() == 0xff);
+  REQUIRE(used.sample(7, 2).hexRed() == 0x00);
+  REQUIRE(used.sample(13, 12).hexRed() == 0xff);
+  REQUIRE(used.sample(17, 12).hexRed() == 0x00);
+
+  Screenshot shared = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c"><rect width="4" height="20"/></clipPath><rect width="20" height="10" fill="white" clip-path="url(#c)"/><g transform="translate(10 0)"><rect y="10" width="10" height="10" fill="white" clip-path="url(#c)"/></g></svg>)svg");
+  REQUIRE(shared.sample(2, 5).hexRed() == 0xff);
+  REQUIRE(shared.sample(6, 5).hexRed() == 0x00);
+  REQUIRE(shared.sample(12, 15).hexRed() == 0xff);
+  REQUIRE(shared.sample(16, 15).hexRed() == 0x00);
+
+  Screenshot bounding = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c" clipPathUnits="objectBoundingBox"><rect width="0.5" height="1"/></clipPath><rect width="10" height="10" fill="white" clip-path="url(#c)"/><rect x="10" y="10" width="10" height="10" fill="white" clip-path="url(#c)"/></svg>)svg");
+  REQUIRE(bounding.sample(2, 5).hexRed() == 0xff);
+  REQUIRE(bounding.sample(7, 5).hexRed() == 0x00);
+  REQUIRE(bounding.sample(12, 15).hexRed() == 0xff);
+  REQUIRE(bounding.sample(17, 15).hexRed() == 0x00);
+}
+
 TEST_CASE("Svg frame clip paths", "[integration]") {
   Screenshot united = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c"><rect width="5" height="20"/><rect x="15" width="5" height="20"/></clipPath><rect width="20" height="20" fill="white" clip-path="url(#c)"/></svg>)svg");
   REQUIRE(united.sample(2, 10).hexRed() == 0xff);

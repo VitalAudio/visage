@@ -169,6 +169,12 @@ namespace visage {
       return { matrix[0][0] / scalar, matrix[0][1] / scalar, matrix[1][0] / scalar, matrix[1][1] / scalar };
     }
 
+    bool operator==(const BaseMatrix& other) const noexcept {
+      return matrix[0][0] == other.matrix[0][0] && matrix[0][1] == other.matrix[0][1] &&
+             matrix[1][0] == other.matrix[1][0] && matrix[1][1] == other.matrix[1][1];
+    }
+    bool operator!=(const BaseMatrix& other) const noexcept { return !(*this == other); }
+
     static BaseMatrix identity() { return { 1, 0, 0, 1 }; }
 
     static BaseMatrix rotation(T angle) {

@@ -283,6 +283,7 @@ namespace visage {
     void initPaths(const Matrix& scale_matrix, const Bounds& view_box);
     void adjustPaths(const Matrix& scale_matrix, const Bounds& view_box,
                      std::map<std::string, SvgDrawable*>& clip_paths);
+    void collectClipPaths(std::map<std::string, SvgDrawable*>& clip_paths);
     void strokePath(const Matrix& scale_matrix, const Bounds& view_box);
     void resolveContextPaint(const Brush& context_fill, const Brush& context_stroke);
     void applyColorMatrices();
@@ -312,6 +313,7 @@ namespace visage {
       auto initial_transform = initialTransform(view, width, height);
       auto dpi_scale = Matrix::scale(scale, scale);
       initPaths(dpi_scale * initial_transform.matrix, view.view_box);
+      collectClipPaths(clip_paths);
       adjustPaths(dpi_scale * initial_transform.matrix, view.view_box, clip_paths);
       transformPaths(initial_transform);
       resolveContextPaint(Brush::none(), Brush::none());
@@ -381,6 +383,10 @@ namespace visage {
     Bounds post_bounding_box;
     std::vector<Path> clipping_paths;
     std::vector<std::vector<Path>> clip_intersections;
+    std::vector<Path> clip_cache;
+    Matrix clip_cache_matrix;
+    Bounds clip_cache_bounds;
+    bool clip_cache_valid = false;
     std::optional<Bounds> view_clip;
     std::optional<MaskSettings> mask_settings;
     std::optional<ColorMatrix> color_matrix;

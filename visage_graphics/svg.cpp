@@ -482,7 +482,7 @@ namespace visage {
     clip_intersections.clear();
 
     if (is_clip_path)
-      clip_paths[id] = this;
+      clip_paths.emplace(id, this);
 
     if (view_clip) {
       Path clip_path;
@@ -509,22 +509,35 @@ namespace visage {
 
     if (tokens[0] == "url") {
       auto gather = [&](SvgDrawable* clip_drawable, std::vector<Path>& paths) {
-        if (clip_drawable->is_clip_bounding_box) {
-          auto scale = scale_matrix * Matrix::scale(bounding_box.width(), bounding_box.height());
+        bool bounding = clip_drawable->is_clip_bounding_box;
+        auto scale = bounding ?
+                         scale_matrix * Matrix::scale(bounding_box.width(), bounding_box.height()) :
+                         scale_matrix;
+        Bounds cache_bounds = bounding ? bounding_box : Bounds();
+        if (!clip_drawable->clip_cache_valid || clip_drawable->clip_cache_matrix != scale ||
+            !(clip_drawable->clip_cache_bounds == cache_bounds)) {
           clip_drawable->initPaths(scale, view_box);
+          std::map<std::string, SvgDrawable*> child_clip_paths;
           for (auto& child : clip_drawable->children)
-            child->adjustPaths(scale, view_box, clip_paths);
+            child->adjustPaths(scale, view_box, child_clip_paths);
 
-          clip_drawable->gatherClipPaths(paths);
-          for (auto& clip_path : paths) {
-            clip_path.transform(clip_drawable->originTransform(view_box) *
-                                Transform::translation(bounding_box.x(), bounding_box.y()) *
-                                Transform::scale(bounding_box.width(), bounding_box.height()));
+          std::vector<Path> gathered;
+          clip_drawable->gatherClipPaths(gathered);
+          Transform clip_transform = clip_drawable->originTransform(view_box);
+          if (bounding) {
+            clip_transform = clip_transform * Transform::translation(bounding_box.x(), bounding_box.y()) *
+                             Transform::scale(bounding_box.width(), bounding_box.height());
           }
-        }
-        else
-          clip_drawable->gatherClipPaths(paths);
+          for (auto& clip_path : gathered)
+            clip_path.transform(clip_transform);
 
+          clip_drawable->clip_cache = std::move(gathered);
+          clip_drawable->clip_cache_matrix = scale;
+          clip_drawable->clip_cache_bounds = cache_bounds;
+          clip_drawable->clip_cache_valid = true;
+        }
+
+        paths.insert(paths.end(), clip_drawable->clip_cache.begin(), clip_drawable->clip_cache.end());
         if (paths.empty())
           paths.emplace_back();
       };
@@ -722,6 +735,16 @@ namespace visage {
     checkPathClipping(scale_matrix * local_transform.matrix, view_box, clip_paths);
     if (!transform.isIdentity())
       transformPaths(transform);
+  }
+
+  void SvgDrawable::collectClipPaths(std::map<std::string, SvgDrawable*>& clip_paths) {
+    for (auto& child : children) {
+      if (child->is_clip_path) {
+        child->clip_cache_valid = false;
+        clip_paths.emplace(child->id, child.get());
+      }
+      child->collectClipPaths(clip_paths);
+    }
   }
 
   void consumeWhiteSpace(const std::string& str, int& i) {

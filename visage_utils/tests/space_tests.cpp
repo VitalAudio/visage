@@ -414,3 +414,13 @@ TEST_CASE("IBounds reduced asymmetric", "[utils]") {
     REQUIRE(reduced.height() == 0);
   }
 }
+
+TEST_CASE("Matrix equality compares every entry", "[utils]") {
+  Matrix matrix(1.0f, 2.0f, 3.0f, 4.0f);
+  REQUIRE(matrix == Matrix(1.0f, 2.0f, 3.0f, 4.0f));
+  REQUIRE_FALSE(matrix != Matrix(1.0f, 2.0f, 3.0f, 4.0f));
+  REQUIRE(matrix != Matrix(5.0f, 2.0f, 3.0f, 4.0f));
+  REQUIRE(matrix != Matrix(1.0f, 5.0f, 3.0f, 4.0f));
+  REQUIRE(matrix != Matrix(1.0f, 2.0f, 5.0f, 4.0f));
+  REQUIRE(matrix != Matrix(1.0f, 2.0f, 3.0f, 5.0f));
+}
