@@ -476,6 +476,52 @@ namespace visage {
     return path;
   }
 
+  static constexpr float kClipStepsPerOctave = 4.0f;
+
+  static float resolutionScale(const Matrix& matrix) {
+    static constexpr float kMinScale = 0.000001f;
+    float x = std::hypot(matrix.matrix[0][0], matrix.matrix[1][0]);
+    float y = std::hypot(matrix.matrix[0][1], matrix.matrix[1][1]);
+    float dot = matrix.matrix[0][0] * matrix.matrix[0][1] + matrix.matrix[1][0] * matrix.matrix[1][1];
+    float scale = std::max(x, y);
+    if (std::abs(dot) > 0.0001f * x * y) {
+      float sum = x * x + y * y;
+      float determinant = matrix.determinant();
+      scale = std::sqrt(0.5f *
+                        (sum + std::sqrt(std::max(0.0f, sum * sum - 4.0f * determinant * determinant))));
+    }
+    return std::max(scale, kMinScale);
+  }
+
+  static int resolutionStep(float ratio) {
+    static constexpr float kMaxSteps = 256.0f;
+    return std::clamp(std::ceil(kClipStepsPerOctave * std::log2(ratio) - 0.01f), -kMaxSteps, kMaxSteps);
+  }
+
+  std::shared_ptr<const std::vector<Path>> SvgDrawable::clipOutline(const Matrix& scale_matrix,
+                                                                    const Bounds& view_box) {
+    float resolution = resolutionScale(scale_matrix);
+    if (clip_cache.empty())
+      clip_cache_resolution = resolution;
+
+    int step = resolutionStep(resolution / clip_cache_resolution);
+    auto& outline = clip_cache[step];
+    if (outline)
+      return outline;
+
+    float scale = clip_cache_resolution * std::exp2(step / kClipStepsPerOctave);
+    Matrix matrix = Matrix::scale(scale, scale);
+    initPaths(matrix, view_box);
+    std::map<std::string, SvgDrawable*> child_clip_paths;
+    for (auto& child : children)
+      child->adjustPaths(matrix, view_box, child_clip_paths);
+
+    auto paths = std::make_shared<std::vector<Path>>();
+    gatherClipPaths(*paths);
+    outline = paths;
+    return outline;
+  }
+
   void SvgDrawable::checkPathClipping(const Matrix& scale_matrix, const Bounds& view_box,
                                       std::map<std::string, SvgDrawable*>& clip_paths) {
     clipping_paths.clear();
@@ -488,7 +534,7 @@ namespace visage {
       Path clip_path;
       clip_path.setResolutionMatrix(scale_matrix);
       clip_path.addRectangle(view_clip->x(), view_clip->y(), view_clip->width(), view_clip->height());
-      clipping_paths.push_back(clip_path);
+      clipping_paths.push_back({ std::make_shared<const std::vector<Path>>(1, clip_path), Transform() });
     }
 
     int position = 0;
@@ -508,38 +554,17 @@ namespace visage {
       bounding_box = boundingBox();
 
     if (tokens[0] == "url") {
-      auto gather = [&](SvgDrawable* clip_drawable, std::vector<Path>& paths) {
+      auto gather = [&](SvgDrawable* clip_drawable, std::vector<ClipPaths>& clips) {
         bool bounding = clip_drawable->is_clip_bounding_box;
         auto scale = bounding ?
                          scale_matrix * Matrix::scale(bounding_box.width(), bounding_box.height()) :
                          scale_matrix;
-        Bounds cache_bounds = bounding ? bounding_box : Bounds();
-        if (!clip_drawable->clip_cache_valid || clip_drawable->clip_cache_matrix != scale ||
-            !(clip_drawable->clip_cache_bounds == cache_bounds)) {
-          clip_drawable->initPaths(scale, view_box);
-          std::map<std::string, SvgDrawable*> child_clip_paths;
-          for (auto& child : clip_drawable->children)
-            child->adjustPaths(scale, view_box, child_clip_paths);
-
-          std::vector<Path> gathered;
-          clip_drawable->gatherClipPaths(gathered);
-          Transform clip_transform = clip_drawable->originTransform(view_box);
-          if (bounding) {
-            clip_transform = clip_transform * Transform::translation(bounding_box.x(), bounding_box.y()) *
-                             Transform::scale(bounding_box.width(), bounding_box.height());
-          }
-          for (auto& clip_path : gathered)
-            clip_path.transform(clip_transform);
-
-          clip_drawable->clip_cache = std::move(gathered);
-          clip_drawable->clip_cache_matrix = scale;
-          clip_drawable->clip_cache_bounds = cache_bounds;
-          clip_drawable->clip_cache_valid = true;
+        Transform clip_transform = clip_drawable->originTransform(view_box);
+        if (bounding) {
+          clip_transform = clip_transform * Transform::translation(bounding_box.x(), bounding_box.y()) *
+                           Transform::scale(bounding_box.width(), bounding_box.height());
         }
-
-        paths.insert(paths.end(), clip_drawable->clip_cache.begin(), clip_drawable->clip_cache.end());
-        if (paths.empty())
-          paths.emplace_back();
+        clips.push_back({ clip_drawable->clipOutline(scale, view_box), clip_transform });
       };
 
       auto url_id = urlId(clip_path_shape);
@@ -574,7 +599,7 @@ namespace visage {
     else
       return;
 
-    clipping_paths.push_back(clip_path);
+    clipping_paths.push_back({ std::make_shared<const std::vector<Path>>(1, clip_path), Transform() });
   }
 
   void SvgDrawable::initPaths(const Matrix& scale_matrix, const Bounds& view_box) {
@@ -718,7 +743,7 @@ namespace visage {
     Path clip_path;
     clip_path.setResolutionMatrix(scale_matrix);
     clip_path.addRectangle(region.x(), region.y(), region.width(), region.height());
-    mask.clipping_paths = { clip_path };
+    mask.clipping_paths = { { std::make_shared<const std::vector<Path>>(1, clip_path), Transform() } };
   }
 
   void SvgDrawable::adjustPaths(const Matrix& scale_matrix, const Bounds& view_box,
@@ -740,7 +765,7 @@ namespace visage {
   void SvgDrawable::collectClipPaths(std::map<std::string, SvgDrawable*>& clip_paths) {
     for (auto& child : children) {
       if (child->is_clip_path) {
-        child->clip_cache_valid = false;
+        child->clip_cache.clear();
         clip_paths.emplace(child->id, child.get());
       }
       child->collectClipPaths(clip_paths);

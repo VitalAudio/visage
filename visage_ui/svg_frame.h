@@ -114,11 +114,13 @@ namespace visage {
           if (clip_level > drawable_->clip_intersections.size())
             return;
 
-          const auto& clipping_paths = clip_level ? drawable_->clip_intersections[clip_level - 1] :
-                                                    drawable_->clipping_paths;
+          const auto& clips = clip_level ? drawable_->clip_intersections[clip_level - 1] :
+                                           drawable_->clipping_paths;
           canvas.setColor(0xffffffff);
-          for (const auto& clipping_path : clipping_paths)
-            canvas.fill(clipping_path, -svgOrigin().x, -svgOrigin().y);
+          for (const auto& clip : clips) {
+            for (const auto& clipping_path : *clip.paths)
+              canvas.fill(clipping_path.transformed(clip.transform), -svgOrigin().x, -svgOrigin().y);
+          }
         };
       }
 
@@ -132,10 +134,12 @@ namespace visage {
           canvas.setBlendMode(BlendMode::Alpha);
           canvas.setColor(0xff000000);
           for (const auto& region : mask->clipping_paths) {
-            Path outside = region;
-            outside.setFillRule(Path::FillRule::EvenOdd);
-            outside.addRectangle(origin.x, origin.y, width(), height());
-            canvas.fill(outside, -origin.x, -origin.y);
+            for (const auto& region_path : *region.paths) {
+              Path outside = region_path.transformed(region.transform);
+              outside.setFillRule(Path::FillRule::EvenOdd);
+              outside.addRectangle(origin.x, origin.y, width(), height());
+              canvas.fill(outside, -origin.x, -origin.y);
+            }
           }
         };
       }

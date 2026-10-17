@@ -64,7 +64,7 @@ TEST_CASE("Svg use references its ancestor", "[graphics]") {
 
 static void clipPointCounts(const SvgDrawable* drawable, std::vector<int>& counts) {
   if (!drawable->clipping_paths.empty())
-    counts.push_back(drawable->clipping_paths.front().numPoints());
+    counts.push_back(drawable->clipping_paths.front().paths->front().numPoints());
   for (const auto& child : drawable->children)
     clipPointCounts(child.get(), counts);
 }
@@ -75,6 +75,30 @@ TEST_CASE("Svg clip paths follow the resolution of each element using them", "[g
   clipPointCounts(svg.drawable(), counts);
   REQUIRE(counts.size() == 2);
   REQUIRE(counts[1] > counts[0]);
+}
+
+static void clipOutlines(const SvgDrawable* drawable, std::set<const std::vector<Path>*>& outlines) {
+  for (const auto& clip : drawable->clipping_paths)
+    outlines.insert(clip.paths.get());
+  for (const auto& child : drawable->children)
+    clipOutlines(child.get(), outlines);
+}
+
+TEST_CASE("Svg clip path users share one outline", "[graphics]") {
+  std::string data = R"svg(<svg viewBox="0 0 100 100"><clipPath id="c"><circle cx="5" cy="5" r="4"/></clipPath><clipPath id="b" clipPathUnits="objectBoundingBox"><circle cx="0.5" cy="0.5" r="0.4"/></clipPath>)svg";
+  for (int i = 0; i < 20; ++i) {
+    data += "<rect width=\"10\" height=\"10\" transform=\"rotate(" + std::to_string(i * 17) +
+            ")\" clip-path=\"url(#c)\"/>";
+    int side = 1 + i % 10;
+    std::string width = std::to_string(i < 10 ? 10 : side);
+    std::string height = std::to_string(i < 10 ? side : 10);
+    data += "<rect x=\"" + std::to_string(i * 5) + "\" width=\"" + width + "\" height=\"" + height +
+            "\" clip-path=\"url(#b)\"/>";
+  }
+  Svg svg = parseSvg(data + "</svg>");
+  std::set<const std::vector<Path>*> outlines;
+  clipOutlines(svg.drawable(), outlines);
+  REQUIRE(outlines.size() == 2);
 }
 
 static const SvgDrawable* firstShape(const SvgDrawable* drawable) {

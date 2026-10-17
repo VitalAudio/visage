@@ -1490,6 +1490,12 @@ TEST_CASE("Svg frame clip paths use the referencing element's coordinates", "[in
   REQUIRE(bounding.sample(7, 5).hexRed() == 0x00);
   REQUIRE(bounding.sample(12, 15).hexRed() == 0xff);
   REQUIRE(bounding.sample(17, 15).hexRed() == 0x00);
+
+  Screenshot rotated = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c"><rect x="10" width="5" height="20"/></clipPath><rect x="10" width="10" height="10" fill="white" clip-path="url(#c)"/><rect x="10" y="10" width="10" height="10" fill="white" clip-path="url(#c)" transform="rotate(90 15 15)"/></svg>)svg");
+  REQUIRE(rotated.sample(12, 5).hexRed() == 0xff);
+  REQUIRE(rotated.sample(17, 5).hexRed() == 0x00);
+  REQUIRE(rotated.sample(15, 12).hexRed() == 0xff);
+  REQUIRE(rotated.sample(15, 17).hexRed() == 0x00);
 }
 
 TEST_CASE("Svg frame clip paths", "[integration]") {
