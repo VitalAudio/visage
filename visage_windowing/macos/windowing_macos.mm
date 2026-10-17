@@ -403,7 +403,10 @@ namespace visage {
   if (self.visage_window == nullptr)
     return;
 
-  self.visage_window->handleTextInput([string UTF8String]);
+  NSString* text = [string isKindOfClass:[NSAttributedString class]] ? [string string] : string;
+  const char* utf8 = [text UTF8String];
+  if (utf8)
+    self.visage_window->handleTextInput(utf8);
 }
 
 - (void)moveLeft:(id)sender {
