@@ -21,6 +21,7 @@
 
 #include "font.h"
 
+#include "embedded/fonts.h"
 #include "emoji.h"
 #include "visage_utils/file_system.h"
 #include "visage_utils/thread_utils.h"
@@ -265,6 +266,8 @@ namespace visage {
     }
     return false;
   }
+
+  Font::Font(float size, float dpi_scale) : Font(size, fonts::Lato_Regular_ttf, dpi_scale) { }
 
   Font::Font(float size, const unsigned char* font_data, int data_size, float dpi_scale) :
       size_(size), dpi_scale_(dpi_scale) {

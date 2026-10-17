@@ -25,11 +25,20 @@
 
 #include <iostream>
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+#endif
+
 namespace visage {
   inline void debugLogString(const char* file, unsigned int line, const String& log_message) {
+#if defined(__ANDROID__)
+    __android_log_print(ANDROID_LOG_INFO, "Visage", "%s (%u): %s", file, line,
+                        log_message.toUtf8().c_str());
+#else
     std::cerr << file << " (" << line << ") " << log_message.toUtf8();
     if (log_message.isEmpty() || log_message[log_message.size() - 1] != '\n')
       std::cerr << std::endl;
+#endif
   }
 
   void debugLogArgs(const char* file, unsigned int line, const char* format, va_list arg_list) {

@@ -26,6 +26,10 @@
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
 
+#if VISAGE_ANDROID || defined(__ANDROID__)
+#include <android/native_window.h>
+#endif
+
 namespace visage {
   class GraphicsCallbackHandler : public bgfx::CallbackI {
     void fatal(const char* file_path, uint16_t line, bgfx::Fatal::Enum _code, const char* error) override {
@@ -58,16 +62,22 @@ namespace visage {
     void captureFrame(const void*, uint32_t) override { }
   };
 
-  static constexpr uint32_t resetFlags() {
+  static bool vsync_enabled_ = true;
+
+  static uint32_t resetFlags(bool vsync) {
 #if VISAGE_WINDOWS
     return BGFX_RESET_FLIP_AFTER_RENDER;
 #elif VISAGE_MAC
-    return BGFX_RESET_FLIP_AFTER_RENDER | BGFX_RESET_VSYNC;
-#elif VISAGE_LINUX
-    return BGFX_RESET_VSYNC;
+    return BGFX_RESET_FLIP_AFTER_RENDER | (vsync ? BGFX_RESET_VSYNC : 0);
+#elif VISAGE_LINUX || VISAGE_ANDROID || defined(__ANDROID__)
+    return vsync ? BGFX_RESET_VSYNC : 0;
 #else
     return 0;
 #endif
+  }
+
+  static uint32_t resetFlags() {
+    return resetFlags(vsync_enabled_);
   }
 
   Renderer& Renderer::instance() {
@@ -136,6 +146,12 @@ namespace visage {
     bgfx_init.resolution.height = 1;
 #elif VISAGE_LINUX
     bgfx_init.type = bgfx::RendererType::Vulkan;
+#elif VISAGE_ANDROID || defined(__ANDROID__)
+    bgfx_init.type = bgfx::RendererType::OpenGLES;
+    if (model_window != nullptr) {
+      bgfx_init.resolution.width = ANativeWindow_getWidth(static_cast<ANativeWindow*>(model_window));
+      bgfx_init.resolution.height = ANativeWindow_getHeight(static_cast<ANativeWindow*>(model_window));
+    }
 #elif VISAGE_EMSCRIPTEN
     bgfx_init.type = bgfx::RendererType::OpenGLES;
 #endif
@@ -156,9 +172,42 @@ namespace visage {
     swap_chain_supported_ = bgfx::getCaps()->supported & BGFX_CAPS_SWAP_CHAIN;
   }
 
-  void Renderer::resetResolution(int width, int height) {
+  void Renderer::setVsync(bool vsync) {
+    vsync_enabled_ = vsync;
+  }
+
+  bool Renderer::vsync() {
+    return vsync_enabled_;
+  }
+
+  void Renderer::setNativeWindow(void* window, int width, int height, bool vsync) {
+    setVsync(vsync);
+#if VISAGE_ANDROID || defined(__ANDROID__)
+    bgfx::PlatformData pd;
+    pd.ndt = nullptr;
+    pd.nwh = window;
+    pd.context = nullptr;
+    pd.backBuffer = nullptr;
+    pd.backBufferDS = nullptr;
+    bgfx::setPlatformData(pd);
+    if (window != nullptr && width > 0 && height > 0) {
+      static bool force_toggle = false;
+      force_toggle = !force_toggle;
+      uint32_t flags = resetFlags(vsync);
+      if (force_toggle) {
+        flags |= BGFX_RESET_FLUSH_AFTER_RENDER;
+      }
+      bgfx::reset(width, height, flags);
+    }
+#endif
+  }
+
+  void Renderer::resetResolution(int width, int height, bool vsync) {
+    setVsync(vsync);
 #if VISAGE_MAC
-    bgfx::reset(width, height, resetFlags());
+    bgfx::reset(width, height, resetFlags(vsync));
+#elif VISAGE_ANDROID || defined(__ANDROID__)
+    bgfx::reset(width, height, resetFlags(vsync));
 #endif
   }
 

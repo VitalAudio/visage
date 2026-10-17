@@ -344,6 +344,8 @@ namespace visage {
       return { x_ + amount, y_ + amount, newWidth, newHeight };
     }
 
+    IBounds reduced(int x, int y) const { return reduced(x, x, y, y); }
+
     IBounds reduced(int left, int right, int top, int bottom) const {
       const auto newWidth = std::max(0, width_ - left - right);
       const auto newHeight = std::max(0, height_ - top - bottom);
@@ -541,6 +543,8 @@ namespace visage {
       const auto newHeight = std::max(0.0f, height_ - 2.0f * amount);
       return { x_ + amount, y_ + amount, newWidth, newHeight };
     }
+
+    Bounds reduced(float x, float y) const { return reduced(x, x, y, y); }
 
     Bounds reduced(float left, float right, float top, float bottom) const {
       const auto newWidth = std::max(0.0f, width_ - left - right);

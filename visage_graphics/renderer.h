@@ -35,7 +35,10 @@ namespace visage {
     Renderer();
     ~Renderer() override;
 
-    static void resetResolution(int width, int height);
+    static void setVsync(bool vsync);
+    static bool vsync();
+    static void setNativeWindow(void* window, int width, int height, bool vsync = true);
+    static void resetResolution(int width, int height, bool vsync = true);
 
     void initializeWindowless() { initialize(windowlessContext(), nullptr); }
     void initialize(void* model_window, void* display);

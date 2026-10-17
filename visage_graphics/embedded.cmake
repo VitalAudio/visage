@@ -27,6 +27,11 @@ function(visage_embed_shaders project include_filename namespace original_shader
   if (EMSCRIPTEN)
     set(OPENGLES TRUE)
     set(SHADER_PLATFORM "asm.js")
+    set(ESSL_PROFILE "100_es")
+  elseif (ANDROID)
+    set(OPENGLES TRUE)
+    set(SHADER_PLATFORM "android")
+    set(ESSL_PROFILE "300_es")
   elseif (WIN32)
     set(SHADER_PLATFORM "windows")
     set(DIRECTX TRUE)
@@ -37,6 +42,10 @@ function(visage_embed_shaders project include_filename namespace original_shader
     set(LINUX TRUE)
     set(VULKAN TRUE)
     set(SHADER_PLATFORM "linux")
+  endif()
+
+  if (NOT ESSL_PROFILE)
+    set(ESSL_PROFILE "100_es")
   endif()
 
   foreach(SHADER ${original_shaders})
@@ -52,7 +61,7 @@ function(visage_embed_shaders project include_filename namespace original_shader
       list(APPEND SHADER_BINS ${ESSL_PATH})
       add_custom_command(
         OUTPUT ${ESSL_PATH}
-        COMMAND ${SHADERC} -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders -O3 -f ${SHADER} -o ${ESSL_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p 100_es
+        COMMAND ${SHADERC} -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders -O3 -f ${SHADER} -o ${ESSL_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p ${ESSL_PROFILE}
         DEPENDS ${SHADER}
       )
     endif()

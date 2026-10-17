@@ -26,6 +26,15 @@ int runExample();
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
   return runExample();
 }
+#elif VISAGE_ANDROID
+#include "visage_windowing/android/windowing_android.h"
+
+#include <android_native_app_glue.h>
+
+void android_main(struct android_app* app) {
+  visage::WindowAndroid::SetGlobalAndroidApp(app);
+  runExample();
+}
 #else
 int main(int, char**) {
   return runExample();

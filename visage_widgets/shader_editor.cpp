@@ -158,6 +158,9 @@ namespace visage {
 #elif VISAGE_EMSCRIPTEN
     std::string platform = platformArgument(Platform::Linux);
     std::string profile = profileArgument(Backend::Glsl, shader_type);
+#elif VISAGE_ANDROID
+    std::string platform = platformArgument(Platform::Linux);
+    std::string profile = profileArgument(Backend::Glsl, shader_type);
 #endif
 
     if (!std::filesystem::exists(File(compiler_path_))) {

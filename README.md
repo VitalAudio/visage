@@ -70,4 +70,5 @@ int main() {
 - **Windows**: Direct3D11
 - **MacOS**: Metal  
 - **Linux**: Vulkan
+- **Android**: OpenGL ES
 - **Web/Emscripten**: WebGL
