@@ -25,7 +25,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#if !defined(__ANDROID__) || __ANDROID_API__ >= 28
 #include <spawn.h>
+#endif
 #include <sstream>
 #include <string>
 #include <sys/wait.h>
@@ -33,6 +35,14 @@
 #include <unistd.h>
 #include <vector>
 
+#if defined(__ANDROID__) && __ANDROID_API__ < 28
+namespace visage {
+  bool spawnChildProcess(const std::string& /*command*/, const std::string& /*arguments*/,
+                         std::string& /*output*/, int /*timeout_ms*/) {
+    return false;
+  }
+}  // namespace visage
+#else
 namespace visage {
   static void closePipes(int out_pipe, int err_pipe) {
     close(out_pipe);
@@ -173,3 +183,4 @@ namespace visage {
     return WIFEXITED(status) && WEXITSTATUS(status) == 0;
   }
 }
+#endif
