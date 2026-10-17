@@ -23,6 +23,7 @@
 
 #include "canvas.h"
 
+#include <limits>
 #include <optional>
 #include <tuple>
 #include <unordered_map>
@@ -303,6 +304,28 @@ namespace visage {
     float result = 0.0f;
     tryReadFloat(result, value);
     return result * mult;
+  }
+
+  inline void tryReadOpacity(float& result, const std::string& string) {
+    std::string value = trimWhitespace(string);
+    bool percent = !value.empty() && value.back() == '%';
+    if (percent)
+      value.pop_back();
+
+    float opacity = 0.0f;
+    size_t number_end = 0;
+    bool read = readFloat(value, opacity, &number_end);
+    if (number_end == 0 || number_end != value.size())
+      return;
+
+    if (!read) {
+      size_t exponent = value.find_first_of("eE");
+      bool tiny = exponent == std::string::npos ? value.find_first_not_of("+-0") == value.find('.') :
+                                                  value[exponent + 1] == '-';
+      float huge = std::numeric_limits<float>::infinity();
+      opacity = tiny ? 0.0f : (value[0] == '-' ? -huge : huge);
+    }
+    result = std::clamp(percent ? opacity * 0.01f : opacity, 0.0f, 1.0f);
   }
 
   inline float parseAngle(const std::string& str) {
@@ -1218,8 +1241,11 @@ namespace visage {
     uses_current_color = lower == "currentcolor" && stop_color.empty();
 
     Color color = parseColor(stop_color).value_or(Color(0xff000000));
-    if (properties.count("stop-opacity"))
-      color = color.withAlpha(color.alpha() * parseNumber(properties["stop-opacity"], 1.0f));
+    if (properties.count("stop-opacity")) {
+      float stop_opacity = 1.0f;
+      tryReadOpacity(stop_opacity, properties["stop-opacity"]);
+      color = color.withAlpha(color.alpha() * stop_opacity);
+    }
     return color;
   }
 
@@ -2028,7 +2054,7 @@ namespace visage {
   void SvgParser::parseStyleDefinition(const std::string& key, const std::string& value,
                                        DrawableState& state, SvgDrawable* drawable) {
     if (key == "opacity")
-      tryReadFloat(drawable->opacity, value);
+      tryReadOpacity(drawable->opacity, value);
     else if (key == "clip-path")
       drawable->clip_path_shape = value;
     else if (key == "background-color")
@@ -2052,13 +2078,13 @@ namespace visage {
     else if (key == "clip-rule")
       state.non_zero_clip = value == "nonzero";
     else if (key == "fill-opacity")
-      tryReadFloat(state.fill_opacity, value);
+      tryReadOpacity(state.fill_opacity, value);
     else if (key == "stroke") {
       if (auto gradient = parseGradient(value))
         state.stroke_gradient = *gradient;
     }
     else if (key == "stroke-opacity")
-      tryReadFloat(state.stroke_opacity, value);
+      tryReadOpacity(state.stroke_opacity, value);
     else if (key == "stroke-width")
       tryReadFloat(state.stroke_width, value);
     else if (key == "stroke-linecap")

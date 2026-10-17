@@ -261,7 +261,10 @@ namespace visage {
 #endif
 
 namespace visage {
-  bool readFloat(const std::string& string, float& result) {
+  bool readFloat(const std::string& string, float& result, size_t* number_end) {
+    if (number_end)
+      *number_end = 0;
+
     thread_local std::istringstream stream = [] {
       std::istringstream classic_stream;
       classic_stream.imbue(std::locale::classic());
@@ -301,6 +304,9 @@ namespace visage {
           end++;
       }
     }
+
+    if (number_end)
+      *number_end = end;
 
     stream.clear();
     stream.str(string.substr(start, end - start));

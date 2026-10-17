@@ -60,7 +60,7 @@ namespace visage {
 
   bool preprocessWebGlShader(std::string& result, const std::string& code,
                              const std::string& utils_source, const std::string& varying_source);
-  bool readFloat(const std::string& string, float& result);
+  bool readFloat(const std::string& string, float& result, size_t* number_end = nullptr);
 
   const uint16_t kQuadTriangles[] = {
     0, 1, 2, 2, 1, 3,

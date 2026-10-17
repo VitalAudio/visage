@@ -678,6 +678,43 @@ TEST_CASE("Svg dimensions with only a scale change", "[graphics]") {
   REQUIRE(numPathPoints(rescaled.drawable()) == numPathPoints(fresh.drawable()));
 }
 
+TEST_CASE("Svg opacity values are clamped and validated", "[graphics]") {
+  auto opacity = [](const std::string& value) {
+    Svg svg = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="red" opacity=")svg" +
+                       value + R"svg("/></svg>)svg");
+    const SvgDrawable* drawable = svg.drawable();
+    while (drawable->command_list.empty())
+      drawable = drawable->children.front().get();
+    return drawable->opacity;
+  };
+
+  REQUIRE(opacity("0.5") == Catch::Approx(0.5f));
+  REQUIRE(opacity("1.5") == 1.0f);
+  REQUIRE(opacity("-0.5") == 0.0f);
+  REQUIRE(opacity("50%") == Catch::Approx(0.5f));
+  REQUIRE(opacity("0.1mm") == 1.0f);
+  REQUIRE(opacity("0.5e") == 1.0f);
+  REQUIRE(opacity("0.2.3") == 1.0f);
+  REQUIRE(opacity("0.5-1") == 1.0f);
+  REQUIRE(opacity("1e-50") == 0.0f);
+  REQUIRE(opacity("1e1000") == 1.0f);
+  REQUIRE(opacity("1e39%") == 1.0f);
+
+  auto red = [](const std::string& body) {
+    return renderSvgCenter(R"svg(<svg viewBox="0 0 10 10">)svg" + body + "</svg>").hexRed();
+  };
+
+  REQUIRE(red(R"svg(<rect width="10" height="10" fill="red" fill-opacity="50%"/>)svg") ==
+          Catch::Approx(0x80).margin(2));
+  REQUIRE(red(R"svg(<rect width="10" height="10" fill="red" fill-opacity="0.5px"/>)svg") == 0xff);
+  REQUIRE(red(R"svg(<g fill-opacity="0.25"><rect width="10" height="10" fill="red" fill-opacity="1e1000"/></g>)svg") ==
+          0xff);
+  REQUIRE(red(R"svg(<g fill-opacity="0.25"><rect width="10" height="10" fill="red" fill-opacity="1e39%"/></g>)svg") ==
+          0xff);
+  REQUIRE(red(R"svg(<linearGradient id="g"><stop stop-color="red" stop-opacity="1e-50"/></linearGradient><rect width="10" height="10" fill="url(#g)"/>)svg") ==
+          0x00);
+}
+
 TEST_CASE("Svg attribute character references", "[graphics]") {
   Svg numeric = parseSvg(R"svg(<svg viewBox="0 0 10 10"><path d="M&#x20;1&#x20;1&#32;L&#32;9&#x9;9z" stroke="red"/></svg>)svg");
   REQUIRE(numeric.drawable()->post_bounding_box.width() == Catch::Approx(8.0f).margin(1.0f));
