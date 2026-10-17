@@ -65,6 +65,15 @@ namespace visage {
       kBottomLeft = kBottom | kLeft,
       kTopRight = kTop | kRight,
       kBottomRight = kBottom | kRight,
+      Center = kCenter,
+      Left = kLeft,
+      Right = kRight,
+      Top = kTop,
+      Bottom = kBottom,
+      TopLeft = kTopLeft,
+      BottomLeft = kBottomLeft,
+      TopRight = kTopRight,
+      BottomRight = kBottomRight,
     };
 
     static bool isVariationSelector(char32_t character) {
@@ -80,6 +89,7 @@ namespace visage {
     static bool hasNewLine(const char32_t* string, int length);
 
     Font() = default;
+    explicit Font(float size, float dpi_scale = 0.0f);
     Font(float size, const unsigned char* font_data, int data_size, float dpi_scale = 0.0f);
     Font(float size, const EmbeddedFile& file, float dpi_scale = 0.0f);
     Font(float size, const std::string& file_path, float dpi_scale = 0.0f);

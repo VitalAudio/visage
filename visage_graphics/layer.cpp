@@ -174,8 +174,17 @@ namespace visage {
       frame_buffer_data_->format = bgfx::TextureFormat::RGBA8;
 
     if (window_handle_) {
-      frame_buffer_data_->handle = bgfx::createFrameBuffer(window_handle_, width_, height_,
-                                                           frame_buffer_data_->format);
+#if VISAGE_ANDROID || defined(__ANDROID__)
+      frame_buffer_data_->handle = BGFX_INVALID_HANDLE;
+#else
+      if (bgfx::getCaps()->supported & BGFX_CAPS_SWAP_CHAIN) {
+        frame_buffer_data_->handle = bgfx::createFrameBuffer(window_handle_, width_, height_,
+                                                             frame_buffer_data_->format);
+      }
+      else {
+        frame_buffer_data_->handle = BGFX_INVALID_HANDLE;
+      }
+#endif
     }
     else {
       bool read_back = (bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_BLIT) &&

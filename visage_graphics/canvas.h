@@ -81,7 +81,9 @@ namespace visage {
     void changePackedLayer(Region* region, int from, int to);
 
     void pairToWindow(void* window_handle, int width, int height) {
+#if !VISAGE_ANDROID && !defined(__ANDROID__)
       VISAGE_ASSERT(swapChainSupported());
+#endif
       composite_layer_.pairToWindow(window_handle, width, height);
       setDimensions(width, height);
     }

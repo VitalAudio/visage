@@ -35,8 +35,13 @@ endif ()
 set(VISAGE_APPLICATION_NAME ${CMAKE_PROJECT_NAME} CACHE STRING "Application name used for default window title")
 
 if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-  option(VISAGE_BUILD_EXAMPLES "Build examples" ON)
-  option(VISAGE_BUILD_TESTS "Build tests" ON)
+  if (ANDROID)
+    option(VISAGE_BUILD_EXAMPLES "Build examples" OFF)
+    option(VISAGE_BUILD_TESTS "Build tests" OFF)
+  else ()
+    option(VISAGE_BUILD_EXAMPLES "Build examples" ON)
+    option(VISAGE_BUILD_TESTS "Build tests" ON)
+  endif ()
   set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 else ()
   option(VISAGE_BUILD_EXAMPLES "Build examples" OFF)
@@ -105,7 +110,10 @@ add_library(visage STATIC
 )
 
 target_include_directories(visage SYSTEM PUBLIC ${VISAGE_INCLUDE_PATH} ${VISAGE_INCLUDE})
-target_link_libraries(visage PRIVATE
+if (ANDROID)
+  target_include_directories(visage SYSTEM PUBLIC ${ANDROID_NDK}/sources/android/native_app_glue)
+endif ()
+target_link_libraries(visage PUBLIC
   VisageApp
   VisageGraphics
   VisageUtils
