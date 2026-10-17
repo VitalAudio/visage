@@ -20,6 +20,8 @@
  */
 
 #include "visage/app.h"
+#include "visage/widgets.h"
+#include "visage_ui/popup_menu.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <functional>
@@ -380,5 +382,121 @@ TEST_CASE("Removing or hiding the focused frame in an unfocused window blurs it 
   REQUIRE(field.focus_changes == std::vector<bool> { true, false });
   window.handleFocusGained();
   REQUIRE(field.focus_changes == std::vector<bool> { true, false });
+  app.removeFromWindow();
+}
+
+TEST_CASE("Mouse buttons pressed while another is held go to the first pressed frame",
+          "[integration]") {
+  ApplicationEditor app;
+  Frame top;
+  Frame bottom;
+  int top_downs = 0, top_ups = 0, bottom_downs = 0, bottom_ups = 0;
+  top.onMouseDown() = [&](const MouseEvent&) { top_downs++; };
+  top.onMouseUp() = [&](const MouseEvent&) { top_ups++; };
+  bottom.onMouseDown() = [&](const MouseEvent&) { bottom_downs++; };
+  bottom.onMouseUp() = [&](const MouseEvent&) { bottom_ups++; };
+
+  app.addChild(top);
+  app.addChild(bottom);
+  app.setBounds(0, 0, 40, 40);
+  top.setBounds(0, 0, 40, 20);
+  bottom.setBounds(0, 20, 40, 20);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseDown(kMouseButtonRight, 10, 30, kMouseButtonLeft | kMouseButtonRight, 0);
+  REQUIRE(top_downs == 2);
+  REQUIRE(bottom_downs == 0);
+
+  window.handleMouseUp(kMouseButtonLeft, 10, 30, kMouseButtonRight, 0);
+  REQUIRE(top_ups == 1);
+  window.handleMouseUp(kMouseButtonRight, 10, 30, 0, 0);
+  REQUIRE(top_ups == 2);
+  REQUIRE(bottom_ups == 0);
+
+  window.handleMouseDown(kMouseButtonLeft, 10, 30, kMouseButtonLeft, 0);
+  REQUIRE(bottom_downs == 1);
+  window.handleMouseUp(kMouseButtonLeft, 10, 30, 0, 0);
+  REQUIRE(bottom_ups == 1);
+  app.removeFromWindow();
+}
+
+TEST_CASE("Pressing a second mouse button on a toggle button toggles it once", "[integration]") {
+  ApplicationEditor app;
+  ToggleButton button;
+  int toggles = 0;
+  button.onToggle() += [&toggles](Button*, bool) { toggles++; };
+  app.addChild(button);
+  app.setBounds(0, 0, 40, 40);
+  button.setBounds(0, 0, 40, 40);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseDown(kMouseButtonRight, 10, 10, kMouseButtonLeft | kMouseButtonRight, 0);
+  window.handleMouseUp(kMouseButtonRight, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+  REQUIRE(toggles == 1);
+  REQUIRE(button.toggled());
+
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+  REQUIRE(toggles == 2);
+  REQUIRE_FALSE(button.toggled());
+  app.removeFromWindow();
+}
+
+TEST_CASE("Pressing a second mouse button on a popup option selects it once", "[integration]") {
+  ApplicationEditor app;
+  Frame source;
+  app.addChild(source);
+  app.setBounds(0, 0, 200, 200);
+  source.setBounds(0, 0, 200, 20);
+
+  TestWindow window(200, 200);
+  app.addToWindow(&window);
+
+  int selections = 0;
+  PopupMenu menu;
+  menu.addOption(1, "First");
+  menu.addOption(2, "Second");
+  menu.onSelection() += [&selections](int) { selections++; };
+  menu.show(&source);
+
+  window.handleMouseDown(kMouseButtonLeft, 10, 30, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 30, 0, 0);
+  REQUIRE(selections == 0);
+
+  window.handleMouseDown(kMouseButtonLeft, 10, 30, kMouseButtonLeft, 0);
+  window.handleMouseDown(kMouseButtonRight, 10, 30, kMouseButtonLeft | kMouseButtonRight, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 30, kMouseButtonRight, 0);
+  window.handleMouseUp(kMouseButtonRight, 10, 30, 0, 0);
+  REQUIRE(selections == 1);
+  app.removeFromWindow();
+}
+
+TEST_CASE("A toggle on press button removed during a press still takes the next press",
+          "[integration]") {
+  ApplicationEditor app;
+  ToggleButton button;
+  button.setToggleOnMouseDown(true);
+  int toggles = 0;
+  button.onToggle() += [&toggles](Button*, bool) { toggles++; };
+  app.addChild(button);
+  app.setBounds(0, 0, 40, 40);
+  button.setBounds(0, 0, 40, 40);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  REQUIRE(toggles == 1);
+
+  app.removeChild(button);
+  app.addChild(button);
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+  REQUIRE(toggles == 2);
   app.removeFromWindow();
 }
