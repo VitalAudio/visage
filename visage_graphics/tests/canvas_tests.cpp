@@ -1983,7 +1983,7 @@ TEST_CASE("Over a hundred bloom regions all glow in their own color", "[graphics
     INFO("region " << i);
     Color glow = screenshot.sample((i % kColumns) * kSize + kSize / 2 + 5,
                                    (i / kColumns) * kSize + kSize / 2);
-    int channels[] = { glow.hexRed(), glow.hexGreen(), glow.hexBlue() };
+    unsigned int channels[] = { glow.hexRed(), glow.hexGreen(), glow.hexBlue() };
     REQUIRE(channels[i % 3] > 0x10);
     REQUIRE(channels[(i + 1) % 3] < 0x08);
     REQUIRE(channels[(i + 2) % 3] < 0x08);
