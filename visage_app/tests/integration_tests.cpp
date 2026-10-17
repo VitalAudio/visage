@@ -1369,6 +1369,14 @@ TEST_CASE("Svg frame opacity", "[integration]") {
   REQUIRE(translucent.hexGreen() >= 0x3f);
   REQUIRE(translucent.hexGreen() <= 0x41);
 
+  Color clamped = svgFrameCenter(R"svg(<svg viewBox="0 0 10 10"><g opacity="1.5"><rect width="10" height="10" fill="red" fill-opacity="0.5"/></g></svg>)svg");
+  REQUIRE(clamped.hexRed() >= 0x7f);
+  REQUIRE(clamped.hexRed() <= 0x81);
+
+  Color percent = svgFrameCenter(R"svg(<svg viewBox="0 0 10 10"><g opacity="50%"><rect width="10" height="10" fill="red"/></g></svg>)svg");
+  REQUIRE(percent.hexRed() >= 0x7f);
+  REQUIRE(percent.hexRed() <= 0x81);
+
   REQUIRE(svgFrameCenter(R"svg(<svg viewBox="0 0 10 10"><g opacity="0"><rect width="10" height="10" fill="white"/></g></svg>)svg")
               .hexRed() == 0x00);
 

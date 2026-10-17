@@ -390,6 +390,9 @@ namespace visage {
       }
     }
 
+    // Quick drawing for simple SVGs: draws each shape with its own fill and stroke. Opacity, clip
+    // paths and masks need compositing and are ignored, except that opacity 0 hides an element.
+    // Use SvgFrame for those.
     template<typename T1, typename T2>
     void svg(const Svg& svg, const T1& x, const T2& y) {
       addSvg(svg, pixels(x) / state_.scale, pixels(y) / state_.scale, svg.width(), svg.height());
