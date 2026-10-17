@@ -44,6 +44,7 @@ namespace visage {
     std::function<void(Frame*)> request_redraw = nullptr;
     std::function<void(Frame*)> request_keyboard_focus = nullptr;
     std::function<void(Frame*)> remove_from_hierarchy = nullptr;
+    std::function<Frame*()> keyboard_focused_frame = nullptr;
     std::function<void(bool)> set_mouse_relative_mode = nullptr;
     std::function<void(MouseCursor)> set_cursor_style = nullptr;
     std::function<void(bool)> set_cursor_visible = nullptr;
@@ -425,6 +426,7 @@ namespace visage {
 
   private:
     UndoHistory* undoHistory() const;
+    Frame* keyboardFocusInside() const;
     void propagateMouseEvent(const MouseEvent& e, void (Frame::*handler)(const MouseEvent&)) {
       Frame* frame = parent_;
       std::weak_ptr<bool> frame_alive = frame ? frame->aliveToken() : std::weak_ptr<bool>();
