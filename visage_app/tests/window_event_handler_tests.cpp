@@ -102,6 +102,37 @@ TEST_CASE("Editors can be deleted while attached or inside their draw callback",
   window.handleMouseMove(10, 10, 0, 0);
 }
 
+TEST_CASE("Editors take a window DPI change that keeps the native size", "[integration]") {
+  ApplicationEditor app;
+  TestWindow window(600, 400);
+  window.setDpiScale(2.0f);
+  app.addToWindow(&window);
+  REQUIRE(app.width() == 300);
+
+  window.setDpiScale(1.0f);
+  window.handleResized(600, 400);
+  CHECK(app.dpiScale() == 1.0f);
+  CHECK(app.width() == 600);
+  CHECK(app.height() == 400);
+  app.removeFromWindow();
+}
+
+TEST_CASE("Minimum window size uses the window's current DPI", "[integration]") {
+  ApplicationEditor app;
+  app.setMinimumDimensions(300, 200);
+  TestWindow window(600, 400);
+  window.setDpiScale(2.0f);
+  app.addToWindow(&window);
+
+  window.setDpiScale(1.0f);
+  int width = 300;
+  int height = 200;
+  window.handleAdjustResize(&width, &height, true, true);
+  CHECK(width == 300);
+  CHECK(height == 200);
+  app.removeFromWindow();
+}
+
 TEST_CASE("Dragging files back over their source frame exits the previous target",
           "[integration]") {
   class DropFrame : public Frame {
