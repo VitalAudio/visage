@@ -203,14 +203,6 @@ TEST_CASE("Frame hierarchy management", "[ui]") {
     REQUIRE(parent.indexOfChild(child1_ptr) == -1);
   }
 
-  SECTION("Removing all children") {
-    parent.addChild(std::move(child1));
-    parent.addChild(std::move(child2));
-
-    parent.removeAllChildren();
-    REQUIRE(parent.children().empty());
-  }
-
   SECTION("Parent-child relationships") {
     Frame grandparent;
     grandparent.addChild(&parent);
@@ -578,11 +570,12 @@ TEST_CASE("Frame added to a new parent", "[ui]") {
   }
 
   SECTION("Owned child") {
+    auto old_parent = std::make_unique<Frame>();
     auto owned_child = std::make_unique<Frame>();
     Frame* child = owned_child.get();
-    first_parent.addChild(std::move(owned_child));
+    old_parent->addChild(std::move(owned_child));
     second_parent.addChild(child);
-    first_parent.removeAllChildren();
+    old_parent.reset();
     REQUIRE(second_parent.children().size() == 1);
     REQUIRE(child->parent() == &second_parent);
   }
@@ -692,4 +685,13 @@ TEST_CASE("Frame undo helpers use the frame itself when it is the undo history",
   REQUIRE(frame.Frame::canRedo());
   frame.triggerRedo();
   REQUIRE(value == 2);
+}
+
+TEST_CASE("Masked frames are destroyed cleanly while attached to a parent", "[ui]") {
+  Frame parent;
+  auto frame = std::make_unique<Frame>();
+  frame->onDrawMask() = [](Canvas&) {};
+  parent.addChild(frame.get());
+  frame.reset();
+  REQUIRE(parent.children().empty());
 }

@@ -125,15 +125,13 @@ namespace visage {
       focused->processFocusChanged(false, false);
   }
 
-  void Frame::removeAllChildren() {
+  void Frame::detachAllChildren() {
     while (!children_.empty()) {
       children_.back()->notifyRemoveFromHierarchy();
-      on_child_removed_.callback(children_.back());
       eraseChild(children_.back());
     }
 
     owned_children_.clear();
-    computeLayout();
   }
 
   int Frame::indexOfChild(const Frame* child) const {

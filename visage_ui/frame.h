@@ -63,7 +63,7 @@ namespace visage {
         parent_->eraseChild(this);
 
       on_child_removed_.clear();
-      removeAllChildren();
+      detachAllChildren();
     }
 
     template<typename T, typename F>
@@ -230,7 +230,6 @@ namespace visage {
     void addChild(std::unique_ptr<Frame> child, bool make_visible = true);
     void removeChild(Frame* child);
     void removeChild(Frame& child) { removeChild(&child); }
-    void removeAllChildren();
     int indexOfChild(const Frame* child) const;
     void setParent(Frame* parent) {
       VISAGE_ASSERT(parent != this);
@@ -457,6 +456,7 @@ namespace visage {
     void initChildren();
     void destroyChildren();
     void eraseChild(Frame* child);
+    void detachAllChildren();
     void createMaskFrame();
 
     bool requiresLayer() const {
