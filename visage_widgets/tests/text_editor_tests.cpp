@@ -22,6 +22,7 @@
 #include "visage_widgets/text_editor.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/generators/catch_generators.hpp>
 
 using namespace visage;
 
@@ -54,6 +55,48 @@ TEST_CASE("Text editor deleted by its text change handler", "[widgets]") {
   }
 
   CHECK(editor == nullptr);
+}
+
+TEST_CASE("Text editor only consumes releases of keys it consumed", "[widgets]") {
+  TextEditor editor;
+  editor.setText("abc");
+  editor.processFocusChanged(true, false);
+
+  REQUIRE(editor.processKeyPress(KeyEvent(KeyCode::A, 0, true)));
+  CHECK(editor.processKeyRelease(KeyEvent(KeyCode::A, 0, false)));
+
+  REQUIRE_FALSE(editor.processKeyPress(KeyEvent(KeyCode::LCtrl, kModifierRegCtrl, true)));
+  CHECK_FALSE(editor.processKeyRelease(KeyEvent(KeyCode::LCtrl, 0, false)));
+
+  REQUIRE_FALSE(editor.processKeyPress(KeyEvent(KeyCode::F5, kModifierRegCtrl, true)));
+  CHECK_FALSE(editor.processKeyRelease(KeyEvent(KeyCode::F5, kModifierRegCtrl, false)));
+
+  CHECK_FALSE(editor.processKeyRelease(KeyEvent(KeyCode::B, 0, false)));
+}
+
+TEST_CASE("Text editor deleted by its Enter or Escape handler", "[widgets]") {
+  KeyCode key_code = GENERATE(KeyCode::Return, KeyCode::Escape);
+  TextEditor* editor = new TextEditor();
+  editor->processFocusChanged(true, false);
+  auto remove = [&editor] {
+    delete editor;
+    editor = nullptr;
+  };
+  editor->onEnterKey() = remove;
+  editor->onEscapeKey() = remove;
+
+  editor->processKeyPress(KeyEvent(key_code, 0, true));
+  CHECK(editor == nullptr);
+}
+
+TEST_CASE("Text editor doesn't record a key whose press moves focus away", "[widgets]") {
+  TextEditor editor;
+  editor.processFocusChanged(true, false);
+  editor.onEnterKey() = [&editor] { editor.processFocusChanged(false, false); };
+
+  REQUIRE(editor.processKeyPress(KeyEvent(KeyCode::Return, 0, true)));
+  editor.processFocusChanged(true, false);
+  CHECK_FALSE(editor.processKeyRelease(KeyEvent(KeyCode::Return, 0, false)));
 }
 
 TEST_CASE("Text editor dead key at max characters", "[widgets]") {
