@@ -1950,6 +1950,46 @@ TEST_CASE("Layer atlas grows one side at a time", "[graphics]") {
   REQUIRE(layer->height() <= bgfx::getCaps()->limits.maxTextureSize);
 }
 
+TEST_CASE("Over a hundred bloom regions all glow in their own color", "[graphics]") {
+  static constexpr int kNumRegions = 120;
+  static constexpr int kColumns = 12;
+  static constexpr int kSize = 24;
+  static constexpr unsigned int kColors[] = { 0xffff0000, 0xff00ff00, 0xff0000ff };
+
+  Canvas canvas;
+  canvas.setWindowless(kColumns * kSize, (kNumRegions / kColumns) * kSize);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, kColumns * kSize, (kNumRegions / kColumns) * kSize);
+
+  std::vector<std::unique_ptr<BloomPostEffect>> blooms;
+  std::vector<std::unique_ptr<Region>> regions;
+  for (int i = 0; i < kNumRegions; ++i) {
+    blooms.push_back(std::make_unique<BloomPostEffect>());
+    blooms.back()->setBloomSize(64.0f);
+    regions.push_back(std::make_unique<Region>());
+    Region* region = regions.back().get();
+    canvas.addRegion(region);
+    region->setNeedsLayer(true);
+    region->setPostEffect(blooms.back().get());
+    region->setBounds((i % kColumns) * kSize, (i / kColumns) * kSize, kSize, kSize);
+    canvas.beginRegion(region);
+    canvas.setColor(Color(kColors[i % 3], 1.5f));
+    canvas.fill(kSize / 2 - 2, kSize / 2 - 2, 4, 4);
+    canvas.endRegion();
+  }
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  for (int i = 0; i < kNumRegions; ++i) {
+    INFO("region " << i);
+    Color glow = screenshot.sample((i % kColumns) * kSize + kSize / 2 + 5,
+                                   (i / kColumns) * kSize + kSize / 2);
+    int channels[] = { glow.hexRed(), glow.hexGreen(), glow.hexBlue() };
+    REQUIRE(channels[i % 3] > 0x10);
+    REQUIRE(channels[(i + 1) % 3] < 0x08);
+    REQUIRE(channels[(i + 2) % 3] < 0x08);
+  }
+}
+
 TEST_CASE("Blur resized every frame doesn't pile up frame buffers", "[graphics]") {
   static constexpr int kFrames = 400;
 
@@ -1999,4 +2039,32 @@ TEST_CASE("Temporary frame buffers are reused when their sizes come back", "[gra
     }
     layer->destroyIdleTemporaryFrameBuffers();
   }
+}
+
+TEST_CASE("Bloom resized every frame doesn't pile up frame buffers", "[graphics]") {
+  static constexpr int kFrames = 400;
+
+  Canvas canvas;
+  canvas.setWindowless(260, 140);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 260, 140);
+  BloomPostEffect bloom;
+  bloom.setBloomSize(64.0f);
+  Region region;
+  canvas.addRegion(&region);
+  region.setNeedsLayer(true);
+  region.setPostEffect(&bloom);
+
+  for (int i = 0; i < kFrames; ++i) {
+    region.setBounds(0, 0, 50 + (i * 4) % 200, 50 + 4 * (i / 50));
+    canvas.beginRegion(&region);
+    canvas.setColor(Color(0xffff0000, 1.5f));
+    canvas.fill(region.width() / 2 - 8, region.height() / 2 - 8, 16, 16);
+    canvas.endRegion();
+    canvas.submit();
+  }
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(bgfx::getStats()->numFrameBuffers < 200);
+  REQUIRE(screenshot.sample(region.width() / 2 + 12, region.height() / 2).hexRed() > 0x40);
 }
