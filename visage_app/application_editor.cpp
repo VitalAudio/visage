@@ -200,8 +200,9 @@ namespace visage {
 
   void ApplicationEditor::adjustWindowDimensions(int* width, int* height, bool horizontal_resize,
                                                  bool vertical_resize) const {
-    int min_width = min_width_ * dpiScale();
-    int min_height = min_height_ * dpiScale();
+    float dpi_scale = window_ ? window_->dpiScale() : dpiScale();
+    int min_width = min_width_ * dpi_scale;
+    int min_height = min_height_ * dpi_scale;
     Point min_dimensions(min_width, min_height);
     if (isFixedAspectRatio()) {
       auto max_dimensions = window_ ? Point(window_->maxWindowDimensions()) : Point(FLT_MAX, FLT_MAX);
