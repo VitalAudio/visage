@@ -306,12 +306,14 @@ namespace visage {
     MouseEvent mouse_event = buttonMouseEvent(button_id, x, y, button_state, modifiers);
     mouse_event.repeat_click_count = repeat;
 
-    mouse_down_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
-    Frame* focus_frame = mouse_down_frame_;
-    while (focus_frame && !focus_frame->acceptsKeystrokes())
-      focus_frame = focus_frame->parent();
+    if (mouse_down_frame_ == nullptr || (button_state & ~button_id) == 0) {
+      mouse_down_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
+      Frame* focus_frame = mouse_down_frame_;
+      while (focus_frame && !focus_frame->acceptsKeystrokes())
+        focus_frame = focus_frame->parent();
 
-    changeKeyboardFocus(focus_frame, true);
+      changeKeyboardFocus(focus_frame, true);
+    }
 
     if (mouse_down_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
@@ -324,6 +326,13 @@ namespace visage {
                                          int modifiers, int repeat) {
     MouseEvent mouse_event = buttonMouseEvent(button_id, x, y, button_state, modifiers);
     mouse_event.repeat_click_count = repeat;
+
+    if (mouse_down_frame_ && (button_state & ~button_id)) {
+      mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
+      mouse_event.event_frame = mouse_down_frame_;
+      mouse_down_frame_->processMouseUp(mouse_event);
+      return;
+    }
 
     mouse_hovered_frame_ = content_frame_->frameAtPoint(mouse_event.window_position);
     bool exited = mouse_hovered_frame_ != mouse_down_frame_;

@@ -348,6 +348,9 @@ namespace visage {
   }
 
   void PopupMenuFrame::optionSelected(const PopupMenu& option, PopupList* list) {
+    if (done_)
+      return;
+
     if (isVisible()) {
       option.onSelection().callback(option.id());
       menu_.onSelection().callback(option.id());
@@ -414,6 +417,9 @@ namespace visage {
   }
 
   void PopupMenuFrame::mouseUpOutside(Point position, PopupList* list) {
+    if (done_)
+      return;
+
     position += list->topLeft();
     for (auto& sub_list : lists_) {
       if (sub_list.isVisible() && sub_list.bounds().contains(position)) {

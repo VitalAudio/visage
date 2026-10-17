@@ -75,6 +75,7 @@ namespace visage {
     bool toggle_on_mouse_down_ = false;
     bool set_pointer_cursor_ = true;
     bool alt_clicked_ = false;
+    MouseButton pressed_button_ = kMouseButtonNone;
 
     VISAGE_LEAK_CHECKER(Button)
   };
