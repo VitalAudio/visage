@@ -26,6 +26,7 @@
 
 #include <Carbon/Carbon.h>
 #include <Cocoa/Cocoa.h>
+#include <IOKit/hidsystem/IOLLEvent.h>
 #include <MetalKit/MetalKit.h>
 
 namespace visage {
