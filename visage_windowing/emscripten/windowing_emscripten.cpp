@@ -25,6 +25,7 @@
 #include "visage_utils/string_utils.h"
 #include "visage_utils/time_utils.h"
 
+#include <cstring>
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
 #include <map>
@@ -566,6 +567,15 @@ namespace visage {
     return KeyCode::Unknown;
   }
 
+  static bool isMacOptionText(int modifier_state, KeyCode code, const char* key) {
+    if (code == KeyCode::E || code == KeyCode::N || code == KeyCode::U || code == KeyCode::I ||
+        code == KeyCode::Grave)
+      return false;
+
+    bool option = modifier_state == kModifierAlt || modifier_state == (kModifierAlt | kModifierShift);
+    return option && isMac() && std::strcmp(key, "Dead") != 0 && String(key).length() == 1;
+  }
+
   static EM_BOOL keyCallback(int event_type, const EmscriptenKeyboardEvent* event, void* user_data) {
     WindowEmscripten* window = WindowEmscripten::runningInstance();
     if (event == nullptr || window == nullptr)
@@ -580,11 +590,12 @@ namespace visage {
         return true;
       return window->handleTextInput(event->key);
     case EMSCRIPTEN_EVENT_KEYDOWN: {
-      if (modifier_state != 0 && code == KeyCode::V)
+      if ((modifier_state & (kModifierRegCtrl | kModifierCmd)) && code == KeyCode::V)
         return false;
 
       bool down_used = window->handleKeyDown(code, modifier_state, event->repeat);
-      bool text_input = modifier_state == 0 || modifier_state == kModifierShift;
+      bool text_input = modifier_state == 0 || modifier_state == kModifierShift ||
+                        isMacOptionText(modifier_state, code, event->key);
       return (code == KeyCode::Tab || !text_input) && down_used;
     }
     case EMSCRIPTEN_EVENT_KEYUP: {
