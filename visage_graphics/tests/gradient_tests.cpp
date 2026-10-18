@@ -380,6 +380,27 @@ TEST_CASE("GradientPosition", "[graphics]") {
   }
 }
 
+TEST_CASE("Brush blends between a solid color and a gradient", "[graphics]") {
+  using Shape = GradientPosition::InterpolationShape;
+  Brush solid = Brush::solid(0xffff0000);
+  Brush vertical = Brush::vertical(0xffff0000, 0xff0000ff);
+  Brush linear = Brush::linear(0xffff0000, 0xff0000ff, { 0.0f, 0.0f }, { 20.0f, 0.0f });
+
+  REQUIRE(Brush::interpolate(solid, vertical, 1.0f).position().shape == Shape::Vertical);
+  REQUIRE(Brush::interpolate(vertical, solid, 0.0f).position().shape == Shape::Vertical);
+  GradientPosition halfway = Brush::interpolate(solid, linear, 0.5f).position();
+  REQUIRE(halfway.shape == Shape::PointsLinear);
+  REQUIRE(halfway.point2.x == Approx(20.0f));
+
+  Canvas canvas;
+  canvas.setWindowless(20, 20);
+  canvas.setColor(Brush::interpolate(solid, vertical, 1.0f));
+  canvas.fill(0, 0, 20, 20);
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(screenshot.sample(10, 1).hexRed() > 0xe0);
+  REQUIRE(screenshot.sample(10, 18).hexBlue() > 0xe0);
+}
+
 TEST_CASE("Brush creation", "[graphics]") {
   SECTION("Solid brush") {
     Color red(1.0f, 1.0f, 0.0f, 0.0f);
@@ -445,7 +466,9 @@ TEST_CASE("Brush operations", "[graphics]") {
     REQUIRE(result.gradient().colors()[0].red() == Approx(0.5f));
     REQUIRE(result.gradient().colors()[0].blue() == Approx(0.5f));
 
-    REQUIRE(result.position().shape == GradientPosition::InterpolationShape::Solid);
+    REQUIRE(result.position().shape == GradientPosition::InterpolationShape::PointsLinear);
+    REQUIRE(result.position().point1 == from);
+    REQUIRE(result.position().point2 == to);
   }
 
   SECTION("Alpha multiplication") {
