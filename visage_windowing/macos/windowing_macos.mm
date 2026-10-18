@@ -25,6 +25,7 @@
 #include "visage_utils/file_system.h"
 #include "visage_utils/time_utils.h"
 
+#include <algorithm>
 #include <map>
 
 namespace visage {
@@ -944,21 +945,35 @@ namespace visage {
     return screen.backingScaleFactor;
   }
 
+  static CGFloat squaredDistanceToScreen(NSScreen* screen, int x, int y, CGFloat primary_height) {
+    CGFloat screen_scale = screen.backingScaleFactor;
+    NSPoint point = NSMakePoint(x / screen_scale, primary_height - y / screen_scale);
+    NSRect frame = [screen frame];
+    CGFloat dx = std::max<CGFloat>({ NSMinX(frame) - point.x, 0.0, point.x - NSMaxX(frame) });
+    CGFloat dy = std::max<CGFloat>({ NSMinY(frame) - point.y, 0.0, point.y - NSMaxY(frame) });
+    return dx * dx + dy * dy;
+  }
+
   static IBounds computeWindowBoundsWithScale(const Dimension& x, const Dimension& y,
                                               const Dimension& w, const Dimension& h, float& scale) {
     scale = defaultDpiScale();
     NSScreen* screen = [NSScreen mainScreen];
+    CGFloat primary_height = [[NSScreen screens] firstObject].frame.size.height;
     CGRect screen_frame = [screen frame];
     scale = screen.backingScaleFactor;
     int screen_width = screen_frame.size.width * scale;
     int screen_height = screen_frame.size.height * scale;
-    int x_pos = x.computeInt(scale, screen_width, screen_height, 0);
-    int y_pos = y.computeInt(scale, screen_width, screen_height, 0);
+    int center_x = NSMidX(screen_frame) * scale;
+    int center_y = (primary_height - NSMidY(screen_frame)) * scale;
+    int x_pos = x.computeInt(scale, screen_width, screen_height, center_x);
+    int y_pos = y.computeInt(scale, screen_width, screen_height, center_y);
 
+    CGFloat closest = screen ? squaredDistanceToScreen(screen, x_pos, y_pos, primary_height) : 0.0;
     for (NSScreen* s in [NSScreen screens]) {
-      if (NSPointInRect(CGPointMake(x_pos, y_pos), [s frame])) {
+      CGFloat distance = squaredDistanceToScreen(s, x_pos, y_pos, primary_height);
+      if (screen == nil || distance < closest) {
         screen = s;
-        break;
+        closest = distance;
       }
     }
 
@@ -969,12 +984,12 @@ namespace visage {
     int width = w.computeInt(scale, screen_width, screen_height, 0);
     int height = h.computeInt(scale, screen_width, screen_height, 0);
 
-    int default_x = (screen_width - width) / 2;
-    int default_y = (screen_height - height) / 2;
+    int default_x = NSMinX(screen_frame) * scale + (screen_width - width) / 2;
+    int default_y = (primary_height - NSMaxY(screen_frame)) * scale + (screen_height - height) / 2;
     x_pos = x.computeInt(scale, screen_width, screen_height, default_x);
     y_pos = y.computeInt(scale, screen_width, screen_height, default_y);
 
-    return { x_pos, screen_height - y_pos - height, width, height };
+    return { x_pos, y_pos, width, height };
   }
 
   IBounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& w,
@@ -987,8 +1002,9 @@ namespace visage {
                                        const Dimension& height, Window::Decoration decoration) {
     float scale = 1.0f;
     IBounds bounds = computeWindowBoundsWithScale(x, y, width, height, scale);
-    return std::make_unique<WindowMac>(bounds.x(), bounds.y(), bounds.width(), bounds.height(),
-                                       scale, decoration);
+    int primary_height = [[NSScreen screens] firstObject].frame.size.height * scale;
+    return std::make_unique<WindowMac>(bounds.x(), primary_height - bounds.bottom(), bounds.width(),
+                                       bounds.height(), scale, decoration);
   }
 
   void* headlessWindowHandle() {
