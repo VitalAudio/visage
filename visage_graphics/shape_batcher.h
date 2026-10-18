@@ -27,6 +27,7 @@
 #include "visage_utils/space.h"
 
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 
 namespace visage {
@@ -215,9 +216,18 @@ namespace visage {
       int y = shape.y;
       int right = shape.x + shape.width;
       int bottom = shape.y + shape.height;
-      return std::any_of(areas_.begin(), areas_.end(), [x, y, right, bottom](auto& area) {
-        return x < area.right && right > area.x && y < area.bottom && bottom > area.y;
-      });
+      Area area = { static_cast<float>(x), static_cast<float>(y), static_cast<float>(right),
+                    static_cast<float>(bottom) };
+      for (int chunk = 0; chunk < chunk_bounds_.size(); ++chunk) {
+        if (!chunk_bounds_[chunk].overlaps(area))
+          continue;
+
+        auto begin = areas_.begin() + chunk * kChunkSize;
+        auto end = areas_.begin() + std::min<size_t>(areas_.size(), (chunk + 1) * kChunkSize);
+        if (std::any_of(begin, end, [&area](const Area& other) { return other.overlaps(area); }))
+          return true;
+      }
+      return false;
     }
 
     const void* id() const { return id_; }
@@ -257,21 +267,44 @@ namespace visage {
       return 0;
     }
 
-    void clearAreas() { areas_.clear(); }
+    void clearAreas() {
+      areas_.clear();
+      chunk_bounds_.clear();
+    }
+
     void addShapeArea(const BaseShape& shape) {
       VISAGE_ASSERT(id_ == nullptr || id_ == shape.batch_id);
       id_ = shape.batch_id;
       radial_gradient_ = shape.radialGradient();
-      areas_.push_back({ shape.x, shape.y, shape.x + shape.width, shape.y + shape.height });
+      Area area = { shape.x, shape.y, shape.x + shape.width, shape.y + shape.height };
+      if (areas_.size() % kChunkSize == 0)
+        chunk_bounds_.push_back(area);
+      else
+        chunk_bounds_.back().expand(area);
+      areas_.push_back(area);
     }
 
   private:
+    static constexpr int kChunkSize = 64;
+
     struct Area {
       float x, y, right, bottom;
+
+      bool overlaps(const Area& other) const {
+        return x < other.right && right > other.x && y < other.bottom && bottom > other.y;
+      }
+
+      void expand(const Area& other) {
+        x = std::fmin(x, other.x);
+        y = std::fmin(y, other.y);
+        right = std::fmax(right, other.right);
+        bottom = std::fmax(bottom, other.bottom);
+      }
     };
 
     const void* id_ = nullptr;
     std::vector<Area> areas_;
+    std::vector<Area> chunk_bounds_;
     BlendMode blend_mode_;
     bool radial_gradient_ = false;
   };
@@ -331,12 +364,19 @@ namespace visage {
     }
 
     int autoBatchIndex(const void* shape_type, const BaseShape& shape, BlendMode blend) const {
+      auto matches = [&](const std::unique_ptr<SubmitBatch>& batch) {
+        return batch->match(shape_type, shape.batch_id, blend, shape.radialGradient());
+      };
+      int first_match = std::find_if(batches_.begin(), batches_.end(), matches) - batches_.begin();
       int match = batches_.size();
       int insert = batches_.size();
       for (int i = batches_.size() - 1; i >= 0; --i) {
         SubmitBatch* batch = batches_[i].get();
-        if (batch->match(shape_type, shape.batch_id, blend, shape.radialGradient()))
+        if (matches(batches_[i])) {
           match = i;
+          if (i == first_match)
+            break;
+        }
         if (batch->overlapsShape(shape))
           break;
         if (batch->sortsAfter(shape_type, shape.batch_id))
