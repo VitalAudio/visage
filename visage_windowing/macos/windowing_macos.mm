@@ -320,6 +320,12 @@ namespace visage {
     sourceOperationMaskForDraggingContext:(NSDraggingContext)context {
   return NSDragOperationCopy;
 }
+
+- (void)draggingSession:(NSDraggingSession*)session
+           endedAtPoint:(NSPoint)screen_point
+              operation:(NSDragOperation)operation {
+  [self.view dragEndedAtScreenPoint:screen_point];
+}
 @end
 
 @implementation VisageAppViewDelegate
@@ -361,6 +367,7 @@ namespace visage {
 
   [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
   self.drag_source = [[VisageDraggingSource alloc] init];
+  self.drag_source.view = self;
 
   return self;
 }
@@ -478,7 +485,7 @@ namespace visage {
 }
 
 - (int)keyboardModifiers:(NSEvent*)event {
-  NSUInteger flags = [event modifierFlags];
+  NSUInteger flags = event ? [event modifierFlags] : [NSEvent modifierFlags];
   int result = 0;
   if (flags & NSEventModifierFlagCommand)
     result = result | visage::kModifierCmd;
@@ -591,6 +598,23 @@ namespace visage {
   visage::Point point = [self eventPosition:event];
   self.visage_window->handleMouseUp(visage::kMouseButtonLeft, point.x, point.y,
                                     [self mouseButtonState], [self keyboardModifiers:event]);
+}
+
+- (void)dragEndedAtScreenPoint:(NSPoint)screen_point {
+  if (self.visage_window == nullptr)
+    return;
+
+  self.visage_window->cleanupDragDropSource();
+  if (self.visage_window == nullptr)
+    return;
+
+  NSPoint view_location = [self convertPoint:[self.window convertPointFromScreen:screen_point]
+                                    fromView:nil];
+  CGFloat view_height = self.frame.size.height;
+  visage::Point point = visage::Point(view_location.x, view_height - view_location.y) *
+                        self.visage_window->dpiScale();
+  self.visage_window->handleMouseUp(visage::kMouseButtonLeft, point.x, point.y,
+                                    [self mouseButtonState], [self keyboardModifiers:nil]);
 }
 
 - (void)mouseDragged:(NSEvent*)event {

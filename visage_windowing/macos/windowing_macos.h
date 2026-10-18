@@ -32,7 +32,10 @@ namespace visage {
   class WindowMac;
 }
 
+@class VisageAppView;
+
 @interface VisageDraggingSource : NSObject <NSDraggingSource>
+@property(weak) VisageAppView* view;
 @end
 
 @interface VisageAppViewDelegate : NSObject <MTKViewDelegate>
@@ -47,6 +50,7 @@ namespace visage {
 @property NSPoint mouse_down_screen_position;
 
 - (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window;
+- (void)dragEndedAtScreenPoint:(NSPoint)screen_point;
 @end
 
 @interface VisageAppWindowDelegate : NSObject <NSWindowDelegate>
