@@ -24,8 +24,8 @@
 #include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdlib>
-#include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 
 #if VISAGE_LINUX
@@ -35,22 +35,6 @@
 using namespace visage;
 
 namespace {
-  class Steps : public EventTimer {
-  public:
-    explicit Steps(std::vector<std::function<bool()>> steps) : steps_(std::move(steps)) {
-      startTimer(20);
-    }
-
-    void timerCallback() override {
-      if (next_ < steps_.size() && steps_[next_]())
-        next_++;
-    }
-
-  private:
-    std::vector<std::function<bool()>> steps_;
-    size_t next_ = 0;
-  };
-
   bool hasDisplay() {
     const char* display_name = std::getenv("DISPLAY");
     return display_name && display_name[0];
@@ -79,54 +63,107 @@ static int requestCount(int request_code) {
   return std::count(error_request_codes.begin(), error_request_codes.end(), request_code);
 }
 
-TEST_CASE("X11 windows stop a drag resize when the window is already destroyed", "[integration]") {
+class TitleBarEventHandler : public visage::Window::EventHandler {
+public:
+  HitTestResult handleHitTest(int x, int y) override {
+    return y < ApplicationEditor::kDefaultClientTitleBarHeight ? HitTestResult::TitleBar :
+                                                                 HitTestResult::Client;
+  }
+  HitTestResult currentHitTest() const override { return HitTestResult::Client; }
+  void handleMouseMove(int x, int y, int button_state, int modifiers) override { }
+  void handleMouseDown(MouseButton button_id, int x, int y, int button_state, int modifiers,
+                       int repeat_clicks) override { }
+  void handleMouseUp(MouseButton button_id, int x, int y, int button_state, int modifiers,
+                     int repeat_clicks) override { }
+  void handleMouseEnter(int x, int y) override { }
+  void handleMouseLeave(int last_x, int last_y, int button_state, int modifiers) override { }
+  void handleMouseWheel(float delta_x, float delta_y, float precise_x, float precise_y, int mouse_x,
+                        int mouse_y, int button_state, int modifiers, bool momentum) override { }
+  bool handleKeyDown(visage::KeyCode key_code, int modifiers, bool repeat) override {
+    return false;
+  }
+  bool handleKeyUp(visage::KeyCode key_code, int modifiers) override { return false; }
+  bool handleTextInput(const std::string& text) override { return false; }
+  bool hasActiveTextEntry() override { return false; }
+  void handleFocusLost() override { }
+  void handleFocusGained() override { }
+  void handleResized(int width, int height) override { }
+  void handleWindowShown() override { }
+  void handleWindowHidden() override { }
+  bool handleCloseRequested() override { return true; }
+  bool handleFileDrag(int x, int y, const std::vector<std::string>& files) override {
+    return false;
+  }
+  void handleFileDragLeave() override { }
+  bool handleFileDrop(int x, int y, const std::vector<std::string>& files) override {
+    return false;
+  }
+  bool isDragDropSource() override { return false; }
+  std::string startDragDropSource() override { return ""; }
+  void cleanupDragDropSource() override { }
+};
+
+TEST_CASE("X11 windows stop a drag resize or move when the window is already destroyed",
+          "[integration]") {
   if (!hasDisplay()) {
     SUCCEED("No X display");
     return;
   }
 
-  error_request_codes.clear();
-  {
-    ApplicationWindow app;
-    app.setWindowDecoration(visage::Window::Decoration::Client);
-    app.show(Dimension::nativePixels(200), Dimension::nativePixels(200));
-    Display* window_display = (Display*)app.window()->globalDisplay();
+  auto drag_destroyed_window = [](IPoint press) {
+    error_request_codes.clear();
+    TitleBarEventHandler handler;
+    std::unique_ptr<visage::Window> window = createWindow(Dimension::nativePixels(200),
+                                                          Dimension::nativePixels(200),
+                                                          visage::Window::Decoration::Client);
+    REQUIRE(window);
+    Display* window_display = (Display*)window->globalDisplay();
     ScopedErrorHandler recorder(recordErrorHandler);
+    window->setEventHandler(&handler);
+    window->show();
 
     Display* display = XOpenDisplay(nullptr);
     REQUIRE(display);
-    ::Window window = (::Window)app.window()->nativeHandle();
-    Steps steps({ [&] {
-      XEvent press = {};
-      press.xbutton.type = ButtonPress;
-      press.xbutton.window = window;
-      press.xbutton.button = Button1;
-      press.xbutton.x = 1;
-      press.xbutton.y = 1;
-      press.xbutton.same_screen = True;
-      XSendEvent(display, window, False, ButtonPressMask, &press);
+    ::Window handle = (::Window)window->nativeHandle();
+    XEvent button = {};
+    button.xbutton.type = ButtonPress;
+    button.xbutton.window = handle;
+    button.xbutton.button = Button1;
+    button.xbutton.x = press.x;
+    button.xbutton.y = press.y;
+    button.xbutton.x_root = press.x;
+    button.xbutton.y_root = press.y;
+    button.xbutton.same_screen = True;
+    XSendEvent(display, handle, False, ButtonPressMask, &button);
 
-      XEvent motion = {};
-      motion.xmotion.type = MotionNotify;
-      motion.xmotion.window = window;
-      motion.xmotion.x = 20;
-      motion.xmotion.y = 20;
-      motion.xmotion.x_root = 20;
-      motion.xmotion.y_root = 20;
-      motion.xmotion.same_screen = True;
-      XSendEvent(display, window, False, PointerMotionMask, &motion);
+    XEvent motion = {};
+    motion.xmotion.type = MotionNotify;
+    motion.xmotion.window = handle;
+    motion.xmotion.x = 20;
+    motion.xmotion.y = 20;
+    motion.xmotion.x_root = 20;
+    motion.xmotion.y_root = 20;
+    motion.xmotion.same_screen = True;
+    XSendEvent(display, handle, False, PointerMotionMask, &motion);
 
-      XDestroyWindow(display, window);
-      XSync(display, False);
-      return true;
-    } });
-    app.runEventLoop();
+    XDestroyWindow(display, handle);
+    XSync(display, False);
+    window->runEventLoop();
     XCloseDisplay(display);
     XSync(window_display, False);
+  };
+
+  SECTION("Resizing from the border") {
+    drag_destroyed_window({ 1, 1 });
+    CHECK(requestCount(X_GetGeometry) > 0);
+    REQUIRE(requestCount(X_ConfigureWindow) == 0);
   }
 
-  CHECK(requestCount(X_GetGeometry) > 0);
-  REQUIRE(requestCount(X_ConfigureWindow) == 0);
+  SECTION("Moving by the title bar") {
+    drag_destroyed_window({ 30, 15 });
+    CHECK(requestCount(X_TranslateCoords) > 0);
+    REQUIRE(requestCount(X_ConfigureWindow) == 0);
+  }
 }
 
 #endif

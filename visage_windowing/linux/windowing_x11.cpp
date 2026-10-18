@@ -1555,12 +1555,13 @@ namespace visage {
 
         window_operation_ = resizeOperationForPosition(event.xbutton.x, event.xbutton.y);
         if (hit_test == HitTestResult::TitleBar && window_operation_ == 0) {
-          window_operation_ = kMoveWindow;
           ::Window child;
           int window_x, window_y;
-          XTranslateCoordinates(x11_->display(), window_handle_, x11_->rootWindow(), 0, 0,
-                                &window_x, &window_y, &child);
-          dragging_window_position_ = { event.xbutton.x_root - window_x, event.xbutton.y_root - window_y };
+          if (XTranslateCoordinates(x11_->display(), window_handle_, x11_->rootWindow(), 0, 0,
+                                    &window_x, &window_y, &child)) {
+            window_operation_ = kMoveWindow;
+            dragging_window_position_ = { event.xbutton.x_root - window_x, event.xbutton.y_root - window_y };
+          }
         }
 
         mouse_down_position_ = { event.xbutton.x, event.xbutton.y };
