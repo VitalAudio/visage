@@ -182,6 +182,7 @@ namespace visage {
     case MouseCursor::VerticalResize: cursor = vertical_resize_cursor; break;
     case MouseCursor::Dragging:
     case MouseCursor::MultiDirectionalResize: cursor = multi_directional_resize_cursor; break;
+    case MouseCursor::Invisible: cursor = nullptr; break;
     default: cursor = arrow_cursor; break;
     }
 
@@ -189,6 +190,11 @@ namespace visage {
   }
 
   void setCursorVisible(bool visible) {
+    static bool hidden = false;
+    if (hidden == !visible)
+      return;
+
+    hidden = !visible;
     ShowCursor(visible);
   }
 
