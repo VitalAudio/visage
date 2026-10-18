@@ -1109,7 +1109,14 @@ namespace visage {
 
         drop_source->Release();
         data_object->Release();
+        if (!IsWindow(hwnd))
+          return 0;
+
         cleanupDragDropSource();
+
+        POINT cursor;
+        if (GetCursorPos(&cursor) && ScreenToClient(hwnd, &cursor))
+          handleMouseUp(kMouseButtonLeft, cursor.x, cursor.y, mouseButtonState(), keyboardModifiers());
       }
       else
         SetCapture(hwnd);
