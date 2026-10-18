@@ -2089,3 +2089,45 @@ TEST_CASE("Shape batches find overlaps in every chunk of shapes", "[graphics]") 
   nan_first.addShape(Rectangle({}, nullptr, 20.0f, 0.0f, 5.0f, 5.0f));
   REQUIRE(nan_first.overlapsShape(Rectangle({}, nullptr, 21.0f, 1.0f, 1.0f, 1.0f)));
 }
+
+TEST_CASE("Thousands of live blur effects all blur", "[graphics]") {
+  static constexpr int kNumCanvases = 4;
+  static constexpr int kRegionsPerCanvas = 600;
+  static constexpr int kColumns = 30;
+  static constexpr int kSpacing = 8;
+  static constexpr int kSize = 6;
+
+  std::vector<std::unique_ptr<Canvas>> canvases;
+  std::vector<std::unique_ptr<BlurPostEffect>> blurs;
+  std::vector<std::unique_ptr<Region>> regions;
+  for (int c = 0; c < kNumCanvases; ++c) {
+    canvases.push_back(std::make_unique<Canvas>());
+    Canvas& canvas = *canvases.back();
+    canvas.setWindowless(kColumns * kSpacing, (kRegionsPerCanvas / kColumns) * kSpacing);
+    for (int i = 0; i < kRegionsPerCanvas; ++i) {
+      blurs.push_back(std::make_unique<BlurPostEffect>());
+      blurs.back()->setBlurRadius(2.0f);
+      regions.push_back(std::make_unique<Region>());
+      Region* region = regions.back().get();
+      canvas.addRegion(region);
+      region->setNeedsLayer(true);
+      region->setPostEffect(blurs.back().get());
+      region->setBounds((i % kColumns) * kSpacing, (i / kColumns) * kSpacing, kSize, kSize);
+      canvas.beginRegion(region);
+      canvas.setColor(0xffff0000);
+      canvas.fill(0, 0, kSize / 2, kSize);
+      canvas.setColor(0xff0000ff);
+      canvas.fill(kSize / 2, 0, kSize - kSize / 2, kSize);
+      canvas.endRegion();
+    }
+
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    for (int i = 0; i < kRegionsPerCanvas; ++i) {
+      INFO("canvas " << c << ", region " << i);
+      Color center = screenshot.sample((i % kColumns) * kSpacing + kSize / 2,
+                                       (i / kColumns) * kSpacing + kSize / 2);
+      REQUIRE(center.hexRed() > 0x20);
+      REQUIRE(center.hexBlue() < 0xe0);
+    }
+  }
+}

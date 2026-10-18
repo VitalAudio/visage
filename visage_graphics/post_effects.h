@@ -59,7 +59,6 @@ namespace visage {
 
   protected:
     void setInitialVertices(Region* region, const IBounds& rect);
-    void checkScreenBuffers();
     void setLevelDimensions(int width, int height);
     void checkBuffers(const Region* region);
     void setScreenVertexBuffer(bool inverted);
@@ -72,8 +71,6 @@ namespace visage {
     int widths_[kMaxDownsamples + 1] {};
     int heights_[kMaxDownsamples + 1] {};
     std::unique_ptr<DownsampleHandles> handles_;
-    UvVertex screen_vertices_[4] {};
-    UvVertex inv_screen_vertices_[4] {};
     int format_ = 0;
     const Region* region_ = nullptr;
     IPoint source_origin_;
