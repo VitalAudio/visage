@@ -51,14 +51,13 @@ namespace visage {
 
 @interface VisageAppWindowDelegate : NSObject <NSWindowDelegate>
 @property(nonatomic) visage::WindowMac* visage_window;
-@property(nonatomic, retain) NSWindow* window_handle;
+@property(nonatomic, weak) NSWindow* window_handle;
 @property bool resizing_horizontal;
 @property bool resizing_vertical;
 @end
 
 @interface VisageAppDelegate : NSObject <NSApplicationDelegate>
 @property(nonatomic, retain) NSWindow* window_handle;
-@property(nonatomic, strong) VisageAppWindowDelegate* window_delegate;
 @property visage::WindowMac* visage_window;
 @end
 
@@ -96,6 +95,7 @@ namespace visage {
   private:
     static bool running_event_loop_;
     NSWindow* window_handle_ = nullptr;
+    VisageAppWindowDelegate* window_delegate_ = nullptr;
     NSView* parent_view_ = nullptr;
     VisageAppView* view_ = nullptr;
     VisageAppViewDelegate* view_delegate_ = nullptr;

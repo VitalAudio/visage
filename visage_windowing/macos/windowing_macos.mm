@@ -763,9 +763,9 @@ namespace visage {
 
 @implementation VisageAppWindowDelegate
 - (BOOL)windowShouldClose:(NSWindow*)sender {
-  NSView* view = [sender contentView];
-  visage::WindowMac* window = visage::NativeWindowLookup::instance().findWindow((__bridge void*)view);
-  return window->handleCloseRequested();
+  if (self.visage_window == nullptr)
+    return YES;
+  return self.visage_window->handleCloseRequested();
 }
 
 - (void)windowWillClose:(NSNotification*)notification {
@@ -800,11 +800,6 @@ namespace visage {
 
 @implementation VisageAppDelegate
 - (void)applicationDidFinishLaunching:(NSNotification*)notification {
-  self.window_delegate = [[VisageAppWindowDelegate alloc] init];
-  self.window_delegate.visage_window = self.visage_window;
-  self.window_delegate.window_handle = self.window_handle;
-  [self.window_handle setDelegate:self.window_delegate];
-
   [NSApp activateIgnoringOtherApps:YES];
 }
 
@@ -938,7 +933,6 @@ namespace visage {
     view_.allow_quit = true;
 
     createWindow();
-    NativeWindowLookup::instance().addWindow(this);
   }
 
   WindowMac::WindowMac(int width, int height, float scale, void* parent_handle) :
@@ -959,6 +953,8 @@ namespace visage {
   WindowMac::~WindowMac() {
     NativeWindowLookup::instance().removeWindow(this);
     hide();
+    if (window_handle_.delegate == window_delegate_)
+      [window_handle_ setDelegate:nil];
     view_.visage_window = nullptr;
 
     if (parent_view_)
@@ -981,6 +977,11 @@ namespace visage {
                                                    styleMask:style_mask
                                                      backing:NSBackingStoreBuffered
                                                        defer:NO];
+    window.releasedWhenClosed = NO;
+    window_delegate_ = [[VisageAppWindowDelegate alloc] init];
+    window_delegate_.visage_window = this;
+    window_delegate_.window_handle = window;
+    [window setDelegate:window_delegate_];
     if (decoration_ == Decoration::Popup)
       [window setLevel:NSStatusWindowLevel];
     else if (decoration_ == Decoration::Client)
@@ -994,13 +995,20 @@ namespace visage {
 
     [window_handle_ setContentView:view_];
     [window_handle_ makeFirstResponder:view_];
+    NativeWindowLookup::instance().addWindow(this);
   }
 
   void WindowMac::closeWindow() {
     last_content_rect_ = window_handle_.contentLayoutRect;
     NativeWindowLookup::instance().removeWindow(this);
     hide();
+    if (window_handle_.delegate == window_delegate_)
+      [window_handle_ setDelegate:nil];
+    NSWindow* closed_window = window_handle_;
     window_handle_ = nullptr;
+    dispatch_async(dispatch_get_main_queue(), ^{
+      (void)closed_window;
+    });
 
     if (running_event_loop_ && !NativeWindowLookup::instance().anyWindowOpen())
       [NSApp stop:nil];
