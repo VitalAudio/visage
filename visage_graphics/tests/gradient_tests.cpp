@@ -560,3 +560,46 @@ TEST_CASE("Gradient atlas ignores leftover GPU memory", "[graphics]") {
       REQUIRE(screenshot.sample(x, y).toARGB() == 0xffff0000);
   }
 }
+
+TEST_CASE("Radial brushes keep their shape through encoding", "[graphics]") {
+  Brush radial = Brush::radial(0xffff0000, 0xff0000ff, { 10.0f, 20.0f }, 5.0f, 8.0f,
+                               { 12.0f, 21.0f }, 0.25f);
+  Brush vertical = Brush::vertical(0xff00ff00, 0xffffffff);
+
+  std::ostringstream stream;
+  radial.encode(stream);
+  vertical.encode(stream);
+
+  Brush decoded_radial;
+  Brush decoded_vertical;
+  std::istringstream input(stream.str());
+  decoded_radial.decode(input);
+  decoded_vertical.decode(input);
+
+  const GradientPosition& original = radial.position();
+  const GradientPosition& decoded = decoded_radial.position();
+  REQUIRE(decoded.shape == GradientPosition::InterpolationShape::Radial);
+  REQUIRE(decoded.point1 == original.point1);
+  REQUIRE(decoded.point2 == original.point2);
+  REQUIRE(decoded.focal_radius == Approx(original.focal_radius));
+  REQUIRE(decoded.coefficientx2 == Approx(original.coefficientx2));
+  REQUIRE(decoded.coefficienty2 == Approx(original.coefficienty2));
+  REQUIRE(decoded.coefficientxy == Approx(original.coefficientxy));
+  REQUIRE(decoded_vertical.position().shape == GradientPosition::InterpolationShape::Vertical);
+  REQUIRE(decoded_vertical.gradient().colors()[1] == vertical.gradient().colors()[1]);
+}
+
+TEST_CASE("Brushes saved before radial coefficients were encoded still decode", "[graphics]") {
+  int radial = static_cast<int>(GradientPosition::InterpolationShape::Radial);
+  std::string old_radial = Gradient(0xffff0000, 0xff0000ff).encode() + std::to_string(radial) +
+                           "\n10\n20\n10\n20\n";
+  Brush vertical = Brush::vertical(0xff00ff00, 0xffffffff);
+  std::istringstream input(old_radial + vertical.encode());
+
+  Brush decoded_radial;
+  Brush decoded_vertical;
+  decoded_radial.decode(input);
+  decoded_vertical.decode(input);
+  REQUIRE(decoded_vertical.position().shape == GradientPosition::InterpolationShape::Vertical);
+  REQUIRE(decoded_vertical.gradient().colors()[1] == vertical.gradient().colors()[1]);
+}

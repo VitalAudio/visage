@@ -183,12 +183,23 @@ namespace visage {
     return stream.str();
   }
 
+  static constexpr int kRadialWithCoefficients = -1;
+
   void GradientPosition::encode(std::ostringstream& stream) const {
-    stream << static_cast<int>(shape) << std::endl;
+    if (shape == InterpolationShape::Radial)
+      stream << kRadialWithCoefficients << std::endl;
+    else
+      stream << static_cast<int>(shape) << std::endl;
     stream << point1.x << std::endl;
     stream << point1.y << std::endl;
     stream << point2.x << std::endl;
     stream << point2.y << std::endl;
+    if (shape == InterpolationShape::Radial) {
+      stream << focal_radius << std::endl;
+      stream << coefficientx2 << std::endl;
+      stream << coefficienty2 << std::endl;
+      stream << coefficientxy << std::endl;
+    }
   }
 
   void GradientPosition::decode(const std::string& data) {
@@ -199,11 +210,18 @@ namespace visage {
   void GradientPosition::decode(std::istringstream& stream) {
     int shape_int = 0;
     stream >> shape_int;
-    shape = static_cast<InterpolationShape>(shape_int);
+    bool has_coefficients = shape_int == kRadialWithCoefficients;
+    shape = has_coefficients ? InterpolationShape::Radial : static_cast<InterpolationShape>(shape_int);
     stream >> point1.x;
     stream >> point1.y;
     stream >> point2.x;
     stream >> point2.y;
+    if (has_coefficients) {
+      stream >> focal_radius;
+      stream >> coefficientx2;
+      stream >> coefficienty2;
+      stream >> coefficientxy;
+    }
   }
 
   std::string Brush::encode() const {
