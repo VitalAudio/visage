@@ -1081,7 +1081,7 @@ namespace visage {
   }
 
   void WindowMac::closeWindow() {
-    last_content_rect_ = window_handle_.contentLayoutRect;
+    last_content_rect_ = [window_handle_ contentRectForFrameRect:window_handle_.frame];
     NativeWindowLookup::instance().removeWindow(this);
     hide();
     if (window_handle_.delegate == window_delegate_)
