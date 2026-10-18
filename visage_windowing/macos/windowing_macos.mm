@@ -313,6 +313,30 @@ namespace visage {
     default: return KeyCode::Unknown;
     }
   }
+
+  struct ModifierKeyFlags {
+    NSUInteger device_flag = 0;
+    NSUInteger flag = 0;
+  };
+
+  static constexpr NSUInteger kDeviceModifierFlags = NX_DEVICELSHIFTKEYMASK | NX_DEVICERSHIFTKEYMASK |
+                                                     NX_DEVICELCTLKEYMASK | NX_DEVICERCTLKEYMASK |
+                                                     NX_DEVICELALTKEYMASK | NX_DEVICERALTKEYMASK |
+                                                     NX_DEVICELCMDKEYMASK | NX_DEVICERCMDKEYMASK;
+
+  static ModifierKeyFlags modifierKeyFlags(int mac_key_code) {
+    switch (mac_key_code) {
+    case kVK_Shift: return { NX_DEVICELSHIFTKEYMASK, NSEventModifierFlagShift };
+    case kVK_RightShift: return { NX_DEVICERSHIFTKEYMASK, NSEventModifierFlagShift };
+    case kVK_Control: return { NX_DEVICELCTLKEYMASK, NSEventModifierFlagControl };
+    case kVK_RightControl: return { NX_DEVICERCTLKEYMASK, NSEventModifierFlagControl };
+    case kVK_Option: return { NX_DEVICELALTKEYMASK, NSEventModifierFlagOption };
+    case kVK_RightOption: return { NX_DEVICERALTKEYMASK, NSEventModifierFlagOption };
+    case kVK_Command: return { NX_DEVICELCMDKEYMASK, NSEventModifierFlagCommand };
+    case kVK_RightCommand: return { NX_DEVICERCMDKEYMASK, NSEventModifierFlagCommand };
+    default: return {};
+    }
+  }
 }
 
 @implementation VisageDraggingSource
@@ -402,6 +426,33 @@ namespace visage {
   visage::KeyCode key_code = visage::translateKeyCode([event keyCode]);
   if (!self.visage_window->handleKeyDown(key_code, modifiers, [event isARepeat]))
     [super keyDown:event];
+}
+
+- (void)flagsChanged:(NSEvent*)event {
+  if (self.visage_window == nullptr)
+    return;
+
+  visage::ModifierKeyFlags key_flags = visage::modifierKeyFlags([event keyCode]);
+  if (key_flags.flag == 0) {
+    [super flagsChanged:event];
+    return;
+  }
+
+  NSUInteger flags = [event modifierFlags];
+  bool down = flags & key_flags.flag;
+  if (flags & visage::kDeviceModifierFlags)
+    down = flags & key_flags.device_flag;
+
+  visage::KeyCode key_code = visage::translateKeyCode([event keyCode]);
+  int modifiers = [self keyboardModifiers:event];
+  bool used = false;
+  if (down)
+    used = self.visage_window->handleKeyDown(key_code, modifiers, false);
+  else
+    used = self.visage_window->handleKeyUp(key_code, modifiers);
+
+  if (!used)
+    [super flagsChanged:event];
 }
 
 - (void)keyUp:(NSEvent*)event {
