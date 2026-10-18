@@ -149,6 +149,11 @@ namespace visage {
   }
 
   void setCursorVisible(bool visible) {
+    static bool hidden = false;
+    if (hidden == !visible)
+      return;
+
+    hidden = !visible;
     if (visible)
       [NSCursor unhide];
     else
