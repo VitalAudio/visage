@@ -586,7 +586,8 @@ namespace visage {
 
     switch (event_type) {
     case EMSCRIPTEN_EVENT_KEYPRESS:
-      if (code == KeyCode::Return || code == KeyCode::Backspace || strlen(event->key) == 0)
+      if (code == KeyCode::Return || code == KeyCode::KPEnter || code == KeyCode::Backspace ||
+          strlen(event->key) == 0)
         return true;
       return window->handleTextInput(event->key);
     case EMSCRIPTEN_EVENT_KEYDOWN: {
