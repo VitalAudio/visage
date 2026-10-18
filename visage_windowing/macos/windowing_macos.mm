@@ -1078,7 +1078,14 @@ namespace visage {
   }
 
   void WindowMac::close() {
-    [window_handle_ performClose:nil];
+    if (parent_view_)
+      return;
+
+    NSWindow* window = window_handle_;
+    if (window.styleMask & NSWindowStyleMaskClosable)
+      [window performClose:nil];
+    else if (window && handleCloseRequested())
+      [window close];
   }
 
   bool WindowMac::isShowing() const {
