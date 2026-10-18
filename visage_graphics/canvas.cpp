@@ -91,10 +91,11 @@ namespace visage {
     }
 
     int layers_start = submission;
+    int start_flushes = Layer::viewFlushes();
     for (int backdrop = 0; backdrop <= backdrop_count; ++backdrop) {
       for (int i = layers_.size() - 1; i > 0; --i)
         submission = layers_[i]->submit(submission, backdrop);
-      if (submission == layers_start)
+      if (submission == layers_start && Layer::viewFlushes() == start_flushes)
         break;
     }
 
@@ -103,7 +104,7 @@ namespace visage {
       layers_[i]->destroyIdleTemporaryFrameBuffers();
     }
 
-    if (submission > submit_pass) {
+    if (submission > submit_pass || Layer::viewFlushes() != start_flushes) {
       composite_layer_.invalidate();
       submission = composite_layer_.submit(submission, backdrop_count);
       bgfx::frame();
