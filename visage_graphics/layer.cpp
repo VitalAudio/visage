@@ -409,8 +409,10 @@ namespace visage {
         while (backdrop_root && !backdrop_root->isBackdropRoot())
           backdrop_root = backdrop_root->parent();
 
-        if (backdrop_root)
+        if (backdrop_root) {
+          submit_pass = reserveViews(submit_pass);
           submit_pass = region->backdropEffect()->preprocessBackdrop(backdrop_root, region, submit_pass);
+        }
       }
 
       IPoint point = coordinatesForRegion(region);
@@ -428,6 +430,12 @@ namespace visage {
     const SubmitBatch* current_batch = nullptr;
     std::vector<PositionedBatch> batches;
     std::vector<RegionPosition> done_regions;
+
+    submit_pass = reserveViews(submit_pass);
+    if (screenshot_requested_ && !headless_render_) {
+      screenshot_requested_ = false;
+      bgfx::requestScreenShot(frame_buffer_data_->handle, "screenshot.png");
+    }
 
     bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
     bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
@@ -487,10 +495,24 @@ namespace visage {
     return preprocessPostEffects(submit_pass + 1, backdrop_count);
   }
 
+  int Layer::view_flushes_ = 0;
+
+  int Layer::reserveViews(int submit_pass) {
+    static constexpr int kMaxViewsPerStep = 64;
+    if (submit_pass + kMaxViewsPerStep <= bgfx::getCaps()->limits.maxViews)
+      return submit_pass;
+
+    bgfx::frame(BGFX_FRAME_FLUSH);
+    view_flushes_++;
+    return 0;
+  }
+
   int Layer::preprocessPostEffects(int submit_pass, int backdrop_count) {
     for (Region* region : regions_) {
       if (region->postEffect() && region->backdropCountChildren() == backdrop_count &&
           hasInvalidRects(region)) {
+        VISAGE_ASSERT(window_handle_ == nullptr);
+        submit_pass = reserveViews(submit_pass);
         submit_pass = region->postEffect()->preprocess(region, submit_pass);
       }
     }
@@ -550,12 +572,9 @@ namespace visage {
   }
 
   void Layer::requestScreenshot() {
-    if (headless_render_)
-      screenshot_requested_ = true;
-    else {
+    screenshot_requested_ = true;
+    if (!headless_render_)
       Renderer::resetResolution(width_, height_);
-      bgfx::requestScreenShot(frame_buffer_data_->handle, "screenshot.png");
-    }
     invalidate();
   }
 

@@ -56,6 +56,8 @@ namespace visage {
     int submit(int submit_pass, int backdrop_count);
 
     void setIntermediateLayer(bool intermediate_layer) { intermediate_layer_ = intermediate_layer; }
+    static int reserveViews(int submit_pass);
+    static int viewFlushes() { return view_flushes_; }
     void addRegion(Region* region);
     void matchMaskGroupsToHdr(const Layer& destination);
     void removeRegion(const Region* region) {
@@ -175,5 +177,7 @@ namespace visage {
     std::vector<IBounds> invalid_rect_pieces_;
     bool invalidated_all_ = false;
     std::vector<Region*> regions_;
+
+    static int view_flushes_;
   };
 }

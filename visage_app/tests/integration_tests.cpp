@@ -1757,3 +1757,78 @@ TEST_CASE("Backdrop frames redraw what's under them when their layer repacks", "
     }
   }
 }
+
+TEST_CASE("Frames needing more bgfx views than one frame allows still render", "[integration]") {
+  static constexpr int kNumFrames = 400;
+  static constexpr int kColumns = 20;
+  static constexpr int kSize = 10;
+  static constexpr int kSpacing = 12;
+  static constexpr int kWidth = kColumns * kSpacing;
+  static constexpr int kHeight = (kNumFrames / kColumns) * kSpacing;
+
+  ApplicationEditor app;
+  Color left_color = 0xffff0000;
+  auto check = [&](const Screenshot& screenshot) {
+    REQUIRE(screenshot.width() == app.nativeWidth());
+    float scale = screenshot.width() / static_cast<float>(kWidth);
+    for (int i = 0; i < kNumFrames; ++i) {
+      int x = ((i % kColumns) * kSpacing + kSize / 2) * scale;
+      int y = ((i / kColumns) * kSpacing + kSize / 2) * scale;
+      Color center = screenshot.sample(x, y);
+      INFO("frame " << i);
+      REQUIRE(center.hexBlue() > 0x20);
+      REQUIRE(center.hexBlue() < 0xe0);
+      if (left_color.hexRed()) {
+        REQUIRE(center.hexRed() > 0x20);
+        REQUIRE(center.hexGreen() < 0x10);
+      }
+      else {
+        REQUIRE(center.hexGreen() > 0x20);
+        REQUIRE(center.hexRed() < 0x10);
+      }
+    }
+  };
+
+  std::vector<std::unique_ptr<Frame>> frames;
+  for (int i = 0; i < kNumFrames; ++i) {
+    auto frame = std::make_unique<Frame>();
+    frame->onDraw() = [&left_color](Canvas& canvas) {
+      canvas.setColor(left_color);
+      canvas.rectangle(0, 0, kSize / 2, kSize);
+      canvas.setColor(0xff0000ff);
+      canvas.rectangle(kSize / 2, 0, kSize - kSize / 2, kSize);
+    };
+    frame->setBlurRadius(300.0f);
+    frame->setBounds((i % kColumns) * kSpacing, (i / kColumns) * kSpacing, kSize, kSize);
+    app.addChild(frame.get());
+    frames.push_back(std::move(frame));
+  }
+
+  SECTION("Windowless") {
+    app.setWindowless(kWidth, kHeight);
+    app.drawWindow();
+    check(app.takeScreenshot());
+  }
+
+#if VISAGE_LINUX
+  if (std::getenv("DISPLAY") == nullptr)
+    return;
+#endif
+  SECTION("Window") {
+    std::unique_ptr<Window> window = createWindow(Dimension::logicalPixels(kWidth),
+                                                  Dimension::logicalPixels(kHeight));
+    app.addToWindow(window.get());
+    app.drawWindow();
+
+    left_color = 0xff00ff00;
+    auto redraw_and_capture = [&]() -> const Screenshot& {
+      for (auto& frame : frames)
+        frame->redraw();
+      app.drawStaleChildren();
+      return app.takeScreenshot();
+    };
+    redraw_and_capture();
+    check(redraw_and_capture());
+    app.removeFromWindow();
+  }
+}
