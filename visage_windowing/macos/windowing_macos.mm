@@ -369,6 +369,13 @@ namespace visage {
   self.drag_source = [[VisageDraggingSource alloc] init];
   self.drag_source.view = self;
 
+  NSTrackingAreaOptions tracking_options = NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved |
+                                           NSTrackingActiveAlways | NSTrackingInVisibleRect;
+  [self addTrackingArea:[[NSTrackingArea alloc] initWithRect:NSZeroRect
+                                                     options:tracking_options
+                                                       owner:self
+                                                    userInfo:nil]];
+
   return self;
 }
 
