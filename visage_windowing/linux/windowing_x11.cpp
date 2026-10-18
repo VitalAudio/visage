@@ -1061,7 +1061,29 @@ namespace visage {
     case XK_KP_9: return KeyCode::KP9;
     case XK_KP_0: return KeyCode::KP0;
     case XK_KP_Decimal: return KeyCode::KPPeriod;
+    case XK_Shift_L: return KeyCode::LShift;
+    case XK_Shift_R: return KeyCode::RShift;
+    case XK_Control_L: return KeyCode::LCtrl;
+    case XK_Control_R: return KeyCode::RCtrl;
+    case XK_Alt_L: return KeyCode::LAlt;
+    case XK_Alt_R: return KeyCode::RAlt;
+    case XK_Super_L: return KeyCode::LGui;
+    case XK_Super_R: return KeyCode::RGui;
     default: return KeyCode::Unknown;
+    }
+  }
+
+  static int modifierForKeyCode(KeyCode key_code) {
+    switch (key_code) {
+    case KeyCode::LShift:
+    case KeyCode::RShift: return kModifierShift;
+    case KeyCode::LCtrl:
+    case KeyCode::RCtrl: return kModifierRegCtrl;
+    case KeyCode::LAlt:
+    case KeyCode::RAlt: return kModifierAlt;
+    case KeyCode::LGui:
+    case KeyCode::RGui: return kModifierMeta;
+    default: return 0;
     }
   }
 
@@ -1672,7 +1694,7 @@ namespace visage {
       KeyCode key_code = translateKeyCode(keysym);
       bool used = false;
       if (key_code != KeyCode::Unknown)
-        used = handleKeyDown(key_code, modifier_state, repeat);
+        used = handleKeyDown(key_code, modifier_state | modifierForKeyCode(key_code), repeat);
 
       if (!used)
         passEventToParent(event);
@@ -1684,7 +1706,7 @@ namespace visage {
       KeyCode key_code = translateKeyCode(keysym);
       bool used = false;
       if (key_code != KeyCode::Unknown)
-        used = handleKeyUp(key_code, modifierState(event.xkey.state));
+        used = handleKeyUp(key_code, modifierState(event.xkey.state) & ~modifierForKeyCode(key_code));
 
       if (!used)
         passEventToParent(event);
