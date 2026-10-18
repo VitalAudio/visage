@@ -362,6 +362,11 @@ namespace visage {
     static GradientPosition interpolate(const GradientPosition& from, const GradientPosition& to, float t) {
       VISAGE_ASSERT(from.shape == to.shape || from.shape == InterpolationShape::Solid ||
                     to.shape == InterpolationShape::Solid);
+      if (from.shape == InterpolationShape::Solid)
+        return to;
+      if (to.shape == InterpolationShape::Solid)
+        return from;
+
       GradientPosition result;
       result.shape = from.shape;
       result.point1 = from.point1 + (to.point1 - from.point1) * t;
