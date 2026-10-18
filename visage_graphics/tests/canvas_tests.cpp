@@ -2068,3 +2068,24 @@ TEST_CASE("Bloom resized every frame doesn't pile up frame buffers", "[graphics]
   REQUIRE(bgfx::getStats()->numFrameBuffers < 200);
   REQUIRE(screenshot.sample(region.width() / 2 + 12, region.height() / 2).hexRed() > 0x40);
 }
+
+TEST_CASE("Shape batches find overlaps in every chunk of shapes", "[graphics]") {
+  ShapeBatch<Rectangle> batch(BlendMode::Alpha);
+  for (int i = 0; i < 200; ++i)
+    batch.addShape(Rectangle({}, nullptr, i * 10.0f, 0.0f, 5.0f, 5.0f));
+
+  auto overlaps = [&batch](float x, float width) {
+    return batch.overlapsShape(Rectangle({}, nullptr, x, 1.0f, width, 1.0f));
+  };
+  REQUIRE(overlaps(1.0f, 1.0f));
+  REQUIRE(overlaps(1500.0f, 2.0f));
+  REQUIRE(overlaps(1994.0f, 1.0f));
+  REQUIRE_FALSE(overlaps(1506.0f, 2.0f));
+  REQUIRE_FALSE(overlaps(2000.0f, 10.0f));
+  REQUIRE_FALSE(overlaps(9.5f, 1.0f));
+
+  ShapeBatch<Rectangle> nan_first(BlendMode::Alpha);
+  nan_first.addShape(Rectangle({}, nullptr, std::nanf(""), 0.0f, 5.0f, 5.0f));
+  nan_first.addShape(Rectangle({}, nullptr, 20.0f, 0.0f, 5.0f, 5.0f));
+  REQUIRE(nan_first.overlapsShape(Rectangle({}, nullptr, 21.0f, 1.0f, 1.0f, 1.0f)));
+}
