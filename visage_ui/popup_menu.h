@@ -27,6 +27,8 @@
 #include "visage_graphics/font.h"
 
 #include <climits>
+#include <memory>
+#include <vector>
 
 namespace visage {
   class PopupMenu;
@@ -178,7 +180,6 @@ namespace visage {
                          public PopupList::Listener,
                          public EventTimer {
   public:
-    static constexpr int kMaxSubMenus = 4;
     static constexpr int kWaitForSelection = 20;
     static constexpr int kPauseMs = 400;
 
@@ -194,7 +195,7 @@ namespace visage {
     }
     void setListFonts(const Font& font) {
       for (auto& list : lists_)
-        list.setFont(font);
+        list->setFont(font);
     }
 
     void exit();
@@ -212,11 +213,15 @@ namespace visage {
     float opacity() const { return opacity_animation_.value(); }
 
   private:
+    PopupList& popupList(int index);
+    int listIndex(const PopupList* list) const;
+
     PopupMenu menu_;
     Frame* parent_ = nullptr;
     bool done_ = false;
+    bool mouse_up_enabled_ = false;
     Animation<float> opacity_animation_;
-    PopupList lists_[kMaxSubMenus];
+    std::vector<std::unique_ptr<PopupList>> lists_;
     int hover_index_ = -1;
     Font font_;
     PopupList* hover_list_ = nullptr;
