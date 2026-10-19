@@ -299,6 +299,7 @@ namespace visage {
     Color& operator=(const Color&) = default;
     Color& operator=(unsigned int argb) {
       loadARGB(argb);
+      hdr_ = 1.0f;
       return *this;
     }
     Color operator-(const Color& other) const {
