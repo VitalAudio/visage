@@ -452,6 +452,90 @@ namespace visage {
 
   static constexpr int kBoxSideIndices[4][4] = { { 0, 0, 0, 0 }, { 0, 1, 0, 1 }, { 0, 1, 2, 1 }, { 0, 1, 2, 3 } };
 
+  static void splitSlashes(std::vector<std::string>& tokens) {
+    std::vector<std::string> split_tokens;
+    for (const auto& token : tokens) {
+      size_t start = 0;
+      for (size_t slash = token.find('/'); slash != std::string::npos; slash = token.find('/', start)) {
+        if (slash > start)
+          split_tokens.push_back(token.substr(start, slash - start));
+        split_tokens.push_back("/");
+        start = slash + 1;
+      }
+      if (start < token.size())
+        split_tokens.push_back(token.substr(start));
+    }
+    tokens = std::move(split_tokens);
+  }
+
+  static bool isLengthUnit(std::string unit) {
+    static const std::set<std::string> kUnits = {
+      "",   "%",   "px",  "cm",   "mm",   "q",   "in",  "pt",  "pc",  "em",    "rem",
+      "ex", "rex", "cap", "rcap", "ch",   "rch", "ic",  "ric", "lh",  "rlh",   "vw",
+      "vh", "vi",  "vb",  "vmin", "vmax", "cqw", "cqh", "cqi", "cqb", "cqmin", "cqmax"
+    };
+    unit = toLowerAscii(unit);
+    if (unit.size() > 2 && unit[1] == 'v' && (unit[0] == 's' || unit[0] == 'l' || unit[0] == 'd'))
+      unit = unit.substr(1);
+    return kUnits.count(unit) > 0;
+  }
+
+  static bool isLengthPercentage(const std::string& token) {
+    size_t end = token.find_last_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ%");
+    if (end == std::string::npos || !isLengthUnit(token.substr(end + 1)))
+      return false;
+
+    auto digits = [&](size_t& i) {
+      size_t start = i;
+      while (i <= end && std::isdigit(static_cast<unsigned char>(token[i])))
+        ++i;
+      return i - start;
+    };
+    size_t i = 0;
+    if (token[i] == '+' || token[i] == '-')
+      ++i;
+    size_t integer_digits = digits(i);
+    if (i <= end && token[i] == '.') {
+      ++i;
+      if (digits(i) == 0)
+        return false;
+    }
+    else if (integer_digits == 0)
+      return false;
+
+    if (i <= end && (token[i] == 'e' || token[i] == 'E')) {
+      ++i;
+      if (i <= end && (token[i] == '+' || token[i] == '-'))
+        ++i;
+      if (digits(i) == 0)
+        return false;
+    }
+    return i == end + 1;
+  }
+
+  static bool validRectShape(const std::vector<std::string>& tokens) {
+    bool rect = tokens[0] == "rect";
+    auto round = std::find(tokens.begin() + 1, tokens.end(), "round");
+    int num_values = std::distance(tokens.begin() + 1, round);
+    if (rect ? num_values != 4 : (num_values < 1 || num_values > 4))
+      return false;
+    for (auto it = tokens.begin() + 1; it != round; ++it) {
+      if (!(rect && *it == "auto") && !isLengthPercentage(*it))
+        return false;
+    }
+    if (round == tokens.end())
+      return true;
+
+    auto valid_radii = [](auto start, auto end) {
+      int count = std::distance(start, end);
+      return count >= 1 && count <= 4 && std::all_of(start, end, isLengthPercentage);
+    };
+    auto slash = std::find(round + 1, tokens.end(), "/");
+    if (!valid_radii(round + 1, slash))
+      return false;
+    return slash == tokens.end() || valid_radii(slash + 1, tokens.end());
+  }
+
   bool parseBorderRadius(float* results, std::vector<std::string>& tokens, const Bounds& bounding_box) {
     auto r_it = std::find(tokens.begin(), tokens.end(), "round");
     if (r_it == tokens.end())
@@ -481,22 +565,51 @@ namespace visage {
     return true;
   }
 
-  Path::CommandList parseRectShape(std::vector<std::string>& tokens, const Bounds& bounding_box) {
-    static constexpr int kNumInsets = 4;
-    int num_insets = std::distance(tokens.begin(), std::find(tokens.begin(), tokens.end(), "round")) - 1;
-    num_insets = std::min(num_insets, kNumInsets);
-    float insets[kNumInsets] {};
-    for (int i = 0; num_insets > 0 && i < kNumInsets; ++i) {
-      float dim = (i % 2) ? bounding_box.width() : bounding_box.height();
-      insets[i] = parseNumber(tokens[1 + kBoxSideIndices[num_insets - 1][i]], dim);
+  std::optional<Path::CommandList> parseRectShape(std::vector<std::string>& tokens,
+                                                  const Bounds& bounding_box) {
+    static constexpr int kNumSides = 4;
+    splitSlashes(tokens);
+    for (auto& token : tokens) {
+      token = toLowerAscii(token);
+      if (!token.empty() && token.back() == 'q')
+        token.back() = 'Q';
+    }
+    if (!validRectShape(tokens))
+      return std::nullopt;
+
+    int num_values = std::distance(tokens.begin(), std::find(tokens.begin(), tokens.end(), "round")) - 1;
+    float x = bounding_box.x();
+    float y = bounding_box.y();
+    float width = bounding_box.width();
+    float height = bounding_box.height();
+    if (tokens[0] == "rect") {
+      auto edge = [&](const std::string& token, float dimension, float automatic) {
+        return token == "auto" ? automatic : parseNumber(token, dimension);
+      };
+      float top = edge(tokens[1], height, 0.0f);
+      float right = edge(tokens[2], width, width);
+      float bottom = edge(tokens[3], height, height);
+      float left = edge(tokens[4], width, 0.0f);
+      x += left;
+      y += top;
+      width = right - left;
+      height = bottom - top;
+    }
+    else {
+      num_values = std::min(num_values, kNumSides);
+      float insets[kNumSides] {};
+      for (int i = 0; num_values > 0 && i < kNumSides; ++i) {
+        float dim = (i % 2) ? bounding_box.width() : bounding_box.height();
+        insets[i] = parseNumber(tokens[1 + kBoxSideIndices[num_values - 1][i]], dim);
+      }
+      x += insets[3];
+      y += insets[0];
+      width -= insets[1] + insets[3];
+      height -= insets[2] + insets[0];
     }
 
     Path::CommandList path;
     float rs[8] {};
-    float x = bounding_box.x() + insets[3];
-    float y = bounding_box.y() + insets[0];
-    float width = bounding_box.width() - insets[1] - insets[3];
-    float height = bounding_box.height() - insets[2] - insets[0];
     if (width <= 0.0f || height <= 0.0f)
       return path;
 
@@ -642,8 +755,16 @@ namespace visage {
     Path clip_path;
     clip_path.setResolutionMatrix(scale_matrix);
     clip_path.setFillRule(Path::FillRule::NonZero);
-    if (tokens[0] == "inset" || tokens[0] == "rect")
-      clip_path.loadCommands(parseRectShape(tokens, bounding_box));
+    if (tokens[0] == "inset" || tokens[0] == "rect") {
+      size_t open = clip_path_shape.find('(');
+      if (clip_path_shape.find(',', open) < clip_path_shape.find(')', open))
+        return;
+
+      auto shape = parseRectShape(tokens, bounding_box);
+      if (!shape)
+        return;
+      clip_path.loadCommands(*shape);
+    }
     else if (tokens[0] == "circle" || tokens[0] == "ellipse")
       clip_path.loadCommands(parseEllipseShape(tokens, bounding_box));
     else if (tokens[0] == "polygon" || tokens[0] == "polyline")
