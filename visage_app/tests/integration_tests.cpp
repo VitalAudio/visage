@@ -1720,6 +1720,13 @@ TEST_CASE("Svg frame clip shapes with a reference box", "[integration]") {
 }
 
 namespace {
+#if VISAGE_LINUX
+  bool hasDisplay() {
+    const char* display_name = std::getenv("DISPLAY");
+    return display_name && display_name[0];
+  }
+#endif
+
   class TestWindow : public Window {
   public:
     TestWindow(int width, int height) : Window(width, height) { }
@@ -1739,7 +1746,7 @@ namespace {
 
 TEST_CASE("Resizing a window many times keeps its swap chain valid", "[integration]") {
 #if VISAGE_LINUX
-  if (std::getenv("DISPLAY") == nullptr)
+  if (!hasDisplay())
     SKIP("No display");
 #endif
 
@@ -1761,7 +1768,7 @@ TEST_CASE("Resizing a window many times keeps its swap chain valid", "[integrati
 TEST_CASE("Destroying a window right after resizing it leaves no swap chain work behind",
           "[integration]") {
 #if VISAGE_LINUX
-  if (std::getenv("DISPLAY") == nullptr)
+  if (!hasDisplay())
     SKIP("No display");
 #endif
 
@@ -1791,7 +1798,7 @@ TEST_CASE("Destroying a window right after resizing it leaves no swap chain work
 TEST_CASE("Adding an editor to the window it's already in keeps its swap chain valid",
           "[integration]") {
 #if VISAGE_LINUX
-  if (std::getenv("DISPLAY") == nullptr)
+  if (!hasDisplay())
     SKIP("No display");
 #endif
 
@@ -1813,7 +1820,7 @@ TEST_CASE("Adding an editor to the window it's already in keeps its swap chain v
 
 TEST_CASE("Window screenshots show the frame they were taken of", "[integration]") {
 #if VISAGE_LINUX
-  if (std::getenv("DISPLAY") == nullptr)
+  if (!hasDisplay())
     SKIP("No display");
 #endif
 
@@ -1840,7 +1847,7 @@ TEST_CASE("Window screenshots show the frame they were taken of", "[integration]
 
 TEST_CASE("Window opens after rendering offscreen", "[integration]") {
 #if VISAGE_LINUX
-  if (std::getenv("DISPLAY") == nullptr)
+  if (!hasDisplay())
     SKIP("No display");
 #endif
 
@@ -2010,7 +2017,7 @@ TEST_CASE("Frames needing more bgfx views than one frame allows still render", "
   }
 
 #if VISAGE_LINUX
-  if (std::getenv("DISPLAY") == nullptr)
+  if (!hasDisplay())
     return;
 #endif
   SECTION("Window") {
