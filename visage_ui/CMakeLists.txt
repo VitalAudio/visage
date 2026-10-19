@@ -16,6 +16,9 @@ add_library(VisageUi OBJECT ${SOURCE_FILES} ${HEADERS} ${PLATFORM_FILES})
 target_include_directories(VisageUi PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${VISAGE_INCLUDE_PATH})
 target_link_libraries(VisageUi PRIVATE VisageGraphicsEmbeds)
 set_target_properties(VisageUi PROPERTIES FOLDER "visage")
+if (APPLE)
+  target_compile_options(VisageUi PRIVATE -fobjc-arc)
+endif ()
 
 visage_add_test_target(
   TARGET VisageUiTests
