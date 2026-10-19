@@ -134,14 +134,20 @@ namespace visage {
     handleWindowResize(width, height);
   }
 
-  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
-                                       const Dimension& height, Window::Decoration decoration) {
+  IBounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
+                              const Dimension& height) {
     float scale = defaultDpiScale();
     int display_width = scale * EM_ASM_INT({ return window.innerWidth; });
     int display_height = scale * EM_ASM_INT({ return window.innerHeight; });
+    int result_w = width.compute(scale, display_width, display_height);
+    int result_h = height.compute(scale, display_width, display_height);
+    return { 0, 0, result_w, result_h };
+  }
 
-    return std::make_unique<WindowEmscripten>(width.compute(scale, display_width, display_height),
-                                              height.compute(scale, display_width, display_height));
+  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
+                                       const Dimension& height, Window::Decoration decoration) {
+    IBounds bounds = computeWindowBounds(x, y, width, height);
+    return std::make_unique<WindowEmscripten>(bounds.width(), bounds.height());
   }
 
   void* headlessWindowHandle() {
