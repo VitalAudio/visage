@@ -44,11 +44,15 @@ namespace visage {
 @property long long start_microseconds;
 @end
 
-@interface VisageAppView : MTKView <NSDraggingDestination>
+@interface VisageAppView : MTKView <NSDraggingDestination, NSTextInputClient>
 @property(nonatomic) visage::WindowMac* visage_window;
 @property(strong) VisageDraggingSource* drag_source;
+@property(strong) NSString* marked_text;
 @property bool allow_quit;
 @property NSPoint mouse_down_screen_position;
+@property NSPoint text_input_screen_position;
+@property NSUInteger typed_length;
+@property bool command_requested;
 
 - (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window;
 - (void)dragEndedAtScreenPoint:(NSPoint)screen_point;

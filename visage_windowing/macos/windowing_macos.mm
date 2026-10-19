@@ -437,8 +437,15 @@ namespace visage {
   }
 
   int modifiers = [self keyboardModifiers:event];
+  bool composing = [self hasMarkedText];
+  self.command_requested = false;
   if ((modifiers & visage::kModifierCmd) == 0)
     [self interpretKeyEvents:[NSArray arrayWithObject:event]];
+  else
+    self.typed_length = 0;
+  bool ime_used = (composing && !self.command_requested) || [self hasMarkedText];
+  if (ime_used || self.visage_window == nullptr)
+    return;
 
   visage::KeyCode key_code = visage::translateKeyCode([event keyCode]);
   if (!self.visage_window->handleKeyDown(key_code, modifiers, [event isARepeat]))
@@ -482,16 +489,75 @@ namespace visage {
 }
 
 - (void)insertText:(id)string {
+  [self insertText:string replacementRange:NSMakeRange(NSNotFound, 0)];
+}
+
+- (void)insertText:(id)string replacementRange:(NSRange)replacement_range {
+  self.marked_text = nil;
+  if (replacement_range.location != NSNotFound && replacement_range.location < self.typed_length) {
+    NSUInteger replaced = self.typed_length - replacement_range.location;
+    for (NSUInteger i = 0; i < replaced && self.visage_window; ++i) {
+      self.visage_window->handleKeyDown(visage::KeyCode::Backspace, 0, false);
+      if (self.visage_window)
+        self.visage_window->handleKeyUp(visage::KeyCode::Backspace, 0);
+    }
+    self.typed_length = replacement_range.location;
+  }
   if (self.visage_window == nullptr)
     return;
 
   NSString* text = [string isKindOfClass:[NSAttributedString class]] ? [string string] : string;
+  self.typed_length += text.length;
   const char* utf8 = [text UTF8String];
   if (utf8)
     self.visage_window->handleTextInput(utf8);
 }
 
+- (void)setMarkedText:(id)string
+        selectedRange:(NSRange)selected_range
+     replacementRange:(NSRange)replacement_range {
+  NSString* text = [string isKindOfClass:[NSAttributedString class]] ? [string string] : string;
+  self.marked_text = text.length ? text : nil;
+}
+
+- (void)unmarkText {
+  self.marked_text = nil;
+}
+
+- (BOOL)hasMarkedText {
+  return self.marked_text != nil;
+}
+
+- (NSRange)markedRange {
+  if (self.marked_text == nil)
+    return NSMakeRange(NSNotFound, 0);
+  return NSMakeRange(self.typed_length, self.marked_text.length);
+}
+
+- (NSRange)selectedRange {
+  return NSMakeRange(self.typed_length, 0);
+}
+
+- (NSArray<NSAttributedStringKey>*)validAttributesForMarkedText {
+  return @[];
+}
+
+- (NSAttributedString*)attributedSubstringForProposedRange:(NSRange)range
+                                               actualRange:(NSRangePointer)actual_range {
+  return nil;
+}
+
+- (NSUInteger)characterIndexForPoint:(NSPoint)point {
+  return NSNotFound;
+}
+
+- (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(NSRangePointer)actual_range {
+  return NSMakeRect(self.text_input_screen_position.x, self.text_input_screen_position.y, 0, 0);
+}
+
 - (void)doCommandBySelector:(SEL)selector {
+  self.command_requested = true;
+  self.typed_length = 0;
 }
 
 - (void)moveLeft:(id)sender {
@@ -637,6 +703,8 @@ namespace visage {
   __attribute__((objc_precise_lifetime)) VisageAppView* keep_alive = self;
   visage::Point point = [self eventPosition:event];
   self.mouse_down_screen_position = [self mouseScreenPosition];
+  self.text_input_screen_position = [NSEvent mouseLocation];
+  self.typed_length = 0;
   self.visage_window->handleMouseDown(visage::kMouseButtonLeft, point.x, point.y,
                                       [self mouseButtonState], [self keyboardModifiers:event]);
   if (self.visage_window == nullptr)
