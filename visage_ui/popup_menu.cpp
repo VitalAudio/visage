@@ -203,7 +203,7 @@ namespace visage {
   }
 
   void PopupList::mouseUp(const MouseEvent& e) {
-    if (!isVisible())
+    if (!isVisible() || e.isCancelled())
       return;
 
     Point position = e.relativeTo(this).position;

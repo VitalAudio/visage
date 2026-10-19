@@ -71,7 +71,9 @@ namespace visage {
     if (mouse_down_frame_) {
       mouse_event.position = mouse_event.window_position - mouse_down_frame_->positionInWindow();
       mouse_event.event_frame = mouse_down_frame_;
+      mouse_event.is_cancelled = true;
       mouse_down_frame_->processMouseUp(mouse_event);
+      mouse_event.is_cancelled = false;
       mouse_down_frame_ = nullptr;
     }
     if (mouse_hovered_frame_) {

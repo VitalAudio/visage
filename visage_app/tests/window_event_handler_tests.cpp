@@ -245,6 +245,32 @@ TEST_CASE("Dragging files over a frame with an invalid extension regex doesn't t
   app.removeFromWindow();
 }
 
+TEST_CASE("Losing focus while a button is held doesn't click it", "[integration]") {
+  ApplicationEditor app;
+  UiButton button("Button");
+  int toggles = 0;
+  int ups = 0;
+  button.onToggle() += [&toggles](Button*, bool) { toggles++; };
+  button.onMouseUp() += [&ups](const MouseEvent&) { ups++; };
+  app.addChild(button);
+  app.setBounds(0, 0, 40, 40);
+  button.setBounds(0, 0, 40, 40);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  window.handleMouseMove(10, 10, 0, 0);
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleFocusLost();
+  REQUIRE(ups == 1);
+  REQUIRE(toggles == 0);
+
+  window.handleFocusGained();
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+  REQUIRE(toggles == 1);
+  app.removeFromWindow();
+}
+
 TEST_CASE("Window doesn't draw an editor after it's removed from the window", "[integration]") {
   ApplicationEditor app;
   Frame child;
