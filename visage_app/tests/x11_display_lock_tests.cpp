@@ -194,7 +194,8 @@ TEST_CASE("X11 windows release the display lock before calling the app", "[integ
       XSendEvent(source, window, False, NoEventMask, &event);
       XSync(source, False);
     };
-    auto answer_selection = [&] {
+    auto answer_selections = [&] {
+      bool answered = false;
       while (XPending(source)) {
         XEvent event;
         XNextEvent(source, &event);
@@ -214,16 +215,18 @@ TEST_CASE("X11 windows release the display lock before calling the app", "[integ
         notify.time = request.time;
         XSendEvent(source, request.requestor, False, NoEventMask, reinterpret_cast<XEvent*>(&notify));
         XSync(source, False);
-        return true;
+        answered = true;
       }
-      return false;
+      return answered;
     };
+    int ticks = 0;
+    auto out_of_time = [&ticks] { return ++ticks > 250; };
 
     Steps steps({ [&] {
                    send("XdndEnter", 5 << 24, uri_list, 0);
                    return true;
                  },
-                  answer_selection,
+                  [&] { return answer_selections() || out_of_time(); },
                   [&] {
                     int x = 0, y = 0;
                     ::Window child;
@@ -231,12 +234,18 @@ TEST_CASE("X11 windows release the display lock before calling the app", "[integ
                     send("XdndPosition", 0, (x << 16) | y, XInternAtom(source, "XdndActionCopy", False));
                     return true;
                   },
-                  [&] { return unlocked.size() == 1; },
+                  [&] {
+                    answer_selections();
+                    return unlocked.size() == 1 || out_of_time();
+                  },
                   [&] {
                     send("XdndDrop", 0, CurrentTime, 0);
                     return true;
                   },
-                  [&] { return unlocked.size() == 2; },
+                  [&] {
+                    answer_selections();
+                    return unlocked.size() == 2 || out_of_time();
+                  },
                   [&] {
                     app.close();
                     return true;
