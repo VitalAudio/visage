@@ -116,7 +116,7 @@ namespace visage {
 
     int atlasWidth() const;
     int atlasHeight() const;
-    int size() const { return size_; }
+    float size() const { return size_; }
     const bgfx::TextureHandle& textureHandle() const;
 
     void setVertexPositions(FontAtlasQuad* quads, const char32_t* text, int length, float x,

@@ -47,6 +47,12 @@ static std::filesystem::path uniqueTempPath(const std::string& name) {
   return std::filesystem::temp_directory_path() / (std::to_string(process_id) + "_" + name);
 }
 
+TEST_CASE("Font size keeps fractional sizes", "[graphics]") {
+  Font font(10.5f, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data));
+  REQUIRE(font.size() == 10.5f);
+  REQUIRE(font.withSize(12.25f).size() == 12.25f);
+}
+
 static Font global_font;
 
 TEST_CASE("Font embedded test", "[graphics]") {
