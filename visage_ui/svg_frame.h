@@ -146,7 +146,7 @@ namespace visage {
 
       void addSubFrame(std::unique_ptr<SubFrame> child) {
         addChild(child.get());
-        children_.push_back(std::move(child));
+        sub_frames_.push_back(std::move(child));
       }
 
       void addSubFrames(SvgDrawable* drawable) {
@@ -163,7 +163,7 @@ namespace visage {
 
           if (content_ == nullptr) {
             addSubFrame(std::make_unique<SubFrame>(drawable_, context_, true));
-            content_ = children_.back().get();
+            content_ = sub_frames_.back().get();
           }
           content_->child_drawables_.push_back(child.get());
           addSubFrames(child.get());
@@ -195,13 +195,13 @@ namespace visage {
 
       void resized() override {
         IBounds box = nativeBoundingBox();
-        for (auto& child : children_)
+        for (auto& child : sub_frames_)
           child->setNativeBounds(child->nativeBoundingBox() + IPoint(-box.x(), -box.y()));
       }
 
     private:
       SvgDrawable* drawable_ = nullptr;
-      std::vector<std::unique_ptr<SubFrame>> children_;
+      std::vector<std::unique_ptr<SubFrame>> sub_frames_;
       std::vector<SvgDrawable*> child_drawables_;
       SubFrame* content_ = this;
       SvgDrawable::ColorContext* context_ = nullptr;

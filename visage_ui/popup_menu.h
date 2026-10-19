@@ -217,7 +217,7 @@ namespace visage {
     int listIndex(const PopupList* list) const;
 
     PopupMenu menu_;
-    Frame* parent_ = nullptr;
+    Frame* top_parent_ = nullptr;
     bool done_ = false;
     bool mouse_up_enabled_ = false;
     Animation<float> opacity_animation_;
