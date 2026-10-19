@@ -168,19 +168,23 @@ namespace visage {
     CGAssociateMouseAndMouseCursorPosition(true);
   }
 
+  static WindowMac* activeWindow() {
+    NSWindow* key_window = [NSApp keyWindow];
+    NativeWindowLookup& lookup = NativeWindowLookup::instance();
+    WindowMac* window = lookup.findWindow((__bridge void*)[key_window firstResponder]);
+    return window ? window : lookup.findWindow((__bridge void*)[key_window contentView]);
+  }
+
   void setCursorPosition(Point window_position) {
-    NSWindow* window = [NSApp mainWindow];
-    if (!window)
+    WindowMac* window = activeWindow();
+    if (window == nullptr || [[NSScreen screens] count] == 0)
       return;
 
-    NSScreen* screen = [window screen];
-    if (!screen)
-      return;
+    NSView* view = (__bridge NSView*)window->nativeHandle();
+    NSRect view_rect = [view convertRect:view.bounds toView:nil];
+    NSRect screen_rect = [view.window convertRectToScreen:view_rect];
 
-    NSRect content_rect = [[window contentView] frame];
-    NSRect screen_rect = [window convertRectToScreen:content_rect];
-
-    float screen_height = [screen frame].size.height;
+    float screen_height = [[[NSScreen screens] objectAtIndex:0] frame].size.height;
 
     float x = screen_rect.origin.x + window_position.x;
     float y = screen_height - NSMaxY(screen_rect) + window_position.y;
