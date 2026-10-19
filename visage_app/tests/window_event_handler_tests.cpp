@@ -69,6 +69,11 @@ TEST_CASE("Mouse up over another frame sends it an enter relative to itself", "[
   app.removeFromWindow();
 }
 
+TEST_CASE("Windows without an event file descriptor report -1", "[integration]") {
+  TestWindow window(40, 40);
+  REQUIRE(window.posixFd() == -1);
+}
+
 TEST_CASE("Repeat clicks count only the same button near the last click", "[integration]") {
   ApplicationEditor app;
   Frame frame;
