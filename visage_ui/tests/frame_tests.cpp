@@ -543,6 +543,26 @@ TEST_CASE("Frame removed with its parent by its own mouse event", "[ui]") {
   REQUIRE(list.children().empty());
 }
 
+TEST_CASE("Frame hierarchy changes notify when added and removed", "[ui]") {
+  Frame parent;
+  Frame child;
+  Frame grandchild;
+  child.addChild(grandchild);
+
+  std::vector<Frame*> child_parents;
+  int grandchild_changes = 0;
+  child.onHierarchyChange() += [&] { child_parents.push_back(child.parent()); };
+  grandchild.onHierarchyChange() += [&] { grandchild_changes++; };
+
+  parent.addChild(child);
+  REQUIRE(child_parents == std::vector<Frame*> { &parent });
+  REQUIRE(grandchild_changes == 1);
+
+  parent.removeChild(child);
+  REQUIRE(child_parents == std::vector<Frame*> { &parent, nullptr });
+  REQUIRE(grandchild_changes == 2);
+}
+
 TEST_CASE("Frame remove child that isn't a child", "[ui]") {
   Frame parent;
   Frame other_parent;

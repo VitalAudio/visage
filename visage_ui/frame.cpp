@@ -98,6 +98,7 @@ namespace visage {
     if (initialized_)
       child->init();
 
+    child->notifyHierarchyChanged();
     on_child_added_.callback(child);
     computeLayout();
     computeLayout(child);
