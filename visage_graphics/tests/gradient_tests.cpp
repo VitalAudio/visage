@@ -169,6 +169,23 @@ TEST_CASE("Gradient sampling", "[graphics]") {
     color = gradient.sample(1.0f);
     REQUIRE(color == blue);
   }
+
+  SECTION("Stops sharing the first offset") {
+    Color white(1.0f, 1.0f, 1.0f, 1.0f);
+    Color red(1.0f, 1.0f, 0.0f, 0.0f);
+    Color blue(1.0f, 0.0f, 0.0f, 1.0f);
+    Gradient gradient;
+    gradient.addColorStop(white, 0.0f);
+    gradient.addColorStop(red, 0.0f);
+    gradient.addColorStop(blue, 1.0f);
+
+    REQUIRE(gradient.sample(0.0f) == white);
+    REQUIRE(gradient.sample(0.5f).red() == Approx(0.5f));
+    REQUIRE(gradient.sample(0.5f).blue() == Approx(0.5f));
+
+    gradient.setRepeat(true);
+    REQUIRE(gradient.sample(0.0f) == red);
+  }
 }
 
 TEST_CASE("Gradient comparison", "[graphics]") {

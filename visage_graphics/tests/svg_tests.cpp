@@ -795,3 +795,9 @@ TEST_CASE("Svg use with a custom XLink prefix", "[graphics]") {
   Color gradient = renderSvgCenter(R"svg(<svg xmlns="http://www.w3.org/2000/svg" xmlns:l="http://www.w3.org/1999/xlink" viewBox="0 0 10 10"><linearGradient id="a"><stop stop-color="red"/></linearGradient><linearGradient id="b" l:href="#a"/><rect width="10" height="10" fill="url(#b)"/></svg>)svg");
   REQUIRE(gradient.hexRed() == 0xff);
 }
+
+TEST_CASE("Svg gradients pad with the first of the stops sharing the first offset", "[graphics]") {
+  Color color = renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="6" x2="0" y2="10"><stop offset="0" stop-color="red"/><stop offset="0" stop-color="blue"/><stop offset="1" stop-color="blue"/></linearGradient><rect width="10" height="10" fill="url(#g)"/></svg>)svg");
+  REQUIRE(color.hexRed() == 0xff);
+  REQUIRE(color.hexBlue() == 0x00);
+}

@@ -118,6 +118,9 @@ namespace visage {
           t = 2.0f - t;
       }
 
+      if (!repeat_ && !reflect_ && t <= positions_.front())
+        return colors_.front();
+
       auto it = std::upper_bound(positions_.begin(), positions_.end(), t);
       if (it == positions_.begin())
         return colors_.front();
