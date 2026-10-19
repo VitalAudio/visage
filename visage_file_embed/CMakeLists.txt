@@ -1,8 +1,21 @@
 add_library(VisageFileEmbedInclude INTERFACE)
 target_include_directories(VisageFileEmbedInclude INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
+include(${CMAKE_CURRENT_LIST_DIR}/embedded_name.cmake)
+
 function(add_embedded_resources project include_filename namespace files)
   get_filename_component(current_dir_name ${CMAKE_CURRENT_SOURCE_DIR} NAME)
+
+  set(variable_names)
+  foreach (file IN LISTS files)
+    embedded_variable_name(${file} variable_name)
+    list(FIND variable_names ${variable_name} duplicate_index)
+    if (NOT duplicate_index EQUAL -1)
+      list(GET files ${duplicate_index} duplicate_file)
+      message(FATAL_ERROR "${project} embeds ${duplicate_file} and ${file} with the same name, ${variable_name}. Rename one of them.")
+    endif ()
+    list(APPEND variable_names ${variable_name})
+  endforeach ()
 
   set(generated_path ${CMAKE_CURRENT_BINARY_DIR}/${project}_generated)
   set(destination_path ${generated_path}/embedded)
