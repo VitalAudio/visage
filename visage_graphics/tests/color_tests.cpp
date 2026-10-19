@@ -85,6 +85,13 @@ TEST_CASE("Color fromHexString correctly initializes", "[graphics]") {
   REQUIRE(Color(0) == Color::fromHexString(""));
 }
 
+TEST_CASE("Assigning a hex value resets the HDR value", "[graphics]") {
+  Color color(0xff102030, 4.0f);
+  color = 0xffffffff;
+  REQUIRE(color == Color(0xffffffff));
+  REQUIRE(color.hdr() == 1.0f);
+}
+
 TEST_CASE("Color toARGBHexString converts correctly", "[graphics]") {
   REQUIRE(Color(0x12345678).toARGBHexString() == "12345678");
   REQUIRE(Color(0x12345678).toRGBHexString() == "345678");
