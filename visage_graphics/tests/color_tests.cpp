@@ -85,6 +85,12 @@ TEST_CASE("Color fromHexString correctly initializes", "[graphics]") {
   REQUIRE(Color(0xff123456) == Color::fromHexString("123456"));
   REQUIRE(Color(0xff123456) == Color::fromHexString("#123456"));
   REQUIRE(Color(0) == Color::fromHexString(""));
+
+  REQUIRE(Color() == Color::fromHexString("#12zz56"));
+  REQUIRE(Color() == Color::fromHexString("ggg"));
+  REQUIRE(Color() == Color::fromHexString("#12345 "));
+  REQUIRE(Color() == Color::fromHexString("-12345"));
+  REQUIRE(Color(0xffaabbcc) == Color::fromHexString("#AbC"));
 }
 
 TEST_CASE("Assigning a hex value resets the HDR value", "[graphics]") {
