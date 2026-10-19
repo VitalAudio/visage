@@ -1618,6 +1618,44 @@ TEST_CASE("Svg frame clip shapes with a reference box", "[integration]") {
   };
   REQUIRE(stroked("stroke-box").sample(11, 10).hexRed() == 0xff);
   REQUIRE(stroked("fill-box").sample(11, 10).hexRed() == 0x00);
+  REQUIRE(stroked("border-box").sample(11, 10).hexRed() == 0xff);
+  REQUIRE(stroked("content-box").sample(11, 10).hexRed() == 0x00);
+
+  Screenshot view_box_first = clipped("view-box inset(0 0 0 50%)");
+  REQUIRE(view_box_first.sample(12, 10).hexRed() == 0xff);
+  Screenshot fill_box_first = clipped("fill-box inset(0 0 0 50%)");
+  REQUIRE(fill_box_first.sample(12, 10).hexRed() == 0x00);
+  REQUIRE(fill_box_first.sample(17, 10).hexRed() == 0xff);
+
+  Screenshot upper_case = clipped("inset(0 0 0 75%) VIEW-BOX");
+  REQUIRE(upper_case.sample(12, 10).hexRed() == 0x00);
+  REQUIRE(upper_case.sample(17, 10).hexRed() == 0xff);
+  Screenshot mixed_case_first = clipped("Fill-Box inset(0 0 0 50%)");
+  REQUIRE(mixed_case_first.sample(12, 10).hexRed() == 0x00);
+  REQUIRE(mixed_case_first.sample(17, 10).hexRed() == 0xff);
+
+  Screenshot unfilled = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><rect x="10" width="10" height="20" fill="none" stroke="white" stroke-width="8" clip-path="inset(0 0 0 25%) fill-box"/></svg>)svg");
+  REQUIRE(unfilled.sample(11, 10).hexRed() == 0x00);
+  REQUIRE(unfilled.sample(13, 10).hexRed() == 0xff);
+
+  Screenshot bounding = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c" clipPathUnits="objectBoundingBox"><rect width="0.5" height="1"/></clipPath><rect x="5" y="2" width="10" height="16" fill="white" stroke="white" stroke-width="6" clip-path="url(#c)"/></svg>)svg");
+  REQUIRE(bounding.sample(3, 10).hexRed() == 0x00);
+  REQUIRE(bounding.sample(7, 10).hexRed() == 0xff);
+  REQUIRE(bounding.sample(12, 10).hexRed() == 0x00);
+
+  std::vector<std::pair<std::string, IPoint>> invalid = {
+    { "view-box url(#c)", { 15, 10 } },
+    { "url(#c) view-box", { 15, 10 } },
+    { "view-box inset(10%) fill-box", { 1, 1 } },
+    { "foo inset(10%)", { 1, 1 } },
+    { "inset(10%) foo", { 1, 1 } },
+  };
+  for (const auto& [clip_path, point] : invalid) {
+    INFO(clip_path);
+    Screenshot ignored = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c"><rect width="10" height="20"/></clipPath><rect width="20" height="20" fill="white" clip-path=")svg" +
+                                            clip_path + R"svg("/></svg>)svg");
+    REQUIRE(ignored.sample(point.x, point.y).hexRed() == 0xff);
+  }
 }
 
 namespace {
