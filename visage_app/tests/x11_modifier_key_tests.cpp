@@ -21,6 +21,7 @@
 
 #if VISAGE_LINUX
 #include "visage/app.h"
+#include "visage_widgets/text_editor.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <cstdlib>
@@ -126,6 +127,65 @@ TEST_CASE("X11 windows send key events for modifier keys", "[integration]") {
                                       { visage::KeyCode::RCtrl, false, kModifierShift },
                                       { visage::KeyCode::LShift, false, 0 } };
   CHECK(records == expected);
+}
+
+TEST_CASE("X11 windows send a key press before the text it types", "[integration]") {
+  if (!hasDisplay()) {
+    SUCCEED("No X display");
+    return;
+  }
+
+  ApplicationWindow app;
+  Frame shortcuts;
+  TextEditor search;
+  app.setFlexLayout(true);
+  shortcuts.layout().setFlexGrow(1.0f);
+  search.layout().setFlexGrow(1.0f);
+  shortcuts.setAcceptsKeystrokes(true);
+  app.addChild(shortcuts);
+  app.addChild(search);
+
+  shortcuts.onKeyPress() = [&](const KeyEvent& e) {
+    if (e.keyCode() != visage::KeyCode::Slash)
+      return false;
+    search.requestKeyboardFocus();
+    return true;
+  };
+
+  app.show(Dimension::nativePixels(100), Dimension::nativePixels(80));
+  shortcuts.requestKeyboardFocus();
+
+  Display* display = XOpenDisplay(nullptr);
+  REQUIRE(display);
+  ::Window window = (::Window)app.window()->nativeHandle();
+  auto send = [&](int type, KeySym keysym) {
+    XEvent event = {};
+    event.xkey.type = type;
+    event.xkey.display = display;
+    event.xkey.window = window;
+    event.xkey.root = DefaultRootWindow(display);
+    event.xkey.keycode = XKeysymToKeycode(display, keysym);
+    event.xkey.same_screen = True;
+    XSendEvent(display, window, False, type == KeyPress ? KeyPressMask : KeyReleaseMask, &event);
+    XFlush(display);
+  };
+
+  Steps steps({ [&] {
+                 send(KeyPress, XK_slash);
+                 send(KeyRelease, XK_slash);
+                 return true;
+               },
+                [&, ticks = 0]() mutable { return search.hasKeyboardFocus() || ++ticks > 100; },
+                [&, ticks = 0]() mutable { return ++ticks > 5; },
+                [&] {
+                  app.close();
+                  return true;
+                } });
+  app.runEventLoop();
+  XCloseDisplay(display);
+
+  REQUIRE(search.hasKeyboardFocus());
+  CHECK(search.text() == "/");
 }
 
 #endif
