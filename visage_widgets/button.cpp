@@ -102,7 +102,7 @@ namespace visage {
       return;
 
     redraw();
-    if (localBounds().contains(e.position)) {
+    if (!e.isCancelled() && localBounds().contains(e.position)) {
       hover_amount_.target(true, true);
       if (!toggle_on_mouse_down_)
         notify(toggle());
