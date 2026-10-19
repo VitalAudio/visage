@@ -434,7 +434,6 @@ TEST_CASE("ValueDisplay functionality", "[ui]") {
 
 TEST_CASE("PopupMenuFrame constants", "[ui]") {
   SECTION("Constant values") {
-    REQUIRE(PopupMenuFrame::kMaxSubMenus == 4);
     REQUIRE(PopupMenuFrame::kWaitForSelection == 20);
     REQUIRE(PopupMenuFrame::kPauseMs == 400);
   }
@@ -446,6 +445,12 @@ static PopupMenuFrame* showMenu(PopupMenu& menu, Frame& root, Frame& source) {
   source.setBounds(0, 0, 400, 300);
   menu.show(&source, { 0, 0 });
   return dynamic_cast<PopupMenuFrame*>(root.children().back());
+}
+
+static PopupList* popupList(PopupMenuFrame* popup, int index) {
+  if (index >= popup->children().size())
+    return nullptr;
+  return dynamic_cast<PopupList*>(popup->children()[index]);
 }
 
 static PopupMenu subMenu(int num_options) {
@@ -468,12 +473,13 @@ TEST_CASE("PopupMenu sub menu opens next to its scrolled option", "[ui]") {
   PopupMenuFrame* popup = showMenu(menu, root, source);
   REQUIRE(popup);
   auto* list = dynamic_cast<PopupList*>(popup->children()[0]);
-  auto* sub_list = dynamic_cast<PopupList*>(popup->children()[1]);
 
   list->setYPosition(200);
-  list->setHoverFromPosition({ 10, list->yForIndex(15) + 5.0f });
+  list->setHoverFromPosition(Point(10, list->yForIndex(15) + 5));
   REQUIRE(list->hoverIndex() == 15);
   list->selectHoveredIndex();
+  auto* sub_list = popupList(popup, 1);
+  REQUIRE(sub_list);
 
   REQUIRE(sub_list->isVisible());
   REQUIRE(sub_list->y() == list->y() + list->yForIndex(15) - 200);
@@ -487,10 +493,11 @@ TEST_CASE("PopupMenu long sub menu fits in the window", "[ui]") {
   PopupMenuFrame* popup = showMenu(menu, root, source);
   REQUIRE(popup);
   auto* list = dynamic_cast<PopupList*>(popup->children()[0]);
-  auto* sub_list = dynamic_cast<PopupList*>(popup->children()[1]);
 
-  list->setHoverFromPosition({ 10, list->yForIndex(0) + 5.0f });
+  list->setHoverFromPosition(Point(10, list->yForIndex(0) + 5));
   list->selectHoveredIndex();
+  auto* sub_list = popupList(popup, 1);
+  REQUIRE(sub_list);
 
   REQUIRE(sub_list->isVisible());
   REQUIRE(sub_list->y() == 0);
@@ -505,10 +512,11 @@ TEST_CASE("PopupMenu hover uses the scroll position of the hovered list", "[ui]"
   PopupMenuFrame* popup = showMenu(menu, root, source);
   REQUIRE(popup);
   auto* list = dynamic_cast<PopupList*>(popup->children()[0]);
-  auto* sub_list = dynamic_cast<PopupList*>(popup->children()[1]);
 
-  list->setHoverFromPosition({ 10, list->yForIndex(0) + 5.0f });
+  list->setHoverFromPosition(Point(10, list->yForIndex(0) + 5));
   list->selectHoveredIndex();
+  auto* sub_list = popupList(popup, 1);
+  REQUIRE(sub_list);
   sub_list->setYPosition(100);
 
   Point position(sub_list->x() + 10, sub_list->y() + sub_list->yForIndex(6) + 5 - 100);
@@ -560,14 +568,15 @@ TEST_CASE("PopupMenu sub menu starts at the top when switching sub menus", "[ui]
   PopupMenuFrame* popup = showMenu(menu, root, source);
   REQUIRE(popup);
   auto* list = dynamic_cast<PopupList*>(popup->children()[0]);
-  auto* sub_list = dynamic_cast<PopupList*>(popup->children()[1]);
 
-  list->setHoverFromPosition({ 10, list->yForIndex(0) + 5.0f });
+  list->setHoverFromPosition(Point(10, list->yForIndex(0) + 5));
   list->selectHoveredIndex();
+  auto* sub_list = popupList(popup, 1);
+  REQUIRE(sub_list);
   sub_list->setYPosition(100);
   REQUIRE(sub_list->yPosition() == 100);
 
-  list->setHoverFromPosition({ 10, list->yForIndex(1) + 5.0f });
+  list->setHoverFromPosition(Point(10, list->yForIndex(1) + 5));
   list->selectHoveredIndex();
   REQUIRE(sub_list->numOptions() == 40);
   REQUIRE(sub_list->yPosition() == 0);
@@ -576,4 +585,32 @@ TEST_CASE("PopupMenu sub menu starts at the top when switching sub menus", "[ui]
   sub_list->setYPosition(100);
   list->selectHoveredIndex();
   REQUIRE(sub_list->yPosition() == 100);
+}
+
+TEST_CASE("PopupMenu opens sub menus more than four levels deep", "[ui]") {
+  PopupMenu deepest("Level 6");
+  deepest.addOption(1, "Leaf");
+  for (int level = 5; level >= 1; --level) {
+    PopupMenu parent("Level " + std::to_string(level));
+    parent.addSubMenu(deepest);
+    deepest = parent;
+  }
+  PopupMenu menu;
+  menu.addSubMenu(deepest);
+
+  Frame root, source;
+  PopupMenuFrame* popup = showMenu(menu, root, source);
+  REQUIRE(popup);
+  for (int depth = 0; depth < 6; ++depth) {
+    PopupList* list = popupList(popup, depth);
+    REQUIRE(list);
+    list->setHoverFromPosition(Point(10, list->yForIndex(0) + 5));
+    list->selectHoveredIndex();
+  }
+
+  PopupList* leaf_list = popupList(popup, 6);
+  REQUIRE(leaf_list);
+  REQUIRE(leaf_list->isVisible());
+  REQUIRE(leaf_list->numOptions() == 1);
+  REQUIRE(leaf_list->option(0).name() == "Leaf");
 }
