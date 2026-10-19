@@ -857,19 +857,20 @@ namespace visage {
 
   void WindowX11::setFixedAspectRatio(bool fixed) {
     Window::setFixedAspectRatio(fixed);
+    if (parent_handle_)
+      return;
+
     XSizeHints* size_hints = XAllocSizeHints();
     size_hints->flags = fixed ? PAspect : 0;
 
-    ::Window handle = parent_handle_ ? parent_handle_ : window_handle_;
-
     long supplied_return;
-    XGetWMNormalHints(x11_->display(), handle, size_hints, &supplied_return);
+    XGetWMNormalHints(x11_->display(), window_handle_, size_hints, &supplied_return);
     size_hints->flags = fixed ? (size_hints->flags | PAspect) : (size_hints->flags & ~PAspect);
     size_hints->min_aspect.x = clientWidth();
     size_hints->min_aspect.y = clientHeight();
     size_hints->max_aspect.x = clientWidth();
     size_hints->max_aspect.y = clientHeight();
-    XSetWMNormalHints(x11_->display(), handle, size_hints);
+    XSetWMNormalHints(x11_->display(), window_handle_, size_hints);
     XFree(size_hints);
   }
 
@@ -1812,14 +1813,15 @@ namespace visage {
 
     {
       X11Connection::DisplayLock lock(x11_);
-      XSizeHints* size_hints = XAllocSizeHints();
-      ::Window handle = parent_handle_ ? parent_handle_ : window_handle_;
-      long supplied_return;
-      XGetWMNormalHints(x11_->display(), handle, size_hints, &supplied_return);
-      size_hints->min_width = min_width;
-      size_hints->min_height = min_height;
-      XSetWMNormalHints(x11_->display(), handle, size_hints);
-      XFree(size_hints);
+      if (parent_handle_ == 0) {
+        XSizeHints* size_hints = XAllocSizeHints();
+        long supplied_return;
+        XGetWMNormalHints(x11_->display(), window_handle_, size_hints, &supplied_return);
+        size_hints->min_width = min_width;
+        size_hints->min_height = min_height;
+        XSetWMNormalHints(x11_->display(), window_handle_, size_hints);
+        XFree(size_hints);
+      }
 
       XMapWindow(x11_->display(), window_handle_);
       XSetWMProtocols(x11_->display(), window_handle_, x11_->deleteMessageRef(), 1);
