@@ -54,6 +54,8 @@ namespace visage {
     else {
       redrawing_ = false;
       region_.setNeedsLayer(false);
+      if (mask_group_)
+        mask_group_->setNeedsLayer(false);
     }
 
     for (Frame* child : children_) {
