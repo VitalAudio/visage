@@ -388,9 +388,9 @@ namespace visage {
         return sign | (exponent << 10) | (mantissa >> 13);
       }
 
-      if (exponent > 103) {  // Subnormal case
+      if (exponent > 102) {  // Subnormal case
         mantissa |= 0x00800000;  // Add implicit leading 1 bit
-        return sign | ((mantissa >> (113 - exponent)) & 0x3FF);
+        return sign | ((mantissa >> (126 - exponent)) & 0x3FF);
       }
 
       return sign;  // Underflow to zero
