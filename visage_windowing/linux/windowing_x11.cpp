@@ -1912,9 +1912,6 @@ namespace visage {
     case KeyPress: {
       int modifier_state = modifierState(event.xkey.state);
       std::string text = lookupText(input_context_, &event.xkey);
-      if ((modifier_state & kModifierAlt) == 0 && !text.empty() && text[0] < 127)
-        handleTextInput(text);
-
       KeySym keysym = lookupKeysym(&event.xkey);
       bool repeat = pressed_[keysym];
       pressed_[keysym] = true;
@@ -1922,6 +1919,9 @@ namespace visage {
       bool used = false;
       if (key_code != KeyCode::Unknown)
         used = handleKeyDown(key_code, modifier_state | modifierForKeyCode(key_code), repeat);
+
+      if ((modifier_state & kModifierAlt) == 0 && !text.empty() && text[0] < 127)
+        handleTextInput(text);
 
       if (!used)
         passEventToParent(event);

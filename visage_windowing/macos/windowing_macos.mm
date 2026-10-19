@@ -439,16 +439,27 @@ namespace visage {
   int modifiers = [self keyboardModifiers:event];
   bool composing = [self hasMarkedText];
   self.command_requested = false;
+  self.pending_text = [NSMutableString string];
   if ((modifiers & visage::kModifierCmd) == 0)
     [self interpretKeyEvents:[NSArray arrayWithObject:event]];
   else
     self.typed_length = 0;
+  NSString* text = self.pending_text;
+  self.pending_text = nil;
   bool ime_used = (composing && !self.command_requested) || [self hasMarkedText];
-  if (ime_used || self.visage_window == nullptr)
-    return;
+  if (composing && text.length && self.visage_window) {
+    self.visage_window->handleTextInput([text UTF8String]);
+    text = nil;
+  }
 
-  visage::KeyCode key_code = visage::translateKeyCode([event keyCode]);
-  if (!self.visage_window->handleKeyDown(key_code, modifiers, [event isARepeat]))
+  bool used = false;
+  if (!ime_used && self.visage_window) {
+    visage::KeyCode key_code = visage::translateKeyCode([event keyCode]);
+    used = self.visage_window->handleKeyDown(key_code, modifiers, [event isARepeat]);
+  }
+  if (text.length && self.visage_window)
+    self.visage_window->handleTextInput([text UTF8String]);
+  if (!ime_used && !used && self.visage_window)
     [super keyDown:event];
 }
 
@@ -503,11 +514,16 @@ namespace visage {
     }
     self.typed_length = replacement_range.location;
   }
-  if (self.visage_window == nullptr)
-    return;
 
   NSString* text = [string isKindOfClass:[NSAttributedString class]] ? [string string] : string;
   self.typed_length += text.length;
+  if (self.pending_text) {
+    [self.pending_text appendString:text];
+    return;
+  }
+  if (self.visage_window == nullptr)
+    return;
+
   const char* utf8 = [text UTF8String];
   if (utf8)
     self.visage_window->handleTextInput(utf8);

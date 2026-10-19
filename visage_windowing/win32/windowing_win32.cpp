@@ -1670,7 +1670,15 @@ namespace visage {
     if (character)
       return handleCharacterEntry(static_cast<wchar_t>(message->wParam));
 
+    KeyCode key_code = keyCodeFromScanCode(message->wParam, message->lParam);
     bool used = false;
+    if (key_down) {
+      bool is_repeat = (message->lParam & (1LL << 30LL)) != 0;
+      used = handleKeyDown(key_code, keyboardModifiers(), is_repeat);
+    }
+    else
+      used = handleKeyUp(key_code, keyboardModifiers());
+
     if (hasActiveTextEntry()) {
       TranslateMessage(message);
       MSG peek {};
@@ -1679,13 +1687,7 @@ namespace visage {
         used = true;
       }
     }
-
-    KeyCode key_code = keyCodeFromScanCode(message->wParam, message->lParam);
-    if (key_down) {
-      bool is_repeat = (message->lParam & (1LL << 30LL)) != 0;
-      return handleKeyDown(key_code, keyboardModifiers(), is_repeat) || used;
-    }
-    return handleKeyUp(key_code, keyboardModifiers()) || used;
+    return used;
   }
 
   void WindowWin32::handleResizing(HWND hwnd, LPARAM l_param, WPARAM w_param) {
