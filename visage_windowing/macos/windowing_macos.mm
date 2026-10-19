@@ -142,13 +142,6 @@ namespace visage {
     [cursor set];
   }
 
-  Point cursorPosition() {
-    CGEventRef event = CGEventCreate(nullptr);
-    CGPoint cursor = CGEventGetLocation(event);
-    CFRelease(event);
-    return { static_cast<float>(cursor.x), static_cast<float>(cursor.y) };
-  }
-
   void setCursorVisible(bool visible) {
     static bool hidden = false;
     if (hidden == !visible)
@@ -175,21 +168,35 @@ namespace visage {
     return window ? window : lookup.findWindow((__bridge void*)[key_window contentView]);
   }
 
-  void setCursorPosition(Point window_position) {
-    WindowMac* window = activeWindow();
-    if (window == nullptr || [[NSScreen screens] count] == 0)
-      return;
-
+  static Point viewScreenPosition(WindowMac* window) {
     NSView* view = (__bridge NSView*)window->nativeHandle();
     NSRect view_rect = [view convertRect:view.bounds toView:nil];
     NSRect screen_rect = [view.window convertRectToScreen:view_rect];
 
     float screen_height = [[[NSScreen screens] objectAtIndex:0] frame].size.height;
+    return { static_cast<float>(screen_rect.origin.x),
+             static_cast<float>(screen_height - NSMaxY(screen_rect)) };
+  }
 
-    float x = screen_rect.origin.x + window_position.x;
-    float y = screen_height - NSMaxY(screen_rect) + window_position.y;
+  Point cursorPosition() {
+    CGEventRef event = CGEventCreate(nullptr);
+    CGPoint cursor = CGEventGetLocation(event);
+    CFRelease(event);
+    Point position = { static_cast<float>(cursor.x), static_cast<float>(cursor.y) };
 
-    setCursorScreenPosition({ x, y });
+    WindowMac* window = activeWindow();
+    if (window == nullptr || [[NSScreen screens] count] == 0)
+      return position;
+
+    return position - viewScreenPosition(window);
+  }
+
+  void setCursorPosition(Point window_position) {
+    WindowMac* window = activeWindow();
+    if (window == nullptr || [[NSScreen screens] count] == 0)
+      return;
+
+    setCursorScreenPosition(viewScreenPosition(window) + window_position);
   }
 
   static Point windowBorderSize(NSWindow* window_handle) {
