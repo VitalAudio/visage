@@ -22,6 +22,7 @@
 #include "visage/app.h"
 
 #include <algorithm>
+#include <bgfx/bgfx.h>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <embedded/test_shaders.h>
@@ -1858,4 +1859,42 @@ TEST_CASE("Frames needing more bgfx views than one frame allows still render", "
     check(redraw_and_capture());
     app.removeFromWindow();
   }
+}
+
+TEST_CASE("Refreshing programs by shader file rebuilds them without leaking handles",
+          "[integration]") {
+  Canvas canvas;
+  canvas.setWindowless(10, 10);
+  canvas.takeScreenshot();
+
+  const EmbeddedFile& vertex = test_shaders::vs_test_post_effect;
+  const EmbeddedFile& fragment = test_shaders::fs_test_opaque;
+  const EmbeddedFile& replacement = test_shaders::fs_test_passthrough;
+  bgfx::ProgramHandle original = ProgramCache::programHandle(vertex, fragment);
+  auto flush = []() {
+    bgfx::frame();
+    bgfx::frame();
+  };
+  flush();
+  int num_shaders = bgfx::getStats()->numShaders;
+  int num_programs = bgfx::getStats()->numPrograms;
+
+  for (int i = 0; i < 4; ++i) {
+    REQUIRE(ShaderCache::swapShader(fragment, reinterpret_cast<const char*>(replacement.data),
+                                    replacement.size));
+    ProgramCache::refreshAllProgramsWithShader(fragment);
+    REQUIRE(ProgramCache::programHandle(vertex, fragment).idx != original.idx);
+  }
+  REQUIRE_FALSE(ShaderCache::swapShader("not_a_shader", reinterpret_cast<const char*>(replacement.data),
+                                        replacement.size));
+  flush();
+  REQUIRE(bgfx::getStats()->numShaders == num_shaders + 1);
+  REQUIRE(bgfx::getStats()->numPrograms == num_programs + 1);
+
+  ShaderCache::restoreShader(fragment);
+  ProgramCache::restoreProgram(vertex, fragment);
+  REQUIRE(ProgramCache::programHandle(vertex, fragment).idx == original.idx);
+  flush();
+  REQUIRE(bgfx::getStats()->numShaders == num_shaders);
+  REQUIRE(bgfx::getStats()->numPrograms == num_programs);
 }
