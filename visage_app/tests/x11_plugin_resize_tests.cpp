@@ -29,6 +29,7 @@
 
 #if VISAGE_LINUX
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 
 using namespace visage;
 
@@ -92,6 +93,43 @@ TEST_CASE("X11 plugin windows keep their size when resized just before their par
   CHECK(window->clientHeight() == 100);
 
   window.reset();
+  XCloseDisplay(host);
+}
+
+TEST_CASE("X11 plugin windows leave the host window's size hints alone", "[integration]") {
+  if (!hasDisplay()) {
+    SUCCEED("No X display");
+    return;
+  }
+
+  Display* host = XOpenDisplay(nullptr);
+  REQUIRE(host);
+  ::Window parent = XCreateSimpleWindow(host, DefaultRootWindow(host), 0, 0, 300, 200, 0, 0, 0);
+  XSizeHints* hints = XAllocSizeHints();
+  hints->flags = PMinSize;
+  hints->min_width = 300;
+  hints->min_height = 200;
+  XSetWMNormalHints(host, parent, hints);
+  XMapWindow(host, parent);
+  XSync(host, False);
+
+  std::unique_ptr<visage::Window> window = createPluginWindow(Dimension::nativePixels(100),
+                                                              Dimension::nativePixels(100), (void*)parent);
+  REQUIRE(window);
+  window->show();
+  window->setFixedAspectRatio(true);
+  window->processPluginFdEvents();
+  XSync(host, False);
+
+  long supplied_return;
+  REQUIRE(XGetWMNormalHints(host, parent, hints, &supplied_return));
+  CHECK(hints->flags == PMinSize);
+  CHECK(hints->min_width == 300);
+  CHECK(hints->min_height == 200);
+  XFree(hints);
+
+  window.reset();
+  XDestroyWindow(host, parent);
   XCloseDisplay(host);
 }
 
