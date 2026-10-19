@@ -1720,6 +1720,18 @@ namespace visage {
       }
       break;
     }
+    case VisibilityNotify: {
+      setVisible(event.xvisibility.state != VisibilityFullyObscured);
+      break;
+    }
+    case MapNotify:
+    case UnmapNotify: {
+      X11Connection::DisplayLock lock(x11_);
+      XWindowAttributes attributes;
+      setVisible(XGetWindowAttributes(x11_->display(), window_handle_, &attributes) &&
+                 attributes.map_state == IsViewable);
+      break;
+    }
     }
   }
 
