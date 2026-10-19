@@ -872,6 +872,50 @@ TEST_CASE("Hiding a frame releases the layers of the frames inside it", "[integr
   REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == Approx(0x80).margin(1));
 }
 
+TEST_CASE("Hiding the parent of a masked backdrop frame releases its mask group layer",
+          "[integration]") {
+  ApplicationEditor app;
+  Frame parent;
+  Frame glass;
+  BlurPostEffect blur;
+  blur.setBlurRadius(7.0f);
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  glass.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+  glass.onDrawMask() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill(0, 0, glass.width() / 2, glass.height());
+  };
+  glass.setBackdropEffect(&blur);
+
+  parent.setBounds(0, 0, 20, 20);
+  glass.setBounds(0, 0, 20, 20);
+  parent.addChild(glass);
+  app.addChild(parent);
+  app.setWindowless(20, 20);
+  app.drawWindow();
+  Region* mask_group = glass.region()->parent();
+  REQUIRE(mask_group->needsLayer());
+  REQUIRE(app.takeScreenshot().sample(5, 10).hexRed() == 0xff);
+
+  parent.setVisible(false);
+  app.drawWindow();
+  REQUIRE_FALSE(mask_group->needsLayer());
+  REQUIRE(app.takeScreenshot().sample(5, 10).hexRed() == 0x00);
+
+  parent.setVisible(true);
+  app.drawWindow();
+  REQUIRE(mask_group->needsLayer());
+  Screenshot screenshot = app.takeScreenshot();
+  REQUIRE(screenshot.sample(5, 10).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(15, 10).hexRed() == 0x00);
+}
+
 TEST_CASE("Backdrop frame keeps its content over a redrawing sibling", "[integration]") {
   ApplicationEditor app;
   Frame background;
