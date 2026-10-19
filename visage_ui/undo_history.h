@@ -69,6 +69,7 @@ namespace visage {
       virtual void undoPerformed() = 0;
       virtual void redoPerformed() = 0;
       virtual void undoActionAdded() = 0;
+      virtual void undoHistoryCleared() { }
     };
 
     UndoHistory() = default;
@@ -81,6 +82,7 @@ namespace visage {
     void clearUndoHistory() {
       actions_.clear();
       undone_actions_.clear();
+      notify(&Listener::undoHistoryCleared);
     }
 
     UndoableAction* peekUndo() const {

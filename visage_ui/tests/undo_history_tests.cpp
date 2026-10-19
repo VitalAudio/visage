@@ -446,3 +446,21 @@ TEST_CASE("UndoHistory listener can remove listeners while being notified", "[ui
   REQUIRE(removes_later.action_added_count == 2);
   REQUIRE(later.action_added_count == 0);
 }
+
+TEST_CASE("UndoHistory notifies listeners when cleared", "[ui]") {
+  class ClearListener : public TestListener {
+  public:
+    void undoHistoryCleared() override { cleared_count++; }
+
+    int cleared_count = 0;
+  };
+
+  UndoHistory history;
+  ClearListener listener;
+  history.addListener(&listener);
+  history.push(std::make_unique<LambdaAction>([] {}, [] {}));
+
+  history.clearUndoHistory();
+  REQUIRE(listener.cleared_count == 1);
+  REQUIRE_FALSE(history.canUndo());
+}
