@@ -490,6 +490,8 @@ namespace visage {
       uint32_t ready_frame = bgfx::read(read_back, screenshot_.data());
       while (bgfx::frame() < ready_frame) {
       }
+      if (bottom_left_origin_)
+        screenshot_ = Screenshot(screenshot_.data(), width_, height_, width_ * 4, false, true);
     }
 
     return preprocessPostEffects(submit_pass + 1, backdrop_count);
