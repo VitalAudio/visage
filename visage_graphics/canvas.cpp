@@ -125,9 +125,15 @@ namespace visage {
   }
 
   const Screenshot& Canvas::takeScreenshot() {
+    static constexpr int kCaptureFrames = 2;
+
     composite_layer_.requestScreenshot();
     default_region_.invalidate();
     submit();
+    if (!composite_layer_.isHeadlessRender()) {
+      for (int i = 0; i < kCaptureFrames; ++i)
+        bgfx::frame();
+    }
     return composite_layer_.screenshot();
   }
 
