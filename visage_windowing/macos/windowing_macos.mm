@@ -1145,21 +1145,17 @@ namespace visage {
 
   void WindowMac::windowContentsResized(int width, int height) {
     NSRect frame = [window_handle_ frame];
-    int x = frame.origin.x;
-    int y = frame.origin.y;
-
     float w = width / dpiScale();
     float h = height / dpiScale();
     Point borders = windowBorderSize(window_handle_);
+    float frame_height = h + borders.y;
+    frame.origin.y += frame.size.height - frame_height;
     frame.size.width = w + borders.x;
-    frame.size.height = h + borders.y;
+    frame.size.height = frame_height;
 
     [view_ setFrameSize:CGSizeMake(w, h)];
-    if (parent_view_ == nullptr) {
-      [window_handle_ setFrame:NSMakeRect(x, y, frame.size.width, frame.size.height)
-                       display:YES
-                       animate:true];
-    }
+    if (parent_view_ == nullptr)
+      [window_handle_ setFrame:frame display:YES animate:true];
   }
 
   void WindowMac::show() {
