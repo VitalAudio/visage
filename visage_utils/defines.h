@@ -96,8 +96,19 @@ namespace visage {
 #else
 #define VISAGE_ASSERT(x) ((void)0)
 #define VISAGE_LOG(x, ...) ((void)0)
-#define VISAGE_LEAK_CHECKER(className)
 #define no_except noexcept
+
+namespace visage {
+  template<typename T>
+  class LeakChecker {
+  public:
+    LeakChecker() { }
+    LeakChecker(const LeakChecker& other) { }
+    ~LeakChecker() { }
+  };
+}
+
+#define VISAGE_LEAK_CHECKER(className) visage::LeakChecker<className> leakChecker;
 #endif
 
 #if VISAGE_WINDOWS
