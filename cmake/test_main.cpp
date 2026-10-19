@@ -23,7 +23,20 @@
 #include <catch2/catch_session.hpp>
 #include <catch2/reporters/catch_reporter_event_listener.hpp>
 #include <catch2/reporters/catch_reporter_registrars.hpp>
+#include <cstdlib>
 #include <visage/graphics.h>
+
+#if defined(__SANITIZE_ADDRESS__)
+#define VISAGE_TEST_ASAN 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define VISAGE_TEST_ASAN 1
+#endif
+#endif
+
+#if VISAGE_TEST_ASAN
+#include <sanitizer/asan_interface.h>
+#endif
 
 namespace {
   Catch::Totals run_totals;
@@ -49,6 +62,13 @@ namespace {
 CATCH_REGISTER_LISTENER(TotalsListener)
 
 int main(int argc, char* argv[]) {
+#if VISAGE_TEST_ASAN
+  std::atexit([] {
+    if (__asan_report_present())
+      std::_Exit(1);
+  });
+#endif
+
   int result = Catch::Session().run(argc, argv);
   finishGpuWork();
   if (run_totals.assertions.failed > 0 || run_totals.testCases.failed > 0)
