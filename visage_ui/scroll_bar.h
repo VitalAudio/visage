@@ -86,8 +86,8 @@ namespace visage {
 
     bool active_ = false;
     bool left_ = false;
-    int range_ = 0.0f;
-    int view_height_ = 0.0f;
+    int range_ = 0;
+    int view_height_ = 0;
     float position_ = 0.0f;
     float rounding_ = 0.0f;
 

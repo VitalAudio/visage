@@ -258,16 +258,16 @@ namespace visage {
 
     if (opacity_animation_.isAnimating())
       redraw();
-    else if (parent_ && !opacity_animation_.isTargeting())
+    else if (top_parent_ && !opacity_animation_.isTargeting())
       exit();
   }
 
   void PopupMenuFrame::show(std::unique_ptr<PopupMenuFrame> self, Frame* source, Point point) {
-    parent_ = source->topParentFrame();
-    parent_->addChild(std::move(self));
+    top_parent_ = source->topParentFrame();
+    top_parent_->addChild(std::move(self));
 
     setOnTop(true);
-    setBounds(parent_->bounds());
+    setBounds(top_parent_->bounds());
 
     for (int i = 1; i < lists_.size(); ++i)
       lists_[i]->setVisible(false);
@@ -280,7 +280,7 @@ namespace visage {
     int h = std::min(height(), main_list.renderHeight());
     int w = main_list.renderWidth();
 
-    Bounds window_bounds = parent_->relativeBounds(source);
+    Bounds window_bounds = top_parent_->relativeBounds(source);
     int x = point.x == PopupMenu::kNotSet ? window_bounds.x() : window_bounds.x() + point.x;
     int y = point.y == PopupMenu::kNotSet ? window_bounds.bottom() : window_bounds.y() + point.y;
     int bottom = y + h;
@@ -335,8 +335,8 @@ namespace visage {
   }
 
   void PopupMenuFrame::timerCallback() {
-    if (parent_ && done_) {
-      parent_->removeChild(this);
+    if (top_parent_ && done_) {
+      top_parent_->removeChild(this);
       return;
     }
 
