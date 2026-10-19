@@ -723,3 +723,32 @@ TEST_CASE("Svg attribute character references", "[graphics]") {
   Svg named = parseSvg(R"svg(<svg viewBox="0 0 10 10"><rect id="a&amp;b" x="&#50;" width="4" height="4"/></svg>)svg");
   REQUIRE(named.drawable()->post_bounding_box.x() == 2.0f);
 }
+
+static void strokePoints(const SvgDrawable* drawable, std::vector<Point>& points) {
+  for (const auto& sub_path : drawable->stroke_path.subPaths())
+    points.insert(points.end(), sub_path.points.begin(), sub_path.points.end());
+  for (const auto& child : drawable->children)
+    strokePoints(child.get(), points);
+}
+
+TEST_CASE("Svg dashes ending or starting exactly at a corner don't join around it", "[graphics]") {
+  std::string data = R"svg(<svg viewBox="0 0 20 20"><rect x="5" y="5" width="6.4" height="9.6" fill="none" stroke="red" stroke-width="3" stroke-dasharray="3.2 3.2"/></svg>)svg";
+  Svg svg(reinterpret_cast<const unsigned char*>(data.data()), data.size());
+  svg.setDimensions(200, 200, 1.0f);
+
+  std::vector<Point> points;
+  strokePoints(svg.drawable(), points);
+  REQUIRE(!points.empty());
+  for (const Point& point : points)
+    REQUIRE(!(point.x > 115.0f && point.y > 147.0f));
+
+  std::string starting_data = R"svg(<svg viewBox="0 0 200 200"><path d="M20.5 17.25 h42.4 v31.8 h-42.4" fill="none" stroke="red" stroke-width="4.77" stroke-dasharray="5.3 5.3"/></svg>)svg";
+  Svg starting(reinterpret_cast<const unsigned char*>(starting_data.data()), starting_data.size());
+  starting.setDimensions(200, 200, 1.0f);
+
+  std::vector<Point> starting_points;
+  strokePoints(starting.drawable(), starting_points);
+  REQUIRE(!starting_points.empty());
+  for (const Point& point : starting_points)
+    REQUIRE(!(point.x > 64.0f && point.y < 16.0f));
+}

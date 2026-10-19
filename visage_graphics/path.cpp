@@ -611,6 +611,7 @@ namespace visage {
       dash_total *= 2.0f;
 
     static constexpr float kMaxDashPeriods = 1 << 20;
+    static constexpr float kDashSnap = 0.00000025f;
     if (length() > dash_total * kMaxDashPeriods)
       dash_array.clear();
 
@@ -633,6 +634,9 @@ namespace visage {
 
       start_dash_length -= dash_offset;
 
+      auto magnitude = [](const Point& point) {
+        return std::max(std::abs(point.x), std::abs(point.y));
+      };
       for (auto& path : paths_) {
         if (path.points.empty())
           continue;
@@ -644,7 +648,8 @@ namespace visage {
         stroke_path.moveTo(prev);
         for (int i = 1; i < path.points.size(); ++i) {
           auto length = (path.points[i] - prev).length();
-          while (length > dash_length) {
+          float snap = std::max({ dash_total, length, magnitude(prev), magnitude(path.points[i]) }) * kDashSnap;
+          while (length > dash_length + snap) {
             auto ratio = dash_length / length;
             auto point = prev + (path.points[i] - prev) * ratio;
 
@@ -664,6 +669,8 @@ namespace visage {
             stroke_path.lineTo(path.points[i]);
 
           dash_length -= (path.points[i] - prev).length();
+          if (dash_length < snap)
+            dash_length = 0.0f;
           prev = path.points[i];
         }
       }
