@@ -97,6 +97,7 @@ namespace visage {
 
     virtual void runEventLoop() = 0;
     virtual void* nativeHandle() const = 0;
+    virtual void* graphicsHandle() const { return nativeHandle(); }
     virtual void windowContentsResized(int width, int height) = 0;
 
     virtual void* initWindow() const { return nullptr; }

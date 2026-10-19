@@ -80,6 +80,7 @@ namespace visage {
     void resetBackingScale();
 
     void* nativeHandle() const override { return (__bridge void*)view_; }
+    void* graphicsHandle() const override;
     void* initWindow() const override;
 
     void runEventLoop() override;

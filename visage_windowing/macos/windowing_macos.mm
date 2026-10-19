@@ -934,6 +934,10 @@ namespace visage {
     }
   }
 
+  void* WindowMac::graphicsHandle() const {
+    return (__bridge void*)view_.layer;
+  }
+
   void* WindowMac::initWindow() const {
     return (__bridge void*)InitialMetalLayer::layer();
   }
