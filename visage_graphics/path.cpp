@@ -117,6 +117,7 @@ namespace visage {
     if (currentPath().points.empty())
       addPoint(last_point_);
 
+    int start_index = currentPath().points.size() - 1;
     Point from = last_point_;
     if (relative)
       point += last_point_;
@@ -152,6 +153,13 @@ namespace visage {
     std::complex<float> position(-center.x, -center.y);
     float angle_delta = arc_angle / num_points;
     std::complex<float> rotation = std::polar(1.0f, angle_delta);
+    float sweep = arc_angle < 0.0f ? -1.0f : 1.0f;
+    auto tangent = [&](std::complex<float> arc_position) {
+      Point result(-arc_position.imag() * sweep, arc_position.real() * sweep);
+      result.y /= radius_ratio;
+      return ellipse_rotation * result;
+    };
+    Point start_tangent = tangent(position);
 
     for (int i = 0; i < num_points; ++i) {
       position *= rotation;
@@ -160,6 +168,7 @@ namespace visage {
       p = ellipse_rotation * p + from;
       addPoint(p);
     }
+    setCurveTangents(start_index, start_tangent, tangent(position));
   }
 
   static void skipSeparators(const std::string& str, size_t& i) {
@@ -454,6 +463,8 @@ namespace visage {
     Path combined = *this;
     for (auto& path : other.paths_)
       combined.paths_.push_back(path);
+    for (auto& path : combined.paths_)
+      path.tangents.clear();
     combined.fill_rule_ = fill_rule;
     return combined;
   }
@@ -500,6 +511,10 @@ namespace visage {
       return result;
 
     float square_miter_limit = miter_limit * miter_limit;
+    auto chord_offset = [amount](const Point& from, const Point& to) {
+      Point chord = (to - from).normalized();
+      return Point(-chord.y, chord.x) * amount;
+    };
     float adjusted_radius = (resolution_matrix_ * Point(amount, 0.0f)).length();
     float max_delta_radians = maxDeltaRadians(kDefaultErrorTolerance / adjusted_radius);
     for (const auto& sub_path : paths_) {
@@ -513,17 +528,41 @@ namespace visage {
       }
 
       std::vector<Point> new_path;
-      Point point = sub_path.points.back();
-      Point prev = sub_path.points[sub_path.points.size() - 2];
-      Point prev_direction = (point - prev).normalized();
-      Point prev_offset = Point(-prev_direction.y, prev_direction.x) * amount;
+      int last = sub_path.points.size() - 1;
+      bool has_tangents = sub_path.tangents.size() == sub_path.points.size();
+      auto stored_in = [&](int index) {
+        return has_tangents ? sub_path.tangents[index].in : Point();
+      };
+      auto stored_out = [&](int index) {
+        if (!has_tangents)
+          return Point();
+        if (index == last && closed_points && sub_path.tangents[index].out == Point())
+          return sub_path.tangents[0].out;
+        return sub_path.tangents[index].out;
+      };
 
-      for (const Point& next : sub_path.points) {
+      int point_index = last;
+      Point point = sub_path.points.back();
+      Point prev = sub_path.points[last - 1];
+
+      for (int next_index = 0; next_index <= last; ++next_index) {
+        const Point& next = sub_path.points[next_index];
         if (next == point)
           continue;
 
-        Point direction = (next - point).normalized();
+        Point in_tangent = stored_in(point_index);
+        Point out_tangent = stored_out(point_index);
+        if (in_tangent.dot(point - prev) <= 0.0f)
+          in_tangent = {};
+        if (out_tangent.dot(next - point) <= 0.0f)
+          out_tangent = {};
+        Point prev_direction = (in_tangent == Point() ? point - prev : in_tangent).normalized();
+        Point direction = (out_tangent == Point() ? next - point : out_tangent).normalized();
+        Point prev_offset = Point(-prev_direction.y, prev_direction.x) * amount;
         auto offset = Point(-direction.y, direction.x) * amount;
+        Point prev_line_start = in_tangent == Point() ? prev + prev_offset :
+                                                        point + prev_offset - prev_direction;
+        Point line_end = out_tangent == Point() ? next + offset : point + offset + direction;
 
         auto type = join;
         if (prev == next) {
@@ -534,9 +573,14 @@ namespace visage {
           else if (end_cap == EndCap::Round)
             type = Join::Round;
         }
-        bool convex = stableOrientation(prev, point, next) <= 0.0;
+        bool tangent_join = prev != next && (in_tangent != Point() || out_tangent != Point());
+        bool convex = tangent_join ? prev_direction.cross(direction) <= 0.0f :
+                                     stableOrientation(prev, point, next) <= 0.0;
         if (convex == (amount < 0.0f))
           type = inner_join;
+
+        if (in_tangent != Point())
+          new_path.push_back(point + chord_offset(prev, point));
 
         if (type == Join::Bevel) {
           new_path.push_back(point + prev_offset);
@@ -547,9 +591,9 @@ namespace visage {
           Point square_center = point + square_offset;
           Point square_tangent = { -square_offset.y, square_offset.x };
           auto intersection_prev = findIntersection(square_center, square_center + square_tangent,
-                                                    prev + prev_offset, point + prev_offset);
+                                                    prev_line_start, point + prev_offset);
           auto intersection = findIntersection(square_center, square_center + square_tangent,
-                                               point + offset, next + offset);
+                                               point + offset, line_end);
           if (intersection_prev.has_value() && intersection.has_value()) {
             new_path.push_back(intersection_prev.value());
             new_path.push_back(intersection.value());
@@ -573,8 +617,8 @@ namespace visage {
           }
         }
         else if (type == Join::Miter) {
-          auto intersection = findIntersection(prev + prev_offset, point + prev_offset,
-                                               point + offset, next + offset);
+          auto intersection = findIntersection(prev_line_start, point + prev_offset, point + offset,
+                                               line_end);
           if (intersection.has_value() &&
               (intersection.value() - point).squareMagnitude() / (amount * amount) < square_miter_limit) {
             new_path.push_back(intersection.value());
@@ -586,10 +630,12 @@ namespace visage {
           }
         }
 
+        if (out_tangent != Point())
+          new_path.push_back(point + chord_offset(point, next));
+
         prev = point;
         point = next;
-        prev_direction = direction;
-        prev_offset = offset;
+        point_index = next_index;
       }
 
       result.paths_.push_back(SubPath { std::move(new_path), true });
@@ -644,6 +690,22 @@ namespace visage {
         int dash_index = start_dash_index;
         bool fill = start_fill;
         float dash_length = start_dash_length;
+        bool has_tangents = path.tangents.size() == path.points.size();
+        int start_vertex = 0;
+        auto copy_tangents = [&](int vertex) {
+          SubPath& dash = stroke_path.paths_.back();
+          if (!has_tangents || dash.points.empty())
+            return;
+          if (start_vertex >= 0 && dash.points.size() == 2) {
+            dash.tangents.resize(dash.points.size());
+            dash.tangents[0].out = path.tangents[start_vertex].out;
+          }
+          if (vertex >= 0) {
+            dash.tangents.resize(dash.points.size());
+            dash.tangents.back().in = path.tangents[vertex].in;
+            dash.tangents.back().out = path.tangents[vertex].out;
+          }
+        };
         auto prev = path.points[0];
         stroke_path.moveTo(prev);
         for (int i = 1; i < path.points.size(); ++i) {
@@ -653,10 +715,14 @@ namespace visage {
             auto ratio = dash_length / length;
             auto point = prev + (path.points[i] - prev) * ratio;
 
-            if (fill)
+            if (fill) {
               stroke_path.lineTo(point);
-            else
+              copy_tangents(-1);
+            }
+            else {
               stroke_path.moveTo(point);
+              start_vertex = -1;
+            }
 
             prev = point;
             length -= dash_length;
@@ -665,8 +731,10 @@ namespace visage {
             dash_length = dash_array[dash_index];
             fill = !fill;
           }
-          if (fill)
+          if (fill) {
             stroke_path.lineTo(path.points[i]);
+            copy_tangents(i);
+          }
 
           dash_length -= (path.points[i] - prev).length();
           if (dash_length < snap)
@@ -682,14 +750,22 @@ namespace visage {
     for (auto& path : stroke_path.paths_) {
       if (path.points.size() > 1 && path.closed) {
         SubPath inner = path;
-        std::reverse(inner.points.begin(), inner.points.end());
+        reverseSubPath(inner);
         inner_paths.push_back(inner);
       }
 
       else {
         int start_size = path.points.size();
-        for (int i = start_size - 2; i > 0; --i)
+        bool has_tangents = path.tangents.size() == path.points.size();
+        for (int i = start_size - 2; i > 0; --i) {
           path.points.push_back(path.points[i]);
+          if (has_tangents)
+            path.tangents.push_back({ -path.tangents[i].out, -path.tangents[i].in });
+        }
+        if (has_tangents && start_size > 1) {
+          path.tangents[start_size - 1].out = -path.tangents[start_size - 1].in;
+          path.tangents[0].in = -path.tangents[0].out;
+        }
       }
     }
 
