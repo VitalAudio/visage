@@ -1639,6 +1639,33 @@ TEST_CASE("Adding an editor to the window it's already in keeps its swap chain v
   app.removeFromWindow();
 }
 
+TEST_CASE("Window screenshots show the frame they were taken of", "[integration]") {
+#if VISAGE_LINUX
+  if (std::getenv("DISPLAY") == nullptr)
+    SKIP("No display");
+#endif
+
+  unsigned int color = 0;
+  ApplicationEditor app;
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(color);
+    canvas.fill();
+  };
+  std::unique_ptr<Window> window = createWindow(Dimension::nativePixels(40), Dimension::nativePixels(40));
+  app.addToWindow(window.get());
+  for (unsigned int next : { 0xffff0000, 0xff00ff00, 0xff0000ff }) {
+    color = next;
+    app.redraw();
+    app.drawWindow();
+    const Screenshot& screenshot = app.takeScreenshot();
+    REQUIRE(screenshot.width() > 0);
+    REQUIRE(screenshot.sample(20, 20).hexRed() == ((next >> 16) & 0xff));
+    REQUIRE(screenshot.sample(20, 20).hexGreen() == ((next >> 8) & 0xff));
+    REQUIRE(screenshot.sample(20, 20).hexBlue() == (next & 0xff));
+  }
+  app.removeFromWindow();
+}
+
 TEST_CASE("Window opens after rendering offscreen", "[integration]") {
 #if VISAGE_LINUX
   if (std::getenv("DISPLAY") == nullptr)
