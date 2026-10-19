@@ -509,6 +509,12 @@ namespace visage {
     return path;
   }
 
+  enum class ReferenceBox {
+    Fill,
+    Stroke,
+    View
+  };
+
   static constexpr float kClipStepsPerOctave = 4.0f;
 
   static float resolutionScale(const Matrix& matrix) {
@@ -570,18 +576,33 @@ namespace visage {
       clipping_paths.push_back({ std::make_shared<const std::vector<Path>>(1, clip_path), Transform() });
     }
 
+    static const std::map<std::string, ReferenceBox> kReferenceBoxes = {
+      { "", ReferenceBox::Stroke },           { "stroke-box", ReferenceBox::Stroke },
+      { "border-box", ReferenceBox::Stroke }, { "margin-box", ReferenceBox::Stroke },
+      { "fill-box", ReferenceBox::Fill },     { "content-box", ReferenceBox::Fill },
+      { "padding-box", ReferenceBox::Fill },  { "view-box", ReferenceBox::View }
+    };
+
     int position = 0;
     auto tokens = parseFunctionTokens(clip_path_shape, position);
     if (tokens.empty())
       return;
 
-    std::string remaining = trimWhitespace(clip_path_shape.substr(position));
-    Bounds bounding_box;
-    if (remaining == "fill-box")
-      bounding_box = boundingFillBox();
-    else if (remaining == "view-box")
-      bounding_box = view_box;
-    else
+    std::string box = trimWhitespace(clip_path_shape.substr(position));
+    size_t name_start = tokens[0].find_last_of(" \t\n\r");
+    if (name_start != std::string::npos) {
+      box = trimWhitespace(tokens[0].substr(0, name_start) + " " + box);
+      tokens[0] = tokens[0].substr(name_start + 1);
+    }
+
+    auto reference_box = kReferenceBoxes.find(toLowerAscii(box));
+    if (reference_box == kReferenceBoxes.end() || (tokens[0] == "url" && !box.empty()))
+      return;
+
+    Bounds bounding_box = view_box;
+    if (tokens[0] == "url" || reference_box->second == ReferenceBox::Fill)
+      bounding_box = boundingFillBox(true);
+    else if (reference_box->second == ReferenceBox::Stroke)
       bounding_box = boundingBox();
 
     if (tokens[0] == "url") {

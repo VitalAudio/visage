@@ -215,14 +215,14 @@ namespace visage {
         child->setAllCurrentColor(brush);
     }
 
-    Bounds boundingFillBox() const {
+    Bounds boundingFillBox(bool include_unfilled = false) const {
       Bounds bounds;
-      if (hasFill())
+      if (include_unfilled || hasFill())
         bounds = path.boundingBox();
 
       for (auto& child : children) {
         if (!child->mask_settings)
-          bounds = bounds.unioned(child->boundingFillBox());
+          bounds = bounds.unioned(child->boundingFillBox(include_unfilled));
       }
 
       return bounds;
