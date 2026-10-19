@@ -23,13 +23,14 @@
 
 #if VISAGE_LINUX
 #include "visage_utils/string_utils.h"
-#include "windowing.h"
+#include "visage_windowing/windowing.h"
 
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <map>
 #include <thread>
+#include <vector>
 #include <X11/Xatom.h>
 #include <X11/XKBlib.h>
 #include <X11/Xlib.h>
@@ -238,6 +239,10 @@ namespace visage {
     float dpi = Window::kDefaultDpi;
   };
 
+  const MonitorInfo& nearestMonitor(const std::vector<MonitorInfo>& monitors, IPoint point);
+  MonitorInfo monitorForWindow(const std::vector<MonitorInfo>& monitors, const MonitorInfo& current,
+                               IBounds window_bounds);
+
   class WindowX11 : public Window {
   public:
     static constexpr long kEventMask = ExposureMask | KeyPressMask | KeyReleaseMask |
@@ -301,6 +306,10 @@ namespace visage {
 
     void createWindow(IBounds bounds);
     IPoint retrieveWindowDimensions();
+    void updateMonitor(int width, int height);
+    template<typename F>
+    void editSizeHints(F&& edit);
+    void setMinimumSizeHints();
     void passEventToParent(XEvent& event);
 
     ::Window dragDropTarget() const;
@@ -332,6 +341,7 @@ namespace visage {
     IPoint mouse_down_position_;
     Decoration decoration_ = Decoration::Native;
     MonitorInfo monitor_info_;
+    IBounds last_window_bounds_;
     ::Window window_handle_ = 0;
     ::Window parent_handle_ = 0;
     XIC input_context_ = nullptr;

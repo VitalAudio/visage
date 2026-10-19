@@ -418,9 +418,12 @@ namespace visage {
     return dpi >= kMinDpi && dpi <= kMaxDpi ? dpi : 0.0f;
   }
 
-  static MonitorInfo monitorInfoForPosition(IPoint point) {
+  static float roundDpi(float dpi) {
     static constexpr float kDpiAdjustment = 4.0f / Window::kDefaultDpi;
+    return std::round(dpi * kDpiAdjustment) / kDpiAdjustment;
+  }
 
+  static std::vector<MonitorInfo> monitors() {
     X11Connection* x11 = X11Connection::globalInstance();
     if (x11->display() == nullptr)
       return {};
@@ -428,11 +431,7 @@ namespace visage {
     X11Connection::DisplayLock lock(x11);
     Display* display = x11->display();
 
-    int default_screen = DefaultScreen(display);
-    IBounds default_bounds(0, 0, DisplayWidth(display, default_screen),
-                           DisplayHeight(display, default_screen));
-    MonitorInfo result;
-    result.bounds = default_bounds;
+    std::vector<MonitorInfo> result;
     float resource_dpi = resourceDpi(display);
     float screen_dpi = screenDpi(display);
 
@@ -451,13 +450,12 @@ namespace visage {
         info = XRRGetCrtcInfo(display, screen_resources, output_info->crtc);
 
       if (info) {
-        IBounds bounds(info->x, info->y, info->width, info->height);
-        if (result.bounds.width() == 0 || bounds.contains(point)) {
-          result.bounds = bounds;
-          float dpi = resource_dpi > 0.0f ? resource_dpi : monitorDpi(info, output_info, screen_dpi);
-          result.dpi = std::round(dpi * kDpiAdjustment) / kDpiAdjustment;
-          result.refresh_rate = refreshRate(screen_resources, info);
-        }
+        MonitorInfo monitor_info;
+        monitor_info.bounds = IBounds(info->x, info->y, info->width, info->height);
+        float dpi = resource_dpi > 0.0f ? resource_dpi : monitorDpi(info, output_info, screen_dpi);
+        monitor_info.dpi = roundDpi(dpi);
+        monitor_info.refresh_rate = refreshRate(screen_resources, info);
+        result.push_back(monitor_info);
         XRRFreeCrtcInfo(info);
       }
       XRRFreeOutputInfo(output_info);
@@ -465,6 +463,66 @@ namespace visage {
 
     XRRFreeScreenResources(screen_resources);
     return result;
+  }
+
+  static MonitorInfo screenMonitorInfo() {
+    X11Connection* x11 = X11Connection::globalInstance();
+    if (x11->display() == nullptr)
+      return {};
+
+    X11Connection::DisplayLock lock(x11);
+    Display* display = x11->display();
+
+    int screen = DefaultScreen(display);
+    MonitorInfo result;
+    result.bounds = IBounds(0, 0, DisplayWidth(display, screen), DisplayHeight(display, screen));
+    float resource_dpi = resourceDpi(display);
+    result.dpi = roundDpi(resource_dpi > 0.0f ? resource_dpi : screenDpi(display));
+    return result;
+  }
+
+  const MonitorInfo& nearestMonitor(const std::vector<MonitorInfo>& monitors, IPoint point) {
+    VISAGE_ASSERT(!monitors.empty());
+    const MonitorInfo* nearest = &monitors.front();
+    long long nearest_distance = -1;
+    for (const MonitorInfo& monitor : monitors) {
+      const IBounds& bounds = monitor.bounds;
+      long long x_distance = std::max({ bounds.x() - point.x, 0, point.x - bounds.right() + 1 });
+      long long y_distance = std::max({ bounds.y() - point.y, 0, point.y - bounds.bottom() + 1 });
+      long long distance = x_distance * x_distance + y_distance * y_distance;
+      if (nearest_distance < 0 || distance < nearest_distance) {
+        nearest = &monitor;
+        nearest_distance = distance;
+      }
+    }
+    return *nearest;
+  }
+
+  MonitorInfo monitorForWindow(const std::vector<MonitorInfo>& monitors, const MonitorInfo& current,
+                               IBounds window_bounds) {
+    if (monitors.empty())
+      return current;
+
+    IPoint center = window_bounds.topLeft() +
+                    IPoint(window_bounds.width() / 2, window_bounds.height() / 2);
+    const MonitorInfo& target = nearestMonitor(monitors, center);
+    if (target.bounds == current.bounds || target.dpi == current.dpi)
+      return target;
+
+    float scale = target.dpi / current.dpi;
+    IPoint scaled_center = window_bounds.topLeft() +
+                           IPoint(std::round(window_bounds.width() * scale / 2.0f),
+                                  std::round(window_bounds.height() * scale / 2.0f));
+    if (nearestMonitor(monitors, scaled_center).bounds == target.bounds)
+      return target;
+    return current;
+  }
+
+  static MonitorInfo monitorInfoForPosition(IPoint point) {
+    std::vector<MonitorInfo> all_monitors = monitors();
+    if (all_monitors.empty())
+      return screenMonitorInfo();
+    return nearestMonitor(all_monitors, point);
   }
 
   static MonitorInfo activeMonitorInfo() {
@@ -770,7 +828,7 @@ namespace visage {
     acquireErrorHandler();
     x11_ = X11Connection::globalInstance();
 
-    monitor_info_ = activeMonitorInfo();
+    monitor_info_ = monitorInfoForPosition({ x + width / 2, y + height / 2 });
     X11Connection::DisplayLock lock(x11_);
     ::Display* display = x11_->display();
     IBounds bounds(x, y, width, height);
@@ -953,23 +1011,29 @@ namespace visage {
     return (void*)SharedMessageWindow::handle();
   }
 
-  void WindowX11::setFixedAspectRatio(bool fixed) {
-    Window::setFixedAspectRatio(fixed);
+  template<typename F>
+  void WindowX11::editSizeHints(F&& edit) {
     if (parent_handle_)
       return;
 
+    X11Connection::DisplayLock lock(x11_);
     XSizeHints* size_hints = XAllocSizeHints();
-    size_hints->flags = fixed ? PAspect : 0;
-
     long supplied_return;
     XGetWMNormalHints(x11_->display(), window_handle_, size_hints, &supplied_return);
-    size_hints->flags = fixed ? (size_hints->flags | PAspect) : (size_hints->flags & ~PAspect);
-    size_hints->min_aspect.x = clientWidth();
-    size_hints->min_aspect.y = clientHeight();
-    size_hints->max_aspect.x = clientWidth();
-    size_hints->max_aspect.y = clientHeight();
+    edit(*size_hints);
     XSetWMNormalHints(x11_->display(), window_handle_, size_hints);
     XFree(size_hints);
+  }
+
+  void WindowX11::setFixedAspectRatio(bool fixed) {
+    Window::setFixedAspectRatio(fixed);
+    editSizeHints([this, fixed](XSizeHints& size_hints) {
+      size_hints.flags = fixed ? (size_hints.flags | PAspect) : (size_hints.flags & ~PAspect);
+      size_hints.min_aspect.x = clientWidth();
+      size_hints.min_aspect.y = clientHeight();
+      size_hints.max_aspect.x = clientWidth();
+      size_hints.max_aspect.y = clientHeight();
+    });
   }
 
   IPoint WindowX11::retrieveWindowDimensions() {
@@ -979,6 +1043,52 @@ namespace visage {
       return { clientWidth(), clientHeight() };
 
     return { attributes.width, attributes.height };
+  }
+
+  void WindowX11::updateMonitor(int width, int height) {
+    if (parent_handle_)
+      return;
+
+    IPoint position;
+    ::Window child;
+    if (!XTranslateCoordinates(x11_->display(), window_handle_, x11_->rootWindow(), 0, 0,
+                               &position.x, &position.y, &child)) {
+      return;
+    }
+
+    IBounds window_bounds(position.x, position.y, width, height);
+    if (window_bounds == last_window_bounds_)
+      return;
+
+    last_window_bounds_ = window_bounds;
+    IPoint center = position + IPoint(width / 2, height / 2);
+    if (monitor_info_.bounds.contains(center))
+      return;
+
+    MonitorInfo monitor_info = monitorForWindow(monitors(), monitor_info_, window_bounds);
+    bool dpi_changed = monitor_info.dpi != monitor_info_.dpi;
+    monitor_info_ = monitor_info;
+    if (!dpi_changed)
+      return;
+
+    float scale = monitor_info_.dpi / kDefaultDpi;
+    int scaled_width = std::round(width * scale / dpiScale());
+    int scaled_height = std::round(height * scale / dpiScale());
+    setDpiScale(scale);
+    setMinimumSizeHints();
+    handleAdjustResize(&scaled_width, &scaled_height, true, true);
+    setNativeWindowSize(scaled_width, scaled_height);
+  }
+
+  void WindowX11::setMinimumSizeHints() {
+    int min_width = kMinWidth;
+    int min_height = kMinHeight;
+    handleAdjustResize(&min_width, &min_height, true, true);
+    editSizeHints([min_width, min_height](XSizeHints& size_hints) {
+      size_hints.flags |= PMinSize;
+      size_hints.min_width = min_width;
+      size_hints.min_height = min_height;
+    });
   }
 
   void WindowX11::passEventToParent(XEvent& event) {
@@ -1825,6 +1935,7 @@ namespace visage {
       break;
     }
     case ConfigureNotify: {
+      updateMonitor(event.xconfigure.width, event.xconfigure.height);
       IPoint dimensions = retrieveWindowDimensions();
       if (dimensions.x != clientWidth() || dimensions.y != clientHeight()) {
         handleResized(dimensions.x, dimensions.y);
@@ -1918,22 +2029,10 @@ namespace visage {
   }
 
   void WindowX11::show() {
-    int min_width = kMinWidth;
-    int min_height = kMinHeight;
-    handleAdjustResize(&min_width, &min_height, true, true);
+    setMinimumSizeHints();
 
     {
       X11Connection::DisplayLock lock(x11_);
-      if (parent_handle_ == 0) {
-        XSizeHints* size_hints = XAllocSizeHints();
-        long supplied_return;
-        XGetWMNormalHints(x11_->display(), window_handle_, size_hints, &supplied_return);
-        size_hints->min_width = min_width;
-        size_hints->min_height = min_height;
-        XSetWMNormalHints(x11_->display(), window_handle_, size_hints);
-        XFree(size_hints);
-      }
-
       XMapWindow(x11_->display(), window_handle_);
       XSetWMProtocols(x11_->display(), window_handle_, x11_->deleteMessageRef(), 1);
       XFlush(x11_->display());
