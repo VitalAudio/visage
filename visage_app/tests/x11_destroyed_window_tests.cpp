@@ -65,10 +65,7 @@ static int requestCount(int request_code) {
 
 class TitleBarEventHandler : public visage::Window::EventHandler {
 public:
-  HitTestResult handleHitTest(int x, int y) override {
-    return y < ApplicationEditor::kDefaultClientTitleBarHeight ? HitTestResult::TitleBar :
-                                                                 HitTestResult::Client;
-  }
+  HitTestResult handleHitTest(int x, int y) override { return HitTestResult::TitleBar; }
   HitTestResult currentHitTest() const override { return HitTestResult::Client; }
   void handleMouseMove(int x, int y, int button_state, int modifiers) override { }
   void handleMouseDown(MouseButton button_id, int x, int y, int button_state, int modifiers,
@@ -160,7 +157,7 @@ TEST_CASE("X11 windows stop a drag resize or move when the window is already des
   }
 
   SECTION("Moving by the title bar") {
-    drag_destroyed_window({ 30, 15 });
+    drag_destroyed_window({ 100, 100 });
     CHECK(requestCount(X_TranslateCoords) > 0);
     REQUIRE(requestCount(X_ConfigureWindow) == 0);
   }
