@@ -1161,6 +1161,13 @@ namespace visage {
 
     if (parent_view_)
       [view_ removeFromSuperview];
+    else if (window_handle_) {
+      NSWindow* window = window_handle_;
+      [window close];
+      dispatch_async(dispatch_get_main_queue(), ^{
+        (void)window;
+      });
+    }
   }
 
   void WindowMac::createWindow() {
