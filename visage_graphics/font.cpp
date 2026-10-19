@@ -482,7 +482,7 @@ namespace visage {
 
   float Font::nativeLowerDipHeight() const {
     const PackedGlyph* glyph = packedGlyph('y');
-    return glyph->y_offset + glyph->height;
+    return glyph->height - glyph->y_offset;
   }
 
   int Font::atlasWidth() const {

@@ -178,6 +178,13 @@ TEST_CASE("Resized fonts share the cache with fonts loaded at that size", "[grap
   std::filesystem::remove(path);
 }
 
+TEST_CASE("Font lower dip height is the descent below the baseline", "[graphics]") {
+  Font font(20, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data), 1.0f);
+  REQUIRE(font.lowerDipHeight() > 0.0f);
+  REQUIRE(font.lowerDipHeight() < font.capitalHeight() / 2.0f);
+  REQUIRE(font.withDpiScale(2.0f).lowerDipHeight() == Approx(font.lowerDipHeight()).margin(0.5f));
+}
+
 TEST_CASE("Font variation selectors take no space", "[graphics]") {
   Font font(16, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data), 1.0f);
   FontAtlasQuad plain[2];
