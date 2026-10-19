@@ -185,6 +185,14 @@ TEST_CASE("Color to 16-bit formats", "[graphics]") {
   REQUIRE((color.toARGB16() & 0xffff) == 0xAAAA);
 }
 
+TEST_CASE("Color converts dim channels to subnormal half floats", "[graphics]") {
+  auto red_half = [](float red) { return Color(1.0f, red, 0.0f, 0.0f).toABGR16F() & 0xffff; };
+  REQUIRE(red_half(0.002f) == 524);
+  REQUIRE(red_half(0.0005f) == 131);
+  REQUIRE(red_half(64.0f / (1 << 24)) == 1);
+  REQUIRE((Color(1.0f / (1 << 24), 0.0f, 0.0f, 0.0f).toABGR16F() >> 48) == 1);
+}
+
 TEST_CASE("Color arithmetic operations work correctly", "[graphics]") {
   Color c1(1.0f, 0.5f, 0.5f, 0.5f);
   Color c2(0.5f, 0.2f, 0.2f, 0.2f);
