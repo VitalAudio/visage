@@ -111,7 +111,10 @@ namespace visage {
                                                      brush.position() * state_.scale);
     }
     void setColor(const Brush& brush) { setBrush(brush); }
-    void setColor(unsigned int color) { setBrush(Brush::solid(color)); }
+    template<typename T, typename = EnableIfArgb<T>>
+    void setColor(T color) {
+      setBrush(Brush::solid(static_cast<unsigned int>(color)));
+    }
     void setColor(const Color& color) { setBrush(Brush::solid(color)); }
     void setColor(theme::ColorId color_id) { setBrush(color(color_id)); }
 

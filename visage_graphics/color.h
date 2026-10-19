@@ -28,8 +28,12 @@
 #include <cstring>
 #include <iosfwd>
 #include <string>
+#include <type_traits>
 
 namespace visage {
+  template<typename T>
+  using EnableIfArgb = std::enable_if_t<std::is_convertible_v<T, unsigned int> && !std::is_floating_point_v<T>>;
+
   class Color {
   public:
     enum {
@@ -157,8 +161,9 @@ namespace visage {
     }
     Color(const Color&) = default;
 
-    Color(unsigned int argb, float hdr = 1.0f) noexcept {
-      loadARGB(argb);
+    template<typename T, typename = EnableIfArgb<T>>
+    Color(T argb, float hdr = 1.0f) noexcept {
+      loadARGB(static_cast<unsigned int>(argb));
       hdr_ = hdr;
     }
 
@@ -297,8 +302,9 @@ namespace visage {
     unsigned int hexBlue() const { return floatToHex(values_[kBlue]); }
 
     Color& operator=(const Color&) = default;
-    Color& operator=(unsigned int argb) {
-      loadARGB(argb);
+    template<typename T, typename = EnableIfArgb<T>>
+    Color& operator=(T argb) {
+      loadARGB(static_cast<unsigned int>(argb));
       hdr_ = 1.0f;
       return *this;
     }
