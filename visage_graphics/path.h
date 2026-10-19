@@ -24,6 +24,7 @@
 #include "graphics_utils.h"
 #include "visage_utils/space.h"
 
+#include <algorithm>
 #include <cfloat>
 #include <complex>
 #include <limits>
@@ -65,9 +66,15 @@ namespace visage {
     static constexpr float kDefaultMiterLimit = 4.0f;
     static constexpr float kPi = 3.14159265358979323846f;
 
+    struct Tangents {
+      Point in;
+      Point out;
+    };
+
     struct SubPath {
       std::vector<Point> points;
       bool closed = false;
+      std::vector<Tangents> tangents;
     };
 
     struct Command {
@@ -311,7 +318,7 @@ namespace visage {
       Point control1 = from + (2.0f / 3.0f) * (control - from);
       Point control2 = end + (2.0f / 3.0f) * (control - end);
       smooth_control_point_ = end + (end - control);
-      recurseBezierTo(from, control1, control2, end);
+      addBezier(from, control1, control2, end);
       current_control_points_ = ControlPoints::Quadratic;
     }
 
@@ -344,7 +351,7 @@ namespace visage {
         end += from;
       }
 
-      recurseBezierTo(from, control1, control2, end);
+      addBezier(from, control1, control2, end);
       smooth_control_point_ = end + (end - control2);
       current_control_points_ = ControlPoints::Cubic;
     }
@@ -419,6 +426,10 @@ namespace visage {
       for (auto& path : paths_) {
         for (Point& point : path.points)
           point *= mult;
+        for (auto& tangents : path.tangents) {
+          tangents.in *= mult;
+          tangents.out *= mult;
+        }
       }
     }
 
@@ -457,6 +468,10 @@ namespace visage {
       for (auto& path : paths_) {
         for (Point& point : path.points)
           point = transform * point;
+        for (auto& tangents : path.tangents) {
+          tangents.in = transform.matrix * tangents.in;
+          tangents.out = transform.matrix * tangents.out;
+        }
       }
     }
 
@@ -468,7 +483,7 @@ namespace visage {
 
     void reverse() {
       for (auto& path : paths_)
-        std::reverse(path.points.begin(), path.points.end());
+        reverseSubPath(path);
     }
 
     void setFillRule(FillRule fill_rule) { fill_rule_ = fill_rule; }
@@ -555,6 +570,42 @@ namespace visage {
       recurseBezierTo(break_point, midmid2, mid3, to, depth + 1);
     }
 
+    void addBezier(const Point& from, const Point& control1, const Point& control2, const Point& to) {
+      static constexpr float kLineSlop = 0.00001f;
+      int start_index = currentPath().points.size() - 1;
+      recurseBezierTo(from, control1, control2, to);
+
+      float extent = std::max({ (control1 - from).length(), (control2 - from).length(),
+                                (to - from).length(), (control2 - control1).length(),
+                                (to - control1).length(), (to - control2).length() });
+      float slop = extent * extent * kLineSlop;
+      if (deltaFromLine(control1, from, to).squareMagnitude() <= slop &&
+          deltaFromLine(control2, from, to).squareMagnitude() <= slop)
+        return;
+
+      Point start = control1 != from ? control1 - from : (control2 != from ? control2 - from : to - from);
+      Point end = to != control2 ? to - control2 : (to != control1 ? to - control1 : to - from);
+      setCurveTangents(start_index, start, end);
+    }
+
+    void setCurveTangents(int start_index, const Point& start, const Point& end) {
+      SubPath& path = currentPath();
+      int end_index = path.points.size() - 1;
+      if (start_index < 0 || end_index <= start_index)
+        return;
+
+      path.tangents.resize(path.points.size());
+      path.tangents[start_index].out = start;
+      path.tangents[end_index].in = end;
+    }
+
+    static void reverseSubPath(SubPath& path) {
+      std::reverse(path.points.begin(), path.points.end());
+      std::reverse(path.tangents.begin(), path.tangents.end());
+      for (auto& tangents : path.tangents)
+        tangents = { -tangents.out, -tangents.in };
+    }
+
     void startNewPath() {
       if (paths_.empty() || !paths_.back().points.empty())
         paths_.emplace_back();
@@ -574,6 +625,8 @@ namespace visage {
 
       last_point_ = point;
       currentPath().points.push_back(point);
+      if (!currentPath().tangents.empty())
+        currentPath().tangents.push_back({});
       current_control_points_ = ControlPoints::Linear;
     }
 

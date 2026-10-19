@@ -607,3 +607,65 @@ TEST_CASE("Path fill coverage is the area of each pixel inside the path", "[grap
     REQUIRE(max_error < 0.02f);
   }
 }
+
+TEST_CASE("Stroke joins at curve ends use the curve tangent", "[graphics]") {
+  Path arc;
+  arc.moveTo(0, 0);
+  arc.lineTo(10, 0);
+  arc.arcTo(10, 10, 0.0f, false, true, Point(0, 10));
+  Bounds arc_bounds = arc.stroke(4.0f, Path::Join::Miter, Path::EndCap::Butt).boundingBox();
+  REQUIRE(arc_bounds.right() == Catch::Approx(12.0f).margin(0.05f));
+  REQUIRE(arc_bounds.y() == Catch::Approx(-2.0f).margin(0.05f));
+
+  Path cubic;
+  cubic.moveTo(0, 0);
+  cubic.lineTo(10, 0);
+  cubic.bezierTo(10, 5, 5, 10, 0, 10);
+  Bounds cubic_bounds = cubic.stroke(4.0f, Path::Join::Miter, Path::EndCap::Butt).boundingBox();
+  REQUIRE(cubic_bounds.right() == Catch::Approx(12.0f).margin(0.05f));
+  REQUIRE(cubic_bounds.y() == Catch::Approx(-2.0f).margin(0.05f));
+
+  for (float scale : { 1.0f, 1.5f, 2.0f, 4.0f }) {
+    INFO("resolution scale " << scale);
+    Path flat;
+    flat.setResolutionMatrix(Matrix::scale(scale, scale));
+    flat.moveTo(0, 0);
+    flat.bezierTo(0.1f, 0, 100, 100, 100.1f, 100);
+    Path line;
+    line.setResolutionMatrix(Matrix::scale(scale, scale));
+    line.moveTo(0, 0);
+    line.lineTo(100.1f, 100);
+    Bounds flat_bounds = flat.stroke(20.0f, Path::Join::Miter, Path::EndCap::Butt).boundingBox();
+    Bounds line_bounds = line.stroke(20.0f, Path::Join::Miter, Path::EndCap::Butt).boundingBox();
+    REQUIRE(flat_bounds.x() == Catch::Approx(line_bounds.x()).margin(0.05f));
+    REQUIRE(flat_bounds.y() == Catch::Approx(line_bounds.y()).margin(0.05f));
+    REQUIRE(flat_bounds.right() == Catch::Approx(line_bounds.right()).margin(0.05f));
+    REQUIRE(flat_bounds.bottom() == Catch::Approx(line_bounds.bottom()).margin(0.05f));
+  }
+}
+
+TEST_CASE("Curve end tangents survive reversing transforming and dashing", "[graphics]") {
+  Path arc;
+  arc.moveTo(0, 0);
+  arc.lineTo(10, 0);
+  arc.arcTo(10, 10, 0.0f, false, true, Point(0, 10));
+  auto stroke_bounds = [](const Path& path) {
+    return path.stroke(4.0f, Path::Join::Miter, Path::EndCap::Butt).boundingBox();
+  };
+
+  Bounds reversed = stroke_bounds(arc.reversed());
+  REQUIRE(reversed.right() == Catch::Approx(12.0f).margin(0.05f));
+  REQUIRE(reversed.y() == Catch::Approx(-2.0f).margin(0.05f));
+
+  Bounds scaled = stroke_bounds(arc.scaled(2.0f));
+  REQUIRE(scaled.right() == Catch::Approx(22.0f).margin(0.05f));
+  REQUIRE(scaled.y() == Catch::Approx(-2.0f).margin(0.05f));
+
+  Bounds rotated = stroke_bounds(arc.transformed(Transform::rotation(90.0f)));
+  REQUIRE(rotated.right() == Catch::Approx(2.0f).margin(0.05f));
+  REQUIRE(rotated.bottom() == Catch::Approx(12.0f).margin(0.05f));
+
+  Path dashed = arc.stroke(4.0f, Path::Join::Miter, Path::EndCap::Butt, { 1000.0f, 1.0f });
+  REQUIRE(dashed.boundingBox().right() == Catch::Approx(12.0f).margin(0.05f));
+  REQUIRE(dashed.boundingBox().y() == Catch::Approx(-2.0f).margin(0.05f));
+}
