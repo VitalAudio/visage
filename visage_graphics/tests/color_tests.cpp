@@ -19,12 +19,14 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "visage_graphics/canvas.h"
 #include "visage_graphics/color.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <random>
 #include <sstream>
+#include <type_traits>
 
 using namespace visage;
 using namespace Catch;
@@ -90,6 +92,41 @@ TEST_CASE("Assigning a hex value resets the HDR value", "[graphics]") {
   color = 0xffffffff;
   REQUIRE(color == Color(0xffffffff));
   REQUIRE(color.hdr() == 1.0f);
+}
+
+namespace {
+  enum {
+    kTestEnumColor = 0xffff0000u
+  };
+
+  template<typename T, typename = void>
+  struct CanvasTakesColor : std::false_type { };
+
+  template<typename T>
+  struct CanvasTakesColor<T, std::void_t<decltype(std::declval<Canvas&>().setColor(std::declval<T>()))>>
+      : std::true_type { };
+}
+
+TEST_CASE("Only integers and enums convert to colors", "[graphics]") {
+  REQUIRE(std::is_convertible_v<unsigned int, Color>);
+  REQUIRE(std::is_convertible_v<int, Color>);
+  REQUIRE(std::is_convertible_v<decltype(kTestEnumColor), Color>);
+  REQUIRE(std::is_assignable_v<Color&, unsigned int>);
+  REQUIRE_FALSE(std::is_convertible_v<float, Color>);
+  REQUIRE_FALSE(std::is_convertible_v<double, Color>);
+  REQUIRE_FALSE(std::is_assignable_v<Color&, float>);
+
+  REQUIRE(CanvasTakesColor<unsigned int>::value);
+  REQUIRE(CanvasTakesColor<int>::value);
+  REQUIRE(CanvasTakesColor<decltype(kTestEnumColor)>::value);
+  REQUIRE(CanvasTakesColor<Color>::value);
+  REQUIRE_FALSE(CanvasTakesColor<float>::value);
+  REQUIRE_FALSE(CanvasTakesColor<double>::value);
+
+  Color color = 0xff102030;
+  REQUIRE(color == Color(0xff102030u));
+  color = 0x80405060;
+  REQUIRE(color.toARGB() == 0x80405060);
 }
 
 TEST_CASE("Color toARGBHexString converts correctly", "[graphics]") {
