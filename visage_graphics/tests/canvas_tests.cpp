@@ -22,6 +22,7 @@
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/color.h"
 #include "visage_graphics/gradient.h"
+#include "visage_graphics/graphics_caches.h"
 #include "visage_graphics/post_effects.h"
 #include "visage_graphics/renderer.h"
 #include "visage_graphics/shader.h"
@@ -2131,3 +2132,21 @@ TEST_CASE("Thousands of live blur effects all blur", "[graphics]") {
     }
   }
 }
+
+TEST_CASE("Shader data that bgfx rejects leaves an invalid cached handle", "[graphics]") {
+  static constexpr unsigned char kNotAShader[] = { 'b', 'a', 'd', ' ', 'd', 'a', 't', 'a' };
+  static const EmbeddedFile kFile = { "not_a_shader", kNotAShader, sizeof(kNotAShader) };
+
+  Canvas canvas;
+  canvas.setWindowless(8, 8);
+  REQUIRE_FALSE(bgfx::isValid(ShaderCache::shaderHandle(kFile)));
+  REQUIRE_FALSE(bgfx::isValid(ShaderCache::shaderHandle(kFile)));
+}
+
+#ifdef NDEBUG
+TEST_CASE("Uniform names that bgfx rejects leave an invalid cached handle", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(8, 8);
+  REQUIRE_FALSE(bgfx::isValid(UniformCache::uniformHandle("bad name")));
+}
+#endif

@@ -58,8 +58,10 @@ namespace visage {
   ShaderCache::~ShaderCache() {
     for (auto& shader : cache_->cache)
       restoreHandle(shader.second, cache_->originals[shader.first]);
-    for (const auto& shader : cache_->originals)
-      bgfx::destroy(shader.second);
+    for (const auto& shader : cache_->originals) {
+      if (bgfx::isValid(shader.second))
+        bgfx::destroy(shader.second);
+    }
   }
 
   bgfx::ShaderHandle& ShaderCache::handle(const EmbeddedFile& file) const {
@@ -207,8 +209,10 @@ namespace visage {
   }
 
   UniformCache::~UniformCache() {
-    for (const auto& uniform : cache_->cache)
-      bgfx::destroy(uniform.second);
+    for (const auto& uniform : cache_->cache) {
+      if (bgfx::isValid(uniform.second))
+        bgfx::destroy(uniform.second);
+    }
   }
 
   bgfx::UniformHandle& UniformCache::handle(const char* name, Type type, int size) const {
