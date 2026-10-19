@@ -50,9 +50,8 @@ namespace visage {
     EM_ASM({
       document.addEventListener(
           'paste', function(event) {
-            navigator.clipboard.readText()
-                .then(function(text) { ccall('pasteCallback', null, ['string'], [text]); })
-                .catch(function(err) { console.error("Failed to access clipboard:", err); });
+            var text = event.clipboardData ? event.clipboardData.getData('text/plain') : "";
+            ccall('pasteCallback', null, ['string'], [text]);
           });
     });
   }
@@ -283,6 +282,7 @@ namespace visage {
 
   static EM_BOOL wheelCallback(int event_type, const EmscriptenWheelEvent* event, void* user_data) {
     static constexpr float kPreciseScrollingScale = 0.01f;
+    static constexpr float kLineScrollingScale = 1.0f / 3.0f;
 
     WindowEmscripten* window = WindowEmscripten::runningInstance();
     if (event_type != EMSCRIPTEN_EVENT_WHEEL || window == nullptr)
@@ -293,6 +293,10 @@ namespace visage {
     if (event->deltaMode == DOM_DELTA_PIXEL) {
       delta_x *= kPreciseScrollingScale;
       delta_y *= kPreciseScrollingScale;
+    }
+    else if (event->deltaMode == DOM_DELTA_LINE) {
+      delta_x *= kLineScrollingScale;
+      delta_y *= kLineScrollingScale;
     }
     float x = event->mouse.targetX - EM_ASM_DOUBLE({
                 var canvas = document.getElementById('canvas');
