@@ -69,6 +69,43 @@ TEST_CASE("Mouse up over another frame sends it an enter relative to itself", "[
   app.removeFromWindow();
 }
 
+TEST_CASE("Repeat clicks count only the same button near the last click", "[integration]") {
+  ApplicationEditor app;
+  Frame frame;
+  std::vector<int> counts;
+  frame.onMouseDown() = [&](const MouseEvent& e) { counts.push_back(e.repeatClickCount()); };
+
+  app.addChild(frame);
+  app.setBounds(0, 0, 100, 100);
+  frame.setBounds(0, 0, 100, 100);
+
+  TestWindow window(100, 100);
+  app.addToWindow(&window);
+  auto click = [&](MouseButton button, int x, int y, bool move) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    if (move)
+      window.handleMouseMove(x, y, 0, 0);
+    window.handleMouseDown(button, x, y, button, 0);
+    window.handleMouseUp(button, x, y, 0, 0);
+  };
+
+  click(kMouseButtonLeft, 10, 10, true);
+  click(kMouseButtonLeft, 11, 10, true);
+  click(kMouseButtonLeft, 12, 11, true);
+  click(kMouseButtonRight, 12, 11, true);
+  click(kMouseButtonLeft, 40, 40, false);
+  click(kMouseButtonLeft, 40, 40, false);
+  REQUIRE(counts == std::vector<int> { 1, 2, 3, 1, 1, 2 });
+
+  counts.clear();
+  click(kMouseButtonLeft, 60, 60, true);
+  click(kMouseButtonLeft, 62, 60, true);
+  click(kMouseButtonLeft, 64, 60, true);
+  click(kMouseButtonLeft, 64, 63, true);
+  REQUIRE(counts == std::vector<int> { 1, 2, 1, 1 });
+  app.removeFromWindow();
+}
+
 TEST_CASE("Editors can be deleted while attached or inside their draw callback", "[integration]") {
   class ActionTimer : public EventTimer {
   public:

@@ -156,9 +156,6 @@ namespace visage {
     if (event_handler_ == nullptr)
       return;
 
-    if (last_window_mouse_position_.x != x || last_window_mouse_position_.y != y)
-      mouse_repeat_clicks_.click_count = 0;
-
     event_handler_->handleMouseMove(x, y, button_state, modifiers);
 
     if (!mouseRelativeMode())
@@ -172,11 +169,18 @@ namespace visage {
     setMouseRelativeMode(false);
     long long current_ms = time::milliseconds();
     long long delta_ms = current_ms - mouse_repeat_clicks_.last_click_ms;
-    if (delta_ms > 0 && delta_ms < doubleClickSpeed())
+    IPoint delta = IPoint(x, y) - mouse_repeat_clicks_.first_click_position;
+    float max_distance = kDoubleClickDistance * dpi_scale_;
+    bool same_place = std::abs(delta.x) <= max_distance && std::abs(delta.y) <= max_distance;
+    if (delta_ms > 0 && delta_ms < doubleClickSpeed() && same_place &&
+        button_id == mouse_repeat_clicks_.last_button)
       mouse_repeat_clicks_.click_count++;
-    else
+    else {
       mouse_repeat_clicks_.click_count = 1;
+      mouse_repeat_clicks_.first_click_position = { x, y };
+    }
     mouse_repeat_clicks_.last_click_ms = current_ms;
+    mouse_repeat_clicks_.last_button = button_id;
     event_handler_->handleMouseDown(button_id, x, y, button_state, modifiers,
                                     mouse_repeat_clicks_.click_count);
   }

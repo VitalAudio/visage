@@ -189,11 +189,14 @@ namespace visage {
     void setVisible(bool visible) { visible_ = visible; }
 
   private:
+    static constexpr int kDoubleClickDistance = 2;
     static int double_click_speed_;
 
     struct RepeatClick {
       int click_count = 0;
       long long last_click_ms = 0;
+      MouseButton last_button = kMouseButtonNone;
+      IPoint first_click_position;
     };
 
     EventHandler* event_handler_ = nullptr;
