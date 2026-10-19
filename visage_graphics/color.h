@@ -135,6 +135,9 @@ namespace visage {
         return 0;
 
       std::string hex = color_string[0] == '#' ? color_string.substr(1) : color_string;
+      if (hex.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
+        return {};
+
       if (hex.size() == 3)
         hex = std::string("ff") + hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
       else if (hex.size() == 4)
@@ -143,12 +146,7 @@ namespace visage {
         hex = "ff" + hex;
       else if (hex.size() != 8)
         return {};
-      try {
-        return fromARGB(std::stoul(hex, nullptr, 16));
-      }
-      catch (...) {
-        return {};
-      }
+      return fromARGB(std::stoul(hex, nullptr, 16));
     }
 
     Color() = default;
