@@ -48,6 +48,7 @@ namespace visage {
 @property(nonatomic) visage::WindowMac* visage_window;
 @property(strong) VisageDraggingSource* drag_source;
 @property(strong) NSString* marked_text;
+@property(strong) NSMutableString* pending_text;
 @property bool allow_quit;
 @property NSPoint mouse_down_screen_position;
 @property NSPoint text_input_screen_position;
