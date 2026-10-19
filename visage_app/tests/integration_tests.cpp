@@ -1550,6 +1550,67 @@ TEST_CASE("Svg frame inset clip shapes", "[integration]") {
   REQUIRE(overlapping.sample(9, 9).hexRed() == 0x00);
 }
 
+TEST_CASE("Svg frame rect clip shapes", "[integration]") {
+  auto clipped = [](const std::string& clip_path) {
+    return svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><rect width="20" height="20" fill="white" clip-path=")svg" +
+                              clip_path + R"svg("/></svg>)svg");
+  };
+
+  Screenshot edges = clipped("rect(2px 15px 18px 5px)");
+  REQUIRE(edges.sample(6, 10).hexRed() == 0xff);
+  REQUIRE(edges.sample(13, 10).hexRed() == 0xff);
+  REQUIRE(edges.sample(3, 10).hexRed() == 0x00);
+  REQUIRE(edges.sample(17, 10).hexRed() == 0x00);
+  REQUIRE(edges.sample(10, 1).hexRed() == 0x00);
+
+  Screenshot automatic = clipped("rect(auto auto 50% 25%)");
+  REQUIRE(automatic.sample(18, 2).hexRed() == 0xff);
+  REQUIRE(automatic.sample(3, 2).hexRed() == 0x00);
+  REQUIRE(automatic.sample(10, 15).hexRed() == 0x00);
+
+  Screenshot rounded = clipped("rect(2px 18px 18px 2px round 4px)");
+  REQUIRE(rounded.sample(10, 10).hexRed() == 0xff);
+  REQUIRE(rounded.sample(2, 2).hexRed() == 0x00);
+
+  REQUIRE(clipped("rect(10px 5px 18px 15px)").sample(10, 14).hexRed() == 0x00);
+  REQUIRE(clipped("rect(2px 15px 18px)").sample(1, 1).hexRed() == 0xff);
+
+  Screenshot slash = clipped("inset(0 round 10px/4px)");
+  REQUIRE(slash.sample(0, 6).hexRed() == 0xff);
+  REQUIRE(slash.sample(2, 0).hexRed() == 0x00);
+
+  Screenshot upper_case_round = clipped("inset(2px ROUND 8px)");
+  REQUIRE(upper_case_round.sample(10, 10).hexRed() == 0xff);
+  REQUIRE(upper_case_round.sample(3, 3).hexRed() == 0x00);
+  Screenshot upper_case_auto = clipped("rect(AUTO Auto auto 5px)");
+  REQUIRE(upper_case_auto.sample(10, 10).hexRed() == 0xff);
+  REQUIRE(upper_case_auto.sample(2, 10).hexRed() == 0x00);
+  for (const char* clip_path : { "inset(5PX)", "inset(4q)", "inset(4Q)" }) {
+    INFO(clip_path);
+    Screenshot unit_case = clipped(clip_path);
+    REQUIRE(unit_case.sample(10, 10).hexRed() == 0xff);
+    REQUIRE(unit_case.sample(2, 10).hexRed() == 0x00);
+  }
+
+  std::vector<std::pair<std::string, IPoint>> invalid = {
+    { "rect(1px 18px 18px 4px round)", { 1, 1 } },
+    { "rect(1px 2px 3px 4px/5px)", { 10, 10 } },
+    { "inset(0 round 10px/)", { 0, 0 } },
+    { "inset(0 round 10px//4px)", { 0, 0 } },
+    { "rect(a b c d)", { 10, 10 } },
+    { "rect(1px,2px,3px,4px)", { 10, 10 } },
+    { "inset(5foo 3px)", { 1, 10 } },
+    { "inset(5e 3px)", { 10, 1 } },
+    { "inset(3px 5%%)", { 10, 1 } },
+    { "inset(3px round 5zz)", { 1, 1 } },
+    { "rect(1px 2qq 18px 4px)", { 10, 10 } },
+  };
+  for (const auto& [clip_path, point] : invalid) {
+    INFO(clip_path);
+    REQUIRE(clipped(clip_path).sample(point.x, point.y).hexRed() == 0xff);
+  }
+}
+
 TEST_CASE("Svg frame clip paths", "[integration]") {
   Screenshot united = svgFrameScreenshot(R"svg(<svg viewBox="0 0 20 20"><clipPath id="c"><rect width="5" height="20"/><rect x="15" width="5" height="20"/></clipPath><rect width="20" height="20" fill="white" clip-path="url(#c)"/></svg>)svg");
   REQUIRE(united.sample(2, 10).hexRed() == 0xff);
