@@ -170,7 +170,11 @@ namespace visage {
 
     pid_t pid;
     int status;
+#if VISAGE_EMSCRIPTEN
+    int result = posix_spawn(&pid, command.c_str(), &file_actions, nullptr, args.data(), environment());
+#else
     int result = posix_spawnp(&pid, command.c_str(), &file_actions, nullptr, args.data(), environment());
+#endif
 
     posix_spawn_file_actions_destroy(&file_actions);
 
