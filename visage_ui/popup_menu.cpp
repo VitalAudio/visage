@@ -116,6 +116,8 @@ namespace visage {
     int x_padding = selection_padding + paletteValue(PopupTextPadding);
     int option_height = paletteValue(PopupOptionHeight);
     int y = selection_padding - yPosition();
+    int popup_font_size = paletteValue(PopupFontSize);
+    Font font = font_.withSize(popup_font_size);
 
     Brush text = canvas.color(PopupMenuText).withMultipliedAlpha(opacity_);
     Brush disabled_text = canvas.color(PopupMenuDisabledText).withMultipliedAlpha(opacity_);
@@ -137,8 +139,6 @@ namespace visage {
           else
             canvas.setColor(disabled_text);
 
-          int popup_font_size = paletteValue(PopupFontSize);
-          Font font = font_.withSize(popup_font_size);
           canvas.text(options_[i].name(), font, Font::kLeft, x_padding, y, width(), option_height);
 
           if (options_[i].hasOptions()) {
