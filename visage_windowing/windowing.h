@@ -102,7 +102,7 @@ namespace visage {
     virtual void* initWindow() const { return nullptr; }
     virtual void* globalDisplay() const { return nullptr; }
     virtual void processPluginFdEvents() { }
-    virtual int posixFd() const { return 0; }
+    virtual int posixFd() const { return -1; }
 
     virtual void show() = 0;
     virtual void showMaximized() = 0;
