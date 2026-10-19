@@ -374,9 +374,9 @@ namespace visage {
     }
 
     IBounds unioned(const IBounds& other) const {
-      if (width() <= 0)
+      if (width() <= 0 && height() <= 0)
         return other;
-      if (other.width() <= 0)
+      if (other.width() <= 0 && other.height() <= 0)
         return *this;
 
       auto x = std::min(x_, other.x_);
@@ -581,9 +581,9 @@ namespace visage {
     }
 
     Bounds unioned(const Bounds& other) const {
-      if (width() <= 0.0f)
+      if (width() <= 0.0f && height() <= 0.0f)
         return other;
-      if (other.width() <= 0.0f)
+      if (other.width() <= 0.0f && other.height() <= 0.0f)
         return *this;
 
       float x = std::min(x_, other.x_);

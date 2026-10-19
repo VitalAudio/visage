@@ -72,6 +72,21 @@ TEST_CASE("Bounds intersection", "[utils]") {
   REQUIRE(intersection.height() == 3);
 }
 
+TEST_CASE("Bounds unions keep lines of either direction", "[utils]") {
+  Bounds box(0.0f, 0.0f, 10.0f, 10.0f);
+  REQUIRE(box.unioned({ 20.0f, 0.0f, 0.0f, 10.0f }) == Bounds(0.0f, 0.0f, 20.0f, 10.0f));
+  REQUIRE(box.unioned({ 0.0f, 20.0f, 10.0f, 0.0f }) == Bounds(0.0f, 0.0f, 10.0f, 20.0f));
+  REQUIRE(Bounds(20.0f, 0.0f, 0.0f, 10.0f).unioned(box) == Bounds(0.0f, 0.0f, 20.0f, 10.0f));
+  REQUIRE(Bounds().unioned({ 5.0f, 5.0f, 0.0f, 10.0f }) == Bounds(5.0f, 5.0f, 0.0f, 10.0f));
+  REQUIRE(Bounds(5.0f, 5.0f, 0.0f, 10.0f).unioned({}) == Bounds(5.0f, 5.0f, 0.0f, 10.0f));
+  REQUIRE(box.unioned({}) == box);
+
+  IBounds ibox(0, 0, 10, 10);
+  REQUIRE(ibox.unioned({ 20, 0, 0, 10 }) == IBounds(0, 0, 20, 10));
+  REQUIRE(IBounds(20, 0, 0, 10).unioned(ibox) == IBounds(0, 0, 20, 10));
+  REQUIRE(IBounds().unioned(ibox) == ibox);
+}
+
 TEST_CASE("Bounds subtract failed corner intersect", "[utils]") {
   IBounds bounds1(1, 10, 10, 10);
   IBounds bounds2(5, 15, 15, 15);

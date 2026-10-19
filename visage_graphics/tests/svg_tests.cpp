@@ -173,25 +173,25 @@ TEST_CASE("Svg keeps no marker references after parsing", "[graphics]") {
 }
 
 TEST_CASE("Svg marker orientation and units", "[graphics]") {
-  Svg stroke_units = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m"><rect width="2" height="1"/></marker><path d="M5 5 L5 9" stroke-width="2" marker-start="url(#m)"/></svg>)svg");
+  Svg stroke_units = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m"><rect width="2" height="1"/></marker><path d="M5 5 L5 6" stroke-width="2" marker-start="url(#m)"/></svg>)svg");
   REQUIRE(stroke_units.drawable()->post_bounding_box.width() == 4.0f);
   REQUIRE(stroke_units.drawable()->post_bounding_box.height() == 2.0f);
 
-  Svg user_units = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m" markerUnits="userSpaceOnUse"><rect width="2" height="1"/></marker><path d="M5 5 L5 9" stroke-width="2" marker-start="url(#m)"/></svg>)svg");
+  Svg user_units = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m" markerUnits="userSpaceOnUse"><rect width="2" height="1"/></marker><path d="M5 5 L5 6" stroke-width="2" marker-start="url(#m)"/></svg>)svg");
   REQUIRE(user_units.drawable()->post_bounding_box.width() == 2.0f);
   REQUIRE(user_units.drawable()->post_bounding_box.height() == 1.0f);
 
   for (const std::string& orient : { "0.25turn", "1.5707964rad", "100grad", "90deg" }) {
     INFO(orient);
     Svg rotated = parseSvg(R"svg(<svg viewBox="0 0 10 10"><marker id="m" orient=")svg" + orient +
-                           R"svg("><rect width="2" height="1"/></marker><path d="M5 5 L5 9" marker-start="url(#m)"/></svg>)svg");
+                           R"svg("><rect width="2" height="1"/></marker><path d="M5 5 L5 6" marker-start="url(#m)"/></svg>)svg");
     REQUIRE(std::abs(rotated.drawable()->post_bounding_box.width() - 1.0f) < 0.001f);
     REQUIRE(std::abs(rotated.drawable()->post_bounding_box.height() - 2.0f) < 0.001f);
   }
 }
 
 TEST_CASE("Svg marker percentages use the viewport", "[graphics]") {
-  Svg svg = parseSvg(R"svg(<svg viewBox="0 0 20 20"><marker id="m" viewBox="0 0 1 1" markerWidth="10%" markerHeight="10%"><rect width="1" height="1"/></marker><path d="M10 10 L10 18" marker-start="url(#m)"/></svg>)svg");
+  Svg svg = parseSvg(R"svg(<svg viewBox="0 0 20 20"><marker id="m" viewBox="0 0 1 1" markerWidth="10%" markerHeight="10%"><rect width="1" height="1"/></marker><path d="M10 10 L10 11" marker-start="url(#m)"/></svg>)svg");
   REQUIRE(svg.drawable()->post_bounding_box.width() == 1.0f);
   REQUIRE(svg.drawable()->post_bounding_box.height() == 1.0f);
 }
