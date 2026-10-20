@@ -69,6 +69,7 @@ namespace visage {
     struct Tangents {
       Point in;
       Point out;
+      bool smooth = false;
     };
 
     struct SubPath {
@@ -529,7 +530,7 @@ namespace visage {
     const Matrix& resolutionMatrix() const { return resolution_matrix_; }
 
   private:
-    Path offset(float amount, Join join, Join inner_join, EndCap end_cap, float miter_limit) const;
+    Path offset(float amount, Join join, bool pivot_inner_joins, EndCap end_cap, float miter_limit) const;
 
     static Point deltaFromLine(const Point& point, const Point& line_from, const Point& line_to) {
       if (line_from == line_to)
@@ -597,13 +598,15 @@ namespace visage {
       path.tangents.resize(path.points.size());
       path.tangents[start_index].out = start;
       path.tangents[end_index].in = end;
+      for (int i = start_index + 1; i < end_index; ++i)
+        path.tangents[i].smooth = true;
     }
 
     static void reverseSubPath(SubPath& path) {
       std::reverse(path.points.begin(), path.points.end());
       std::reverse(path.tangents.begin(), path.tangents.end());
       for (auto& tangents : path.tangents)
-        tangents = { -tangents.out, -tangents.in };
+        tangents = { -tangents.out, -tangents.in, tangents.smooth };
     }
 
     void startNewPath() {

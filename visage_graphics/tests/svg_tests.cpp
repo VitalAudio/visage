@@ -747,6 +747,19 @@ TEST_CASE("Svg malformed tags", "[graphics]") {
   }
 }
 
+TEST_CASE("Svg strokes wider than their shape", "[graphics]") {
+  REQUIRE(renderSvgCenter(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" stroke="red" stroke-width="30" fill="none"/></svg>)svg")
+              .hexRed() == 0xff);
+  REQUIRE(renderSvgCenter(R"svg(<svg viewBox="0 0 40 40"><path d="M26 20 L23 25.1962 L17 25.1962 L14 20 L17 14.8038 L23 14.8038 Z" stroke="red" stroke-width="17" fill="none"/></svg>)svg")
+              .hexRed() == 0xff);
+  REQUIRE(renderSvgCenter(R"svg(<svg viewBox="0 0 20 20"><rect x="7" y="7" width="6" height="6" rx="2" stroke="red" stroke-width="10" fill="none"/></svg>)svg")
+              .hexRed() == 0x00);
+  REQUIRE(renderSvgCenter(R"svg(<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="3" stroke="red" stroke-width="10" fill="none"/></svg>)svg")
+              .hexRed() == 0x00);
+  REQUIRE(renderSvgCenter(R"svg(<svg viewBox="0 0 20 20"><rect x="4" y="4" width="12" height="12" stroke="red" stroke-width="2" fill="none"/></svg>)svg")
+              .hexRed() == 0x00);
+}
+
 TEST_CASE("Svg attribute character references", "[graphics]") {
   Svg numeric = parseSvg(R"svg(<svg viewBox="0 0 10 10"><path d="M&#x20;1&#x20;1&#32;L&#32;9&#x9;9z" stroke="red"/></svg>)svg");
   REQUIRE(numeric.drawable()->post_bounding_box.width() == Catch::Approx(8.0f).margin(1.0f));
