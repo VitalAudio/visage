@@ -37,6 +37,7 @@ namespace visage {
     }
     virtual void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) { }
     virtual bool appliedInPlace() const { return false; }
+    virtual BlendMode state() const { return BlendMode::Alpha; }
     void submitPassthrough(const BatchVector<SampleRegion>& batches, const Layer& destination,
                            int submit_pass) const;
     bool hdr() const { return hdr_; }
@@ -129,7 +130,7 @@ namespace visage {
 
     void submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) override;
 
-    BlendMode state() const { return state_; }
+    BlendMode state() const override { return state_; }
     void setState(BlendMode state) { state_ = state; }
 
     const EmbeddedFile& vertexShader() const { return vertex_shader_; }
