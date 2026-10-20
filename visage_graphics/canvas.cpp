@@ -78,11 +78,12 @@ namespace visage {
   }
 
   int Canvas::submit(int submit_pass) {
+    for (int i = 1; i < layers_.size(); ++i)
+      layers_[i]->updateHdr(*layers_[i - 1]);
+
     int backdrop_count = window_region_.computeBackdropCount();
     int submission = path_atlas_.updatePaths(submit_pass);
 
-    for (int i = 1; i < layers_.size(); ++i)
-      layers_[i]->matchMaskGroupsToHdr(*layers_[i - 1]);
     for (int i = 2; i < layers_.size(); ++i)
       layers_[i]->invalidateBackdropsIfAllInvalidated();
     for (int i = 2; i < layers_.size(); ++i) {

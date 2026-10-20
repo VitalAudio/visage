@@ -511,20 +511,29 @@ namespace visage {
     return submit_pass;
   }
 
-  void Layer::matchMaskGroupsToHdr(const Layer& destination) {
-    if (hdr_ || !destination.hdr())
-      return;
-
-    if (std::any_of(regions_.begin(), regions_.end(),
-                    [](const Region* region) { return region->maskedRegion(); }))
-      setHdr(true);
+  void Layer::addRegion(Region* region) {
+    regions_.push_back(region);
   }
 
-  void Layer::addRegion(Region* region) {
-    if (!hdr_ && region->postEffect() && region->postEffect()->hdr())
-      setHdr(true);
+  void Layer::updateHdr(const Layer& destination) {
+    bool hdr = false;
+    for (const Region* region : regions_) {
+      PostEffect* post_effect = region->postEffect();
+      if (post_effect && post_effect->hdr())
+        hdr = true;
+    }
 
-    regions_.push_back(region);
+    if (!hdr && destination.hdr() &&
+        std::any_of(regions_.begin(), regions_.end(),
+                    [](const Region* region) { return region->maskedRegion(); }))
+      hdr = true;
+
+    if (hdr == hdr_)
+      return;
+
+    setHdr(hdr);
+    for (Region* region : regions_)
+      region->invalidate();
   }
 
   void Layer::addPackedRegion(Region* region) {
