@@ -1429,6 +1429,238 @@ TEST_CASE("Alpha transparency applies to children", "[integration]") {
   REQUIRE(app.takeScreenshot().data()[0] <= 0x41);
 }
 
+TEST_CASE("Frame opacity applies after its post effect", "[integration]") {
+  ApplicationEditor app;
+  Frame frame;
+  ShaderPostEffect opaque(test_shaders::vs_test_post_effect, test_shaders::fs_test_opaque);
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill();
+  };
+  frame.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    canvas.fill();
+  };
+
+  frame.setBounds(0, 0, 20, 20);
+  frame.setPostEffect(&opaque);
+  frame.setAlphaTransparency(0.5f);
+  app.addChild(frame);
+  app.setWindowless(20, 20);
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == Approx(0x80).margin(1));
+
+  frame.setAlphaTransparency(0.25f);
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == Approx(0x40).margin(1));
+
+  frame.setAlphaTransparency(1.0f);
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == 0xff);
+
+  frame.setAlphaTransparency(0.5f);
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == Approx(0x80).margin(1));
+
+  frame.removePostEffect();
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == Approx(0x80).margin(1));
+
+  frame.setPostEffect(&opaque);
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == Approx(0x80).margin(1));
+}
+
+TEST_CASE("Translucent frames keep their shader effect's own blend state", "[integration]") {
+  ApplicationEditor app;
+  Frame frame;
+  ShaderPostEffect opaque(test_shaders::vs_test_post_effect, test_shaders::fs_test_opaque);
+  app.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff202020);
+    canvas.fill();
+  };
+  frame.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xff808080);
+    canvas.fill();
+  };
+
+  frame.setBounds(0, 0, 20, 20);
+  frame.setPostEffect(&opaque);
+  frame.setAlphaTransparency(0.5f);
+  app.addChild(frame);
+  app.setWindowless(20, 20);
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == Approx(0x50).margin(1));
+
+  opaque.setState(BlendMode::Add);
+  frame.redraw();
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == Approx(0xa0).margin(1));
+
+  opaque.setState(BlendMode::Alpha);
+  frame.redraw();
+  app.drawWindow();
+  REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == Approx(0x50).margin(1));
+}
+
+TEST_CASE("Fading or masking a drawn bloom frame keeps its sibling's glow", "[integration]") {
+  for (bool mask : { false, true }) {
+    ApplicationEditor app;
+    Frame a;
+    Frame b;
+    BloomPostEffect bloom_a;
+    BloomPostEffect bloom_b;
+    for (BloomPostEffect* bloom : { &bloom_a, &bloom_b }) {
+      bloom->setBloomSize(8.0f);
+      bloom->setBloomIntensity(0.4f);
+    }
+    app.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0xff304050);
+      canvas.fill();
+    };
+    auto draw = [](Canvas& canvas) {
+      canvas.setColor(Color(0xffffe0a0, 2.5f));
+      canvas.fill(20, 14, 12, 12);
+    };
+    a.onDraw() = draw;
+    b.onDraw() = draw;
+    a.setPostEffect(&bloom_a);
+    b.setPostEffect(&bloom_b);
+    a.setBounds(0, 0, 56, 40);
+    b.setBounds(60, 0, 56, 40);
+    app.addChild(a);
+    app.addChild(b);
+    app.setWindowless(120, 40);
+    app.drawWindow();
+    Screenshot before = app.takeScreenshot();
+
+    if (mask) {
+      a.onDrawMask() = [](Canvas& canvas) {
+        canvas.setColor(0xffffffff);
+        canvas.fill();
+      };
+    }
+    else {
+      a.setAlphaTransparency(0.5f);
+      app.drawWindow();
+      a.setAlphaTransparency(1.0f);
+    }
+    app.drawWindow();
+    INFO("mask " << mask);
+    REQUIRE(app.takeScreenshot().sample(94, 20).hexRed() == before.sample(94, 20).hexRed());
+  }
+}
+
+TEST_CASE("Fading a drawn shader frame leaves its parent's layer alone", "[integration]") {
+  ApplicationEditor app;
+  Frame frame;
+  ShaderPostEffect opaque(test_shaders::vs_test_post_effect, test_shaders::fs_test_opaque);
+  app.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(0xff304050);
+    canvas.fill();
+  };
+  frame.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(0xffc06040);
+    canvas.fill();
+  };
+  frame.setPostEffect(&opaque);
+  frame.setBounds(0, 0, 56, 40);
+  app.addChild(frame);
+  app.setWindowless(120, 40);
+  app.drawWindow();
+
+  Layer* layer = app.region()->layer();
+  int width = layer->width();
+  int height = layer->height();
+  frame.setAlphaTransparency(0.5f);
+  app.drawWindow();
+  frame.setAlphaTransparency(1.0f);
+  app.drawWindow();
+  REQUIRE(layer->width() == width);
+  REQUIRE(layer->height() == height);
+}
+
+TEST_CASE("Translucent bloom frames don't change with their siblings", "[integration]") {
+  auto render = [](bool sibling) {
+    ApplicationEditor app;
+    Frame a;
+    Frame b;
+    BloomPostEffect bloom_a;
+    BloomPostEffect bloom_b;
+    auto draw = [](Canvas& canvas) {
+      canvas.setColor(Color(0xffffe0a0, 2.5f));
+      canvas.fill(20, 14, 12, 12);
+    };
+    app.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0xff304050);
+      canvas.fill();
+    };
+    a.onDraw() = draw;
+    b.onDraw() = draw;
+    bloom_a.setBloomSize(8.0f);
+    bloom_a.setBloomIntensity(0.4f);
+    a.setPostEffect(&bloom_a);
+    b.setPostEffect(&bloom_b);
+    a.setAlphaTransparency(0.5f);
+    a.setBounds(0, 0, 56, 40);
+    b.setBounds(60, 0, 56, 40);
+    app.addChild(a);
+    if (sibling)
+      app.addChild(b);
+    app.setWindowless(120, 40);
+    app.drawWindow();
+    return app.takeScreenshot();
+  };
+
+  Screenshot alone = render(false);
+  Screenshot with_sibling = render(true);
+  REQUIRE(with_sibling.sample(34, 20).hexRed() == alone.sample(34, 20).hexRed());
+  REQUIRE(with_sibling.sample(26, 20).hexBlue() == alone.sample(26, 20).hexBlue());
+}
+
+TEST_CASE("Fading a shader frame inside a bloom frame keeps its glow", "[integration]") {
+  ApplicationEditor app;
+  Frame bloom_frame;
+  Frame shader_frame;
+  BloomPostEffect bloom;
+  bloom.setBloomSize(8.0f);
+  bloom.setBloomIntensity(0.4f);
+  ShaderPostEffect shader(test_shaders::vs_test_post_effect, test_shaders::fs_test_color_mult);
+  app.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(0xff304050);
+    canvas.fill();
+  };
+  shader_frame.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(0xffc06040);
+    canvas.fill(0, 0, 30, 40);
+    canvas.setColor(Color(0xffffe0a0, 2.0f));
+    canvas.fill(20, 14, 12, 12);
+  };
+  shader_frame.setPostEffect(&shader);
+  bloom_frame.setPostEffect(&bloom);
+  bloom_frame.setBounds(0, 0, 56, 40);
+  shader_frame.setBounds(0, 0, 56, 40);
+  bloom_frame.addChild(shader_frame);
+  app.addChild(bloom_frame);
+  app.setWindowless(56, 40);
+  app.drawWindow();
+  Screenshot before = app.takeScreenshot();
+
+  shader_frame.setAlphaTransparency(0.5f);
+  app.drawWindow();
+  shader_frame.setAlphaTransparency(1.0f);
+  app.drawWindow();
+  const Screenshot& after = app.takeScreenshot();
+  for (int y = 0; y < 40; ++y) {
+    for (int x = 0; x < 56; ++x) {
+      INFO("x " << x << " y " << y);
+      REQUIRE(after.sample(x, y).hexRed() == Approx(before.sample(x, y).hexRed()).margin(1));
+      REQUIRE(after.sample(x, y).hexGreen() == Approx(before.sample(x, y).hexGreen()).margin(1));
+      REQUIRE(after.sample(x, y).hexBlue() == Approx(before.sample(x, y).hexBlue()).margin(1));
+    }
+  }
+}
+
 static Screenshot svgFrameScreenshot(const std::string& data) {
   ApplicationEditor app;
   SvgFrame frame;
