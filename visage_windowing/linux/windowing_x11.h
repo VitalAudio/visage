@@ -264,7 +264,7 @@ namespace visage {
 
     void runEventLoop() override;
     void processPluginFdEvents() override;
-    void processMessageWindowEvent(XEvent& event);
+    static void processMessageWindowEvent(X11Connection* x11, XEvent& event);
     void processEvent(XEvent& event);
 
     void* nativeHandle() const override { return (void*)window_handle_; }
