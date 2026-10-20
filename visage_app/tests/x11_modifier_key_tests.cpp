@@ -188,4 +188,61 @@ TEST_CASE("X11 windows send a key press before the text it types", "[integration
   CHECK(search.text() == "/");
 }
 
+TEST_CASE("X11 windows don't type text for Ctrl and Super shortcuts", "[integration]") {
+  if (!hasDisplay()) {
+    SUCCEED("No X display");
+    return;
+  }
+
+  ApplicationWindow app;
+  TextEditor editor;
+  app.setFlexLayout(true);
+  editor.layout().setFlexGrow(1.0f);
+  app.addChild(editor);
+  app.show(Dimension::nativePixels(100), Dimension::nativePixels(80));
+  editor.requestKeyboardFocus();
+
+  Display* display = XOpenDisplay(nullptr);
+  REQUIRE(display);
+  ::Window window = (::Window)app.window()->nativeHandle();
+  auto type = [&](KeySym keysym, unsigned int state) {
+    for (int type : { KeyPress, KeyRelease }) {
+      XEvent event = {};
+      event.xkey.type = type;
+      event.xkey.display = display;
+      event.xkey.window = window;
+      event.xkey.root = DefaultRootWindow(display);
+      event.xkey.keycode = XKeysymToKeycode(display, keysym);
+      event.xkey.state = state;
+      event.xkey.same_screen = True;
+      XSendEvent(display, window, False, type == KeyPress ? KeyPressMask : KeyReleaseMask, &event);
+    }
+    XFlush(display);
+  };
+
+  Steps steps({ [&] {
+                 type(XK_a, 0);
+                 for (KeySym keysym :
+                      { XK_1, XK_9, XK_0, XK_equal, XK_minus, XK_comma, XK_period, XK_semicolon })
+                   type(keysym, ControlMask);
+                 for (KeySym keysym : { XK_1, XK_equal, XK_comma })
+                   type(keysym, ControlMask | ShiftMask);
+                 type(XK_1, Mod4Mask);
+                 type(XK_1, ShiftMask);
+                 type(XK_2, Mod5Mask);
+                 type(XK_b, 0);
+                 return true;
+               },
+                [&, ticks = 0]() mutable { return editor.text().length() >= 4 || ++ticks > 100; },
+                [&, ticks = 0]() mutable { return ++ticks > 5; },
+                [&] {
+                  app.close();
+                  return true;
+                } });
+  app.runEventLoop();
+  XCloseDisplay(display);
+
+  CHECK(editor.text() == "a!2b");
+}
+
 #endif
