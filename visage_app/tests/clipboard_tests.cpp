@@ -181,7 +181,7 @@ namespace {
   }
 }
 
-TEST_CASE("X11 plugin windows serve clipboard requests", "[integration][clipboard]") {
+TEST_CASE("X11 plugin windows serve clipboard requests", "[integration][x11_selection]") {
   const char* display_name = std::getenv("DISPLAY");
   if (display_name == nullptr || display_name[0] == 0) {
     SUCCEED("No X display");
@@ -230,7 +230,7 @@ TEST_CASE("X11 plugin windows serve clipboard requests", "[integration][clipboar
 }
 
 TEST_CASE("X11 clipboard moves to another plugin window when its owner closes",
-          "[integration][clipboard]") {
+          "[integration][x11_selection]") {
   const char* display_name = std::getenv("DISPLAY");
   if (display_name == nullptr || display_name[0] == 0) {
     SUCCEED("No X display");
@@ -282,7 +282,7 @@ TEST_CASE("X11 clipboard moves to another plugin window when its owner closes",
   XCloseDisplay(host);
 }
 
-TEST_CASE("X11 clipboard reads text sent in INCR chunks", "[integration][clipboard]") {
+TEST_CASE("X11 clipboard reads text sent in INCR chunks", "[integration][x11_selection]") {
   if (!hasDisplay()) {
     SUCCEED("No X display");
     return;
@@ -300,7 +300,7 @@ TEST_CASE("X11 clipboard reads text sent in INCR chunks", "[integration][clipboa
   REQUIRE((result == text));
 }
 
-TEST_CASE("X11 clipboard falls back to Latin-1 STRING", "[integration][clipboard]") {
+TEST_CASE("X11 clipboard falls back to Latin-1 STRING", "[integration][x11_selection]") {
   if (!hasDisplay()) {
     SUCCEED("No X display");
     return;
@@ -310,7 +310,7 @@ TEST_CASE("X11 clipboard falls back to Latin-1 STRING", "[integration][clipboard
   REQUIRE(readClipboardFrom(owner) == "caf\xc3\xa9");
 }
 
-TEST_CASE("X11 drops read file lists sent in INCR chunks", "[integration]") {
+TEST_CASE("X11 drops read file lists sent in INCR chunks", "[integration][x11_selection]") {
   if (!hasDisplay()) {
     SUCCEED("No X display");
     return;
