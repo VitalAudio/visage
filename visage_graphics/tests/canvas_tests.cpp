@@ -1991,6 +1991,31 @@ TEST_CASE("Over a hundred bloom regions all glow in their own color", "[graphics
   }
 }
 
+TEST_CASE("Graph fill with a single point has a sharp top edge", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(120, 80);
+  GraphData data(1);
+  data[0] = 0.5f;
+  canvas.setColor(0xffffffff);
+  canvas.graphFill(data, 3, 2, 97, 71, 1.0f);
+  canvas.graphLine(data, 3, 2, 97, 71, 1.5f);
+  canvas.submit();
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  for (int x : { 10, 50, 90 }) {
+    INFO("x " << x);
+    int partial = 0;
+    for (int y = 0; y < 80; ++y) {
+      int red = screenshot.sample(x, y).hexRed();
+      if (red > 8 && red < 247)
+        ++partial;
+    }
+    REQUIRE(partial <= 2);
+    REQUIRE(screenshot.sample(x, 10).hexRed() == 0);
+    REQUIRE(screenshot.sample(x, 70).hexRed() == 0xff);
+  }
+}
+
 TEST_CASE("Blur resized every frame doesn't pile up frame buffers", "[graphics]") {
   static constexpr int kFrames = 400;
 

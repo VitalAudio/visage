@@ -26,11 +26,12 @@ void main() {
   vec2 percent = v_coordinates * 0.5 + vec2(0.5, 0.5);
   vec2 pos = percent * v_dimensions;
 
-  vec2 sample_pos = start_data + vec2(u_atlas_scale.x * percent.x * resolution, 0.0);
-  float line_y1 = v_dimensions.y * texture2D(s_texture, sample_pos + vec2(-0.0001, 0.0)).r;
-  float line_y2 = v_dimensions.y * texture2D(s_texture, sample_pos + vec2(0.0001, 0.0)).r;
-  float line_y = 0.5 * (line_y1 + line_y2);
-  float adjust = abs(line_y1 - line_y2) / (v_dimensions.x * 0.0002);
+  float index = percent.x * resolution;
+  float index0 = floor(index);
+  float value0 = texture2D(s_texture, start_data + vec2(u_atlas_scale.x * index0, 0.0)).r;
+  float value1 = texture2D(s_texture, start_data + vec2(u_atlas_scale.x * min(index0 + 1.0, resolution), 0.0)).r;
+  float line_y = v_dimensions.y * mix(value0, value1, index - index0);
+  float adjust = v_dimensions.y * abs(value1 - value0) / (u_atlas_scale.x * v_dimensions.x);
   float fade = sqrt(1.0 + adjust * adjust);
 
   float mult = sign(pos.y - center_y);
