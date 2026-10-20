@@ -97,8 +97,6 @@ namespace visage {
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
     setUniformDimensions(destination.width(), destination.height());
-    float value = hdrConversion(*source_layer, destination);
-    setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(destination.bottomLeftOrigin());
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                           SampleRegion::fragmentShader()));
@@ -266,18 +264,16 @@ namespace visage {
         vertices[i].v = texture_v(y);
       }
 
-      float color = hdrConversion(*layer, *source->layer());
       setBlendMode(BlendMode::Alpha);
       setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(layer->frameBuffer()));
       setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
-      setPostEffectUniform<Uniforms::kMult>(color, color, color, 1.0f);
       bgfx::setVertexBuffer(0, &vertex_buffer);
       bgfx::setIndexBuffer(index_buffer);
 
       bgfx::setViewFrameBuffer(submit_pass, destination);
       bgfx::setViewRect(submit_pass, 0, 0, target.width(), target.height());
       bgfx::setViewClear(submit_pass, BGFX_CLEAR_NONE);
-      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_mult));
+      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
       submit_pass++;
     }
     return submit_pass;
@@ -461,9 +457,6 @@ namespace visage {
 
     setTexturePositions(batches, quads.vertices, 0);
     setUniformDimensions(destination.width(), destination.height());
-
-    float value = hdrConversion(*region_->layer(), destination);
-    setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(false);
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                           SampleRegion::fragmentShader()));
@@ -476,7 +469,6 @@ namespace visage {
   int BloomPostEffect::preprocess(Region* region, int submit_pass) {
     checkBuffers(region);
 
-    float hdr_range = hdr() ? kHdrColorRange : 1.0f;
     float stages = std::max(std::floor(bloom_size_) + 0.99f, 0.0f);
     stages = std::max(1.0f, std::min(stages, kMaxDownsamples + 0.99f));
     downsamples_ = stages;
@@ -498,10 +490,8 @@ namespace visage {
     bgfx::setIndexBuffer(screenBuffers().index_buffer);
     bgfx::setViewFrameBuffer(submit_pass, levels[1]);
     bgfx::setViewRect(submit_pass, 0, 0, widths_[1], heights_[1]);
-    float mult_val = hdr_range * bloom_intensity_;
-    setPostEffectUniform<Uniforms::kMult>(mult_val, mult_val, mult_val, 1.0f);
-    float hdr_mult = hdr() ? kHdrColorMultiplier : 1.0f;
-    setPostEffectUniform<Uniforms::kThreshold>(hdr_mult);
+    setPostEffectUniform<Uniforms::kMult>(bloom_intensity_, bloom_intensity_, bloom_intensity_, 1.0f);
+    setPostEffectUniform<Uniforms::kThreshold>(1.0f);
 
     bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_mult_threshold));
     submit_pass++;
@@ -603,6 +593,7 @@ namespace visage {
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
     float mult = bloom_intensity_ * Color::kGradientNormalization;
     setPostEffectUniform<Uniforms::kColorMult>(mult, mult, mult, 1.0f);
+    setAlphaClamp(destination);
     setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
     setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(handles_->result));
     setUniformDimensions(destination.width(), destination.height());
@@ -625,8 +616,7 @@ namespace visage {
     float height_scale = 1.0f / source_layer->height();
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
     setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
-    float value = hdrConversion(*source_layer, destination);
-    setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
+    setPostEffectUniform<Uniforms::kColorMult>(1.0f, 1.0f, 1.0f, 1.0f);
     setOriginFlipUniform(destination.bottomLeftOrigin());
 
     float min_x = (std::min(quads.vertices[0].texture_x, quads.vertices[3].texture_x) + 0.5f) * width_scale;

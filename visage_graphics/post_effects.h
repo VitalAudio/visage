@@ -40,12 +40,9 @@ namespace visage {
     void submitPassthrough(const BatchVector<SampleRegion>& batches, const Layer& destination,
                            int submit_pass) const;
     bool hdr() const { return hdr_; }
-    void setTranslucent(bool translucent) { translucent_ = translucent; }
-    bool translucent() const { return translucent_; }
 
   private:
     bool hdr_ = false;
-    bool translucent_ = false;
   };
 
   struct DownsampleHandles;

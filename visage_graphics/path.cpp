@@ -23,16 +23,13 @@
 
 #include "embedded/shaders.h"
 #include "graphics_caches.h"
+#include "renderer.h"
 #include "shape_batcher.h"
 #include "uniforms.h"
 
 #include <bgfx/bgfx.h>
 #include <complex>
 #include <memory>
-
-#if VISAGE_EMSCRIPTEN
-#include <emscripten/html5.h>
-#endif
 
 namespace visage {
   static float toFloat(const std::string& str) {
@@ -799,19 +796,9 @@ namespace visage {
   }
 
   static bgfx::TextureFormat::Enum atlasFormat() {
-#if VISAGE_EMSCRIPTEN
-    static const bool float_blending = [] {
-      EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context = emscripten_webgl_get_current_context();
-      return emscripten_webgl_enable_extension(context, "EXT_color_buffer_float") &&
-             emscripten_webgl_enable_extension(context, "EXT_float_blend");
-    }();
-    return float_blending ? bgfx::TextureFormat::R32F : bgfx::TextureFormat::R16F;
-#else
-    constexpr uint64_t kRequired = BGFX_CAPS_FORMAT_TEXTURE_2D | BGFX_CAPS_FORMAT_TEXTURE_FRAMEBUFFER;
-    if ((bgfx::getCaps()->formats[bgfx::TextureFormat::R32F] & kRequired) == kRequired)
+    if (Renderer::instance().float32BlendSupported())
       return bgfx::TextureFormat::R32F;
     return bgfx::TextureFormat::R16F;
-#endif
   }
 
   struct PathAtlasTexture {
