@@ -150,15 +150,11 @@ TEST_CASE("X11 windows release the display lock before calling the app",
       XSendEvent(display, event.xmotion.window, False, PointerMotionMask, &event);
       XFlush(display);
     };
+    int attempts = 0;
     Steps steps({ [&] {
-                   move(10, 10);
-                   return true;
+                   move(10 + attempts % 20, 20);
+                   return !unlocked.empty() || ++attempts > 250;
                  },
-                  [&] {
-                    move(20, 20);
-                    return true;
-                  },
-                  [&] { return !unlocked.empty(); },
                   [&] {
                     app.close();
                     return true;
