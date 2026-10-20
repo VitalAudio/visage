@@ -56,7 +56,8 @@ namespace visage {
     void checkHandle() {
       if (!bgfx::isValid(texture_handle_)) {
         if (data_type_ == ImageAtlas::DataType::Float32)
-          texture_handle_ = bgfx::createTexture2D(width_, height_, false, 1, bgfx::TextureFormat::R32F);
+          texture_handle_ = bgfx::createTexture2D(width_, height_, false, 1, bgfx::TextureFormat::R32F,
+                                                  BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT);
         else
           texture_handle_ = bgfx::createTexture2D(width_, height_, false, 1, bgfx::TextureFormat::RGBA8);
       }
