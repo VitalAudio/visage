@@ -124,15 +124,15 @@ namespace visage {
     setUniform<Uniforms::kBounds>(view_bounds);
   }
 
-  inline void setColorMult(bool hdr) {
-    float value = (hdr ? kHdrColorMultiplier : 1.0f) * Color::kGradientNormalization;
-    setUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
+  void setAlphaClamp(const Layer& layer) {
+    bool hdr = layer.frameBufferFormat() == bgfx::TextureFormat::RGBA16F;
+    setUniform<Uniforms::kAlphaClamp>(hdr ? 0.0f : 1.0f);
   }
 
-  float hdrConversion(const Layer& source, const Layer& destination) {
-    float source_scale = source.hdr() ? kHdrColorMultiplier : 1.0f;
-    float destination_scale = destination.hdr() ? kHdrColorMultiplier : 1.0f;
-    return destination_scale / source_scale;
+  inline void setColorMult(const Layer& layer) {
+    float value = Color::kGradientNormalization;
+    setUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
+    setAlphaClamp(layer);
   }
 
   void setOriginFlipUniform(bool origin_flip) {
@@ -175,7 +175,7 @@ namespace visage {
                     const EmbeddedFile& fragment_shader, bool radial_gradient, int submit_pass) {
     setTimeUniform(layer.time());
     setUniformDimensions(layer.width(), layer.height());
-    setColorMult(layer.hdr());
+    setColorMult(layer);
     setOriginFlipUniform(layer.bottomLeftOrigin());
     GradientAtlas* gradient_atlas = layer.gradientAtlas();
     setUniform<Uniforms::kRadialGradient>(radial_gradient ? 1.0f : 0.0f);
@@ -374,7 +374,7 @@ namespace visage {
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
     setTexture<Uniforms::kTexture>(1, font.textureHandle());
     setUniformDimensions(layer.width(), layer.height());
-    setColorMult(layer.hdr());
+    setColorMult(layer);
     setUniform<Uniforms::kRadialGradient>(batches[0].shapes->front().radialGradient() ? 1.0f : 0.0f);
     submitBlended(blend_mode, submit_pass,
                   ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_text));
@@ -390,7 +390,7 @@ namespace visage {
     setTimeUniform(layer.time());
     setUniformDimensions(layer.width(), layer.height());
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
-    setColorMult(layer.hdr());
+    setColorMult(layer);
     setOriginFlipUniform(layer.bottomLeftOrigin());
     submitBlended(shader->state(), submit_pass,
                   ProgramCache::programHandle(shader->vertexShader(), shader->fragmentShader()));
@@ -410,8 +410,6 @@ namespace visage {
 
     setTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
     setUniformDimensions(layer.width(), layer.height());
-    float value = hdrConversion(*source_layer, layer);
-    setUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(layer.bottomLeftOrigin());
     submitBlended(blend_mode, submit_pass,
                   ProgramCache::programHandle(SampleRegion::vertexShader(),

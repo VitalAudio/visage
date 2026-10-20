@@ -1210,6 +1210,52 @@ TEST_CASE("Luminance frame mask applies to a bloom frame's output", "[integratio
   REQUIRE(screenshot.sample(50, 10).hexRed() == 0x00);
 }
 
+TEST_CASE("Luminance frame mask keeps its strength next to a bloom frame", "[integration]") {
+  auto render = [](bool bloom_neighbor) {
+    ApplicationEditor app;
+    Frame masked;
+    Frame neighbor;
+    BloomPostEffect bloom;
+    bloom.setBloomIntensity(0.0f);
+    app.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0xff000000);
+      canvas.fill();
+    };
+    masked.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0xffffffff);
+      canvas.fill();
+    };
+    masked.setMaskType(MaskType::Luminance);
+    masked.onDrawMask() = [](Canvas& canvas) {
+      canvas.setColor(0xffffffff);
+      canvas.fill(0, 0, 20, 20);
+      canvas.setColor(0xff808080);
+      canvas.fill(20, 0, 20, 20);
+    };
+    neighbor.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0xff000000);
+      canvas.fill();
+    };
+    if (bloom_neighbor)
+      neighbor.setPostEffect(&bloom);
+
+    masked.setBounds(0, 0, 40, 20);
+    neighbor.setBounds(60, 0, 20, 20);
+    app.addChild(masked);
+    app.addChild(neighbor);
+    app.setWindowless(80, 20);
+    app.drawWindow();
+    return app.takeScreenshot();
+  };
+
+  Screenshot alone = render(false);
+  Screenshot next_to_bloom = render(true);
+  REQUIRE(alone.sample(10, 10).hexRed() == Approx(0xff).margin(2));
+  REQUIRE(alone.sample(30, 10).hexRed() == Approx(0x80).margin(2));
+  REQUIRE(next_to_bloom.sample(10, 10).hexRed() == Approx(0xff).margin(2));
+  REQUIRE(next_to_bloom.sample(30, 10).hexRed() == Approx(0x80).margin(2));
+}
+
 TEST_CASE("Masked frames blur what's behind them with their own backdrop effect", "[integration]") {
   auto render = [](int mask_corner) {
     ApplicationEditor app;
@@ -1262,18 +1308,16 @@ TEST_CASE("A full mask keeps a frame's HDR output for an outer bloom", "[integra
     kBloom,
     kShader
   };
-  auto render = [](bool outer_translucent, Inner inner_kind, bool masked) {
+  auto render = [](Inner inner_kind, bool masked) {
     ApplicationEditor app;
     Frame outer;
     Frame inner;
     BloomPostEffect outer_bloom;
     outer_bloom.setBloomSize(10.0f);
     outer_bloom.setBloomIntensity(0.8f);
-    outer_bloom.setTranslucent(outer_translucent);
     BloomPostEffect inner_bloom;
     inner_bloom.setBloomSize(6.0f);
     inner_bloom.setBloomIntensity(0.5f);
-    inner_bloom.setTranslucent(true);
     ShaderPostEffect shader(test_shaders::vs_test_post_effect, test_shaders::fs_test_opaque);
     app.onDraw() = [](Canvas& canvas) {
       for (int x = 0; x < kWidth; x += 8) {
@@ -1312,18 +1356,15 @@ TEST_CASE("A full mask keeps a frame's HDR output for an outer bloom", "[integra
     return app.takeScreenshot();
   };
 
-  for (bool outer_translucent : { true, false }) {
-    for (Inner inner_kind : { kPlain, kBloom, kShader }) {
-      Screenshot unmasked = render(outer_translucent, inner_kind, false);
-      Screenshot masked = render(outer_translucent, inner_kind, true);
-      for (int y = 1; y < kHeight; y += 2) {
-        for (int x = 1; x < kWidth; x += 2) {
-          INFO("outer translucent " << outer_translucent << " inner " << inner_kind << " x " << x
-                                    << " y " << y);
-          REQUIRE(masked.sample(x, y).hexRed() == Approx(unmasked.sample(x, y).hexRed()).margin(2));
-          REQUIRE(masked.sample(x, y).hexGreen() == Approx(unmasked.sample(x, y).hexGreen()).margin(2));
-          REQUIRE(masked.sample(x, y).hexBlue() == Approx(unmasked.sample(x, y).hexBlue()).margin(2));
-        }
+  for (Inner inner_kind : { kPlain, kBloom, kShader }) {
+    Screenshot unmasked = render(inner_kind, false);
+    Screenshot masked = render(inner_kind, true);
+    for (int y = 1; y < kHeight; y += 2) {
+      for (int x = 1; x < kWidth; x += 2) {
+        INFO("inner " << inner_kind << " x " << x << " y " << y);
+        REQUIRE(masked.sample(x, y).hexRed() == Approx(unmasked.sample(x, y).hexRed()).margin(2));
+        REQUIRE(masked.sample(x, y).hexGreen() == Approx(unmasked.sample(x, y).hexGreen()).margin(2));
+        REQUIRE(masked.sample(x, y).hexBlue() == Approx(unmasked.sample(x, y).hexBlue()).margin(2));
       }
     }
   }

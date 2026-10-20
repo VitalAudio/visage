@@ -56,13 +56,6 @@ namespace visage {
     return swap_chain;
   }
 
-  static bgfx::TextureFormat::Enum hdrFormat() {
-    static constexpr uint32_t kRequired = BGFX_CAPS_FORMAT_TEXTURE_2D | BGFX_CAPS_FORMAT_TEXTURE_FRAMEBUFFER;
-    if ((bgfx::getCaps()->formats[bgfx::TextureFormat::RGBA16F] & kRequired) == kRequired)
-      return bgfx::TextureFormat::RGBA16F;
-    return bgfx::TextureFormat::RGB10A2;
-  }
-
   struct RegionPosition {
     RegionPosition(Region* region, std::vector<IBounds> invalid_rects, int position, int x = 0, int y = 0) :
         region(region), invalid_rects(std::move(invalid_rects)), position(position), x(x), y(y) { }
@@ -202,11 +195,8 @@ namespace visage {
     if (bgfx::isValid(frame_buffer_data_->handle))
       return;
 
-    if (hdr_)
-      frame_buffer_data_->format = translucent_ && !window_handle_ ? hdrFormat() :
-                                                                     bgfx::TextureFormat::RGB10A2;
-    else
-      frame_buffer_data_->format = bgfx::TextureFormat::RGBA8;
+    bool hdr = hdr_ && window_handle_ == nullptr && Renderer::instance().floatRenderTargetsSupported();
+    frame_buffer_data_->format = hdr ? bgfx::TextureFormat::RGBA16F : bgfx::TextureFormat::RGBA8;
 
     if (window_handle_)
       frame_buffer_data_->handle = bgfx::createFrameBuffer(swapChain(window_handle_, width_, height_,
@@ -527,16 +517,12 @@ namespace visage {
 
     if (std::any_of(regions_.begin(), regions_.end(),
                     [](const Region* region) { return region->maskedRegion(); }))
-      setHdr(true, true);
+      setHdr(true);
   }
 
   void Layer::addRegion(Region* region) {
-    PostEffect* post_effect = region->postEffect();
-    if (post_effect && post_effect->hdr()) {
-      bool translucent = translucent_ || post_effect->translucent();
-      if (!hdr_ || translucent != translucent_)
-        setHdr(true, translucent);
-    }
+    if (!hdr_ && region->postEffect() && region->postEffect()->hdr())
+      setHdr(true);
 
     regions_.push_back(region);
   }

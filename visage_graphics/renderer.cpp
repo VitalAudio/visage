@@ -27,6 +27,10 @@
 #include <bimg/bimg.h>
 #include <bx/allocator.h>
 
+#if VISAGE_EMSCRIPTEN
+#include <emscripten/html5_webgl.h>
+#endif
+
 namespace visage {
   class GraphicsCallbackHandler : public bgfx::CallbackI {
     void fatal(const char* file_path, uint16_t line, bgfx::Fatal::Enum _code, const char* error) override {
@@ -71,6 +75,17 @@ namespace visage {
     return 0;
 #endif
   }
+
+#if VISAGE_EMSCRIPTEN
+  static bool enableWebGlExtension(const char* name) {
+    return emscripten_webgl_enable_extension(emscripten_webgl_get_current_context(), name);
+  }
+#else
+  static bool renderTargetSupported(bgfx::TextureFormat::Enum format) {
+    static constexpr uint32_t kRequired = BGFX_CAPS_FORMAT_TEXTURE_2D | BGFX_CAPS_FORMAT_TEXTURE_FRAMEBUFFER;
+    return (bgfx::getCaps()->formats[format] & kRequired) == kRequired;
+  }
+#endif
 
   Renderer& Renderer::instance() {
     static Renderer renderer;
@@ -160,6 +175,16 @@ namespace visage {
     bgfx::init(bgfx_init);
     VISAGE_ASSERT(bgfx::getRendererType() == bgfx_init.type);
     swap_chain_supported_ = bgfx::getCaps()->supported & BGFX_CAPS_SWAP_CHAIN;
+
+#if VISAGE_EMSCRIPTEN
+    bool color_buffer_float = enableWebGlExtension("EXT_color_buffer_float");
+    float_render_targets_supported_ = color_buffer_float ||
+                                      enableWebGlExtension("EXT_color_buffer_half_float");
+    float32_blend_supported_ = color_buffer_float && enableWebGlExtension("EXT_float_blend");
+#else
+    float_render_targets_supported_ = renderTargetSupported(bgfx::TextureFormat::RGBA16F);
+    float32_blend_supported_ = renderTargetSupported(bgfx::TextureFormat::R32F);
+#endif
   }
 
   void Renderer::resetResolution(int width, int height) {

@@ -53,8 +53,6 @@ namespace visage {
     MaskMult,
   };
 
-  static constexpr float kHdrColorRange = 4.0f;
-  static constexpr float kHdrColorMultiplier = 1.0f / kHdrColorRange;
   static constexpr int kVerticesPerQuad = 4;
   static constexpr int kIndicesPerQuad = 6;
 
