@@ -253,6 +253,28 @@ TEST_CASE("Text editor undo history is limited", "[widgets]") {
   REQUIRE(undos == TextEditor::kMaxUndoHistory);
 }
 
+TEST_CASE("Text editor keeps undo and redo keys when there's nothing to undo or redo",
+          "[widgets]") {
+  TextEditor editor;
+  editor.processFocusChanged(true, false);
+  REQUIRE(editor.undo());
+  REQUIRE(editor.redo());
+  REQUIRE(editor.processKeyPress(KeyEvent(KeyCode::Z, kModifierRegCtrl | kModifierCmd, true)));
+  REQUIRE(editor.processKeyPress(KeyEvent(KeyCode::Z,
+                                          kModifierRegCtrl | kModifierCmd | kModifierShift, true)));
+  REQUIRE(editor.processKeyPress(KeyEvent(KeyCode::Y, kModifierRegCtrl | kModifierCmd, true)));
+  REQUIRE(editor.text().isEmpty());
+
+  editor.processTextInput("a");
+  REQUIRE(editor.processKeyPress(KeyEvent(KeyCode::Z, kModifierRegCtrl | kModifierCmd, true)));
+  REQUIRE(editor.text().isEmpty());
+  REQUIRE(editor.processKeyPress(KeyEvent(KeyCode::Z, kModifierRegCtrl | kModifierCmd, true)));
+  REQUIRE(editor.processKeyPress(KeyEvent(KeyCode::Y, kModifierRegCtrl | kModifierCmd, true)));
+  REQUIRE(editor.text() == "a");
+  REQUIRE(editor.processKeyPress(KeyEvent(KeyCode::Y, kModifierRegCtrl | kModifierCmd, true)));
+  REQUIRE(editor.text() == "a");
+}
+
 TEST_CASE("Text editor setText clears the undo history", "[widgets]") {
   TextEditor editor;
   editor.processTextInput("typed");
