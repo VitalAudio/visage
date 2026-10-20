@@ -670,6 +670,57 @@ TEST_CASE("Path fill coverage stays exact next to nearly straight corners", "[gr
   }
 }
 
+TEST_CASE("Path fill coverage stays exact with many overlapping even-odd contours", "[graphics]") {
+  static constexpr int kSize = 120;
+  static constexpr int kContours = 8;
+  static constexpr int kSides = 600;
+
+  std::vector<std::vector<Point>> polygons;
+  Path path;
+  for (int c = 0; c < kContours; ++c) {
+    Point center(60.0f + 16.5f * std::cos(c * 2.4f), 60.0f + 16.5f * std::sin(c * 2.4f));
+    float radius = 22.5f + 1.875f * c;
+    std::vector<Point> polygon;
+    for (int i = 0; i < kSides; ++i) {
+      float angle = i * 2.0f * kPi / kSides;
+      polygon.push_back(center + Point(std::cos(angle), std::sin(angle)) * radius);
+    }
+    path.moveTo(polygon[0]);
+    for (int i = 1; i < polygon.size(); ++i)
+      path.lineTo(polygon[i]);
+    path.close();
+    polygons.push_back(polygon);
+  }
+  path.setFillRule(Path::FillRule::EvenOdd);
+
+  Canvas canvas;
+  canvas.setWindowless(kSize, kSize);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, kSize, kSize);
+  canvas.setColor(0xffffffff);
+  canvas.fill(path, 0, 0, kSize, kSize);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  float max_error = 0.0f;
+  int worst_x = 0;
+  int worst_y = 0;
+  for (int y = 0; y < kSize; ++y) {
+    for (int x = 0; x < kSize; ++x) {
+      float winding = pixelCoverage(polygons, x, y);
+      float expected = 1.0f - std::abs(std::fmod(winding, 2.0f) - 1.0f);
+      float error = std::abs(screenshot.sample(x, y).hexRed() / 255.0f - expected);
+      if (error > max_error) {
+        max_error = error;
+        worst_x = x;
+        worst_y = y;
+      }
+    }
+  }
+
+  INFO("worst pixel " << worst_x << ", " << worst_y << ", error " << max_error * 255.0f);
+  REQUIRE(max_error < 0.02f);
+}
+
 TEST_CASE("Stroke joins at curve ends use the curve tangent", "[graphics]") {
   Path arc;
   arc.moveTo(0, 0);
