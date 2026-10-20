@@ -601,6 +601,20 @@ TEST_CASE("Recycled shape batches keep their shape type", "[graphics]") {
   REQUIRE(dynamic_cast<ShapeBatch<Rectangle>*>(batcher.batchAtIndex(0)) != nullptr);
 }
 
+TEST_CASE("Manual batching adds a new batch after the last one", "[graphics]") {
+  ShapeBatcher batcher;
+  batcher.setManualBatching(true);
+  batcher.addShape(Fill({}, nullptr, 0, 0, 10, 10));
+  batcher.addShape(Rectangle({}, nullptr, 0, 0, 10, 10));
+  batcher.addShape(Rectangle({}, nullptr, 20, 0, 10, 10));
+  batcher.addShape(Fill({}, nullptr, 0, 20, 10, 10));
+
+  REQUIRE(batcher.numBatches() == 3);
+  REQUIRE(dynamic_cast<ShapeBatch<Fill>*>(batcher.batchAtIndex(0)) != nullptr);
+  REQUIRE(dynamic_cast<ShapeBatch<Rectangle>*>(batcher.batchAtIndex(1)) != nullptr);
+  REQUIRE(dynamic_cast<ShapeBatch<Fill>*>(batcher.batchAtIndex(2)) != nullptr);
+}
+
 TEST_CASE("Windowless canvas resizes don't leak textures", "[graphics]") {
   Canvas canvas;
   auto screenshot = [&canvas](int size) {
