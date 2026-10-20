@@ -969,7 +969,6 @@ TEST_CASE("HDR layer edges ignore leftover GPU memory", "[graphics]") {
   Canvas canvas;
   canvas.setWindowless(128, 64);
   BloomPostEffect bloom;
-  bloom.setTranslucent(true);
   bloom.setBloomIntensity(0.0f);
   Region glowing;
   Region plain;
@@ -1499,14 +1498,13 @@ TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
   { BloomPostEffect bloom; }
 }
 
-TEST_CASE("Translucent bloom keeps the alpha of its content", "[graphics]") {
+TEST_CASE("Bloom keeps the alpha of its content", "[graphics]") {
   Canvas canvas;
   canvas.setWindowless(110, 10);
   canvas.setColor(0xffffffff);
   canvas.fill(0, 0, 110, 10);
   BloomPostEffect bloom;
   bloom.setBloomIntensity(0.0f);
-  bloom.setTranslucent(true);
   Region region;
   canvas.addRegion(&region);
   region.setNeedsLayer(true);
@@ -1526,36 +1524,35 @@ TEST_CASE("Translucent bloom keeps the alpha of its content", "[graphics]") {
     REQUIRE(screenshot.sample(i * 10 + 5, 5).hexRed() == Approx(255 * (1.0f - i / 10.0f)).margin(2));
 }
 
-TEST_CASE("Translucent bloom glows like opaque bloom", "[graphics]") {
+TEST_CASE("Nested bloom glows like top-level bloom", "[graphics]") {
   Canvas canvas;
   canvas.setWindowless(200, 100);
   canvas.setColor(0xff000000);
   canvas.fill(0, 0, 200, 100);
-  BloomPostEffect opaque_bloom;
-  BloomPostEffect translucent_bloom;
-  translucent_bloom.setTranslucent(true);
-  for (BloomPostEffect* bloom : { &opaque_bloom, &translucent_bloom }) {
+  BloomPostEffect top_bloom;
+  BloomPostEffect nested_bloom;
+  for (BloomPostEffect* bloom : { &top_bloom, &nested_bloom }) {
     bloom->setBloomSize(16.0f);
     bloom->setBloomIntensity(0.6f);
   }
-  Region opaque;
+  Region top;
   Region outer;
   Region inner;
-  Region translucent;
-  canvas.addRegion(&opaque);
+  Region nested;
+  canvas.addRegion(&top);
   canvas.addRegion(&outer);
   outer.addRegion(&inner);
-  inner.addRegion(&translucent);
-  for (Region* region : { &opaque, &outer, &inner, &translucent })
+  inner.addRegion(&nested);
+  for (Region* region : { &top, &outer, &inner, &nested })
     region->setNeedsLayer(true);
-  opaque.setPostEffect(&opaque_bloom);
-  translucent.setPostEffect(&translucent_bloom);
-  opaque.setBounds(0, 0, 100, 100);
+  top.setPostEffect(&top_bloom);
+  nested.setPostEffect(&nested_bloom);
+  top.setBounds(0, 0, 100, 100);
   outer.setBounds(100, 0, 100, 100);
   inner.setBounds(0, 0, 100, 100);
-  translucent.setBounds(0, 0, 100, 100);
+  nested.setBounds(0, 0, 100, 100);
 
-  for (Region* region : { &opaque, &translucent }) {
+  for (Region* region : { &top, &nested }) {
     canvas.beginRegion(region);
     canvas.setColor(Color(0xffff8040, 1.5f));
     canvas.circle(40, 40, 20);
@@ -1565,11 +1562,11 @@ TEST_CASE("Translucent bloom glows like opaque bloom", "[graphics]") {
   const Screenshot& screenshot = canvas.takeScreenshot();
   REQUIRE(screenshot.sample(62, 50).hexRed() > 0x40);
   for (int x : { 62, 70, 80 }) {
-    Color opaque_glow = screenshot.sample(x, 50);
-    Color translucent_glow = screenshot.sample(x + 100, 50);
-    REQUIRE(translucent_glow.hexRed() == Approx(opaque_glow.hexRed()).margin(6));
-    REQUIRE(translucent_glow.hexGreen() == Approx(opaque_glow.hexGreen()).margin(6));
-    REQUIRE(translucent_glow.hexBlue() == Approx(opaque_glow.hexBlue()).margin(6));
+    Color top_glow = screenshot.sample(x, 50);
+    Color nested_glow = screenshot.sample(x + 100, 50);
+    REQUIRE(nested_glow.hexRed() == Approx(top_glow.hexRed()).margin(6));
+    REQUIRE(nested_glow.hexGreen() == Approx(top_glow.hexGreen()).margin(6));
+    REQUIRE(nested_glow.hexBlue() == Approx(top_glow.hexBlue()).margin(6));
   }
 }
 
@@ -1655,6 +1652,163 @@ TEST_CASE("Bloom inside a transparent layered region keeps what's behind it", "[
     INFO("x " << x);
     REQUIRE(screenshot.sample(x, 2).hexRed() == 0xff);
   }
+}
+
+TEST_CASE("Bloom glow keeps its brightness when its parent layer is HDR", "[graphics]") {
+  auto render = [](bool hdr_parent) -> Screenshot {
+    Canvas canvas;
+    canvas.setWindowless(96, 32);
+    BloomPostEffect bloom;
+    bloom.setBloomSize(16.0f);
+    bloom.setBloomIntensity(0.3f);
+    BloomPostEffect neighbor_bloom;
+    neighbor_bloom.setBloomIntensity(0.0f);
+    Region container;
+    Region glowing;
+    Region neighbor;
+    canvas.addRegion(&container);
+    container.setNeedsLayer(true);
+    container.setBounds(0, 0, 64, 32);
+    container.addRegion(&glowing);
+    glowing.setNeedsLayer(true);
+    glowing.setPostEffect(&bloom);
+    glowing.setBounds(24, 8, 16, 16);
+    canvas.addRegion(&neighbor);
+    neighbor.setNeedsLayer(true);
+    neighbor.setBounds(80, 0, 16, 32);
+    if (hdr_parent)
+      neighbor.setPostEffect(&neighbor_bloom);
+
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.beginRegion(&container);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, container.width(), container.height());
+    canvas.endRegion();
+    canvas.beginRegion(&glowing);
+    canvas.setColor(Color(0xffffffff, 2.0f));
+    canvas.fill(4, 4, 8, 8);
+    canvas.endRegion();
+    canvas.beginRegion(&neighbor);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, neighbor.width(), neighbor.height());
+    canvas.endRegion();
+    return canvas.takeScreenshot();
+  };
+
+  Screenshot sdr_parent = render(false);
+  Screenshot hdr_parent = render(true);
+  REQUIRE(sdr_parent.sample(26, 16).hexRed() > 0);
+  for (int x : { 25, 26, 27, 37, 38 }) {
+    INFO("x " << x);
+    REQUIRE(hdr_parent.sample(x, 16).hexRed() == Approx(sdr_parent.sample(x, 16).hexRed()).margin(2));
+  }
+}
+
+TEST_CASE("Translucent region sharing a layer with bloom keeps its alpha", "[graphics]") {
+  auto render = [](bool with_bloom) {
+    Canvas canvas;
+    canvas.setWindowless(64, 32);
+    BloomPostEffect bloom;
+    Region soft;
+    Region glowing;
+    canvas.addRegion(&soft);
+    soft.setNeedsLayer(true);
+    soft.setBounds(0, 0, 32, 32);
+    canvas.addRegion(&glowing);
+    glowing.setNeedsLayer(true);
+    glowing.setBounds(32, 0, 32, 32);
+    if (with_bloom)
+      glowing.setPostEffect(&bloom);
+
+    canvas.setColor(0xff808080);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.beginRegion(&soft);
+    canvas.setColor(0x80000000);
+    canvas.fill(0, 0, soft.width(), soft.height());
+    canvas.endRegion();
+    canvas.beginRegion(&glowing);
+    canvas.setColor(0xff202020);
+    canvas.fill(0, 0, glowing.width(), glowing.height());
+    canvas.endRegion();
+    return canvas.takeScreenshot().sample(16, 16).hexRed();
+  };
+
+  REQUIRE(render(true) == Approx(render(false)).margin(2));
+}
+
+TEST_CASE("Multiplied region keeps its strength in an HDR layer", "[graphics]") {
+  auto render = [](bool hdr_layer) {
+    Canvas canvas;
+    canvas.setWindowless(64, 32);
+    BloomPostEffect bloom;
+    bloom.setBloomIntensity(0.0f);
+    Region background;
+    Region multiplied;
+    Region neighbor;
+    canvas.addRegion(&background);
+    background.setNeedsLayer(true);
+    background.setBounds(0, 0, 32, 32);
+    background.addRegion(&multiplied);
+    multiplied.setNeedsLayer(true);
+    multiplied.setLayerBlendMode(BlendMode::Mult);
+    multiplied.setBounds(8, 8, 16, 16);
+    canvas.addRegion(&neighbor);
+    neighbor.setNeedsLayer(true);
+    neighbor.setBounds(40, 0, 24, 32);
+    if (hdr_layer)
+      neighbor.setPostEffect(&bloom);
+
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.beginRegion(&background);
+    canvas.setColor(0xffc0c0c0);
+    canvas.fill(0, 0, background.width(), background.height());
+    canvas.endRegion();
+    canvas.beginRegion(&multiplied);
+    canvas.setColor(0xff808080);
+    canvas.fill(0, 0, multiplied.width(), multiplied.height());
+    canvas.endRegion();
+    canvas.beginRegion(&neighbor);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, neighbor.width(), neighbor.height());
+    canvas.endRegion();
+    return canvas.takeScreenshot().sample(16, 16).hexRed();
+  };
+
+  REQUIRE(render(false) == Approx(0x60).margin(2));
+  REQUIRE(render(true) == Approx(0x60).margin(2));
+}
+
+TEST_CASE("Bloom glows brighter for colors above four times white", "[graphics]") {
+  auto glow = [](float hdr) {
+    Canvas canvas;
+    canvas.setWindowless(64, 32);
+    BloomPostEffect bloom;
+    bloom.setBloomSize(8.0f);
+    bloom.setBloomIntensity(0.2f);
+    Region glowing;
+    canvas.addRegion(&glowing);
+    glowing.setNeedsLayer(true);
+    glowing.setPostEffect(&bloom);
+    glowing.setBounds(0, 0, 64, 32);
+
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.beginRegion(&glowing);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, glowing.width(), glowing.height());
+    canvas.setColor(Color(0xffffffff, hdr));
+    canvas.fill(28, 12, 8, 8);
+    canvas.endRegion();
+    return canvas.takeScreenshot().sample(38, 16).hexRed();
+  };
+
+  int four_times_white = glow(4.0f);
+  int eight_times_white = glow(8.0f);
+  REQUIRE(four_times_white > 8);
+  REQUIRE(eight_times_white < 0xff);
+  REQUIRE(eight_times_white > four_times_white + 10);
 }
 
 TEST_CASE("Canvas strokes a path at its logical width", "[graphics]") {
@@ -2189,3 +2343,79 @@ TEST_CASE("Uniform names that bgfx rejects leave an invalid cached handle", "[gr
   REQUIRE_FALSE(bgfx::isValid(UniformCache::uniformHandle("bad name")));
 }
 #endif
+
+TEST_CASE("Subtracted shapes over transparent pixels don't darken the HDR layer below",
+          "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  BloomPostEffect outer_bloom;
+  outer_bloom.setBloomIntensity(0.0f);
+  BloomPostEffect inner_bloom;
+  inner_bloom.setBloomIntensity(0.0f);
+  Region outer;
+  Region inner;
+  canvas.addRegion(&outer);
+  outer.setNeedsLayer(true);
+  outer.setPostEffect(&outer_bloom);
+  outer.setBounds(0, 0, 64, 32);
+  outer.addRegion(&inner);
+  inner.setNeedsLayer(true);
+  inner.setPostEffect(&inner_bloom);
+  inner.setBounds(0, 0, 64, 32);
+
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, canvas.width(), canvas.height());
+  canvas.beginRegion(&outer);
+  canvas.setColor(0xff808080);
+  canvas.fill(0, 0, outer.width(), outer.height());
+  canvas.endRegion();
+  canvas.beginRegion(&inner);
+  canvas.setBlendMode(BlendMode::Sub);
+  canvas.setColor(0xffffffff);
+  canvas.fill(16, 8, 32, 16);
+  canvas.endRegion();
+
+  REQUIRE(canvas.takeScreenshot().sample(32, 16).hexRed() == Approx(0x80).margin(2));
+}
+
+TEST_CASE("Bloom doesn't glow dark around subtracted shapes", "[graphics]") {
+  auto render = [](bool subtract) {
+    Canvas canvas;
+    canvas.setWindowless(96, 32);
+    BloomPostEffect outer_bloom;
+    outer_bloom.setBloomIntensity(0.0f);
+    BloomPostEffect bloom;
+    bloom.setBloomSize(8.0f);
+    bloom.setBloomIntensity(0.5f);
+    Region outer;
+    Region glowing;
+    canvas.addRegion(&outer);
+    outer.setNeedsLayer(true);
+    outer.setPostEffect(&outer_bloom);
+    outer.setBounds(0, 0, 96, 32);
+    outer.addRegion(&glowing);
+    glowing.setNeedsLayer(true);
+    glowing.setPostEffect(&bloom);
+    glowing.setBounds(0, 0, 96, 32);
+
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.beginRegion(&outer);
+    canvas.setColor(0xff808080);
+    canvas.fill(0, 0, outer.width(), outer.height());
+    canvas.endRegion();
+    canvas.beginRegion(&glowing);
+    canvas.setColor(0xffeeeeee);
+    canvas.fill(0, 0, 48, 32);
+    if (subtract) {
+      canvas.setBlendMode(BlendMode::Sub);
+      canvas.setColor(0xffffffff);
+      canvas.fill(32, 8, 16, 16);
+    }
+    canvas.endRegion();
+    return canvas.takeScreenshot().sample(52, 16).hexRed();
+  };
+
+  REQUIRE(render(false) == Approx(0x80).margin(2));
+  REQUIRE(render(true) == Approx(render(false)).margin(2));
+}

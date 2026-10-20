@@ -121,9 +121,8 @@ namespace visage {
     double time() const { return render_time_; }
     void setTime(double time) { render_time_ = time; }
 
-    void setHdr(bool hdr, bool translucent = false) {
+    void setHdr(bool hdr) {
       hdr_ = hdr;
-      translucent_ = translucent;
       resizeFrameBuffer();
       invalidate();
     }
@@ -157,7 +156,6 @@ namespace visage {
 
     bool bottom_left_origin_ = false;
     bool hdr_ = false;
-    bool translucent_ = false;
     bool needs_full_clear_ = false;
     int width_ = 0;
     int height_ = 0;
