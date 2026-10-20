@@ -34,6 +34,9 @@ void main() {
   vec2 extended = prev_normal + dot(prev_tangent, square_normal) * prev_tangent;
   float blend = a_position.y;
   vec2 offset = point_normal + blend * (extended - point_normal);
+  float half_turn_cos = dot(point_normal, prev_normal);
+  if (half_turn_cos > 0.966)
+    offset = point_normal / half_turn_cos;
   vec2 position = p + 0.71 * offset;
 
   v_shader_values.xy = a_texcoord0.xy;
