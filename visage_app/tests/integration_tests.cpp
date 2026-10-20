@@ -2027,14 +2027,10 @@ TEST_CASE("Frames needing more bgfx views than one frame allows still render", "
     app.drawWindow();
 
     left_color = 0xff00ff00;
-    auto redraw_and_capture = [&]() -> const Screenshot& {
-      for (auto& frame : frames)
-        frame->redraw();
-      app.drawStaleChildren();
-      return app.takeScreenshot();
-    };
-    redraw_and_capture();
-    check(redraw_and_capture());
+    for (auto& frame : frames)
+      frame->redraw();
+    app.drawStaleChildren();
+    check(app.takeScreenshot());
     app.removeFromWindow();
   }
 }
