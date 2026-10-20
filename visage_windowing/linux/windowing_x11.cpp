@@ -205,6 +205,11 @@ namespace visage {
     std::string result;
     Atom type = None;
     Atom selection_property = XInternAtom(display, "VISAGE_SELECT", False);
+    XEvent stale_event;
+    while (XCheckTypedWindowEvent(display, window, SelectionNotify, &stale_event))
+      continue;
+    XDeleteProperty(display, window, selection_property);
+
     for (Atom target : { x11->utf8String(), XA_STRING }) {
       XConvertSelection(display, x11->clipboard(), target, selection_property, window, CurrentTime);
 

@@ -310,6 +310,82 @@ TEST_CASE("X11 clipboard falls back to Latin-1 STRING", "[integration][x11_selec
   REQUIRE(readClipboardFrom(owner) == "caf\xc3\xa9");
 }
 
+TEST_CASE("X11 plugin clipboard reads ignore a reply that arrives after an earlier read gave up",
+          "[integration][x11_selection]") {
+  if (!hasDisplay()) {
+    SUCCEED("No X display");
+    return;
+  }
+
+  Display* host = XOpenDisplay(nullptr);
+  REQUIRE(host);
+  ::Window parent = XCreateSimpleWindow(host, DefaultRootWindow(host), 0, 0, 200, 200, 0, 0, 0);
+  XMapWindow(host, parent);
+  XFlush(host);
+  std::unique_ptr<visage::Window> plugin_window =
+      visage::createPluginWindow(visage::Dimension::logicalPixels(100),
+                                 visage::Dimension::logicalPixels(100), (void*)parent);
+  REQUIRE(plugin_window);
+
+  Display* owner = XOpenDisplay(nullptr);
+  REQUIRE(owner);
+  ::Window owner_window = XCreateSimpleWindow(owner, DefaultRootWindow(owner), 0, 0, 1, 1, 0, 0, 0);
+  XSetSelectionOwner(owner, XInternAtom(owner, "CLIPBOARD", False), owner_window, CurrentTime);
+  XSync(owner, False);
+
+  std::atomic<int> replies = 0;
+  std::atomic<bool> stop = false;
+  std::thread thread([&] {
+    const std::string texts[] = { "first", "second" };
+    const int delays[] = { 400, 50 };
+    while (!stop) {
+      if (!XPending(owner)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        continue;
+      }
+
+      XEvent event;
+      XNextEvent(owner, &event);
+      if (event.type != SelectionRequest)
+        continue;
+
+      XSelectionRequestEvent request = event.xselectionrequest;
+      int index = std::min(replies.load(), 1);
+      std::this_thread::sleep_for(std::chrono::milliseconds(delays[index]));
+      XChangeProperty(owner, request.requestor, request.property, request.target, 8, PropModeReplace,
+                      reinterpret_cast<const unsigned char*>(texts[index].data()), texts[index].size());
+
+      XSelectionEvent notify = {};
+      notify.type = SelectionNotify;
+      notify.requestor = request.requestor;
+      notify.selection = request.selection;
+      notify.target = request.target;
+      notify.property = request.property;
+      notify.time = request.time;
+      XSendEvent(owner, request.requestor, False, NoEventMask, reinterpret_cast<XEvent*>(&notify));
+      XFlush(owner);
+      replies++;
+    }
+  });
+
+  std::string timed_out = visage::readClipboardText();
+  for (int i = 0; i < 200 && replies == 0; ++i)
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  plugin_window->processPluginFdEvents();
+  std::string next = visage::readClipboardText();
+
+  stop = true;
+  thread.join();
+  plugin_window.reset();
+  XDestroyWindow(owner, owner_window);
+  XCloseDisplay(owner);
+  XDestroyWindow(host, parent);
+  XCloseDisplay(host);
+
+  REQUIRE(timed_out.empty());
+  REQUIRE(next == "second");
+}
+
 TEST_CASE("X11 drops read file lists sent in INCR chunks", "[integration][x11_selection]") {
   if (!hasDisplay()) {
     SUCCEED("No X display");
