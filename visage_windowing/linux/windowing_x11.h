@@ -276,6 +276,7 @@ namespace visage {
     void setFixedAspectRatio(bool fixed) override;
 
     void setWindowTitle(const std::string& title) override;
+    void setAlwaysOnTop(bool on_top) override;
     IPoint maxWindowDimensions() const override;
     MonitorInfo monitorInfo() { return monitor_info_; }
     X11Connection* x11Connection() { return x11_; }

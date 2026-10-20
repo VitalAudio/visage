@@ -1909,6 +1909,52 @@ namespace visage {
     setWindowName(x11_, window_handle_, title);
   }
 
+  void WindowX11::setAlwaysOnTop(bool on_top) {
+    if (parent_handle_)
+      return;
+
+    X11Connection::DisplayLock lock(x11_);
+    Display* display = x11_->display();
+    Atom wm_state = XInternAtom(display, "_NET_WM_STATE", False);
+    Atom wm_state_above = XInternAtom(display, "_NET_WM_STATE_ABOVE", False);
+
+    if (isShowing()) {
+      XEvent event = {};
+      event.type = ClientMessage;
+      event.xclient.window = window_handle_;
+      event.xclient.message_type = wm_state;
+      event.xclient.format = 32;
+      event.xclient.data.l[0] = on_top ? 1 : 0;
+      event.xclient.data.l[1] = wm_state_above;
+      event.xclient.data.l[3] = 1;
+      XSendEvent(display, x11_->rootWindow(), False,
+                 SubstructureRedirectMask | SubstructureNotifyMask, &event);
+    }
+    else {
+      std::vector<Atom> states;
+      Atom type = None;
+      int format = 0;
+      unsigned long count = 0, remaining = 0;
+      unsigned char* data = nullptr;
+      if (XGetWindowProperty(display, window_handle_, wm_state, 0, 64, False, XA_ATOM, &type,
+                             &format, &count, &remaining, &data) == Success &&
+          data) {
+        Atom* atoms = reinterpret_cast<Atom*>(data);
+        for (unsigned long i = 0; i < count; ++i) {
+          if (atoms[i] != wm_state_above)
+            states.push_back(atoms[i]);
+        }
+        XFree(data);
+      }
+      if (on_top)
+        states.push_back(wm_state_above);
+      XChangeProperty(display, window_handle_, wm_state, XA_ATOM, 32, PropModeReplace,
+                      (unsigned char*)states.data(), states.size());
+    }
+
+    XFlush(display);
+  }
+
   IPoint WindowX11::maxWindowDimensions() const {
     MonitorInfo monitor_info = activeMonitorInfo();
     return { monitor_info.bounds.width(), monitor_info.bounds.height() };
