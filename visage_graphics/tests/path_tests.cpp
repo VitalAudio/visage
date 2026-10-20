@@ -22,6 +22,7 @@
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/path.h"
 
+#include <algorithm>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <complex>
@@ -604,6 +605,67 @@ TEST_CASE("Path fill coverage is the area of each pixel inside the path", "[grap
     }
 
     INFO("shape " << s << ", worst pixel " << worst_x << ", " << worst_y << ", error " << max_error * 255.0f);
+    REQUIRE(max_error < 0.02f);
+  }
+}
+
+TEST_CASE("Path fill coverage stays exact next to nearly straight corners", "[graphics]") {
+  static constexpr int kSize = 256;
+  static constexpr int kStars[] = { 18, 57, 73, 96 };
+
+  uint32_t state = 1;
+  auto random = [&state]() {
+    state = state * 1664525u + 1013904223u;
+    return (state >> 8) / 16777216.0f;
+  };
+
+  for (int star = 0; star <= kStars[3]; ++star) {
+    int num_points = 20 + static_cast<int>(random() * 180);
+    float center_x = 128.0f + random();
+    float center_y = 128.0f + random();
+    Point center(center_x, center_y);
+    std::vector<Point> polygon;
+    for (int i = 0; i < num_points; ++i) {
+      float angle = i * 2.0f * kPi / num_points;
+      float radius = 20.0f + random() * 100.0f;
+      polygon.push_back(center + Point(std::cos(angle), std::sin(angle)) * radius);
+    }
+
+    if (std::find(std::begin(kStars), std::end(kStars), star) == std::end(kStars))
+      continue;
+
+    std::vector<std::vector<Point>> polygons = { polygon };
+    Path path;
+    path.moveTo(polygon[0]);
+    for (int i = 1; i < polygon.size(); ++i)
+      path.lineTo(polygon[i]);
+    path.close();
+
+    Canvas canvas;
+    canvas.setWindowless(kSize, kSize);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, kSize, kSize);
+    canvas.setColor(0xffffffff);
+    canvas.fill(path, 0, 0, kSize, kSize);
+
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    float max_error = 0.0f;
+    int worst_x = 0;
+    int worst_y = 0;
+    for (int y = 0; y < kSize; ++y) {
+      for (int x = 0; x < kSize; ++x) {
+        float expected = std::min(1.0f, pixelCoverage(polygons, x, y));
+        float error = std::abs(screenshot.sample(x, y).hexRed() / 255.0f - expected);
+        if (error > max_error) {
+          max_error = error;
+          worst_x = x;
+          worst_y = y;
+        }
+      }
+    }
+
+    INFO("star " << star << ", worst pixel " << worst_x << ", " << worst_y << ", error "
+                 << max_error * 255.0f);
     REQUIRE(max_error < 0.02f);
   }
 }
