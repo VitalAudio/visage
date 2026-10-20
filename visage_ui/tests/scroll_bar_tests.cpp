@@ -69,6 +69,27 @@ TEST_CASE("ScrollBar position and view management", "[ui]") {
   }
 }
 
+TEST_CASE("ScrollBar keeps fractional ranges and positions", "[ui]") {
+  ScrollBar scroll_bar;
+  scroll_bar.setViewPosition(100.5f, 100.25f, 0.25f);
+  REQUIRE(scroll_bar.viewRange() == 100.5f);
+  REQUIRE(scroll_bar.viewHeight() == 100.25f);
+  REQUIRE_FALSE(scroll_bar.ignoresMouseEvents());
+
+  ScrollBar dragged;
+  dragged.setBounds(0, 0, 20, 200);
+  dragged.setViewPosition(300.0f, 100.0f, 0.0f);
+  float scrolled = 0.0f;
+  dragged.addScrollCallback([&scrolled](float position) { scrolled = position; });
+
+  MouseEvent event;
+  event.position = { 10.0f, 10.0f };
+  dragged.mouseDown(event);
+  event.position = { 10.0f, 11.0f };
+  dragged.mouseDrag(event);
+  REQUIRE(scrolled == 1.5f);
+}
+
 TEST_CASE("ScrollBar mouse events", "[ui]") {
   ScrollBar scroll_bar;
   scroll_bar.setBounds(0, 0, 20, 100);
