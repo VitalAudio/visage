@@ -363,7 +363,12 @@ namespace visage {
         batch->submit(layer, submit_pass, {});
     }
 
-    int autoBatchIndex(const void* shape_type, const BaseShape& shape, BlendMode blend) const {
+    struct BatchPosition {
+      int index = 0;
+      bool match = false;
+    };
+
+    BatchPosition autoBatchPosition(const void* shape_type, const BaseShape& shape, BlendMode blend) const {
       auto matches = [&](const std::unique_ptr<SubmitBatch>& batch) {
         return batch->match(shape_type, shape.batch_id, blend, shape.radialGradient());
       };
@@ -383,21 +388,21 @@ namespace visage {
           insert = i;
       }
       if (match < batches_.size())
-        return match;
-      return insert;
+        return { match, true };
+      return { insert, false };
     }
 
-    int manualBatchIndex(const BaseShape& shape) const {
-      if (batches_.empty())
-        return 0;
-
-      return batches_.size() - 1;
+    BatchPosition manualBatchPosition(const void* shape_type, const BaseShape& shape, BlendMode blend) const {
+      int last = batches_.size() - 1;
+      if (last >= 0 && batches_[last]->match(shape_type, shape.batch_id, blend, shape.radialGradient()))
+        return { last, true };
+      return { last + 1, false };
     }
 
-    int batchIndex(const void* shape_type, const BaseShape& shape, BlendMode blend) const {
+    BatchPosition batchPosition(const void* shape_type, const BaseShape& shape, BlendMode blend) const {
       if (manual_batching_)
-        return manualBatchIndex(shape);
-      return autoBatchIndex(shape_type, shape, blend);
+        return manualBatchPosition(shape_type, shape, blend);
+      return autoBatchPosition(shape_type, shape, blend);
     }
 
     template<typename T>
@@ -418,11 +423,10 @@ namespace visage {
     template<typename T>
     void addShape(T shape, BlendMode blend = BlendMode::Alpha) {
       const void* shape_type = ShapeBatch<T>::typeId();
-      int batch_index = batchIndex(shape_type, shape, blend);
-      bool match = batch_index < batches_.size() &&
-                   batches_[batch_index]->match(shape_type, shape.batch_id, blend, shape.radialGradient());
-      ShapeBatch<T>* batch = match ? static_cast<ShapeBatch<T>*>(batches_[batch_index].get()) :
-                                     createNewBatch<T>(shape.batch_id, blend, batch_index);
+      BatchPosition position = batchPosition(shape_type, shape, blend);
+      ShapeBatch<T>* batch = position.match ?
+                                 static_cast<ShapeBatch<T>*>(batches_[position.index].get()) :
+                                 createNewBatch<T>(shape.batch_id, blend, position.index);
 
       batch->addShape(std::move(shape));
     }
