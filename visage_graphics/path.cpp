@@ -30,6 +30,10 @@
 #include <complex>
 #include <memory>
 
+#if VISAGE_EMSCRIPTEN
+#include <emscripten/html5.h>
+#endif
+
 namespace visage {
   static float toFloat(const std::string& str) {
     float result = 0.0f;
@@ -775,6 +779,22 @@ namespace visage {
     return stroke_path;
   }
 
+  static bgfx::TextureFormat::Enum atlasFormat() {
+#if VISAGE_EMSCRIPTEN
+    static const bool float_blending = [] {
+      EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context = emscripten_webgl_get_current_context();
+      return emscripten_webgl_enable_extension(context, "EXT_color_buffer_float") &&
+             emscripten_webgl_enable_extension(context, "EXT_float_blend");
+    }();
+    return float_blending ? bgfx::TextureFormat::R32F : bgfx::TextureFormat::R16F;
+#else
+    constexpr uint64_t kRequired = BGFX_CAPS_FORMAT_TEXTURE_2D | BGFX_CAPS_FORMAT_TEXTURE_FRAMEBUFFER;
+    if ((bgfx::getCaps()->formats[bgfx::TextureFormat::R32F] & kRequired) == kRequired)
+      return bgfx::TextureFormat::R32F;
+    return bgfx::TextureFormat::R16F;
+#endif
+  }
+
   struct PathAtlasTexture {
     bgfx::FrameBufferHandle handle = { bgfx::kInvalidHandle };
 
@@ -1008,7 +1028,8 @@ namespace visage {
   }
 
   void PathAtlas::checkInit() {
-    constexpr uint64_t kFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+    constexpr uint64_t kFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP |
+                                BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT;
     if (needs_packing_) {
       resize();
       needs_packing_ = false;
@@ -1020,7 +1041,7 @@ namespace visage {
 
     if (!bgfx::isValid(frame_buffer_->handle) && atlas_map_.width() && atlas_map_.height()) {
       frame_buffer_->handle = bgfx::createFrameBuffer(atlas_map_.width(), atlas_map_.height(),
-                                                      bgfx::TextureFormat::R16F, kFlags);
+                                                      atlasFormat(), kFlags);
       width_ = atlas_map_.width();
       height_ = atlas_map_.height();
       needs_full_clear_ = true;
