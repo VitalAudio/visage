@@ -94,7 +94,8 @@ namespace {
   }
 }
 
-TEST_CASE("X11 windows release the display lock before calling the app", "[integration]") {
+TEST_CASE("X11 windows release the display lock before calling the app",
+          "[integration][x11_selection]") {
   if (!hasDisplay()) {
     SUCCEED("No X display");
     return;
@@ -261,7 +262,7 @@ TEST_CASE("X11 windows release the display lock before calling the app", "[integ
 }
 
 TEST_CASE("X11 clipboard reads and message boxes release the display lock while waiting",
-          "[integration][clipboard]") {
+          "[integration][x11_selection]") {
   if (!hasDisplay()) {
     SUCCEED("No X display");
     return;
