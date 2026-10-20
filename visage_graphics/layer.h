@@ -59,7 +59,7 @@ namespace visage {
     static int reserveViews(int submit_pass);
     static int viewFlushes() { return view_flushes_; }
     void addRegion(Region* region);
-    void matchMaskGroupsToHdr(const Layer& destination);
+    void updateHdr(const Layer& destination);
     void removeRegion(const Region* region) {
       auto it = std::find(regions_.begin(), regions_.end(), region);
       if (it != regions_.end())
