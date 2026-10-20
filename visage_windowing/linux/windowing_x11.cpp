@@ -510,6 +510,24 @@ namespace visage {
     return event->xany.window == *reinterpret_cast<::Window*>(window);
   }
 
+  static constexpr long kNetWmStateAdd = 1;
+  static constexpr long kNetWmStateToggle = 2;
+
+  static void sendMaximizeState(X11Connection* x11, ::Window window, long action) {
+    Display* display = x11->display();
+    XEvent event = {};
+    event.type = ClientMessage;
+    event.xclient.window = window;
+    event.xclient.message_type = XInternAtom(display, "_NET_WM_STATE", False);
+    event.xclient.format = 32;
+    event.xclient.data.l[0] = action;
+    event.xclient.data.l[1] = XInternAtom(display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
+    event.xclient.data.l[2] = XInternAtom(display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
+
+    XSendEvent(display, x11->rootWindow(), False, SubstructureRedirectMask | SubstructureNotifyMask, &event);
+    XFlush(display);
+  }
+
   void showMessageBox(std::string title, std::string message) {
     IBounds bounds = computeWindowBounds(Dimension::viewMinPercent(30.0f),
                                          Dimension::viewMinPercent(20.0f));
@@ -1734,7 +1752,7 @@ namespace visage {
         }
         else if (hit_test == HitTestResult::MaximizeButton &&
                  handleHitTest(event.xbutton.x, event.xbutton.y) == HitTestResult::MaximizeButton) {
-          showMaximized();
+          sendMaximizeState(x11_, window_handle_, kNetWmStateToggle);
         }
         else if (hit_test == HitTestResult::MinimizeButton &&
                  handleHitTest(event.xbutton.x, event.xbutton.y) == HitTestResult::MinimizeButton) {
@@ -1925,24 +1943,7 @@ namespace visage {
 
   void WindowX11::showMaximized() {
     show();
-    Atom wm_state = XInternAtom(x11_->display(), "_NET_WM_STATE", False);
-    Atom max_horizontal = XInternAtom(x11_->display(), "_NET_WM_STATE_MAXIMIZED_HORZ", False);
-    Atom max_vertical = XInternAtom(x11_->display(), "_NET_WM_STATE_MAXIMIZED_VERT", False);
-
-    XEvent event = {};
-    event.type = ClientMessage;
-    event.xclient.window = window_handle_;
-    event.xclient.message_type = wm_state;
-    event.xclient.format = 32;
-    event.xclient.data.l[0] = 1;
-    event.xclient.data.l[1] = max_horizontal;
-    event.xclient.data.l[2] = max_vertical;
-    event.xclient.data.l[3] = 0;
-    event.xclient.data.l[4] = 0;
-
-    XSendEvent(x11_->display(), x11_->rootWindow(), False,
-               SubstructureRedirectMask | SubstructureNotifyMask, &event);
-    XFlush(x11_->display());
+    sendMaximizeState(x11_, window_handle_, kNetWmStateAdd);
 
     for (int retries = 0; retries < 10; ++retries) {
       Thread::sleep(10);
