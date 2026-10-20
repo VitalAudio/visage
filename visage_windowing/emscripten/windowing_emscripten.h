@@ -38,7 +38,7 @@ namespace visage {
 
     void runEventLoop() override;
     void windowContentsResized(int width, int height) override;
-    void show() override { }
+    void show() override;
     void showMaximized() override;
     bool maximized() const { return maximized_; }
     void hide() override { }
