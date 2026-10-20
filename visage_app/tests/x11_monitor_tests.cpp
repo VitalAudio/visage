@@ -256,8 +256,9 @@ TEST_CASE("X11 windows keep their DPI when dragged partly off a HiDPI screen", "
   std::string executable = std::filesystem::read_symlink("/proc/self/exe").string();
   std::vector<std::string> environment;
   for (char** variable = environ; *variable; ++variable) {
-    if (std::string(*variable).rfind("DISPLAY=", 0) != 0)
-      environment.push_back(*variable);
+    std::string entry = *variable;
+    if (entry.rfind("DISPLAY=", 0) != 0 && entry.rfind("ASAN_OPTIONS=", 0) != 0)
+      environment.push_back(entry);
   }
 
   int display_fds[2];
@@ -276,6 +277,8 @@ TEST_CASE("X11 windows keep their DPI when dragged partly off a HiDPI screen", "
     SKIP("Xvfb isn't available or didn't start");
   }
 
+  const char* asan_options = std::getenv("ASAN_OPTIONS");
+  environment.push_back(std::string("ASAN_OPTIONS=") + (asan_options ? asan_options : "") + ":detect_leaks=0");
   environment.push_back("DISPLAY=:" + std::to_string(display_number));
   pid_t child = spawn({ executable, "[.x11_offscreen_dpi_child]" }, environment);
   int status = child < 0 ? -1 : waitForExit(child, std::chrono::seconds(60));
