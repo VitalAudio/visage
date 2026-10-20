@@ -119,4 +119,66 @@ TEST_CASE("An ApplicationWindow can be shown again from its own mouse handler", 
   XCloseDisplay(display);
   REQUIRE(shows == 1);
 }
+
+TEST_CASE("A hidden ApplicationWindow can be shown again from its own event loop",
+          "[integration]") {
+  if (!hasDisplay()) {
+    SUCCEED("No X display");
+    return;
+  }
+
+  ApplicationWindow app;
+  int shows = 0;
+  app.show(Dimension::nativePixels(100), Dimension::nativePixels(80));
+  Steps steps({ [&] {
+                 app.hide();
+                 return true;
+               },
+                [&] {
+                  app.show(Dimension::nativePixels(120), Dimension::nativePixels(90));
+                  shows++;
+                  return true;
+                },
+                [&] { return app.isShowing(); },
+                [&] {
+                  app.close();
+                  return true;
+                } });
+  app.runEventLoop();
+  REQUIRE(shows == 1);
+  REQUIRE(app.nativeWidth() == 120);
+  REQUIRE(app.nativeHeight() == 90);
+}
+
+TEST_CASE("A closed ApplicationWindow can be shown again while another window is open",
+          "[integration]") {
+  if (!hasDisplay()) {
+    SUCCEED("No X display");
+    return;
+  }
+
+  ApplicationWindow app;
+  ApplicationWindow other;
+  int shows = 0;
+  app.show(Dimension::nativePixels(100), Dimension::nativePixels(80));
+  other.show(Dimension::nativePixels(60), Dimension::nativePixels(40));
+  Steps steps({ [&] {
+                 app.close();
+                 return true;
+               },
+                [&] { return !app.isShowing(); },
+                [&] {
+                  app.showMaximized();
+                  shows++;
+                  return true;
+                },
+                [&] { return app.isShowing(); },
+                [&] {
+                  app.close();
+                  other.close();
+                  return true;
+                } });
+  app.runEventLoop();
+  REQUIRE(shows == 1);
+}
 #endif

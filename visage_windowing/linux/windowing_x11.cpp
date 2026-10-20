@@ -1574,10 +1574,10 @@ namespace visage {
     }
   }
 
-  void WindowX11::processMessageWindowEvent(XEvent& event) {
+  void WindowX11::processMessageWindowEvent(X11Connection* x11, XEvent& event) {
     switch (event.type) {
     case SelectionRequest: {
-      X11Connection::DisplayLock lock(x11_);
+      X11Connection::DisplayLock lock(x11);
       XSelectionRequestEvent* request = &event.xselectionrequest;
 
       XSelectionEvent result = { 0 };
@@ -1589,13 +1589,13 @@ namespace visage {
       result.target = request->target;
       result.property = None;
 
-      if (request->target == x11_->targets()) {
-        Atom supported_types[] = { x11_->targets(), x11_->utf8String(), XA_STRING };
+      if (request->target == x11->targets()) {
+        Atom supported_types[] = { x11->targets(), x11->utf8String(), XA_STRING };
         XChangeProperty(request->display, request->requestor, request->property, XA_ATOM, 32,
                         PropModeReplace, (unsigned char*)supported_types, 3);
         result.property = request->property;
       }
-      else if (request->target == x11_->utf8String() || request->target == XA_STRING) {
+      else if (request->target == x11->utf8String() || request->target == XA_STRING) {
         std::string text = request->target == XA_STRING ? utf8ToLatin1(_clipboard_text) : _clipboard_text;
         XChangeProperty(request->display, request->requestor, request->property, request->target, 8,
                         PropModeReplace, (unsigned char*)text.c_str(), text.length());
@@ -1671,7 +1671,7 @@ namespace visage {
       if (request->selection == x11_->dndSelection())
         sendDragDropSelectionNotify(request);
       else
-        processMessageWindowEvent(event);
+        processMessageWindowEvent(x11_, event);
       break;
     }
     case SelectionNotify: {
@@ -1959,7 +1959,9 @@ namespace visage {
   }
 
   void WindowX11::runEventLoop() {
-    Display* display = x11_->display();
+    X11Connection* x11 = x11_;
+    long long timer_microseconds = timer_microseconds_;
+    Display* display = x11->display();
 
     timeval timeout {};
     timeout.tv_sec = 0;
@@ -1976,7 +1978,7 @@ namespace visage {
       FD_SET(fd, &read_fds);
 
       timeout.tv_sec = 0;
-      long long us_to_timer = timer_microseconds_ - (time::microseconds() - last_timer_microseconds);
+      long long us_to_timer = timer_microseconds - (time::microseconds() - last_timer_microseconds);
       int result = 0;
       if (us_to_timer > 0) {
         timeout.tv_usec = us_to_timer;
@@ -1986,15 +1988,15 @@ namespace visage {
       if (result == -1 && errno != EINTR)
         running = false;
 
-      while (running && XPending(x11_->display())) {
-        XNextEvent(x11_->display(), &event);
+      while (running && XPending(display)) {
+        XNextEvent(display, &event);
         if (XFilterEvent(&event, None))
           continue;
 
         WindowX11* window = NativeWindowLookup::instance().findWindow(event.xany.window);
         if (window == nullptr) {
           if (event.type == SelectionRequest)
-            processMessageWindowEvent(event);
+            processMessageWindowEvent(x11, event);
           continue;
         }
 
@@ -2005,7 +2007,7 @@ namespace visage {
         }
 
         if (event.type == DestroyNotify ||
-            (event.type == ClientMessage && event.xclient.data.l[0] == x11_->deleteMessage())) {
+            (event.type == ClientMessage && event.xclient.data.l[0] == x11->deleteMessage())) {
           if (window->handleCloseRequested()) {
             NativeWindowLookup::instance().removeWindow(window);
             window->hide();
@@ -2017,7 +2019,7 @@ namespace visage {
           window->processEvent(event);
       }
 
-      if (timer_microseconds_ - (time::microseconds() - last_timer_microseconds) <= 0) {
+      if (timer_microseconds - (time::microseconds() - last_timer_microseconds) <= 0) {
         last_timer_microseconds = time::microseconds();
         NativeWindowLookup::instance().drawAll();
       }
