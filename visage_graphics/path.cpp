@@ -504,11 +504,12 @@ namespace visage {
   }
 
   Path Path::offset(float amount, Join join, EndCap end_cap, float miter_limit) const {
-    return offset(amount, join, Join::Miter, end_cap, miter_limit);
+    return offset(amount, join, false, end_cap, miter_limit);
   }
 
-  Path Path::offset(float amount, Join join, Join inner_join, EndCap end_cap, float miter_limit) const {
+  Path Path::offset(float amount, Join join, bool pivot_inner_joins, EndCap end_cap, float miter_limit) const {
     static constexpr float kMinOffset = 0.001f;
+    static constexpr float kNearlyStraight = 1.0f / 4096.0f;
     Path result;
 
     if (std::abs(amount) < kMinOffset)
@@ -580,13 +581,32 @@ namespace visage {
         bool tangent_join = prev != next && (in_tangent != Point() || out_tangent != Point());
         bool convex = tangent_join ? prev_direction.cross(direction) <= 0.0f :
                                      stableOrientation(prev, point, next) <= 0.0;
-        if (convex == (amount < 0.0f))
-          type = inner_join;
+        bool inner = convex == (amount < 0.0f);
+        if (inner)
+          type = pivot_inner_joins ? Join::Bevel : Join::Miter;
+
+        bool smooth = has_tangents && sub_path.tangents[point_index].smooth;
+        bool pivot = inner && pivot_inner_joins && !smooth &&
+                     1.0f - prev_direction.dot(direction) > kNearlyStraight;
+        Point delta_prev = point - prev;
+        Point delta = next - point;
+        float det = delta_prev.cross(delta);
+        if (pivot && det != 0.0f) {
+          Point start_delta = (point + offset) - (prev + prev_offset);
+          float t_prev = start_delta.cross(delta) / det;
+          float t = start_delta.cross(delta_prev) / det;
+          pivot = t_prev < 0.5f || t > 0.5f;
+        }
 
         if (in_tangent != Point())
           new_path.push_back(point + chord_offset(prev, point));
 
-        if (type == Join::Bevel) {
+        if (pivot) {
+          new_path.push_back(point + prev_offset);
+          new_path.push_back(point);
+          new_path.push_back(point + offset);
+        }
+        else if (type == Join::Bevel) {
           new_path.push_back(point + prev_offset);
           new_path.push_back(point + offset);
         }
@@ -706,8 +726,7 @@ namespace visage {
           }
           if (vertex >= 0) {
             dash.tangents.resize(dash.points.size());
-            dash.tangents.back().in = path.tangents[vertex].in;
-            dash.tangents.back().out = path.tangents[vertex].out;
+            dash.tangents.back() = path.tangents[vertex];
           }
         };
         auto prev = path.points[0];
@@ -764,7 +783,7 @@ namespace visage {
         for (int i = start_size - 2; i > 0; --i) {
           path.points.push_back(path.points[i]);
           if (has_tangents)
-            path.tangents.push_back({ -path.tangents[i].out, -path.tangents[i].in });
+            path.tangents.push_back({ -path.tangents[i].out, -path.tangents[i].in, path.tangents[i].smooth });
         }
         if (has_tangents && start_size > 1) {
           path.tangents[start_size - 1].out = -path.tangents[start_size - 1].in;
@@ -774,7 +793,7 @@ namespace visage {
     }
 
     stroke_path.paths_.insert(stroke_path.paths_.end(), inner_paths.begin(), inner_paths.end());
-    stroke_path = stroke_path.offset(stroke_width / 2.0f, join, Join::Bevel, end_cap, miter_limit);
+    stroke_path = stroke_path.offset(stroke_width / 2.0f, join, true, end_cap, miter_limit);
     stroke_path.fill_rule_ = FillRule::NonZero;
     return stroke_path;
   }
