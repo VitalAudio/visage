@@ -867,7 +867,7 @@ namespace visage {
       return false;
 
     if (undone_history_.empty())
-      return false;
+      return true;
 
     addUndoPosition();
     std::pair<String, int> state = undone_history_.back();
