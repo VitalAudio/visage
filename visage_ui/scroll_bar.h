@@ -56,12 +56,12 @@ namespace visage {
       redraw();
     }
 
-    void setPosition(int position) {
+    void setPosition(float position) {
       position_ = position;
       redraw();
     }
 
-    void setViewPosition(int range, int view_height, int position) {
+    void setViewPosition(float range, float view_height, float position) {
       range_ = range;
       view_height_ = view_height;
       position_ = position;
@@ -71,8 +71,8 @@ namespace visage {
       redraw();
     }
 
-    int viewRange() const { return range_; }
-    int viewHeight() const { return view_height_; }
+    float viewRange() const { return range_; }
+    float viewHeight() const { return view_height_; }
 
     void setLeftSide(bool left) { left_ = left; }
 
@@ -86,8 +86,8 @@ namespace visage {
 
     bool active_ = false;
     bool left_ = false;
-    int range_ = 0;
-    int view_height_ = 0;
+    float range_ = 0.0f;
+    float view_height_ = 0.0f;
     float position_ = 0.0f;
     float rounding_ = 0.0f;
 
@@ -240,7 +240,7 @@ namespace visage {
 
     void smoothScrollUpdate() {
       float t = (time::milliseconds() - smooth_start_time_) / (smooth_time_ * 1000.0f);
-      int position = smooth_start_position_ + (smooth_position_ - smooth_start_position_) * t;
+      float position = smooth_start_position_ + (smooth_position_ - smooth_start_position_) * t;
       if (t >= 1.0f)
         position = smooth_position_;
       if (t >= 1.0f || t < 0.0f)

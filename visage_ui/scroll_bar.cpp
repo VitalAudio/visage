@@ -30,11 +30,11 @@ namespace visage {
   VISAGE_THEME_VALUE(ScrollBarWidth, 20.0f);
 
   void ScrollBar::draw(Canvas& canvas) {
-    if (!active_ || range_ <= 0)
+    if (!active_ || range_ <= 0.0f)
       return;
 
     float y_ratio = position_ / range_;
-    float height_ratio = view_height_ * 1.0f / range_;
+    float height_ratio = view_height_ / range_;
     int h = height();
 
     canvas.setBlendedColor(ScrollBarDefault, ScrollBarDown, color_.update());
@@ -62,8 +62,8 @@ namespace visage {
     redraw();
     color_.target(true);
 
-    int max_value = range_ - view_height_;
-    if (!active_ || max_value <= 0 || range_ <= 0)
+    float max_value = range_ - view_height_;
+    if (!active_ || max_value <= 0.0f || range_ <= 0.0f)
       return;
 
     last_drag_ = e.position.y;
@@ -79,10 +79,10 @@ namespace visage {
     last_drag_ = e.position.y;
 
     position_ += delta;
-    position_ = std::min<float>(range_ - view_height_, std::max(0.0f, position_));
+    position_ = std::min(range_ - view_height_, std::max(0.0f, position_));
 
     for (auto& callback : callbacks_)
-      callback(std::round(position_));
+      callback(position_);
     redraw();
   }
 
