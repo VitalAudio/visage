@@ -466,7 +466,8 @@ namespace visage {
     }
 
     bool needsGroup() const {
-      return mask_frame_ || (alpha_transparency_ != 1.0f && groupsPostEffect());
+      return mask_frame_ || ((alpha_transparency_ != 1.0f || layer_blend_mode_ != BlendMode::Alpha) &&
+                             groupsPostEffect());
     }
 
     bool requiresLayer() const {

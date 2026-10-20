@@ -1661,6 +1661,159 @@ TEST_CASE("Fading a shader frame inside a bloom frame keeps its glow", "[integra
   }
 }
 
+TEST_CASE("Unmasked shader frames blend with their layer blend mode", "[integration]") {
+  static constexpr int kWidth = 60;
+  static constexpr int kHeight = 40;
+  auto render = [](BlendMode blend_mode, bool masked) {
+    ApplicationEditor app;
+    Frame frame;
+    ShaderPostEffect opaque(test_shaders::vs_test_post_effect, test_shaders::fs_test_opaque);
+    app.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0xff304050);
+      canvas.fill(0, 0, kWidth / 2, kHeight);
+      canvas.setColor(0xffa0c0e0);
+      canvas.fill(kWidth / 2, 0, kWidth / 2, kHeight);
+    };
+    frame.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0x80c06040);
+      canvas.fill(0, 0, kWidth * 3 / 4, kHeight);
+      canvas.setColor(0xff2040c0);
+      canvas.fill(10, 10, 20, 20);
+    };
+    if (masked) {
+      frame.onDrawMask() = [](Canvas& canvas) {
+        canvas.setColor(0xffffffff);
+        canvas.fill();
+      };
+    }
+
+    frame.setPostEffect(&opaque);
+    frame.setLayerBlendMode(blend_mode);
+    frame.setBounds(0, 0, kWidth, kHeight);
+    app.addChild(frame);
+    app.setWindowless(kWidth, kHeight);
+    app.drawWindow();
+    return app.takeScreenshot();
+  };
+
+  for (BlendMode blend_mode : { BlendMode::Alpha, BlendMode::Add, BlendMode::Sub, BlendMode::Mult }) {
+    Screenshot expected = render(blend_mode, true);
+    Screenshot screenshot = render(blend_mode, false);
+    for (int y = 1; y < kHeight; y += 2) {
+      for (int x = 1; x < kWidth; x += 2) {
+        INFO("blend mode " << static_cast<int>(blend_mode) << " x " << x << " y " << y);
+        Color expected_color = expected.sample(x, y);
+        Color result = screenshot.sample(x, y);
+        REQUIRE(result.hexRed() == Approx(expected_color.hexRed()).margin(2));
+        REQUIRE(result.hexGreen() == Approx(expected_color.hexGreen()).margin(2));
+        REQUIRE(result.hexBlue() == Approx(expected_color.hexBlue()).margin(2));
+      }
+    }
+  }
+}
+
+TEST_CASE("Blend modes on bloom frames don't change their siblings", "[integration]") {
+  auto setup = [](ApplicationEditor& app, Frame& a, Frame& b, BloomPostEffect& bloom_a,
+                  BloomPostEffect& bloom_b, bool sibling) {
+    for (BloomPostEffect* bloom : { &bloom_a, &bloom_b }) {
+      bloom->setBloomSize(8.0f);
+      bloom->setBloomIntensity(0.4f);
+    }
+    app.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0xff304050);
+      canvas.fill();
+    };
+    auto draw = [](Canvas& canvas) {
+      canvas.setColor(Color(0xffffe0a0, 2.5f));
+      canvas.fill(20, 14, 12, 12);
+    };
+    a.onDraw() = draw;
+    b.onDraw() = draw;
+    a.setPostEffect(&bloom_a);
+    b.setPostEffect(&bloom_b);
+    a.setBounds(0, 0, 56, 40);
+    b.setBounds(60, 0, 56, 40);
+    app.addChild(a);
+    if (sibling)
+      app.addChild(b);
+    app.setWindowless(120, 40);
+  };
+
+  {
+    ApplicationEditor app;
+    Frame a;
+    Frame b;
+    BloomPostEffect bloom_a;
+    BloomPostEffect bloom_b;
+    setup(app, a, b, bloom_a, bloom_b, true);
+    app.drawWindow();
+    Screenshot before = app.takeScreenshot();
+    a.setLayerBlendMode(BlendMode::Add);
+    app.drawWindow();
+    a.setLayerBlendMode(BlendMode::Alpha);
+    app.drawWindow();
+    REQUIRE(app.takeScreenshot().sample(94, 20).hexRed() == before.sample(94, 20).hexRed());
+  }
+
+  auto render_add = [&setup](bool sibling) {
+    ApplicationEditor app;
+    Frame a;
+    Frame b;
+    BloomPostEffect bloom_a;
+    BloomPostEffect bloom_b;
+    setup(app, a, b, bloom_a, bloom_b, sibling);
+    a.setLayerBlendMode(BlendMode::Add);
+    app.drawWindow();
+    return app.takeScreenshot();
+  };
+  Screenshot alone = render_add(false);
+  Screenshot with_sibling = render_add(true);
+  REQUIRE(with_sibling.sample(34, 20).hexRed() == alone.sample(34, 20).hexRed());
+}
+
+TEST_CASE("Blending a shader frame inside a bloom frame and back keeps its glow", "[integration]") {
+  ApplicationEditor app;
+  Frame bloom_frame;
+  Frame shader_frame;
+  BloomPostEffect bloom;
+  bloom.setBloomSize(8.0f);
+  bloom.setBloomIntensity(0.4f);
+  ShaderPostEffect shader(test_shaders::vs_test_post_effect, test_shaders::fs_test_color_mult);
+  app.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(0xff304050);
+    canvas.fill();
+  };
+  shader_frame.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(0xffc06040);
+    canvas.fill(0, 0, 30, 40);
+    canvas.setColor(Color(0xffffe0a0, 2.0f));
+    canvas.fill(20, 14, 12, 12);
+  };
+  shader_frame.setPostEffect(&shader);
+  bloom_frame.setPostEffect(&bloom);
+  bloom_frame.setBounds(0, 0, 56, 40);
+  shader_frame.setBounds(0, 0, 56, 40);
+  bloom_frame.addChild(shader_frame);
+  app.addChild(bloom_frame);
+  app.setWindowless(56, 40);
+  app.drawWindow();
+  Screenshot before = app.takeScreenshot();
+
+  shader_frame.setLayerBlendMode(BlendMode::Add);
+  app.drawWindow();
+  shader_frame.setLayerBlendMode(BlendMode::Alpha);
+  app.drawWindow();
+  const Screenshot& after = app.takeScreenshot();
+  for (int y = 0; y < 40; ++y) {
+    for (int x = 0; x < 56; ++x) {
+      INFO("x " << x << " y " << y);
+      REQUIRE(after.sample(x, y).hexRed() == Approx(before.sample(x, y).hexRed()).margin(1));
+      REQUIRE(after.sample(x, y).hexGreen() == Approx(before.sample(x, y).hexGreen()).margin(1));
+      REQUIRE(after.sample(x, y).hexBlue() == Approx(before.sample(x, y).hexBlue()).margin(1));
+    }
+  }
+}
+
 static Screenshot svgFrameScreenshot(const std::string& data) {
   ApplicationEditor app;
   SvgFrame frame;
