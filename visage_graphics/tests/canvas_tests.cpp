@@ -998,6 +998,100 @@ TEST_CASE("HDR layer edges ignore leftover GPU memory", "[graphics]") {
   }
 }
 
+TEST_CASE("Layer stops being HDR when its bloom region moves to another layer", "[graphics]") {
+  struct Result {
+    unsigned int translucent = 0;
+    unsigned int bright = 0;
+    int format = 0;
+  };
+
+  auto render = [](bool layer_parent_later) -> Result {
+    Canvas canvas;
+    canvas.setWindowless(64, 32);
+    BloomPostEffect bloom;
+    Region parent;
+    Region glowing;
+    canvas.addRegion(&parent);
+    parent.setBounds(0, 0, 64, 32);
+    if (!layer_parent_later)
+      parent.setNeedsLayer(true);
+    parent.addRegion(&glowing);
+    glowing.setNeedsLayer(true);
+    glowing.setPostEffect(&bloom);
+    glowing.setBounds(40, 0, 24, 32);
+
+    canvas.setColor(0xff808080);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.beginRegion(&parent);
+    canvas.setColor(0x80000000);
+    canvas.fill(0, 0, 32, 32);
+    canvas.setColor(Color(0x80ffffff, 2.0f));
+    canvas.fill(32, 0, 8, 32);
+    canvas.endRegion();
+    canvas.beginRegion(&glowing);
+    canvas.setColor(0xff202020);
+    canvas.fill(0, 0, glowing.width(), glowing.height());
+    canvas.endRegion();
+    canvas.submit();
+
+    if (layer_parent_later)
+      parent.setNeedsLayer(true);
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    return { screenshot.sample(16, 16).hexRed(), screenshot.sample(36, 16).hexRed(),
+             canvas.layer(2)->frameBufferFormat() };
+  };
+
+  Result layered_later = render(true);
+  Result layered_first = render(false);
+  REQUIRE(layered_later.translucent == Approx(layered_first.translucent).margin(2));
+  REQUIRE(layered_later.bright == Approx(layered_first.bright).margin(2));
+  REQUIRE(layered_later.format == layered_first.format);
+}
+
+TEST_CASE("Regions sharing a layer recomposite when the layer changes HDR", "[graphics]") {
+  auto render = [](bool parent_layered, bool change) {
+    Canvas canvas;
+    canvas.setWindowless(96, 64);
+    BloomPostEffect bloom;
+    Region parent;
+    Region glowing;
+    Region sibling;
+    canvas.addRegion(&parent);
+    parent.setBounds(0, 0, 40, 64);
+    parent.setNeedsLayer(parent_layered);
+    parent.addRegion(&glowing);
+    glowing.setNeedsLayer(true);
+    glowing.setPostEffect(&bloom);
+    glowing.setBounds(0, 0, 40, 64);
+    canvas.addRegion(&sibling);
+    sibling.setNeedsLayer(true);
+    sibling.setBounds(44, 0, 48, 64);
+
+    canvas.setColor(0xff808080);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.beginRegion(&glowing);
+    canvas.setColor(0xff202020);
+    canvas.fill(0, 0, glowing.width(), glowing.height());
+    canvas.endRegion();
+    canvas.beginRegion(&sibling);
+    canvas.setColor(Color(0x80ffffff, 2.0f));
+    canvas.fill(0, 0, sibling.width(), sibling.height());
+    canvas.endRegion();
+
+    if (!change)
+      return canvas.takeScreenshot().sample(68, 32).hexRed();
+
+    canvas.submit();
+    parent.setNeedsLayer(!parent_layered);
+    canvas.layer(0)->requestScreenshot();
+    canvas.submit();
+    return canvas.layer(0)->screenshot().sample(68, 32).hexRed();
+  };
+
+  REQUIRE(render(false, true) == Approx(render(true, false)).margin(2));
+  REQUIRE(render(true, true) == Approx(render(false, false)).margin(2));
+}
+
 TEST_CASE("Cached region keeps its content when a sibling adds a bloom effect", "[graphics]") {
   Canvas canvas;
   canvas.setWindowless(64, 32);
