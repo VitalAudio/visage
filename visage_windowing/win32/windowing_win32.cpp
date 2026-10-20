@@ -1046,7 +1046,7 @@ namespace visage {
         postMessageToParent(hwnd, msg, w_param, l_param);
       return 0;
     }
-    case WM_SYSCHAR:
+    case WM_SYSCHAR: return 0;
     case WM_CHAR: {
       handleCharacterEntry(static_cast<wchar_t>(w_param));
       SetCaretPos(-500, 200);
@@ -1660,7 +1660,7 @@ namespace visage {
 
     DpiAwareness dpi_awareness;
 
-    bool character = message->message == WM_CHAR || message->message == WM_SYSCHAR;
+    bool character = message->message == WM_CHAR;
     bool key_down = message->message == WM_KEYDOWN || message->message == WM_SYSKEYDOWN;
     bool key_up = message->message == WM_KEYUP || message->message == WM_SYSKEYUP;
 
@@ -1679,13 +1679,12 @@ namespace visage {
     else
       used = handleKeyUp(key_code, keyboardModifiers());
 
-    if (hasActiveTextEntry()) {
+    bool system_key = message->message == WM_SYSKEYDOWN || message->message == WM_SYSKEYUP;
+    if (hasActiveTextEntry() && !system_key) {
       TranslateMessage(message);
       MSG peek {};
-      if (PeekMessage(&peek, parentHandle(), WM_CHAR, WM_DEADCHAR, PM_REMOVE) ||
-          PeekMessage(&peek, parentHandle(), WM_SYSCHAR, WM_SYSDEADCHAR, PM_REMOVE)) {
+      if (PeekMessage(&peek, parentHandle(), WM_CHAR, WM_DEADCHAR, PM_REMOVE))
         used = true;
-      }
     }
     return used;
   }

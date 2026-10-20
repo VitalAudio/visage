@@ -511,9 +511,24 @@ namespace visage {
 
     bool modifier = key.isMainModifier();
     if (key.isAltDown()) {
-      if (!modifier && active_)
+#if VISAGE_MAC || VISAGE_EMSCRIPTEN
+      if (modifier)
+        return false;
+
+      if (key.keyCode() == KeyCode::Left)
+        return moveCaretLeft(true, key.isShiftDown());
+      if (key.keyCode() == KeyCode::Right)
+        return moveCaretRight(true, key.isShiftDown());
+      if (key.keyCode() == KeyCode::Backspace)
+        return deleteBackwards(true);
+      if (key.keyCode() == KeyCode::Delete)
+        return deleteForwards(true);
+      if (active_)
         handleDeadKey(key);
-      return !modifier;
+      return true;
+#else
+      return false;
+#endif
     }
 
     KeyCode code = key.keyCode();

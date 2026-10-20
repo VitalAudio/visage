@@ -99,6 +99,7 @@ TEST_CASE("Text editor doesn't record a key whose press moves focus away", "[wid
   CHECK_FALSE(editor.processKeyRelease(KeyEvent(KeyCode::Return, 0, false)));
 }
 
+#if VISAGE_MAC
 TEST_CASE("Text editor dead key at max characters", "[widgets]") {
   TextEditor editor;
   editor.setMaxCharacters(3);
@@ -135,6 +136,7 @@ TEST_CASE("Text editor dead key", "[widgets]") {
   editor.processTextInput("e");
   REQUIRE(editor.text() == "abé");
 }
+#endif
 
 TEST_CASE("Text editor switching off multi-line clears line breaks", "[widgets]") {
   TextEditor editor;
@@ -274,6 +276,23 @@ TEST_CASE("Text editor keeps undo and redo keys when there's nothing to undo or 
   REQUIRE(editor.processKeyPress(KeyEvent(KeyCode::Y, kModifierRegCtrl | kModifierCmd, true)));
   REQUIRE(editor.text() == "a");
 }
+
+#if !VISAGE_MAC
+TEST_CASE("Text editor leaves Alt+keys to its parent", "[widgets]") {
+  TextEditor editor;
+  editor.setText("abc");
+  editor.processFocusChanged(true, false);
+  editor.moveCaretToEnd(false);
+
+  REQUIRE_FALSE(editor.processKeyPress(KeyEvent(KeyCode::E, kModifierAlt, true)));
+  REQUIRE_FALSE(editor.processKeyPress(KeyEvent(KeyCode::A, kModifierAlt, true)));
+  REQUIRE_FALSE(editor.processKeyPress(KeyEvent(KeyCode::Left, kModifierAlt, true)));
+  REQUIRE(editor.text() == "abc");
+
+  editor.processTextInput("e");
+  REQUIRE(editor.text() == "abce");
+}
+#endif
 
 TEST_CASE("Text editor setText clears the undo history", "[widgets]") {
   TextEditor editor;
