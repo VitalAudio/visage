@@ -1920,7 +1920,8 @@ namespace visage {
       if (key_code != KeyCode::Unknown)
         used = handleKeyDown(key_code, modifier_state | modifierForKeyCode(key_code), repeat);
 
-      if ((modifier_state & kModifierAlt) == 0 && !text.empty() && text[0] < 127)
+      bool shortcut = modifier_state & (kModifierRegCtrl | kModifierAlt | kModifierMeta);
+      if (!shortcut && !text.empty() && text[0] < 127)
         handleTextInput(text);
 
       if (!used)
