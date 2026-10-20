@@ -50,7 +50,7 @@ namespace visage {
       if (canvas_)
         region->setCanvas(canvas_);
 
-      region->setLayerIndex(layer_index_);
+      region->setLayerIndex(region->needsLayer() ? layer_index_ + 1 : layer_index_);
     }
 
     void removeRegion(Region* region);

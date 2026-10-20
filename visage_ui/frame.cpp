@@ -31,8 +31,8 @@ namespace visage {
     }
 
     region_.setVisible(visible);
-    if (mask_group_)
-      mask_group_->setVisible(visible);
+    if (group_)
+      group_->setVisible(visible);
     if (visible)
       redraw();
     else
@@ -54,8 +54,8 @@ namespace visage {
     else {
       redrawing_ = false;
       region_.setNeedsLayer(false);
-      if (mask_group_)
-        mask_group_->setNeedsLayer(false);
+      if (group_)
+        group_->setNeedsLayer(false);
     }
 
     for (Frame* child : children_) {
@@ -186,7 +186,7 @@ namespace visage {
     native_bounds_ = new_native_bounds;
     outerRegion()->setBounds(native_bounds_.x(), native_bounds_.y(), native_bounds_.width(),
                              native_bounds_.height());
-    if (mask_group_)
+    if (group_)
       region_.setBounds(0, 0, native_bounds_.width(), native_bounds_.height());
     computeLayout();
     if (layout_ == nullptr || !layout_->flex()) {
@@ -361,8 +361,10 @@ namespace visage {
 
     redrawing_ = false;
     region_.invalidate();
-    if (mask_group_)
-      mask_group_->setNeedsLayer(true);
+    if (needsGroup() != grouped_)
+      updateGroup();
+    if (group_)
+      group_->setNeedsLayer(grouped_);
     region_.setNeedsLayer(requiresLayer());
     if (width() <= 0 || height() <= 0) {
       region_.clear();
@@ -402,25 +404,37 @@ namespace visage {
     addChild(mask_frame_.get());
     region_.removeRegion(mask_frame_->region());
 
-    mask_group_ = std::make_unique<Region>();
-    if (Region* parent = region_.parent())
-      parent->replaceRegion(&region_, mask_group_.get());
-    mask_group_->addRegion(&region_);
-    mask_group_->addRegion(mask_frame_->region());
-    mask_group_->setMaskedRegion(&region_);
-    mask_group_->setVisible(visible_);
-    mask_group_->setOnTop(on_top_);
-    mask_group_->setAlpha(alpha_transparency_);
-    mask_group_->setLayerBlendMode(layer_blend_mode_);
-    mask_group_->setBounds(native_bounds_.x(), native_bounds_.y(), native_bounds_.width(),
-                           native_bounds_.height());
-    region_.setOnTop(false);
-    region_.setAlpha(1.0f);
-    region_.setLayerBlendMode(BlendMode::Alpha);
-    region_.setBounds(0, 0, native_bounds_.width(), native_bounds_.height());
+    updateGroup();
+    group_->addRegion(mask_frame_->region());
     mask_frame_->setBounds(localBounds());
     setMaskType(mask_type_);
     redraw();
+  }
+
+  void Frame::updateGroup() {
+    grouped_ = needsGroup();
+    if (grouped_ && group_ == nullptr) {
+      group_ = std::make_unique<Region>();
+      if (Region* parent = region_.parent())
+        parent->replaceRegion(&region_, group_.get());
+      group_->addRegion(&region_);
+      group_->setVisible(visible_);
+      group_->setOnTop(on_top_);
+      group_->setBounds(native_bounds_.x(), native_bounds_.y(), native_bounds_.width(),
+                        native_bounds_.height());
+      region_.setOnTop(false);
+      region_.setBounds(0, 0, native_bounds_.width(), native_bounds_.height());
+    }
+
+    Region* composite = grouped_ ? group_.get() : &region_;
+    composite->setAlpha(alpha_transparency_);
+    composite->setLayerBlendMode(layer_blend_mode_);
+    if (group_) {
+      Region* inner = grouped_ ? &region_ : group_.get();
+      inner->setAlpha(1.0f);
+      inner->setLayerBlendMode(BlendMode::Alpha);
+      group_->setMaskedRegion(grouped_ ? &region_ : nullptr);
+    }
   }
 
   void Frame::setMaskType(MaskType mask_type) {
@@ -440,6 +454,7 @@ namespace visage {
   void Frame::setPostEffect(PostEffect* post_effect) {
     post_effect_ = post_effect;
     region_.setPostEffect(post_effect);
+    updateGroup();
     if (parent_)
       parent_->redraw();
     redrawAll();
@@ -449,6 +464,7 @@ namespace visage {
     VISAGE_ASSERT(post_effect_);
     post_effect_ = nullptr;
     region_.setPostEffect(nullptr);
+    updateGroup();
     redrawAll();
   }
 

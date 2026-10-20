@@ -37,7 +37,7 @@ namespace visage {
     region->parent_ = nullptr;
     replacement->parent_ = this;
     replacement->setCanvas(canvas_);
-    replacement->setLayerIndex(layer_index_);
+    replacement->setLayerIndex(replacement->needsLayer() ? layer_index_ + 1 : layer_index_);
   }
 
   void Region::setCanvas(Canvas* canvas) {
