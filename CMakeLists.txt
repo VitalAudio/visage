@@ -5,8 +5,8 @@ if (APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
   set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS deployment version")
 endif ()
 
-if (NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
+if (NOT DEFINED CMAKE_CXX_STANDARD OR CMAKE_CXX_STANDARD LESS 20)
+  set(CMAKE_CXX_STANDARD 20)
 endif ()
 
 project(visage VERSION 0.1.0)
@@ -105,6 +105,7 @@ add_library(visage STATIC
 )
 
 target_include_directories(visage SYSTEM PUBLIC ${VISAGE_INCLUDE_PATH} ${VISAGE_INCLUDE})
+target_compile_features(visage PUBLIC cxx_std_20)
 target_link_libraries(visage PRIVATE
   VisageApp
   VisageGraphics
