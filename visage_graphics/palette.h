@@ -26,6 +26,7 @@
 #include "theme.h"
 
 #include <map>
+#include <set>
 #include <vector>
 
 namespace visage {
@@ -85,12 +86,12 @@ namespace visage {
       }
     }
 
-    bool color(theme::OverrideId override_id, theme::ColorId color_id, Brush& color) {
-      color_map_[override_id].try_emplace(color_id, kNotSetId);
-
-      int index = color_map_[override_id][color_id];
-      if (index == kNotSetId)
+    bool color(theme::OverrideId override_id, theme::ColorId color_id, Brush& color) const {
+      int index = colorMap(override_id, color_id);
+      if (index == kNotSetId) {
+        known_color_ids_[override_id].insert(color_id);
         return false;
+      }
 
       if (index < 0 || index >= colors_.size())
         color = Brush::solid(kInvalidColor);
@@ -123,19 +124,35 @@ namespace visage {
     void setValue(theme::ValueId value_id, float value) { setValue({}, value_id, value); }
 
     void removeValue(theme::OverrideId override_id, theme::ValueId value_id) {
-      if (value_map_[override_id].count(value_id))
-        value_map_[override_id].erase(value_id);
+      auto values = value_map_.find(override_id);
+      if (values == value_map_.end() || values->second.erase(value_id) == 0)
+        return;
+
+      known_value_ids_[override_id].insert(value_id);
+      if (values->second.empty())
+        value_map_.erase(values);
     }
 
     void removeValue(theme::ValueId value_id) { removeValue({}, value_id); }
 
-    int colorMap(theme::OverrideId override_id, theme::ColorId color_id) {
-      return color_map_[override_id][color_id];
+    int colorMap(theme::OverrideId override_id, theme::ColorId color_id) const {
+      auto colors = color_map_.find(override_id);
+      if (colors == color_map_.end())
+        return kNotSetId;
+      auto index = colors->second.find(color_id);
+      return index == colors->second.end() ? kNotSetId : index->second;
     }
 
-    bool value(theme::OverrideId override_id, theme::ValueId value_id, float& result) {
-      value_map_[override_id].try_emplace(value_id, kNotSetValue);
-      result = value_map_[override_id][value_id];
+    bool value(theme::OverrideId override_id, theme::ValueId value_id, float& result) const {
+      result = kNotSetValue;
+      auto values = value_map_.find(override_id);
+      if (values != value_map_.end()) {
+        auto value = values->second.find(value_id);
+        if (value != values->second.end())
+          result = value->second;
+      }
+      if (result == kNotSetValue)
+        known_value_ids_[override_id].insert(value_id);
       return result != kNotSetValue;
     }
 
@@ -153,6 +170,8 @@ namespace visage {
       color_map_.clear();
       value_map_.clear();
       colors_.clear();
+      known_color_ids_.clear();
+      known_value_ids_.clear();
     }
 
     void removeColor(int index);
@@ -164,5 +183,7 @@ namespace visage {
     std::vector<Brush> colors_;
     std::map<theme::OverrideId, std::map<theme::ColorId, int>> color_map_;
     std::map<theme::OverrideId, std::map<theme::ValueId, float>> value_map_;
+    mutable std::map<theme::OverrideId, std::set<theme::ColorId>> known_color_ids_;
+    mutable std::map<theme::OverrideId, std::set<theme::ValueId>> known_value_ids_;
   };
 }
