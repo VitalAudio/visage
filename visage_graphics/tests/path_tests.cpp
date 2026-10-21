@@ -781,4 +781,10 @@ TEST_CASE("Curve end tangents survive reversing transforming and dashing", "[gra
   Path dashed = arc.stroke(4.0f, Path::Join::Miter, Path::EndCap::Butt, { 1000.0f, 1.0f });
   REQUIRE(dashed.boundingBox().right() == Catch::Approx(12.0f).margin(0.05f));
   REQUIRE(dashed.boundingBox().y() == Catch::Approx(-2.0f).margin(0.05f));
+
+  Path closed = arc;
+  closed.close();
+  Path joined = closed.stroke(4.0f, Path::Join::Miter, Path::EndCap::Butt, { 12.0f, 1.0f });
+  REQUIRE(joined.boundingBox().right() == Catch::Approx(12.0f).margin(0.05f));
+  REQUIRE(joined.boundingBox().y() == Catch::Approx(-2.0f).margin(0.05f));
 }
