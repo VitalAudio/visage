@@ -1627,6 +1627,10 @@ namespace visage {
     }
   }
 
+  static bool changesFocus(const XFocusChangeEvent& event) {
+    return event.mode != NotifyGrab && event.mode != NotifyUngrab && event.detail != NotifyPointer;
+  }
+
   void WindowX11::processEvent(XEvent& event) {
     switch (event.type) {
     case ClientMessage: {
@@ -1890,14 +1894,14 @@ namespace visage {
     case FocusIn: {
       if (input_context_)
         XSetICFocus(input_context_);
-      if (event.xfocus.mode != NotifyGrab && event.xfocus.mode != NotifyUngrab)
+      if (changesFocus(event.xfocus))
         handleFocusGained();
       break;
     }
     case FocusOut: {
       if (input_context_)
         XUnsetICFocus(input_context_);
-      if (event.xfocus.mode != NotifyGrab && event.xfocus.mode != NotifyUngrab)
+      if (changesFocus(event.xfocus))
         handleFocusLost();
       break;
     }
