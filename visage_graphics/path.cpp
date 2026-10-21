@@ -732,9 +732,11 @@ namespace visage {
             dash.tangents.back() = { end_tangent, {}, false };
           }
         };
-        auto cut_tangent = [&](int index, const Point& point) {
+        auto cut_tangent = [&](int index, const Point& point, bool end) {
           if (!has_tangents)
             return Point();
+          if (end && point == path.points[index - 1])
+            return path.tangents[index - 1].in;
           Point from = path.tangents[index - 1].out.normalized();
           Point to = path.tangents[index].in.normalized();
           if (from.dot(to) <= 0.0f)
@@ -756,11 +758,11 @@ namespace visage {
 
             if (fill) {
               stroke_path.lineTo(point);
-              copy_tangents(-1, cut_tangent(i, point));
+              copy_tangents(-1, cut_tangent(i, point, true));
             }
             else {
               stroke_path.moveTo(point);
-              start_tangent = cut_tangent(i, point);
+              start_tangent = cut_tangent(i, point, false);
             }
 
             if (join_ends && first_dash < 0)

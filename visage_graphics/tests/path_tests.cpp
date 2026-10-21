@@ -825,3 +825,49 @@ TEST_CASE("Dashes ending inside curves are cut along the curve normal", "[graphi
   cubic_circle.close();
   check_caps(cubic_circle);
 }
+
+TEST_CASE("Dash ends at line and curve junctions keep the incoming direction", "[graphics]") {
+  static constexpr float kWidth = 4.0f;
+  auto end_cap = [](const Path& path, Point end) {
+    Path dashed = path.stroke(kWidth, Path::Join::Miter, Path::EndCap::Butt, { 10.0f, 100.0f });
+    for (const auto& sub_path : dashed.subPaths()) {
+      for (int i = 0; i < sub_path.points.size(); ++i) {
+        Point from = sub_path.points[i];
+        Point to = sub_path.points[(i + 1) % sub_path.points.size()];
+        if (std::abs((to - from).length() - kWidth) < 0.01f && ((from + to) * 0.5f - end).length() < 0.01f)
+          return (to - from).normalized();
+      }
+    }
+    return Point();
+  };
+  auto rotate = [](Point direction, float degrees) {
+    float radians = degrees * kPi / 180.0f;
+    return Point(direction.x * std::cos(radians) - direction.y * std::sin(radians),
+                 direction.x * std::sin(radians) + direction.y * std::cos(radians));
+  };
+
+  Point corner(10, 0);
+  Point curve_end = Point(1, -1).normalized();
+  for (float degrees : { 30.0f, 60.0f, 90.0f, 120.0f, 150.0f }) {
+    INFO("turn " << degrees);
+    Point turn = rotate(Point(1, 0), degrees);
+    Point side = rotate(turn, 90.0f);
+    Path line_to_curve;
+    line_to_curve.moveTo(0, 0);
+    line_to_curve.lineTo(corner);
+    line_to_curve.bezierTo(corner + turn * 5.0f, corner + turn * 10.0f + side * 5.0f,
+                           corner + turn * 15.0f + side * 5.0f);
+    Point cap = end_cap(line_to_curve, corner);
+    REQUIRE(cap.length() > 0.5f);
+    REQUIRE(cap.dot(Point(1, 0)) == Catch::Approx(0.0f).margin(0.002f));
+
+    Path curve_to_line;
+    curve_to_line.setResolutionMatrix(Matrix::scale(0.01f, 0.01f));
+    curve_to_line.moveTo(0, 0);
+    curve_to_line.bezierTo(3, 3, 7, 3, 10, 0);
+    curve_to_line.lineTo(corner + rotate(curve_end, degrees) * 10.0f);
+    cap = end_cap(curve_to_line, corner);
+    REQUIRE(cap.length() > 0.5f);
+    REQUIRE(cap.dot(curve_end) == Catch::Approx(0.0f).margin(0.002f));
+  }
+}
