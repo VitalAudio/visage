@@ -50,6 +50,20 @@ namespace visage {
         window_->setNativeWindowSize(width, height);
     }
 
+    void setNativeWindowDimensionsFromHost(int width, int height) {
+      if (window_)
+        window_->setNativeWindowSize(width, height);
+      else
+        setNativeWindowDimensions(width, height);
+    }
+
+    void setWindowDimensionsFromHost(int width, int height) {
+      if (window_)
+        window_->setWindowSize(width, height);
+      else
+        setWindowDimensions(width, height);
+    }
+
     void setWindowDimensions(const Dimension& width, const Dimension& height);
     void setWindowDimensions(const Dimension& x, const Dimension& y, const Dimension& width,
                              const Dimension& height);
