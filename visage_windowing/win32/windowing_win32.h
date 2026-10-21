@@ -75,6 +75,7 @@ namespace visage {
     void hide() override;
     void close() override;
     bool isShowing() const override;
+    bool isClosed() const override;
     void setWindowTitle(const std::string& title) override;
     IPoint maxWindowDimensions() const override;
     void setAlwaysOnTop(bool on_top) override;

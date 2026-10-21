@@ -1592,6 +1592,10 @@ namespace visage {
     return IsWindowVisible(window_handle_);
   }
 
+  bool WindowWin32::isClosed() const {
+    return !IsWindow(window_handle_);
+  }
+
   void WindowWin32::showMaximized() {
     show(SW_MAXIMIZE);
   }

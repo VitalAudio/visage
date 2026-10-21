@@ -1399,6 +1399,10 @@ namespace visage {
     return window_handle_ && [window_handle_ isVisible];
   }
 
+  bool WindowMac::isClosed() const {
+    return parent_view_ == nullptr && window_handle_ == nullptr;
+  }
+
   void WindowMac::setWindowTitle(const std::string& title) {
     [window_handle_ setTitle:[NSString stringWithUTF8String:title.c_str()]];
   }

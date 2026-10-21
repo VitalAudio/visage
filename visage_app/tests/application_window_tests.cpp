@@ -130,6 +130,7 @@ TEST_CASE("A hidden ApplicationWindow can be shown again from its own event loop
   ApplicationWindow app;
   int shows = 0;
   app.show(Dimension::nativePixels(100), Dimension::nativePixels(80));
+  void* handle = app.window()->nativeHandle();
   Steps steps({ [&] {
                  app.hide();
                  return true;
@@ -148,6 +149,7 @@ TEST_CASE("A hidden ApplicationWindow can be shown again from its own event loop
   REQUIRE(shows == 1);
   REQUIRE(app.nativeWidth() == 120);
   REQUIRE(app.nativeHeight() == 90);
+  REQUIRE(app.window()->nativeHandle() == handle);
 }
 
 TEST_CASE("A closed ApplicationWindow can be shown again while another window is open",
@@ -162,6 +164,7 @@ TEST_CASE("A closed ApplicationWindow can be shown again while another window is
   int shows = 0;
   app.show(Dimension::nativePixels(100), Dimension::nativePixels(80));
   other.show(Dimension::nativePixels(60), Dimension::nativePixels(40));
+  void* handle = app.window()->nativeHandle();
   Steps steps({ [&] {
                  app.close();
                  return true;
@@ -180,5 +183,6 @@ TEST_CASE("A closed ApplicationWindow can be shown again while another window is
                 } });
   app.runEventLoop();
   REQUIRE(shows == 1);
+  REQUIRE(app.window()->nativeHandle() != handle);
 }
 #endif
