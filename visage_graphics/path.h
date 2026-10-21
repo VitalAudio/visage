@@ -544,8 +544,13 @@ namespace visage {
       return point - closest_point;
     }
 
+    static Point bezierEndTangent(const Point& from, const Point& control1, const Point& control2,
+                                  const Point& to) {
+      return to != control2 ? to - control2 : (to != control1 ? to - control1 : to - from);
+    }
+
     void recurseBezierTo(const Point& from, const Point& control1, const Point& control2,
-                         const Point& to, int depth = 0) {
+                         const Point& to, bool curve, int depth = 0) {
       static constexpr int kMaxBezierDepth = 16;
       float error_squared = error_tolerance_ * error_tolerance_;
 
@@ -554,7 +559,10 @@ namespace visage {
       bool within_error = !(delta1.squareMagnitude() > error_squared) &&
                           !(delta2.squareMagnitude() > error_squared);
       if (within_error || depth >= kMaxBezierDepth) {
-        addPoint(to);
+        if (curve)
+          addCurvePoint(to, bezierEndTangent(from, control1, control2, to));
+        else
+          addPoint(to);
         return;
       }
 
@@ -567,26 +575,37 @@ namespace visage {
 
       Point break_point = (midmid1 + midmid2) * 0.5f;
 
-      recurseBezierTo(from, mid1, midmid1, break_point, depth + 1);
-      recurseBezierTo(break_point, midmid2, mid3, to, depth + 1);
+      recurseBezierTo(from, mid1, midmid1, break_point, curve, depth + 1);
+      recurseBezierTo(break_point, midmid2, mid3, to, curve, depth + 1);
     }
 
     void addBezier(const Point& from, const Point& control1, const Point& control2, const Point& to) {
       static constexpr float kLineSlop = 0.00001f;
-      int start_index = currentPath().points.size() - 1;
-      recurseBezierTo(from, control1, control2, to);
-
       float extent = std::max({ (control1 - from).length(), (control2 - from).length(),
                                 (to - from).length(), (control2 - control1).length(),
                                 (to - control1).length(), (to - control2).length() });
       float slop = extent * extent * kLineSlop;
-      if (deltaFromLine(control1, from, to).squareMagnitude() <= slop &&
-          deltaFromLine(control2, from, to).squareMagnitude() <= slop)
+      bool line = deltaFromLine(control1, from, to).squareMagnitude() <= slop &&
+                  deltaFromLine(control2, from, to).squareMagnitude() <= slop;
+
+      int start_index = currentPath().points.size() - 1;
+      recurseBezierTo(from, control1, control2, to, !line);
+      if (line)
         return;
 
       Point start = control1 != from ? control1 - from : (control2 != from ? control2 - from : to - from);
-      Point end = to != control2 ? to - control2 : (to != control1 ? to - control1 : to - from);
-      setCurveTangents(start_index, start, end);
+      setCurveTangents(start_index, start, bezierEndTangent(from, control1, control2, to));
+    }
+
+    void addCurvePoint(const Point& point, const Point& tangent) {
+      int num_points = currentPath().points.size();
+      addPoint(point);
+      SubPath& path = currentPath();
+      if (path.points.size() == num_points)
+        return;
+
+      path.tangents.resize(path.points.size());
+      path.tangents.back() = { tangent, tangent, true };
     }
 
     void setCurveTangents(int start_index, const Point& start, const Point& end) {
@@ -597,9 +616,7 @@ namespace visage {
 
       path.tangents.resize(path.points.size());
       path.tangents[start_index].out = start;
-      path.tangents[end_index].in = end;
-      for (int i = start_index + 1; i < end_index; ++i)
-        path.tangents[i].smooth = true;
+      path.tangents[end_index] = { end, {}, false };
     }
 
     static void reverseSubPath(SubPath& path) {

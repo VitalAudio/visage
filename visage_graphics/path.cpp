@@ -167,7 +167,7 @@ namespace visage {
       Point p = center + Point(position.real(), position.imag());
       p.y /= radius_ratio;
       p = ellipse_rotation * p + from;
-      addPoint(p);
+      addCurvePoint(p, tangent(position));
     }
     setCurveTangents(start_index, start_tangent, tangent(position));
   }
@@ -533,13 +533,15 @@ namespace visage {
       int last = sub_path.points.size() - 1;
       bool has_tangents = sub_path.tangents.size() == sub_path.points.size();
       auto stored_in = [&](int index) {
-        return has_tangents ? sub_path.tangents[index].in : Point();
+        if (!has_tangents || sub_path.tangents[index].smooth)
+          return Point();
+        return sub_path.tangents[index].in;
       };
       auto stored_out = [&](int index) {
-        if (!has_tangents)
+        if (has_tangents && index == last && closed_points && sub_path.tangents[index].out == Point())
+          index = 0;
+        if (!has_tangents || sub_path.tangents[index].smooth)
           return Point();
-        if (index == last && closed_points && sub_path.tangents[index].out == Point())
-          return sub_path.tangents[0].out;
         return sub_path.tangents[index].out;
       };
 
@@ -712,19 +714,34 @@ namespace visage {
         bool fill = start_fill;
         float dash_length = start_dash_length;
         bool has_tangents = path.tangents.size() == path.points.size();
-        int start_vertex = 0;
-        auto copy_tangents = [&](int vertex) {
+        Point start_tangent = has_tangents ? path.tangents[0].out : Point();
+        auto copy_tangents = [&](int vertex, Point end_tangent = {}) {
           SubPath& dash = stroke_path.paths_.back();
           if (!has_tangents || dash.points.empty())
             return;
-          if (start_vertex >= 0 && dash.points.size() == 2) {
+          if (start_tangent != Point() && dash.points.size() == 2) {
             dash.tangents.resize(dash.points.size());
-            dash.tangents[0].out = path.tangents[start_vertex].out;
+            dash.tangents[0].out = start_tangent;
           }
           if (vertex >= 0) {
             dash.tangents.resize(dash.points.size());
             dash.tangents.back() = path.tangents[vertex];
           }
+          else if (end_tangent != Point() || !dash.tangents.empty()) {
+            dash.tangents.resize(dash.points.size());
+            dash.tangents.back() = { end_tangent, {}, false };
+          }
+        };
+        auto cut_tangent = [&](int index, const Point& point) {
+          if (!has_tangents)
+            return Point();
+          Point from = path.tangents[index - 1].out.normalized();
+          Point to = path.tangents[index].in.normalized();
+          if (from.dot(to) <= 0.0f)
+            return Point();
+          float chord = (path.points[index] - path.points[index - 1]).length();
+          float t = chord > 0.0f ? (point - path.points[index - 1]).length() / chord : 0.0f;
+          return from + (to - from) * t;
         };
         bool join_ends = path.closed && fill;
         int first_dash = -1;
@@ -739,11 +756,11 @@ namespace visage {
 
             if (fill) {
               stroke_path.lineTo(point);
-              copy_tangents(-1);
+              copy_tangents(-1, cut_tangent(i, point));
             }
             else {
               stroke_path.moveTo(point);
-              start_vertex = -1;
+              start_tangent = cut_tangent(i, point);
             }
 
             if (join_ends && first_dash < 0)
