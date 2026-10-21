@@ -789,7 +789,9 @@ namespace visage {
       Brush current = state_.set_brush;
       if (state_.brush != &default_brush_)
         context.current_color = &current;
+      saveState();
       svg.drawable()->drawAll(*this, &context, x, y, width, height);
+      restoreState();
     }
 
     void addImage(const Image& image, float x, float y) {
