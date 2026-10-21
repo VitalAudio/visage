@@ -560,6 +560,61 @@ TEST_CASE("Arcs end exactly at their end point", "[graphics]") {
   }
 }
 
+TEST_CASE("Rounded rectangle sides never run backward", "[graphics]") {
+  auto check_turns = [](const Path& path) {
+    for (const auto& sub_path : path.subPaths()) {
+      const auto& points = sub_path.points;
+      for (int i = 0; i < points.size(); ++i) {
+        Point from = points[(i + 1) % points.size()] - points[i];
+        Point to = points[(i + 2) % points.size()] - points[(i + 1) % points.size()];
+        REQUIRE(from.dot(to) >= 0.0f);
+      }
+    }
+  };
+
+  for (int i = 0; i < 100; ++i) {
+    float x = 54.0f + i * 0.37f;
+    float y = 57.0f + i * 0.13f;
+    float width = 73.8f + i * 0.71f;
+    float height = 17.85f + i * 0.29f;
+    Path pill;
+    pill.addRoundedRectangle(x, y, width, height, height * 0.5f);
+    check_turns(pill);
+
+    Path corners;
+    corners.addRoundedRectangle(x, y, width, height, 10.0f, 10.0f, 20.0f, 20.0f, 30.0f, 30.0f, 40.0f, 40.0f);
+    check_turns(corners);
+  }
+
+  static constexpr float kX = 54.0f;
+  static constexpr float kY = 57.0f;
+  static constexpr float kWidth = 73.8f;
+  static constexpr float kHeight = 17.85f;
+  static constexpr float kRadius = kHeight * 0.5f;
+  Path rectangle;
+  rectangle.addRoundedRectangle(kX, kY, kWidth, kHeight, kRadius);
+  Path pill;
+  pill.moveTo(kX + kRadius, kY);
+  pill.lineTo(kX + kWidth - kRadius, kY);
+  pill.arcTo(kRadius, kRadius, 0.0f, false, true, Point(kX + kWidth, kY + kRadius));
+  pill.arcTo(kRadius, kRadius, 0.0f, false, true, Point(kX + kWidth - kRadius, kY + kHeight));
+  pill.lineTo(kX + kRadius, kY + kHeight);
+  pill.arcTo(kRadius, kRadius, 0.0f, false, true, Point(kX, kY + kRadius));
+  pill.arcTo(kRadius, kRadius, 0.0f, false, true, Point(kX + kRadius, kY));
+  pill.close();
+
+  Path dashed_rectangle = rectangle.stroke(20.0f, Path::Join::Round, Path::EndCap::Butt, { 1.0f, 2.0f });
+  Path dashed_pill = pill.stroke(20.0f, Path::Join::Round, Path::EndCap::Butt, { 1.0f, 2.0f });
+  REQUIRE(dashed_rectangle.subPaths().size() == dashed_pill.subPaths().size());
+  for (int i = 0; i < dashed_pill.subPaths().size(); ++i) {
+    const auto& expected = dashed_pill.subPaths()[i].points;
+    const auto& points = dashed_rectangle.subPaths()[i].points;
+    REQUIRE(points.size() == expected.size());
+    for (int p = 0; p < points.size(); ++p)
+      REQUIRE((points[p] - expected[p]).length() < 0.001f);
+  }
+}
+
 static std::vector<Point> clipToHalfPlane(const std::vector<Point>& polygon, Point normal, float offset) {
   std::vector<Point> result;
   for (int i = 0; i < polygon.size(); ++i) {
