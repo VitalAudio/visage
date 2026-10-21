@@ -102,8 +102,22 @@ namespace visage {
     }
 
     void setColorMap(theme::OverrideId override_id, theme::ColorId color_id, int index) {
+      if (index == kNotSetId) {
+        removeColorMap(override_id, color_id);
+        return;
+      }
+
       if (color_map_[override_id].insert_or_assign(color_id, index).second)
         color_id_lists_.erase(override_id);
+    }
+
+    void removeColorMap(theme::OverrideId override_id, theme::ColorId color_id) {
+      if (known_color_ids_[override_id].insert(color_id).second)
+        color_id_lists_.erase(override_id);
+
+      auto colors = color_map_.find(override_id);
+      if (colors != color_map_.end() && colors->second.erase(color_id) && colors->second.empty())
+        color_map_.erase(colors);
     }
 
     void setColor(theme::OverrideId override_id, theme::ColorId color_id, const Color& color) {
