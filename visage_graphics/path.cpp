@@ -52,6 +52,10 @@ namespace visage {
     return std::max(kMinDeltaRadians, 2.0 * clampedACos(1.0 - error_ratio));
   }
 
+  static float sideLength(float length, float radius1, float radius2) {
+    return std::max(0.0f, length - radius1 - radius2);
+  }
+
   template<typename T>
   static void roundedRectangle(T& t, float x, float y, float width, float height, float rx_top_left,
                                float ry_top_left, float rx_top_right, float ry_top_right,
@@ -77,14 +81,14 @@ namespace visage {
     ry_bottom_left *= scale;
 
     t.moveTo(x + rx_top_left, y);
-    t.lineTo(x + width - rx_top_right, y);
+    t.lineTo(x + rx_top_left + sideLength(width, rx_top_left, rx_top_right), y);
     t.arcTo(rx_top_right, ry_top_right, 0.0f, false, true, Point(x + width, y + ry_top_right), false);
-    t.lineTo(x + width, y + height - ry_bottom_right);
+    t.lineTo(x + width, y + ry_top_right + sideLength(height, ry_top_right, ry_bottom_right));
     t.arcTo(rx_bottom_right, ry_bottom_right, 0.0f, false, true,
             Point(x + width - rx_bottom_right, y + height), false);
-    t.lineTo(x + rx_bottom_left, y + height);
+    t.lineTo(x + width - rx_bottom_right - sideLength(width, rx_bottom_right, rx_bottom_left), y + height);
     t.arcTo(rx_bottom_left, ry_bottom_left, 0.0f, false, true, Point(x, y + height - ry_bottom_left), false);
-    t.lineTo(x, y + ry_top_left);
+    t.lineTo(x, y + height - ry_bottom_left - sideLength(height, ry_bottom_left, ry_top_left));
     t.arcTo(rx_top_left, ry_top_left, 0.0f, false, true, Point(x + rx_top_left, y), false);
     t.close();
   }
@@ -94,13 +98,13 @@ namespace visage {
     rx = std::min(rx, width * 0.5f);
     ry = std::min(ry, height * 0.5f);
     t.moveTo(x + rx, y);
-    t.lineTo(x + width - rx, y);
+    t.lineTo(x + rx + sideLength(width, rx, rx), y);
     t.arcTo(rx, ry, 0.0f, false, true, Point(x + width, y + ry), false);
-    t.lineTo(x + width, y + height - ry);
+    t.lineTo(x + width, y + ry + sideLength(height, ry, ry));
     t.arcTo(rx, ry, 0.0f, false, true, Point(x + width - rx, y + height), false);
-    t.lineTo(x + rx, y + height);
+    t.lineTo(x + width - rx - sideLength(width, rx, rx), y + height);
     t.arcTo(rx, ry, 0.0f, false, true, Point(x, y + height - ry), false);
-    t.lineTo(x, y + ry);
+    t.lineTo(x, y + height - ry - sideLength(height, ry, ry));
     t.arcTo(rx, ry, 0.0f, false, true, Point(x + rx, y), false);
     t.close();
   }
