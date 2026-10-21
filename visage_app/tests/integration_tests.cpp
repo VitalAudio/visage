@@ -2542,3 +2542,41 @@ TEST_CASE("Refreshing programs by shader file rebuilds them without leaking hand
   REQUIRE(bgfx::getStats()->numShaders == num_shaders);
   REQUIRE(bgfx::getStats()->numPrograms == num_programs);
 }
+
+TEST_CASE("Shader backdrop effects sample what's behind the frame", "[integration]") {
+  for (bool layered_parent : { false, true }) {
+    INFO("layered parent " << layered_parent);
+    Canvas canvas;
+    canvas.setWindowless(64, 32);
+    ShaderPostEffect swap(test_shaders::vs_test_post_effect, test_shaders::fs_test_swap_red_blue);
+    Region panel;
+    Region glass;
+    canvas.addRegion(&panel);
+    panel.setNeedsLayer(layered_parent);
+    panel.setBounds(0, 0, 64, 32);
+    panel.addRegion(&glass);
+    glass.setNeedsLayer(true);
+    glass.setBackdropEffect(&swap);
+    glass.setBounds(16, 8, 32, 16);
+
+    canvas.beginRegion(&panel);
+    canvas.setColor(0xffff0000);
+    canvas.fill(0, 0, 64, 16);
+    canvas.setColor(0xff00ff00);
+    canvas.fill(0, 16, 64, 16);
+    canvas.endRegion();
+    canvas.beginRegion(&glass);
+    canvas.endRegion();
+
+    for (int frame = 0; frame < 3; ++frame) {
+      INFO("frame " << frame);
+      const Screenshot& screenshot = canvas.takeScreenshot();
+      REQUIRE(screenshot.sample(32, 10).hexBlue() == 0xff);
+      REQUIRE(screenshot.sample(32, 10).hexRed() == 0x00);
+      REQUIRE(screenshot.sample(32, 22).hexGreen() == 0xff);
+      REQUIRE(screenshot.sample(32, 22).hexBlue() == 0x00);
+      REQUIRE(screenshot.sample(4, 4).hexRed() == 0xff);
+      glass.invalidate();
+    }
+  }
+}
