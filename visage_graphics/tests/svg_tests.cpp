@@ -851,3 +851,21 @@ TEST_CASE("Svg gradients pad with the first of the stops sharing the first offse
   REQUIRE(color.hexRed() == 0xff);
   REQUIRE(color.hexBlue() == 0x00);
 }
+
+TEST_CASE("Svg dashes join across the start of closed paths", "[graphics]") {
+  auto corner = [](const std::string& shape) {
+    return renderSvgCenter(R"svg(<svg viewBox="0 0 20 20"><g fill="none" stroke="red" stroke-width="4">)svg" +
+                           shape + "</g></svg>")
+        .hexRed();
+  };
+
+  REQUIRE(corner(R"svg(<rect x="11" y="11" width="8" height="8" stroke-dasharray="20 4"/>)svg") == 0xff);
+  REQUIRE(corner(R"svg(<path d="M11 11 H19 V19 H11 Z" stroke-dasharray="20 4"/>)svg") == 0xff);
+  REQUIRE(corner(R"svg(<rect x="11" y="11" width="8" height="8" stroke-dasharray="20 4" stroke-dashoffset="2"/>)svg") ==
+          0xff);
+  REQUIRE(corner(R"svg(<rect x="11" y="11" width="8" height="8" stroke-dasharray="40 4"/>)svg") == 0xff);
+  REQUIRE(corner(R"svg(<rect x="11" y="11" width="8" height="8" stroke-dasharray="20 4 4 4"/>)svg") == 0x00);
+  REQUIRE(corner(R"svg(<path d="M11 11 H19 V19 H11 V11" stroke-dasharray="20 4"/>)svg") == 0x00);
+  REQUIRE(corner(R"svg(<path d="M5 5 H5 Z M11 11 H19 V19 H11 Z" stroke-dasharray="20 4"/>)svg") == 0xff);
+  REQUIRE(corner(R"svg(<path d="M11 11 H19 V19 H11 V11 M3 3 h0 z" stroke-dasharray="20 4"/>)svg") == 0x00);
+}
