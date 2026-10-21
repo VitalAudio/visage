@@ -27,6 +27,7 @@ int main() {
 - [Gradients](https://visage.dev/examples/Gradients/)
 - [Paths](https://visage.dev/examples/Paths/)
 - [Post Shader Effects](https://visage.dev/examples/PostEffects/)
+- [Backdrop Effects](https://visage.dev/examples/BackdropEffects/)
 - [Live Shader Editing](https://visage.dev/examples/LiveShaderEditing/)
 
 ## UI Features
