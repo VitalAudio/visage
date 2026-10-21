@@ -726,6 +726,8 @@ namespace visage {
             dash.tangents.back() = path.tangents[vertex];
           }
         };
+        bool join_ends = path.closed && fill;
+        int first_dash = -1;
         auto prev = path.points[0];
         stroke_path.moveTo(prev);
         for (int i = 1; i < path.points.size(); ++i) {
@@ -744,6 +746,9 @@ namespace visage {
               start_vertex = -1;
             }
 
+            if (join_ends && first_dash < 0)
+              first_dash = stroke_path.paths_.size() - 1;
+
             prev = point;
             length -= dash_length;
 
@@ -760,6 +765,23 @@ namespace visage {
           if (dash_length < snap)
             dash_length = 0.0f;
           prev = path.points[i];
+        }
+
+        if (join_ends && fill && path.points.size() > 1) {
+          if (first_dash < 0)
+            stroke_path.paths_.back().closed = true;
+          else if (first_dash < stroke_path.paths_.size() - 1) {
+            auto& first = stroke_path.paths_[first_dash];
+            auto& last = stroke_path.paths_.back();
+            if (!first.tangents.empty() || !last.tangents.empty()) {
+              first.tangents.resize(first.points.size());
+              last.tangents.resize(last.points.size());
+              last.tangents.back().out = first.tangents[0].out;
+              last.tangents.insert(last.tangents.end(), first.tangents.begin() + 1, first.tangents.end());
+            }
+            last.points.insert(last.points.end(), first.points.begin() + 1, first.points.end());
+            stroke_path.paths_.erase(stroke_path.paths_.begin() + first_dash);
+          }
         }
       }
     }
