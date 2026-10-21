@@ -112,7 +112,10 @@ namespace visage {
     [pasteboard setString:ns_text forType:NSPasteboardTypeString];
   }
 
+  static MouseCursor current_cursor_style = MouseCursor::Arrow;
+
   void setCursorStyle(MouseCursor style) {
+    current_cursor_style = style;
     if (style == MouseCursor::Invisible) {
       setCursorVisible(false);
       return;
@@ -140,6 +143,10 @@ namespace visage {
     default: return;
     }
     [cursor set];
+  }
+
+  static void restoreCursorStyle() {
+    setCursorStyle(current_cursor_style);
   }
 
   void setCursorVisible(bool visible) {
@@ -485,7 +492,8 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
   self.drag_source.view = self;
 
   NSTrackingAreaOptions tracking_options = NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved |
-                                           NSTrackingActiveAlways | NSTrackingInVisibleRect;
+                                           NSTrackingCursorUpdate | NSTrackingActiveAlways |
+                                           NSTrackingInVisibleRect;
   [self addTrackingArea:[[NSTrackingArea alloc] initWithRect:NSZeroRect
                                                      options:tracking_options
                                                        owner:self
@@ -500,6 +508,10 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
 
 - (BOOL)acceptsFirstMouse:(NSEvent*)event {
   return YES;
+}
+
+- (void)cursorUpdate:(NSEvent*)event {
+  visage::restoreCursorStyle();
 }
 
 - (void)keyDown:(NSEvent*)event {
