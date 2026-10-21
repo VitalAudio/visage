@@ -205,19 +205,19 @@ TEST_CASE("X11 plugin windows draw at their new size when the host resizes them 
   XMapWindow(host, parent);
   XSync(host, False);
 
-  ApplicationWindow app;
-  app.onDraw() = [&app](Canvas& canvas) {
+  auto app = std::make_unique<ApplicationWindow>();
+  app->onDraw() = [&app](Canvas& canvas) {
     canvas.setColor(0xff336699);
-    canvas.fill(0, 0, app.width(), app.height());
+    canvas.fill(0, 0, app->width(), app->height());
   };
-  app.setWindowDimensions(Dimension::nativePixels(200), Dimension::nativePixels(150));
-  app.show((void*)parent);
-  REQUIRE(app.window());
+  app->setWindowDimensions(Dimension::nativePixels(200), Dimension::nativePixels(150));
+  app->show((void*)parent);
+  REQUIRE(app->window());
 
   auto process_events = [&](int milliseconds) {
     for (int i = 0; i < milliseconds / 5; ++i) {
       std::this_thread::sleep_for(std::chrono::milliseconds(5));
-      app.window()->processPluginFdEvents();
+      app->window()->processPluginFdEvents();
     }
   };
   process_events(200);
@@ -225,11 +225,11 @@ TEST_CASE("X11 plugin windows draw at their new size when the host resizes them 
   XResizeWindow(host, parent, 260, 190);
   XSync(host, False);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  app.window()->processPluginFdEvents();
+  app->window()->processPluginFdEvents();
   process_events(200);
   XSync(host, False);
 
-  ::Window plugin = (::Window)app.window()->nativeHandle();
+  ::Window plugin = (::Window)app->window()->nativeHandle();
   XWindowAttributes attributes;
   REQUIRE(XGetWindowAttributes(host, plugin, &attributes));
   REQUIRE(attributes.width == 260);
@@ -242,7 +242,7 @@ TEST_CASE("X11 plugin windows draw at their new size when the host resizes them 
   CHECK(top_left != 0);
   CHECK(bottom_right == top_left);
 
-  app.close();
+  app.reset();
   XDestroyWindow(host, parent);
   XCloseDisplay(host);
 }
