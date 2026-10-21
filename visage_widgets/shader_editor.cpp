@@ -46,14 +46,18 @@ namespace visage {
   ShaderCompiler::ShaderCompiler() : Thread("Shader Compiler") {
     static constexpr int kMaxParentDirectories = 4;
     std::string executable = shaderExecutable();
-    std::filesystem::path path = std::filesystem::current_path();
-    for (int i = 0; i < kMaxParentDirectories && std::filesystem::exists(path); ++i) {
-      std::filesystem::path compiler_path = path / executable;
-      if (std::filesystem::exists(compiler_path)) {
-        compiler_path_ = compiler_path.string();
-        break;
+    std::error_code error;
+    std::filesystem::path search_starts[] = { hostExecutable().parent_path(),
+                                              std::filesystem::current_path(error) };
+    for (std::filesystem::path path : search_starts) {
+      for (int i = 0; i < kMaxParentDirectories && !path.empty() && std::filesystem::exists(path); ++i) {
+        std::filesystem::path compiler_path = path / executable;
+        if (std::filesystem::exists(compiler_path)) {
+          compiler_path_ = compiler_path.string();
+          return;
+        }
+        path = path.parent_path();
       }
-      path = path.parent_path();
     }
   }
 
