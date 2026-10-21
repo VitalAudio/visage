@@ -187,8 +187,11 @@ namespace visage {
   inline void submitShapes<SampleRegion>(const BatchVector<SampleRegion>& batches, BlendMode state,
                                          Layer& layer, int submit_pass) {
     PostEffect* post_effect = batches[0].shapes->front().post_effect;
+    bool backdrop = batches[0].shapes->front().backdrop;
 
-    if (post_effect)
+    if (post_effect && backdrop)
+      post_effect->submitBackdrop(batches, layer, submit_pass);
+    else if (post_effect)
       post_effect->submit(batches, layer, submit_pass);
     else
       submitSampleRegions(batches, state, layer, submit_pass);

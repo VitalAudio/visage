@@ -115,9 +115,10 @@ namespace visage {
 
     if (backdrop_effect_) {
       const PackedBrush* brush = addBrush(canvas_->gradientAtlas(), Brush::solid(0xffffffff));
-      SampleRegion backdrop({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, brush, 0, 0, width_,
-                            height_, this, backdrop_effect_);
-      shape_batcher_.addShape(backdrop);
+      SampleRegion sample_region({ 0.0f, 0.0f, width_ * 1.0f, height_ * 1.0f }, brush, 0, 0, width_,
+                                 height_, this, backdrop_effect_);
+      sample_region.backdrop = true;
+      shape_batcher_.addShape(sample_region);
     }
   }
 

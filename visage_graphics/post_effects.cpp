@@ -80,6 +80,10 @@ namespace visage {
     }
   };
 
+  struct BackdropHandles {
+    bgfx::FrameBufferHandle copy = BGFX_INVALID_HANDLE;
+  };
+
   void PostEffect::submitPassthrough(const BatchVector<SampleRegion>& batches,
                                      const Layer& destination, int submit_pass) const {
     auto quads = setupQuads(batches);
@@ -139,7 +143,7 @@ namespace visage {
     }
   }
 
-  void DownsamplePostEffect::setInitialVertices(Region* region, const IBounds& rect) {
+  static void setInitialVertices(Region* region, const IBounds& rect) {
     bgfx::TransientVertexBuffer first_sample_buffer {};
     bgfx::allocTransientVertexBuffer(&first_sample_buffer, 4, UvVertex::layout());
     UvVertex* uv_data = reinterpret_cast<UvVertex*>(first_sample_buffer.data);
@@ -181,20 +185,15 @@ namespace visage {
     bgfx::setVertexBuffer(0, inverted ? screenBuffers().inv_vertex_buffer : screenBuffers().vertex_buffer);
   }
 
-  IPoint DownsamplePostEffect::sourcePosition(const Region* region) const {
-    IPoint position = -source_origin_;
-    for (; region && region != region_; region = region->parent())
-      position += IPoint(region->x(), region->y());
-    return position;
-  }
-
-  void DownsamplePostEffect::setTexturePositions(const BatchVector<SampleRegion>& batches,
-                                                 PostEffectVertex* vertices, int level) const {
-    float scale_x = widths_[level] * 1.0f / full_width_;
-    float scale_y = heights_[level] * 1.0f / full_height_;
+  static void setRegionTexturePositions(const BatchVector<SampleRegion>& batches,
+                                        PostEffectVertex* vertices, const Region* source,
+                                        IPoint origin, float scale_x, float scale_y) {
     for (const auto& batch : batches) {
       for (const SampleRegion& shape : *batch.shapes) {
-        IPoint position = sourcePosition(shape.region);
+        IPoint position = -origin;
+        for (const Region* region = shape.region; region && region != source; region = region->parent())
+          position += IPoint(region->x(), region->y());
+
         float left = position.x * scale_x;
         float top = position.y * scale_y;
         float right = (position.x + shape.width) * scale_x;
@@ -213,6 +212,12 @@ namespace visage {
         }
       }
     }
+  }
+
+  void DownsamplePostEffect::setTexturePositions(const BatchVector<SampleRegion>& batches,
+                                                 PostEffectVertex* vertices, int level) const {
+    setRegionTexturePositions(batches, vertices, region_, {}, widths_[level] * 1.0f / full_width_,
+                              heights_[level] * 1.0f / full_height_);
   }
 
   static int compositeLayeredAncestors(const Region* region, const Region* source,
@@ -279,6 +284,66 @@ namespace visage {
     return submit_pass;
   }
 
+  BackdropCopy::BackdropCopy() {
+    handles_ = std::make_unique<BackdropHandles>();
+  }
+
+  BackdropCopy::~BackdropCopy() = default;
+
+  int BackdropCopy::copy(Region* source, const Region* region, int submit_pass) {
+    source_ = source;
+    handles_->copy = BGFX_INVALID_HANDLE;
+
+    IPoint position;
+    for (const Region* child = region; child != source; child = child->parent())
+      position += IPoint(child->x(), child->y());
+    bounds_ = IBounds(0, 0, source->width(), source->height())
+                  .intersection({ position.x, position.y, region->width(), region->height() });
+    if (bounds_.width() <= 0 || bounds_.height() <= 0)
+      return submit_pass;
+
+    Layer* layer = source->layer();
+    handles_->copy = layer->temporaryFrameBuffer(bounds_.width(), bounds_.height());
+    setBlendMode(BlendMode::Opaque);
+    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(layer->frameBuffer()));
+    setPostEffectUniform<Uniforms::kPixelSize>(1.0f / bounds_.width(), 1.0f / bounds_.height());
+    bgfx::setIndexBuffer(screenBuffers().index_buffer);
+
+    bgfx::setViewFrameBuffer(submit_pass, handles_->copy);
+    bgfx::setViewRect(submit_pass, 0, 0, bounds_.width(), bounds_.height());
+    setInitialVertices(source, bounds_);
+    setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
+    bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
+    submit_pass++;
+
+    return compositeLayeredAncestors(region, source, bounds_, handles_->copy,
+                                     screenBuffers().index_buffer, submit_pass);
+  }
+
+  void BackdropCopy::release() {
+    if (hasCopy())
+      layer()->releaseTemporaryFrameBuffer(handles_->copy);
+  }
+
+  bool BackdropCopy::hasCopy() const {
+    return bgfx::isValid(handles_->copy);
+  }
+
+  Layer* BackdropCopy::layer() const {
+    return source_->layer();
+  }
+
+  bgfx::FrameBufferHandle BackdropCopy::frameBuffer() const {
+    return handles_->copy;
+  }
+
+  void BackdropCopy::setUniforms(const BatchVector<SampleRegion>& batches,
+                                 PostEffectVertex* vertices, bgfx::FrameBufferHandle texture) const {
+    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(texture));
+    setRegionTexturePositions(batches, vertices, source_, bounds_.topLeft(), 1.0f, 1.0f);
+    setOriginFlipUniform(false);
+  }
+
   BlurPostEffect::BlurPostEffect() : DownsamplePostEffect(false) { }
 
   BlurPostEffect::~BlurPostEffect() = default;
@@ -292,38 +357,35 @@ namespace visage {
   }
 
   int BlurPostEffect::preprocess(Region* region, int submit_pass) {
-    return blur(region, nullptr, submit_pass);
+    return blur(region, submit_pass);
   }
 
   int BlurPostEffect::preprocessBackdrop(Region* source, const Region* region, int submit_pass) {
-    region_ = source;
-    return blur(source, region, submit_pass);
+    handles_->backdrop = BGFX_INVALID_HANDLE;
+    submit_pass = backdrop_.copy(source, region, submit_pass);
+    if (!backdrop_.hasCopy())
+      return submit_pass;
+
+    submit_pass = blur(nullptr, submit_pass);
+    backdrop_.release();
+    return submit_pass;
   }
 
-  int BlurPostEffect::blur(Region* region, const Region* backdrop_child, int submit_pass) {
+  int BlurPostEffect::blur(Region* region, int submit_pass) {
     static constexpr float kKernelSigma = 3.3f;
     static constexpr uint32_t kMirror = BGFX_SAMPLER_U_MIRROR | BGFX_SAMPLER_V_MIRROR;
 
-    bool in_place = backdrop_child == nullptr;
+    bool in_place = region != nullptr;
     float sigma = blur_radius_;
     if (in_place && sigma < kMinSigma)
       return submit_pass;
 
-    IBounds rect(0, 0, region->width(), region->height());
-    if (!in_place) {
-      IPoint position;
-      for (const Region* child = backdrop_child; child != region; child = child->parent())
-        position += IPoint(child->x(), child->y());
-      rect = rect.intersection({ position.x, position.y, backdrop_child->width(),
-                                 backdrop_child->height() });
-      handles_->backdrop = BGFX_INVALID_HANDLE;
-      if (rect.width() <= 0 || rect.height() <= 0)
-        return submit_pass;
-      source_origin_ = rect.topLeft();
-    }
+    IBounds rect(0, 0, backdrop_.width(), backdrop_.height());
+    if (in_place)
+      rect = IBounds(0, 0, region->width(), region->height());
     uint32_t sampler = in_place ? UINT32_MAX : kMirror;
 
-    Layer* layer = region->layer();
+    Layer* layer = in_place ? region->layer() : backdrop_.layer();
     bool inverted = layer->bottomLeftOrigin();
     setLevelDimensions(rect.width(), rect.height());
 
@@ -342,7 +404,12 @@ namespace visage {
     int last_height = full_height_;
 
     bgfx::FrameBufferHandle source = layer->frameBuffer();
-    for (int i = 0; i <= stages; ++i) {
+    if (!in_place) {
+      levels[0] = backdrop_.frameBuffer();
+      source = levels[0];
+    }
+
+    for (int i = in_place ? 0 : 1; i <= stages; ++i) {
       int downsample_width = widths_[i];
       int downsample_height = heights_[i];
       float x_downsample_scale = downsample_width * 2.0f / last_width;
@@ -371,10 +438,6 @@ namespace visage {
       }
 
       submit_pass++;
-      if (i == 0 && backdrop_child) {
-        submit_pass = compositeLayeredAncestors(backdrop_child, region, rect, levels[0],
-                                                screenBuffers().index_buffer, submit_pass);
-      }
       source = levels[i];
     }
 
@@ -432,12 +495,13 @@ namespace visage {
     }
 
     handles_->backdrop = levels[stages ? 1 : 0];
-    for (int i = 0; i <= stages; ++i)
+    for (int i = in_place ? 0 : 1; i <= stages; ++i)
       layer->releaseTemporaryFrameBuffer(levels[i]);
     return submit_pass;
   }
 
-  void BlurPostEffect::submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) {
+  void BlurPostEffect::submitBackdrop(const BatchVector<SampleRegion>& batches, Layer& destination,
+                                      int submit_pass) {
     if (!bgfx::isValid(handles_->backdrop))
       return;
 
@@ -449,15 +513,9 @@ namespace visage {
 
     setBlendMode(BlendMode::Alpha);
     setPostEffectUniform<Uniforms::kTime>(destination.time());
-
-    float width_scale = 1.0f / widths_[0];
-    float height_scale = 1.0f / heights_[0];
-    setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->backdrop));
-
-    setTexturePositions(batches, quads.vertices, 0);
+    setPostEffectUniform<Uniforms::kAtlasScale>(1.0f / backdrop_.width(), 1.0f / backdrop_.height());
+    backdrop_.setUniforms(batches, quads.vertices, handles_->backdrop);
     setUniformDimensions(destination.width(), destination.height());
-    setOriginFlipUniform(false);
     bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                           SampleRegion::fragmentShader()));
   }
@@ -601,8 +659,25 @@ namespace visage {
                  ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_tinted_texture));
   }
 
+  int ShaderPostEffect::preprocessBackdrop(Region* source, const Region* region, int submit_pass) {
+    submit_pass = backdrop_.copy(source, region, submit_pass);
+    backdrop_.release();
+    return submit_pass;
+  }
+
   void ShaderPostEffect::submit(const BatchVector<SampleRegion>& batches, Layer& destination,
                                 int submit_pass) {
+    submitShader(batches, destination, submit_pass, false);
+  }
+
+  void ShaderPostEffect::submitBackdrop(const BatchVector<SampleRegion>& batches,
+                                        Layer& destination, int submit_pass) {
+    if (backdrop_.hasCopy())
+      submitShader(batches, destination, submit_pass, true);
+  }
+
+  void ShaderPostEffect::submitShader(const BatchVector<SampleRegion>& batches, Layer& destination,
+                                      int submit_pass, bool backdrop) {
     auto quads = setupQuads(batches);
     if (quads.vertices == nullptr)
       return;
@@ -612,12 +687,16 @@ namespace visage {
     setPostEffectUniform<Uniforms::kTime>(destination.time());
 
     Layer* source_layer = batches[0].shapes->front().region->layer();
-    float width_scale = 1.0f / source_layer->width();
-    float height_scale = 1.0f / source_layer->height();
+    float width_scale = 1.0f / (backdrop ? backdrop_.width() : source_layer->width());
+    float height_scale = 1.0f / (backdrop ? backdrop_.height() : source_layer->height());
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
     setPostEffectUniform<Uniforms::kColorMult>(1.0f, 1.0f, 1.0f, 1.0f);
-    setOriginFlipUniform(destination.bottomLeftOrigin());
+    if (backdrop)
+      backdrop_.setUniforms(batches, quads.vertices, backdrop_.frameBuffer());
+    else {
+      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
+      setOriginFlipUniform(destination.bottomLeftOrigin());
+    }
 
     float min_x = (std::min(quads.vertices[0].texture_x, quads.vertices[3].texture_x) + 0.5f) * width_scale;
     float min_y = (std::min(quads.vertices[0].texture_y, quads.vertices[3].texture_y) + 0.5f) * height_scale;
