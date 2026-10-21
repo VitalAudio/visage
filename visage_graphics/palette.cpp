@@ -33,6 +33,7 @@ namespace visage {
   void Palette::initWithDefaults() {
     known_color_ids_.clear();
     known_value_ids_.clear();
+    clearIdLists();
     value_map_.clear();
     int num_value_ids = theme::ValueId::numValueIds();
     for (int i = 0; i < num_value_ids; ++i) {
@@ -99,7 +100,11 @@ namespace visage {
     }
   }
 
-  std::map<std::string, std::vector<theme::ColorId>> Palette::colorIdList(theme::OverrideId override_id) {
+  std::map<std::string, std::vector<theme::ColorId>> Palette::colorIdList(theme::OverrideId override_id) const {
+    auto cached = color_id_lists_.find(override_id);
+    if (cached != color_id_lists_.end())
+      return cached->second;
+
     std::set<theme::ColorId> ids;
     auto known = known_color_ids_.find(override_id);
     if (known != known_color_ids_.end())
@@ -110,13 +115,17 @@ namespace visage {
         ids.insert(color.first);
     }
 
-    std::map<std::string, std::vector<theme::ColorId>> results;
+    auto& results = color_id_lists_[override_id];
     for (theme::ColorId id : ids)
       results[theme::ColorId::groupName(id)].push_back(id);
     return results;
   }
 
-  std::map<std::string, std::vector<theme::ValueId>> Palette::valueIdList(theme::OverrideId override_id) {
+  std::map<std::string, std::vector<theme::ValueId>> Palette::valueIdList(theme::OverrideId override_id) const {
+    auto cached = value_id_lists_.find(override_id);
+    if (cached != value_id_lists_.end())
+      return cached->second;
+
     std::set<theme::ValueId> ids;
     auto known = known_value_ids_.find(override_id);
     if (known != known_value_ids_.end())
@@ -127,7 +136,7 @@ namespace visage {
         ids.insert(value.first);
     }
 
-    std::map<std::string, std::vector<theme::ValueId>> results;
+    auto& results = value_id_lists_[override_id];
     for (theme::ValueId id : ids)
       results[theme::ValueId::groupName(id)].push_back(id);
     return results;
@@ -180,6 +189,7 @@ namespace visage {
   void Palette::decode(const std::string& data) {
     known_color_ids_.clear();
     known_value_ids_.clear();
+    clearIdLists();
     std::istringstream stream(data);
     stream.imbue(std::locale::classic());
     std::map<std::string, theme::OverrideId> override_name_map = theme::OverrideId::nameIdMap();
