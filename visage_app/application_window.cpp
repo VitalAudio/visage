@@ -81,9 +81,10 @@ namespace visage {
 
   void ApplicationWindow::show(const Dimension& x, const Dimension& y, const Dimension& width,
                                const Dimension& height) {
-    if (isShowing()) {
+    if (window_ && !window_->isClosed()) {
       IBounds bounds = computeWindowBounds(x, y, width, height);
       setNativeWindowDimensions(bounds.width(), bounds.height());
+      applyWindowSettings();
       return window_->show();
     }
 
@@ -95,8 +96,10 @@ namespace visage {
   void ApplicationWindow::showMaximized() {
     static constexpr float kUnmaximizedWidthPercent = 85.0f;
 
-    if (isShowing())
+    if (window_ && !window_->isClosed()) {
+      applyWindowSettings();
       return window_->showMaximized();
+    }
 
     removeFromWindow();
     window_ = createWindow({}, {}, Dimension::widthPercent(kUnmaximizedWidthPercent),
@@ -123,15 +126,18 @@ namespace visage {
       window_->runEventLoop();
   }
 
-  void ApplicationWindow::showWindow(bool maximized) {
-    if (window_ == nullptr)
-      return;
-
+  void ApplicationWindow::applyWindowSettings() {
     if (!title_.empty())
       window_->setWindowTitle(title_);
     if (always_on_top_)
       window_->setAlwaysOnTop(true);
+  }
 
+  void ApplicationWindow::showWindow(bool maximized) {
+    if (window_ == nullptr)
+      return;
+
+    applyWindowSettings();
     addToWindow(window_.get());
     if (maximized)
       window_->showMaximized();

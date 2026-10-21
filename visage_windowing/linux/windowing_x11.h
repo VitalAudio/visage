@@ -281,6 +281,7 @@ namespace visage {
     void hide() override;
     void close() override;
     bool isShowing() const override;
+    bool isClosed() const override;
     void setFixedAspectRatio(bool fixed) override;
 
     void setWindowTitle(const std::string& title) override;

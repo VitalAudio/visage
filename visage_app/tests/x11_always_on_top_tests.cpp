@@ -21,6 +21,7 @@
 
 #include "visage/app.h"
 
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <cstdlib>
@@ -133,6 +134,40 @@ TEST_CASE("X11 windows ask to stay on top", "[integration]") {
   CHECK(event.xclient.data.l[1] == static_cast<long>(above));
 
   window.reset();
+  XCloseDisplay(observer);
+}
+
+TEST_CASE("X11 windows still ask to stay on top after being hidden and shown again",
+          "[integration]") {
+  if (!hasDisplay()) {
+    SUCCEED("No X display");
+    return;
+  }
+
+  Display* observer = XOpenDisplay(nullptr);
+  REQUIRE(observer);
+  Atom wm_state = XInternAtom(observer, "_NET_WM_STATE", False);
+  Atom above = XInternAtom(observer, "_NET_WM_STATE_ABOVE", False);
+
+  ApplicationWindow app;
+  app.setWindowOnTop(true);
+  app.show(Dimension::nativePixels(100), Dimension::nativePixels(80));
+  ::Window window = (::Window)app.window()->nativeHandle();
+  app.hide();
+  XDeleteProperty(observer, window, wm_state);
+  XSync(observer, False);
+
+  app.show(Dimension::nativePixels(100), Dimension::nativePixels(80));
+  bool on_top = false;
+  for (int i = 0; i < 100 && !on_top; ++i) {
+    std::vector<Atom> states = windowStates(observer, window, wm_state);
+    on_top = std::find(states.begin(), states.end(), above) != states.end();
+    if (!on_top)
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  CHECK((::Window)app.window()->nativeHandle() == window);
+  CHECK(on_top);
+
   XCloseDisplay(observer);
 }
 

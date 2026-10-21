@@ -80,6 +80,7 @@ namespace visage {
     void runEventLoop();
 
   private:
+    void applyWindowSettings();
     void showWindow(bool maximized);
 
     IPoint initial_position_;

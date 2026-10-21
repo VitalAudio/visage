@@ -110,6 +110,7 @@ namespace visage {
     virtual void hide() = 0;
     virtual void close() = 0;
     virtual bool isShowing() const = 0;
+    virtual bool isClosed() const { return false; }
     virtual void setWindowTitle(const std::string& title) = 0;
     virtual void setFixedAspectRatio(bool fixed) { }
     virtual IPoint maxWindowDimensions() const = 0;
