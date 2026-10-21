@@ -35,8 +35,18 @@ namespace visage {
 
 @class VisageAppView;
 
-@interface VisageDraggingSource : NSObject <NSDraggingSource>
+@interface VisageDraggingSource : NSObject <NSDraggingSource, NSFilePromiseProviderDelegate>
 @property(weak) VisageAppView* view;
+@property(strong) NSURL* file_url;
+@property(strong) NSOperationQueue* write_queue;
+@property bool cleanup_pending;
+@property bool session_ended;
+@property bool dropped;
+@property bool file_written;
+@property bool delivered_in_app;
+
+- (void)startWithFile:(NSURL*)file_url;
+- (void)cleanupIfPending;
 @end
 
 @interface VisageAppViewDelegate : NSObject <MTKViewDelegate>
