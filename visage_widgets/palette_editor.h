@@ -32,6 +32,8 @@
 namespace visage {
   class PaletteColorEditor : public ScrollableFrame {
   public:
+    using ColorIdGroups = std::map<std::string, std::vector<theme::ColorId>>;
+
     static constexpr float kPaletteWidthRatio = 0.25f;
     static constexpr int kColorSpacing = 2;
     static constexpr int kColorIdHeight = 70;
@@ -53,11 +55,15 @@ namespace visage {
 
     int listLength(const std::map<std::string, std::vector<theme::ColorId>>& color_ids) const;
     int colorIndex(const MouseEvent& e);
-    theme::ColorId colorIdIndex(const MouseEvent& e) const;
+    theme::ColorId colorIdIndex(const MouseEvent& e) const {
+      return colorIdIndex(e, palette_->colorIdList(current_override_id_));
+    }
+    theme::ColorId colorIdIndex(const MouseEvent& e, const ColorIdGroups& color_ids) const;
     void toggleGroup(const MouseEvent& e);
     void mouseMove(const MouseEvent& e) override {
-      checkScrollHeight();
-      checkColorHover(e);
+      ColorIdGroups color_ids = palette_->colorIdList(current_override_id_);
+      checkScrollHeight(color_ids);
+      checkColorHover(e, color_ids);
     }
     void mouseDown(const MouseEvent& e) override;
     void mouseDrag(const MouseEvent& e) override;
@@ -71,8 +77,12 @@ namespace visage {
     }
     void setColorListHeight();
     void setColorPickerBounds();
-    void checkColorHover(const MouseEvent& e);
-    void checkScrollHeight();
+    void checkColorHover(const MouseEvent& e) {
+      checkColorHover(e, palette_->colorIdList(current_override_id_));
+    }
+    void checkColorHover(const MouseEvent& e, const ColorIdGroups& color_ids);
+    void checkScrollHeight() { checkScrollHeight(palette_->colorIdList(current_override_id_)); }
+    void checkScrollHeight(const ColorIdGroups& color_ids);
 
     bool isExpanded(const std::string& group) const { return expanded_groups_.count(group); }
 
