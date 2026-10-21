@@ -498,6 +498,10 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
   return YES;
 }
 
+- (BOOL)acceptsFirstMouse:(NSEvent*)event {
+  return YES;
+}
+
 - (void)keyDown:(NSEvent*)event {
   if (self.visage_window == nullptr)
     return;
