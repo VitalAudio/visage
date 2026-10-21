@@ -528,6 +528,38 @@ TEST_CASE("Enlarged arc radii keep their curve resolution", "[graphics]") {
   REQUIRE(arc_points(1.0f) == arc_points(50.0f));
 }
 
+TEST_CASE("Arcs end exactly at their end point", "[graphics]") {
+  Path arc;
+  arc.moveTo(140, 70);
+  arc.arcTo(30, 30, 0.0f, false, true, Point(170, 100));
+  arc.arcTo(30, 30, 0.0f, false, true, Point(140, 130));
+  arc.arcTo(50, 20, 30.0f, true, false, Point(60, 110));
+  REQUIRE(arc.subPaths()[0].points.back() == Point(60, 110));
+
+  Path rectangle;
+  rectangle.addRoundedRectangle(30, 70, 140, 60, 30);
+  Path pill;
+  pill.moveTo(60, 70);
+  pill.lineTo(140, 70);
+  pill.arcTo(30, 30, 0.0f, false, true, Point(170, 100));
+  pill.arcTo(30, 30, 0.0f, false, true, Point(140, 130));
+  pill.lineTo(60, 130);
+  pill.arcTo(30, 30, 0.0f, false, true, Point(30, 100));
+  pill.arcTo(30, 30, 0.0f, false, true, Point(60, 70));
+  pill.close();
+
+  Path dashed_rectangle = rectangle.stroke(8.0f, Path::Join::Miter, Path::EndCap::Butt, { 3.0f, 3.0f });
+  Path dashed_pill = pill.stroke(8.0f, Path::Join::Miter, Path::EndCap::Butt, { 3.0f, 3.0f });
+  REQUIRE(dashed_rectangle.subPaths().size() == dashed_pill.subPaths().size());
+  for (int i = 0; i < dashed_pill.subPaths().size(); ++i) {
+    const auto& expected = dashed_pill.subPaths()[i].points;
+    const auto& points = dashed_rectangle.subPaths()[i].points;
+    REQUIRE(points.size() == expected.size());
+    for (int p = 0; p < points.size(); ++p)
+      REQUIRE((points[p] - expected[p]).length() < 0.001f);
+  }
+}
+
 static std::vector<Point> clipToHalfPlane(const std::vector<Point>& polygon, Point normal, float offset) {
   std::vector<Point> result;
   for (int i = 0; i < polygon.size(); ++i) {

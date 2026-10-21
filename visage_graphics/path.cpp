@@ -167,7 +167,7 @@ namespace visage {
       Point p = center + Point(position.real(), position.imag());
       p.y /= radius_ratio;
       p = ellipse_rotation * p + from;
-      addCurvePoint(p, tangent(position));
+      addCurvePoint(i == num_points - 1 ? point : p, tangent(position));
     }
     setCurveTangents(start_index, start_tangent, tangent(position));
   }
