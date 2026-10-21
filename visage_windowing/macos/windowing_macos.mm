@@ -356,7 +356,78 @@ namespace visage {
   }
 }
 
+static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-file";
+
+@interface VisageFilePromiseProvider : NSFilePromiseProvider
+@end
+
+@implementation VisageFilePromiseProvider
+- (NSArray<NSPasteboardType>*)writableTypesForPasteboard:(NSPasteboard*)pasteboard {
+  return [[super writableTypesForPasteboard:pasteboard] arrayByAddingObject:kVisageDragFileType];
+}
+
+- (id)pasteboardPropertyListForType:(NSPasteboardType)type {
+  if ([type isEqualToString:kVisageDragFileType])
+    return [self.userInfo path];
+  return [super pasteboardPropertyListForType:type];
+}
+@end
+
 @implementation VisageDraggingSource
+- (instancetype)init {
+  self = [super init];
+  self.write_queue = [[NSOperationQueue alloc] init];
+  return self;
+}
+
+- (void)startWithFile:(NSURL*)file_url {
+  self.file_url = file_url;
+  self.cleanup_pending = true;
+  self.session_ended = false;
+  self.dropped = false;
+  self.file_written = false;
+  self.delivered_in_app = false;
+}
+
+- (void)cleanupIfPending {
+  if (!self.cleanup_pending)
+    return;
+
+  self.cleanup_pending = false;
+  if (self.view.visage_window)
+    self.view.visage_window->cleanupDragDropSource();
+}
+
+- (void)cleanupIfDone {
+  if (self.session_ended && (!self.dropped || self.file_written || self.delivered_in_app))
+    [self cleanupIfPending];
+}
+
+- (NSString*)filePromiseProvider:(NSFilePromiseProvider*)provider fileNameForType:(NSString*)file_type {
+  return [provider.userInfo lastPathComponent];
+}
+
+- (void)filePromiseProvider:(NSFilePromiseProvider*)provider
+          writePromiseToURL:(NSURL*)url
+          completionHandler:(void (^)(NSError* error))completion_handler {
+  NSURL* source = provider.userInfo;
+  NSError* error = nil;
+  [[NSFileManager defaultManager] copyItemAtURL:source toURL:url error:&error];
+  completion_handler(error);
+
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if (self.file_url != source)
+      return;
+
+    self.file_written = true;
+    [self cleanupIfDone];
+  });
+}
+
+- (NSOperationQueue*)operationQueueForFilePromiseProvider:(NSFilePromiseProvider*)provider {
+  return self.write_queue;
+}
+
 - (NSDragOperation)draggingSession:(NSDraggingSession*)session
     sourceOperationMaskForDraggingContext:(NSDraggingContext)context {
   return NSDragOperationCopy;
@@ -365,6 +436,9 @@ namespace visage {
 - (void)draggingSession:(NSDraggingSession*)session
            endedAtPoint:(NSPoint)screen_point
               operation:(NSDragOperation)operation {
+  self.session_ended = true;
+  self.dropped = operation != NSDragOperationNone;
+  [self cleanupIfDone];
   [self.view dragEndedAtScreenPoint:screen_point];
 }
 @end
@@ -406,7 +480,7 @@ namespace visage {
   self.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
   self.preferredFramesPerSecond = 120;
 
-  [self registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
+  [self registerForDraggedTypes:@[NSPasteboardTypeFileURL, kVisageDragFileType]];
   self.drag_source = [[VisageDraggingSource alloc] init];
   self.drag_source.view = self;
 
@@ -728,15 +802,24 @@ namespace visage {
 
   [self makeKeyWindow];
   if (self.visage_window->isDragDropSource()) {
+    [self.drag_source cleanupIfPending];
+    if (self.visage_window == nullptr)
+      return;
+
     visage::File file = self.visage_window->startDragDropSource();
     NSString* path = [NSString stringWithUTF8String:file.string().c_str()];
     NSURL* url = [NSURL fileURLWithPath:path];
+    [self.drag_source startWithFile:url];
+
+    NSString* file_type = nil;
+    [url getResourceValue:&file_type forKey:NSURLTypeIdentifierKey error:nil];
+    VisageFilePromiseProvider* provider =
+        [[VisageFilePromiseProvider alloc] initWithFileType:file_type ? file_type : @"public.data"
+                                                   delegate:self.drag_source];
+    provider.userInfo = url;
 
     NSImage* image = [[NSWorkspace sharedWorkspace] iconForFile:path];
-    NSPasteboardItem* pasteboard_item = [[NSPasteboardItem alloc] init];
-    [pasteboard_item setString:url.absoluteString forType:NSPasteboardTypeFileURL];
-
-    NSDraggingItem* dragging_item = [[NSDraggingItem alloc] initWithPasteboardWriter:pasteboard_item];
+    NSDraggingItem* dragging_item = [[NSDraggingItem alloc] initWithPasteboardWriter:provider];
     NSPoint drag_position = [self convertPoint:event.locationInWindow fromView:nil];
     drag_position.x -= image.size.width / 2;
     drag_position.y -= image.size.height / 2;
@@ -760,10 +843,6 @@ namespace visage {
 }
 
 - (void)dragEndedAtScreenPoint:(NSPoint)screen_point {
-  if (self.visage_window == nullptr)
-    return;
-
-  self.visage_window->cleanupDragDropSource();
   if (self.visage_window == nullptr)
     return;
 
@@ -898,6 +977,10 @@ namespace visage {
 
 - (std::vector<std::string>)dropFileList:(id<NSDraggingInfo>)sender {
   NSPasteboard* pasteboard = [sender draggingPasteboard];
+  NSString* visage_file = [pasteboard stringForType:kVisageDragFileType];
+  if (visage_file)
+    return { [visage_file UTF8String] };
+
   NSArray* classes = @[[NSURL class]];
   NSDictionary* options = @{ NSPasteboardURLReadingFileURLsOnlyKey: @YES };
   NSArray* file_urls = [pasteboard readObjectsForClasses:classes options:options];
@@ -929,9 +1012,12 @@ namespace visage {
 - (BOOL)performDragOperation:(id<NSDraggingInfo>)sender {
   visage::Point drag_point = [self dragPosition:sender];
   std::vector<std::string> files = [self dropFileList:sender];
-  if (self.visage_window->handleFileDrop(drag_point.x, drag_point.y, files))
-    return NSDragOperationCopy;
-  return NSDragOperationNone;
+  if (!self.visage_window->handleFileDrop(drag_point.x, drag_point.y, files))
+    return NO;
+
+  if ([[sender draggingSource] isKindOfClass:[VisageDraggingSource class]])
+    ((VisageDraggingSource*)[sender draggingSource]).delivered_in_app = true;
+  return YES;
 }
 
 - (BOOL)prepareForDragOperation:(id<NSDraggingInfo>)sender {
