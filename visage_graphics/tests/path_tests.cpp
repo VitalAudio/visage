@@ -788,3 +788,40 @@ TEST_CASE("Curve end tangents survive reversing transforming and dashing", "[gra
   REQUIRE(joined.boundingBox().right() == Catch::Approx(12.0f).margin(0.05f));
   REQUIRE(joined.boundingBox().y() == Catch::Approx(-2.0f).margin(0.05f));
 }
+
+TEST_CASE("Dashes ending inside curves are cut along the curve normal", "[graphics]") {
+  auto check_caps = [](const Path& circle) {
+    Path dashed = circle.stroke(10.0f, Path::Join::Miter, Path::EndCap::Butt, { 20.0f, 7.0f });
+    int caps = 0;
+    for (const auto& sub_path : dashed.subPaths()) {
+      for (int i = 0; i < sub_path.points.size(); ++i) {
+        Point from = sub_path.points[i];
+        Point to = sub_path.points[(i + 1) % sub_path.points.size()];
+        if (std::abs((to - from).length() - 10.0f) > 0.1f)
+          continue;
+
+        float sine = (to - from).normalized().cross(((from + to) * 0.5f).normalized());
+        if (std::abs(sine) > 0.5f)
+          continue;
+
+        caps++;
+        REQUIRE(sine == Catch::Approx(0.0f).margin(0.002f));
+      }
+    }
+    REQUIRE(caps == 14);
+  };
+
+  Path circle;
+  circle.addCircle(0, 0, 30);
+  check_caps(circle);
+
+  static constexpr float k = 0.5522847f * 30.0f;
+  Path cubic_circle;
+  cubic_circle.moveTo(30, 0);
+  cubic_circle.bezierTo(30, k, k, 30, 0, 30);
+  cubic_circle.bezierTo(-k, 30, -30, k, -30, 0);
+  cubic_circle.bezierTo(-30, -k, -k, -30, 0, -30);
+  cubic_circle.bezierTo(k, -30, 30, -k, 30, 0);
+  cubic_circle.close();
+  check_caps(cubic_circle);
+}
