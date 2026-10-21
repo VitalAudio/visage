@@ -122,3 +122,46 @@ TEST_CASE("Canvas skips images without image data", "[graphics]") {
   REQUIRE(screenshot.sample(15, 5).hexRed() == 0);
   REQUIRE(screenshot.sample(25, 5).hexRed() == 0);
 }
+
+TEST_CASE("Regions draw untinted images and white shapes until a color is set", "[graphics]") {
+  static constexpr int kSize = 20;
+  std::vector<unsigned char> magenta = solidTga(kSize, kSize, 0xffff00ff);
+
+  Canvas canvas;
+  canvas.setWindowless(3 * kSize, kSize);
+  Region colored;
+  Region image;
+  Region shape;
+  canvas.addRegion(&colored);
+  canvas.addRegion(&image);
+  canvas.addRegion(&shape);
+  colored.setBounds(0, 0, kSize, kSize);
+  image.setBounds(kSize, 0, kSize, kSize);
+  shape.setBounds(2 * kSize, 0, kSize, kSize);
+
+  for (int frame = 0; frame < 3; ++frame) {
+    canvas.beginRegion(&colored);
+    canvas.setColor(0xff00ff00);
+    canvas.fill(0, 0, kSize, kSize);
+    canvas.endRegion();
+
+    canvas.beginRegion(&image);
+    canvas.image(magenta.data(), magenta.size(), 0, 0, kSize, kSize);
+    canvas.endRegion();
+
+    canvas.beginRegion(&shape);
+    canvas.fill(0, 0, kSize, kSize);
+    canvas.endRegion();
+
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    INFO("frame " << frame);
+    Color image_pixel = screenshot.sample(kSize + kSize / 2, kSize / 2);
+    REQUIRE(image_pixel.hexRed() == 0xff);
+    REQUIRE(image_pixel.hexGreen() == 0);
+    REQUIRE(image_pixel.hexBlue() == 0xff);
+    Color shape_pixel = screenshot.sample(2 * kSize + kSize / 2, kSize / 2);
+    REQUIRE(shape_pixel.hexRed() == 0xff);
+    REQUIRE(shape_pixel.hexGreen() == 0xff);
+    REQUIRE(shape_pixel.hexBlue() == 0xff);
+  }
+}
