@@ -2109,6 +2109,10 @@ namespace visage {
     return iconic;
   }
 
+  bool WindowX11::isClosed() const {
+    return NativeWindowLookup::instance().findWindow(window_handle_) != this;
+  }
+
   void WindowX11::setWindowTitle(const std::string& title) {
     X11Connection::DisplayLock lock(x11_);
     setWindowName(x11_, window_handle_, title);
