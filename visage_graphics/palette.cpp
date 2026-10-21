@@ -31,6 +31,8 @@
 
 namespace visage {
   void Palette::initWithDefaults() {
+    known_color_ids_.clear();
+    known_value_ids_.clear();
     value_map_.clear();
     int num_value_ids = theme::ValueId::numValueIds();
     for (int i = 0; i < num_value_ids; ++i) {
@@ -98,16 +100,36 @@ namespace visage {
   }
 
   std::map<std::string, std::vector<theme::ColorId>> Palette::colorIdList(theme::OverrideId override_id) {
+    std::set<theme::ColorId> ids;
+    auto known = known_color_ids_.find(override_id);
+    if (known != known_color_ids_.end())
+      ids = known->second;
+    auto colors = color_map_.find(override_id);
+    if (colors != color_map_.end()) {
+      for (const auto& color : colors->second)
+        ids.insert(color.first);
+    }
+
     std::map<std::string, std::vector<theme::ColorId>> results;
-    for (const auto& color : color_map_[override_id])
-      results[theme::ColorId::groupName(color.first)].push_back(color.first);
+    for (theme::ColorId id : ids)
+      results[theme::ColorId::groupName(id)].push_back(id);
     return results;
   }
 
   std::map<std::string, std::vector<theme::ValueId>> Palette::valueIdList(theme::OverrideId override_id) {
+    std::set<theme::ValueId> ids;
+    auto known = known_value_ids_.find(override_id);
+    if (known != known_value_ids_.end())
+      ids = known->second;
+    auto values = value_map_.find(override_id);
+    if (values != value_map_.end()) {
+      for (const auto& value : values->second)
+        ids.insert(value.first);
+    }
+
     std::map<std::string, std::vector<theme::ValueId>> results;
-    for (const auto& value : value_map_[override_id])
-      results[theme::ValueId::groupName(value.first)].push_back(value.first);
+    for (theme::ValueId id : ids)
+      results[theme::ValueId::groupName(id)].push_back(id);
     return results;
   }
 
@@ -156,6 +178,8 @@ namespace visage {
   }
 
   void Palette::decode(const std::string& data) {
+    known_color_ids_.clear();
+    known_value_ids_.clear();
     std::istringstream stream(data);
     stream.imbue(std::locale::classic());
     std::map<std::string, theme::OverrideId> override_name_map = theme::OverrideId::nameIdMap();

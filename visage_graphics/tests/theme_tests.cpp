@@ -26,6 +26,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <clocale>
 #include <string>
+#include <vector>
 
 using namespace visage;
 
@@ -93,6 +94,45 @@ TEST_CASE("Theme group names come from the file name", "[graphics]") {
   REQUIRE(theme::nameFromPath("button.cpp") == "button");
   REQUIRE(theme::nameFromPath("button") == "button");
   REQUIRE(theme::nameFromPath("widgets.v2/button") == "button");
+}
+
+TEST_CASE("Palette and theme lookups don't add entries", "[graphics]") {
+  Palette palette;
+  Brush brush;
+  float value = 0.0f;
+  REQUIRE_FALSE(palette.color(TestThemeOverride, TestThemeColor, brush));
+  REQUIRE_FALSE(palette.value(TestThemeOverride, TestThemeValue, value));
+  REQUIRE(palette.colorMap(TestThemeOverride, TestThemeColor) == Palette::kNotSetId);
+  palette.removeValue(TestThemeOverride, TestThemeValue);
+  REQUIRE(palette.encode() == Palette().encode());
+
+  int value_names = theme::ValueId::nameIdMap().size();
+  int override_names = theme::OverrideId::nameIdMap().size();
+  REQUIRE(theme::ValueId::name(theme::ValueId()).empty());
+  REQUIRE(theme::OverrideId::name(theme::OverrideId(theme::OverrideId::kInvalidId)).empty());
+  REQUIRE(theme::ValueId::nameIdMap().size() == value_names);
+  REQUIRE(theme::OverrideId::nameIdMap().size() == override_names);
+}
+
+TEST_CASE("Palette lists ids looked up or cleared without a saved value", "[graphics]") {
+  Palette palette;
+  Brush brush;
+  float value = 0.0f;
+  palette.color(TestThemeOverride, TestThemeColor, brush);
+  REQUIRE(palette.colorIdList(TestThemeOverride)["theme_tests"] ==
+          std::vector<theme::ColorId> { TestThemeColor });
+
+  palette.setValue(TestThemeOverride, TestThemeValue, 0.5f);
+  REQUIRE(palette.value(TestThemeOverride, TestThemeValue, value));
+  palette.removeValue(TestThemeOverride, TestThemeValue);
+  REQUIRE_FALSE(palette.value(TestThemeOverride, TestThemeValue, value));
+  REQUIRE(palette.valueIdList(TestThemeOverride)["theme_tests"] ==
+          std::vector<theme::ValueId> { TestThemeValue });
+
+  REQUIRE(palette.encode() == Palette().encode());
+  palette.clear();
+  REQUIRE(palette.colorIdList(TestThemeOverride).empty());
+  REQUIRE(palette.valueIdList(TestThemeOverride).empty());
 }
 
 TEST_CASE("Gradient decode bad data", "[graphics]") {
