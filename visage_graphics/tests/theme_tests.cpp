@@ -135,6 +135,32 @@ TEST_CASE("Palette lists ids looked up or cleared without a saved value", "[grap
   REQUIRE(palette.valueIdList(TestThemeOverride).empty());
 }
 
+TEST_CASE("Palette id lists follow palette changes", "[graphics]") {
+  Palette palette;
+  REQUIRE(palette.colorIdList(TestThemeOverride).empty());
+
+  palette.setColor(TestThemeOverride, TestThemeColor, Color(0xff00ff00));
+  auto colors = palette.colorIdList(TestThemeOverride);
+  REQUIRE(colors.size() == 1);
+  REQUIRE(colors["theme_tests"] == std::vector<theme::ColorId> { TestThemeColor });
+
+  REQUIRE(palette.valueIdList(TestThemeOverride).empty());
+  palette.setValue(TestThemeOverride, TestThemeValue, 0.5f);
+  REQUIRE(palette.valueIdList(TestThemeOverride).size() == 1);
+  palette.removeValue(TestThemeOverride, TestThemeValue);
+  REQUIRE(palette.valueIdList(TestThemeOverride).size() == 1);
+
+  std::string encoded = palette.encode();
+  palette.clear();
+  REQUIRE(palette.colorIdList(TestThemeOverride).empty());
+  palette.decode(encoded);
+  REQUIRE(palette.colorIdList(TestThemeOverride).size() == 1);
+
+  palette.initWithDefaults();
+  REQUIRE(palette.colorIdList(TestThemeOverride).empty());
+  REQUIRE(palette.colorIdList({})["theme_tests"] == std::vector<theme::ColorId> { TestThemeColor });
+}
+
 TEST_CASE("Gradient decode bad data", "[graphics]") {
   Gradient gradient;
   gradient.decode("");
