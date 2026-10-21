@@ -523,6 +523,43 @@ TEST_CASE("Svg rendering", "[graphics]") {
   }
 }
 
+TEST_CASE("Canvas svg leaves the canvas color unchanged", "[graphics]") {
+  auto load = [](const std::string& data) {
+    Svg svg(reinterpret_cast<const unsigned char*>(data.data()), data.size());
+    svg.setDimensions(20, 20, 1.0f);
+    return svg;
+  };
+  Svg red = load(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="red"/></svg>)svg");
+  Svg current = load(R"svg(<svg viewBox="0 0 10 10"><rect width="10" height="10" fill="white"/><rect x="2" y="2" width="6" height="6" fill="currentColor"/></svg>)svg");
+
+  SECTION("No color set") {
+    Canvas canvas;
+    canvas.setWindowless(40, 20);
+    canvas.svg(red, 0, 0);
+    canvas.svg(current, 20, 0);
+    canvas.submit();
+    Color color = canvas.takeScreenshot().sample(30, 10);
+    REQUIRE(color.hexRed() == 0x00);
+    REQUIRE(color.hexBlue() == 0x00);
+  }
+
+  SECTION("Color set") {
+    Canvas canvas;
+    canvas.setWindowless(60, 20);
+    canvas.setColor(0xff0000ff);
+    canvas.svg(red, 0, 0);
+    canvas.svg(current, 20, 0);
+    canvas.fill(40, 0, 20, 20);
+    canvas.submit();
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    for (int x : { 30, 50 }) {
+      INFO("x " << x);
+      REQUIRE(screenshot.sample(x, 10).hexRed() == 0x00);
+      REQUIRE(screenshot.sample(x, 10).hexBlue() == 0xff);
+    }
+  }
+}
+
 TEST_CASE("Svg element transforms apply to curve resolution and stroke width", "[graphics]") {
   auto first_shape = [](const std::string& data) {
     Svg svg(reinterpret_cast<const unsigned char*>(data.data()), data.size());
