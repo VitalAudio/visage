@@ -719,5 +719,6 @@ namespace visage {
     const Region* region = nullptr;
     PostEffect* post_effect = nullptr;
     float alpha = 1.0f;
+    bool backdrop = false;
   };
 }
