@@ -98,8 +98,11 @@ namespace visage {
   }
 
   void ApplicationEditor::notifyContentsResized() {
-    if (window_)
-      window_->setInternalWindowSize(nativeWidth(), nativeHeight());
+    if (window_ == nullptr ||
+        (window_->clientWidth() == nativeWidth() && window_->clientHeight() == nativeHeight()))
+      return;
+
+    window_->setInternalWindowSize(nativeWidth(), nativeHeight());
     on_window_contents_resized_.callback();
   }
 

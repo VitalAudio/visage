@@ -599,3 +599,37 @@ TEST_CASE("A toggle on press button removed during a press still takes the next 
   REQUIRE(toggles == 2);
   app.removeFromWindow();
 }
+
+TEST_CASE("Window resizes don't report the editor's contents as resized but editor resizes do",
+          "[integration]") {
+  ApplicationEditor app;
+  app.setBounds(0, 0, 40, 40);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  int reports = 0;
+  app.onWindowContentsResized() = [&reports] { reports++; };
+
+  window.handleResized(60, 50);
+  window.setNativeWindowSize(70, 55);
+  CHECK(app.nativeWidth() == 70);
+  CHECK(app.nativeHeight() == 55);
+  CHECK(reports == 0);
+
+  app.setNativeBounds(0, 0, 80, 60);
+  CHECK(window.clientWidth() == 80);
+  CHECK(window.clientHeight() == 60);
+  CHECK(reports == 1);
+  app.removeFromWindow();
+}
+
+TEST_CASE("Host sizes set before a window exists don't report the contents as resized",
+          "[integration]") {
+  ApplicationWindow app;
+  int reports = 0;
+  app.onWindowContentsResized() = [&reports] { reports++; };
+  app.setNativeWindowDimensionsFromHost(120, 90);
+  CHECK(app.nativeWidth() == 120);
+  CHECK(app.nativeHeight() == 90);
+  CHECK(reports == 0);
+}
