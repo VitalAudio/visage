@@ -192,4 +192,59 @@ TEST_CASE("X11 plugin windows report contents resizes only for resizes they star
   XCloseDisplay(host);
 }
 
+TEST_CASE("X11 plugin windows draw at their new size when the host resizes them before a frame",
+          "[integration]") {
+  if (!hasDisplay()) {
+    SUCCEED("No X display");
+    return;
+  }
+
+  Display* host = XOpenDisplay(nullptr);
+  REQUIRE(host);
+  ::Window parent = XCreateSimpleWindow(host, DefaultRootWindow(host), 0, 0, 200, 150, 0, 0, 0);
+  XMapWindow(host, parent);
+  XSync(host, False);
+
+  ApplicationWindow app;
+  app.onDraw() = [&app](Canvas& canvas) {
+    canvas.setColor(0xff336699);
+    canvas.fill(0, 0, app.width(), app.height());
+  };
+  app.setWindowDimensions(Dimension::nativePixels(200), Dimension::nativePixels(150));
+  app.show((void*)parent);
+  REQUIRE(app.window());
+
+  auto process_events = [&](int milliseconds) {
+    for (int i = 0; i < milliseconds / 5; ++i) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(5));
+      app.window()->processPluginFdEvents();
+    }
+  };
+  process_events(200);
+
+  XResizeWindow(host, parent, 260, 190);
+  XSync(host, False);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  app.window()->processPluginFdEvents();
+  process_events(200);
+  XSync(host, False);
+
+  ::Window plugin = (::Window)app.window()->nativeHandle();
+  XWindowAttributes attributes;
+  REQUIRE(XGetWindowAttributes(host, plugin, &attributes));
+  REQUIRE(attributes.width == 260);
+  REQUIRE(attributes.height == 190);
+  XImage* image = XGetImage(host, plugin, 0, 0, 260, 190, AllPlanes, ZPixmap);
+  REQUIRE(image);
+  unsigned long top_left = XGetPixel(image, 0, 0) & 0xffffff;
+  unsigned long bottom_right = XGetPixel(image, 259, 189) & 0xffffff;
+  XDestroyImage(image);
+  CHECK(top_left != 0);
+  CHECK(bottom_right == top_left);
+
+  app.close();
+  XDestroyWindow(host, parent);
+  XCloseDisplay(host);
+}
+
 #endif
