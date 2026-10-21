@@ -33,8 +33,10 @@ namespace visage {
   }
 
   Canvas::Canvas() :
+      default_brush_(&gradient_atlas_, Brush::solid(0xffffffff)),
       image_atlas_(ImageAtlas::DataType::RGBA8), data_atlas_(ImageAtlas::DataType::Float32),
       composite_layer_(&gradient_atlas_) {
+    state_.brush = &default_brush_;
     state_.current_region = &default_region_;
     layers_.push_back(&composite_layer_);
     composite_layer_.addRegion(&window_region_);

@@ -532,7 +532,7 @@ namespace visage {
       state_.x = 0;
       state_.y = 0;
       setLogicalPixelScale();
-      state_.brush = nullptr;
+      state_.brush = &default_brush_;
       state_.blend_mode = BlendMode::Alpha;
       setClampBounds(0, 0, region->width(), region->height());
       state_.current_region = region;
@@ -787,7 +787,7 @@ namespace visage {
     void addSvg(const Svg& svg, float x, float y, float width, float height) {
       SvgDrawable::ColorContext context;
       Brush current = state_.set_brush;
-      if (state_.brush)
+      if (state_.brush != &default_brush_)
         context.current_color = &current;
       svg.drawable()->drawAll(*this, &context, x, y, width, height);
     }
@@ -823,6 +823,7 @@ namespace visage {
     State state_;
 
     GradientAtlas gradient_atlas_;
+    PackedBrush default_brush_;
     PathAtlas path_atlas_;
     ImageAtlas image_atlas_;
     ImageAtlas data_atlas_;
