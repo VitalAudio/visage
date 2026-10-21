@@ -103,8 +103,6 @@ target_link_libraries(
 
 include(embedded.cmake)
 
-target_compile_features(VisageGraphics PRIVATE cxx_std_20)
-
 target_include_directories(VisageGraphics
   PRIVATE
   ${VISAGE_INCLUDE_PATH}
@@ -145,9 +143,6 @@ visage_add_test_target(
   TARGET VisageGraphicsTests
   TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
-if (TARGET VisageGraphicsTests)
-  target_compile_features(VisageGraphicsTests PRIVATE cxx_std_20)
-endif ()
 set_target_properties(freetype PROPERTIES FOLDER "visage/third_party")
 
 if (APPLE)
