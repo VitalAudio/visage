@@ -2033,7 +2033,9 @@ namespace visage {
   }
 
   void WindowX11::windowContentsResized(int width, int height) {
+    X11Connection::DisplayLock lock(x11_);
     XResizeWindow(x11_->display(), window_handle_, width, height);
+    XSync(x11_->display(), False);
   }
 
   void WindowX11::show() {
