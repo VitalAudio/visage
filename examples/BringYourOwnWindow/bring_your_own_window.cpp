@@ -27,7 +27,7 @@ int runExample() {
   visage::Renderer::instance().initialize(window->initWindow(), window->globalDisplay());
 
   visage::Canvas canvas;
-  canvas.pairToWindow(window->nativeHandle(), window->clientWidth(), window->clientHeight());
+  canvas.pairToWindow(window->graphicsHandle(), window->clientWidth(), window->clientHeight());
   canvas.setColor(0xff223333);
   canvas.fill(0, 0, window->clientWidth(), window->clientHeight());
   canvas.setColor(0xffaa99ff);
