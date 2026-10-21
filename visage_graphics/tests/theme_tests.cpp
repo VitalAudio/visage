@@ -161,6 +161,45 @@ TEST_CASE("Palette id lists follow palette changes", "[graphics]") {
   REQUIRE(palette.colorIdList({})["theme_tests"] == std::vector<theme::ColorId> { TestThemeColor });
 }
 
+TEST_CASE("Palette never saves unset color mappings", "[graphics]") {
+  Palette palette;
+  Brush brush;
+  int index = palette.addColor(0xff00ff00);
+  palette.setColorMap(TestThemeOverride, TestThemeColor, index);
+  REQUIRE(palette.color(TestThemeOverride, TestThemeColor, brush));
+
+  palette.setColorMap(TestThemeOverride, TestThemeColor, Palette::kNotSetId);
+  REQUIRE_FALSE(palette.color(TestThemeOverride, TestThemeColor, brush));
+  REQUIRE(palette.encode().find("@-1") == std::string::npos);
+  REQUIRE(palette.colorIdList(TestThemeOverride)["theme_tests"] ==
+          std::vector<theme::ColorId> { TestThemeColor });
+
+  palette.setColorMap(TestThemeOverride, TestThemeColor, index);
+  palette.removeColor(index);
+  REQUIRE_FALSE(palette.color(TestThemeOverride, TestThemeColor, brush));
+  REQUIRE(palette.encode().find("@-1") == std::string::npos);
+  REQUIRE(palette.colorIdList(TestThemeOverride)["theme_tests"] ==
+          std::vector<theme::ColorId> { TestThemeColor });
+
+  Palette decoded;
+  std::string old_encoding = "TestThemeOverride\nTestThemeColor@-1\n\n\n"
+                             "TestThemeOverride\nTestThemeValue@-99999\n\n\n"
+                             "0\n";
+  decoded.decode(old_encoding);
+  REQUIRE(decoded.encode() == Palette().encode());
+  REQUIRE(decoded.colorIdList(TestThemeOverride)["theme_tests"] ==
+          std::vector<theme::ColorId> { TestThemeColor });
+  REQUIRE(decoded.valueIdList(TestThemeOverride)["theme_tests"] ==
+          std::vector<theme::ValueId> { TestThemeValue });
+
+  Palette saved_mid_click;
+  saved_mid_click.decode("TestThemeOverride\nTestThemeColor@-2\n\n\n\n0\n");
+  REQUIRE_FALSE(saved_mid_click.color(TestThemeOverride, TestThemeColor, brush));
+  REQUIRE(saved_mid_click.encode() == Palette().encode());
+  REQUIRE(saved_mid_click.colorIdList(TestThemeOverride)["theme_tests"] ==
+          std::vector<theme::ColorId> { TestThemeColor });
+}
+
 TEST_CASE("Gradient decode bad data", "[graphics]") {
   Gradient gradient;
   gradient.decode("");

@@ -145,14 +145,18 @@ namespace visage {
   void Palette::removeColor(int index) {
     colors_.erase(colors_.begin() + index);
 
+    std::vector<std::pair<theme::OverrideId, theme::ColorId>> unmapped;
     for (auto& override_map : color_map_) {
       for (auto& color : override_map.second) {
         if (color.second == index)
-          color.second = -1;
+          unmapped.emplace_back(override_map.first, color.first);
         else if (color.second > index)
           color.second--;
       }
     }
+
+    for (const auto& [override_id, color_id] : unmapped)
+      removeColorMap(override_id, color_id);
   }
 
   std::string Palette::encode() const {
@@ -211,7 +215,10 @@ namespace visage {
         if (known_override && split_position != std::string::npos && color_name_map.count(key)) {
           try {
             int color_index = std::stoi(color_mapping.substr(split_position + 1));
-            color_map_[override_id][color_name_map[key]] = color_index;
+            if (color_index < 0)
+              removeColorMap(override_id, color_name_map[key]);
+            else
+              setColorMap(override_id, color_name_map[key], color_index);
           }
           catch (...) {
           }
@@ -236,7 +243,10 @@ namespace visage {
         std::string key = value_mapping.substr(0, split_position);
         if (known_override && split_position != std::string::npos && value_name_map.count(key)) {
           float value = String(value_mapping.substr(split_position + 1)).toFloat();
-          value_map_[override_id][value_name_map[key]] = value;
+          if (value == kNotSetValue)
+            known_value_ids_[override_id].insert(value_name_map[key]);
+          else
+            value_map_[override_id][value_name_map[key]] = value;
         }
 
         std::getline(stream, value_mapping);
