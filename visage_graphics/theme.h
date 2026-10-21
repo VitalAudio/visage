@@ -57,6 +57,19 @@ namespace visage::theme {
     return file_path.substr(start, end - start);
   }
 
+  template<typename InfoMap>
+  bool hasNameConflict(const InfoMap& info_map, const std::string& name, const std::string& file_path) {
+    std::string group = nameFromPath(file_path);
+    for (const auto& assignment : info_map) {
+      if (assignment.second.name == name && assignment.second.group != group) {
+        VISAGE_LOG("Duplicate theme name %s in %s and %s", name.c_str(), file_path.c_str(),
+                   assignment.second.group.c_str());
+        return true;
+      }
+    }
+    return false;
+  }
+
   class ColorId {
   public:
     static constexpr unsigned int kInvalidId = 0xFFFFFFFF;
@@ -80,6 +93,7 @@ namespace visage::theme {
 
     static ColorId nextId(std::string name, const std::string& file_path, unsigned int default_color) {
       Map* id = Map::instance();
+      VISAGE_ASSERT(!hasNameConflict(id->info_map_, name, file_path));
       id->info_map_[ColorId(id->next_id_)] = { std::move(name), nameFromPath(file_path), default_color };
       return ColorId(id->next_id_++);
     }
@@ -139,6 +153,7 @@ namespace visage::theme {
 
     static ValueId nextId(std::string name, const std::string& file_path, float default_value) noexcept {
       Map* id = Map::instance();
+      VISAGE_ASSERT(!hasNameConflict(id->info_map_, name, file_path));
       id->info_map_[ValueId(id->next_id_)] = { std::move(name), nameFromPath(file_path), default_value };
       return ValueId(id->next_id_++);
     }
