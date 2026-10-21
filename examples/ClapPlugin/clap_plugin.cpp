@@ -126,7 +126,7 @@ bool ClapPlugin::guiGetResizeHints(clap_gui_resize_hints_t* hints) noexcept {
 
   if (fixed_aspect_ratio) {
     hints->aspect_ratio_width = app_->height() * app_->aspectRatio();
-    hints->aspect_ratio_height = app_->width();
+    hints->aspect_ratio_height = app_->height();
   }
   return true;
 }
