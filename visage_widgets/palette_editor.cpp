@@ -41,7 +41,7 @@ namespace visage {
         canvas.rectangle(c, r, kSquareWidth, kSquareWidth);
     }
 
-    std::vector<Brush> colors = palette_->colorList();
+    const std::vector<Brush>& colors = palette_->colorList();
     int palette_width = w * kPaletteWidthRatio;
     float color_height = colorHeight();
     int color_position = color_list_.yPosition();
@@ -170,14 +170,14 @@ namespace visage {
     color_list_.setScrollBarBounds(w - 20, 0, 20, h - w);
   }
 
-  void PaletteColorEditor::checkColorHover(const MouseEvent& e) {
-    theme::ColorId color_id = colorIdIndex(e);
+  void PaletteColorEditor::checkColorHover(const MouseEvent& e, const ColorIdGroups& color_ids) {
+    theme::ColorId color_id = colorIdIndex(e, color_ids);
     if (color_id.isValid())
       highlight_ = palette_->colorMap(current_override_id_, color_id);
   }
 
-  void PaletteColorEditor::checkScrollHeight() {
-    int list_length = listLength(palette_->colorIdList(current_override_id_));
+  void PaletteColorEditor::checkScrollHeight(const ColorIdGroups& color_ids) {
+    int list_length = listLength(color_ids);
     setScrollableHeight(kColorIdHeight * list_length, height() - width());
   }
 
@@ -203,8 +203,7 @@ namespace visage {
     return length;
   }
 
-  theme::ColorId PaletteColorEditor::colorIdIndex(const MouseEvent& e) const {
-    std::map<std::string, std::vector<theme::ColorId>> color_ids = palette_->colorIdList(current_override_id_);
+  theme::ColorId PaletteColorEditor::colorIdIndex(const MouseEvent& e, const ColorIdGroups& color_ids) const {
     int w = width();
     int palette_width = w * kPaletteWidthRatio;
     if (e.position.x > w || e.position.x < palette_width)
