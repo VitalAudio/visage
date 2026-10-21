@@ -85,11 +85,10 @@ namespace visage::theme {
     }
 
     static const ColorIdInfo& info(ColorId color_id) {
-      static const ColorIdInfo kNoInfo;
-      const auto& info_map = Map::instance()->info_map_;
-      auto info = info_map.find(color_id);
-      VISAGE_ASSERT(info != info_map.end());
-      return info == info_map.end() ? kNoInfo : info->second;
+      const Map* map = Map::instance();
+      auto info = map->info_map_.find(color_id);
+      VISAGE_ASSERT(info != map->info_map_.end());
+      return info == map->info_map_.end() ? map->no_info_ : info->second;
     }
 
     static unsigned int defaultColor(ColorId color_id) { return info(color_id).default_color; }
@@ -115,6 +114,7 @@ namespace visage::theme {
 
       unsigned int next_id_ = 0;
       std::map<ColorId, ColorIdInfo> info_map_;
+      ColorIdInfo no_info_;
     };
   };
 
@@ -144,10 +144,9 @@ namespace visage::theme {
     }
 
     static const ValueIdInfo& info(ValueId value_id) {
-      static const ValueIdInfo kNoInfo;
-      const auto& info_map = Map::instance()->info_map_;
-      auto info = info_map.find(value_id);
-      return info == info_map.end() ? kNoInfo : info->second;
+      const Map* map = Map::instance();
+      auto info = map->info_map_.find(value_id);
+      return info == map->info_map_.end() ? map->no_info_ : info->second;
     }
 
     static float defaultValue(ValueId value_id) { return info(value_id).default_value; }
@@ -173,6 +172,7 @@ namespace visage::theme {
 
       unsigned int next_id_ = 0;
       std::map<ValueId, ValueIdInfo> info_map_;
+      ValueIdInfo no_info_;
     };
   };
 
@@ -199,10 +199,9 @@ namespace visage::theme {
     }
 
     static const std::string& name(OverrideId override_id) {
-      static const std::string kNoName;
-      const auto& name_map = Map::instance()->name_map_;
-      auto name = name_map.find(override_id);
-      return name == name_map.end() ? kNoName : name->second;
+      const Map* map = Map::instance();
+      auto name = map->name_map_.find(override_id);
+      return name == map->name_map_.end() ? map->no_name_ : name->second;
     }
 
     static OverrideId idFromName(const std::string& name) {
@@ -234,6 +233,7 @@ namespace visage::theme {
 
       unsigned int next_id_ = kDefaultId + 1;
       std::map<OverrideId, std::string> name_map_ = { { OverrideId(kDefaultId), "Global" } };
+      std::string no_name_;
     };
   };
 }
