@@ -74,8 +74,6 @@ namespace visage {
       return y_values_[index];
     }
 
-    const unsigned char* data() const { return (const unsigned char*)y_values_.data(); }
-
   private:
     int num_points_ = 0;
     std::vector<float> y_values_;
