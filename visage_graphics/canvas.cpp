@@ -257,6 +257,86 @@ namespace visage {
     return result;
   }
 
+  static std::vector<Point> graphPoints(const GraphData& data, float width, float height) {
+    int num_points = data.numPoints();
+    if (num_points == 1)
+      return { Point(0.0f, data[0] * height), Point(width, data[0] * height) };
+
+    std::vector<Point> points(num_points);
+    for (int i = 0; i < num_points; ++i)
+      points[i] = Point(i * width / (num_points - 1), data[i] * height);
+    return points;
+  }
+
+  static void addGraphFillSide(Path& path, const std::vector<Point>& points, float width,
+                               float center_y, bool above) {
+    auto onCenter = [center_y, above](const Point& point) {
+      return above ? point.y >= center_y : point.y <= center_y;
+    };
+
+    int num_points = points.size();
+    path.moveTo(above ? 0.0f : width, center_y);
+    for (int i = 0; i < num_points; ++i) {
+      int index = above ? i : num_points - 1 - i;
+      if (index > 0 && index < num_points - 1 && onCenter(points[index - 1]) &&
+          onCenter(points[index]) && onCenter(points[index + 1]))
+        continue;
+
+      float y = above ? std::min(points[index].y, center_y) : std::max(points[index].y, center_y);
+      path.lineTo(points[index].x, y);
+    }
+    path.lineTo(above ? width : 0.0f, center_y);
+    path.close();
+  }
+
+  void Canvas::addGraphLine(const GraphData& data, float x, float y, float width, float height,
+                            float thickness) {
+    if (data.numPoints() == 0)
+      return;
+
+    Path path;
+    std::vector<Point> points = graphPoints(data, width, height);
+    path.moveTo(points[0]);
+    for (int i = 1; i < points.size(); ++i)
+      path.lineTo(points[i]);
+
+    Path stroked = path.stroke(thickness);
+    if (stroked.numPoints() == 0)
+      return;
+
+    ClampBounds clamp = state_.clamp.clamp(state_.x + x, state_.y + y, width, height);
+    addShape(PathFillWrapper(clamp, state_.brush, state_.x + x, state_.y + y, width, height,
+                             stroked, pathAtlas(), 1.0f));
+  }
+
+  void Canvas::addGraphFill(const GraphData& data, float x, float y, float width, float height,
+                            float center) {
+    if (data.numPoints() == 0)
+      return;
+
+    float center_y = center * height;
+    std::vector<Point> points = graphPoints(data, width, height);
+    std::vector<Point> crossed_points = { points[0] };
+    for (int i = 1; i < points.size(); ++i) {
+      Point from = points[i - 1];
+      Point to = points[i];
+      if ((from.y - center_y) * (to.y - center_y) < 0.0f) {
+        float t = (center_y - from.y) / (to.y - from.y);
+        crossed_points.emplace_back(from.x + t * (to.x - from.x), center_y);
+      }
+      crossed_points.push_back(to);
+    }
+
+    Path path;
+    path.setFillRule(Path::FillRule::NonZero);
+    addGraphFillSide(path, crossed_points, width, center_y, true);
+    addGraphFillSide(path, crossed_points, width, center_y, false);
+
+    ClampBounds clamp = state_.clamp.clamp(state_.x + x, state_.y + y, width, height);
+    addShape(PathFillWrapper(clamp, state_.brush, state_.x + x, state_.y + y, width, height, path,
+                             pathAtlas(), 1.0f));
+  }
+
   void Canvas::updateTime(double time) {
     static constexpr float kRefreshRateSlew = 0.3f;
     delta_time_ = std::max(0.0, time - render_time_);
