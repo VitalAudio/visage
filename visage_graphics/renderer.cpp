@@ -184,10 +184,8 @@ namespace visage {
     bool color_buffer_float = enableWebGlExtension("EXT_color_buffer_float");
     float_render_targets_supported_ = color_buffer_float ||
                                       enableWebGlExtension("EXT_color_buffer_half_float");
-    float32_blend_supported_ = color_buffer_float && enableWebGlExtension("EXT_float_blend");
 #else
     float_render_targets_supported_ = renderTargetSupported(bgfx::TextureFormat::RGBA16F);
-    float32_blend_supported_ = renderTargetSupported(bgfx::TextureFormat::R32F);
 #endif
   }
 

@@ -223,23 +223,6 @@ namespace visage {
     static bgfx::VertexLayout& layout();
   };
 
-  struct PathVertex {
-    float index;
-    float direction;
-    float x1;
-    float y1;
-    float x2;
-    float y2;
-    float x3;
-    float y3;
-    float cell_left;
-    float cell_top;
-    float cell_right;
-    float cell_bottom;
-
-    static bgfx::VertexLayout& layout();
-  };
-
   struct GradientTexturePosition {
     float from_x;
     float from_y;

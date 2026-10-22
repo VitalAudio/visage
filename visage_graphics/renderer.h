@@ -46,7 +46,6 @@ namespace visage {
     bool supported() const { return supported_; }
     bool swapChainSupported() const { return swap_chain_supported_; }
     bool floatRenderTargetsSupported() const { return float_render_targets_supported_; }
-    bool float32BlendSupported() const { return float32_blend_supported_; }
     bool initialized() const { return initialized_; }
     void* display() const { return display_; }
 
@@ -60,7 +59,6 @@ namespace visage {
     bool supported_ = false;
     bool swap_chain_supported_ = false;
     bool float_render_targets_supported_ = false;
-    bool float32_blend_supported_ = false;
 
     Screenshot screenshot_;
     std::string error_message_;

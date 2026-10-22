@@ -423,6 +423,14 @@ namespace visage {
     return std::max<uint64_t>(1, kBufferPoolChunkBytes / (vertex_size * kVerticesPerQuad));
   }
 
+  void flushBufferPoolFrame() {
+    advanceFrame(BGFX_FRAME_FLUSH);
+    for (auto& pool : vertexBufferPools())
+      pool.second->split();
+    indexBufferPool().split();
+    BufferPool::endFrame();
+  }
+
   void reserveBufferPoolBytes(uint64_t bytes) {
     uint64_t used = indexBufferPool().usedBytes();
     for (auto& pool : vertexBufferPools())
@@ -430,11 +438,7 @@ namespace visage {
     if (used == 0 || used + bytes <= kBufferPoolChunkBytes)
       return;
 
-    advanceFrame(BGFX_FRAME_FLUSH);
-    for (auto& pool : vertexBufferPools())
-      pool.second->split();
-    indexBufferPool().split();
-    BufferPool::endFrame();
+    flushBufferPoolFrame();
   }
 
   uint8_t* initQuadVerticesWithLayout(int num_quads, const bgfx::VertexLayout& layout) {

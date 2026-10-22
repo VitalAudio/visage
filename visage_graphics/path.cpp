@@ -23,7 +23,7 @@
 
 #include "embedded/shaders.h"
 #include "graphics_caches.h"
-#include "renderer.h"
+#include "path_tiles.h"
 #include "shape_batcher.h"
 #include "uniforms.h"
 
@@ -843,12 +843,6 @@ namespace visage {
     return stroke_path;
   }
 
-  static bgfx::TextureFormat::Enum atlasFormat() {
-    if (Renderer::instance().float32BlendSupported())
-      return bgfx::TextureFormat::R32F;
-    return bgfx::TextureFormat::R16F;
-  }
-
   struct PathAtlasTexture {
     bgfx::FrameBufferHandle handle = { bgfx::kInvalidHandle };
 
@@ -877,223 +871,79 @@ namespace visage {
     bgfx::setUniform(uniform, values);
   }
 
-  bool PathAtlas::clearUpdatedPathAreas(int submit_pass) {
-    int total_need_update = 0;
-    for (auto& path : paths_) {
-      if (path->needs_update)
-        ++total_need_update;
-    }
-
-    if (total_need_update == 0)
+  bool PathAtlas::beginUpdate(int submit_pass) {
+    bool needs_update = std::any_of(paths_.begin(), paths_.end(),
+                                    [](const auto& path) { return path->needs_update; });
+    if (!needs_update)
       return false;
-
-    int num_quads = total_need_update + (needs_full_clear_ ? 1 : 0);
-    auto clear_vertices = initQuadVertices<UvVertex>(num_quads);
-    if (clear_vertices == nullptr)
-      return false;
-
-    float width_scale = 2.0f / width_;
-    float height_scale = 2.0f / height_;
 
     bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
     bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
     bgfx::setViewClear(submit_pass, BGFX_CLEAR_NONE);
     bgfx::setViewFrameBuffer(submit_pass, frame_buffer_->handle);
-    bgfx::setState(BGFX_STATE_WRITE_R);
-    int vertex_index = 0;
-    auto add_quad = [&](float left, float top, float right, float bottom) {
-      clear_vertices[vertex_index].x = left;
-      clear_vertices[vertex_index].y = top;
-      clear_vertices[vertex_index + 1].x = right;
-      clear_vertices[vertex_index + 1].y = top;
-      clear_vertices[vertex_index + 2].x = left;
-      clear_vertices[vertex_index + 2].y = bottom;
-      clear_vertices[vertex_index + 3].x = right;
-      clear_vertices[vertex_index + 3].y = bottom;
-      clear_vertices[vertex_index].u = 1.0f;
-      clear_vertices[vertex_index].v = 0.0f;
-      clear_vertices[vertex_index + 1].u = 1.0f;
-      clear_vertices[vertex_index + 1].v = 0.0f;
-      clear_vertices[vertex_index + 2].u = 0.0f;
-      clear_vertices[vertex_index + 2].v = 0.0f;
-      clear_vertices[vertex_index + 3].u = 0.0f;
-      clear_vertices[vertex_index + 3].v = 0.0f;
-      vertex_index += 4;
-    };
+    if (!needs_full_clear_)
+      return true;
 
-    if (needs_full_clear_)
-      add_quad(-1.0f, 1.0f, 1.0f, -1.0f);
+    auto clear_vertices = initQuadVertices<UvVertex>(1);
+    if (clear_vertices == nullptr)
+      return false;
+
     needs_full_clear_ = false;
-
-    for (auto& path : paths_) {
-      if (path->needs_update) {
-        float left = path->x * width_scale - 1.0f;
-        float top = 1.0f - path->y * height_scale;
-        add_quad(left, top, left + path->w * width_scale, top - path->h * height_scale);
-      }
+    float positions[kVerticesPerQuad][2] = { { -1.0f, 1.0f }, { 1.0f, 1.0f }, { -1.0f, -1.0f }, { 1.0f, -1.0f } };
+    for (int i = 0; i < kVerticesPerQuad; ++i) {
+      clear_vertices[i].x = positions[i][0];
+      clear_vertices[i].y = positions[i][1];
+      clear_vertices[i].u = 0.0f;
+      clear_vertices[i].v = 0.0f;
     }
 
-    if (bgfx::getCaps()->originBottomLeft) {
-      for (int i = 0; i < vertex_index; ++i)
-        clear_vertices[i].y = -clear_vertices[i].y;
-    }
-
+    bgfx::setState(BGFX_STATE_WRITE_R);
     setPathUniform<Uniforms::kColor>(0.0f);
     bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_clear, shaders::fs_clear));
-
     return true;
   }
 
-  int PathAtlas::updatePaths(int submit_pass) {
-    constexpr int kTriangleIndices[] = { 0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5 };
-    constexpr int kConservativeVerticesPerTriangle = 3;
-    constexpr int kRegularVerticesPerTriangle = 6;
-    constexpr float kTriangleDrawOffset = 2.0f;
+  static PathAtlas::Binning& binningSetting() {
+    static PathAtlas::Binning setting = PathAtlas::Binning::Gpu;
+    return setting;
+  }
 
+  void PathAtlas::setBinning(Binning binning) {
+    binningSetting() = binning;
+  }
+
+  PathAtlas::Binning PathAtlas::activeBinning() {
+    if (binningSetting() == Binning::Gpu && PathTileRenderer::computeSupported())
+      return Binning::Gpu;
+    return Binning::Cpu;
+  }
+
+  int PathAtlas::updatePaths(int submit_pass) {
     checkInit();
 
-    if (!clearUpdatedPathAreas(submit_pass))
+    bool gpu = activeBinning() == Binning::Gpu;
+    int raster_pass = gpu ? submit_pass + 1 : submit_pass;
+    if (!beginUpdate(raster_pass))
       return submit_pass;
 
-    int num_triangles = 0;
+    std::vector<PathTileRenderer::Cell> cells;
     for (auto& path : paths_) {
       if (path->needs_update) {
-        for (const auto& sub_path : path->path.subPaths()) {
-          if (sub_path.points.size() > 2)
-            num_triangles += sub_path.points.size();
-        }
-      }
-    }
-
-    if (num_triangles == 0)
-      return submit_pass + 1;
-
-    auto state = BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE);
-    int vertices_per_triangle = kRegularVerticesPerTriangle;
-    int indices_per_triangle = sizeof(kTriangleIndices) / sizeof(int);
-    int vertices_per_point = 2;
-    bool conservative_raster = bgfx::getCaps()->supported & BGFX_CAPS_CONSERVATIVE_RASTER;
-    if (conservative_raster) {
-      state |= BGFX_STATE_CONSERVATIVE_RASTER;
-      vertices_per_triangle = kConservativeVerticesPerTriangle;
-      indices_per_triangle = 3;
-      vertices_per_point = 1;
-    }
-
-    auto submit = [&] {
-      bgfx::setState(state);
-      setPathUniform<Uniforms::kColor>(1.0f);
-
-      if (bgfx::getCaps()->originBottomLeft)
-        setPathUniform<Uniforms::kBounds>(2.0f / width_, 2.0f / height_, -1.0f, -1.0f);
-      else
-        setPathUniform<Uniforms::kBounds>(2.0f / width_, -2.0f / height_, -1.0f, 1.0f);
-
-      if (conservative_raster)
-        bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_conservative_path_fill,
-                                                              shaders::fs_path_fill));
-      else
-        bgfx::submit(submit_pass,
-                     ProgramCache::programHandle(shaders::vs_path_fill, shaders::fs_path_fill));
-    };
-
-    uint64_t triangle_bytes = vertices_per_triangle * sizeof(PathVertex) +
-                              indices_per_triangle * sizeof(uint32_t);
-    int max_triangles = std::max<uint64_t>(1, kBufferPoolChunkBytes / triangle_bytes);
-    int chunks = num_triangles / max_triangles + (num_triangles % max_triangles != 0);
-    int remaining = num_triangles;
-    int chunk_triangles = 0;
-    int triangle = 0;
-    PathVertex* vertices = nullptr;
-    uint32_t* indices = nullptr;
-    uint32_t vertex = 0;
-    uint32_t triangle_index = 0;
-    for (auto& path : paths_) {
-      if (path->needs_update) {
-        for (const auto& sub_path : path->path.subPaths()) {
-          if (sub_path.points.size() <= 2)
-            continue;
-
-          float average_x = 0.0f;
-          float max_y = 0.0f;
-          for (const auto& point : sub_path.points) {
-            max_y = std::max(max_y, point.y);
-            average_x += point.x;
-          }
-          average_x /= static_cast<float>(sub_path.points.size());
-
-          float x = path->x;
-          float y = path->y;
-          float anchor_x = x + average_x;
-          float anchor_y = y + max_y + kTriangleDrawOffset;
-          float last_x = x + sub_path.points.back().x;
-          float last_y = y + sub_path.points.back().y;
-          for (int i = 0; i < sub_path.points.size(); ++i) {
-            if (triangle == chunk_triangles) {
-              if (vertices)
-                submit();
-
-              chunk_triangles = (remaining + chunks - 1) / chunks;
-              remaining -= chunk_triangles;
-              chunks--;
-              triangle = 0;
-              vertex = 0;
-              triangle_index = 0;
-              reserveBufferPoolBytes(chunk_triangles * triangle_bytes);
-              if (!initIndexedVertices(chunk_triangles * vertices_per_triangle,
-                                       chunk_triangles * indices_per_triangle, &vertices, &indices)) {
-                VISAGE_LOG("PathAtlas::updatePaths: Failed to allocate vertex buffers");
-                return submit_pass + 1;
-              }
-            }
-            triangle++;
-
-            for (int k = 0; k < indices_per_triangle; ++k)
-              indices[triangle_index++] = vertex + kTriangleIndices[k];
-
-            float new_x = x + sub_path.points[i].x;
-            float new_y = y + sub_path.points[i].y;
-            float index = 0.0f;
-
-            for (int v = vertex; v < vertex + vertices_per_triangle;) {
-              float direction = 1.0f;
-              for (int p = 0; p < vertices_per_point; ++p, ++v) {
-                vertices[v].index = index;
-                vertices[v].direction = direction;
-                direction *= -1.0f;
-              }
-              index += 1.0f;
-            }
-
-            for (int v = 0; v < vertices_per_triangle; ++v) {
-              vertices[vertex].x1 = anchor_x;
-              vertices[vertex].y1 = anchor_y;
-              vertices[vertex].x2 = last_x;
-              vertices[vertex].y2 = last_y;
-              vertices[vertex].x3 = new_x;
-              vertices[vertex].y3 = new_y;
-              vertices[vertex].cell_left = x;
-              vertices[vertex].cell_top = y;
-              vertices[vertex].cell_right = x + path->w;
-              vertices[vertex].cell_bottom = y + path->h;
-              ++vertex;
-            }
-
-            last_x = new_x;
-            last_y = new_y;
-          }
-        }
+        cells.push_back({ &path->path, path->x, path->y, path->w, path->h });
         path->needs_update = false;
       }
     }
 
-    VISAGE_ASSERT(triangle == chunk_triangles && remaining == 0);
-    submit();
-    return submit_pass + 1;
+    if (tile_renderer_ == nullptr)
+      tile_renderer_ = std::make_unique<PathTileRenderer>();
+    if (!gpu || !tile_renderer_->submitGpu(cells, submit_pass, raster_pass, width_, height_))
+      tile_renderer_->submitCpu(cells, raster_pass, width_, height_);
+    return raster_pass + 1;
   }
 
   void PathAtlas::destroy() {
     frame_buffer_.reset();
+    tile_renderer_.reset();
   }
 
   void PathAtlas::checkInit() {
@@ -1110,7 +960,7 @@ namespace visage {
 
     if (!bgfx::isValid(frame_buffer_->handle) && atlas_map_.width() && atlas_map_.height()) {
       frame_buffer_->handle = bgfx::createFrameBuffer(atlas_map_.width(), atlas_map_.height(),
-                                                      atlasFormat(), kFlags);
+                                                      bgfx::TextureFormat::R8, kFlags);
       width_ = atlas_map_.width();
       height_ = atlas_map_.height();
       needs_full_clear_ = true;
