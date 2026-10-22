@@ -64,6 +64,8 @@ namespace visage {
     void captureFrame(const void*, uint32_t) override { }
   };
 
+  static constexpr uint32_t kUnusedTransientBufferSize = 16;
+
   static constexpr uint32_t resetFlags() {
 #if VISAGE_WINDOWS
     return BGFX_RESET_FLIP_AFTER_RENDER;
@@ -162,6 +164,8 @@ namespace visage {
 #endif
 
     bgfx_init.reset = resetFlags();
+    bgfx_init.limits.maxTransientVbSize = kUnusedTransientBufferSize;
+    bgfx_init.limits.maxTransientIbSize = kUnusedTransientBufferSize;
 
     for (int i = 0; i < num_supported && !supported_; ++i)
       supported_ = supported_renderers[i] == bgfx_init.type;

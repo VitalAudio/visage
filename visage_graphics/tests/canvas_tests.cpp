@@ -19,6 +19,7 @@
 * DEALINGS IN THE SOFTWARE.
 */
 
+#include "lato_regular.h"
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/color.h"
 #include "visage_graphics/gradient.h"
@@ -27,10 +28,13 @@
 #include "visage_graphics/renderer.h"
 #include "visage_graphics/shader.h"
 #include "visage_graphics/shape_batcher.h"
+#include "visage_utils/child_process.h"
+#include "visage_utils/file_system.h"
 
 #include <bgfx/bgfx.h>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <cstdlib>
 
 using namespace visage;
 using namespace Catch;
@@ -1904,6 +1908,441 @@ TEST_CASE("Bloom glows brighter for colors above four times white", "[graphics]"
   REQUIRE(eight_times_white < 0xff);
   REQUIRE(eight_times_white > four_times_white + 10);
 }
+
+TEST_CASE("Canvas draws a batch too big for 16-bit indices", "[graphics]") {
+  static constexpr int kWidth = 200;
+  static constexpr int kHeight = 100;
+  Canvas canvas;
+  canvas.setWindowless(kWidth, kHeight);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, kWidth, kHeight);
+  canvas.setColor(0xffffffff);
+  for (int y = 0; y < kHeight; ++y) {
+    for (int x = 0; x < kWidth; ++x)
+      canvas.rectangle(x, y, 1, 1);
+  }
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(screenshot.sample(0, 0).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(kWidth - 1, kHeight - 1).hexRed() == 0xff);
+}
+
+TEST_CASE("Buffer pools fail cleanly when bgfx runs out of buffer handles", "[graphics]") {
+  static constexpr int kIdleFrames = 130;
+  Canvas canvas;
+  canvas.setWindowless(20, 20);
+  canvas.takeScreenshot();
+  for (int i = 0; i < kIdleFrames; ++i)
+    canvas.submit();
+  REQUIRE(bufferPoolCapacity(UvVertex::layout()) == 0);
+
+  std::vector<bgfx::DynamicVertexBufferHandle> handles;
+  for (bgfx::DynamicVertexBufferHandle handle = bgfx::createDynamicVertexBuffer(1, UvVertex::layout());
+       bgfx::isValid(handle); handle = bgfx::createDynamicVertexBuffer(1, UvVertex::layout()))
+    handles.push_back(handle);
+
+  REQUIRE(initQuadVertices<UvVertex>(1) == nullptr);
+  for (bgfx::DynamicVertexBufferHandle handle : handles)
+    bgfx::destroy(handle);
+  canvas.takeScreenshot();
+
+  canvas.setColor(0xffffffff);
+  canvas.fill(0, 0, 20, 20);
+  REQUIRE(canvas.takeScreenshot().sample(10, 10).hexRed() == 0xff);
+}
+
+TEST_CASE("Buffer pools persist across frames and are released when idle", "[graphics]") {
+  static constexpr int kWidth = 200;
+  static constexpr int kHeight = 100;
+  static constexpr int kIdleFrames = 130;
+  auto num_dynamic_buffers = []() {
+    bgfx::frame();
+    bgfx::frame();
+    return bgfx::getStats()->numDynamicVertexBuffers;
+  };
+
+  Canvas canvas;
+  canvas.setWindowless(kWidth, kHeight);
+  for (int i = 0; i < kIdleFrames; ++i)
+    canvas.submit();
+  int baseline = num_dynamic_buffers();
+
+  canvas.setColor(0xffffffff);
+  for (int y = 0; y < kHeight; ++y) {
+    for (int x = 0; x < kWidth; ++x)
+      canvas.rectangle(x, y, 1, 1);
+  }
+  canvas.takeScreenshot();
+  int with_pools = num_dynamic_buffers();
+  REQUIRE(with_pools > baseline);
+  for (int i = 0; i < 5; ++i)
+    REQUIRE(canvas.takeScreenshot().sample(kWidth - 1, kHeight - 1).hexRed() == 0xff);
+  REQUIRE(num_dynamic_buffers() == with_pools);
+
+  canvas.clearDrawnShapes();
+  for (int i = 0; i < kIdleFrames; ++i)
+    canvas.submit();
+  REQUIRE(num_dynamic_buffers() == baseline);
+}
+
+static void fillTransientBuffers() {
+  bgfx::TransientVertexBuffer filler {};
+  uint32_t available = bgfx::getAvailTransientVertexBuffer(UINT32_MAX, UvVertex::layout());
+  if (available)
+    bgfx::allocTransientVertexBuffer(&filler, available, UvVertex::layout());
+}
+
+TEST_CASE("Paths render when the transient buffers are full", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(40, 40);
+  canvas.submit();
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 40, 40);
+
+  Path path;
+  path.moveTo(4, 4);
+  path.lineTo(36, 4);
+  path.lineTo(36, 36);
+  path.lineTo(4, 36);
+  path.close();
+  canvas.setColor(0xffffffff);
+  canvas.fill(path);
+
+  fillTransientBuffers();
+  REQUIRE(canvas.takeScreenshot().sample(20, 20).hexRed() == 0xff);
+}
+
+TEST_CASE("Post effects render when the transient buffers are full", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 64);
+  canvas.submit();
+  BlurPostEffect blur;
+  blur.setBlurRadius(10.0f);
+  Region region;
+  canvas.addRegion(&region);
+  region.setNeedsLayer(true);
+  region.setPostEffect(&blur);
+  region.setBounds(0, 0, 64, 64);
+  canvas.beginRegion(&region);
+  canvas.setColor(0xffff0000);
+  canvas.fill(0, 0, 32, 64);
+  canvas.setColor(0xff0000ff);
+  canvas.fill(32, 0, 32, 64);
+  canvas.endRegion();
+
+  fillTransientBuffers();
+  Color center = canvas.takeScreenshot().sample(32, 32);
+  REQUIRE(center.hexRed() > 0x20);
+  REQUIRE(center.hexBlue() > 0x20);
+}
+
+TEST_CASE("Backdrop effects render when the transient buffers are full", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(64, 32);
+  canvas.submit();
+  BlurPostEffect blur;
+  blur.setBlurRadius(8.0f);
+  Region panel;
+  Region glass;
+  canvas.addRegion(&panel);
+  panel.setNeedsLayer(true);
+  panel.setBounds(0, 0, 64, 32);
+  panel.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&blur);
+  glass.setBounds(16, 0, 32, 32);
+
+  canvas.beginRegion(&panel);
+  canvas.setColor(0xffff0000);
+  canvas.fill(0, 0, 32, 32);
+  canvas.setColor(0xff0000ff);
+  canvas.fill(32, 0, 32, 32);
+  canvas.endRegion();
+  canvas.beginRegion(&glass);
+  canvas.endRegion();
+
+  fillTransientBuffers();
+  Color center = canvas.takeScreenshot().sample(32, 16);
+  REQUIRE(center.hexRed() > 0x20);
+  REQUIRE(center.hexBlue() > 0x20);
+}
+
+TEST_CASE("Buffer pools shrink to recent use and are released when unused", "[graphics]") {
+  static constexpr int kUsageFrames = 120;
+  Canvas canvas;
+  canvas.setWindowless(20, 20);
+  canvas.submit();
+
+  auto frame = [](int num_quads) {
+    beginBufferPoolFrame();
+    if (num_quads)
+      REQUIRE(initQuadVertices<UvVertex>(num_quads) != nullptr);
+    bgfx::discard();
+    bgfx::frame();
+    endBufferPoolFrame();
+  };
+  auto capacity = [] { return bufferPoolCapacity(UvVertex::layout()); };
+  auto staging = [] { return bufferPoolStagingBytes(UvVertex::layout()); };
+  uint64_t stride = UvVertex::layout().getStride();
+
+  for (int i = 0; i < 3 * kUsageFrames && capacity(); ++i)
+    frame(0);
+  REQUIRE(capacity() == 0);
+
+  frame(200000);
+  REQUIRE(capacity() == 200000 * kVerticesPerQuad);
+  for (int i = 0; i < 2 * kUsageFrames; ++i)
+    frame(20000);
+  REQUIRE(capacity() == 1 << 18);
+  for (int i = 0; i < kUsageFrames; ++i)
+    frame(20000);
+  REQUIRE(capacity() == 1 << 18);
+  REQUIRE(staging() > 0);
+  REQUIRE(staging() <= 2 * capacity() * stride);
+
+  for (int i = 0; i < 2 * kUsageFrames; ++i)
+    frame(0);
+  REQUIRE(capacity() == 0);
+  REQUIRE(staging() == 0);
+}
+
+TEST_CASE("Shapes drawn before a buffer pool grows mid-frame still render", "[graphics]") {
+  static constexpr int kWidth = 200;
+  static constexpr int kBand = 100;
+  Canvas canvas;
+  canvas.setWindowless(kWidth, 3 * kBand);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, kWidth, 3 * kBand);
+  canvas.setColor(0xffffffff);
+  for (int y = 0; y < kBand; ++y) {
+    for (int x = 0; x < kWidth; ++x)
+      canvas.rectangle(x, y, 1, 1);
+  }
+  for (int y = 0; y < kBand; ++y) {
+    for (int x = 0; x < kWidth; ++x)
+      canvas.circle(x, kBand + y, 1);
+  }
+  for (int y = 0; y < kBand; ++y) {
+    for (int x = 0; x < kWidth; ++x)
+      canvas.roundedRectangle(x, 2 * kBand + y, 1, 1, 0.25f);
+  }
+
+  for (int frame = 0; frame < 3; ++frame) {
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    for (int band = 0; band < 3; ++band) {
+      for (int y : { 0, kBand / 2, kBand - 1 }) {
+        for (int x : { 0, kWidth / 2, kWidth - 1 }) {
+          INFO("frame " << frame << " band " << band << " x " << x << " y " << y);
+          REQUIRE(screenshot.sample(x, band * kBand + y).hexRed() > 0x80);
+        }
+      }
+    }
+  }
+}
+
+TEST_CASE("Buffer pools keep staging when later splits leave every block idle", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(20, 20);
+  canvas.submit();
+
+  int shape_quads = maxQuadsPerChunk(sizeof(ShapeVertex));
+  int text_quads = maxQuadsPerChunk(sizeof(TextureVertex));
+  auto draw_chunks = [&] {
+    for (int i = 0; i < 3; ++i) {
+      bgfx::discard();
+      reserveBufferPoolBytes(uint64_t(shape_quads) * kVerticesPerQuad * sizeof(ShapeVertex));
+      REQUIRE(initQuadVertices<ShapeVertex>(shape_quads) != nullptr);
+    }
+    for (int i = 0; i < 2; ++i) {
+      bgfx::discard();
+      reserveBufferPoolBytes(uint64_t(text_quads) * kVerticesPerQuad * sizeof(TextureVertex));
+      REQUIRE(initQuadVertices<TextureVertex>(text_quads) != nullptr);
+    }
+    bgfx::discard();
+    bgfx::frame();
+    endBufferPoolFrame();
+  };
+  auto staging = [] { return bufferPoolStagingBytes(ShapeVertex::layout()); };
+
+  for (int i = 0; i < 5; ++i) {
+    beginBufferPoolFrame();
+    draw_chunks();
+  }
+  for (int i = 0; i < 5; ++i) {
+    uint64_t before = staging();
+    beginBufferPoolFrame();
+    REQUIRE(staging() == before);
+    draw_chunks();
+  }
+}
+
+TEST_CASE("Shapes past a buffer pool chunk split the frame and all render", "[graphics]") {
+  static constexpr int kWidth = 200;
+  static constexpr int kHeight = 100;
+  REQUIRE(kWidth * kHeight * kVerticesPerQuad * sizeof(ShapeVertex) > 2 * kBufferPoolChunkBytes);
+
+  Canvas canvas;
+  canvas.setWindowless(kWidth, kHeight);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, kWidth, kHeight);
+  canvas.setColor(0xffffffff);
+  for (int y = 0; y < kHeight; ++y) {
+    for (int x = 0; x < kWidth; ++x)
+      canvas.rectangle(x, y, 1, 1);
+  }
+
+  for (int frame = 0; frame < 3; ++frame) {
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    int unfilled = 0;
+    for (int y = 0; y < kHeight; ++y) {
+      for (int x = 0; x < kWidth; ++x)
+        unfilled += screenshot.sample(x, y).hexRed() != 0xff;
+    }
+    REQUIRE(unfilled == 0);
+  }
+  REQUIRE(bufferPoolCapacity(ShapeVertex::layout()) * sizeof(ShapeVertex) <= kBufferPoolChunkBytes);
+}
+
+TEST_CASE("Text past a buffer pool chunk splits the frame and all renders", "[graphics]") {
+  static constexpr int kColumns = 200;
+  static constexpr int kRows = 120;
+  static constexpr int kCell = 8;
+  REQUIRE(kColumns * kRows * kVerticesPerQuad * sizeof(TextureVertex) > 2 * kBufferPoolChunkBytes);
+
+  Font font(kCell, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data));
+  Canvas canvas;
+  canvas.setWindowless(kColumns * kCell, kRows * kCell);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, kColumns * kCell, kRows * kCell);
+  canvas.setColor(0xffffffff);
+  for (int i = 0; i < kColumns * kRows; ++i) {
+    canvas.text("W", font, Font::Justification::kCenter, (i % kColumns) * kCell,
+                (i / kColumns) * kCell, kCell, kCell);
+  }
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  int ink = 0;
+  for (int y = 0; y < kCell; ++y) {
+    for (int x = 0; x < kCell; ++x)
+      ink += screenshot.sample(x, y).hexRed();
+  }
+  REQUIRE(ink > 0);
+
+  int mismatched_cells = 0;
+  for (int i = 1; i < kColumns * kRows; ++i) {
+    int cell_x = (i % kColumns) * kCell;
+    int cell_y = (i / kColumns) * kCell;
+    bool matches = true;
+    for (int y = 0; y < kCell && matches; ++y) {
+      for (int x = 0; x < kCell && matches; ++x)
+        matches = screenshot.sample(cell_x + x, cell_y + y).hexRed() == screenshot.sample(x, y).hexRed();
+    }
+    mismatched_cells += !matches;
+  }
+  REQUIRE(mismatched_cells == 0);
+  REQUIRE(bufferPoolCapacity(TextureVertex::layout()) * sizeof(TextureVertex) <= kBufferPoolChunkBytes);
+}
+
+TEST_CASE("A path past a buffer pool chunk splits the frame and fills correctly", "[graphics]") {
+  static constexpr int kSize = 200;
+  static constexpr int kPoints = 60000;
+  static constexpr float kRadius = 80.0f;
+  static constexpr float kCenter = kSize / 2.0f;
+
+  Canvas canvas;
+  canvas.setWindowless(kSize, kSize);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, kSize, kSize);
+
+  Path path;
+  for (int i = 0; i < kPoints; ++i) {
+    float phase = i * 2.0f * kPi / kPoints;
+    float x = kCenter + kRadius * std::cos(phase);
+    float y = kCenter + kRadius * std::sin(phase);
+    if (i == 0)
+      path.moveTo(x, y);
+    else
+      path.lineTo(x, y);
+  }
+  path.close();
+  canvas.setColor(0xffffffff);
+  canvas.fill(path);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  for (int i = 0; i < 8; ++i) {
+    float phase = i * kPi / 4.0f;
+    for (float radius : { 0.0f, 40.0f, 70.0f }) {
+      int x = kCenter + radius * std::cos(phase);
+      int y = kCenter + radius * std::sin(phase);
+      INFO("inside " << x << ", " << y);
+      REQUIRE(screenshot.sample(x, y).hexRed() == 0xff);
+    }
+    int x = kCenter + 90.0f * std::cos(phase);
+    int y = kCenter + 90.0f * std::sin(phase);
+    INFO("outside " << x << ", " << y);
+    REQUIRE(screenshot.sample(x, y).hexRed() == 0);
+  }
+  REQUIRE(bufferPoolCapacity(PathVertex::layout()) * sizeof(PathVertex) <= kBufferPoolChunkBytes);
+}
+
+#if VISAGE_LINUX
+TEST_CASE("Large frame before exit child", "[.large_frame_exit_child]") {
+  static constexpr int kWidth = 400;
+  static constexpr int kHeight = 200;
+  {
+    Canvas canvas;
+    canvas.setWindowless(kWidth, kHeight);
+    auto draw = [&] {
+      canvas.setColor(0xffffffff);
+      for (int y = 0; y < kHeight; ++y) {
+        for (int x = 0; x < kWidth; ++x)
+          canvas.rectangle(x, y, 1, 1);
+      }
+    };
+    draw();
+    canvas.takeScreenshot();
+    canvas.clearDrawnShapes();
+    draw();
+    canvas.submit();
+  }
+  std::exit(0);
+}
+
+class ScopedEnvironmentVariable {
+public:
+  ScopedEnvironmentVariable(const char* name, const std::string& value) : name_(name) {
+    const char* previous = std::getenv(name);
+    had_previous_ = previous != nullptr;
+    previous_ = had_previous_ ? previous : "";
+    setenv(name, value.c_str(), 1);
+  }
+
+  ~ScopedEnvironmentVariable() {
+    if (had_previous_)
+      setenv(name_, previous_.c_str(), 1);
+    else
+      unsetenv(name_);
+  }
+
+private:
+  const char* name_ = nullptr;
+  bool had_previous_ = false;
+  std::string previous_;
+};
+
+TEST_CASE("Exiting right after a large frame doesn't crash", "[graphics]") {
+  const char* asan_options = std::getenv("ASAN_OPTIONS");
+  std::string child_asan_options = std::string(asan_options ? asan_options : "") +
+                                   ":detect_leaks=0";
+  ScopedEnvironmentVariable no_leak_check("ASAN_OPTIONS", child_asan_options);
+  ScopedEnvironmentVariable no_vulkan_layers("VK_LOADER_LAYERS_DISABLE", "~all~");
+  std::string output;
+  bool exited_cleanly = spawnChildProcess(hostExecutable().string(), "[.large_frame_exit_child]",
+                                          output, 60000);
+  INFO(output);
+  REQUIRE(exited_cleanly);
+}
+#endif
 
 TEST_CASE("Canvas strokes a path at its logical width", "[graphics]") {
   for (float scale : { 1.0f, 2.0f }) {
