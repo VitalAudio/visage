@@ -16,7 +16,11 @@ void main() {
   v_gradient_texture_pos = a_color0;
   v_gradient_pos = a_color1;
   v_gradient_pos2 = a_color2;
-  vec2 rotated_delta = a_texcoord0.z * delta + a_texcoord0.w * delta.yx;
+  // Text turned a quarter: the texture's x runs along screen y one way and its
+  // y along screen x the other, so a clipped corner's shift maps to
+  // (dy, -dx) times the turn's sign. delta.yx had the second axis backwards,
+  // and a sideways glyph cut by a partial redraw sampled the wrong texels.
+  vec2 rotated_delta = a_texcoord0.z * delta + a_texcoord0.w * vec2(delta.y, -delta.x);
   v_coordinates = (a_texcoord0.xy + rotated_delta) * u_atlas_scale.xy;
   vec2 adjusted_position = clamped * u_bounds.xy + u_bounds.zw;
   gl_Position = vec4(adjusted_position, 0.5, 1.0);
