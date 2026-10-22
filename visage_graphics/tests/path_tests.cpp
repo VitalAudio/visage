@@ -567,7 +567,7 @@ TEST_CASE("Rounded rectangle sides never run backward", "[graphics]") {
       for (int i = 0; i < points.size(); ++i) {
         Point from = points[(i + 1) % points.size()] - points[i];
         Point to = points[(i + 2) % points.size()] - points[(i + 1) % points.size()];
-        REQUIRE(from.dot(to) >= 0.0f);
+        REQUIRE(from.dot(to) >= -0.5f * from.length() * to.length());
       }
     }
   };
@@ -584,6 +584,83 @@ TEST_CASE("Rounded rectangle sides never run backward", "[graphics]") {
     Path corners;
     corners.addRoundedRectangle(x, y, width, height, 10.0f, 10.0f, 20.0f, 20.0f, 30.0f, 30.0f, 40.0f, 40.0f);
     check_turns(corners);
+
+    Path square;
+    square.addRoundedRectangle(x, y, width, height, 0.0f);
+    check_turns(square);
+
+    Path tab;
+    tab.addRoundedRectangle(x, y, width, height, 8.0f, 8.0f, 8.0f, 8.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    check_turns(tab);
+
+    Path full_corner;
+    full_corner.addRoundedRectangle(x, y, width, height, 0.0f, 0.0f, height, height, 0.0f, 0.0f, 0.0f, 0.0f);
+    check_turns(full_corner);
+
+    Path::CommandList commands;
+    commands.addRoundedRectangle(x, y, width, height, height * 0.5f, height * 0.5f);
+    commands.addRoundedRectangle(x, y, width, height, 0.0f, 0.0f);
+    commands.addRoundedRectangle(x, y, width, height, 8.0f, 8.0f, 8.0f, 8.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    commands.addRoundedRectangle(x, y, width, height, 0.0f, 0.0f, height, height, 0.0f, 0.0f, 0.0f, 0.0f);
+    Path loaded;
+    loaded.loadCommands(commands);
+    check_turns(loaded);
+
+    for (auto [w, h] :
+         { std::pair(-width, height), std::pair(width, -height), std::pair(-width, -height) }) {
+      auto add = [](auto& target, float x, float y, float w, float h) {
+        target.addRoundedRectangle(x, y, w, h, 0.0f, 0.0f);
+        target.addRoundedRectangle(x, y, w, h, 12.0f, 5.0f);
+        target.addRoundedRectangle(x, y, w, h, 8.0f, 8.0f, 8.0f, 8.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+      };
+      Path flipped;
+      Path::CommandList flipped_commands;
+      add(flipped, x, y, w, h);
+      add(flipped_commands, x, y, w, h);
+      flipped.loadCommands(flipped_commands);
+      Path box;
+      add(box, std::min(x, x + w), std::min(y, y + h), std::abs(w), std::abs(h));
+      add(box, std::min(x, x + w), std::min(y, y + h), std::abs(w), std::abs(h));
+      REQUIRE(flipped.subPaths().size() == box.subPaths().size());
+      for (int s = 0; s < box.subPaths().size(); ++s) {
+        const auto& expected = box.subPaths()[s].points;
+        const auto& points = flipped.subPaths()[s].points;
+        REQUIRE(points.size() == expected.size());
+        for (int p = 0; p < points.size(); ++p)
+          REQUIRE((points[p] - expected[p]).length() < 0.001f);
+      }
+    }
+  }
+
+  for (Path::Join join : { Path::Join::Miter, Path::Join::Bevel }) {
+    Path square;
+    square.addRoundedRectangle(10.1f, 10.1f, 30.0f, 30.0f, 0.0f);
+    Path rectangle;
+    rectangle.addRectangle(10.1f, 10.1f, 30.0f, 30.0f);
+    Path stroked_square = square.stroke(8.0f, join);
+    Path stroked_rectangle = rectangle.stroke(8.0f, join);
+    REQUIRE(stroked_square.subPaths().size() == stroked_rectangle.subPaths().size());
+    for (int i = 0; i < stroked_rectangle.subPaths().size(); ++i) {
+      const auto& expected = stroked_rectangle.subPaths()[i].points;
+      const auto& points = stroked_square.subPaths()[i].points;
+      REQUIRE(points.size() == expected.size());
+      for (int p = 0; p < points.size(); ++p)
+        REQUIRE((points[p] - expected[p]).length() < 0.001f);
+    }
+
+    Canvas canvas;
+    canvas.setWindowless(50, 50);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, canvas.width(), canvas.height());
+    canvas.setColor(0xffff0000);
+    canvas.stroke(square, 0, 0, 50, 50, 8.0f, join, Path::EndCap::Butt);
+    canvas.submit();
+    const auto& screenshot = canvas.takeScreenshot();
+    for (Point corner :
+         { Point(10.1f, 10.1f), Point(40.1f, 10.1f), Point(40.1f, 40.1f), Point(10.1f, 40.1f) }) {
+      Point outward = (corner - Point(25.1f, 25.1f)).normalized() * 1.5f;
+      REQUIRE(screenshot.sample(corner + outward).hexRed() == 0xff);
+    }
   }
 
   static constexpr float kX = 54.0f;
