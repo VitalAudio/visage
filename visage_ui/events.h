@@ -61,10 +61,7 @@ namespace visage {
 
   class EventManager {
   public:
-    static EventManager& instance() {
-      static EventManager instance;
-      return instance;
-    }
+    static EventManager& instance();
 
     EventManager(const EventManager&) = delete;
     EventManager& operator=(const EventManager&) = delete;

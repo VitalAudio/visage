@@ -121,10 +121,7 @@ namespace visage::theme {
 
   private:
     struct Map {
-      static Map* instance() {
-        static Map instance;
-        return &instance;
-      }
+      static Map* instance();
 
       unsigned int next_id_ = 0;
       std::map<ColorId, ColorIdInfo> info_map_;
@@ -180,10 +177,7 @@ namespace visage::theme {
 
   private:
     struct Map {
-      static Map* instance() {
-        static Map instance;
-        return &instance;
-      }
+      static Map* instance();
 
       unsigned int next_id_ = 0;
       std::map<ValueId, ValueIdInfo> info_map_;
@@ -241,10 +235,7 @@ namespace visage::theme {
 
   private:
     struct Map {
-      static Map* instance() {
-        static Map instance;
-        return &instance;
-      }
+      static Map* instance();
 
       unsigned int next_id_ = kDefaultId + 1;
       std::map<OverrideId, std::string> name_map_ = { { OverrideId(kDefaultId), "Global" } };

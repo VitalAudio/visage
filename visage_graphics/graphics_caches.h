@@ -31,10 +31,7 @@ namespace visage {
 
   class ShaderCache {
   public:
-    static ShaderCache* instance() {
-      static ShaderCache cache;
-      return &cache;
-    }
+    static ShaderCache* instance();
 
     static bgfx::ShaderHandle& shaderHandle(const EmbeddedFile& file) {
       return instance()->handle(file);
@@ -78,10 +75,7 @@ namespace visage {
       EmbeddedFile fragment;
     };
 
-    static ProgramCache* instance() {
-      static ProgramCache cache;
-      return &cache;
-    }
+    static ProgramCache* instance();
 
     static bgfx::ProgramHandle& programHandle(const EmbeddedFile& vertex, const EmbeddedFile& fragment) {
       return instance()->handle(vertex, fragment);
@@ -130,10 +124,7 @@ namespace visage {
       Mat4,
     };
 
-    static UniformCache* instance() {
-      static UniformCache cache;
-      return &cache;
-    }
+    static UniformCache* instance();
 
     static bgfx::UniformHandle& uniformHandle(const char* name, Type type = Vec4) {
       return instance()->handle(name, type);

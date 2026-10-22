@@ -33,8 +33,8 @@
 namespace visage {
   class Thread {
   public:
-    static inline std::thread::id main_thread_id_;
-    static inline bool main_thread_set_ = false;
+    static std::thread::id main_thread_id_;
+    static bool main_thread_set_;
 
     static void setAsMainThread() {
       main_thread_set_ = true;
