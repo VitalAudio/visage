@@ -112,6 +112,16 @@ namespace visage {
     roundedRectangle(t, x, y, width, height, rx, ry, rx, ry, rx, ry, rx, ry);
   }
 
+  template<typename T>
+  static void ellipse(T& t, float cx, float cy, float rx, float ry) {
+    t.moveTo(cx + rx, cy);
+    t.arcTo(rx, ry, 0.0f, false, true, Point(cx, cy + ry), false);
+    t.arcTo(rx, ry, 0.0f, false, true, Point(cx - rx, cy), false);
+    t.arcTo(rx, ry, 0.0f, false, true, Point(cx, cy - ry), false);
+    t.arcTo(rx, ry, 0.0f, false, true, Point(cx + rx, cy), false);
+    t.close();
+  }
+
   void Path::arcTo(float rx, float ry, float x_axis_rotation, bool large_arc, bool sweep_flag,
                    Point point, bool relative) {
     current_control_points_ = ControlPoints::Linear;
@@ -342,13 +352,7 @@ namespace visage {
   }
 
   void Path::CommandList::addEllipse(float cx, float cy, float rx, float ry) {
-    moveTo(cx + rx, cy);
-    arcTo(rx, ry, 0.0f, false, true, Point(cx, cy + ry), false);
-    arcTo(rx, ry, 0.0f, false, true, Point(cx - rx, cy), false);
-    arcTo(rx, ry, 0.0f, false, true, Point(cx, cy - ry), false);
-    arcTo(rx, ry, 0.0f, false, true, Point(cx + rx, cy), false);
-
-    close();
+    ellipse(*this, cx, cy, rx, ry);
   }
 
   Point Path::CommandList::quadraticControl(int index) const {
@@ -430,11 +434,7 @@ namespace visage {
   }
 
   void Path::addEllipse(float cx, float cy, float rx, float ry) {
-    moveTo(cx + rx, cy);
-    arcTo(rx, ry, 180.0f, false, true, Point(cx - rx, cy), false);
-    arcTo(rx, ry, 180.0f, false, true, Point(cx + rx, cy), false);
-
-    close();
+    ellipse(*this, cx, cy, rx, ry);
   }
 
   void Path::addCircle(float cx, float cy, float r) {
