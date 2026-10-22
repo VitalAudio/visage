@@ -1035,3 +1035,37 @@ TEST_CASE("Dash ends at line and curve junctions keep the incoming direction", "
     REQUIRE(cap.dot(curve_end) == Catch::Approx(0.0f).margin(0.002f));
   }
 }
+
+TEST_CASE("Circles and ellipses keep their points on the curve and exact extremes", "[graphics]") {
+  auto check = [](const Path& path, float cx, float cy, float rx, float ry) {
+    INFO("center " << cx << ", " << cy << " radii " << rx << ", " << ry);
+    const auto& points = path.subPaths().front().points;
+    for (const Point& point : points) {
+      double x = point.x - double(cx);
+      double y = point.y - double(cy);
+      double scale = std::sqrt(x * x / (double(rx) * rx) + y * y / (double(ry) * ry));
+      double gradient = std::hypot(x / (double(rx) * rx), y / (double(ry) * ry)) / scale;
+      REQUIRE(std::abs(scale - 1.0) / gradient < 0.01);
+    }
+    for (Point extreme : { Point(cx + rx, cy), Point(cx, cy + ry), Point(cx - rx, cy), Point(cx, cy - ry) })
+      REQUIRE(std::find(points.begin(), points.end(), extreme) != points.end());
+  };
+
+  for (int i = 0; i < 50; ++i) {
+    float cx = 100.0f + i * 9.37f;
+    float cy = 100.0f + i * 7.13f;
+    for (float radius : { 95.137f, 1000.137f }) {
+      Path circle;
+      circle.addCircle(cx, cy, radius);
+      check(circle, cx, cy, radius, radius);
+
+      Path far_circle;
+      far_circle.addCircle(cx * 20.0f, cy * 20.0f, radius);
+      check(far_circle, cx * 20.0f, cy * 20.0f, radius, radius);
+    }
+
+    Path ellipse;
+    ellipse.addEllipse(cx, cy, 1000.137f, 400.0f);
+    check(ellipse, cx, cy, 1000.137f, 400.0f);
+  }
+}
