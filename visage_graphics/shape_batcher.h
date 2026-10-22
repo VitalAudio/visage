@@ -64,6 +64,7 @@ namespace visage {
 
   void beginBufferPoolFrame();
   void endBufferPoolFrame();
+  uint32_t advanceFrame(uint8_t flags = 0);
   uint64_t bufferPoolCapacity(const bgfx::VertexLayout& layout);
   uint64_t bufferPoolStagingBytes(const bgfx::VertexLayout& layout);
   int maxQuadsPerChunk(int vertex_size);

@@ -57,8 +57,8 @@ namespace visage {
 
   void Canvas::removeFromWindow() {
     if (composite_layer_.removeFromWindow()) {
-      bgfx::frame();
-      bgfx::frame();
+      advanceFrame();
+      advanceFrame();
     }
   }
 
@@ -111,9 +111,9 @@ namespace visage {
     if (submission > submit_pass || Layer::viewFlushes() != start_flushes) {
       composite_layer_.invalidate();
       submission = composite_layer_.submit(submission, backdrop_count);
-      bgfx::frame();
+      advanceFrame();
       if (render_frame_ == 0)
-        bgfx::frame();
+        advanceFrame();
       endBufferPoolFrame();
 
       render_frame_++;
@@ -124,7 +124,7 @@ namespace visage {
     }
     else if (last_skipped_frame_ != render_frame_) {
       last_skipped_frame_ = render_frame_;
-      bgfx::frame();
+      advanceFrame();
       endBufferPoolFrame();
     }
     return submission;
@@ -138,7 +138,7 @@ namespace visage {
     submit();
     if (!composite_layer_.isHeadlessRender()) {
       for (int i = 0; i < kCaptureFrames; ++i)
-        bgfx::frame();
+        advanceFrame();
     }
     return composite_layer_.screenshot();
   }
