@@ -578,10 +578,7 @@ namespace visage {
   template<typename T>
   class VectorPool {
   public:
-    static VectorPool& instance() {
-      static VectorPool instance;
-      return instance;
-    }
+    static VectorPool& instance();
 
     std::vector<T> vector(int size) {
       std::vector<T> vector = removeVector(size);

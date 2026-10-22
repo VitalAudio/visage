@@ -34,6 +34,14 @@
   }
 
 namespace visage {
+  template<typename T>
+  VectorPool<T>& VectorPool<T>::instance() {
+    static VectorPool instance;
+    return instance;
+  }
+
+  template class VectorPool<FontAtlasQuad>;
+
   VISAGE_SET_PROGRAM(Fill, shaders::vs_color, shaders::fs_color)
   VISAGE_SET_PROGRAM(Rectangle, shaders::vs_shape, shaders::fs_rectangle)
   VISAGE_SET_PROGRAM(RoundedRectangle, shaders::vs_shape, shaders::fs_rounded_rectangle)

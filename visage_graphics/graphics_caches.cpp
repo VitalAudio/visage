@@ -25,6 +25,21 @@
 #include <map>
 
 namespace visage {
+  ShaderCache* ShaderCache::instance() {
+    static ShaderCache cache;
+    return &cache;
+  }
+
+  ProgramCache* ProgramCache::instance() {
+    static ProgramCache cache;
+    return &cache;
+  }
+
+  UniformCache* UniformCache::instance() {
+    static UniformCache cache;
+    return &cache;
+  }
+
   template<typename T>
   static void releaseHandle(const T& current, const T& original) {
     if (current.idx != original.idx && bgfx::isValid(current))
