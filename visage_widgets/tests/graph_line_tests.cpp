@@ -19,6 +19,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "visage_app/application_editor.h"
 #include "visage_widgets/graph_line.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -43,4 +44,32 @@ TEST_CASE("GraphLine setters that change its look request a redraw", "[widgets]"
   REQUIRE(redrawsFrom([](GraphLine& line) { line.setFillCenter(GraphLine::kBottom); }) == 1);
   REQUIRE(redrawsFrom([](GraphLine& line) { line.setActive(false); }) == 1);
   REQUIRE(redrawsFrom([](GraphLine& line) { line.setFillAlphaMult(0.5f); }) == 1);
+}
+
+static Screenshot renderFilled(GraphLine::FillCenter fill_center) {
+  ApplicationEditor editor;
+  editor.onDraw() = [&editor](Canvas& canvas) {
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, editor.width(), editor.height());
+  };
+
+  GraphLine graph_line(2);
+  graph_line.set(0, 0.5f);
+  graph_line.set(1, 0.5f);
+  graph_line.setFilled(true);
+  graph_line.setFillCenter(fill_center);
+  editor.addChild(&graph_line);
+  editor.onResize() += [&]() { graph_line.setBounds(editor.localBounds()); };
+  editor.setWindowless(40, 40);
+  return editor.takeScreenshot();
+}
+
+TEST_CASE("GraphLine fills toward the edge its fill center names", "[widgets]") {
+  Screenshot bottom = renderFilled(GraphLine::kBottom);
+  REQUIRE(bottom.sample(20, 5).hexRed() == 0);
+  REQUIRE(bottom.sample(20, 35).hexRed() > 0x20);
+
+  Screenshot top = renderFilled(GraphLine::kTop);
+  REQUIRE(top.sample(20, 5).hexRed() > 0x20);
+  REQUIRE(top.sample(20, 35).hexRed() == 0);
 }
