@@ -117,7 +117,7 @@ target_include_directories(visage SYSTEM PUBLIC ${VISAGE_INCLUDE_PATH} ${VISAGE_
 target_compile_features(visage PUBLIC cxx_std_20)
 if (UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
   target_link_options(visage INTERFACE
-                      "LINKER:--exclude-libs,$<TARGET_FILE_NAME:freetype>:$<TARGET_FILE_NAME:bimg_decode>")
+                      "LINKER:--exclude-libs,$<TARGET_FILE_NAME:freetype>")
 endif ()
 target_link_libraries(visage PRIVATE
   VisageApp
