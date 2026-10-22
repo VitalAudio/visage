@@ -17,12 +17,17 @@ vec4 internalTexture2D(BgfxSampler2D _sampler, vec2 _coord) {
 	return _sampler.m_texture.Sample(_sampler.m_sampler, _coord);
 }
 
+vec4 internalTexelFetch(BgfxSampler2D _sampler, ivec2 _coord, int _lod) {
+	return _sampler.m_texture.Load(ivec3(_coord, _lod));
+}
+
 #		define SAMPLER2D(_name, _reg) \
 			uniform SamplerState _name ## Sampler : REGISTER(s, _reg); \
 			uniform Texture2D _name ## Texture : REGISTER(t, _reg); \
 			static BgfxSampler2D _name = { _name ## Sampler, _name ## Texture }
 #		define sampler2D BgfxSampler2D
 #		define texture2D(_sampler, _coord) internalTexture2D(_sampler, _coord)
+#		define texelFetch(_sampler, _coord, _lod) internalTexelFetch(_sampler, _coord, _lod)
 #	else
 #		define SAMPLER2D(_name, _reg) uniform sampler2D _name : REGISTER(s, _reg)
 #		define texture2D(_sampler, _coord) tex2D(_sampler, _coord)

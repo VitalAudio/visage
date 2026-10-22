@@ -662,10 +662,19 @@ namespace visage {
   };
 
   struct PathAtlasTexture;
+  class PathTileRenderer;
 
   class PathAtlas {
   public:
     static constexpr int kBuffer = 1;
+
+    enum class Binning {
+      Cpu,
+      Gpu
+    };
+
+    static void setBinning(Binning binning);
+    static Binning activeBinning();
 
     struct PackedPathRect {
       explicit PackedPathRect(const Path& p) : path(p) { }
@@ -790,7 +799,7 @@ namespace visage {
     }
 
   private:
-    bool clearUpdatedPathAreas(int submit_pass);
+    bool beginUpdate(int submit_pass);
     void checkInit();
     void resize();
 
@@ -798,6 +807,7 @@ namespace visage {
     std::vector<std::unique_ptr<PackedPathRect>> paths_;
     PackedAtlasMap<const PackedPathRect*> atlas_map_;
     std::unique_ptr<PathAtlasTexture> frame_buffer_;
+    std::unique_ptr<PathTileRenderer> tile_renderer_;
     int width_ = 0;
     int height_ = 0;
     bool needs_packing_ = false;

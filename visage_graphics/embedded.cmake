@@ -46,16 +46,24 @@ function(visage_embed_shaders project include_filename namespace original_shader
     get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
 
     set(SHADER_TYPE "f")
+    set(SHADER_INCLUDES_ARGS -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders)
+    set(DX_PROFILE s_4_0)
+    set(GLSL_PROFILE 330)
     if (SHADER_NAME MATCHES "^v")
       set(SHADER_TYPE "v")
+    elseif (SHADER_NAME MATCHES "^cs_")
+      set(SHADER_TYPE "c")
+      list(APPEND SHADER_INCLUDES_ARGS -i ${BGFX_DIR}/src)
+      set(DX_PROFILE s_5_0)
+      set(GLSL_PROFILE 430)
     endif()
 
-    if (OPENGLES)
+    if (OPENGLES AND NOT SHADER_TYPE STREQUAL "c")
       set(ESSL_PATH ${ESSL_FOLDER}/${SHADER_NAME})
       list(APPEND SHADER_BINS ${ESSL_PATH})
       add_custom_command(
         OUTPUT ${ESSL_PATH}
-        COMMAND ${SHADERC} -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders -f ${SHADER} -o ${ESSL_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p 300_es
+        COMMAND ${SHADERC} ${SHADER_INCLUDES_ARGS} -f ${SHADER} -o ${ESSL_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p 300_es
         DEPENDS ${SHADER} ${SHADERC} ${SHADER_DEPENDENCIES}
       )
     endif()
@@ -65,7 +73,7 @@ function(visage_embed_shaders project include_filename namespace original_shader
       list(APPEND SHADER_BINS ${DX_PATH})
       add_custom_command(
         OUTPUT ${DX_PATH}
-        COMMAND ${SHADERC} -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders -O 3 -f ${SHADER} -o ${DX_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p s_4_0
+        COMMAND ${SHADERC} ${SHADER_INCLUDES_ARGS} -O 3 -f ${SHADER} -o ${DX_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p ${DX_PROFILE}
         DEPENDS ${SHADER} ${SHADERC} ${SHADER_DEPENDENCIES}
       )
     endif()
@@ -75,7 +83,7 @@ function(visage_embed_shaders project include_filename namespace original_shader
       list(APPEND SHADER_BINS ${METAL_PATH})
       add_custom_command(
         OUTPUT ${METAL_PATH}
-        COMMAND ${SHADERC} -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders -f ${SHADER} -o ${METAL_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p metal
+        COMMAND ${SHADERC} ${SHADER_INCLUDES_ARGS} -f ${SHADER} -o ${METAL_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p metal
         DEPENDS ${SHADER} ${SHADERC} ${SHADER_DEPENDENCIES}
       )
     endif()
@@ -85,7 +93,7 @@ function(visage_embed_shaders project include_filename namespace original_shader
       list(APPEND SHADER_BINS ${GLSL_PATH})
       add_custom_command(
         OUTPUT ${GLSL_PATH}
-        COMMAND ${SHADERC} -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders -f ${SHADER} -o ${GLSL_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p 330
+        COMMAND ${SHADERC} ${SHADER_INCLUDES_ARGS} -f ${SHADER} -o ${GLSL_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p ${GLSL_PROFILE}
         DEPENDS ${SHADER} ${SHADERC} ${SHADER_DEPENDENCIES}
       )
     endif()
@@ -95,7 +103,7 @@ function(visage_embed_shaders project include_filename namespace original_shader
       list(APPEND SHADER_BINS ${SPIRV_PATH})
       add_custom_command(
         OUTPUT ${SPIRV_PATH}
-        COMMAND ${SHADERC} -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders -f ${SHADER} -o ${SPIRV_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p spirv
+        COMMAND ${SHADERC} ${SHADER_INCLUDES_ARGS} -f ${SHADER} -o ${SPIRV_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p spirv
         DEPENDS ${SHADER} ${SHADERC} ${SHADER_DEPENDENCIES}
       )
     endif()
@@ -112,7 +120,7 @@ function(visage_embed_shaders project include_filename namespace original_shader
   source_group("Shaders" FILES ${original_shaders})
 endfunction()
 
-file(GLOB LIBRARY_SHADERS shaders/[vf]s_*.sc)
+file(GLOB LIBRARY_SHADERS shaders/[vfc]s_*.sc)
 file(GLOB FONT_TTF_FILES fonts/*.ttf)
 file(GLOB ICON_FILES icons/*.svg)
 

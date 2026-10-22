@@ -41,6 +41,8 @@ namespace visage {
     static constexpr char kResampleValues2[] = "u_resample_values2";
     static constexpr char kThreshold[] = "u_threshold";
     static constexpr char kPixelSize[] = "u_pixel_size";
+    static constexpr char kTileParams[] = "u_tile_params";
+    static constexpr char kTileLayout[] = "u_tile_layout";
     static constexpr char kGradient[] = "s_gradient";
     static constexpr char kTexture[] = "s_texture";
     static constexpr char kTexture2[] = "s_texture2";
