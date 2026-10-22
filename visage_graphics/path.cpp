@@ -52,8 +52,9 @@ namespace visage {
     return std::max(kMinDeltaRadians, 2.0 * clampedACos(1.0 - error_ratio));
   }
 
-  static float sideLength(float length, float radius1, float radius2) {
-    return std::max(0.0f, length - radius1 - radius2);
+  static std::pair<float, float> sideSpan(float low, float high, float low_radius, float high_radius) {
+    float start = std::min(low + low_radius, high);
+    return { start, std::max(high - high_radius, start) };
   }
 
   template<typename T>
@@ -61,6 +62,13 @@ namespace visage {
                                float ry_top_left, float rx_top_right, float ry_top_right,
                                float rx_bottom_right, float ry_bottom_right, float rx_bottom_left,
                                float ry_bottom_left) {
+    float left = std::min(x, x + width);
+    float right = std::max(x, x + width);
+    float top = std::min(y, y + height);
+    float bottom = std::max(y, y + height);
+    width = std::abs(width);
+    height = std::abs(height);
+
     float scale = 1.0f;
     if (rx_top_left + rx_top_right)
       scale = std::min(scale, width / (rx_top_left + rx_top_right));
@@ -80,33 +88,28 @@ namespace visage {
     rx_bottom_left *= scale;
     ry_bottom_left *= scale;
 
-    t.moveTo(x + rx_top_left, y);
-    t.lineTo(x + rx_top_left + sideLength(width, rx_top_left, rx_top_right), y);
-    t.arcTo(rx_top_right, ry_top_right, 0.0f, false, true, Point(x + width, y + ry_top_right), false);
-    t.lineTo(x + width, y + ry_top_right + sideLength(height, ry_top_right, ry_bottom_right));
-    t.arcTo(rx_bottom_right, ry_bottom_right, 0.0f, false, true,
-            Point(x + width - rx_bottom_right, y + height), false);
-    t.lineTo(x + width - rx_bottom_right - sideLength(width, rx_bottom_right, rx_bottom_left), y + height);
-    t.arcTo(rx_bottom_left, ry_bottom_left, 0.0f, false, true, Point(x, y + height - ry_bottom_left), false);
-    t.lineTo(x, y + height - ry_bottom_left - sideLength(height, ry_bottom_left, ry_top_left));
-    t.arcTo(rx_top_left, ry_top_left, 0.0f, false, true, Point(x + rx_top_left, y), false);
+    auto [top_start, top_end] = sideSpan(left, right, rx_top_left, rx_top_right);
+    auto [right_start, right_end] = sideSpan(top, bottom, ry_top_right, ry_bottom_right);
+    auto [bottom_end, bottom_start] = sideSpan(left, right, rx_bottom_left, rx_bottom_right);
+    auto [left_end, left_start] = sideSpan(top, bottom, ry_top_left, ry_bottom_left);
+
+    t.moveTo(top_start, top);
+    t.lineTo(top_end, top);
+    t.arcTo(rx_top_right, ry_top_right, 0.0f, false, true, Point(right, right_start), false);
+    t.lineTo(right, right_end);
+    t.arcTo(rx_bottom_right, ry_bottom_right, 0.0f, false, true, Point(bottom_start, bottom), false);
+    t.lineTo(bottom_end, bottom);
+    t.arcTo(rx_bottom_left, ry_bottom_left, 0.0f, false, true, Point(left, left_start), false);
+    t.lineTo(left, left_end);
+    t.arcTo(rx_top_left, ry_top_left, 0.0f, false, true, Point(top_start, top), false);
     t.close();
   }
 
   template<typename T>
   static void roundedRectangle(T& t, float x, float y, float width, float height, float rx, float ry) {
-    rx = std::min(rx, width * 0.5f);
-    ry = std::min(ry, height * 0.5f);
-    t.moveTo(x + rx, y);
-    t.lineTo(x + rx + sideLength(width, rx, rx), y);
-    t.arcTo(rx, ry, 0.0f, false, true, Point(x + width, y + ry), false);
-    t.lineTo(x + width, y + ry + sideLength(height, ry, ry));
-    t.arcTo(rx, ry, 0.0f, false, true, Point(x + width - rx, y + height), false);
-    t.lineTo(x + width - rx - sideLength(width, rx, rx), y + height);
-    t.arcTo(rx, ry, 0.0f, false, true, Point(x, y + height - ry), false);
-    t.lineTo(x, y + height - ry - sideLength(height, ry, ry));
-    t.arcTo(rx, ry, 0.0f, false, true, Point(x + rx, y), false);
-    t.close();
+    rx = std::min(rx, std::abs(width) * 0.5f);
+    ry = std::min(ry, std::abs(height) * 0.5f);
+    roundedRectangle(t, x, y, width, height, rx, ry, rx, ry, rx, ry, rx, ry);
   }
 
   void Path::arcTo(float rx, float ry, float x_axis_rotation, bool large_arc, bool sweep_flag,
