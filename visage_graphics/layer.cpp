@@ -478,7 +478,7 @@ namespace visage {
 
       screenshot_.setDimensions(width_, height_);
       uint32_t ready_frame = bgfx::read(read_back, screenshot_.data());
-      while (bgfx::frame() < ready_frame) {
+      while (advanceFrame() < ready_frame) {
       }
       if (bottom_left_origin_)
         screenshot_ = Screenshot(screenshot_.data(), width_, height_, width_ * 4, false, true);
@@ -494,7 +494,7 @@ namespace visage {
     if (submit_pass + kMaxViewsPerStep <= bgfx::getCaps()->limits.maxViews)
       return submit_pass;
 
-    bgfx::frame(BGFX_FRAME_FLUSH);
+    advanceFrame(BGFX_FRAME_FLUSH);
     view_flushes_++;
     return 0;
   }

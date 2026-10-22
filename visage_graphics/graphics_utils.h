@@ -37,8 +37,6 @@ namespace bgfx {
   struct UniformHandle;
   struct IndexBufferHandle;
   struct FrameBufferHandle;
-  struct TransientIndexBuffer;
-  struct TransientVertexBuffer;
 }
 
 namespace visage {

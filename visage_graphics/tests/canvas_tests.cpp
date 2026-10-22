@@ -2140,6 +2140,63 @@ TEST_CASE("Shapes drawn before a buffer pool grows mid-frame still render", "[gr
   }
 }
 
+TEST_CASE("A batch drawn before its buffer pool grows mid-frame keeps its vertices", "[graphics]") {
+  static constexpr int kCircles = 2000;
+  static constexpr int kMaxIdleFrames = 400;
+  Canvas canvas;
+  canvas.setWindowless(100, 100);
+  auto capacity = [] { return bufferPoolCapacity(ShapeVertex::layout()); };
+  for (int i = 0; i < kMaxIdleFrames && capacity(); ++i)
+    canvas.submit();
+  REQUIRE(capacity() == 0);
+
+  canvas.setColor(0xffff0000);
+  canvas.rectangle(0, 0, 20, 20);
+  canvas.setColor(0xff0000ff);
+  for (int i = 0; i < kCircles; ++i)
+    canvas.circle(10 + i % 80, 10 + i / 80, 2);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(capacity() >= (kCircles + 1) * kVerticesPerQuad);
+  REQUIRE(screenshot.sample(5, 5).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(5, 5).hexBlue() == 0);
+}
+
+TEST_CASE("Every batch in a frame reaches the GPU when the frame is submitted", "[graphics]") {
+  static constexpr int kBatches = 40;
+  static constexpr int kSize = 8;
+  Canvas canvas;
+  canvas.setWindowless(kBatches * kSize, kSize);
+  Region region;
+  canvas.addRegion(&region);
+  region.setNeedsLayer(true);
+  region.setBounds(0, 0, kBatches * kSize, kSize);
+
+  auto red = [](int batch, int frame) { return (batch + frame) % 2 == 0; };
+  for (int frame = 0; frame < 4; ++frame) {
+    region.clear();
+    region.invalidate();
+    canvas.beginRegion(&region);
+    for (int i = 0; i < kBatches; ++i) {
+      canvas.setColor(red(i, frame) ? 0xffff0000 : 0xff0000ff);
+      if (i % 2)
+        canvas.circle(i * kSize, 0, kSize);
+      else
+        canvas.rectangle(i * kSize, 0, kSize, kSize);
+    }
+    canvas.endRegion();
+    canvas.submit();
+
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    for (int i = 0; i < kBatches; ++i) {
+      INFO("frame " << frame << " batch " << i);
+      Color sample = screenshot.sample(i * kSize + kSize / 2, kSize / 2);
+      REQUIRE(sample.hexRed() == (red(i, frame) ? 0xff : 0));
+      REQUIRE(sample.hexBlue() == (red(i, frame) ? 0 : 0xff));
+    }
+  }
+}
+
 TEST_CASE("Buffer pools keep staging when later splits leave every block idle", "[graphics]") {
   Canvas canvas;
   canvas.setWindowless(20, 20);

@@ -182,19 +182,17 @@ namespace visage {
     }
 
     uint8_t* allocate(uint64_t count, uint32_t* start) {
-      if (used_ + count > capacity_ && !resize(grownCapacity(frame_used_ + count)))
-        return nullptr;
+      if (used_ + count > capacity_) {
+        upload();
+        if (!resize(grownCapacity(frame_used_ + count)))
+          return nullptr;
+      }
 
       if (staging_ == nullptr)
         staging_ = idleStaging();
 
       uint8_t* data = staging_->data.get() + used_ * stride_;
       staging_->last_frame = frame_;
-      const bgfx::Memory* memory = bgfx::makeRef(data, count * stride_);
-      if (indices_)
-        bgfx::update(index_buffer_, used_, memory);
-      else
-        bgfx::update(vertex_buffer_, used_, memory);
 
       *start = used_;
       used_ += count;
@@ -202,8 +200,22 @@ namespace visage {
       return data;
     }
 
+    void upload() {
+      if (staging_ == nullptr || used_ == uploaded_)
+        return;
+
+      const bgfx::Memory* memory = bgfx::makeRef(staging_->data.get() + uploaded_ * stride_,
+                                                 (used_ - uploaded_) * stride_);
+      if (indices_)
+        bgfx::update(index_buffer_, uploaded_, memory);
+      else
+        bgfx::update(vertex_buffer_, uploaded_, memory);
+      uploaded_ = used_;
+    }
+
     void split() {
       split_peak_ = std::max(split_peak_, frame_used_);
+      uploaded_ = 0;
       used_ = 0;
       frame_used_ = 0;
       staging_ = nullptr;
@@ -247,6 +259,7 @@ namespace visage {
           peak_ = 0;
         }
       }
+      uploaded_ = 0;
       used_ = 0;
       frame_used_ = 0;
       staging_ = nullptr;
@@ -338,6 +351,7 @@ namespace visage {
       quad_index_buffer_ = BGFX_INVALID_HANDLE;
       staging_ = nullptr;
       capacity_ = 0;
+      uploaded_ = 0;
       used_ = 0;
     }
 
@@ -352,6 +366,7 @@ namespace visage {
     std::vector<std::unique_ptr<Staging>> staging_blocks_;
     Staging* staging_ = nullptr;
     uint64_t capacity_ = 0;
+    uint64_t uploaded_ = 0;
     uint64_t used_ = 0;
     uint64_t frame_used_ = 0;
     uint64_t split_peak_ = 0;
@@ -387,6 +402,13 @@ namespace visage {
     BufferPool::endFrame();
   }
 
+  uint32_t advanceFrame(uint8_t flags) {
+    for (auto& pool : vertexBufferPools())
+      pool.second->upload();
+    indexBufferPool().upload();
+    return bgfx::frame(flags);
+  }
+
   uint64_t bufferPoolCapacity(const bgfx::VertexLayout& layout) {
     auto pool = vertexBufferPools().find(layout.m_hash);
     return pool == vertexBufferPools().end() ? 0 : pool->second->capacity();
@@ -408,7 +430,7 @@ namespace visage {
     if (used == 0 || used + bytes <= kBufferPoolChunkBytes)
       return;
 
-    bgfx::frame(BGFX_FRAME_FLUSH);
+    advanceFrame(BGFX_FRAME_FLUSH);
     for (auto& pool : vertexBufferPools())
       pool.second->split();
     indexBufferPool().split();
