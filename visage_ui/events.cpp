@@ -25,6 +25,10 @@
 #include "visage_utils/time_utils.h"
 
 namespace visage {
+  EventManager& EventManager::instance() {
+    static EventManager instance;
+    return instance;
+  }
 
   EventTimer::~EventTimer() {
     if (isRunning())

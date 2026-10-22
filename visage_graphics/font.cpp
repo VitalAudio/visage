@@ -31,6 +31,15 @@
 #include <vector>
 
 namespace visage {
+  FontCache* FontCache::instance() {
+    static FontCache cache;
+    return &cache;
+  }
+
+  EmojiRasterizer& EmojiRasterizer::instance() {
+    static EmojiRasterizer instance;
+    return instance;
+  }
 
   class FreeTypeLibrary {
   public:

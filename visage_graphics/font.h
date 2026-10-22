@@ -175,10 +175,7 @@ namespace visage {
       }
     };
 
-    static FontCache* instance() {
-      static FontCache cache;
-      return &cache;
-    }
+    static FontCache* instance();
 
     static PackedFont* loadPackedFont(int size, const EmbeddedFile& font) {
       return instance()->createOrLoadPackedFont("embed: " + std::string(font.name), size, font.data,

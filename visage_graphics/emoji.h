@@ -28,10 +28,7 @@ namespace visage {
 
   class EmojiRasterizer {
   public:
-    static EmojiRasterizer& instance() {
-      static EmojiRasterizer instance;
-      return instance;
-    }
+    static EmojiRasterizer& instance();
 
     void drawIntoBuffer(char32_t emoji, int font_size, int write_width, unsigned int* dest,
                         int dest_width, int x, int y);

@@ -59,6 +59,8 @@ function(add_embedded_resources project include_filename namespace files)
   set_source_files_properties(${destination_path}/${include_filename} PROPERTIES GENERATED TRUE)
   set_source_files_properties(${lookup_file} PROPERTIES GENERATED TRUE)
   add_library(${project} STATIC ${destination_path}/${include_filename} ${source_files})
+  set_target_properties(${project} PROPERTIES C_VISIBILITY_PRESET hidden CXX_VISIBILITY_PRESET hidden
+                                              VISIBILITY_INLINES_HIDDEN ON)
   target_include_directories(${project}
     PUBLIC
     ${generated_path}
