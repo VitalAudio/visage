@@ -80,6 +80,7 @@ namespace visage {
   }
 
   int Canvas::submit(int submit_pass) {
+    beginBufferPoolFrame();
     for (int i = 1; i < layers_.size(); ++i)
       layers_[i]->updateHdr(*layers_[i - 1]);
 
@@ -113,6 +114,7 @@ namespace visage {
       bgfx::frame();
       if (render_frame_ == 0)
         bgfx::frame();
+      endBufferPoolFrame();
 
       render_frame_++;
       FontCache::clearStaleFonts();
@@ -123,6 +125,7 @@ namespace visage {
     else if (last_skipped_frame_ != render_frame_) {
       last_skipped_frame_ = render_frame_;
       bgfx::frame();
+      endBufferPoolFrame();
     }
     return submission;
   }

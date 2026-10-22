@@ -60,14 +60,78 @@ namespace visage {
   void submitBlended(BlendMode blend_mode, int submit_pass, bgfx::ProgramHandle program);
   void setAlphaClamp(const Layer& layer);
 
-  bool initTransientQuadBuffers(int num_quads, const bgfx::VertexLayout& layout,
-                                bgfx::TransientVertexBuffer* vertex_buffer,
-                                bgfx::TransientIndexBuffer* index_buffer);
+  static constexpr uint64_t kBufferPoolChunkBytes = 4 << 20;
+
+  void beginBufferPoolFrame();
+  void endBufferPoolFrame();
+  uint64_t bufferPoolCapacity(const bgfx::VertexLayout& layout);
+  uint64_t bufferPoolStagingBytes(const bgfx::VertexLayout& layout);
+  int maxQuadsPerChunk(int vertex_size);
+  void reserveBufferPoolBytes(uint64_t bytes);
   uint8_t* initQuadVerticesWithLayout(int num_quads, const bgfx::VertexLayout& layout);
+  uint8_t* initVerticesWithLayout(int num_vertices, const bgfx::VertexLayout& layout);
+  bool initIndexedVerticesWithLayout(int num_vertices, const bgfx::VertexLayout& layout,
+                                     int num_indices, uint8_t** vertices, uint32_t** indices);
+
   template<typename T>
   T* initQuadVertices(int num_quads) {
     return reinterpret_cast<T*>(initQuadVerticesWithLayout(num_quads, T::layout()));
   }
+
+  template<typename T>
+  T* initVertices(int num_vertices) {
+    return reinterpret_cast<T*>(initVerticesWithLayout(num_vertices, T::layout()));
+  }
+
+  template<typename T>
+  bool initIndexedVertices(int num_vertices, int num_indices, T** vertices, uint32_t** indices) {
+    uint8_t* data = nullptr;
+    bool result = initIndexedVerticesWithLayout(num_vertices, T::layout(), num_indices, &data, indices);
+    *vertices = reinterpret_cast<T*>(data);
+    return result;
+  }
+
+  template<typename V>
+  class QuadChunker {
+  public:
+    explicit QuadChunker(int num_quads) : remaining_(num_quads) {
+      int max_quads = maxQuadsPerChunk(sizeof(V));
+      chunks_ = num_quads / max_quads + (num_quads % max_quads != 0);
+    }
+
+    template<typename Submit>
+    V* nextQuad(Submit&& submit) {
+      if (quad_ == num_quads_) {
+        VISAGE_ASSERT(chunks_ > 0);
+        if (vertices_)
+          submit();
+
+        num_quads_ = (remaining_ + chunks_ - 1) / chunks_;
+        remaining_ -= num_quads_;
+        chunks_--;
+        quad_ = 0;
+        reserveBufferPoolBytes(uint64_t(num_quads_) * kVerticesPerQuad * sizeof(V));
+        vertices_ = initQuadVertices<V>(num_quads_);
+        if (vertices_ == nullptr)
+          return nullptr;
+      }
+      return vertices_ + kVerticesPerQuad * quad_++;
+    }
+
+    template<typename Submit>
+    void finish(Submit&& submit) {
+      VISAGE_ASSERT(quad_ == num_quads_ && remaining_ == 0);
+      if (vertices_)
+        submit();
+    }
+
+  private:
+    V* vertices_ = nullptr;
+    int remaining_ = 0;
+    int chunks_ = 0;
+    int num_quads_ = 0;
+    int quad_ = 0;
+  };
 
   void submitShapes(const Layer& layer, BlendMode blend_mode, const EmbeddedFile& vertex_shader,
                     const EmbeddedFile& fragment_shader, bool radial_gradient, int submit_pass);
@@ -91,6 +155,22 @@ namespace visage {
     bool radial_gradient = false;
   };
 
+  template<typename T, typename Callback>
+  bool forEachShapePiece(const BatchVector<T>& batches, Callback&& callback) {
+    for (const auto& batch : batches) {
+      for (const T& shape : *batch.shapes) {
+        for (const IBounds& invalid_rect : *batch.invalid_rects) {
+          ClampBounds clamp = shape.clamp.clamp(invalid_rect.x() - batch.x, invalid_rect.y() - batch.y,
+                                                invalid_rect.width(), invalid_rect.height());
+          if (!shape.totallyClamped(clamp) &&
+              !callback(batch, shape, clamp.withOffset(batch.x, batch.y)))
+            return false;
+        }
+      }
+    }
+    return true;
+  }
+
   template<typename T>
   QuadVertices<typename T::Vertex> setupQuads(const BatchVector<T>& batches) {
     QuadVertices<typename T::Vertex> results;
@@ -101,24 +181,15 @@ namespace visage {
     results.vertices = initQuadVertices<typename T::Vertex>(results.num_shapes);
     if (results.vertices == nullptr)
       return results;
+
     int vertex_index = 0;
-
-    for (const auto& batch : batches) {
-      for (const T& shape : *batch.shapes) {
-        for (const IBounds& invalid_rect : *batch.invalid_rects) {
-          ClampBounds clamp = shape.clamp.clamp(invalid_rect.x() - batch.x, invalid_rect.y() - batch.y,
-                                                invalid_rect.width(), invalid_rect.height());
-          if (shape.totallyClamped(clamp))
-            continue;
-
-          clamp = clamp.withOffset(batch.x, batch.y);
-          setQuadPositions(results.vertices + vertex_index, shape, clamp, batch.x, batch.y);
-          shape.setVertexData(results.vertices + vertex_index);
-          results.radial_gradient = shape.radialGradient();
-          vertex_index += kVerticesPerQuad;
-        }
-      }
-    }
+    forEachShapePiece(batches, [&](const auto& batch, const T& shape, const ClampBounds& clamp) {
+      setQuadPositions(results.vertices + vertex_index, shape, clamp, batch.x, batch.y);
+      shape.setVertexData(results.vertices + vertex_index);
+      results.radial_gradient = shape.radialGradient();
+      vertex_index += kVerticesPerQuad;
+      return true;
+    });
 
     VISAGE_ASSERT(vertex_index == results.num_shapes * kVerticesPerQuad);
     return results;
@@ -127,13 +198,27 @@ namespace visage {
   template<typename T>
   static void submitBaseShapes(const BatchVector<T>& batches, BlendMode state, Layer& layer, int submit_pass,
                                void (*set_data_uniform)(const BatchVector<T>&) = nullptr) {
-    auto quads = setupQuads(batches);
-    if (quads.vertices == nullptr)
-      return;
+    bool radial_gradient = false;
+    auto submit = [&] {
+      if (set_data_uniform)
+        set_data_uniform(batches);
+      submitShapes(layer, state, T::vertexShader(), T::fragmentShader(), radial_gradient, submit_pass);
+    };
 
-    if (set_data_uniform)
-      set_data_uniform(batches);
-    submitShapes(layer, state, T::vertexShader(), T::fragmentShader(), quads.radial_gradient, submit_pass);
+    QuadChunker<typename T::Vertex> chunker(numShapes(batches));
+    auto write = [&](const auto& batch, const T& shape, const ClampBounds& clamp) {
+      auto vertices = chunker.nextQuad(submit);
+      if (vertices == nullptr)
+        return false;
+
+      setQuadPositions(vertices, shape, clamp, batch.x, batch.y);
+      shape.setVertexData(vertices);
+      radial_gradient = shape.radialGradient();
+      return true;
+    };
+
+    if (forEachShapePiece(batches, write))
+      chunker.finish(submit);
   }
 
   template<typename T>

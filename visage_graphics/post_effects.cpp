@@ -144,9 +144,7 @@ namespace visage {
   }
 
   static void setInitialVertices(Region* region, const IBounds& rect) {
-    bgfx::TransientVertexBuffer first_sample_buffer {};
-    bgfx::allocTransientVertexBuffer(&first_sample_buffer, 4, UvVertex::layout());
-    UvVertex* uv_data = reinterpret_cast<UvVertex*>(first_sample_buffer.data);
+    UvVertex* uv_data = initVertices<UvVertex>(kVerticesPerQuad);
     if (uv_data == nullptr)
       return;
 
@@ -177,8 +175,6 @@ namespace visage {
       uv_data[2].v = 1.0f - top;
       uv_data[3].v = 1.0f - top;
     }
-
-    bgfx::setVertexBuffer(0, &first_sample_buffer);
   }
 
   void DownsamplePostEffect::setScreenVertexBuffer(bool inverted) {
@@ -243,9 +239,7 @@ namespace visage {
       if (visible.width() <= 0 || visible.height() <= 0 || !bgfx::isValid(layer->frameBuffer()))
         continue;
 
-      bgfx::TransientVertexBuffer vertex_buffer {};
-      bgfx::allocTransientVertexBuffer(&vertex_buffer, kVerticesPerQuad, UvVertex::layout());
-      UvVertex* vertices = reinterpret_cast<UvVertex*>(vertex_buffer.data);
+      UvVertex* vertices = initVertices<UvVertex>(kVerticesPerQuad);
       if (vertices == nullptr)
         return submit_pass;
 
@@ -272,7 +266,6 @@ namespace visage {
       setBlendMode(BlendMode::Alpha);
       setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(layer->frameBuffer()));
       setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
-      bgfx::setVertexBuffer(0, &vertex_buffer);
       bgfx::setIndexBuffer(index_buffer);
 
       bgfx::setViewFrameBuffer(submit_pass, destination);

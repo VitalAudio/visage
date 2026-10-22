@@ -33,6 +33,8 @@
 #include "visage_utils/space.h"
 
 #include <bgfx/bgfx.h>
+#include <map>
+#include <memory>
 
 namespace visage {
   static constexpr uint64_t blendModeValue(BlendMode blend_mode) {
@@ -139,36 +141,314 @@ namespace visage {
     setUniform<Uniforms::kOriginFlip>(origin_flip ? -1.0 : 1.0, origin_flip ? 1.0 : 0.0);
   }
 
-  bool initTransientQuadBuffers(int num_quads, const bgfx::VertexLayout& layout,
-                                bgfx::TransientVertexBuffer* vertex_buffer,
-                                bgfx::TransientIndexBuffer* index_buffer) {
-    int num_vertices = num_quads * kVerticesPerQuad;
-    int num_indices = num_quads * kIndicesPerQuad;
-    if (!bgfx::allocTransientBuffers(vertex_buffer, layout, num_vertices, index_buffer, num_indices)) {
-      VISAGE_LOG("Not enough transient buffer memory for %d quads", num_quads);
-      return false;
-    }
-
-    uint16_t* indices = reinterpret_cast<uint16_t*>(index_buffer->data);
+  static void setQuadIndices(uint32_t* indices, int num_quads) {
     for (int i = 0; i < num_quads; ++i) {
       int vertex_index = i * kVerticesPerQuad;
       int index = i * kIndicesPerQuad;
       for (int v = 0; v < kIndicesPerQuad; ++v)
         indices[index + v] = vertex_index + kQuadTriangles[v];
     }
+  }
 
-    return true;
+  class BufferPool {
+  public:
+    static constexpr uint64_t kMinSize = 1 << 12;
+    static constexpr uint64_t kMaxBytes = 1 << 30;
+    static constexpr int kUsageFrames = 120;
+#if VISAGE_BACKGROUND_GRAPHICS_THREAD
+    static constexpr uint64_t kFrameLatency = 2;
+#else
+    static constexpr uint64_t kFrameLatency = 1;
+#endif
+
+    static void endFrame() { frame_++; }
+
+    explicit BufferPool(const bgfx::VertexLayout* layout) :
+        indices_(layout == nullptr), stride_(layout ? layout->getStride() : sizeof(uint32_t)) {
+      if (layout)
+        layout_ = *layout;
+    }
+
+    BufferPool(const BufferPool&) = delete;
+
+    uint64_t capacity() const { return capacity_; }
+    uint64_t usedBytes() const { return used_ * stride_; }
+
+    uint64_t stagingBytes() const {
+      uint64_t bytes = 0;
+      for (const auto& staging : staging_blocks_)
+        bytes += staging->size;
+      return bytes;
+    }
+
+    uint8_t* allocate(uint64_t count, uint32_t* start) {
+      if (used_ + count > capacity_ && !resize(grownCapacity(frame_used_ + count)))
+        return nullptr;
+
+      if (staging_ == nullptr)
+        staging_ = idleStaging();
+
+      uint8_t* data = staging_->data.get() + used_ * stride_;
+      staging_->last_frame = frame_;
+      const bgfx::Memory* memory = bgfx::makeRef(data, count * stride_);
+      if (indices_)
+        bgfx::update(index_buffer_, used_, memory);
+      else
+        bgfx::update(vertex_buffer_, used_, memory);
+
+      *start = used_;
+      used_ += count;
+      frame_used_ += count;
+      return data;
+    }
+
+    void split() {
+      split_peak_ = std::max(split_peak_, frame_used_);
+      used_ = 0;
+      frame_used_ = 0;
+      staging_ = nullptr;
+    }
+
+    void setVertexBuffer(uint32_t start, uint32_t count) const {
+      bgfx::setVertexBuffer(0, vertex_buffer_, start, count);
+    }
+
+    void setIndexBuffer(uint32_t start, uint32_t count) const {
+      bgfx::setIndexBuffer(index_buffer_, start, count);
+    }
+
+    bool setQuadIndexBuffer(int num_quads) {
+      if (!bgfx::isValid(quad_index_buffer_)) {
+        std::vector<uint32_t> indices(capacity_ / kVerticesPerQuad * kIndicesPerQuad);
+        setQuadIndices(indices.data(), capacity_ / kVerticesPerQuad);
+        quad_index_buffer_ = bgfx::createIndexBuffer(bgfx::copy(indices.data(),
+                                                                indices.size() * sizeof(uint32_t)),
+                                                     BGFX_BUFFER_INDEX32);
+        if (!bgfx::isValid(quad_index_buffer_))
+          return false;
+      }
+
+      bgfx::setIndexBuffer(quad_index_buffer_, 0, num_quads * kIndicesPerQuad);
+      return true;
+    }
+
+    void beginFrame() {
+      uint64_t frame_peak = std::max(frame_used_, split_peak_);
+      split_peak_ = 0;
+      if (capacity_) {
+        idle_frames_ = frame_peak ? 0 : idle_frames_ + 1;
+        peak_ = std::max(peak_, frame_peak);
+        if (idle_frames_ >= kUsageFrames)
+          destroyBuffers();
+        else if (++usage_frames_ >= kUsageFrames) {
+          if (peak_ * 4 < capacity_ && shrunkCapacity() < capacity_)
+            resize(shrunkCapacity());
+          usage_frames_ = 0;
+          peak_ = 0;
+        }
+      }
+      used_ = 0;
+      frame_used_ = 0;
+      staging_ = nullptr;
+
+      uint64_t kept_spares = 0;
+      auto unneeded = [&](const std::unique_ptr<Staging>& staging) {
+        if (!isIdle(*staging))
+          return false;
+        if (kept_spares < kFrameLatency && staging->size == capacity_ * stride_) {
+          ++kept_spares;
+          return false;
+        }
+        return true;
+      };
+      staging_blocks_.erase(std::remove_if(staging_blocks_.begin(), staging_blocks_.end(), unneeded),
+                            staging_blocks_.end());
+    }
+
+  private:
+    struct Staging {
+      explicit Staging(uint64_t size) : data(new uint8_t[size]), size(size) { }
+
+      std::unique_ptr<uint8_t[]> data;
+      uint64_t size = 0;
+      uint64_t last_frame = 0;
+    };
+
+    static bool isIdle(const Staging& staging) {
+      return frame_ >= staging.last_frame + kFrameLatency;
+    }
+
+    Staging* idleStaging() {
+      for (auto& staging : staging_blocks_) {
+        if (isIdle(*staging) && staging->size == capacity_ * stride_)
+          return staging.get();
+      }
+      staging_blocks_.push_back(std::make_unique<Staging>(capacity_ * stride_));
+      return staging_blocks_.back().get();
+    }
+
+    uint64_t maxCapacity() const { return kMaxBytes / stride_; }
+
+    uint64_t grownCapacity(uint64_t needed) const {
+      uint64_t capacity = std::max(kMinSize, 2 * capacity_);
+      while (capacity < needed)
+        capacity *= 2;
+      capacity = std::min(capacity, std::max(needed, kBufferPoolChunkBytes / stride_));
+      capacity = std::min(capacity, maxCapacity());
+      return capacity < needed ? 0 : capacity;
+    }
+
+    uint64_t shrunkCapacity() const {
+      uint64_t capacity = kMinSize;
+      while (capacity < 2 * peak_)
+        capacity *= 2;
+      return std::min(capacity, maxCapacity());
+    }
+
+    bool resize(uint64_t capacity) {
+      destroyBuffers();
+      if (capacity == 0)
+        return false;
+
+      if (indices_)
+        index_buffer_ = bgfx::createDynamicIndexBuffer(capacity, BGFX_BUFFER_INDEX32);
+      else
+        vertex_buffer_ = bgfx::createDynamicVertexBuffer(capacity, layout_);
+      if (indices_ ? !bgfx::isValid(index_buffer_) : !bgfx::isValid(vertex_buffer_)) {
+        destroyBuffers();
+        return false;
+      }
+
+      capacity_ = capacity;
+      usage_frames_ = 0;
+      idle_frames_ = 0;
+      peak_ = 0;
+      return true;
+    }
+
+    void destroyBuffers() {
+      if (bgfx::isValid(vertex_buffer_))
+        bgfx::destroy(vertex_buffer_);
+      if (bgfx::isValid(index_buffer_))
+        bgfx::destroy(index_buffer_);
+      if (bgfx::isValid(quad_index_buffer_))
+        bgfx::destroy(quad_index_buffer_);
+      vertex_buffer_ = BGFX_INVALID_HANDLE;
+      index_buffer_ = BGFX_INVALID_HANDLE;
+      quad_index_buffer_ = BGFX_INVALID_HANDLE;
+      staging_ = nullptr;
+      capacity_ = 0;
+      used_ = 0;
+    }
+
+    static inline uint64_t frame_ = kFrameLatency;
+
+    bool indices_ = false;
+    bgfx::VertexLayout layout_;
+    uint64_t stride_ = 0;
+    bgfx::DynamicVertexBufferHandle vertex_buffer_ = BGFX_INVALID_HANDLE;
+    bgfx::DynamicIndexBufferHandle index_buffer_ = BGFX_INVALID_HANDLE;
+    bgfx::IndexBufferHandle quad_index_buffer_ = BGFX_INVALID_HANDLE;
+    std::vector<std::unique_ptr<Staging>> staging_blocks_;
+    Staging* staging_ = nullptr;
+    uint64_t capacity_ = 0;
+    uint64_t used_ = 0;
+    uint64_t frame_used_ = 0;
+    uint64_t split_peak_ = 0;
+    uint64_t peak_ = 0;
+    int usage_frames_ = 0;
+    int idle_frames_ = 0;
+  };
+
+  static std::map<uint32_t, std::unique_ptr<BufferPool>>& vertexBufferPools() {
+    static auto* pools = new std::map<uint32_t, std::unique_ptr<BufferPool>>();
+    return *pools;
+  }
+
+  static BufferPool& vertexBufferPool(const bgfx::VertexLayout& layout) {
+    std::unique_ptr<BufferPool>& pool = vertexBufferPools()[layout.m_hash];
+    if (pool == nullptr)
+      pool = std::make_unique<BufferPool>(&layout);
+    return *pool;
+  }
+
+  static BufferPool& indexBufferPool() {
+    static auto* pool = new BufferPool(nullptr);
+    return *pool;
+  }
+
+  void beginBufferPoolFrame() {
+    for (auto& pool : vertexBufferPools())
+      pool.second->beginFrame();
+    indexBufferPool().beginFrame();
+  }
+
+  void endBufferPoolFrame() {
+    BufferPool::endFrame();
+  }
+
+  uint64_t bufferPoolCapacity(const bgfx::VertexLayout& layout) {
+    auto pool = vertexBufferPools().find(layout.m_hash);
+    return pool == vertexBufferPools().end() ? 0 : pool->second->capacity();
+  }
+
+  uint64_t bufferPoolStagingBytes(const bgfx::VertexLayout& layout) {
+    auto pool = vertexBufferPools().find(layout.m_hash);
+    return pool == vertexBufferPools().end() ? 0 : pool->second->stagingBytes();
+  }
+
+  int maxQuadsPerChunk(int vertex_size) {
+    return std::max<uint64_t>(1, kBufferPoolChunkBytes / (vertex_size * kVerticesPerQuad));
+  }
+
+  void reserveBufferPoolBytes(uint64_t bytes) {
+    uint64_t used = indexBufferPool().usedBytes();
+    for (auto& pool : vertexBufferPools())
+      used += pool.second->usedBytes();
+    if (used == 0 || used + bytes <= kBufferPoolChunkBytes)
+      return;
+
+    bgfx::frame(BGFX_FRAME_FLUSH);
+    for (auto& pool : vertexBufferPools())
+      pool.second->split();
+    indexBufferPool().split();
+    BufferPool::endFrame();
   }
 
   uint8_t* initQuadVerticesWithLayout(int num_quads, const bgfx::VertexLayout& layout) {
-    bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::TransientIndexBuffer index_buffer {};
-    if (!initTransientQuadBuffers(num_quads, layout, &vertex_buffer, &index_buffer))
+    BufferPool& pool = vertexBufferPool(layout);
+    uint32_t start = 0;
+    uint8_t* vertices = pool.allocate(num_quads * kVerticesPerQuad, &start);
+    if (vertices == nullptr || !pool.setQuadIndexBuffer(num_quads))
       return nullptr;
 
-    bgfx::setVertexBuffer(0, &vertex_buffer);
-    bgfx::setIndexBuffer(&index_buffer);
-    return vertex_buffer.data;
+    pool.setVertexBuffer(start, num_quads * kVerticesPerQuad);
+    return vertices;
+  }
+
+  uint8_t* initVerticesWithLayout(int num_vertices, const bgfx::VertexLayout& layout) {
+    BufferPool& pool = vertexBufferPool(layout);
+    uint32_t start = 0;
+    uint8_t* vertices = pool.allocate(num_vertices, &start);
+    if (vertices)
+      pool.setVertexBuffer(start, num_vertices);
+    return vertices;
+  }
+
+  bool initIndexedVerticesWithLayout(int num_vertices, const bgfx::VertexLayout& layout,
+                                     int num_indices, uint8_t** vertices, uint32_t** indices) {
+    BufferPool& vertex_pool = vertexBufferPool(layout);
+    BufferPool& index_pool = indexBufferPool();
+    uint32_t vertex_start = 0;
+    uint32_t index_start = 0;
+    *vertices = vertex_pool.allocate(num_vertices, &vertex_start);
+    *indices = reinterpret_cast<uint32_t*>(index_pool.allocate(num_indices, &index_start));
+    if (*vertices == nullptr || *indices == nullptr)
+      return false;
+
+    vertex_pool.setVertexBuffer(vertex_start, num_vertices);
+    index_pool.setIndexBuffer(index_start, num_indices);
+    return true;
   }
 
   void submitShapes(const Layer& layer, BlendMode blend_mode, const EmbeddedFile& vertex_shader,
@@ -255,11 +535,18 @@ namespace visage {
     if (total_length == 0)
       return;
 
-    TextureVertex* vertices = initQuadVertices<TextureVertex>(total_length);
-    if (vertices == nullptr)
-      return;
+    auto submit = [&] {
+      setUniform<Uniforms::kAtlasScale>(1.0f / font.atlasWidth(), 1.0f / font.atlasHeight());
+      setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
+      setTexture<Uniforms::kTexture>(1, font.textureHandle());
+      setUniformDimensions(layer.width(), layer.height());
+      setColorMult(layer);
+      setUniform<Uniforms::kRadialGradient>(batches[0].shapes->front().radialGradient() ? 1.0f : 0.0f);
+      submitBlended(blend_mode, submit_pass,
+                    ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_text));
+    };
 
-    int vertex_index = 0;
+    QuadChunker<TextureVertex> chunker(total_length);
     for (const auto& batch : batches) {
       for (const TextBlock& text_block : *batch.shapes) {
         int length = text_block.quads.size();
@@ -315,10 +602,16 @@ namespace visage {
             coordinate_index3 = 2;
           }
 
-          int start_index = vertex_index;
+          TextureVertex gradient;
+          PackedBrush::setVertexGradientPositions(text_block.brush, &gradient, 1, x, y, batch.x,
+                                                  batch.y, x + text_block.width, y + text_block.height);
           for (int i = 0; i < length; ++i) {
             if (!overlaps(text_block.quads[i]))
               continue;
+
+            TextureVertex* vertices = chunker.nextQuad(submit);
+            if (vertices == nullptr)
+              return;
 
             float left = x + text_block.quads[i].x - 0.5f;
             float right = left + text_block.quads[i].width + 1.0f;
@@ -330,54 +623,40 @@ namespace visage {
             float texture_width = text_block.quads[i].packed_glyph->width + 1.0f;
             float texture_height = text_block.quads[i].packed_glyph->height;
 
-            vertices[vertex_index].x = left;
-            vertices[vertex_index].y = top;
-            vertices[vertex_index + 1].x = right;
-            vertices[vertex_index + 1].y = top;
-            vertices[vertex_index + 2].x = left;
-            vertices[vertex_index + 2].y = bottom;
-            vertices[vertex_index + 3].x = right;
-            vertices[vertex_index + 3].y = bottom;
+            vertices[0].x = left;
+            vertices[0].y = top;
+            vertices[1].x = right;
+            vertices[1].y = top;
+            vertices[2].x = left;
+            vertices[2].y = bottom;
+            vertices[3].x = right;
+            vertices[3].y = bottom;
 
-            vertices[vertex_index + coordinate_index0].texture_x = texture_x;
-            vertices[vertex_index + coordinate_index0].texture_y = texture_y;
-            vertices[vertex_index + coordinate_index1].texture_x = texture_x + texture_width;
-            vertices[vertex_index + coordinate_index1].texture_y = texture_y;
-            vertices[vertex_index + coordinate_index2].texture_x = texture_x;
-            vertices[vertex_index + coordinate_index2].texture_y = texture_y + texture_height;
-            vertices[vertex_index + coordinate_index3].texture_x = texture_x + texture_width;
-            vertices[vertex_index + coordinate_index3].texture_y = texture_y + texture_height;
+            vertices[coordinate_index0].texture_x = texture_x;
+            vertices[coordinate_index0].texture_y = texture_y;
+            vertices[coordinate_index1].texture_x = texture_x + texture_width;
+            vertices[coordinate_index1].texture_y = texture_y;
+            vertices[coordinate_index2].texture_x = texture_x;
+            vertices[coordinate_index2].texture_y = texture_y + texture_height;
+            vertices[coordinate_index3].texture_x = texture_x + texture_width;
+            vertices[coordinate_index3].texture_y = texture_y + texture_height;
 
             for (int v = 0; v < kVerticesPerQuad; ++v) {
-              int index = vertex_index + v;
-              vertices[index].clamp_left = positioned_clamp.left;
-              vertices[index].clamp_top = positioned_clamp.top;
-              vertices[index].clamp_right = positioned_clamp.right;
-              vertices[index].clamp_bottom = positioned_clamp.bottom;
-              vertices[index].direction_x = direction_x;
-              vertices[index].direction_y = direction_y;
+              vertices[v].clamp_left = positioned_clamp.left;
+              vertices[v].clamp_top = positioned_clamp.top;
+              vertices[v].clamp_right = positioned_clamp.right;
+              vertices[v].clamp_bottom = positioned_clamp.bottom;
+              vertices[v].direction_x = direction_x;
+              vertices[v].direction_y = direction_y;
+              vertices[v].gradient_texture_position = gradient.gradient_texture_position;
+              vertices[v].gradient = gradient.gradient;
             }
-
-            vertex_index += kVerticesPerQuad;
           }
-
-          PackedBrush::setVertexGradientPositions(text_block.brush, vertices + start_index,
-                                                  vertex_index - start_index, x, y, batch.x, batch.y,
-                                                  x + text_block.width, y + text_block.height);
         }
       }
     }
 
-    VISAGE_ASSERT(vertex_index == total_length * kVerticesPerQuad);
-
-    setUniform<Uniforms::kAtlasScale>(1.0f / font.atlasWidth(), 1.0f / font.atlasHeight());
-    setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
-    setTexture<Uniforms::kTexture>(1, font.textureHandle());
-    setUniformDimensions(layer.width(), layer.height());
-    setColorMult(layer);
-    setUniform<Uniforms::kRadialGradient>(batches[0].shapes->front().radialGradient() ? 1.0f : 0.0f);
-    submitBlended(blend_mode, submit_pass,
-                  ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_text));
+    chunker.finish(submit);
   }
 
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass) {

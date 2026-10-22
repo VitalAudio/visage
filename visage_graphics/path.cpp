@@ -887,7 +887,8 @@ namespace visage {
     if (total_need_update == 0)
       return false;
 
-    auto clear_vertices = initQuadVertices<UvVertex>(total_need_update);
+    int num_quads = total_need_update + (needs_full_clear_ ? 1 : 0);
+    auto clear_vertices = initQuadVertices<UvVertex>(num_quads);
     if (clear_vertices == nullptr)
       return false;
 
@@ -896,34 +897,39 @@ namespace visage {
 
     bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
     bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
-    bgfx::setViewClear(submit_pass, needs_full_clear_ ? BGFX_CLEAR_COLOR : BGFX_CLEAR_NONE, 0);
+    bgfx::setViewClear(submit_pass, BGFX_CLEAR_NONE);
     bgfx::setViewFrameBuffer(submit_pass, frame_buffer_->handle);
-    needs_full_clear_ = false;
-    bgfx::setState(BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ZERO));
+    bgfx::setState(BGFX_STATE_WRITE_R);
     int vertex_index = 0;
+    auto add_quad = [&](float left, float top, float right, float bottom) {
+      clear_vertices[vertex_index].x = left;
+      clear_vertices[vertex_index].y = top;
+      clear_vertices[vertex_index + 1].x = right;
+      clear_vertices[vertex_index + 1].y = top;
+      clear_vertices[vertex_index + 2].x = left;
+      clear_vertices[vertex_index + 2].y = bottom;
+      clear_vertices[vertex_index + 3].x = right;
+      clear_vertices[vertex_index + 3].y = bottom;
+      clear_vertices[vertex_index].u = 1.0f;
+      clear_vertices[vertex_index].v = 0.0f;
+      clear_vertices[vertex_index + 1].u = 1.0f;
+      clear_vertices[vertex_index + 1].v = 0.0f;
+      clear_vertices[vertex_index + 2].u = 0.0f;
+      clear_vertices[vertex_index + 2].v = 0.0f;
+      clear_vertices[vertex_index + 3].u = 0.0f;
+      clear_vertices[vertex_index + 3].v = 0.0f;
+      vertex_index += 4;
+    };
+
+    if (needs_full_clear_)
+      add_quad(-1.0f, 1.0f, 1.0f, -1.0f);
+    needs_full_clear_ = false;
+
     for (auto& path : paths_) {
       if (path->needs_update) {
         float left = path->x * width_scale - 1.0f;
         float top = 1.0f - path->y * height_scale;
-        float right = left + path->w * width_scale;
-        float bottom = top - path->h * height_scale;
-        clear_vertices[vertex_index].x = left;
-        clear_vertices[vertex_index].y = top;
-        clear_vertices[vertex_index + 1].x = right;
-        clear_vertices[vertex_index + 1].y = top;
-        clear_vertices[vertex_index + 2].x = left;
-        clear_vertices[vertex_index + 2].y = bottom;
-        clear_vertices[vertex_index + 3].x = right;
-        clear_vertices[vertex_index + 3].y = bottom;
-        clear_vertices[vertex_index].u = 1.0f;
-        clear_vertices[vertex_index].v = 0.0f;
-        clear_vertices[vertex_index + 1].u = 1.0f;
-        clear_vertices[vertex_index + 1].v = 0.0f;
-        clear_vertices[vertex_index + 2].u = 0.0f;
-        clear_vertices[vertex_index + 2].v = 0.0f;
-        clear_vertices[vertex_index + 3].u = 0.0f;
-        clear_vertices[vertex_index + 3].v = 0.0f;
-        vertex_index += 4;
+        add_quad(left, top, left + path->w * width_scale, top - path->h * height_scale);
       }
     }
 
@@ -974,33 +980,36 @@ namespace visage {
       vertices_per_point = 1;
     }
 
-    bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::TransientIndexBuffer index_buffer {};
-    int num_vertices = num_triangles * vertices_per_triangle;
-    int num_indices = num_triangles * indices_per_triangle;
-    if (!bgfx::allocTransientBuffers(&vertex_buffer, PathVertex::layout(), num_vertices,
-                                     &index_buffer, num_indices, true)) {
-      VISAGE_LOG("PathAtlas::updatePaths: Failed to allocate transient buffers");
-      return submit_pass + 1;
-    }
+    auto submit = [&] {
+      bgfx::setState(state);
+      setPathUniform<Uniforms::kColor>(1.0f);
 
-    auto vertices = reinterpret_cast<PathVertex*>(vertex_buffer.data);
-    auto indices = reinterpret_cast<uint32_t*>(index_buffer.data);
-    if (indices == nullptr || vertices == nullptr) {
-      VISAGE_LOG("PathAtlas::updatePaths: Failed to map transient buffers");
-      return submit_pass + 1;
-    }
+      if (bgfx::getCaps()->originBottomLeft)
+        setPathUniform<Uniforms::kBounds>(2.0f / width_, 2.0f / height_, -1.0f, -1.0f);
+      else
+        setPathUniform<Uniforms::kBounds>(2.0f / width_, -2.0f / height_, -1.0f, 1.0f);
 
-    bgfx::setState(state);
-    bgfx::setVertexBuffer(0, &vertex_buffer);
-    bgfx::setIndexBuffer(&index_buffer);
+      if (conservative_raster)
+        bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_conservative_path_fill,
+                                                              shaders::fs_path_fill));
+      else
+        bgfx::submit(submit_pass,
+                     ProgramCache::programHandle(shaders::vs_path_fill, shaders::fs_path_fill));
+    };
 
+    uint64_t triangle_bytes = vertices_per_triangle * sizeof(PathVertex) +
+                              indices_per_triangle * sizeof(uint32_t);
+    int max_triangles = std::max<uint64_t>(1, kBufferPoolChunkBytes / triangle_bytes);
+    int chunks = num_triangles / max_triangles + (num_triangles % max_triangles != 0);
+    int remaining = num_triangles;
+    int chunk_triangles = 0;
+    int triangle = 0;
+    PathVertex* vertices = nullptr;
+    uint32_t* indices = nullptr;
     uint32_t vertex = 0;
     uint32_t triangle_index = 0;
     for (auto& path : paths_) {
       if (path->needs_update) {
-        path->needs_update = false;
-
         for (const auto& sub_path : path->path.subPaths()) {
           if (sub_path.points.size() <= 2)
             continue;
@@ -1020,6 +1029,25 @@ namespace visage {
           float last_x = x + sub_path.points.back().x;
           float last_y = y + sub_path.points.back().y;
           for (int i = 0; i < sub_path.points.size(); ++i) {
+            if (triangle == chunk_triangles) {
+              if (vertices)
+                submit();
+
+              chunk_triangles = (remaining + chunks - 1) / chunks;
+              remaining -= chunk_triangles;
+              chunks--;
+              triangle = 0;
+              vertex = 0;
+              triangle_index = 0;
+              reserveBufferPoolBytes(chunk_triangles * triangle_bytes);
+              if (!initIndexedVertices(chunk_triangles * vertices_per_triangle,
+                                       chunk_triangles * indices_per_triangle, &vertices, &indices)) {
+                VISAGE_LOG("PathAtlas::updatePaths: Failed to allocate vertex buffers");
+                return submit_pass + 1;
+              }
+            }
+            triangle++;
+
             for (int k = 0; k < indices_per_triangle; ++k)
               indices[triangle_index++] = vertex + kTriangleIndices[k];
 
@@ -1055,25 +1083,12 @@ namespace visage {
             last_y = new_y;
           }
         }
+        path->needs_update = false;
       }
     }
 
-    VISAGE_ASSERT(vertex == num_vertices);
-    VISAGE_ASSERT(triangle_index == num_indices);
-
-    bool origin_flip = bgfx::getCaps()->originBottomLeft;
-    setPathUniform<Uniforms::kColor>(1.0f);
-
-    if (origin_flip)
-      setPathUniform<Uniforms::kBounds>(2.0f / width_, 2.0f / height_, -1.0f, -1.0f);
-    else
-      setPathUniform<Uniforms::kBounds>(2.0f / width_, -2.0f / height_, -1.0f, 1.0f);
-
-    if (conservative_raster)
-      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_conservative_path_fill,
-                                                            shaders::fs_path_fill));
-    else
-      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_path_fill, shaders::fs_path_fill));
+    VISAGE_ASSERT(triangle == chunk_triangles && remaining == 0);
+    submit();
     return submit_pass + 1;
   }
 
