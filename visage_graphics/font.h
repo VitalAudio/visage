@@ -158,6 +158,8 @@ namespace visage {
         instance()->removeStaleFonts();
     }
 
+    static void releaseTextures();
+
   private:
     struct TypeFaceData {
       TypeFaceData(const unsigned char* data, int data_size) : data(data), data_size(data_size) { }

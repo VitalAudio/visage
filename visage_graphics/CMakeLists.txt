@@ -144,6 +144,15 @@ visage_add_test_target(
   TARGET VisageGraphicsTests
   TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
+
+if (VISAGE_BUILD_TESTS AND UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+  add_library(VisageGraphicsTestModule MODULE test_module/canvas_test_module.cpp)
+  target_link_libraries(VisageGraphicsTestModule PRIVATE visage)
+  set_target_properties(VisageGraphicsTestModule PROPERTIES FOLDER "visage/tests")
+  add_dependencies(VisageGraphicsTests VisageGraphicsTestModule)
+  target_compile_definitions(VisageGraphicsTests PRIVATE
+                             VISAGE_GRAPHICS_TEST_MODULE="$<TARGET_FILE:VisageGraphicsTestModule>")
+endif ()
 set_target_properties(freetype PROPERTIES FOLDER "visage/third_party")
 
 if (APPLE)

@@ -36,6 +36,8 @@ namespace visage {
       default_brush_(&gradient_atlas_, Brush::solid(0xffffffff)),
       image_atlas_(ImageAtlas::DataType::RGBA8), data_atlas_(ImageAtlas::DataType::Float32),
       composite_layer_(&gradient_atlas_) {
+    VISAGE_ASSERT(!hasStaticStorage(this));
+    Renderer::instance().watchForLeaks();
     state_.brush = &default_brush_;
     state_.current_region = &default_region_;
     layers_.push_back(&composite_layer_);

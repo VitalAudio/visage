@@ -22,23 +22,32 @@
 #pragma once
 
 #include "screenshot.h"
-#include "visage_utils/thread_utils.h"
 #include "windowless_context.h"
+
+#include <atomic>
+#include <memory>
 
 namespace visage {
   class GraphicsCallbackHandler;
 
-  class Renderer : public Thread {
+  class Renderer {
   public:
-    static Renderer& instance();
+    class Reference {
+    public:
+      Reference() { Renderer::instance().references_++; }
+      Reference(const Reference&) = delete;
+      Reference& operator=(const Reference&) = delete;
+      ~Reference() { Renderer::instance().removeReference(); }
+    };
 
-    Renderer();
-    ~Renderer() override;
+    static Renderer& instance();
 
     static void resetResolution(int width, int height);
 
     void initializeWindowless() { initialize(windowlessContext(), nullptr); }
     void initialize(void* model_window, void* display);
+    void checkInitialization();
+    void watchForLeaks();
     void setScreenshotData(const uint8_t* data, int width, int height, int pitch, int format, bool y_flip);
     const Screenshot& screenshot() const { return screenshot_; }
 
@@ -50,11 +59,13 @@ namespace visage {
     void* display() const { return display_; }
 
   private:
-    void startRenderThread();
-    void render();
-    void run() override;
+    void removeReference();
+    void shutdown();
 
     bool initialized_ = false;
+    bool shut_down_ = false;
+    std::atomic<int> references_ = 0;
+    void* model_window_ = nullptr;
     void* display_ = nullptr;
     bool supported_ = false;
     bool swap_chain_supported_ = false;
@@ -62,7 +73,6 @@ namespace visage {
 
     Screenshot screenshot_;
     std::string error_message_;
-    std::atomic<bool> render_thread_started_ = false;
     std::unique_ptr<GraphicsCallbackHandler> callback_handler_;
   };
 }

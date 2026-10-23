@@ -20,6 +20,8 @@
  */
 
 #include "visage/app.h"
+#include "visage_utils/child_process.h"
+#include "visage_utils/file_system.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <cstdlib>
@@ -184,5 +186,24 @@ TEST_CASE("A closed ApplicationWindow can be shown again while another window is
   app.runEventLoop();
   REQUIRE(shows == 1);
   REQUIRE(app.window()->nativeHandle() != handle);
+}
+
+TEST_CASE("Static editor child", "[.static_editor_child]") {
+  static ApplicationEditor editor;
+  std::exit(0);
+}
+
+TEST_CASE("Static editors trip a debug assert", "[integration]") {
+  std::string output;
+  bool exited_cleanly = spawnChildProcess(hostExecutable().string(), "[.static_editor_child]",
+                                          output, 60000);
+  INFO(output);
+#ifdef NDEBUG
+  REQUIRE(exited_cleanly);
+#else
+  REQUIRE_FALSE(exited_cleanly);
+  REQUIRE(output.find("application_editor.cpp") != std::string::npos);
+  REQUIRE(output.find("Assertion failed") != std::string::npos);
+#endif
 }
 #endif

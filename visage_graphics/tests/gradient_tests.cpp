@@ -556,6 +556,7 @@ TEST_CASE("Brush operations", "[graphics]") {
 }
 
 TEST_CASE("Gradient atlas ignores leftover GPU memory", "[graphics]") {
+  Canvas canvas;
   {
     Canvas previous;
     previous.setWindowless(256, 256);
@@ -565,7 +566,6 @@ TEST_CASE("Gradient atlas ignores leftover GPU memory", "[graphics]") {
     previous.takeScreenshot();
   }
 
-  Canvas canvas;
   canvas.setWindowless(64, 64);
   canvas.setColor(0xffff0000);
   canvas.fill(0, 0, canvas.width(), canvas.height());

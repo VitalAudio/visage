@@ -46,6 +46,7 @@ namespace visage {
 
   void debugAssert(bool condition, const char* file, unsigned int line);
   void forceCrash();
+  bool hasStaticStorage(const void* address);
 }
 
 #define VISAGE_FORCE_CRASH() visage::forceCrash()

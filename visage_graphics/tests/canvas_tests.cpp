@@ -36,6 +36,10 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cstdlib>
 
+#if VISAGE_LINUX
+#include <dlfcn.h>
+#endif
+
 using namespace visage;
 using namespace Catch;
 
@@ -636,6 +640,7 @@ TEST_CASE("Windowless canvas resizes don't leak textures", "[graphics]") {
 }
 
 TEST_CASE("Destroying blur and bloom effects doesn't leak vertex buffers", "[graphics]") {
+  Canvas keep_renderer_running;
   auto draw_effects = [] {
     Canvas canvas;
     canvas.setWindowless(64, 32);
@@ -962,6 +967,7 @@ TEST_CASE("Cached region next to a bloom region keeps its brightness", "[graphic
 }
 
 TEST_CASE("HDR layer edges ignore leftover GPU memory", "[graphics]") {
+  Canvas canvas;
   {
     Canvas previous;
     previous.setWindowless(128, 128);
@@ -970,7 +976,6 @@ TEST_CASE("HDR layer edges ignore leftover GPU memory", "[graphics]") {
     previous.takeScreenshot();
   }
 
-  Canvas canvas;
   canvas.setWindowless(128, 64);
   BloomPostEffect bloom;
   bloom.setBloomIntensity(0.0f);
@@ -2402,7 +2407,118 @@ TEST_CASE("Exiting right after a large frame doesn't crash", "[graphics]") {
   INFO(output);
   REQUIRE(exited_cleanly);
 }
+
+#ifdef VISAGE_GRAPHICS_TEST_MODULE
+static void callTestModuleBeforeExit(const char* function_name) {
+  void* module = dlopen(VISAGE_GRAPHICS_TEST_MODULE, RTLD_NOW | RTLD_LOCAL);
+  REQUIRE(module);
+  auto function = reinterpret_cast<void (*)()>(dlsym(module, function_name));
+  REQUIRE(function);
+  function();
+  dlclose(module);
+  std::exit(0);
+}
+
+TEST_CASE("Test module canvas child", "[.test_module_canvas_child]") {
+  callTestModuleBeforeExit("createAndDestroyCanvas");
+}
+
+TEST_CASE("Test module leaked canvas child", "[.test_module_leaked_canvas_child]") {
+  callTestModuleBeforeExit("leakCanvas");
+}
+
+TEST_CASE("Leaked canvas child", "[.leaked_canvas_child]") {
+  new Canvas();
+  std::exit(0);
+}
+
+TEST_CASE("Unloading or exiting with a canvas still alive trips a debug assert", "[graphics]") {
+  const char* asan_options = std::getenv("ASAN_OPTIONS");
+  std::string child_asan_options = std::string(asan_options ? asan_options : "") +
+                                   ":detect_leaks=0";
+  ScopedEnvironmentVariable no_leak_check("ASAN_OPTIONS", child_asan_options);
+  std::string output;
+  bool exited_cleanly = spawnChildProcess(hostExecutable().string(), "[.test_module_canvas_child]",
+                                          output, 60000);
+  INFO(output);
+  REQUIRE(exited_cleanly);
+
+  for (const char* child : { "[.test_module_leaked_canvas_child]", "[.leaked_canvas_child]" }) {
+    std::string output;
+    bool exited_cleanly = spawnChildProcess(hostExecutable().string(), child, output, 60000);
+    INFO(child << "\n" << output);
+#ifdef NDEBUG
+    REQUIRE(exited_cleanly);
+#else
+    REQUIRE_FALSE(exited_cleanly);
+    REQUIRE(output.find("renderer.cpp") != std::string::npos);
+    REQUIRE(output.find("Assertion failed") != std::string::npos);
+    REQUIRE(output.find("defines.h") == std::string::npos);
 #endif
+  }
+}
+#endif
+
+TEST_CASE("Static canvas child", "[.static_canvas_child]") {
+  static Canvas canvas;
+  std::exit(0);
+}
+
+TEST_CASE("Static bloom effect child", "[.static_bloom_child]") {
+  static BloomPostEffect bloom;
+  std::exit(0);
+}
+
+TEST_CASE("Static canvases and bloom effects trip a debug assert", "[graphics]") {
+  for (auto [child, file] : { std::pair { "[.static_canvas_child]", "canvas.cpp" },
+                              std::pair { "[.static_bloom_child]", "post_effects.cpp" } }) {
+    std::string output;
+    bool exited_cleanly = spawnChildProcess(hostExecutable().string(), child, output, 60000);
+    INFO(child << "\n" << output);
+#ifdef NDEBUG
+    REQUIRE(exited_cleanly);
+#else
+    REQUIRE_FALSE(exited_cleanly);
+    REQUIRE(output.find(file) != std::string::npos);
+    REQUIRE(output.find("Assertion failed") != std::string::npos);
+#endif
+  }
+}
+#endif
+
+#if !VISAGE_EMSCRIPTEN
+static int zeroed_static_value = 0;
+static int initialized_static_value = 1;
+
+TEST_CASE("Only static addresses count as static storage", "[graphics]") {
+  static int local_static_value = 0;
+  REQUIRE(hasStaticStorage(&zeroed_static_value));
+  REQUIRE(hasStaticStorage(&initialized_static_value));
+  REQUIRE(hasStaticStorage(&local_static_value));
+#if VISAGE_LINUX
+  REQUIRE(hasStaticStorage(dlsym(RTLD_DEFAULT, "gnu_get_libc_version")));
+#endif
+
+  int stack_value = 0;
+  auto heap_value = std::make_unique<int>(0);
+  REQUIRE_FALSE(hasStaticStorage(&stack_value));
+  REQUIRE_FALSE(hasStaticStorage(heap_value.get()));
+}
+#endif
+
+struct CanvasHolder {
+  int value = 0;
+  Canvas canvas;
+};
+
+TEST_CASE("Stack and heap canvases don't trip the static canvas assert", "[graphics]") {
+  Canvas stack_canvas;
+  auto heap_canvas = std::make_unique<Canvas>();
+  auto holder = std::make_unique<CanvasHolder>();
+  REQUIRE_FALSE(hasStaticStorage(&stack_canvas));
+  REQUIRE_FALSE(hasStaticStorage(heap_canvas.get()));
+  REQUIRE_FALSE(hasStaticStorage(&holder->canvas));
+}
 
 TEST_CASE("Canvas strokes a path at its logical width", "[graphics]") {
   for (float scale : { 1.0f, 2.0f }) {

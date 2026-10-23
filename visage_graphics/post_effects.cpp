@@ -27,18 +27,19 @@
 #include "uniforms.h"
 
 #include <bgfx/bgfx.h>
+#include <optional>
 
 namespace visage {
   template<const char* name>
   void setPostEffectUniform(float value0, float value1 = 0.0f, float value2 = 0.0f, float value3 = 0.0f) {
     float values[4] = { value0, value1, value2, value3 };
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
+    const bgfx::UniformHandle& uniform = UniformCache::uniformHandle(name);
     bgfx::setUniform(uniform, values);
   }
 
   template<const char* name>
   void setPostEffectTexture(int stage, bgfx::TextureHandle handle, uint32_t flags = UINT32_MAX) {
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Sampler, 1);
+    const bgfx::UniformHandle& uniform = UniformCache::uniformHandle(name, UniformCache::Sampler);
     bgfx::setTexture(stage, uniform, handle, flags);
   }
 
@@ -57,17 +58,33 @@ namespace visage {
     bgfx::VertexBufferHandle inv_vertex_buffer = BGFX_INVALID_HANDLE;
   };
 
+  static ScreenBuffers screen_buffers;
+
   static const ScreenBuffers& screenBuffers() {
-    static const ScreenBuffers buffers = {
-      bgfx::createIndexBuffer(bgfx::makeRef(kQuadTriangles, sizeof(kQuadTriangles))),
-      bgfx::createVertexBuffer(bgfx::makeRef(kScreenVertices, sizeof(kScreenVertices)), UvVertex::layout()),
-      bgfx::createVertexBuffer(bgfx::makeRef(kInvScreenVertices, sizeof(kInvScreenVertices)),
-                               UvVertex::layout()),
-    };
-    return buffers;
+    if (!bgfx::isValid(screen_buffers.index_buffer)) {
+      screen_buffers = {
+        bgfx::createIndexBuffer(bgfx::makeRef(kQuadTriangles, sizeof(kQuadTriangles))),
+        bgfx::createVertexBuffer(bgfx::makeRef(kScreenVertices, sizeof(kScreenVertices)),
+                                 UvVertex::layout()),
+        bgfx::createVertexBuffer(bgfx::makeRef(kInvScreenVertices, sizeof(kInvScreenVertices)),
+                                 UvVertex::layout()),
+      };
+    }
+    return screen_buffers;
+  }
+
+  void PostEffect::releaseScreenBuffers() {
+    if (!bgfx::isValid(screen_buffers.index_buffer))
+      return;
+
+    bgfx::destroy(screen_buffers.index_buffer);
+    bgfx::destroy(screen_buffers.vertex_buffer);
+    bgfx::destroy(screen_buffers.inv_vertex_buffer);
+    screen_buffers = {};
   }
 
   struct DownsampleHandles {
+    std::optional<Renderer::Reference> renderer_reference;
     bgfx::FrameBufferHandle result = BGFX_INVALID_HANDLE;
     bgfx::FrameBufferHandle backdrop = BGFX_INVALID_HANDLE;
 
@@ -77,6 +94,7 @@ namespace visage {
       if (bgfx::isValid(result))
         bgfx::destroy(result);
       result = BGFX_INVALID_HANDLE;
+      renderer_reference.reset();
     }
   };
 
@@ -129,8 +147,10 @@ namespace visage {
       handles_->destroyFrameBuffers();
     }
 
-    if (!bgfx::isValid(handles_->result))
+    if (!bgfx::isValid(handles_->result)) {
+      handles_->renderer_reference.emplace();
       handles_->result = bgfx::createFrameBuffer(widths_[1], heights_[1], format, kFrameBufferFlags);
+    }
   }
 
   void DownsamplePostEffect::setLevelDimensions(int width, int height) {
@@ -513,7 +533,9 @@ namespace visage {
                                                           SampleRegion::fragmentShader()));
   }
 
-  BloomPostEffect::BloomPostEffect() : DownsamplePostEffect(true) { }
+  BloomPostEffect::BloomPostEffect() : DownsamplePostEffect(true) {
+    VISAGE_ASSERT(!hasStaticStorage(this));
+  }
 
   BloomPostEffect::~BloomPostEffect() = default;
 

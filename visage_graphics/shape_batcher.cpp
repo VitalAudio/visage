@@ -92,20 +92,20 @@ namespace visage {
 
   template<const char* name>
   void setUniform(const void* value) {
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
+    const bgfx::UniformHandle& uniform = UniformCache::uniformHandle(name);
     bgfx::setUniform(uniform, value);
   }
 
   template<const char* name>
   void setUniform(float value0, float value1 = 0.0f, float value2 = 0.0f, float value3 = 0.0f) {
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
+    const bgfx::UniformHandle& uniform = UniformCache::uniformHandle(name);
     float vec[4] = { value0, value1, value2, value3 };
     bgfx::setUniform(uniform, vec);
   }
 
   template<const char* name>
   void setTexture(int stage, bgfx::TextureHandle handle) {
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Sampler, 1);
+    const bgfx::UniformHandle& uniform = UniformCache::uniformHandle(name, UniformCache::Sampler);
     bgfx::setTexture(stage, uniform, handle);
   }
 
@@ -278,6 +278,27 @@ namespace visage {
                             staging_blocks_.end());
     }
 
+    void destroyBuffers() {
+      if (bgfx::isValid(vertex_buffer_))
+        bgfx::destroy(vertex_buffer_);
+      if (bgfx::isValid(index_buffer_))
+        bgfx::destroy(index_buffer_);
+      if (bgfx::isValid(quad_index_buffer_))
+        bgfx::destroy(quad_index_buffer_);
+      vertex_buffer_ = BGFX_INVALID_HANDLE;
+      index_buffer_ = BGFX_INVALID_HANDLE;
+      quad_index_buffer_ = BGFX_INVALID_HANDLE;
+      staging_ = nullptr;
+      capacity_ = 0;
+      uploaded_ = 0;
+      used_ = 0;
+    }
+
+    void releaseStaging() {
+      staging_blocks_.clear();
+      staging_ = nullptr;
+    }
+
   private:
     struct Staging {
       explicit Staging(uint64_t size) : data(new uint8_t[size]), size(size) { }
@@ -339,22 +360,6 @@ namespace visage {
       return true;
     }
 
-    void destroyBuffers() {
-      if (bgfx::isValid(vertex_buffer_))
-        bgfx::destroy(vertex_buffer_);
-      if (bgfx::isValid(index_buffer_))
-        bgfx::destroy(index_buffer_);
-      if (bgfx::isValid(quad_index_buffer_))
-        bgfx::destroy(quad_index_buffer_);
-      vertex_buffer_ = BGFX_INVALID_HANDLE;
-      index_buffer_ = BGFX_INVALID_HANDLE;
-      quad_index_buffer_ = BGFX_INVALID_HANDLE;
-      staging_ = nullptr;
-      capacity_ = 0;
-      uploaded_ = 0;
-      used_ = 0;
-    }
-
     static inline uint64_t frame_ = kFrameLatency;
 
     bool indices_ = false;
@@ -407,6 +412,18 @@ namespace visage {
       pool.second->upload();
     indexBufferPool().upload();
     return bgfx::frame(flags);
+  }
+
+  void releaseBufferPools() {
+    for (auto& pool : vertexBufferPools())
+      pool.second->destroyBuffers();
+    indexBufferPool().destroyBuffers();
+  }
+
+  void releaseBufferPoolStaging() {
+    for (auto& pool : vertexBufferPools())
+      pool.second->releaseStaging();
+    indexBufferPool().releaseStaging();
   }
 
   uint64_t bufferPoolCapacity(const bgfx::VertexLayout& layout) {

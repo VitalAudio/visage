@@ -28,6 +28,8 @@ namespace visage {
 
   class PostEffect {
   public:
+    static void releaseScreenBuffers();
+
     explicit PostEffect(bool hdr = false) : hdr_(hdr) { }
 
     virtual ~PostEffect() = default;

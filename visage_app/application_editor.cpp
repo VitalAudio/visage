@@ -57,6 +57,7 @@ namespace visage {
 
   ApplicationEditor::ApplicationEditor() :
       canvas_(std::make_unique<Canvas>()), top_level_(std::make_unique<TopLevelFrame>(this)) {
+    VISAGE_ASSERT(!hasStaticStorage(this));
     canvas_->addRegion(top_level_->region());
     top_level_->addChild(this);
 
