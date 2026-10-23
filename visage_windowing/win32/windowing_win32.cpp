@@ -1264,13 +1264,12 @@ namespace visage {
   static LRESULT CALLBACK pluginParentWindowProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param,
                                                  UINT_PTR subclass_id, DWORD_PTR ref_data) {
     WindowWin32* child_window = reinterpret_cast<WindowWin32*>(ref_data);
-    if (msg == WM_SIZING) {
+    if (msg == WM_SIZING)
       child_window->handleResizing(hwnd, l_param, w_param);
-      return TRUE;
-    }
     if (msg == WM_DPICHANGED) {
-      child_window->handleDpiChange(hwnd, l_param, w_param);
-      return 0;
+      LRESULT result = DefSubclassProc(hwnd, msg, w_param, l_param);
+      child_window->handleResizeEnd(child_window->windowHandle());
+      return result;
     }
     if (msg == WM_NCDESTROY) {
       RemoveWindowSubclass(hwnd, pluginParentWindowProc, subclass_id);
@@ -1792,15 +1791,18 @@ namespace visage {
   }
 
   void WindowWin32::handleDpiChange(HWND hwnd, LPARAM l_param, WPARAM w_param) {
-    IBounds borders = windowBorderSize(hwnd);
+    DpiAwareness dpi_awareness;
+    setDpiScale(dpi_awareness.dpiScale(hwnd));
+
     RECT* suggested = reinterpret_cast<RECT*>(l_param);
+    SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, suggested->right - suggested->left,
+                 suggested->bottom - suggested->top, SWP_NOZORDER | SWP_NOACTIVATE);
+
+    IBounds borders = windowBorderSize(hwnd);
     int width = suggested->right - suggested->left - borders.width();
     int height = suggested->bottom - suggested->top - borders.height();
 
     handleAdjustResize(&width, &height, true, true);
-
-    DpiAwareness dpi_awareness;
-    setDpiScale(dpi_awareness.dpiScale(hwnd));
     handleResized(width, height);
     SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, width + borders.width(),
                  height + borders.height(), SWP_NOZORDER | SWP_NOACTIVATE);
