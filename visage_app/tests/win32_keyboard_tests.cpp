@@ -36,8 +36,6 @@
 using namespace visage;
 
 namespace {
-  // Records what a window passes to its event handler. Keys only count as handled when
-  // handle_keys is set.
   class KeyRecorder : public Window::EventHandler {
   public:
     HitTestResult handleHitTest(int, int) override { return HitTestResult::Client; }
@@ -94,7 +92,6 @@ namespace {
     }
   }
 
-  // A standalone window that reports to a KeyRecorder.
   struct RecordedWindow {
     RecordedWindow() {
       window = createWindow(Dimension::nativePixels(100), Dimension::nativePixels(100));
@@ -116,8 +113,6 @@ namespace {
     HWND hwnd = nullptr;
   };
 
-  // A key message's lParam: repeat count 1, the scan code in bits 16-23 and the extended-key flag
-  // in bit 24.
   LPARAM keyLParam(int scan_code, bool extended = false) {
     LPARAM l_param = 1 | (static_cast<LPARAM>(scan_code & 0xFF) << 16);
     if (extended)
@@ -125,7 +120,6 @@ namespace {
     return l_param;
   }
 
-  // The same with the context code in bit 29, which is set while Alt is held.
   LPARAM altKeyLParam(int scan_code) {
     return keyLParam(scan_code) | (static_cast<LPARAM>(1) << 29);
   }
@@ -136,8 +130,6 @@ namespace {
   constexpr int kScanSpace = 0x39;
   constexpr int kScanF5 = 0x3F;
 
-  // Sets the NumLock toggle in this thread's key state, which is what GetKeyState reads, and
-  // puts it back afterwards. It doesn't touch the keyboard's real NumLock.
   class ScopedNumLock {
   public:
     explicit ScopedNumLock(bool on) {
@@ -162,8 +154,6 @@ namespace {
     KeyCode expected;
   };
 
-  // Sends each key's WM_KEYDOWN and checks the key code the window reports. Every key is handled,
-  // so nothing reaches DefWindowProc.
   void checkKeys(const std::vector<KeyCase>& cases, bool num_lock) {
     RecordedWindow setup;
     REQUIRE(setup.window);
@@ -184,10 +174,8 @@ namespace {
 
   constexpr wchar_t kSpyProperty[] = L"VisageWin32SysCommandSpy";
 
-  // DefWindowProc turns an Alt+key WM_SYSCHAR into WM_SYSCOMMAND / SC_KEYMENU with the character
-  // in lParam (Alt+Space opens the system menu, other characters are menu mnemonics or a beep).
-  // This subclasses a window and swallows every WM_SYSCOMMAND, so no menu opens and nothing beeps,
-  // and records the SC_KEYMENU ones to show whether a WM_SYSCHAR reached DefWindowProc.
+  // Swallows WM_SYSCOMMAND so no menu opens and nothing beeps, and records whether a WM_SYSCHAR
+  // reached DefWindowProc.
   class SysCommandSpy {
   public:
     explicit SysCommandSpy(HWND hwnd) : hwnd_(hwnd) {
@@ -225,8 +213,6 @@ namespace {
     std::vector<std::pair<WPARAM, LPARAM>> commands_;
   };
 
-  // What a message loop does for Alt+key: TranslateMessage queues the WM_SYSCHAR, then the
-  // WM_SYSKEYDOWN is dispatched, then the WM_SYSCHAR.
   void altKey(HWND hwnd, WPARAM virtual_key, wchar_t character, int scan_code) {
     PostMessageW(hwnd, WM_SYSCHAR, character, altKeyLParam(scan_code));
     SendMessageW(hwnd, WM_SYSKEYDOWN, virtual_key, altKeyLParam(scan_code));
@@ -236,8 +222,6 @@ namespace {
   constexpr wchar_t kHostClass[] = L"VisageWin32KeyboardTestHost";
   constexpr wchar_t kHostProperty[] = L"VisageWin32KeyboardTestHostRecord";
 
-  // Stands in for a plugin host's container window. Records key, character and system command
-  // messages and swallows them, so nothing opens a menu or beeps.
   class HostWindow {
   public:
     HostWindow() {
@@ -281,10 +265,8 @@ namespace {
     }
   };
 
-  // A plugin window gets its keys through visage's WH_GETMESSAGE hook, which runs inside the
-  // host's GetMessage/PeekMessage. This plays the host: tests post key messages to the plugin
-  // window, as the system does when the plugin has keyboard focus, and run a host-style loop
-  // (PeekMessage, TranslateMessage, DispatchMessage) on this thread, where the hook is installed.
+  // Plugin keys arrive through visage's WH_GETMESSAGE hook, which only runs inside the host's
+  // message loop, so the tests run one.
   struct PluginInHost {
     HostWindow host;
     KeyRecorder recorder;
@@ -310,8 +292,6 @@ namespace {
       runHostLoop();
     }
 
-    // What a host's message loop does. Counts key messages it gets addressed to the plugin window,
-    // which is what a host's own pre-dispatch key handling would see.
     void runHostLoop() {
       MSG message;
       while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
@@ -333,8 +313,6 @@ namespace {
 }
 
 TEST_CASE("Win32 navigation keys aren't keypad keys with NumLock on", "[integration]") {
-  // These share their scan codes with keypad keys (Delete with '.', Home with 7 and so on), and
-  // only the extended-key flag tells them apart.
   checkKeys({ { "Delete (E0 53)", VK_DELETE, 0x53, true, KeyCode::Delete },
               { "Home (E0 47)", VK_HOME, 0x47, true, KeyCode::Home },
               { "End (E0 4F)", VK_END, 0x4F, true, KeyCode::End },
@@ -362,7 +340,6 @@ TEST_CASE("Win32 keypad keys map to navigation keys with NumLock off", "[integra
 }
 
 TEST_CASE("Win32 keypad and right-hand keys use the extended-key flag", "[integration]") {
-  // Each pair shares a scan code and differs only in the extended-key flag.
   checkKeys({ { "Keypad * (37)", VK_MULTIPLY, 0x37, false, KeyCode::KPMultiply },
               { "PrintScreen (E0 37)", VK_SNAPSHOT, 0x37, true, KeyCode::PrintScreen },
               { "Keypad / (E0 35)", VK_DIVIDE, 0x35, true, KeyCode::KPDivide },
@@ -378,8 +355,6 @@ TEST_CASE("Win32 keypad and right-hand keys use the extended-key flag", "[integr
 
 TEST_CASE("Win32 Pause and Break report Pause while the lock keys keep their own codes",
           "[integration]") {
-  // Pause shares scan code 45 with NumLock, and Break (Ctrl+Pause, VK_CANCEL) shares 46 with
-  // ScrollLock.
   checkKeys({ { "Pause (45)", VK_PAUSE, 0x45, false, KeyCode::Pause },
               { "Ctrl+Pause / Break (E0 46)", VK_CANCEL, 0x46, true, KeyCode::Pause },
               { "NumLock (E0 45)", VK_NUMLOCK, 0x45, true, KeyCode::NumLock },
@@ -388,7 +363,6 @@ TEST_CASE("Win32 Pause and Break report Pause while the lock keys keep their own
 }
 
 TEST_CASE("Win32 Alt+Space in a standalone window opens the system menu", "[integration]") {
-  // The WM_SYSCHAR has to reach DefWindowProc, which sends the SC_KEYMENU.
   RecordedWindow setup;
   REQUIRE(setup.window);
   REQUIRE(GetParent(setup.hwnd) == nullptr);
@@ -405,8 +379,6 @@ TEST_CASE("Win32 Alt+Space in a standalone window opens the system menu", "[inte
 }
 
 TEST_CASE("Win32 Alt+key shortcuts the app handles don't reach DefWindowProc", "[integration]") {
-  // A handled Alt+key's WM_SYSCHAR has to be dropped, or DefWindowProc beeps for every handled Alt
-  // shortcut.
   RecordedWindow setup;
   setup.recorder.handle_keys = true;
   REQUIRE(setup.window);
@@ -433,15 +405,12 @@ TEST_CASE("Win32 Alt+letter doesn't type into an active text field", "[integrati
     altKey(setup.hwnd, 'D', L'd', kScanD);
     CHECK(setup.recorder.text.empty());
 
-    // A plain WM_CHAR still types, so the text path itself works.
     SendMessageW(setup.hwnd, WM_CHAR, L'd', keyLParam(kScanD));
     CHECK(setup.recorder.text == "d");
   }
 }
 
 TEST_CASE("Win32 plugin windows don't pass Alt+key characters on", "[integration]") {
-  // The host makes its own WM_SYSCHAR from the key-down the plugin passes up, so the plugin
-  // window's WM_SYSCHAR must not reach DefWindowProc or the host, or the host sees it twice.
   HostWindow host;
   REQUIRE(host.hwnd);
   KeyRecorder recorder;
@@ -472,8 +441,6 @@ TEST_CASE("Win32 plugin windows don't pass Alt+key characters on", "[integration
 }
 
 TEST_CASE("Win32 plugin keys the app doesn't handle reach the key handlers once", "[integration]") {
-  // The hook already handled the key, so the host's loop mustn't dispatch the original to the
-  // plugin's window procedure as well.
   PluginInHost setup;
   REQUIRE(setup.plugin);
   REQUIRE(GetParent(setup.plugin) == setup.host.hwnd);
@@ -483,10 +450,8 @@ TEST_CASE("Win32 plugin keys the app doesn't handle reach the key handlers once"
 
   CHECK(setup.recorder.key_downs.size() == 1);
   CHECK(setup.recorder.key_ups == 1);
-  // The host gets one copy of each, posted to its own window.
   CHECK(setup.host.count(WM_KEYDOWN) == 1);
   CHECK(setup.host.count(WM_KEYUP) == 1);
-  // The original, addressed to the plugin, never reaches the host's loop.
   CHECK(setup.loop_saw_plugin_key_messages == 0);
 }
 
@@ -520,8 +485,6 @@ TEST_CASE("Win32 plugin keys the app handles aren't passed to the host", "[integ
 }
 
 TEST_CASE("Win32 typing in a plugin text field isn't passed to the host", "[integration]") {
-  // The key-down types through the hook's own TranslateMessage and is consumed; neither it nor its
-  // character reaches the host.
   PluginInHost setup;
   REQUIRE(setup.plugin);
   setup.recorder.active_text_entry = true;

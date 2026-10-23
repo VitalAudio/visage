@@ -32,15 +32,12 @@
 #endif
 #include <windows.h>
 
-// These tests use windows that are never shown. The cursor can't be over a hidden window, so
-// TrackMouseEvent(TME_LEAVE) posts its WM_MOUSELEAVE (or WM_NCMOUSELEAVE with TME_NONCLIENT)
-// right away. That makes "did visage arm leave tracking?" observable without moving the real
-// cursor: arming it produces a leave on the next pump, not arming it produces nothing.
-
 using namespace visage;
 
+// The windows are never shown, so TrackMouseEvent posts its leave message right away. That shows
+// whether visage armed leave tracking without moving the real cursor.
+
 namespace {
-  // Records mouse moves and leaves, and reports whatever hit test the test sets.
   class MouseRecorder : public Window::EventHandler {
   public:
     HitTestResult handleHitTest(int, int) override { return hit_test; }
@@ -93,7 +90,6 @@ namespace {
                       static_cast<WORD>(static_cast<short>(y)));
   }
 
-  // A hidden window with a client-drawn title bar that reports to a MouseRecorder.
   struct ClientDecoratedWindow {
     ClientDecoratedWindow() {
       window = createWindow(Dimension::nativePixels(200), Dimension::nativePixels(100),
@@ -125,8 +121,6 @@ namespace {
     HWND hwnd = nullptr;
   };
 
-  // Clears the mouse buttons in this thread's key state, which is what GetKeyState reads, so a
-  // button held on the real mouse can't leak into the test. Restored afterwards.
   class ScopedMouseButtonsUp {
   public:
     ScopedMouseButtonsUp() {
@@ -152,10 +146,6 @@ namespace {
 
 TEST_CASE("Win32 title bar mouse moves don't report the hit-test code as buttons",
           "[integration]") {
-  // WM_NCMOUSEMOVE's wParam is a hit-test code. Read as MK_* flags, HTCAPTION (2) is
-  // MK_RBUTTON, HTMAXBUTTON (9) is MK_LBUTTON | MK_CONTROL, HTCLOSE (20) is MK_SHIFT |
-  // MK_MBUTTON, HTLEFT (10) is MK_RBUTTON | MK_CONTROL and HTSYSMENU (3) is both buttons.
-  // HTMINBUTTON (8) is MK_CONTROL, which has no button.
   ScopedMouseButtonsUp buttons_up;
   ClientDecoratedWindow setup;
   setup.recorder.hit_test = HitTestResult::TitleBar;
@@ -179,9 +169,6 @@ TEST_CASE("Win32 title bar mouse moves don't report the hit-test code as buttons
 }
 
 TEST_CASE("Win32 title bar mouse moves report buttons that are really held", "[integration]") {
-  // WM_NCMOUSEMOVE carries no button state, so it has to come from GetKeyState. HTMINBUTTON (8,
-  // read as MK_CONTROL) has no button bits, so the right button held in the thread's key state
-  // can only show up that way.
   BYTE saved[256];
   GetKeyboardState(saved);
   BYTE state[256];
@@ -203,7 +190,6 @@ TEST_CASE("Win32 title bar mouse moves report buttons that are really held", "[i
 }
 
 TEST_CASE("Win32 client mouse moves read buttons from wParam", "[integration]") {
-  // Unlike WM_NCMOUSEMOVE's, WM_MOUSEMOVE's wParam holds MK_* flags.
   ScopedMouseButtonsUp buttons_up;
   ClientDecoratedWindow setup;
   setup.recorder.hit_test = HitTestResult::TitleBar;
@@ -223,17 +209,12 @@ TEST_CASE("Win32 content moves re-arm leave tracking after leaving into the titl
   REQUIRE(setup.hwnd);
   REQUIRE_FALSE(IsWindowVisible(setup.hwnd));
 
-  // The mouse enters the content: visage arms TME_LEAVE and Windows queues a WM_MOUSELEAVE.
   setup.recorder.hit_test = HitTestResult::Client;
   setup.clientMove();
 
-  // That WM_MOUSELEAVE stands for the cursor moving up into the client-drawn title bar, which is
-  // non-client to Windows.
   setup.recorder.hit_test = HitTestResult::TitleBar;
   runMessages();
 
-  // Back on the content. The move must arm TME_LEAVE again, which here produces a leave right
-  // away. Without it, leaving the window later is never reported.
   setup.recorder.hit_test = HitTestResult::Client;
   setup.recorder.leaves = 0;
   setup.clientMove();
@@ -242,8 +223,6 @@ TEST_CASE("Win32 content moves re-arm leave tracking after leaving into the titl
 }
 
 TEST_CASE("Win32 content moves re-arm leave tracking after a content leave", "[integration]") {
-  // If this fails, hidden windows don't get their leave right away here, and the other leave
-  // tracking tests can't tell anything.
   ClientDecoratedWindow setup;
   runMessages();
   REQUIRE(setup.hwnd);
@@ -258,8 +237,6 @@ TEST_CASE("Win32 content moves re-arm leave tracking after a content leave", "[i
 }
 
 TEST_CASE("Win32 leaving through the title bar reports a leave", "[integration]") {
-  // DefWindowProc's WM_NCMOUSEMOVE handling arms non-client leave tracking on its own, so a hidden
-  // window can get more than one WM_NCMOUSELEAVE here.
   ClientDecoratedWindow setup;
   runMessages();
   REQUIRE(setup.hwnd);
@@ -273,9 +250,6 @@ TEST_CASE("Win32 leaving through the title bar reports a leave", "[integration]"
 
 TEST_CASE("Win32 leaving the content after a trip through the title bar reports the leave",
           "[integration]") {
-  // Content, title bar, content, then outside. Each runMessages() delivers the leave that the
-  // previous tracking registration produced; what matters is that the last one, leaving from the
-  // content after the title bar trip, is reported.
   ClientDecoratedWindow setup;
   runMessages();
   REQUIRE(setup.hwnd);

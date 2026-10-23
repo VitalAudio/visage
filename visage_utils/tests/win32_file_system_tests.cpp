@@ -37,7 +37,6 @@
 using namespace visage;
 
 namespace {
-  // A fresh per-process directory under %TEMP%, removed by the destructor.
   struct TempDirectory {
     explicit TempDirectory(const std::wstring& name) {
       path = std::filesystem::temp_directory_path() / (std::to_wstring(_getpid()) + L"_" + name);
@@ -54,7 +53,6 @@ namespace {
     REQUIRE(replaceFileWithText(path, "contents"));
   }
 
-  // U+4E3B U+673A: outside the Western ANSI code page (1252), and most others.
   const std::wstring kHostStem = L"visage_\u4e3b\u673a";
   const std::string kHostStemUtf8 = "visage_\xe4\xb8\xbb\xe6\x9c\xba";
   const wchar_t* kHostChildFilter = L"[.win32_host_executable_child]";
@@ -63,8 +61,6 @@ namespace {
 
 TEST_CASE("Win32 fileName and fileStem return UTF-8 for names inside the ANSI code page",
           "[utils]") {
-  // U+00F1 is in code page 1252, so converting it through the ANSI code page doesn't fail. It just
-  // gives the single byte 0xf1 instead of the UTF-8 bytes c3 b1.
   File file = File(L"C:\\visage\\ni\u00f1o.txt");
   REQUIRE(fileName(file) == "ni\xc3\xb1o.txt");
   REQUIRE(fileStem(file) == "ni\xc3\xb1o");
@@ -76,7 +72,6 @@ TEST_CASE("Win32 searchForDirectories matches directory names outside the ANSI c
   std::filesystem::create_directories(directory.path / L"\u6587\u4ef6\u5939");
   std::filesystem::create_directories(directory.path / L"plain");
 
-  // path::string() throws std::system_error for these names.
   std::vector<File> matches = searchForDirectories(directory.path, "\xe6\x96\x87");
   REQUIRE(matches.size() == 1);
   REQUIRE(matches[0].filename().wstring() == L"\u6587\u4ef6\u5939");
@@ -87,7 +82,6 @@ TEST_CASE("Win32 file names outside the ANSI code page don't stop searchForFiles
   touch(directory.path / L"\u6587\u4ef6.txt");
   touch(directory.path / L"plain.txt");
 
-  // The search is for the ASCII name; the other file only has to not break it.
   std::vector<File> matches = searchForFiles(directory.path, "^plain");
   REQUIRE(matches.size() == 1);
   REQUIRE(fileName(matches[0]) == "plain.txt");
@@ -105,7 +99,6 @@ TEST_CASE("Win32 hostExecutable and hostName work in a directory outside the ANS
   std::filesystem::path copy = directory.path / (kHostStem + L".exe");
   std::filesystem::copy_file(self, copy, std::filesystem::copy_options::overwrite_existing);
 
-  // The copy runs only the hidden test below; its exit code is 0 when that test passes.
   std::wstring command_line = L"\"" + copy.wstring() + L"\" \"" + kHostChildFilter + L"\"";
   STARTUPINFOW startup_info = {};
   startup_info.cb = sizeof(startup_info);
@@ -127,7 +120,6 @@ TEST_CASE("Win32 hostExecutable and hostName work in a directory outside the ANS
   CloseHandle(process_info.hProcess);
 
   REQUIRE(wait == WAIT_OBJECT_0);
-  // GetModuleFileNameA would turn the name into "visage_??", and the child's checks would fail.
   REQUIRE(exit_code == 0);
 }
 

@@ -34,7 +34,6 @@
 using namespace visage;
 
 namespace {
-  // A fresh per-process directory under %TEMP%, removed by the destructor.
   struct TempDirectory {
     explicit TempDirectory(const std::wstring& name) {
       path = std::filesystem::temp_directory_path() / (std::to_wstring(_getpid()) + L"_" + name);
@@ -52,14 +51,10 @@ namespace {
     stream.write(contents.data(), static_cast<std::streamsize>(contents.size()));
   }
 
-  // spawnChildProcess takes UTF-8, like the rest of visage.
   std::string utf8(const std::filesystem::path& path) {
     return String::convertToUtf8(path.wstring());
   }
 
-  // U+00E9 is in the Western ANSI code page (1252) and U+6587 U+4EF6 aren't. Read through the
-  // ANSI code page, the UTF-8 bytes of either turn into different characters, so the child would
-  // be handed a path that doesn't exist.
   const std::wstring kNonAnsiName = L"\u00e9 \u6587\u4ef6";
 
   bool isAscii(const std::wstring& text) {
@@ -70,8 +65,6 @@ namespace {
     return true;
   }
 
-  // Quotes a path for a child's command line. The output checks use an ASCII path, so they don't
-  // depend on how non-ASCII command lines reach the child.
   std::string asciiPathArgument(const std::filesystem::path& path) {
     if (!isAscii(path.wstring()))
       SKIP("The temp directory path isn't ASCII; this check needs an ASCII path");
@@ -85,7 +78,6 @@ TEST_CASE("Win32 child processes get arguments outside the ANSI code page unchan
   writeFile(file, "contents");
   REQUIRE(std::filesystem::exists(file));
 
-  // cmd.exe is a Unicode program, so `type` opens exactly the path it receives.
   std::string output;
   bool result = spawnChildProcess("cmd.exe", "/C type \"" + utf8(file) + "\"", output, 10000);
 
@@ -100,7 +92,6 @@ TEST_CASE("Win32 child process scripts in a non-ANSI directory with spaces get q
   writeFile(script, "@echo [%~1] [%~2]\r\n");
   REQUIRE(std::filesystem::exists(script));
 
-  // Unquoted, CreateProcess would try "<temp>\<pid>_visage.exe" and so on, which don't exist.
   std::string output;
   bool result = spawnChildProcess(utf8(script), "\"two words\" plain", output, 10000);
 
@@ -110,7 +101,6 @@ TEST_CASE("Win32 child process scripts in a non-ANSI directory with spaces get q
 
 TEST_CASE("Win32 child process commands without an extension are still found on the path",
           "[utils]") {
-  // The command is always quoted. CreateProcess must still append ".exe" and search for it.
   std::string output;
   REQUIRE(spawnChildProcess("cmd", "/C echo found", output, 10000));
   REQUIRE(String(output).trim().toUtf8() == "found");
@@ -120,7 +110,6 @@ TEST_CASE("Win32 child process UTF-16 output from cmd /U keeps its NUL bytes", "
   std::string output;
   REQUIRE(spawnChildProcess("cmd.exe", "/U /C echo hi", output, 10000));
 
-  // Stopping at the first NUL byte would leave just "h".
   static const std::string kExpected("h\0i\0\r\0\n\0", 8);
   REQUIRE(output.size() == kExpected.size());
   REQUIRE(output == kExpected);
@@ -130,8 +119,8 @@ TEST_CASE("Win32 child process binary output with NUL bytes arrives intact", "[u
   TempDirectory directory(L"visage_win32_child_binary");
   std::filesystem::path file = directory.path / "nul_bytes.bin";
 
-  // 64 KB, so several 4 KB reads. Every 7th byte is NUL. 0x1a (Ctrl+Z) is avoided and the file
-  // doesn't start with a byte order mark, so `type` copies it unchanged.
+  // `type` stops at 0x1a (Ctrl+Z) and treats a leading byte order mark specially, so the data
+  // avoids both.
   std::string contents;
   contents.reserve(64 * 1024);
   for (int i = 0; i < 64 * 1024; ++i) {

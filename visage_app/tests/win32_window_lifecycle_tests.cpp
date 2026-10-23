@@ -35,8 +35,6 @@
 using namespace visage;
 
 namespace {
-  // Dispatches messages, including visage's WM_VBLANK, until `done` returns true or `timeout_ms`
-  // passes. Returns whether `done` was reached.
   bool pumpUntil(const std::function<bool()>& done, int timeout_ms) {
     auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
     while (std::chrono::steady_clock::now() < end) {
@@ -60,8 +58,6 @@ namespace {
     pumpUntil(nullptr, milliseconds);
   }
 
-  // Empties the thread's queue without waiting and reports whether a WM_QUIT was pending.
-  // Taking it off the queue also clears the thread's quit flag, so it can't end a later loop.
   bool takePendingQuit() {
     bool quit = false;
     MSG message;
@@ -76,8 +72,6 @@ namespace {
     return quit;
   }
 
-  // A thread timer (no HWND) that drives a test from inside a running event loop. It doesn't
-  // depend on visage's vblank thread, so it fires even if no frame is ever drawn.
   std::function<void()> timer_tick;
 
   void CALLBACK timerTickProc(HWND, UINT, UINT_PTR, DWORD) {
@@ -95,13 +89,12 @@ namespace {
     UINT_PTR id = 0;
   };
 
-  // Counts draw callbacks, which on Windows run once per WM_VBLANK.
   struct FrameCounter {
     explicit FrameCounter(Window* window) : window(window) {
       window->setDrawCallback([this](double) { count++; });
     }
 
-    // Declared after the window it watches, so this runs first, even when a REQUIRE throws.
+    // Declared after the window it watches, so it detaches first, even when a REQUIRE throws.
     ~FrameCounter() { detach(); }
 
     void detach() {
@@ -110,7 +103,6 @@ namespace {
       window = nullptr;
     }
 
-    // Waits for `frames` more vblanks, so the window has looked at its visibility since.
     bool advance(int frames = 2) {
       int target = count + frames;
       return pumpUntil([&] { return count >= target; }, 2000);
@@ -120,8 +112,6 @@ namespace {
     int count = 0;
   };
 
-  // A small visible borderless top-level window that doesn't take activation, standing in for a
-  // host's plugin window.
   struct HostWindow {
     HostWindow() {
       static const wchar_t* kClassName = L"VisageWin32LifecycleTestHost";
@@ -164,8 +154,6 @@ TEST_CASE("Win32 destroying an open window from code doesn't post WM_QUIT", "[in
   window.reset();
   CHECK_FALSE(IsWindow(hwnd));
 
-  // Only a user closing the last window should end the event loop. A WM_QUIT left here would end
-  // the next runEventLoop as soon as it starts.
   CHECK_FALSE(takePendingQuit());
 }
 
@@ -173,7 +161,6 @@ TEST_CASE("Win32 destroying a window from a timer doesn't end the running event 
           "[integration]") {
   takePendingQuit();
 
-  // The loop runs on a window that's never shown, so it isn't "open" for anyWindowOpen().
   std::unique_ptr<Window> loop_window = createWindow(Dimension::nativePixels(100),
                                                      Dimension::nativePixels(80));
   std::unique_ptr<Window> other = createWindow(Dimension::nativePixels(160),
@@ -207,7 +194,6 @@ TEST_CASE("Win32 destroying a window from a timer doesn't end the running event 
   }
 
   CHECK(destroyed);
-  // The loop kept running after `other` was destroyed, until the timer ended it.
   CHECK(ticks_after_destroy == kTicksAfterDestroy);
 
   loop_window.reset();
@@ -232,8 +218,6 @@ TEST_CASE("Win32 closing the last window from its title bar ends the event loop"
 
   {
     ThreadTimer timeout(2000);
-    // What the title-bar close button does: visage turns WM_NCLBUTTONUP on HTCLOSE into WM_CLOSE,
-    // and DefWindowProc destroys the window while the object is alive.
     PostMessageW(hwnd, WM_NCLBUTTONUP, HTCLOSE, 0);
     window->runEventLoop();
   }
@@ -306,9 +290,8 @@ TEST_CASE("Win32 windows aren't visible while hidden or minimized", "[integratio
   REQUIRE(frames.advance());
   CHECK(window->isVisible());
 
-  // ApplicationEditor stops rendering windows that aren't visible.
   window->hide();
-  REQUIRE(frames.advance());  // The draw callback, and with it the timers, keeps running.
+  REQUIRE(frames.advance());
   CHECK_FALSE(window->isVisible());
 
   window->show();
@@ -389,8 +372,7 @@ TEST_CASE("Win32 hidden application windows stop drawing but keep running their 
   ticker.startTimer(5);
   REQUIRE(pumpUntil([&] { return draws >= 3 && ticker.ticks >= 3; }, 2000));
 
-  // hide(), not minimize: minimizing sends WM_SIZE, and handleResizeEnd then sizes the editor to
-  // the iconic window's empty client area, which stops drawing on its own.
+  // hide(), not minimizing: minimizing resizes the editor to 0x0, which stops drawing anyway.
   int draws_at_hide = draws;
   int ticks_at_hide = ticker.ticks;
   app.hide();

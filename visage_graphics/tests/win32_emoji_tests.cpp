@@ -40,23 +40,17 @@
 
 using namespace visage;
 
-// EmojiRasterizer is a process-wide singleton that's destroyed during static destruction, so these
-// checks run in a fresh copy of this test executable: there, the singleton is first created on a
-// thread already in a COM apartment, and the thread's COM state can be checked after the
-// singleton's destructor has run. Everything here is CPU rendering through Direct2D/DirectWrite
-// into a WIC bitmap, so it doesn't depend on the GPU renderer.
-
+// The rasterizer is a singleton destroyed at exit, so each check runs in a fresh copy of this
+// test executable.
 namespace {
   const wchar_t* kResultVariable = L"VISAGE_WIN32_EMOJI_RESULT";
   const wchar_t* kApartmentVariable = L"VISAGE_WIN32_EMOJI_APARTMENT";
   const wchar_t* kChildFilter = L"[.win32_emoji_com_child]";
 
-  // Plain storage so it's still valid while exit handlers run.
   wchar_t child_result_path[MAX_PATH * 4] = {};
   HRESULT child_initial_result = E_FAIL;
   int child_drawn_pixels = -1;
 
-  // The apartment the parent test asked for: "sta" or "mta".
   DWORD requestedApartment() {
     wchar_t mode[16] = {};
     if (GetEnvironmentVariableW(kApartmentVariable, mode, 16) && std::wcscmp(mode, L"sta") == 0)
@@ -64,10 +58,8 @@ namespace {
     return COINIT_MULTITHREADED;
   }
 
-  // Registered before the rasterizer singleton exists, so it runs after the singleton's destructor.
+  // Registered before the singleton exists, so it runs after the singleton's destructor.
   void writeChildResult() {
-    // S_FALSE: this thread's COM init from the start of the test is still there.
-    // S_OK: something uninitialized it, i.e. an unbalanced CoUninitialize.
     HRESULT final_result = CoInitializeEx(nullptr, requestedApartment());
     if (SUCCEEDED(final_result))
       CoUninitialize();
@@ -92,8 +84,6 @@ namespace {
     unsigned long final_result = 0;
   };
 
-  // Runs the hidden child test below in a new copy of this executable, with its thread in the
-  // given apartment ("mta" or "sta").
   ChildResult runChild(const wchar_t* apartment) {
     ChildResult result;
     std::vector<wchar_t> buffer(32768);
@@ -145,12 +135,8 @@ TEST_CASE("Win32 emoji rasterizer in a multithreaded apartment draws and leaves 
           "[graphics]") {
   ChildResult result = runChild(L"mta");
   REQUIRE(result.ran);
-  // The child's thread joined the multithreaded apartment before the rasterizer existed.
   REQUIRE(result.initial_result == static_cast<unsigned long>(S_OK));
-  // CoInitialize fails with RPC_E_CHANGED_MODE on this thread, which mustn't stop the rasterizer.
   CHECK(result.drawn_pixels > 0);
-  // The rasterizer's destructor must only undo its own COM init. Taking down the thread's own init
-  // makes initializing again return S_OK instead of S_FALSE.
   CHECK(result.final_result == static_cast<unsigned long>(S_FALSE));
 }
 
