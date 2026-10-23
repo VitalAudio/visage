@@ -174,8 +174,6 @@ namespace {
 
   constexpr wchar_t kSpyProperty[] = L"VisageWin32SysCommandSpy";
 
-  // Swallows WM_SYSCOMMAND so no menu opens and nothing beeps, and records whether a WM_SYSCHAR
-  // reached DefWindowProc.
   class SysCommandSpy {
   public:
     explicit SysCommandSpy(HWND hwnd) : hwnd_(hwnd) {
@@ -265,8 +263,6 @@ namespace {
     }
   };
 
-  // Plugin keys arrive through visage's WH_GETMESSAGE hook, which only runs inside the host's
-  // message loop, so the tests run one.
   struct PluginInHost {
     HostWindow host;
     KeyRecorder recorder;

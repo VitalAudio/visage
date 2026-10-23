@@ -94,7 +94,6 @@ namespace {
       window->setDrawCallback([this](double) { count++; });
     }
 
-    // Declared after the window it watches, so it detaches first, even when a REQUIRE throws.
     ~FrameCounter() { detach(); }
 
     void detach() {
@@ -372,7 +371,6 @@ TEST_CASE("Win32 hidden application windows stop drawing but keep running their 
   ticker.startTimer(5);
   REQUIRE(pumpUntil([&] { return draws >= 3 && ticker.ticks >= 3; }, 2000));
 
-  // hide(), not minimizing: minimizing resizes the editor to 0x0, which stops drawing anyway.
   int draws_at_hide = draws;
   int ticks_at_hide = ticker.ticks;
   app.hide();
