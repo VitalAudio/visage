@@ -1405,8 +1405,8 @@ namespace visage {
     window_class_.lpszMenuName = nullptr;
     window_class_.lpszClassName = unique_window_class_name_.c_str();
 #if VISAGE_WINDOWS_ICON_RESOURCE
-    window_class_.hIcon = LoadIcon(module_handle_, MAKEINTRESOURCE(VA_WINDOWS_ICON_RESOURCE));
-    window_class_.hIconSm = LoadIcon(module_handle_, MAKEINTRESOURCE(VA_WINDOWS_ICON_RESOURCE));
+    window_class_.hIcon = LoadIcon(module_handle_, MAKEINTRESOURCE(VISAGE_WINDOWS_ICON_RESOURCE));
+    window_class_.hIconSm = LoadIcon(module_handle_, MAKEINTRESOURCE(VISAGE_WINDOWS_ICON_RESOURCE));
 #else
     window_class_.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
     window_class_.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
