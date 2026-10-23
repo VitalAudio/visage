@@ -404,7 +404,7 @@ namespace visage {
     virtual ~DragDropEnumFormatEtc() = default;
 
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv_object) override {
-      if (riid == IID_IUnknown || riid == IID_IDataObject) {
+      if (riid == IID_IUnknown || riid == IID_IEnumFORMATETC) {
         *ppv_object = static_cast<IEnumFORMATETC*>(this);
         AddRef();
         return S_OK;
