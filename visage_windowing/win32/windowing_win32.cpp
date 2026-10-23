@@ -1542,6 +1542,7 @@ namespace visage {
 
     NativeWindowLookup::instance().removeWindow(this);
     KillTimer(window_handle_, kTimerId);
+    SetWindowLongPtr(window_handle_, GWLP_USERDATA, 0);
     DestroyWindow(window_handle_);
     UnregisterClass(window_class_.lpszClassName, module_handle_);
     OleUninitialize();
