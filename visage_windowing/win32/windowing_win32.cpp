@@ -936,10 +936,6 @@ namespace visage {
     return state;
   }
 
-  static bool isTouchEvent() {  // TODO check if mouse down is touch
-    return (GetMessageExtraInfo() & 0xFFFFFF00) == 0xFF515700;
-  }
-
   static int mouseButtonState(WPARAM w_param) {
     int state = 0;
     if (w_param & MK_LBUTTON)
@@ -957,72 +953,6 @@ namespace visage {
       PostMessage(parent, msg, w_param, l_param);
     else
       DefWindowProc(hwnd, msg, w_param, l_param);
-  }
-
-  static bool isWindowOccluded(HWND hwnd) {
-    RECT rect;
-    if (!GetWindowRect(hwnd, &rect))
-      return false;
-
-    auto next_x = [](HWND hit_hwnd, LONG x, LONG right) -> LONG {
-      if (hit_hwnd == nullptr)
-        return right;
-
-      RECT window_rect;
-      if (!GetWindowRect(hit_hwnd, &window_rect))
-        return right;
-
-      return std::min(right, std::max(x, window_rect.right + 1));
-    };
-
-    auto next_y = [](HWND hit_hwnd, LONG y, LONG bottom) -> LONG {
-      if (hit_hwnd == nullptr)
-        return bottom;
-
-      RECT window_rect;
-      if (!GetWindowRect(hit_hwnd, &window_rect))
-        return bottom;
-
-      return std::min(bottom, std::max(y, window_rect.bottom + 1));
-    };
-
-    LONG x = rect.left;
-    while (x < rect.right) {
-      HWND hit_hwnd = WindowFromPoint(POINT { x, rect.top });
-      if (hit_hwnd == hwnd || IsChild(hwnd, hit_hwnd))
-        return false;
-
-      x = next_x(hit_hwnd, x, rect.right);
-    }
-
-    x = rect.left;
-    while (x < rect.right) {
-      HWND hit_hwnd = WindowFromPoint(POINT { x, rect.bottom });
-      if (hit_hwnd == hwnd || IsChild(hwnd, hit_hwnd))
-        return false;
-
-      x = next_x(hit_hwnd, x, rect.right);
-    }
-
-    LONG y = rect.top;
-    while (y < rect.bottom) {
-      HWND hit_hwnd = WindowFromPoint(POINT { rect.left, y });
-      if (hit_hwnd == hwnd || IsChild(hwnd, hit_hwnd))
-        return false;
-
-      y = next_y(hit_hwnd, y, rect.bottom);
-    }
-
-    y = rect.top;
-    while (y < rect.bottom) {
-      HWND hit_hwnd = WindowFromPoint(POINT { rect.right, y });
-      if (hit_hwnd == hwnd || IsChild(hwnd, hit_hwnd))
-        return false;
-
-      y = next_y(hit_hwnd, y, rect.bottom);
-    }
-
-    return true;
   }
 
   static LRESULT WINAPI windowProcedure(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
@@ -1583,7 +1513,6 @@ namespace visage {
       RemoveWindowSubclass(parent_handle_, pluginParentWindowProc, reinterpret_cast<UINT_PTR>(this));
 
     NativeWindowLookup::instance().removeWindow(this);
-    KillTimer(window_handle_, kTimerId);
     SetWindowLongPtr(window_handle_, GWLP_USERDATA, 0);
     DestroyWindow(window_handle_);
     UnregisterClass(window_class_.lpszClassName, module_handle_);
