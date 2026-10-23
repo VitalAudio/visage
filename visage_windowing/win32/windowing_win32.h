@@ -111,6 +111,7 @@ namespace visage {
     Window::Decoration decoration_ = Window::Decoration::Native;
     std::wstring utf16_string_entry_;
     bool initialized_ = false;
+    bool ole_initialized_ = false;
     bool mouse_tracked_ = false;
     int mouse_down_flags_ = 0;
   };
