@@ -68,6 +68,7 @@ namespace visage {
     HWND windowHandle() const { return window_handle_; }
     void* nativeHandle() const override { return window_handle_; }
     HWND parentHandle() const { return parent_handle_; }
+    void clearParentHandle() { parent_handle_ = nullptr; }
 
     void windowContentsResized(int width, int height) override;
     void show() override;
@@ -91,7 +92,6 @@ namespace visage {
     void handleDpiChange(HWND hwnd, LPARAM l_param, WPARAM w_param);
     void updateMonitor();
     HMONITOR monitor() const { return monitor_.load(); }
-    WNDPROC parentWindowProc() const { return parent_window_proc_; }
     Window::Decoration decoration() const { return decoration_; }
 
   private:
@@ -104,7 +104,6 @@ namespace visage {
     HWND parent_handle_ = nullptr;
     HMODULE module_handle_ = nullptr;
     std::atomic<HMONITOR> monitor_ = nullptr;
-    WNDPROC parent_window_proc_ = nullptr;
     std::unique_ptr<EventHooks> event_hooks_;
     DragDropTarget* drag_drop_target_ = nullptr;
     std::unique_ptr<VBlankThread> v_blank_thread_;
