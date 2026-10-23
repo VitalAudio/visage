@@ -526,22 +526,23 @@ namespace visage {
       if (!acceptsFormat(format_etc))
         return DV_E_FORMATETC;
 
-      medium->tymed = format_etc->tymed;
-      medium->pUnkForRelease = nullptr;
-
-      if (format_etc->tymed != TYMED_HGLOBAL)
-        return DV_E_FORMATETC;
-
       auto length = GlobalSize(drop_);
       void* const source = GlobalLock(drop_);
-      void* const dest = GlobalAlloc(GMEM_FIXED, length);
+      if (source == nullptr)
+        return E_OUTOFMEMORY;
 
-      if (source != nullptr && dest != nullptr)
+      void* const dest = GlobalAlloc(GMEM_FIXED, length);
+      if (dest != nullptr)
         memcpy(dest, source, length);
 
       GlobalUnlock(drop_);
 
+      if (dest == nullptr)
+        return E_OUTOFMEMORY;
+
+      medium->tymed = TYMED_HGLOBAL;
       medium->hGlobal = dest;
+      medium->pUnkForRelease = nullptr;
       return S_OK;
     }
 
