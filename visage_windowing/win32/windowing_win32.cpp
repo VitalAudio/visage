@@ -915,6 +915,15 @@ namespace visage {
     return modifiers;
   }
 
+  static bool cursorOverWindow(HWND hwnd) {
+    POINT cursor;
+    if (!GetCursorPos(&cursor))
+      return false;
+
+    HWND found = WindowFromPoint(cursor);
+    return found == hwnd || IsChild(hwnd, found);
+  }
+
   static int mouseButtonState() {
     int state = 0;
     if (GetKeyState(VK_LBUTTON) & 0x8000)
@@ -1065,6 +1074,12 @@ namespace visage {
       return 0;
     }
     case WM_NCMOUSEMOVE: {
+      TRACKMOUSEEVENT track {};
+      track.cbSize = sizeof(track);
+      track.dwFlags = TME_LEAVE | TME_NONCLIENT;
+      track.hwndTrack = hwnd;
+      TrackMouseEvent(&track);
+
       POINT position = { GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param) };
       ScreenToClient(window_handle_, &position);
       handleMouseMove(position.x, position.y, mouseButtonState(), keyboardModifiers());
@@ -1095,17 +1110,14 @@ namespace visage {
       return 0;
     }
     case WM_NCMOUSELEAVE: {
-      if (currentHitTest() != HitTestResult::Client) {
-        setMouseTracked(false);
+      if (!cursorOverWindow(hwnd))
         handleMouseLeave(mouseButtonState(0), keyboardModifiers());
-      }
       break;
     }
     case WM_MOUSELEAVE: {
-      if (currentHitTest() == HitTestResult::Client) {
-        setMouseTracked(false);
+      setMouseTracked(false);
+      if (!cursorOverWindow(hwnd))
         handleMouseLeave(mouseButtonState(0), keyboardModifiers());
-      }
       return 0;
     }
     case WM_LBUTTONDOWN: {
