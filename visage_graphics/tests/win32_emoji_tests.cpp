@@ -40,8 +40,6 @@
 
 using namespace visage;
 
-// The rasterizer is a singleton destroyed at exit, so each check runs in a fresh copy of this
-// test executable.
 namespace {
   const wchar_t* kResultVariable = L"VISAGE_WIN32_EMOJI_RESULT";
   const wchar_t* kApartmentVariable = L"VISAGE_WIN32_EMOJI_APARTMENT";
@@ -58,7 +56,6 @@ namespace {
     return COINIT_MULTITHREADED;
   }
 
-  // Registered before the singleton exists, so it runs after the singleton's destructor.
   void writeChildResult() {
     HRESULT final_result = CoInitializeEx(nullptr, requestedApartment());
     if (SUCCEEDED(final_result))

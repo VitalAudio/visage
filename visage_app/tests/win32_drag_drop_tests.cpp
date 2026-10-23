@@ -40,8 +40,6 @@
 using namespace visage;
 
 namespace {
-  // Patches this executable's import address table. visage is linked in statically, so its Win32
-  // calls go through it.
   class ScopedImportHook {
   public:
     ScopedImportHook(const char* dll_name, const char* function_name, void* replacement) {
