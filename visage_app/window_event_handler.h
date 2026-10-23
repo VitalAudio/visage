@@ -44,6 +44,7 @@ namespace visage {
     void setKeyboardFocus(Frame* frame) { changeKeyboardFocus(frame, false); }
     Frame* keyboardFocusedFrame() const { return keyboard_focused_frame_; }
     void giveUpFocus(Frame* frame);
+    bool takeMouseDrag(Frame* frame);
 
     Point lastMousePosition() const { return last_mouse_position_; }
     IPoint convertToNative(const Point& point) const { return window_->convertToNative(point); }
