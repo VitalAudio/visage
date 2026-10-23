@@ -675,12 +675,13 @@ namespace visage {
 
         if (h_drop != nullptr) {
           UINT file_count = DragQueryFile(h_drop, 0xFFFFFFFF, nullptr, 0);
-          WCHAR file_path[MAX_PATH];
 
           for (UINT i = 0; i < file_count; ++i) {
-            if (DragQueryFile(h_drop, i, file_path, MAX_PATH)) {
-              std::string file = String::convertToUtf8(file_path);
-              files.emplace_back(file);
+            UINT length = DragQueryFile(h_drop, i, nullptr, 0);
+            std::wstring file_path(length + 1, L'\0');
+            if (length && DragQueryFile(h_drop, i, file_path.data(), length + 1)) {
+              file_path.resize(length);
+              files.emplace_back(String::convertToUtf8(file_path));
             }
           }
 
