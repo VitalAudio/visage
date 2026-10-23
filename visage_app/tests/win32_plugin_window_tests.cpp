@@ -125,8 +125,6 @@ namespace {
     HWND hwnd = nullptr;
   };
 
-  // The test executable has no DPI manifest, so without this its own window calls are
-  // DPI-virtualized.
   class ScopedDpiAwareness {
   public:
     explicit ScopedDpiAwareness(DPI_AWARENESS_CONTEXT awareness) :
@@ -502,7 +500,6 @@ TEST_CASE("Win32 plugin windows report their new size when their parent's DPI ch
   REQUIRE(parent.hwnd);
   UINT dpi = GetDpiForWindow(parent.hwnd);
   float scale = dpi / 96.0f;
-  // The window can't change monitors here, so it starts at whichever of 1x or 2x the monitor isn't.
   float stale_scale = scale == 1.0f ? 2.0f : 1.0f;
   int old_width = static_cast<int>(kLogicalWidth * stale_scale);
   int old_height = static_cast<int>(kLogicalHeight * stale_scale);
@@ -517,7 +514,6 @@ TEST_CASE("Win32 plugin windows report their new size when their parent's DPI ch
   REQUIRE(window);
   window->setDpiScale(stale_scale);
 
-  // Not shown: the first WM_SIZE would read the real DPI too early.
   ApplicationEditor editor;
   editor.addToWindow(window.get());
   REQUIRE(editor.nativeWidth() == old_width);

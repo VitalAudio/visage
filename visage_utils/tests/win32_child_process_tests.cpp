@@ -119,8 +119,6 @@ TEST_CASE("Win32 child process binary output with NUL bytes arrives intact", "[u
   TempDirectory directory(L"visage_win32_child_binary");
   std::filesystem::path file = directory.path / "nul_bytes.bin";
 
-  // `type` stops at 0x1a (Ctrl+Z) and treats a leading byte order mark specially, so the data
-  // avoids both.
   std::string contents;
   contents.reserve(64 * 1024);
   for (int i = 0; i < 64 * 1024; ++i) {

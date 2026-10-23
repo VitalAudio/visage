@@ -34,9 +34,6 @@
 
 using namespace visage;
 
-// The windows are never shown, so TrackMouseEvent posts its leave message right away. That shows
-// whether visage armed leave tracking without moving the real cursor.
-
 namespace {
   class MouseRecorder : public Window::EventHandler {
   public:
