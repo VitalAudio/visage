@@ -21,6 +21,8 @@
 
 #include "file_system.h"
 
+#include "string_utils.h"
+
 #include <fstream>
 #include <random>
 #include <regex>
@@ -58,6 +60,14 @@ static visage::File xdgFolder(const char* env_var, const char* default_folder) {
 #endif
 
 namespace visage {
+  static std::string utf8Path(const File& file) {
+#if VISAGE_WINDOWS
+    return String::convertToUtf8(file.wstring());
+#else
+    return file.string();
+#endif
+  }
+
   bool replaceFileWithData(const File& file, const unsigned char* data, size_t size) {
     std::ofstream stream(file, std::ios::binary);
     if (!stream)
@@ -150,9 +160,9 @@ namespace visage {
 #if VISAGE_WINDOWS
     static File path;
     if (path.empty()) {
-      char buffer[MAX_PATH];
-      GetModuleFileNameA(nullptr, buffer, MAX_PATH);
-      path = buffer;
+      wchar_t buffer[MAX_PATH];
+      if (GetModuleFileNameW(nullptr, buffer, MAX_PATH))
+        path = buffer;
     }
     return path;
 #elif VISAGE_MAC
@@ -180,8 +190,8 @@ namespace visage {
 #if VISAGE_WINDOWS
     static File path;
     if (path.empty()) {
-      char buffer[MAX_PATH];
-      if (SUCCEEDED(SHGetFolderPathA(nullptr, CSIDL_APPDATA, nullptr, 0, buffer)))
+      wchar_t buffer[MAX_PATH];
+      if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, buffer)))
         path = buffer;
     }
     return path;
@@ -198,8 +208,8 @@ namespace visage {
 #if VISAGE_WINDOWS
     static File path;
     if (path.empty()) {
-      char buffer[MAX_PATH];
-      if (SUCCEEDED(SHGetFolderPathA(nullptr, CSIDL_PERSONAL, nullptr, 0, buffer)))
+      wchar_t buffer[MAX_PATH];
+      if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_PERSONAL, nullptr, 0, buffer)))
         path = buffer;
     }
     return path;
@@ -235,11 +245,11 @@ namespace visage {
   }
 
   std::string fileName(const File& file) {
-    return file.filename().string();
+    return utf8Path(file.filename());
   }
 
   std::string fileStem(const File& file) {
-    return file.stem().string();
+    return utf8Path(file.stem());
   }
 
   std::string hostName() {
@@ -258,7 +268,7 @@ namespace visage {
     std::filesystem::recursive_directory_iterator entry(directory, options, error);
     for (; !error && entry != std::filesystem::recursive_directory_iterator(); entry.increment(error)) {
       std::error_code type_error;
-      std::string file_name = entry->path().filename().string();
+      std::string file_name = utf8Path(entry->path().filename());
       if (entry->is_regular_file(type_error) && std::regex_search(file_name, match_pattern))
         matches.push_back(entry->path());
     }
@@ -274,7 +284,7 @@ namespace visage {
     std::regex match_pattern(regex);
 
     for (const auto& entry : std::filesystem::recursive_directory_iterator(directory)) {
-      std::string file_name = entry.path().filename().string();
+      std::string file_name = utf8Path(entry.path().filename());
       if (entry.is_directory() && std::regex_search(file_name, match_pattern))
         matches.push_back(entry.path());
     }
