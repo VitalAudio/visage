@@ -1477,7 +1477,10 @@ namespace visage {
 
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle) {
-    IBounds bounds = computeWindowBounds(0, 0, width, height);
+    HWND parent = static_cast<HWND>(parent_handle);
+    DpiAwareness dpi_awareness;
+    HMONITOR monitor = MonitorFromWindow(parent, MONITOR_DEFAULTTONEAREST);
+    IBounds bounds = boundsInMonitor(monitor, dpi_awareness.dpiScale(parent), 0, 0, width, height);
     return std::make_unique<WindowWin32>(bounds.width(), bounds.height(), parent_handle);
   }
 
@@ -1524,7 +1527,6 @@ namespace visage {
     static constexpr int kWindowFlags = WS_CHILD;
 
     DpiAwareness dpi_awareness;
-    setDpiScale(dpi_awareness.dpiScale());
 
     registerWindowClass();
     window_class_.lpfnWndProc = windowProcedure;
@@ -1540,6 +1542,7 @@ namespace visage {
       return;
     }
 
+    setDpiScale(dpi_awareness.dpiScale(window_handle_));
     SetWindowLongPtr(window_handle_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
     if (!SetWindowSubclass(parent_handle_, pluginParentWindowProc, reinterpret_cast<UINT_PTR>(this),
