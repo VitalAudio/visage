@@ -271,22 +271,28 @@ namespace visage {
     }
 
     void run() override {
+      static constexpr int kFallbackFrameMs = 16;
+      static constexpr long long kMonitorRetryUs = 1000000;
+
       updateMonitors();
       start_us_ = time::microseconds();
+      long long last_update_us = start_us_;
 
       while (shouldRun()) {
         HMONITOR monitor = window_->monitor();
-        if (monitor_outputs_.count(monitor) == 0) {
+        long long now_us = time::microseconds();
+        if (monitor_outputs_.count(monitor) == 0 && now_us - last_update_us >= kMonitorRetryUs) {
           updateMonitors();
-          sleep(1);
+          last_update_us = now_us;
         }
-        else if (SUCCEEDED(monitor_outputs_[monitor]->WaitForVBlank())) {
-          long long us = time::microseconds() - start_us_;
-          time_ = us * (1.0 / 1000000.0);
-          SendMessage(window_->windowHandle(), WM_VBLANK, 0, 0);
-        }
-        else
-          sleep(1);
+
+        auto output = monitor_outputs_.find(monitor);
+        if (output == monitor_outputs_.end() || FAILED(output->second->WaitForVBlank()))
+          sleep(kFallbackFrameMs);
+
+        long long us = time::microseconds() - start_us_;
+        time_ = us * (1.0 / 1000000.0);
+        SendMessage(window_->windowHandle(), WM_VBLANK, 0, 0);
       }
     }
 
@@ -979,6 +985,7 @@ namespace visage {
   LRESULT WindowWin32::handleWindowProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
     switch (msg) {
     case WM_VBLANK: {
+      setVisible(IsWindowVisible(hwnd) && !IsIconic(GetAncestor(hwnd, GA_ROOT)));
       drawCallback(v_blank_thread_->vBlankTime());
       return 0;
     }
