@@ -21,6 +21,10 @@
 
 #include "renderer.h"
 
+#include "font.h"
+#include "graphics_caches.h"
+#include "post_effects.h"
+#include "shape_batcher.h"
 #include "visage_utils/string_utils.h"
 
 #include <bgfx/bgfx.h>
@@ -94,32 +98,6 @@ namespace visage {
     return renderer;
   }
 
-  Renderer::Renderer() : Thread("Renderer Thread") { }
-
-  Renderer::~Renderer() {
-    stop();
-  }
-
-  void Renderer::startRenderThread() {
-#if VISAGE_BACKGROUND_GRAPHICS_THREAD
-    start();
-    while (!render_thread_started_.load())
-      yield();
-#endif
-  }
-
-  void Renderer::run() {
-    render();
-  }
-
-  void Renderer::render() {
-    static constexpr int kRenderTimeout = 100;
-    render_thread_started_ = bgfx::renderFrame() == bgfx::RenderFrame::NoContext;
-
-    while (shouldRun())
-      bgfx::renderFrame(kRenderTimeout);
-  }
-
   void Renderer::initialize(void* model_window, void* display) {
     if (display_ == nullptr)
       display_ = display;
@@ -129,7 +107,7 @@ namespace visage {
 
     callback_handler_ = std::make_unique<GraphicsCallbackHandler>();
     initialized_ = true;
-    startRenderThread();
+    model_window_ = model_window;
 
     bgfx::Init bgfx_init;
     bgfx_init.swapChain.numBackBuffers = 1;
@@ -187,6 +165,44 @@ namespace visage {
 #else
     float_render_targets_supported_ = renderTargetSupported(bgfx::TextureFormat::RGBA16F);
 #endif
+  }
+
+  void Renderer::checkInitialization() {
+    if (!initialized_ && shut_down_)
+      initialize(model_window_, display_);
+  }
+
+  void Renderer::watchForLeaks() {
+    struct LeakCheck {
+      ~LeakCheck() {
+        // A Canvas or bloom effect is still alive while visage's statics are destroyed, at exit or
+        // when the library containing visage is unloaded. The renderer only shuts down when the last
+        // of them is destroyed, so it's still running, and in background thread builds bgfx's render
+        // thread outlives an unloaded library and crashes the host. Destroy them all first.
+        VISAGE_ASSERT(Renderer::instance().references_ == 0);
+      }
+    };
+    static LeakCheck check;
+  }
+
+  void Renderer::removeReference() {
+    if (--references_ > 0 || !initialized_)
+      return;
+
+    shutdown();
+  }
+
+  void Renderer::shutdown() {
+    FontCache::releaseTextures();
+    PostEffect::releaseScreenBuffers();
+    ProgramCache::release();
+    ShaderCache::release();
+    UniformCache::release();
+    releaseBufferPools();
+    bgfx::shutdown();
+    releaseBufferPoolStaging();
+    initialized_ = false;
+    shut_down_ = true;
   }
 
   void Renderer::resetResolution(int width, int height) {

@@ -204,13 +204,13 @@ namespace visage {
   template<const char* name>
   static void setTileUniform(float value0, float value1 = 0.0f, float value2 = 0.0f, float value3 = 0.0f) {
     float values[4] = { value0, value1, value2, value3 };
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
+    const bgfx::UniformHandle& uniform = UniformCache::uniformHandle(name);
     bgfx::setUniform(uniform, values);
   }
 
   template<const char* name>
   static void setTileTexture(int stage, bgfx::TextureHandle handle) {
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Sampler, 1);
+    const bgfx::UniformHandle& uniform = UniformCache::uniformHandle(name, UniformCache::Sampler);
     bgfx::setTexture(stage, uniform, handle);
   }
 

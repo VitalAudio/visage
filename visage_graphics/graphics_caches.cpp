@@ -71,12 +71,17 @@ namespace visage {
   }
 
   ShaderCache::~ShaderCache() {
+    releaseHandles();
+  }
+
+  void ShaderCache::releaseHandles() {
     for (auto& shader : cache_->cache)
       restoreHandle(shader.second, cache_->originals[shader.first]);
     for (const auto& shader : cache_->originals) {
       if (bgfx::isValid(shader.second))
         bgfx::destroy(shader.second);
     }
+    cache_ = std::make_unique<ShaderCacheMap>();
   }
 
   bgfx::ShaderHandle& ShaderCache::handle(const EmbeddedFile& file) const {
@@ -139,6 +144,10 @@ namespace visage {
   }
 
   ProgramCache::~ProgramCache() {
+    releaseHandles();
+  }
+
+  void ProgramCache::releaseHandles() {
     for (auto& programs : cache_->cache) {
       for (auto& program : programs.second) {
         const bgfx::ProgramHandle& original = cache_->originals[programs.first][program.first];
@@ -147,6 +156,7 @@ namespace visage {
           bgfx::destroy(original);
       }
     }
+    cache_ = std::make_unique<ProgramCacheMap>();
   }
 
   std::vector<ProgramCache::ShaderPair> ProgramCache::listPrograms() const {
@@ -216,7 +226,7 @@ namespace visage {
   }
 
   struct UniformCacheMap {
-    std::map<std::string, bgfx::UniformHandle> cache;
+    std::map<std::string, bgfx::UniformHandle, std::less<>> cache;
   };
 
   UniformCache::UniformCache() {
@@ -224,15 +234,21 @@ namespace visage {
   }
 
   UniformCache::~UniformCache() {
+    releaseHandles();
+  }
+
+  void UniformCache::releaseHandles() {
     for (const auto& uniform : cache_->cache) {
       if (bgfx::isValid(uniform.second))
         bgfx::destroy(uniform.second);
     }
+    cache_ = std::make_unique<UniformCacheMap>();
   }
 
   bgfx::UniformHandle& UniformCache::handle(const char* name, Type type, int size) const {
-    if (cache_->cache.count(name))
-      return cache_->cache[name];
+    auto existing = cache_->cache.find(name);
+    if (existing != cache_->cache.end())
+      return existing->second;
 
     bgfx::UniformType::Enum bgfx_type = bgfx::UniformType::Vec4;
     switch (type) {
