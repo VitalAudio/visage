@@ -37,16 +37,11 @@
 #include <shlobj.h>
 #include <windows.h>
 
-// These tests play the system's side of a drag by swapping entries in the test executable's
-// import address table: DoDragDrop to see what visage offers a drop target, GlobalAlloc and
-// GlobalLock to watch or fail its allocations, and RegisterDragDrop to reach the drop target
-// visage registers for its window.
-
 using namespace visage;
 
 namespace {
-  // Swaps an entry in this executable's import address table while it's alive. visage is linked
-  // statically into the test executable, so its Win32 calls go through these entries.
+  // Patches this executable's import address table. visage is linked in statically, so its Win32
+  // calls go through it.
   class ScopedImportHook {
   public:
     ScopedImportHook(const char* dll_name, const char* function_name, void* replacement) {
@@ -138,7 +133,6 @@ namespace {
     void cleanupDragDropSource() override { }
   };
 
-  // Starts a drag of `path` on mouse down.
   class DragSourceHandler : public NullEventHandler {
   public:
     bool isDragDropSource() override { return true; }
@@ -153,7 +147,6 @@ namespace {
     int cleanups = 0;
   };
 
-  // Records the files dragged over and dropped on the window.
   class FileDropHandler : public NullEventHandler {
   public:
     bool handleFileDrag(int, int, const std::vector<std::string>& files) override {
@@ -173,7 +166,6 @@ namespace {
   std::function<void(IDataObject*)>* drag_inspector = nullptr;
   int drags_started = 0;
 
-  // Stands in for DoDragDrop: shows the data object to drag_inspector and cancels the drag.
   HRESULT WINAPI inspectingDoDragDrop(IDataObject* data_object, IDropSource*, DWORD,
                                       DWORD* effect) {
     drags_started++;
@@ -184,9 +176,6 @@ namespace {
     return DRAGDROP_S_CANCEL;
   }
 
-  // Presses the left mouse button in a visage window whose event handler starts a file drag, with
-  // DoDragDrop replaced so the drag ends at once. `inspect` gets the IDataObject visage built, as a
-  // drop target would. Returns whether exactly one drag started and was cleaned up.
   bool dragFileOutOfWindow(const std::string& path, std::function<void(IDataObject*)> inspect) {
     DragSourceHandler handler;
     handler.path = path;
@@ -235,7 +224,6 @@ namespace {
   GlobalAlloc_t real_global_alloc = nullptr;
   GlobalLock_t real_global_lock = nullptr;
 
-  // Records the moveable blocks allocated on recording_thread.
   DWORD recording_thread = 0;
   std::vector<HGLOBAL> moveable_allocations;
 
@@ -246,7 +234,6 @@ namespace {
     return result;
   }
 
-  // Fixed allocations and locks fail while these are set.
   bool fail_fixed_allocations = false;
   bool fail_locks = false;
   int failed_allocations = 0;
@@ -270,8 +257,6 @@ namespace {
     return real_global_lock(global);
   }
 
-  // What a drag source in another program, like Explorer, hands a drop target: a CF_HDROP in an
-  // HGLOBAL, with wide paths.
   class FileListDataObject : public IDataObject {
   public:
     explicit FileListDataObject(std::vector<std::wstring> paths) : paths_(std::move(paths)) { }
@@ -389,14 +374,12 @@ TEST_CASE("Win32 dragging a file out of a window frees the HDROP it built", "[in
     });
     recording_thread = 0;
 
-    // The data object is gone now. The HDROP it allocated in createHDrop should be too.
     REQUIRE(moveable_allocations.size() == 1);
     HGLOBAL drop = moveable_allocations.front();
     bool freed = GlobalFlags(drop) == GMEM_INVALID_HANDLE;
     if (!freed)
       GlobalFree(drop);
 
-    // A drop target's copy belongs to the target and outlives the data object.
     REQUIRE(dragged);
     REQUIRE(get_result == S_OK);
     REQUIRE(receiver_copy.tymed == TYMED_HGLOBAL);
@@ -404,7 +387,6 @@ TEST_CASE("Win32 dragging a file out of a window frees the HDROP it built", "[in
     REQUIRE(hdropPaths(receiver_copy.hGlobal) == expected);
     ReleaseStgMedium(&receiver_copy);
 
-    // Otherwise every drag leaks a global block.
     REQUIRE(freed);
   }
 }
@@ -463,7 +445,6 @@ TEST_CASE("Win32 drag data accepts requests that combine HGLOBAL with other stor
   REQUIRE(stream_query == DV_E_FORMATETC);
   REQUIRE(stream_result == DV_E_FORMATETC);
 
-  // GetData has to hand over what QueryGetData says it can.
   REQUIRE(combined_query == S_OK);
   REQUIRE(combined_result == S_OK);
   REQUIRE(combined_tymed == TYMED_HGLOBAL);
@@ -514,8 +495,6 @@ TEST_CASE("Win32 drag data reports E_OUTOFMEMORY when it can't copy the file lis
   REQUIRE(dragged);
   REQUIRE(failed_allocations == 1);
   REQUIRE(failed_locks == 1);
-  // Not S_OK with a null hGlobal when the copy can't be allocated, or S_OK with an uninitialized
-  // copy when the source can't be locked.
   CHECK(alloc_result == E_OUTOFMEMORY);
   CHECK(alloc_tymed == TYMED_NULL);
   CHECK(alloc_global == nullptr);
@@ -551,13 +530,11 @@ TEST_CASE("Win32 drag data format enumerators answer QueryInterface for IEnumFOR
     if (as_enumerator)
       static_cast<IUnknown*>(as_enumerator)->Release();
 
-    // The enumerator isn't a data object, so it must not hand itself back as one.
     void* as_data_object = nullptr;
     data_object_query = enumerator->QueryInterface(IID_IDataObject, &as_data_object);
     if (as_data_object)
       static_cast<IUnknown*>(as_data_object)->Release();
 
-    // What COM does to hand the enumerator to a drop target in another process.
     IStream* stream = nullptr;
     if (SUCCEEDED(CreateStreamOnHGlobal(nullptr, TRUE, &stream))) {
       marshal_result = CoMarshalInterface(stream, IID_IEnumFORMATETC, enumerator, MSHCTX_LOCAL,
@@ -637,7 +614,6 @@ TEST_CASE("Win32 file drops deliver paths longer than MAX_PATH intact", "[integr
   REQUIRE(handler.dropped.size() == 3);
   REQUIRE(handler.dropped[0] == utf8(short_path));
   REQUIRE(handler.dropped[2] == utf8(unicode_path));
-  // A MAX_PATH buffer would cut this one off at MAX_PATH - 1 characters.
   REQUIRE(handler.dropped[1].size() == utf8(long_path).size());
   REQUIRE(handler.dropped[1] == utf8(long_path));
   REQUIRE(handler.dragged == handler.dropped);
