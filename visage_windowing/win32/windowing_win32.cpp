@@ -121,8 +121,14 @@ namespace visage {
     return String::convertToUtf8(result);
   }
 
+  static HWND clipboardOwner() {
+    thread_local HWND owner = CreateWindowExW(0, L"STATIC", L"", 0, 0, 0, 0, 0, HWND_MESSAGE,
+                                              nullptr, nullptr, nullptr);
+    return owner;
+  }
+
   void setClipboardText(const std::string& text) {
-    if (!OpenClipboard(nullptr))
+    if (!OpenClipboard(clipboardOwner()))
       return;
 
     std::wstring w_text = String::convertToWide(text);
@@ -135,12 +141,17 @@ namespace visage {
     }
 
     void* destination = GlobalLock(h_data);
-    if (destination != nullptr) {
-      memcpy(destination, w_text.c_str(), size);
-      GlobalUnlock(h_data);
+    if (destination == nullptr) {
+      GlobalFree(h_data);
+      CloseClipboard();
+      return;
     }
 
-    SetClipboardData(CF_UNICODETEXT, h_data);
+    memcpy(destination, w_text.c_str(), size);
+    GlobalUnlock(h_data);
+
+    if (SetClipboardData(CF_UNICODETEXT, h_data) == nullptr)
+      GlobalFree(h_data);
     CloseClipboard();
   }
 
