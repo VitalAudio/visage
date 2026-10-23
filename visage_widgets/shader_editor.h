@@ -24,6 +24,7 @@
 #include "text_editor.h"
 #include "visage_graphics/graphics_caches.h"
 #include "visage_ui/frame.h"
+#include "visage_utils/file_system.h"
 #include "visage_utils/thread_utils.h"
 
 #include <mutex>
@@ -147,7 +148,7 @@ namespace visage {
     std::atomic<bool> new_code_ = false;
     std::mutex worker_mutex_;
     bool worker_running_ = false;
-    std::string compiler_path_;
+    File compiler_path_;
     std::mutex code_mutex_;
     std::string shader_name_;
     std::function<void(std::string)> callback_ = nullptr;

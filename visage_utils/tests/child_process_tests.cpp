@@ -32,17 +32,22 @@
 #include <fstream>
 #include <thread>
 
-#if !VISAGE_WINDOWS
+#if VISAGE_WINDOWS
+#include <process.h>
+#else
 #include <unistd.h>
 #endif
 
 using namespace visage;
 
-#if !VISAGE_WINDOWS
 static std::filesystem::path uniqueTempPath(const std::string& name) {
-  return std::filesystem::temp_directory_path() / (std::to_string(getpid()) + "_" + name);
-}
+#if VISAGE_WINDOWS
+  int pid = _getpid();
+#else
+  int pid = getpid();
 #endif
+  return std::filesystem::temp_directory_path() / (std::to_string(pid) + "_" + name);
+}
 
 TEST_CASE("Child process doesn't exist", "[utils]") {
   std::string command = "asdfjkasdfjkabjbizkejzvbieizieizeiezize";
@@ -228,6 +233,45 @@ TEST_CASE("Child process inherits the environment", "[utils]") {
 
   REQUIRE(result);
   REQUIRE(String(output).trim().toUtf8() == "inherited");
+}
+#else
+TEST_CASE("Child process command path containing spaces", "[utils]") {
+  std::filesystem::path directory = uniqueTempPath("visage_child_process");
+  std::filesystem::path command = directory / "decoy dir" / "cmd.exe";
+  std::filesystem::create_directories(command.parent_path());
+
+  const char* com_spec = std::getenv("ComSpec");
+  const char* system_root = std::getenv("SystemRoot");
+  REQUIRE(com_spec);
+  REQUIRE(system_root);
+  auto overwrite = std::filesystem::copy_options::overwrite_existing;
+  std::filesystem::copy_file(com_spec, command, overwrite);
+  std::filesystem::copy_file(std::filesystem::path(system_root) / "System32" / "hostname.exe",
+                             directory / "decoy.exe", overwrite);
+
+  std::string output;
+  bool result = spawnChildProcess(String::convertToUtf8(command.wstring()), "/C echo found", output, 10000);
+  std::filesystem::remove_all(directory);
+
+  REQUIRE(result);
+  REQUIRE(String(output).trim().toUtf8() == "found");
+}
+
+TEST_CASE("Child process command path outside the ANSI code page", "[utils]") {
+  std::filesystem::path directory = uniqueTempPath("visage_child_process_unicode");
+  std::filesystem::path command = directory / std::filesystem::u8path("\xe6\x96\x87\xe4\xbb\xb6") / "cmd.exe";
+  std::filesystem::create_directories(command.parent_path());
+
+  const char* com_spec = std::getenv("ComSpec");
+  REQUIRE(com_spec);
+  std::filesystem::copy_file(com_spec, command, std::filesystem::copy_options::overwrite_existing);
+
+  std::string output;
+  bool result = spawnChildProcess(String::convertToUtf8(command.wstring()), "/C echo found", output, 10000);
+  std::filesystem::remove_all(directory);
+
+  REQUIRE(result);
+  REQUIRE(String(output).trim().toUtf8() == "found");
 }
 #endif
 
