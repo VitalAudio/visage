@@ -49,7 +49,6 @@ namespace visage {
 
   class WindowWin32 : public Window {
   public:
-    static constexpr int kTimerId = 1;
     static HCURSOR cursor_;
 
     static void setCursor(HCURSOR cursor);
