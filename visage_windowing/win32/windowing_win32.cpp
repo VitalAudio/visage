@@ -1264,12 +1264,19 @@ namespace visage {
         return 0;
       }
 
-      HMODULE user32 = LoadLibraryA("user32.dll");
-      auto dpiForWindow = procedure<GetDpiForWindow_t>(user32, "GetDpiForWindow");
-      auto dpi = dpiForWindow(hwnd);
-      auto systemMetrics = procedure<GetSystemMetricsForDpi_t>(user32, "GetSystemMetricsForDpi");
-      params->rgrc[0].top -= systemMetrics(SM_CYCAPTION, dpi) + systemMetrics(SM_CYSIZEFRAME, dpi) +
-                             systemMetrics(SM_CXPADDEDBORDER, dpi);
+      static HMODULE user32 = LoadLibraryA("user32.dll");
+      static auto dpiForWindow = procedure<GetDpiForWindow_t>(user32, "GetDpiForWindow");
+      static auto systemMetrics = procedure<GetSystemMetricsForDpi_t>(user32,
+                                                                      "GetSystemMetricsForDpi");
+      if (dpiForWindow && systemMetrics) {
+        auto dpi = dpiForWindow(hwnd);
+        params->rgrc[0].top -= systemMetrics(SM_CYCAPTION, dpi) + systemMetrics(SM_CYSIZEFRAME, dpi) +
+                               systemMetrics(SM_CXPADDEDBORDER, dpi);
+      }
+      else {
+        params->rgrc[0].top -= GetSystemMetrics(SM_CYCAPTION) + GetSystemMetrics(SM_CYSIZEFRAME) +
+                               GetSystemMetrics(SM_CXPADDEDBORDER);
+      }
     }
     if (msg == WM_NCHITTEST && window->decoration() == Window::Decoration::Client) {
       LRESULT result = DefWindowProc(hwnd, msg, w_param, l_param);
