@@ -66,9 +66,11 @@ namespace visage {
                         nullptr, nullptr, &si, &pi)) {
       DWORD error_code = GetLastError();
       char message_buffer[256];
-      FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, error_code,
-                     0, message_buffer, sizeof(message_buffer), NULL);
-      output = message_buffer;
+      if (FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL,
+                         error_code, 0, message_buffer, sizeof(message_buffer), NULL))
+        output = message_buffer;
+      else
+        output = "Error creating process: " + std::to_string(error_code);
 
       CloseHandle(std_out_read);
       CloseHandle(std_out_write);
@@ -89,11 +91,10 @@ namespace visage {
 
       if (PeekNamedPipe(std_out_read, nullptr, 0, nullptr, &bytes_available, nullptr) &&
           bytes_available > 0) {
-        DWORD bytes_to_read = std::min<DWORD>(bytes_available, sizeof(buffer) - 1);
+        DWORD bytes_to_read = std::min<DWORD>(bytes_available, sizeof(buffer));
         if (ReadFile(std_out_read, buffer, bytes_to_read, &bytes_read, nullptr) && bytes_read > 0) {
           bytes_read = std::min<DWORD>(bytes_read, kMaxOutputSize - total_output_size);
-          buffer[bytes_read] = '\0';
-          stream << buffer;
+          stream.write(buffer, bytes_read);
           total_output_size += bytes_read;
           return true;
         }
@@ -107,7 +108,9 @@ namespace visage {
     while (wait_result == WAIT_TIMEOUT) {
       wait_result = WaitForSingleObject(pi.hProcess, 0);
 
-      if (read_available_output() && total_output_size >= kMaxOutputSize)
+      while (read_available_output())
+        ;
+      if (total_output_size >= kMaxOutputSize)
         break;
 
       if (GetTickCount64() - start_time >= (DWORD)timeout_ms) {
