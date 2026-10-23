@@ -27,6 +27,7 @@
 #include "visage_graphics/graphics_utils.h"
 #include "visage_utils/child_process.h"
 #include "visage_utils/file_system.h"
+#include "visage_utils/string_utils.h"
 
 namespace visage {
   static std::string shaderExecutable() {
@@ -34,6 +35,14 @@ namespace visage {
     return "shaderc.exe";
 #else
     return "shaderc";
+#endif
+  }
+
+  static std::string utf8Path(const File& file) {
+#if VISAGE_WINDOWS
+    return String::convertToUtf8(file.wstring());
+#else
+    return file.string();
 #endif
   }
 
@@ -53,7 +62,7 @@ namespace visage {
       for (int i = 0; i < kMaxParentDirectories && !path.empty() && std::filesystem::exists(path); ++i) {
         std::filesystem::path compiler_path = path / executable;
         if (std::filesystem::exists(compiler_path)) {
-          compiler_path_ = compiler_path.string();
+          compiler_path_ = compiler_path;
           return;
         }
         path = path.parent_path();
@@ -209,7 +218,7 @@ namespace visage {
     std::string profile = profileArgument(Backend::Glsl, shader_type);
 #endif
 
-    if (!std::filesystem::exists(File(compiler_path_))) {
+    if (!std::filesystem::exists(compiler_path_)) {
       runOnEventThread([callback] { callback("Shader compiler not found"); });
       return false;
     }
@@ -217,12 +226,12 @@ namespace visage {
     File temporary_shader = compile_path / shader_name;
     replaceFileWithText(temporary_shader, code);
 
-    std::string arguments = "-f \"" + temporary_shader.string() + "\" -i \"" +
-                            include_path.string() + "\" -o \"" + output_file.string() +
+    std::string arguments = "-f \"" + utf8Path(temporary_shader) + "\" -i \"" +
+                            utf8Path(include_path) + "\" -o \"" + utf8Path(output_file) +
                             "\" --type " + type + " --platform " + platform + " -p " + profile;
 
     std::string output;
-    if (!spawnChildProcess(compiler_path_, arguments, output)) {
+    if (!spawnChildProcess(utf8Path(compiler_path_), arguments, output)) {
       if (output.empty())
         output = "Failed to compile shader";
       runOnEventThread([callback, output]() { callback(output); });

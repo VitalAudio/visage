@@ -20,6 +20,7 @@
  */
 
 #include "child_process.h"
+#include "string_utils.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX 1
@@ -30,7 +31,7 @@
 namespace visage {
   bool spawnChildProcess(const std::string& command, const std::string& arguments,
                          std::string& output, int timeout_ms) {
-    STARTUPINFO si;
+    STARTUPINFOW si;
     PROCESS_INFORMATION pi;
 
     SECURITY_ATTRIBUTES sa;
@@ -58,11 +59,11 @@ namespace visage {
     si.dwFlags |= STARTF_USESTDHANDLES;
     ZeroMemory(&pi, sizeof(pi));
 
-    std::string full_command = command + " " + arguments;
-    std::vector<char> command_buffer(full_command.begin(), full_command.end());
-    command_buffer.push_back('\0');
-    if (!CreateProcess(nullptr, command_buffer.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW,
-                       nullptr, nullptr, &si, &pi)) {
+    std::wstring full_command = String::convertToWide("\"" + command + "\" " + arguments);
+    std::vector<wchar_t> command_buffer(full_command.begin(), full_command.end());
+    command_buffer.push_back(L'\0');
+    if (!CreateProcessW(nullptr, command_buffer.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW,
+                        nullptr, nullptr, &si, &pi)) {
       DWORD error_code = GetLastError();
       char message_buffer[256];
       FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, error_code,
