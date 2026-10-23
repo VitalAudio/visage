@@ -26,6 +26,7 @@
 #include "layer.h"
 #include "path.h"
 #include "region.h"
+#include "renderer.h"
 #include "screenshot.h"
 #include "shape_batcher.h"
 #include "svg.h"
@@ -81,6 +82,7 @@ namespace visage {
     void changePackedLayer(Region* region, int from, int to);
 
     void pairToWindow(void* window_handle, int width, int height) {
+      Renderer::instance().checkInitialization();
       VISAGE_ASSERT(swapChainSupported());
       composite_layer_.pairToWindow(window_handle, width, height);
       setDimensions(width, height);
@@ -807,6 +809,7 @@ namespace visage {
                               data, dataAtlas()));
     }
 
+    Renderer::Reference renderer_reference_;
     Palette* palette_ = nullptr;
     float dpi_scale_ = 1.0f;
     double render_time_ = 0.0;

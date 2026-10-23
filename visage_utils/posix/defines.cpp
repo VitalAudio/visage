@@ -23,6 +23,7 @@
 
 #include "string_utils.h"
 
+#include <dlfcn.h>
 #include <iostream>
 
 namespace visage {
@@ -53,5 +54,14 @@ namespace visage {
 
   void forceCrash() {
     __builtin_trap();
+  }
+
+  bool hasStaticStorage(const void* address) {
+#if VISAGE_EMSCRIPTEN
+    return false;
+#else
+    Dl_info info;
+    return dladdr(address, &info) != 0;
+#endif
   }
 }

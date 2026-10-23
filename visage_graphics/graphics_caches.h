@@ -53,9 +53,13 @@ namespace visage {
       return instance()->shaderData(name);
     }
 
+    static void release() { instance()->releaseHandles(); }
+
   private:
     ShaderCache();
     ~ShaderCache();
+
+    void releaseHandles();
 
     bgfx::ShaderHandle& handle(const EmbeddedFile& file) const;
     bgfx::ShaderHandle& handle(const char* data) const;
@@ -98,10 +102,13 @@ namespace visage {
     }
 
     static std::vector<ShaderPair> programList() { return instance()->listPrograms(); }
+    static void release() { instance()->releaseHandles(); }
 
   private:
     ProgramCache();
     ~ProgramCache();
+
+    void releaseHandles();
 
     std::vector<ShaderPair> listPrograms() const;
 
@@ -130,9 +137,13 @@ namespace visage {
       return instance()->handle(name, type);
     }
 
+    static void release() { instance()->releaseHandles(); }
+
   private:
     UniformCache();
     ~UniformCache();
+
+    void releaseHandles();
 
     bgfx::UniformHandle& handle(const char* name, Type type, int size = 1) const;
 

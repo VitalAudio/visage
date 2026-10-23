@@ -84,6 +84,7 @@ TEST_CASE("Image atlas ignores leftover GPU memory", "[graphics]") {
   std::vector<unsigned char> red = solidTga(63, 63, 0xffff0000);
   std::vector<unsigned char> blue = solidTga(10, 10, 0xff0000ff);
   std::vector<unsigned char> green = solidTga(30, 30, 0xff00ff00);
+  Canvas canvas;
   {
     Canvas previous;
     previous.setWindowless(128, 128);
@@ -93,7 +94,6 @@ TEST_CASE("Image atlas ignores leftover GPU memory", "[graphics]") {
     previous.takeScreenshot();
   }
 
-  Canvas canvas;
   canvas.setWindowless(128, 128);
   canvas.setColor(0xff000000);
   canvas.fill(0, 0, canvas.width(), canvas.height());

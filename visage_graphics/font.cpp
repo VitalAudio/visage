@@ -141,11 +141,15 @@ namespace visage {
       type_face_ = nullptr;
     }
 
-    void resize() {
+    void releaseTexture() {
       if (bgfx::isValid(texture_handle_)) {
         bgfx::destroy(texture_handle_);
         texture_handle_ = BGFX_INVALID_HANDLE;
       }
+    }
+
+    void resize() {
+      releaseTexture();
 
       atlas_map_.pack();
       for (auto& glyph : packed_glyphs_) {
@@ -591,6 +595,11 @@ namespace visage {
     int count = ref_count_[packed_font];
     has_stale_fonts_ = has_stale_fonts_ || count == 0;
     VISAGE_ASSERT(ref_count_[packed_font] >= 0);
+  }
+
+  void FontCache::releaseTextures() {
+    for (auto& packed_font : instance()->cache_)
+      packed_font.second->releaseTexture();
   }
 
   void FontCache::removeStaleFonts() {
