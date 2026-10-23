@@ -1058,6 +1058,10 @@ namespace visage {
       bool is_repeat = (l_param & (1LL << 30LL)) != 0;
       if (!handleKeyDown(key_code, keyboardModifiers(), is_repeat))
         postMessageToParent(hwnd, msg, w_param, l_param);
+      else if (msg == WM_SYSKEYDOWN) {
+        MSG peek {};
+        PeekMessage(&peek, hwnd, WM_SYSCHAR, WM_SYSCHAR, PM_REMOVE);
+      }
       return 0;
     }
     case WM_SYSKEYUP:
@@ -1067,7 +1071,11 @@ namespace visage {
         postMessageToParent(hwnd, msg, w_param, l_param);
       return 0;
     }
-    case WM_SYSCHAR: return 0;
+    case WM_SYSCHAR: {
+      if (GetParent(hwnd) == nullptr)
+        return DefWindowProc(hwnd, msg, w_param, l_param);
+      return 0;
+    }
     case WM_CHAR: {
       handleCharacterEntry(static_cast<wchar_t>(w_param));
       SetCaretPos(-500, 200);
