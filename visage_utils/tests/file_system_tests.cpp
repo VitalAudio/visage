@@ -159,6 +159,23 @@ TEST_CASE("File name utilities", "[utils]") {
   File multiple_dots = "/path/to/file.backup.txt";
   REQUIRE(fileName(multiple_dots) == "file.backup.txt");
   REQUIRE(fileStem(multiple_dots) == "file.backup");
+
+  File unicode = std::filesystem::u8path("/path/to/ni\xc3\xb1o \xe6\x96\x87.txt");
+  REQUIRE(fileName(unicode) == "ni\xc3\xb1o \xe6\x96\x87.txt");
+  REQUIRE(fileStem(unicode) == "ni\xc3\xb1o \xe6\x96\x87");
+}
+
+TEST_CASE("File search matches names with non-ASCII characters", "[utils]") {
+  File directory = createTemporaryFile("search");
+  std::filesystem::create_directories(directory);
+  File file = directory / std::filesystem::u8path("\xe6\x96\x87\xe4\xbb\xb6.txt");
+  REQUIRE(replaceFileWithText(file, "contents"));
+
+  std::vector<File> matches = searchForFiles(directory, "\xe6\x96\x87");
+  std::filesystem::remove_all(directory);
+
+  REQUIRE(matches.size() == 1);
+  REQUIRE(fileName(matches[0]) == "\xe6\x96\x87\xe4\xbb\xb6.txt");
 }
 
 TEST_CASE("Host executable path", "[utils]") {
