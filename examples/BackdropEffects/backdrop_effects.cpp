@@ -418,6 +418,7 @@ private:
     layers_.push_back(std::move(entry));
     keepHudOnTop();
     select(layers_.size() - 1);
+    layers_.back().frame->requestKeyboardFocus();
   }
 
   void sendToBack(int index) {
@@ -432,6 +433,7 @@ private:
     layers_.insert(layers_.begin(), std::move(entry));
     keepHudOnTop();
     select(0);
+    layers_.front().frame->requestKeyboardFocus();
   }
 
   void removeSelected() {
