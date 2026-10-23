@@ -857,7 +857,22 @@ namespace visage {
     if (scan_code >= kCodeTableSize)
       return KeyCode::Unknown;
 
-    if (GetKeyState(VK_NUMLOCK) & 0x01) {
+    bool extended = l_param & (1 << 24);
+    if (extended) {
+      switch (scan_code) {
+      case 0x1C: return KeyCode::KPEnter;
+      case 0x1D: return KeyCode::RCtrl;
+      case 0x35: return KeyCode::KPDivide;
+      case 0x38: return KeyCode::RAlt;
+      case 0x46: return KeyCode::Pause;
+      default: break;
+      }
+    }
+    else if (scan_code == 0x37)
+      return KeyCode::KPMultiply;
+    else if (scan_code == 0x45)
+      return KeyCode::Pause;
+    else if (GetKeyState(VK_NUMLOCK) & 0x01) {
       switch (scan_code) {
       case 0x47: return KeyCode::KP7;
       case 0x48: return KeyCode::KP8;
