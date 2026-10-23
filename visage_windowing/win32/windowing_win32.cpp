@@ -38,6 +38,7 @@
 #include "visage_utils/thread_utils.h"
 
 #include <algorithm>
+#include <CommCtrl.h>
 #include <dxgi1_4.h>
 #include <map>
 #include <ShlObj.h>
@@ -66,15 +67,9 @@ namespace visage {
       return instance;
     }
 
-    void addWindow(WindowWin32* window) {
-      native_window_lookup_[window->nativeHandle()] = window;
-      if (window->parentHandle())
-        parent_window_lookup_[window->parentHandle()] = window;
-    }
+    void addWindow(WindowWin32* window) { native_window_lookup_[window->nativeHandle()] = window; }
 
     void removeWindow(WindowWin32* window) {
-      if (parent_window_lookup_.count(window->parentHandle()))
-        parent_window_lookup_.erase(window->parentHandle());
       if (native_window_lookup_.count(window->nativeHandle()))
         native_window_lookup_.erase(window->nativeHandle());
     }
@@ -92,19 +87,6 @@ namespace visage {
       return it != native_window_lookup_.end() ? it->second : nullptr;
     }
 
-    WindowWin32* findByNativeParentHandle(HWND hwnd) {
-      auto it = parent_window_lookup_.find(hwnd);
-      return it != parent_window_lookup_.end() ? it->second : nullptr;
-    }
-
-    WindowWin32* findWindow(HWND hwnd) {
-      WindowWin32* window = findByNativeHandle(hwnd);
-      if (window)
-        return window;
-
-      return findByNativeParentHandle(hwnd);
-    }
-
     void closeAll() {
       auto windows = native_window_lookup_;
       for (auto& window : windows)
@@ -115,7 +97,6 @@ namespace visage {
     NativeWindowLookup() = default;
     ~NativeWindowLookup() = default;
 
-    std::map<void*, WindowWin32*> parent_window_lookup_;
     std::map<void*, WindowWin32*> native_window_lookup_;
   };
 
@@ -1241,11 +1222,9 @@ namespace visage {
     return DefWindowProc(hwnd, msg, w_param, l_param);
   }
 
-  static LRESULT WINAPI pluginParentWindowProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
-    WindowWin32* child_window = NativeWindowLookup::instance().findWindow(hwnd);
-    if (child_window == nullptr)
-      return 0;
-
+  static LRESULT CALLBACK pluginParentWindowProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param,
+                                                 UINT_PTR subclass_id, DWORD_PTR ref_data) {
+    WindowWin32* child_window = reinterpret_cast<WindowWin32*>(ref_data);
     if (msg == WM_SIZING) {
       child_window->handleResizing(hwnd, l_param, w_param);
       return TRUE;
@@ -1254,7 +1233,11 @@ namespace visage {
       child_window->handleDpiChange(hwnd, l_param, w_param);
       return 0;
     }
-    return CallWindowProc(child_window->parentWindowProc(), hwnd, msg, w_param, l_param);
+    if (msg == WM_NCDESTROY) {
+      RemoveWindowSubclass(hwnd, pluginParentWindowProc, subclass_id);
+      child_window->clearParentHandle();
+    }
+    return DefSubclassProc(hwnd, msg, w_param, l_param);
   }
 
   static LRESULT WINAPI standaloneWindowProcedure(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
@@ -1513,9 +1496,10 @@ namespace visage {
 
     SetWindowLongPtr(window_handle_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
-    auto parent_proc = SetWindowLongPtr(parent_handle_, GWLP_WNDPROC,
-                                        reinterpret_cast<LONG_PTR>(pluginParentWindowProc));
-    parent_window_proc_ = reinterpret_cast<WNDPROC>(parent_proc);
+    if (!SetWindowSubclass(parent_handle_, pluginParentWindowProc, reinterpret_cast<UINT_PTR>(this),
+                           reinterpret_cast<DWORD_PTR>(this))) {
+      VISAGE_LOG("Error subclassing plugin parent window");
+    }
 
     event_hooks_ = std::make_unique<EventHooks>();
     finishWindowSetup();
@@ -1538,7 +1522,7 @@ namespace visage {
     }
 
     if (parent_handle_)
-      SetWindowLongPtr(parent_handle_, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(parent_window_proc_));
+      RemoveWindowSubclass(parent_handle_, pluginParentWindowProc, reinterpret_cast<UINT_PTR>(this));
 
     NativeWindowLookup::instance().removeWindow(this);
     KillTimer(window_handle_, kTimerId);
