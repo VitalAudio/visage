@@ -512,7 +512,10 @@ namespace visage {
 
     explicit DragDropSourceObject(const File& file) : drop_(createHDrop(file)) { }
 
-    virtual ~DragDropSourceObject() = default;
+    virtual ~DragDropSourceObject() {
+      if (drop_)
+        GlobalFree(drop_);
+    }
 
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv_object) override {
       if (riid == IID_IUnknown || riid == IID_IDataObject) {
