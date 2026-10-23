@@ -1067,7 +1067,7 @@ namespace visage {
     case WM_NCMOUSEMOVE: {
       POINT position = { GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param) };
       ScreenToClient(window_handle_, &position);
-      handleMouseMove(position.x, position.y, mouseButtonState(w_param), keyboardModifiers());
+      handleMouseMove(position.x, position.y, mouseButtonState(), keyboardModifiers());
       break;
     }
     case WM_MOUSEMOVE: {
