@@ -23,6 +23,7 @@
 #include "embedded/example_shaders.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <memory>
@@ -130,7 +131,10 @@ public:
 
   int effect() const { return effect_; }
   const EffectSpec& spec() const { return effectSpecs()[effect_]; }
-  float amount() const { return amounts_[effect_]; }
+  float amount() const {
+    const EffectSpec& s = spec();
+    return s.step > 1.0f ? amounts_[effect_] : std::round(amounts_[effect_]);
+  }
 
   void setEffect(int effect) {
     int count = effectSpecs().size();
@@ -138,15 +142,15 @@ public:
     apply();
   }
 
-  void adjustAmount(int direction) {
+  void adjustAmount(float steps) {
     const EffectSpec& s = spec();
     if (s.parameter == nullptr)
       return;
     float& value = amounts_[effect_];
     if (s.step > 1.0f)
-      value *= direction > 0 ? s.step : 1.0f / s.step;
+      value *= std::pow(s.step, steps);
     else
-      value += direction * s.step;
+      value += steps * s.step;
     value = std::clamp(value, s.min, s.max);
     apply();
   }
@@ -252,7 +256,15 @@ public:
     float delta = e.precise_wheel_delta_y != 0.0f ? e.precise_wheel_delta_y : e.wheel_delta_y;
     if (delta == 0.0f)
       return false;
-    adjustAmount(delta > 0.0f ? 1 : -1);
+
+    auto now = std::chrono::steady_clock::now();
+    bool new_scroll = now - last_wheel_time_ > kWheelGestureGap;
+    last_wheel_time_ = now;
+
+    float steps = delta;
+    if (new_scroll && std::abs(delta) < kMinWheelSteps)
+      steps = delta > 0.0f ? kMinWheelSteps : -kMinWheelSteps;
+    adjustAmount(steps);
     if (on_change_)
       on_change_();
     return true;
@@ -263,6 +275,8 @@ public:
 
 private:
   using Point = visage::Point;
+  static constexpr std::chrono::milliseconds kWheelGestureGap { 200 };
+  static constexpr float kMinWheelSteps = 0.25f;
 
   float cornerRadius() const {
     float min = std::min(width(), height());
@@ -275,7 +289,7 @@ private:
 
   void apply() {
     visage::PostEffect* effect = effects_[effect_].get();
-    float value = amounts_[effect_];
+    float value = amount();
     const EffectSpec& s = spec();
     if (s.kind == Kind::Blur)
       static_cast<visage::BlurPostEffect*>(effect)->setBlurRadius(value);
@@ -295,6 +309,7 @@ private:
   bool resizing_ = false;
   Point drag_start_;
   visage::Bounds start_bounds_;
+  std::chrono::steady_clock::time_point last_wheel_time_;
   std::function<void(GlassLayer*)> on_select_;
   std::function<void()> on_change_;
 };
