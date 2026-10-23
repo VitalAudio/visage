@@ -82,6 +82,9 @@ namespace visage {
       if (window_)
         window_->setMouseRelativeMode(relative);
     };
+    event_handler_.take_mouse_drag = [this](Frame* frame) {
+      return window_event_handler_ && window_event_handler_->takeMouseDrag(frame);
+    };
     event_handler_.set_cursor_style = visage::setCursorStyle;
     event_handler_.set_cursor_visible = visage::setCursorVisible;
     event_handler_.read_clipboard_text = visage::readClipboardText;

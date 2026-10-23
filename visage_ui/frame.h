@@ -40,6 +40,7 @@ namespace visage {
     std::function<void(Frame*)> request_keyboard_focus = nullptr;
     std::function<void(Frame*)> remove_from_hierarchy = nullptr;
     std::function<void(bool)> set_mouse_relative_mode = nullptr;
+    std::function<bool(Frame*)> take_mouse_drag = nullptr;
     std::function<void(MouseCursor)> set_cursor_style = nullptr;
     std::function<void(bool)> set_cursor_visible = nullptr;
     std::function<std::string()> read_clipboard_text = nullptr;
@@ -339,6 +340,16 @@ namespace visage {
 
       if (event_handler_ && event_handler_->remove_from_hierarchy)
         event_handler_->remove_from_hierarchy(this);
+    }
+
+    // Takes the rest of the current mouse press from the frame that was pressed: this frame gets the
+    // press's drags and its release, with positions relative to it, wherever they happen. The pressed
+    // frame gets a mouse exit if the mouse was over it, and no release. For a frame opened by a press,
+    // like a popup menu, to follow the drag that opened it. Returns false if no mouse button is down.
+    bool takeMouseDrag() {
+      if (event_handler_ && event_handler_->take_mouse_drag)
+        return event_handler_->take_mouse_drag(this);
+      return false;
     }
 
     void setMouseRelativeMode(bool visible) {

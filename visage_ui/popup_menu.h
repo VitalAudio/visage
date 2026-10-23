@@ -140,6 +140,7 @@ namespace visage {
     void resized() override;
 
     void enableMouseUp(bool enable) { enable_mouse_up_ = enable; }
+    bool mouseUpEnabled() const { return enable_mouse_up_; }
 
     void mouseExit(const MouseEvent& e) override;
     void mouseDown(const MouseEvent& e) override;
@@ -197,6 +198,12 @@ namespace visage {
     }
 
     void exit();
+    // A menu shown by a mouse press takes the rest of that press, so the press can drag onto an option
+    // and release to select it, once the menu has been open for kPauseMs. Releasing without having
+    // dragged onto the menu leaves it open, like a click. Releasing away from it after dragging onto it
+    // closes it once the pause has passed.
+    void mouseDrag(const MouseEvent& e) override;
+    void mouseUp(const MouseEvent& e) override;
     void hierarchyChanged() override;
     void focusChanged(bool is_focused, bool was_clicked) override;
     void visibilityChanged() override { opacity_animation_.target(isVisible(), true); }
@@ -214,6 +221,7 @@ namespace visage {
     PopupMenu menu_;
     Frame* parent_ = nullptr;
     bool done_ = false;
+    bool dragged_onto_menu_ = false;
     Animation<float> opacity_animation_;
     PopupList lists_[kMaxSubMenus];
     int hover_index_ = -1;

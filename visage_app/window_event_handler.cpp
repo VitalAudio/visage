@@ -60,6 +60,25 @@ namespace visage {
       drag_drop_target_frame_ = nullptr;
   }
 
+  bool WindowEventHandler::takeMouseDrag(Frame* frame) {
+    if (mouse_down_frame_ == nullptr || frame == nullptr)
+      return false;
+    if (mouse_down_frame_ == frame)
+      return true;
+
+    Frame* pressed_frame = mouse_down_frame_;
+    mouse_down_frame_ = frame;
+    if (mouse_hovered_frame_ == pressed_frame) {
+      mouse_hovered_frame_ = nullptr;
+      MouseEvent mouse_event;
+      mouse_event.window_position = last_mouse_position_;
+      mouse_event.position = last_mouse_position_ - pressed_frame->positionInWindow();
+      mouse_event.event_frame = pressed_frame;
+      pressed_frame->processMouseExit(mouse_event);
+    }
+    return true;
+  }
+
   void WindowEventHandler::handleFocusLost() {
     if (keyboard_focused_frame_)
       keyboard_focused_frame_->processFocusChanged(false, false);

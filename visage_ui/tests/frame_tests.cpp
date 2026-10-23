@@ -430,6 +430,18 @@ TEST_CASE("Frame event handler integration", "[ui]") {
   MockEventHandler handler;
   frame.setEventHandler(&handler);
 
+  SECTION("Taking the mouse press") {
+    REQUIRE_FALSE(frame.takeMouseDrag());
+
+    Frame* taker = nullptr;
+    handler.take_mouse_drag = [&](Frame* f) {
+      taker = f;
+      return true;
+    };
+    REQUIRE(frame.takeMouseDrag());
+    REQUIRE(taker == &frame);
+  }
+
   SECTION("Redraw requests") {
     frame.setVisible(true);
     frame.setDrawing(true);

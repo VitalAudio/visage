@@ -285,13 +285,37 @@ namespace visage {
     lists_[0].redraw();
     opacity_animation_.target(true, true);
 
-    stopTimer();
-    startTimer(kWaitForSelection);
     for (auto& list : lists_)
       list.enableMouseUp(false);
 
+    // A menu shown by a press takes the rest of it. Releasing it on an option selects only after a pause.
+    stopTimer();
+    startTimer(takeMouseDrag() ? kPauseMs : kWaitForSelection);
+
     requestKeyboardFocus();
     redraw();
+  }
+
+  void PopupMenuFrame::mouseDrag(const MouseEvent& e) {
+    moveHover(e.position - lists_[0].topLeft(), &lists_[0]);
+    dragged_onto_menu_ = dragged_onto_menu_ || hover_list_ != nullptr;
+    for (auto& list : lists_)
+      list.redraw();
+  }
+
+  void PopupMenuFrame::mouseUp(const MouseEvent& e) {
+    bool before_pause = false;
+    for (auto& list : lists_) {
+      if (list.isVisible() && list.bounds().contains(e.position))
+        before_pause = !list.mouseUpEnabled();
+    }
+
+    if (dragged_onto_menu_ && !before_pause)
+      mouseUpOutside(e.position - lists_[0].topLeft(), &lists_[0]);
+
+    dragged_onto_menu_ = false;
+    for (auto& list : lists_)
+      list.enableMouseUp(true);
   }
 
   void PopupMenuFrame::exit() {
