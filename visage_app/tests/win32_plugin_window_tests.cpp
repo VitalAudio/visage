@@ -35,7 +35,6 @@
 using namespace visage;
 
 namespace {
-  // What the host window's own procedure saw.
   struct HostLog {
     int pings = 0;
     int key_downs = 0;
@@ -50,9 +49,6 @@ namespace {
   constexpr UINT kPing = WM_APP + 1;
   constexpr LRESULT kPong = 0x1234;
 
-  // A host's own window procedure. A plugin must leave it installed and reachable, which kPing
-  // checks. It records the key messages a plugin passes up and swallows them, so DefWindowProc
-  // doesn't turn Alt+key into a menu loop.
   LRESULT CALLBACK hostProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
     switch (msg) {
     case kPing: host_log.pings++; return kPong;
@@ -66,8 +62,6 @@ namespace {
     }
   }
 
-  // Behaves like a per-monitor-aware host: it handles its own WM_DPICHANGED by taking the
-  // suggested rectangle, and lays the plugin window out to fill its client area.
   LRESULT CALLBACK perMonitorHostProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
     if (msg == WM_SIZING) {
       host_log.sizing++;
@@ -102,13 +96,9 @@ namespace {
   const HostClass kPerMonitorHost = { L"VisageWin32PluginTestPerMonitorHost", perMonitorHostProc };
   const HostClass kPlainHost = { L"VisageWin32PluginTestPlainHost", DefWindowProcW };
 
-  // A hidden borderless top-level window, standing in for the HWND a host hands to the plugin.
-  // Hidden so nothing paints, in case a broken procedure never validates WM_PAINT. It's created
-  // under `awareness` when that isn't null.
   struct HostWindow {
     HostWindow(const HostClass& host_class, int width, int height,
                DPI_AWARENESS_CONTEXT awareness = nullptr) {
-      // Registering again fails harmlessly once the class exists.
       WNDCLASSEXW window_class = {};
       window_class.cbSize = sizeof(window_class);
       window_class.lpfnWndProc = host_class.proc;
@@ -135,9 +125,8 @@ namespace {
     HWND hwnd = nullptr;
   };
 
-  // Sets this thread's DPI awareness while it's alive. The test executable has no DPI manifest, so
-  // its thread is DPI-unaware, and its own GetWindowRect, GetClientRect and SetWindowPos calls on
-  // visage's per-monitor-aware windows would be virtualized.
+  // The test executable has no DPI manifest, so without this its own window calls are
+  // DPI-virtualized.
   class ScopedDpiAwareness {
   public:
     explicit ScopedDpiAwareness(DPI_AWARENESS_CONTEXT awareness) :
@@ -189,8 +178,6 @@ namespace {
     return window;
   }
 
-  // Sends an unhandled F5 down/up and an unhandled Alt+F down to the plugin window. With no event
-  // handler, visage's window procedure passes each one up with postMessageToParent.
   void sendUnhandledKeys(Window* window) {
     HWND hwnd = static_cast<HWND>(window->nativeHandle());
     LPARAM f5_down = 1 | (MapVirtualKeyW(VK_F5, MAPVK_VK_TO_VSC) << 16);
@@ -201,7 +188,6 @@ namespace {
     SendMessageW(hwnd, WM_SYSKEYDOWN, 'F', alt_f);
   }
 
-  // The system DPI the way visage reads it: GetDpiForSystem from a per-monitor-aware thread.
   UINT systemDpi() {
     ScopedDpiAwareness per_monitor(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     return GetDpiForSystem();
@@ -228,7 +214,6 @@ namespace {
                        << awarenessName(parent) << "), plugin window DPI "
                        << GetDpiForWindow(plugin) << " (" << awarenessName(plugin) << ")");
 
-    // Checked before show(), so before the first WM_SIZE, which would correct the scale anyway.
     CHECK(window->dpiScale() == scale);
     CHECK(window->clientWidth() == std::lround(200 * scale));
     CHECK(window->clientHeight() == std::lround(100 * scale));
@@ -251,8 +236,6 @@ TEST_CASE("Win32 re-showing a plugin window leaves the host window's procedure i
     app.setWindowDimensions(Dimension::nativePixels(200), Dimension::nativePixels(100));
     app.setFixedAspectRatio(true);
 
-    // ApplicationWindow::show(parent) builds the new plugin window (B) before destroying the
-    // old one (A), so two plugin windows subclass the same parent for a moment.
     app.show(Dimension::nativePixels(200), Dimension::nativePixels(100), parent.hwnd);
     REQUIRE(app.window());
     HWND first = static_cast<HWND>(app.window()->nativeHandle());
@@ -263,8 +246,6 @@ TEST_CASE("Win32 re-showing a plugin window leaves the host window's procedure i
     CHECK_FALSE(IsWindow(first));
     pump(30);
 
-    // The live plugin window (B) still gets the parent's WM_SIZING and keeps its 2:1 aspect
-    // ratio.
     RECT sizing = { 0, 0, 300, 100 };
     SendMessageW(parent.hwnd, WM_SIZING, WMSZ_RIGHT, reinterpret_cast<LPARAM>(&sizing));
     CHECK(sizing.right - sizing.left == 300);
@@ -275,7 +256,6 @@ TEST_CASE("Win32 re-showing a plugin window leaves the host window's procedure i
     CHECK(host_log.pings == 1);
   }
 
-  // With the plugin window gone, the host's own procedure is back and reachable.
   CHECK(windowProc(parent.hwnd) == original_proc);
   host_log.pings = 0;
   CHECK(SendMessageW(parent.hwnd, kPing, 0, 0) == kPong);
@@ -316,7 +296,6 @@ TEST_CASE("Win32 plugin windows on one parent can be destroyed in either order",
 }
 
 TEST_CASE("Win32 plugin windows survive the host destroying their parent first", "[integration]") {
-  // A host may destroy its window before it destroys the plugin editor.
   HostWindow parent(kHost, 200, 100);
   REQUIRE(parent.hwnd);
 
@@ -352,7 +331,6 @@ TEST_CASE("Win32 plugin windows pass unhandled keys up to the host", "[integrati
 TEST_CASE("Win32 re-shown plugin windows pass unhandled keys up once", "[integration]") {
   HostWindow host(kHost, 300, 200);
   REQUIRE(host.hwnd);
-  // ApplicationWindow::show(parent) builds the new window before destroying the old one.
   auto first = showPluginWindow(host.hwnd);
   REQUIRE(first);
   auto second = showPluginWindow(host.hwnd);
@@ -379,7 +357,6 @@ TEST_CASE("Win32 hosts still get their own messages after the plugin windows clo
   second.reset();
   pump(50);
 
-  // The host's own posted and sent messages, with no plugin window left.
   PostMessageW(host.hwnd, WM_KEYDOWN, VK_F5, 1);
   pump(100);
   CHECK(host_log.key_downs == 1);
@@ -406,8 +383,6 @@ TEST_CASE("Win32 two live plugin windows on one parent each pass keys up once", 
 
 TEST_CASE("Win32 plugin windows in a DPI-unaware host start at the DPI Windows gives them",
           "[integration]") {
-  // A DPI-unaware host's child window runs at 96 DPI whatever the system DPI is, so this can only
-  // tell the two apart when the system DPI isn't 96.
   if (systemDpi() == 96)
     WARN("System DPI is 96, so this can't tell the system DPI from the window's DPI");
 
@@ -419,8 +394,6 @@ TEST_CASE("Win32 plugin windows in a DPI-unaware host start at the DPI Windows g
 
 TEST_CASE("Win32 plugin windows in a per-monitor-aware host start at their monitor's DPI",
           "[integration]") {
-  // With one monitor the system DPI and the monitor's DPI are the same. On a mixed-DPI setup with
-  // the host on a secondary monitor they aren't.
   HostWindow parent(kPlainHost, 400, 300, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
   REQUIRE(parent.hwnd);
   checkPluginStartsAtItsOwnDpi(parent.hwnd);
@@ -443,16 +416,13 @@ TEST_CASE("Win32 plugin windows pass the host window's WM_SIZING on after adjust
   RECT sizing = { 0, 0, 300, 100 };
   SendMessageW(parent.hwnd, WM_SIZING, WMSZ_RIGHT, reinterpret_cast<LPARAM>(&sizing));
 
-  // The plugin keeps its 2:1 aspect ratio...
   CHECK(sizing.right - sizing.left == 300);
   CHECK(sizing.bottom - sizing.top == 150);
-  // ...and the host's own procedure sees the message, with the rectangle already adjusted.
   CHECK(host_log.sizing == 1);
   CHECK(host_log.sizing_rect.bottom - host_log.sizing_rect.top == 150);
 }
 
 TEST_CASE("Win32 plugin windows let the host handle its own WM_DPICHANGED", "[integration]") {
-  // The host rescales its own UI and resizes its window, then the plugin follows.
   ScopedDpiAwareness per_monitor(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
   HostWindow parent(kPerMonitorHost, 200, 100, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
   REQUIRE(parent.hwnd);
@@ -465,7 +435,6 @@ TEST_CASE("Win32 plugin windows let the host handle its own WM_DPICHANGED", "[in
 
   UINT dpi = GetDpiForWindow(parent.hwnd);
   float scale = GetDpiForWindow(plugin) / 96.0f;
-  // As if the window had been on a monitor at another DPI until now.
   app.window()->setDpiScale(otherScale(scale));
 
   RECT before;
@@ -484,15 +453,12 @@ TEST_CASE("Win32 plugin windows let the host handle its own WM_DPICHANGED", "[in
   CHECK(after.right == suggested.right);
   CHECK(after.bottom == suggested.bottom);
 
-  // The plugin re-reads its own DPI and size once the host is done.
   CHECK(app.window()->dpiScale() == scale);
   CHECK(app.window()->clientWidth() == 260);
   CHECK(app.window()->clientHeight() == 130);
 }
 
 TEST_CASE("Win32 standalone windows take WM_DPICHANGED's suggested rectangle", "[integration]") {
-  // On one monitor a synthetic WM_DPICHANGED doesn't change the frame size, so this checks that
-  // the window lands on the suggested rectangle with its client size in sync.
   ScopedDpiAwareness per_monitor(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
   std::unique_ptr<Window> window = createWindow(Dimension::nativePixels(300),
                                                 Dimension::nativePixels(200));
@@ -525,13 +491,6 @@ TEST_CASE("Win32 standalone windows take WM_DPICHANGED's suggested rectangle", "
   takePendingQuit();
 }
 
-// A WM_DPICHANGED on the plugin's parent reaches visage's subclass of it, which sets the window's
-// new DPI scale and resizes it.
-//
-// The window can't really change monitors here, so it starts at a stale scale: whichever of 1x
-// or 2x the monitor isn't. The editor is 192x96 logical pixels and the new size is exactly that
-// at the real DPI (2 * dpi by dpi), so Frame::setDpiScale's own resize lands on the final size
-// and doesn't report an intermediate one. The report has to come from the DPI change itself.
 TEST_CASE("Win32 plugin windows report their new size when their parent's DPI changes",
           "[integration]") {
   static constexpr int kLogicalWidth = 192;
@@ -543,6 +502,7 @@ TEST_CASE("Win32 plugin windows report their new size when their parent's DPI ch
   REQUIRE(parent.hwnd);
   UINT dpi = GetDpiForWindow(parent.hwnd);
   float scale = dpi / 96.0f;
+  // The window can't change monitors here, so it starts at whichever of 1x or 2x the monitor isn't.
   float stale_scale = scale == 1.0f ? 2.0f : 1.0f;
   int old_width = static_cast<int>(kLogicalWidth * stale_scale);
   int old_height = static_cast<int>(kLogicalHeight * stale_scale);
@@ -557,7 +517,7 @@ TEST_CASE("Win32 plugin windows report their new size when their parent's DPI ch
   REQUIRE(window);
   window->setDpiScale(stale_scale);
 
-  // Not shown: show() starts the first WM_SIZE, which would read the real DPI too early.
+  // Not shown: the first WM_SIZE would read the real DPI too early.
   ApplicationEditor editor;
   editor.addToWindow(window.get());
   REQUIRE(editor.nativeWidth() == old_width);
@@ -581,7 +541,6 @@ TEST_CASE("Win32 plugin windows report their new size when their parent's DPI ch
   CHECK(editor.nativeWidth() == new_width);
   CHECK(editor.nativeHeight() == new_height);
   CHECK(window->clientWidth() == new_width);
-  // This is how a plugin tells its host about its new physical size.
   CHECK(reports == 1);
 
   editor.removeFromWindow();
