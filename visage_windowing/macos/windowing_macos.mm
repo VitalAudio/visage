@@ -1084,6 +1084,39 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
 @end
 
 @implementation VisageAppDelegate
+- (void)stopEventLoop {
+  [NSApp stop:nil];
+  NSEvent* wake_event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
+                                           location:NSZeroPoint
+                                      modifierFlags:0
+                                          timestamp:0
+                                       windowNumber:0
+                                            context:nil
+                                            subtype:0
+                                              data1:0
+                                              data2:0];
+  [NSApp postEvent:wake_event atStart:YES];
+}
+
+- (void)handleQuitEvent:(NSAppleEventDescriptor*)event
+         withReplyEvent:(NSAppleEventDescriptor*)reply {
+  if (!visage::NativeWindowLookup::instance().requestAllToClose()) {
+    [reply setParamDescriptor:[NSAppleEventDescriptor descriptorWithInt32:userCanceledErr]
+                   forKeyword:keyErrorNumber];
+    return;
+  }
+
+  [self stopEventLoop];
+}
+
+- (void)applicationWillFinishLaunching:(NSNotification*)notification {
+  NSAppleEventManager* event_manager = [NSAppleEventManager sharedAppleEventManager];
+  [event_manager setEventHandler:self
+                     andSelector:@selector(handleQuitEvent:withReplyEvent:)
+                   forEventClass:kCoreEventClass
+                      andEventID:kAEQuitApplication];
+}
+
 - (void)applicationDidFinishLaunching:(NSNotification*)notification {
   [NSApp activateIgnoringOtherApps:YES];
 }
@@ -1098,7 +1131,7 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication*)sender {
   if (visage::NativeWindowLookup::instance().requestAllToClose())
-    return NSTerminateNow;
+    [self stopEventLoop];
   return NSTerminateCancel;
 }
 
