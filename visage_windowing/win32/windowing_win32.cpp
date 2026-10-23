@@ -1737,7 +1737,9 @@ namespace visage {
       if (PeekMessage(&peek, parentHandle(), WM_CHAR, WM_DEADCHAR, PM_REMOVE))
         used = true;
     }
-    return used;
+    if (!used)
+      postMessageToParent(message->hwnd, message->message, message->wParam, message->lParam);
+    return true;
   }
 
   void WindowWin32::handleResizing(HWND hwnd, LPARAM l_param, WPARAM w_param) {
