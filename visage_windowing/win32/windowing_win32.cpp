@@ -1412,7 +1412,8 @@ namespace visage {
 
   void WindowWin32::registerWindowClass() {
     HRESULT result = OleInitialize(nullptr);
-    if (result != S_OK && result != S_FALSE)
+    ole_initialized_ = result == S_OK || result == S_FALSE;
+    if (!ole_initialized_)
       VISAGE_LOG("Error initializing OLE");
 
     module_handle_ = loadModuleHandle();
@@ -1558,8 +1559,8 @@ namespace visage {
     NativeWindowLookup::instance().addWindow(this);
 
     UpdateWindow(window_handle_);
-    if (drag_drop_target_)
-      RegisterDragDrop(window_handle_, drag_drop_target_);
+    if (drag_drop_target_ && RegisterDragDrop(window_handle_, drag_drop_target_) != S_OK)
+      VISAGE_LOG("Error registering for drag and drop, file drops are disabled");
 
     updateMonitor();
   }
@@ -1578,7 +1579,8 @@ namespace visage {
     SetWindowLongPtr(window_handle_, GWLP_USERDATA, 0);
     DestroyWindow(window_handle_);
     UnregisterClass(window_class_.lpszClassName, module_handle_);
-    OleUninitialize();
+    if (ole_initialized_)
+      OleUninitialize();
   }
 
   void WindowWin32::windowContentsResized(int width, int height) {
