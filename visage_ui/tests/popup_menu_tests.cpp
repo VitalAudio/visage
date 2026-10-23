@@ -614,3 +614,94 @@ TEST_CASE("PopupMenu opens sub menus more than four levels deep", "[ui]") {
   REQUIRE(leaf_list->numOptions() == 1);
   REQUIRE(leaf_list->option(0).name() == "Leaf");
 }
+
+namespace {
+  // Grants takeMouseDrag() as the window does while a mouse button is down.
+  class PressEventHandler : public FrameEventHandler {
+  public:
+    PressEventHandler() {
+      take_mouse_drag = [this](Frame* frame) {
+        taker = frame;
+        return true;
+      };
+    }
+
+    Frame* taker = nullptr;
+  };
+
+  PopupMenuFrame* shownMenu(Frame& parent) {
+    for (Frame* child : parent.children()) {
+      if (auto menu = dynamic_cast<PopupMenuFrame*>(child))
+        return menu;
+    }
+    return nullptr;
+  }
+
+  MouseEvent mouseAt(Point position) {
+    MouseEvent event;
+    event.position = position;
+    event.window_position = position;
+    return event;
+  }
+}
+
+TEST_CASE("PopupMenu shown by a press follows its drag", "[ui]") {
+  Frame parent;
+  parent.setBounds(0, 0, 400, 400);
+  PressEventHandler handler;
+  parent.setEventHandler(&handler);
+  Frame source;
+  parent.addChild(&source);
+  source.setBounds(10, 10, 50, 20);
+
+  PopupMenu menu;
+  menu.addOption(1, "One");
+  menu.addOption(2, "Two");
+  int selected = -1;
+  bool cancelled = false;
+  menu.onSelection().add([&](int id) { selected = id; });
+  menu.onCancel().add([&] { cancelled = true; });
+  menu.show(&source);
+
+  PopupMenuFrame* frame = shownMenu(parent);
+  REQUIRE(frame != nullptr);
+  REQUIRE(handler.taker == frame);
+
+  // The middle of the second option, in the menu's coordinates.
+  auto list = dynamic_cast<PopupList*>(frame->children().front());
+  REQUIRE(list != nullptr);
+  REQUIRE(list->isVisible());
+  int option_height = list->yForIndex(1) - list->yForIndex(0);
+  Point second_option = list->topLeft() + Point(20.0f, list->yForIndex(1) + option_height / 2);
+
+  SECTION("A quick release leaves the menu open") {
+    frame->mouseDrag(mouseAt(second_option));
+    frame->mouseUp(mouseAt(second_option));
+    REQUIRE(selected == -1);
+    REQUIRE_FALSE(cancelled);
+  }
+
+  SECTION("Releasing without dragging onto the menu leaves it open") {
+    frame->timerCallback();
+    frame->mouseUp(mouseAt(source.topLeft()));
+    REQUIRE(selected == -1);
+    REQUIRE_FALSE(cancelled);
+  }
+
+  SECTION("Releasing on an option after the pause selects it") {
+    frame->mouseDrag(mouseAt(second_option));
+    frame->timerCallback();
+    frame->mouseUp(mouseAt(second_option));
+    REQUIRE(selected == 2);
+    REQUIRE_FALSE(cancelled);
+  }
+
+  SECTION("Releasing away from the menu after dragging onto it and the pause cancels it") {
+    frame->mouseDrag(mouseAt(second_option));
+    frame->mouseDrag(mouseAt({ 300, 300 }));
+    frame->timerCallback();
+    frame->mouseUp(mouseAt({ 300, 300 }));
+    REQUIRE(selected == -1);
+    REQUIRE(cancelled);
+  }
+}
