@@ -522,12 +522,6 @@ namespace visage {
     void setPosition(float x, float y) {
       state_.x += x * state_.scale;
       state_.y += y * state_.scale;
-
-      auto shape = state_.set_brush.position().shape;
-      bool has_points = shape == GradientPosition::InterpolationShape::PointsLinear ||
-                        shape == GradientPosition::InterpolationShape::Radial;
-      if (has_points && state_.brush != &default_brush_)
-        setBrush(state_.set_brush);
     }
 
     void addRegion(Region* region) {

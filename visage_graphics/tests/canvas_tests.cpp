@@ -2773,15 +2773,11 @@ TEST_CASE("Gradient brush points follow Canvas::setPosition like shapes", "[grap
     require_red_to_blue(100);
   }
 
-  SECTION("Brush set before the position, then the state restored") {
+  SECTION("Brush set before the position keeps the position it was set at") {
     canvas.setColor(linear);
-    canvas.saveState();
     canvas.setPosition(100, 0);
-    canvas.rectangle(0, 0, 100, 40);
-    canvas.restoreState();
-    canvas.rectangle(0, 0, 100, 40);
+    canvas.rectangle(-100, 0, 100, 40);
     require_red_to_blue(0);
-    require_red_to_blue(100);
   }
 
   SECTION("Radial brush") {
