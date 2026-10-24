@@ -2750,6 +2750,65 @@ TEST_CASE("Zero-length linear gradients paint a solid color like Chrome", "[grap
   }
 }
 
+TEST_CASE("Gradient brush points follow Canvas::setPosition like shapes", "[graphics]") {
+  Brush linear = Brush::linear(Color(0xffff0000), Color(0xff0000ff), Point(0, 0), Point(100, 0));
+  Canvas canvas;
+  canvas.setWindowless(200, 40);
+
+  auto require_red_to_blue = [&](int left) {
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    INFO("left " << left);
+    REQUIRE(screenshot.sample(left + 5, 20).hexRed() >= 0xe0);
+    REQUIRE(screenshot.sample(left + 5, 20).hexBlue() <= 0x20);
+    REQUIRE(screenshot.sample(left + 50, 20).hexRed() == Approx(0x80).margin(4));
+    REQUIRE(screenshot.sample(left + 50, 20).hexBlue() == Approx(0x80).margin(4));
+    REQUIRE(screenshot.sample(left + 95, 20).hexRed() <= 0x20);
+    REQUIRE(screenshot.sample(left + 95, 20).hexBlue() >= 0xe0);
+  };
+
+  SECTION("Brush set after the position") {
+    canvas.setPosition(100, 0);
+    canvas.setColor(linear);
+    canvas.rectangle(0, 0, 100, 40);
+    require_red_to_blue(100);
+  }
+
+  SECTION("Brush set before the position, then the state restored") {
+    canvas.setColor(linear);
+    canvas.saveState();
+    canvas.setPosition(100, 0);
+    canvas.rectangle(0, 0, 100, 40);
+    canvas.restoreState();
+    canvas.rectangle(0, 0, 100, 40);
+    require_red_to_blue(0);
+    require_red_to_blue(100);
+  }
+
+  SECTION("Radial brush") {
+    canvas.setPosition(100, 0);
+    canvas.setColor(Brush::radial(Color(0xffff0000), Color(0xff0000ff), Point(50, 20), 50.0f));
+    canvas.rectangle(0, 0, 100, 40);
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    REQUIRE(screenshot.sample(150, 20).hexRed() >= 0xe0);
+    REQUIRE(screenshot.sample(150, 20).hexBlue() <= 0x20);
+    REQUIRE(screenshot.sample(198, 20).hexRed() <= 0x20);
+    REQUIRE(screenshot.sample(198, 20).hexBlue() >= 0xe0);
+  }
+
+  SECTION("SVG gradient") {
+    std::string svg_data = R"svg(<svg viewBox="0 0 100 40" width="100" height="40">
+      <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="0">
+        <stop offset="0" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff"/>
+      </linearGradient>
+      <rect width="100" height="40" fill="url(#g)"/>
+    </svg>)svg";
+    Svg svg(reinterpret_cast<const unsigned char*>(svg_data.data()), static_cast<int>(svg_data.size()));
+    canvas.setPosition(100, 0);
+    canvas.svg(svg, 0, 0, 100, 40);
+    require_red_to_blue(100);
+  }
+}
+
 TEST_CASE("Gradient average weighs each stop by the span it covers", "[graphics]") {
   Gradient gradient(0xffff0000, 0xff0000ff);
   REQUIRE(gradient.average().hexRed() == Approx(0x80).margin(1));
