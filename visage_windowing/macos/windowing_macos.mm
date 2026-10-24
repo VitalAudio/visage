@@ -519,10 +519,12 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
     return;
 
   bool command = [event modifierFlags] & NSEventModifierFlagCommand;
-  bool q_or_w = [[event charactersIgnoringModifiers] isEqualToString:@"q"] ||
-                [[event charactersIgnoringModifiers] isEqualToString:@"w"];
-  if (self.allow_quit && command && q_or_w) {
+  if (self.allow_quit && command && [[event charactersIgnoringModifiers] isEqualToString:@"q"]) {
     visage::NativeWindowLookup::instance().closeAll();
+    return;
+  }
+  if (self.allow_quit && command && [[event charactersIgnoringModifiers] isEqualToString:@"w"]) {
+    self.visage_window->close();
     return;
   }
 
