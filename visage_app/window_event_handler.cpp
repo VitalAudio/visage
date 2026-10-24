@@ -38,6 +38,10 @@ namespace visage {
   void WindowEventHandler::changeKeyboardFocus(Frame* frame, bool was_clicked) {
     Frame* previous = keyboard_focused_frame_;
     keyboard_focused_frame_ = frame;
+    if (frame && previous && previous != frame)
+      previous_keyboard_focused_frame_ = previous;
+    else if (frame == nullptr && was_clicked)
+      previous_keyboard_focused_frame_ = nullptr;
     if (previous && previous != frame && (previous->hasKeyboardFocus() || !previous->acceptsKeystrokes()))
       previous->processFocusChanged(false, was_clicked);
 
@@ -57,6 +61,8 @@ namespace visage {
       mouse_down_frame_ = nullptr;
     if (keyboard_focused_frame_ == frame)
       keyboard_focused_frame_ = nullptr;
+    if (previous_keyboard_focused_frame_ == frame)
+      previous_keyboard_focused_frame_ = nullptr;
     if (drag_drop_target_frame_ == frame)
       drag_drop_target_frame_ = nullptr;
     if (drag_drop_source_frame_ == frame)
@@ -84,6 +90,26 @@ namespace visage {
       pressed_frame->processMouseExit(mouse_event);
     }
     return true;
+  }
+
+  Frame* WindowEventHandler::keyFrame() {
+    if (keyboard_focused_frame_ == nullptr && previous_keyboard_focused_frame_) {
+      Frame* previous = previous_keyboard_focused_frame_;
+      previous_keyboard_focused_frame_ = nullptr;
+      if (isShowing(previous))
+        changeKeyboardFocus(previous, false);
+    }
+    return keyboard_focused_frame_;
+  }
+
+  bool WindowEventHandler::isShowing(const Frame* frame) const {
+    for (; frame; frame = frame->parent()) {
+      if (!frame->isVisible())
+        return false;
+      if (frame == content_frame_)
+        return true;
+    }
+    return false;
   }
 
   void WindowEventHandler::handleFocusLost() {
@@ -140,7 +166,7 @@ namespace visage {
   }
 
   bool WindowEventHandler::handleKeyDown(const KeyEvent& e) {
-    if (keyboard_focused_frame_ == nullptr)
+    if (keyFrame() == nullptr)
       return false;
 
     temporary_frame_ = keyboard_focused_frame_;
@@ -163,7 +189,7 @@ namespace visage {
   }
 
   bool WindowEventHandler::handleKeyUp(const KeyEvent& e) {
-    if (keyboard_focused_frame_ == nullptr)
+    if (keyFrame() == nullptr)
       return false;
 
     temporary_frame_ = keyboard_focused_frame_;
@@ -194,7 +220,7 @@ namespace visage {
   }
 
   bool WindowEventHandler::hasActiveTextEntry() {
-    return keyboard_focused_frame_ && keyboard_focused_frame_->receivesTextInput();
+    return keyFrame() && keyboard_focused_frame_->receivesTextInput();
   }
 
   bool WindowEventHandler::handleFileDrag(int x, int y, const std::vector<std::string>& files) {

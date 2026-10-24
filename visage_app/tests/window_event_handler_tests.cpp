@@ -484,6 +484,86 @@ TEST_CASE("Removing or hiding the focused frame in an unfocused window blurs it 
   app.removeFromWindow();
 }
 
+TEST_CASE("Keys go back to the frame focused before a removed or hidden one", "[integration]") {
+  ApplicationEditor app;
+  FocusFrame field;
+  FocusFrame popup;
+  app.addChild(field);
+  app.addChild(popup);
+  app.setBounds(0, 0, 40, 40);
+  field.setBounds(0, 0, 40, 20);
+  popup.setBounds(0, 20, 40, 20);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+  popup.requestKeyboardFocus();
+  REQUIRE(field.focus_changes == std::vector<bool> { true, false });
+
+  SECTION("Removing it") {
+    app.removeChild(popup);
+  }
+
+  SECTION("Hiding it") {
+    popup.setVisible(false);
+  }
+
+  REQUIRE(popup.focus_changes == std::vector<bool> { true, false });
+  window.handleKeyDown(KeyCode::A, 0, false);
+  REQUIRE(field.key_presses == 1);
+  REQUIRE(field.focus_changes == std::vector<bool> { true, false, true });
+  REQUIRE(popup.key_presses == 0);
+  app.removeFromWindow();
+}
+
+TEST_CASE("Keys don't go back to a focused frame that was removed, hidden or clicked away from",
+          "[integration]") {
+  ApplicationEditor app;
+  auto field = std::make_unique<FocusFrame>();
+  FocusFrame popup;
+  Frame background;
+  app.addChild(field.get());
+  app.addChild(popup);
+  app.addChild(background);
+  app.setBounds(0, 0, 60, 40);
+  field->setBounds(0, 0, 40, 20);
+  popup.setBounds(0, 20, 40, 20);
+  background.setBounds(40, 0, 20, 40);
+
+  TestWindow window(60, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+
+  SECTION("Deleted while another frame has focus") {
+    popup.requestKeyboardFocus();
+    field.reset();
+    app.removeChild(popup);
+  }
+
+  SECTION("Hidden while another frame has focus") {
+    popup.requestKeyboardFocus();
+    field->setVisible(false);
+    app.removeChild(popup);
+    REQUIRE(field->key_presses == 0);
+  }
+
+  SECTION("Clicked away from") {
+    window.handleMouseDown(kMouseButtonLeft, 50, 10, kMouseButtonLeft, 0);
+    window.handleMouseUp(kMouseButtonLeft, 50, 10, 0, 0);
+    window.handleKeyDown(KeyCode::A, 0, false);
+    REQUIRE(field->key_presses == 0);
+    REQUIRE(field->focus_changes == std::vector<bool> { true, false });
+  }
+
+  window.handleKeyDown(KeyCode::A, 0, false);
+  REQUIRE(popup.key_presses == 0);
+  if (field)
+    REQUIRE(field->key_presses == 0);
+  app.removeFromWindow();
+}
+
 TEST_CASE("Mouse buttons pressed while another is held go to the first pressed frame",
           "[integration]") {
   ApplicationEditor app;
