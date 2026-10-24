@@ -107,7 +107,7 @@ namespace visage {
 
     callback_handler_ = std::make_unique<GraphicsCallbackHandler>();
     initialized_ = true;
-    model_window_ = model_window;
+    model_window_ = model_window ? model_window : windowlessContext();
 
     bgfx::Init bgfx_init;
     bgfx_init.swapChain.numBackBuffers = 1;
@@ -117,7 +117,7 @@ namespace visage {
     bgfx_init.callback = callback_handler_.get();
 
     bgfx_init.swapChain.ndt = display;
-    bgfx_init.swapChain.nwh = model_window;
+    bgfx_init.swapChain.nwh = model_window_;
     bgfx_init.platformData.type = bgfx::NativeWindowHandleType::Default;
 
     bgfx::RendererType::Enum supported_renderers[bgfx::RendererType::Count];
