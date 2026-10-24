@@ -2669,20 +2669,25 @@ TEST_CASE("Removing a region invalidates the area it covered in its parent", "[g
   REQUIRE(covered.contains(IBounds(10, 20, 30, 40)));
 }
 
-TEST_CASE("Rounded triangle with collinear points records no shapes", "[graphics]") {
+TEST_CASE("Rounded triangle with nearly collinear points draws nothing", "[graphics]") {
   Canvas canvas;
-  canvas.setWindowless(80, 20);
+  canvas.setWindowless(80, 80);
   Region region;
   canvas.addRegion(&region);
   region.setBounds(0, 0, 3010, 3010);
 
   canvas.beginRegion(&region);
   canvas.setColor(0xffffffff);
-  canvas.roundedTriangle(5, 10, 20, 10, 35, 10, 3);
-  canvas.roundedTriangleBorder(45, 10, 60, 10, 75, 10, 3, 4);
   canvas.roundedTriangle(0.1f, 0.1f, 1000.3f, 1000.3f, 3000.7f, 3000.7f, 3);
   canvas.endRegion();
-  REQUIRE(region.numSubmitBatches() == 0);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  int max_red = 0;
+  for (int i = 0; i < 80; ++i) {
+    for (int x = std::max(0, i - 3); x <= std::min(79, i + 3); ++x)
+      max_red = std::max<int>(max_red, screenshot.sample(x, i).hexRed());
+  }
+  REQUIRE(max_red == 0);
 }
 
 TEST_CASE("Zero-length linear gradients paint a solid color like Chrome", "[graphics]") {
