@@ -373,11 +373,6 @@ namespace visage {
         event_handler_->remove_from_hierarchy(this);
     }
 
-    // Takes the rest of the current mouse press from the frame that was pressed: this frame gets the
-    // press's drags and its release, with positions relative to it, wherever they happen. The pressed
-    // frame gets a cancelled mouse up, and a mouse exit if the mouse was over it. For a frame opened by
-    // a press, like a popup menu, to follow the drag that opened it. Returns false if no mouse button is
-    // down.
     bool takeMouseDrag() {
       if (event_handler_ && event_handler_->take_mouse_drag)
         return event_handler_->take_mouse_drag(this);
