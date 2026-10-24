@@ -372,13 +372,30 @@ namespace visage {
 
     canvas.beginRegion(&region_);
 
+    int saved_overrides = saveParentPaletteOverrides(canvas);
     if (!palette_override_.isDefault())
       canvas.setPaletteOverride(palette_override_);
     if (palette_)
       canvas.setPalette(palette_);
 
     on_draw_.callback(canvas);
+    for (int i = 0; i < saved_overrides; ++i)
+      canvas.restoreState();
     canvas.endRegion();
+  }
+
+  int Frame::saveParentPaletteOverrides(Canvas& canvas) const {
+    if (parent_ == nullptr)
+      return 0;
+
+    int saved = parent_->saveParentPaletteOverrides(canvas);
+    theme::OverrideId override_id = parent_->palette_override_;
+    if (override_id.isDefault() || override_id == canvas.paletteOverride())
+      return saved;
+
+    canvas.setPaletteOverride(override_id);
+    canvas.saveState();
+    return saved + 1;
   }
 
   void Frame::destroyChildren() {

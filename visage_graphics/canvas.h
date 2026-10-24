@@ -557,6 +557,7 @@ namespace visage {
     void setPaletteOverride(theme::OverrideId override_id) {
       state_.palette_override = override_id;
     }
+    theme::OverrideId paletteOverride() const { return state_.palette_override; }
 
     void setClampBounds(float x, float y, float width, float height) {
       VISAGE_ASSERT(width >= 0);

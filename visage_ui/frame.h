@@ -434,6 +434,7 @@ namespace visage {
   private:
     UndoHistory* undoHistory() const;
     Frame* keyboardFocusInside() const;
+    int saveParentPaletteOverrides(Canvas& canvas) const;
     void propagateMouseEvent(const MouseEvent& e, void (Frame::*handler)(const MouseEvent&)) {
       Frame* frame = parent_;
       std::weak_ptr<bool> frame_alive = frame ? frame->aliveToken() : std::weak_ptr<bool>();

@@ -759,3 +759,74 @@ TEST_CASE("Deleting or removing a child frame invalidates the area it covered", 
     covered = covered.width() ? covered.unioned(rect) : rect;
   REQUIRE(covered.contains(IBounds(10, 20, 30, 40)));
 }
+
+VISAGE_THEME_COLOR(FrameOverrideTestColor, 0xff000000);
+VISAGE_THEME_VALUE(FrameOverrideTestValue, 1.0f);
+VISAGE_THEME_PALETTE_OVERRIDE(FrameOverrideTestOuter);
+VISAGE_THEME_PALETTE_OVERRIDE(FrameOverrideTestInner);
+
+namespace {
+  struct DrawnPalette {
+    unsigned int color = 0;
+    float value = 0.0f;
+  };
+
+  DrawnPalette drawnPalette(Frame& frame) {
+    DrawnPalette drawn;
+    frame.onDraw() = [&drawn](Canvas& canvas) {
+      drawn.color = canvas.color(FrameOverrideTestColor).gradient().colors()[0].toARGB();
+      drawn.value = canvas.value(FrameOverrideTestValue);
+    };
+    FrameEventHandler handler;
+    handler.request_redraw = [](Frame*) { };
+    frame.setEventHandler(&handler);
+    frame.redraw();
+    Canvas canvas;
+    canvas.setWindowless(10, 10);
+    frame.drawToRegion(canvas);
+    frame.setEventHandler(nullptr);
+    frame.onDraw() = nullptr;
+    return drawn;
+  }
+}
+
+TEST_CASE("Frames draw with the palette overrides paletteColor and paletteValue use", "[ui]") {
+  Palette palette;
+  palette.setColor(FrameOverrideTestColor, Color(0xff0000ff));
+  palette.setValue(FrameOverrideTestValue, 2.0f);
+  palette.setColor(FrameOverrideTestOuter, FrameOverrideTestColor, Color(0xffff0000));
+  palette.setValue(FrameOverrideTestOuter, FrameOverrideTestValue, 3.0f);
+  palette.setValue(FrameOverrideTestInner, FrameOverrideTestValue, 4.0f);
+
+  Frame parent;
+  Frame child;
+  parent.setBounds(0, 0, 10, 10);
+  child.setBounds(0, 0, 10, 10);
+  parent.setPalette(&palette);
+  Frame* drawn_frame = &child;
+  unsigned int expected_color = 0xffff0000;
+  float expected_value = 3.0f;
+
+  SECTION("Its own override") {
+    parent.setPaletteOverride(FrameOverrideTestOuter);
+    drawn_frame = &parent;
+  }
+
+  SECTION("A parent's override set before the child was added") {
+    parent.setPaletteOverride(FrameOverrideTestOuter);
+    parent.addChild(child);
+  }
+
+  SECTION("A parent's override for what its own override doesn't set") {
+    parent.addChild(child);
+    parent.setPaletteOverride(FrameOverrideTestOuter);
+    child.setPaletteOverride(FrameOverrideTestInner);
+    expected_value = 4.0f;
+  }
+
+  REQUIRE(drawn_frame->paletteColor(FrameOverrideTestColor).gradient().colors()[0].toARGB() == expected_color);
+  REQUIRE(drawn_frame->paletteValue(FrameOverrideTestValue) == expected_value);
+  DrawnPalette drawn = drawnPalette(*drawn_frame);
+  REQUIRE(drawn.color == expected_color);
+  REQUIRE(drawn.value == expected_value);
+}

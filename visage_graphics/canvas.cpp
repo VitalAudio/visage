@@ -208,7 +208,10 @@ namespace visage {
   Brush Canvas::color(theme::ColorId color_id) {
     if (palette_) {
       Brush result;
-      theme::OverrideId last_check;
+      theme::OverrideId last_check = state_.palette_override;
+      if (!last_check.isDefault() && palette_->color(last_check, color_id, result))
+        return result;
+
       for (auto it = state_memory_.rbegin(); it != state_memory_.rend(); ++it) {
         theme::OverrideId override_id = it->palette_override;
         if (override_id.id != last_check.id && palette_->color(override_id, color_id, result))
@@ -225,7 +228,10 @@ namespace visage {
   float Canvas::value(theme::ValueId value_id) {
     if (palette_) {
       float result = 0.0f;
-      theme::OverrideId last_check;
+      theme::OverrideId last_check = state_.palette_override;
+      if (!last_check.isDefault() && palette_->value(last_check, value_id, result))
+        return result;
+
       for (auto it = state_memory_.rbegin(); it != state_memory_.rend(); ++it) {
         theme::OverrideId override_id = it->palette_override;
         if (override_id.id != last_check.id && palette_->value(override_id, value_id, result))
