@@ -109,8 +109,9 @@ namespace visage {
     const Brush& brush() { return state_.set_brush; }
     void setBrush(const Brush& brush) {
       state_.set_brush = brush;
-      state_.brush = state_.current_region->addBrush(&gradient_atlas_, brush.gradient(),
-                                                     brush.position() * state_.scale);
+      GradientPosition position = brush.position() * state_.scale;
+      position = position.transformed(Transform::translation(state_.x, state_.y));
+      state_.brush = state_.current_region->addBrush(&gradient_atlas_, brush.gradient(), position);
     }
     void setColor(const Brush& brush) { setBrush(brush); }
     template<typename T, typename = EnableIfArgb<T>>
@@ -521,6 +522,12 @@ namespace visage {
     void setPosition(float x, float y) {
       state_.x += x * state_.scale;
       state_.y += y * state_.scale;
+
+      auto shape = state_.set_brush.position().shape;
+      bool has_points = shape == GradientPosition::InterpolationShape::PointsLinear ||
+                        shape == GradientPosition::InterpolationShape::Radial;
+      if (has_points && state_.brush != &default_brush_)
+        setBrush(state_.set_brush);
     }
 
     void addRegion(Region* region) {
