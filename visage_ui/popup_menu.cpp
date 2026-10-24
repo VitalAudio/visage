@@ -243,6 +243,11 @@ namespace visage {
     return *lists_[index];
   }
 
+  Frame* PopupMenuFrame::keyboardFocusedFrame() const {
+    FrameEventHandler* handler = eventHandler();
+    return handler && handler->keyboard_focused_frame ? handler->keyboard_focused_frame() : nullptr;
+  }
+
   int PopupMenuFrame::listIndex(const PopupList* list) const {
     for (int i = 0; i < lists_.size(); ++i) {
       if (lists_[i].get() == list)
@@ -311,6 +316,9 @@ namespace visage {
     stopTimer();
     startTimer(takeMouseDrag() ? kPauseMs : kWaitForSelection);
 
+    previous_focus_ = keyboardFocusedFrame();
+    if (previous_focus_)
+      previous_focus_alive_ = previous_focus_->aliveToken();
     requestKeyboardFocus();
     redraw();
   }
@@ -361,6 +369,8 @@ namespace visage {
 
   void PopupMenuFrame::timerCallback() {
     if (top_parent_ && done_) {
+      if (keyboardFocusedFrame() == this && !previous_focus_alive_.expired() && previous_focus_->isDrawing())
+        previous_focus_->requestKeyboardFocus();
       top_parent_->removeChild(this);
       return;
     }
