@@ -616,7 +616,6 @@ TEST_CASE("PopupMenu opens sub menus more than four levels deep", "[ui]") {
 }
 
 namespace {
-  // Grants takeMouseDrag() as the window does while a mouse button is down.
   class PressEventHandler : public FrameEventHandler {
   public:
     PressEventHandler() {
@@ -667,7 +666,6 @@ TEST_CASE("PopupMenu shown by a press follows its drag", "[ui]") {
   REQUIRE(frame != nullptr);
   REQUIRE(handler.taker == frame);
 
-  // The middle of the second option, in the menu's coordinates.
   auto list = dynamic_cast<PopupList*>(frame->children().front());
   REQUIRE(list != nullptr);
   REQUIRE(list->isVisible());
