@@ -131,12 +131,12 @@ namespace visage {
 
     template<typename T1, typename T2, typename T3, typename T4>
     void fill(const T1& x, const T2& y, const T3& width, const T4& height) {
-      float fill_x = pixels(x);
-      float fill_y = pixels(y);
+      float fill_x = state_.x + pixels(x);
+      float fill_y = state_.y + pixels(y);
       float fill_w = pixels(width);
       float fill_h = pixels(height);
-      addShape(Fill(state_.clamp.clamp(fill_x, fill_y, fill_w, fill_h), state_.brush,
-                    state_.x + fill_x, state_.y + fill_y, fill_w, fill_h));
+      addShape(Fill(state_.clamp.clamp(fill_x, fill_y, fill_w, fill_h), state_.brush, fill_x,
+                    fill_y, fill_w, fill_h));
     }
 
     template<typename T1, typename T2, typename T3>
