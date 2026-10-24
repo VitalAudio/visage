@@ -306,7 +306,6 @@ namespace visage {
     for (auto& list : lists_)
       list->enableMouseUp(false);
 
-    // A menu shown by a press takes the rest of it. Releasing it on an option selects only after a pause.
     stopTimer();
     startTimer(takeMouseDrag() ? kPauseMs : kWaitForSelection);
 
