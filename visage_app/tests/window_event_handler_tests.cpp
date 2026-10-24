@@ -484,83 +484,67 @@ TEST_CASE("Removing or hiding the focused frame in an unfocused window blurs it 
   app.removeFromWindow();
 }
 
-TEST_CASE("Keys go back to the frame focused before a removed or hidden one", "[integration]") {
-  ApplicationEditor app;
-  FocusFrame field;
-  FocusFrame popup;
-  app.addChild(field);
-  app.addChild(popup);
-  app.setBounds(0, 0, 40, 40);
-  field.setBounds(0, 0, 40, 20);
-  popup.setBounds(0, 20, 40, 20);
-
-  TestWindow window(40, 40);
-  app.addToWindow(&window);
-  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
-  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
-  popup.requestKeyboardFocus();
-  REQUIRE(field.focus_changes == std::vector<bool> { true, false });
-
-  SECTION("Removing it") {
-    app.removeChild(popup);
-  }
-
-  SECTION("Hiding it") {
-    popup.setVisible(false);
-  }
-
-  REQUIRE(popup.focus_changes == std::vector<bool> { true, false });
-  window.handleKeyDown(KeyCode::A, 0, false);
-  REQUIRE(field.key_presses == 1);
-  REQUIRE(field.focus_changes == std::vector<bool> { true, false, true });
-  REQUIRE(popup.key_presses == 0);
-  app.removeFromWindow();
-}
-
-TEST_CASE("Keys don't go back to a focused frame that was removed, hidden or clicked away from",
+TEST_CASE("Closing a popup menu gives keyboard focus back to the frame that had it",
           "[integration]") {
   ApplicationEditor app;
   auto field = std::make_unique<FocusFrame>();
-  FocusFrame popup;
-  Frame background;
+  FocusFrame other;
   app.addChild(field.get());
-  app.addChild(popup);
-  app.addChild(background);
-  app.setBounds(0, 0, 60, 40);
-  field->setBounds(0, 0, 40, 20);
-  popup.setBounds(0, 20, 40, 20);
-  background.setBounds(40, 0, 20, 40);
+  app.addChild(other);
+  app.setBounds(0, 0, 200, 200);
+  field->setBounds(0, 0, 200, 20);
+  other.setBounds(0, 180, 200, 20);
 
-  TestWindow window(60, 40);
+  TestWindow window(200, 200);
   app.addToWindow(&window);
   window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
   window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
 
-  SECTION("Deleted while another frame has focus") {
-    popup.requestKeyboardFocus();
-    field.reset();
-    app.removeChild(popup);
-  }
+  int selections = 0;
+  PopupMenu menu;
+  menu.addOption(1, "First");
+  menu.onSelection() += [&selections](int) { selections++; };
+  menu.show(field.get());
+  REQUIRE(field->focus_changes == std::vector<bool> { true, false });
 
-  SECTION("Hidden while another frame has focus") {
-    popup.requestKeyboardFocus();
-    field->setVisible(false);
-    app.removeChild(popup);
-    REQUIRE(field->key_presses == 0);
-  }
+  auto select = [&] {
+    for (int i = 0; i < 2; ++i) {
+      window.handleMouseDown(kMouseButtonLeft, 10, 30, kMouseButtonLeft, 0);
+      window.handleMouseUp(kMouseButtonLeft, 10, 30, 0, 0);
+    }
+    REQUIRE(selections == 1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    EventManager::instance().checkEventTimers();
+  };
 
-  SECTION("Clicked away from") {
-    window.handleMouseDown(kMouseButtonLeft, 50, 10, kMouseButtonLeft, 0);
-    window.handleMouseUp(kMouseButtonLeft, 50, 10, 0, 0);
+  SECTION("Selecting an option") {
+    select();
+    REQUIRE(field->focus_changes == std::vector<bool> { true, false, true });
     window.handleKeyDown(KeyCode::A, 0, false);
-    REQUIRE(field->key_presses == 0);
+    REQUIRE(field->key_presses == 1);
+  }
+
+  SECTION("Clicking another frame") {
+    window.handleMouseDown(kMouseButtonLeft, 10, 190, kMouseButtonLeft, 0);
+    window.handleMouseUp(kMouseButtonLeft, 10, 190, 0, 0);
+    window.handleKeyDown(KeyCode::A, 0, false);
+    REQUIRE(other.key_presses == 1);
     REQUIRE(field->focus_changes == std::vector<bool> { true, false });
   }
 
-  window.handleKeyDown(KeyCode::A, 0, false);
-  REQUIRE(popup.key_presses == 0);
-  if (field)
-    REQUIRE(field->key_presses == 0);
+  SECTION("Hiding the frame while the menu is open") {
+    field->setVisible(false);
+    select();
+    REQUIRE(field->focus_changes == std::vector<bool> { true, false });
+  }
+
+  SECTION("Deleting the frame while the menu is open") {
+    field.reset();
+    select();
+    window.handleKeyDown(KeyCode::A, 0, false);
+    REQUIRE(other.key_presses == 0);
+  }
+
   app.removeFromWindow();
 }
 

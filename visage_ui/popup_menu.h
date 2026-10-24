@@ -217,9 +217,12 @@ namespace visage {
   private:
     PopupList& popupList(int index);
     int listIndex(const PopupList* list) const;
+    Frame* keyboardFocusedFrame() const;
 
     PopupMenu menu_;
     Frame* top_parent_ = nullptr;
+    Frame* previous_focus_ = nullptr;
+    std::weak_ptr<bool> previous_focus_alive_;
     bool done_ = false;
     bool mouse_up_enabled_ = false;
     bool dragged_onto_menu_ = false;
