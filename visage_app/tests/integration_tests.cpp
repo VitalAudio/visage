@@ -112,6 +112,48 @@ TEST_CASE("Screenshot horizontal gradient", "[integration]") {
   }
 }
 
+TEST_CASE("Windowless editors draw at their DPI scale", "[integration]") {
+  ApplicationEditor editor;
+  Frame logical;
+  Frame native;
+  logical.onDraw() = [&](Canvas& canvas) {
+    canvas.setColor(0xffff0000);
+    canvas.fill(0, 0, logical.width(), logical.height());
+  };
+  native.onDraw() = [&](Canvas& canvas) {
+    canvas.setNativePixelScale();
+    canvas.setColor(0xff0000ff);
+    canvas.fill(0, 0, native.nativeWidth(), native.nativeHeight());
+  };
+  editor.addChild(logical);
+  editor.addChild(native);
+
+  SECTION("DPI scale set before going windowless") {
+    editor.setDpiScale(2.0f);
+    editor.setWindowless(100, 50);
+  }
+
+  SECTION("DPI scale set after going windowless") {
+    editor.setWindowless(100, 50);
+    editor.setDpiScale(2.0f);
+  }
+
+  logical.setBounds(0, 0, 50, 50);
+  native.setBounds(50, 0, 50, 50);
+  editor.drawWindow();
+  Screenshot screenshot = editor.takeScreenshot();
+  REQUIRE(screenshot.width() == 200);
+  REQUIRE(screenshot.height() == 100);
+  for (Point point : { Point(5, 5), Point(95, 95) }) {
+    INFO("x " << point.x << " y " << point.y);
+    REQUIRE(screenshot.sample(point.x, point.y).hexRed() == 0xff);
+  }
+  for (Point point : { Point(105, 5), Point(195, 95) }) {
+    INFO("x " << point.x << " y " << point.y);
+    REQUIRE(screenshot.sample(point.x, point.y).hexBlue() == 0xff);
+  }
+}
+
 TEST_CASE("Animated graph lines", "[integration]") {
   Color source = 0xff123456;
   Color destination = 0xff88aacc;

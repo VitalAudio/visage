@@ -116,9 +116,7 @@ namespace visage {
 
   void ApplicationEditor::setCanvasDetails() {
     canvas_->setDimensions(nativeWidth(), nativeHeight());
-
-    if (window_)
-      canvas_->setDpiScale(window_->dpiScale());
+    canvas_->setDpiScale(window_ ? window_->dpiScale() : dpiScale());
   }
 
   void ApplicationEditor::addToWindow(Window* window) {
@@ -149,7 +147,7 @@ namespace visage {
     canvas_->removeFromWindow();
     window_ = nullptr;
     setBounds(0, 0, width, height);
-    canvas_->setWindowless(width, height);
+    canvas_->setWindowless(nativeWidth(), nativeHeight());
     drawWindow();
   }
 
