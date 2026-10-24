@@ -116,7 +116,7 @@ namespace visage {
     int x_padding = selection_padding + paletteValue(PopupTextPadding);
     int option_height = paletteValue(PopupOptionHeight);
     int y = selection_padding - yPosition();
-    int popup_font_size = paletteValue(PopupFontSize);
+    float popup_font_size = paletteValue(PopupFontSize);
     Font font = font_.withSize(popup_font_size);
 
     Brush text = canvas.color(PopupMenuText).withMultipliedAlpha(opacity_);
