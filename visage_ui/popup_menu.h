@@ -199,10 +199,6 @@ namespace visage {
     }
 
     void exit();
-    // A menu shown by a mouse press takes the rest of that press, so the press can drag onto an option
-    // and release to select it, once the menu has been open for kPauseMs. Releasing without having
-    // dragged onto the menu leaves it open, like a click. Releasing away from it after dragging onto it
-    // closes it once the pause has passed.
     void mouseDrag(const MouseEvent& e) override;
     void mouseUp(const MouseEvent& e) override;
     void hierarchyChanged() override;
