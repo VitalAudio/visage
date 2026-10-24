@@ -527,6 +527,31 @@ TEST_CASE("Canvas state and position validation", "[graphics]") {
   }
 }
 
+TEST_CASE("Filled rectangles follow Canvas::setPosition", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(200, 40);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 200, 40);
+  canvas.setPosition(100, 0);
+  canvas.setColor(0xffff0000);
+
+  SECTION("Without clamp bounds") {
+    canvas.fill(0, 0, 50, 40);
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    REQUIRE(screenshot.sample(25, 20).hexRed() == 0);
+    REQUIRE(screenshot.sample(125, 20).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(175, 20).hexRed() == 0);
+  }
+
+  SECTION("Inside clamp bounds set after the position") {
+    canvas.setClampBounds(0, 0, 25, 40);
+    canvas.fill(0, 0, 50, 40);
+    const Screenshot& screenshot = canvas.takeScreenshot();
+    REQUIRE(screenshot.sample(110, 20).hexRed() == 0xff);
+    REQUIRE(screenshot.sample(140, 20).hexRed() == 0);
+  }
+}
+
 TEST_CASE("Canvas edge cases", "[graphics]") {
   CanvasTestFixture fixture;
   Canvas& canvas = fixture.canvas();
