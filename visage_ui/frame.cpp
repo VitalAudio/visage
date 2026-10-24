@@ -116,7 +116,6 @@ namespace visage {
       return;
 
     Frame* focused = child->keyboardFocusInside();
-    child->outerRegion()->invalidate();
     child->notifyRemoveFromHierarchy();
     eraseChild(child);
     child->notifyHierarchyChanged();
