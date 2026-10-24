@@ -25,6 +25,7 @@
 
 namespace visage {
   void Region::removeRegion(Region* region) {
+    region->invalidate();
     region->clear();
     region->parent_ = nullptr;
     region->setCanvas(nullptr);

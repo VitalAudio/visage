@@ -2645,6 +2645,30 @@ TEST_CASE("Moving a layered region keeps its atlas slot", "[graphics]") {
   REQUIRE(canvas.takeScreenshot().sample(55, 20).hexRed() == 0xff);
 }
 
+TEST_CASE("Removing a region invalidates the area it covered in its parent", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(100, 100);
+  Region parent;
+  Region child;
+  canvas.addRegion(&parent);
+  parent.setNeedsLayer(true);
+  parent.setBounds(0, 0, 100, 100);
+  parent.addRegion(&child);
+  child.setBounds(10, 20, 30, 40);
+  canvas.takeScreenshot();
+
+  Layer* layer = parent.layer();
+  REQUIRE(layer->invalidRects().count(&parent) == 0);
+
+  parent.removeRegion(&child);
+  REQUIRE(layer->invalidRects().count(&parent) == 1);
+
+  IBounds covered;
+  for (const IBounds& rect : layer->invalidRects().at(&parent))
+    covered = covered.width() ? covered.unioned(rect) : rect;
+  REQUIRE(covered.contains(IBounds(10, 20, 30, 40)));
+}
+
 TEST_CASE("Rounded triangle with collinear points records no shapes", "[graphics]") {
   Canvas canvas;
   canvas.setWindowless(80, 20);

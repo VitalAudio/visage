@@ -727,3 +727,35 @@ TEST_CASE("Masked frames are destroyed cleanly while attached to a parent", "[ui
   frame.reset();
   REQUIRE(parent.children().empty());
 }
+
+TEST_CASE("Deleting or removing a child frame invalidates the area it covered", "[ui]") {
+  Canvas canvas;
+  canvas.setWindowless(100, 100);
+  Frame parent;
+  canvas.addRegion(parent.region());
+  parent.region()->setNeedsLayer(true);
+  parent.setBounds(0, 0, 100, 100);
+
+  auto child = std::make_unique<Frame>();
+  parent.addChild(child.get());
+  child->setBounds(10, 20, 30, 40);
+  canvas.takeScreenshot();
+
+  Layer* layer = parent.region()->layer();
+  REQUIRE(layer->invalidRects().count(parent.region()) == 0);
+
+  SECTION("Deleted") {
+    child.reset();
+  }
+  SECTION("Removed") {
+    parent.removeChild(child.get());
+  }
+
+  REQUIRE(parent.children().empty());
+  REQUIRE(layer->invalidRects().count(parent.region()) == 1);
+
+  IBounds covered;
+  for (const IBounds& rect : layer->invalidRects().at(parent.region()))
+    covered = covered.width() ? covered.unioned(rect) : rect;
+  REQUIRE(covered.contains(IBounds(10, 20, 30, 40)));
+}
