@@ -265,6 +265,8 @@ namespace visage {
   void PopupMenuFrame::show(std::unique_ptr<PopupMenuFrame> self, Frame* source, Point point) {
     top_parent_ = source->topParentFrame();
     top_parent_->addChild(std::move(self));
+    if (source->palette())
+      setPalette(source->palette());
 
     setOnTop(true);
     setBounds(top_parent_->bounds());
