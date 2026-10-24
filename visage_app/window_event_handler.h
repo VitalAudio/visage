@@ -92,6 +92,8 @@ namespace visage {
 
   private:
     void changeKeyboardFocus(Frame* frame, bool was_clicked);
+    Frame* keyFrame();
+    bool isShowing(const Frame* frame) const;
     Frame* dragDropFrame(Point point, const std::vector<std::string>& files);
     const std::regex* dragDropRegex(const std::string& pattern);
     bool setHoveredFrame(Frame* frame, MouseEvent mouse_event);
@@ -103,6 +105,7 @@ namespace visage {
     Frame* temporary_frame_ = nullptr;
     Frame* mouse_down_frame_ = nullptr;
     Frame* keyboard_focused_frame_ = nullptr;
+    Frame* previous_keyboard_focused_frame_ = nullptr;
     Frame* drag_drop_target_frame_ = nullptr;
     Frame* drag_drop_source_frame_ = nullptr;
     std::map<std::string, std::unique_ptr<std::regex>> drag_drop_regexes_;
