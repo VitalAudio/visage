@@ -460,6 +460,28 @@ static PopupMenu subMenu(int num_options) {
   return sub_menu;
 }
 
+TEST_CASE("PopupMenu takes the palette of the frame it's shown from", "[ui]") {
+  Palette palette;
+  PopupMenu menu;
+  menu.addSubMenu(subMenu(2));
+
+  Frame root, source;
+  source.setPalette(&palette);
+  PopupMenuFrame* popup = showMenu(menu, root, source);
+  REQUIRE(popup);
+  REQUIRE(root.palette() == nullptr);
+  REQUIRE(popup->palette() == &palette);
+
+  auto* list = popupList(popup, 0);
+  REQUIRE(list);
+  REQUIRE(list->palette() == &palette);
+  list->setHoverFromPosition(Point(10, list->yForIndex(0) + 5));
+  list->selectHoveredIndex();
+  auto* sub_list = popupList(popup, 1);
+  REQUIRE(sub_list);
+  REQUIRE(sub_list->palette() == &palette);
+}
+
 TEST_CASE("PopupMenu sub menu opens next to its scrolled option", "[ui]") {
   PopupMenu menu;
   for (int i = 0; i < 30; ++i) {
