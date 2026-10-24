@@ -95,9 +95,12 @@ namespace visage {
     return EM_ASM_DOUBLE({ return window.devicePixelRatio; });
   }
 
+  static bool received_mouse_event = false;
+
   Point cursorPosition() {
     EmscriptenMouseEvent event;
-    emscripten_get_mouse_status(&event);
+    if (!received_mouse_event || emscripten_get_mouse_status(&event) != EMSCRIPTEN_RESULT_SUCCESS)
+      return {};
     float x = event.targetX - EM_ASM_DOUBLE({
                 var canvas = document.getElementById('canvas');
                 var rect = canvas.getBoundingClientRect();
@@ -255,6 +258,8 @@ namespace visage {
 
   static EM_BOOL mouseCallback(int event_type, const EmscriptenMouseEvent* event, void* user_data) {
     WindowEmscripten* window = WindowEmscripten::runningInstance();
+    if (event)
+      received_mouse_event = true;
 
     if (event == nullptr || window == nullptr)
       return false;
