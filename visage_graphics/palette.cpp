@@ -31,6 +31,7 @@
 
 namespace visage {
   void Palette::initWithDefaults() {
+    version_++;
     known_color_ids_.clear();
     known_value_ids_.clear();
     clearIdLists();
@@ -67,6 +68,7 @@ namespace visage {
   }
 
   void Palette::sortColors() {
+    version_++;
     std::vector<std::pair<Brush, int>> sorted;
     sorted.reserve(colors_.size());
     for (auto& color : colors_)
@@ -98,6 +100,107 @@ namespace visage {
           mapped.second = color_movement[mapped.second];
       }
     }
+  }
+
+  const ResolvedPalette* Palette::resolve(const ResolvedPalette* parent, theme::OverrideId override_id) {
+    if (parent == nullptr || parent->palette_ != this)
+      parent = root();
+    if (override_id.isDefault() || override_id == parent->override_id_)
+      return parent;
+
+    auto& resolved = resolved_[{ parent, override_id }];
+    if (resolved == nullptr) {
+      resolved = std::make_unique<ResolvedPalette>();
+      resolved->palette_ = this;
+      resolved->parent_ = parent;
+      resolved->override_id_ = override_id;
+    }
+    return resolved.get();
+  }
+
+  Brush Palette::color(const ResolvedPalette* resolved, theme::ColorId color_id) const {
+    const ResolvedPalette& table = refreshed(resolved);
+    if (color_id.id >= table.color_indices_.size())
+      return Brush::solid(theme::ColorId::defaultColor(color_id));
+
+    if (!table.colors_looked_up_[color_id.id]) {
+      table.colors_looked_up_[color_id.id] = true;
+      Brush result;
+      const ResolvedPalette* level = &table;
+      while (level && !color(level->override_id_, color_id, result))
+        level = level->parent_;
+    }
+
+    int index = table.color_indices_[color_id.id];
+    if (index == kNotSetId)
+      return Brush::solid(theme::ColorId::defaultColor(color_id));
+    if (index < 0 || index >= colors_.size())
+      return Brush::solid(kInvalidColor);
+    return colors_[index];
+  }
+
+  float Palette::value(const ResolvedPalette* resolved, theme::ValueId value_id) const {
+    const ResolvedPalette& table = refreshed(resolved);
+    if (value_id.id >= table.values_.size())
+      return theme::ValueId::defaultValue(value_id);
+
+    if (!table.values_looked_up_[value_id.id]) {
+      table.values_looked_up_[value_id.id] = true;
+      float result = 0.0f;
+      const ResolvedPalette* level = &table;
+      while (level && !value(level->override_id_, value_id, result))
+        level = level->parent_;
+    }
+
+    float result = table.values_[value_id.id];
+    return result == kNotSetValue ? theme::ValueId::defaultValue(value_id) : result;
+  }
+
+  const ResolvedPalette* Palette::root() const {
+    auto& root = resolved_[{ nullptr, theme::OverrideId() }];
+    if (root == nullptr) {
+      root = std::make_unique<ResolvedPalette>();
+      root->palette_ = this;
+    }
+    return root.get();
+  }
+
+  const ResolvedPalette& Palette::refreshed(const ResolvedPalette* resolved) const {
+    if (resolved == nullptr || resolved->palette_ != this)
+      resolved = root();
+    if (resolved->version_ == version_)
+      return *resolved;
+
+    if (resolved->parent_) {
+      const ResolvedPalette& parent = refreshed(resolved->parent_);
+      resolved->color_indices_ = parent.color_indices_;
+      resolved->values_ = parent.values_;
+    }
+    else {
+      resolved->color_indices_.assign(theme::ColorId::numColorIds(), kNotSetId);
+      resolved->values_.assign(theme::ValueId::numValueIds(), kNotSetValue);
+    }
+
+    auto colors = color_map_.find(resolved->override_id_);
+    if (colors != color_map_.end()) {
+      for (const auto& [color_id, index] : colors->second) {
+        if (color_id.id < resolved->color_indices_.size())
+          resolved->color_indices_[color_id.id] = index;
+      }
+    }
+
+    auto values = value_map_.find(resolved->override_id_);
+    if (values != value_map_.end()) {
+      for (const auto& [value_id, value] : values->second) {
+        if (value != kNotSetValue && value_id.id < resolved->values_.size())
+          resolved->values_[value_id.id] = value;
+      }
+    }
+
+    resolved->colors_looked_up_.assign(resolved->color_indices_.size(), false);
+    resolved->values_looked_up_.assign(resolved->values_.size(), false);
+    resolved->version_ = version_;
+    return *resolved;
   }
 
   std::map<std::string, std::vector<theme::ColorId>> Palette::colorIdList(theme::OverrideId override_id) const {
@@ -143,6 +246,7 @@ namespace visage {
   }
 
   void Palette::removeColor(int index) {
+    version_++;
     colors_.erase(colors_.begin() + index);
 
     std::vector<std::pair<theme::OverrideId, theme::ColorId>> unmapped;
@@ -191,6 +295,7 @@ namespace visage {
   }
 
   void Palette::decode(const std::string& data) {
+    version_++;
     known_color_ids_.clear();
     known_value_ids_.clear();
     clearIdLists();

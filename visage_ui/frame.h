@@ -134,21 +134,10 @@ namespace visage {
     virtual std::string startDragDropSource() { return ""; }
     virtual void cleanupDragDropSource() { }
 
-    void setPalette(Palette* palette) {
-      palette_ = palette;
-      for (Frame* child : children_)
-        child->setPalette(palette);
-    }
-
+    void setPalette(Palette* palette);
     Palette* palette() const { return palette_; }
 
-    void setPaletteOverride(theme::OverrideId override_id, bool recursive = true) {
-      palette_override_ = override_id;
-      if (recursive) {
-        for (Frame* child : children_)
-          child->setPaletteOverride(override_id, true);
-      }
-    }
+    void setPaletteOverride(theme::OverrideId override_id);
     theme::OverrideId paletteOverride() const { return palette_override_; }
 
     bool initialized() const { return initialized_; }
@@ -434,7 +423,8 @@ namespace visage {
   private:
     UndoHistory* undoHistory() const;
     Frame* keyboardFocusInside() const;
-    int saveParentPaletteOverrides(Canvas& canvas) const;
+    const ResolvedPalette* resolvedPalette() const;
+    void updateResolvedPalettes();
     void propagateMouseEvent(const MouseEvent& e, void (Frame::*handler)(const MouseEvent&)) {
       Frame* frame = parent_;
       std::weak_ptr<bool> frame_alive = frame ? frame->aliveToken() : std::weak_ptr<bool>();
@@ -528,6 +518,7 @@ namespace visage {
     float dpi_scale_ = 1.0f;
     Palette* palette_ = nullptr;
     theme::OverrideId palette_override_;
+    const ResolvedPalette* resolved_palette_ = nullptr;
     bool initialized_ = false;
 
     PostEffect* post_effect_ = nullptr;

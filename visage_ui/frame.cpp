@@ -87,6 +87,8 @@ namespace visage {
     child->setEventHandler(event_handler_);
     if (palette_)
       child->setPalette(palette_);
+    else
+      child->updateResolvedPalettes();
 
     if (!make_visible)
       child->setVisible(false);
@@ -372,30 +374,12 @@ namespace visage {
 
     canvas.beginRegion(&region_);
 
-    int saved_overrides = saveParentPaletteOverrides(canvas);
-    if (!palette_override_.isDefault())
-      canvas.setPaletteOverride(palette_override_);
     if (palette_)
       canvas.setPalette(palette_);
+    canvas.setResolvedPalette(resolved_palette_);
 
     on_draw_.callback(canvas);
-    for (int i = 0; i < saved_overrides; ++i)
-      canvas.restoreState();
     canvas.endRegion();
-  }
-
-  int Frame::saveParentPaletteOverrides(Canvas& canvas) const {
-    if (parent_ == nullptr)
-      return 0;
-
-    int saved = parent_->saveParentPaletteOverrides(canvas);
-    theme::OverrideId override_id = parent_->palette_override_;
-    if (override_id.isDefault() || override_id == canvas.paletteOverride())
-      return saved;
-
-    canvas.setPaletteOverride(override_id);
-    canvas.saveState();
-    return saved + 1;
   }
 
   void Frame::destroyChildren() {
@@ -499,38 +483,40 @@ namespace visage {
     redrawAll();
   }
 
-  float Frame::paletteValue(theme::ValueId value_id) const {
-    if (palette_) {
-      const Frame* frame = this;
-      float result = 0.0f;
-      while (frame) {
-        theme::OverrideId override_id = frame->palette_override_;
-        if (!override_id.isDefault() && palette_->value(override_id, value_id, result))
-          return result;
-        frame = frame->parent_;
-      }
-      if (palette_->value({}, value_id, result))
-        return result;
-    }
+  void Frame::setPalette(Palette* palette) {
+    palette_ = palette;
+    resolved_palette_ = resolvedPalette();
+    for (Frame* child : children_)
+      child->setPalette(palette);
+  }
 
+  void Frame::setPaletteOverride(theme::OverrideId override_id) {
+    palette_override_ = override_id;
+    updateResolvedPalettes();
+  }
+
+  float Frame::paletteValue(theme::ValueId value_id) const {
+    if (palette_)
+      return palette_->value(resolved_palette_, value_id);
     return theme::ValueId::defaultValue(value_id);
   }
 
   Brush Frame::paletteColor(theme::ColorId color_id) const {
-    if (palette_) {
-      Brush result;
-      const Frame* frame = this;
-      while (frame) {
-        theme::OverrideId override_id = frame->palette_override_;
-        if (!override_id.isDefault() && palette_->color(override_id, color_id, result))
-          return result;
-        frame = frame->parent_;
-      }
-      if (palette_->color({}, color_id, result))
-        return result;
-    }
-
+    if (palette_)
+      return palette_->color(resolved_palette_, color_id);
     return Brush::solid(theme::ColorId::defaultColor(color_id));
+  }
+
+  const ResolvedPalette* Frame::resolvedPalette() const {
+    if (palette_ == nullptr)
+      return nullptr;
+    return palette_->resolve(parent_ ? parent_->resolved_palette_ : nullptr, palette_override_);
+  }
+
+  void Frame::updateResolvedPalettes() {
+    resolved_palette_ = resolvedPalette();
+    for (Frame* child : children_)
+      child->updateResolvedPalettes();
   }
 
   Frame* Frame::keyboardFocusInside() const {

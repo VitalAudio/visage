@@ -26,10 +26,27 @@
 #include "theme.h"
 
 #include <map>
+#include <memory>
 #include <set>
 #include <vector>
 
 namespace visage {
+  class Palette;
+
+  class ResolvedPalette {
+  private:
+    friend class Palette;
+
+    const Palette* palette_ = nullptr;
+    const ResolvedPalette* parent_ = nullptr;
+    theme::OverrideId override_id_;
+    mutable int version_ = -1;
+    mutable std::vector<int> color_indices_;
+    mutable std::vector<float> values_;
+    mutable std::vector<bool> colors_looked_up_;
+    mutable std::vector<bool> values_looked_up_;
+  };
+
   class Palette {
   public:
     static constexpr int kInvalidId = -2;
@@ -101,17 +118,23 @@ namespace visage {
       return true;
     }
 
+    const ResolvedPalette* resolve(const ResolvedPalette* parent, theme::OverrideId override_id);
+    Brush color(const ResolvedPalette* resolved, theme::ColorId color_id) const;
+    float value(const ResolvedPalette* resolved, theme::ValueId value_id) const;
+
     void setColorMap(theme::OverrideId override_id, theme::ColorId color_id, int index) {
       if (index == kNotSetId) {
         removeColorMap(override_id, color_id);
         return;
       }
 
+      version_++;
       if (color_map_[override_id].insert_or_assign(color_id, index).second)
         color_id_lists_.erase(override_id);
     }
 
     void removeColorMap(theme::OverrideId override_id, theme::ColorId color_id) {
+      version_++;
       if (known_color_ids_[override_id].insert(color_id).second)
         color_id_lists_.erase(override_id);
 
@@ -132,6 +155,7 @@ namespace visage {
     void setColor(theme::ColorId color_id, const Brush& color) { setColor({}, color_id, color); }
 
     void setValue(theme::OverrideId override_id, theme::ValueId value_id, float value) {
+      version_++;
       if (value_map_[override_id].insert_or_assign(value_id, value).second)
         value_id_lists_.erase(override_id);
     }
@@ -143,6 +167,7 @@ namespace visage {
       if (values == value_map_.end() || values->second.erase(value_id) == 0)
         return;
 
+      version_++;
       known_value_ids_[override_id].insert(value_id);
       if (values->second.empty())
         value_map_.erase(values);
@@ -182,6 +207,7 @@ namespace visage {
     }
 
     void clear() {
+      version_++;
       color_map_.clear();
       value_map_.clear();
       colors_.clear();
@@ -201,6 +227,9 @@ namespace visage {
       value_id_lists_.clear();
     }
 
+    const ResolvedPalette* root() const;
+    const ResolvedPalette& refreshed(const ResolvedPalette* resolved) const;
+
     std::vector<Brush> colors_;
     std::map<theme::OverrideId, std::map<theme::ColorId, int>> color_map_;
     std::map<theme::OverrideId, std::map<theme::ValueId, float>> value_map_;
@@ -208,5 +237,7 @@ namespace visage {
     mutable std::map<theme::OverrideId, std::set<theme::ValueId>> known_value_ids_;
     mutable std::map<theme::OverrideId, std::map<std::string, std::vector<theme::ColorId>>> color_id_lists_;
     mutable std::map<theme::OverrideId, std::map<std::string, std::vector<theme::ValueId>>> value_id_lists_;
+    int version_ = 0;
+    mutable std::map<std::pair<const ResolvedPalette*, theme::OverrideId>, std::unique_ptr<ResolvedPalette>> resolved_;
   };
 }

@@ -40,6 +40,7 @@
 
 namespace visage {
   class Palette;
+  class ResolvedPalette;
   class Shader;
 
   class Canvas {
@@ -52,7 +53,7 @@ namespace visage {
       float x = 0;
       float y = 0;
       float scale = 1.0f;
-      theme::OverrideId palette_override;
+      const ResolvedPalette* resolved_palette = nullptr;
       Brush set_brush;
       const PackedBrush* brush = nullptr;
       ClampBounds clamp;
@@ -554,10 +555,8 @@ namespace visage {
     }
 
     void setPalette(Palette* palette) { palette_ = palette; }
-    void setPaletteOverride(theme::OverrideId override_id) {
-      state_.palette_override = override_id;
-    }
-    theme::OverrideId paletteOverride() const { return state_.palette_override; }
+    void setPaletteOverride(theme::OverrideId override_id);
+    void setResolvedPalette(const ResolvedPalette* resolved) { state_.resolved_palette = resolved; }
 
     void setClampBounds(float x, float y, float width, float height) {
       VISAGE_ASSERT(width >= 0);

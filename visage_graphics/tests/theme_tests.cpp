@@ -33,6 +33,13 @@ using namespace visage;
 VISAGE_THEME_COLOR(TestThemeColor, 0xff000000);
 VISAGE_THEME_VALUE(TestThemeValue, 1.0f);
 VISAGE_THEME_PALETTE_OVERRIDE(TestThemeOverride);
+VISAGE_THEME_PALETTE_OVERRIDE(TestThemeInnerOverride);
+
+namespace {
+  unsigned int argb(const Brush& brush) {
+    return brush.gradient().colors()[0].toARGB();
+  }
+}
 
 TEST_CASE("Palette override is separate from global", "[graphics]") {
   REQUIRE_FALSE(TestThemeOverride.isDefault());
@@ -159,6 +166,83 @@ TEST_CASE("Palette id lists follow palette changes", "[graphics]") {
   palette.initWithDefaults();
   REQUIRE(palette.colorIdList(TestThemeOverride).empty());
   REQUIRE(palette.colorIdList({})["theme_tests"] == std::vector<theme::ColorId> { TestThemeColor });
+}
+
+TEST_CASE("Resolved palettes use the nearest override that sets an id", "[graphics]") {
+  Palette palette;
+  palette.setColor(TestThemeColor, Color(0xff0000ff));
+  palette.setValue(TestThemeValue, 2.0f);
+  palette.setColor(TestThemeOverride, TestThemeColor, Color(0xffff0000));
+  palette.setValue(TestThemeInnerOverride, TestThemeValue, 4.0f);
+
+  const ResolvedPalette* outer = palette.resolve(nullptr, TestThemeOverride);
+  const ResolvedPalette* inner = palette.resolve(outer, TestThemeInnerOverride);
+  REQUIRE(palette.resolve(nullptr, TestThemeOverride) == outer);
+  REQUIRE(palette.resolve(outer, theme::OverrideId()) == outer);
+  REQUIRE(palette.resolve(outer, TestThemeOverride) == outer);
+
+  REQUIRE(argb(palette.color(inner, TestThemeColor)) == 0xffff0000);
+  REQUIRE(palette.value(inner, TestThemeValue) == 4.0f);
+  REQUIRE(argb(palette.color(outer, TestThemeColor)) == 0xffff0000);
+  REQUIRE(palette.value(outer, TestThemeValue) == 2.0f);
+
+  const ResolvedPalette* inner_only = palette.resolve(nullptr, TestThemeInnerOverride);
+  REQUIRE(argb(palette.color(inner_only, TestThemeColor)) == 0xff0000ff);
+  REQUIRE(palette.value(inner_only, TestThemeValue) == 4.0f);
+  REQUIRE(argb(palette.color(nullptr, TestThemeColor)) == 0xff0000ff);
+  REQUIRE(palette.value(nullptr, TestThemeValue) == 2.0f);
+}
+
+TEST_CASE("Resolved palettes follow palette changes", "[graphics]") {
+  Palette palette;
+  const ResolvedPalette* resolved = palette.resolve(nullptr, TestThemeOverride);
+  REQUIRE(argb(palette.color(resolved, TestThemeColor)) == 0xff000000);
+  REQUIRE(palette.value(resolved, TestThemeValue) == 1.0f);
+
+  palette.setColor(TestThemeColor, Color(0xff0000ff));
+  palette.setValue(TestThemeValue, 2.0f);
+  REQUIRE(argb(palette.color(resolved, TestThemeColor)) == 0xff0000ff);
+  REQUIRE(palette.value(resolved, TestThemeValue) == 2.0f);
+
+  palette.setColor(TestThemeOverride, TestThemeColor, Color(0xffff0000));
+  palette.setValue(TestThemeOverride, TestThemeValue, 3.0f);
+  REQUIRE(argb(palette.color(resolved, TestThemeColor)) == 0xffff0000);
+  REQUIRE(palette.value(resolved, TestThemeValue) == 3.0f);
+
+  palette.setColorIndexFrom(palette.colorMap(TestThemeOverride, TestThemeColor), Color(0xff00ff00));
+  REQUIRE(argb(palette.color(resolved, TestThemeColor)) == 0xff00ff00);
+
+  palette.removeColorMap(TestThemeOverride, TestThemeColor);
+  palette.removeValue(TestThemeOverride, TestThemeValue);
+  REQUIRE(argb(palette.color(resolved, TestThemeColor)) == 0xff0000ff);
+  REQUIRE(palette.value(resolved, TestThemeValue) == 2.0f);
+
+  std::string encoded = palette.encode();
+  palette.clear();
+  REQUIRE(argb(palette.color(resolved, TestThemeColor)) == 0xff000000);
+  REQUIRE(palette.value(resolved, TestThemeValue) == 1.0f);
+
+  palette.decode(encoded);
+  REQUIRE(argb(palette.color(resolved, TestThemeColor)) == 0xff0000ff);
+  REQUIRE(palette.value(resolved, TestThemeValue) == 2.0f);
+}
+
+TEST_CASE("Resolved palette lookups list the ids they look up", "[graphics]") {
+  Palette palette;
+  const ResolvedPalette* resolved = palette.resolve(nullptr, TestThemeOverride);
+  palette.color(resolved, TestThemeColor);
+  palette.value(resolved, TestThemeValue);
+  REQUIRE(palette.colorIdList(TestThemeOverride)["theme_tests"] ==
+          std::vector<theme::ColorId> { TestThemeColor });
+  REQUIRE(palette.colorIdList({})["theme_tests"] == std::vector<theme::ColorId> { TestThemeColor });
+  REQUIRE(palette.valueIdList(TestThemeOverride)["theme_tests"] ==
+          std::vector<theme::ValueId> { TestThemeValue });
+
+  palette.clear();
+  REQUIRE(palette.colorIdList(TestThemeOverride).empty());
+  palette.color(resolved, TestThemeColor);
+  REQUIRE(palette.colorIdList(TestThemeOverride)["theme_tests"] ==
+          std::vector<theme::ColorId> { TestThemeColor });
 }
 
 TEST_CASE("Palette never saves unset color mappings", "[graphics]") {
