@@ -288,3 +288,35 @@ TEST_CASE("A Font held in a global is released after the font cache", "[graphics
   global_font = Font(10, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data));
   REQUIRE(global_font.packedFont());
 }
+
+TEST_CASE("Clamps that cut text glyphs keep each glyph pixel in place", "[graphics]") {
+  Font font(24, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data));
+  auto render = [&font](Direction direction, float clamp_left, float clamp_width) {
+    Canvas canvas;
+    canvas.setWindowless(80, 80);
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, 80, 80);
+    canvas.setClampBounds(clamp_left, 0, clamp_width, 80);
+    canvas.setColor(0xffffffff);
+    canvas.text("Wg", font, Font::Justification::kCenter, 0, 0, 80, 80, direction);
+    return canvas.takeScreenshot();
+  };
+
+  for (Direction direction : { Direction::Up, Direction::Down, Direction::Left, Direction::Right }) {
+    INFO("direction " << static_cast<int>(direction));
+    Screenshot full = render(direction, 0, 80);
+    Screenshot clamped = render(direction, 34, 12);
+    int lit = 0;
+    int max_difference = 0;
+    for (int y = 0; y < 80; ++y) {
+      for (int x = 34; x < 46; ++x) {
+        int full_red = static_cast<int>(full.sample(x, y).hexRed());
+        int clamped_red = static_cast<int>(clamped.sample(x, y).hexRed());
+        lit += full_red > 0x80;
+        max_difference = std::max(max_difference, std::abs(full_red - clamped_red));
+      }
+    }
+    REQUIRE(lit > 20);
+    REQUIRE(max_difference <= 2);
+  }
+}

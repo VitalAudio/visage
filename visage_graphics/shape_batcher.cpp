@@ -635,6 +635,11 @@ namespace visage {
             coordinate_index3 = 2;
           }
 
+          bool sideways = text_block.direction == Direction::Left ||
+                          text_block.direction == Direction::Right;
+          float padding_x = sideways ? 0.0f : 0.5f;
+          float padding_y = sideways ? 0.5f : 0.0f;
+
           TextureVertex gradient;
           PackedBrush::setVertexGradientPositions(text_block.brush, &gradient, 1, x, y, batch.x,
                                                   batch.y, x + text_block.width, y + text_block.height);
@@ -646,10 +651,10 @@ namespace visage {
             if (vertices == nullptr)
               return;
 
-            float left = x + text_block.quads[i].x - 0.5f;
-            float right = left + text_block.quads[i].width + 1.0f;
-            float top = y + text_block.quads[i].y;
-            float bottom = top + text_block.quads[i].height;
+            float left = x + text_block.quads[i].x - padding_x;
+            float right = left + text_block.quads[i].width + 2.0f * padding_x;
+            float top = y + text_block.quads[i].y - padding_y;
+            float bottom = top + text_block.quads[i].height + 2.0f * padding_y;
 
             float texture_x = text_block.quads[i].packed_glyph->atlas_left - 0.5f;
             float texture_y = text_block.quads[i].packed_glyph->atlas_top;
