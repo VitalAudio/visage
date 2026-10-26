@@ -22,9 +22,12 @@
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/svg.h"
 
+#include <algorithm>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <clocale>
+#include <cstdlib>
+#include <string>
 
 using namespace visage;
 
@@ -868,4 +871,52 @@ TEST_CASE("Svg dashes join across the start of closed paths", "[graphics]") {
   REQUIRE(corner(R"svg(<path d="M11 11 H19 V19 H11 V11" stroke-dasharray="20 4"/>)svg") == 0x00);
   REQUIRE(corner(R"svg(<path d="M5 5 H5 Z M11 11 H19 V19 H11 Z" stroke-dasharray="20 4"/>)svg") == 0xff);
   REQUIRE(corner(R"svg(<path d="M11 11 H19 V19 H11 V11 M3 3 h0 z" stroke-dasharray="20 4"/>)svg") == 0x00);
+}
+
+TEST_CASE("Svgs drawn from data with the canvas brush use its points like other shapes",
+          "[graphics]") {
+  std::string svg_data = R"svg(<svg viewBox="0 0 40 40" width="40" height="40">
+    <rect width="40" height="40" fill="#00ff00"/>
+  </svg>)svg";
+  const unsigned char* data = reinterpret_cast<const unsigned char*>(svg_data.data());
+  int size = static_cast<int>(svg_data.size());
+
+  for (bool positioned : { false, true }) {
+    for (Brush brush : { Brush::linear(0xffff0000, 0xff0000ff, { 30, 10 }, { 70, 50 }),
+                         Brush::radial(Color(0xffff0000), Color(0xff0000ff), { 50, 30 }, 24.0f) }) {
+      INFO((positioned ? "after setPosition" : "without setPosition"));
+      auto render = [&](bool svg) {
+        Canvas canvas;
+        canvas.setWindowless(100, 60);
+        canvas.setColor(0xff000000);
+        canvas.fill(0, 0, 100, 60);
+        float x = 30;
+        if (positioned) {
+          canvas.setPosition(20, 0);
+          x = 10;
+        }
+        canvas.setColor(brush);
+        if (svg)
+          canvas.svg(data, size, x, 10, 40, 40);
+        else
+          canvas.fill(x, 10, 40, 40);
+        return canvas.takeScreenshot();
+      };
+
+      Screenshot expected = render(false);
+      Screenshot actual = render(true);
+      int max_difference = 0;
+      for (int y = 12; y < 48; ++y) {
+        for (int x = 32; x < 68; ++x) {
+          Color a = expected.sample(x, y);
+          Color b = actual.sample(x, y);
+          max_difference = std::max(max_difference, std::abs(static_cast<int>(a.hexRed()) -
+                                                             static_cast<int>(b.hexRed())));
+          max_difference = std::max(max_difference, std::abs(static_cast<int>(a.hexBlue()) -
+                                                             static_cast<int>(b.hexBlue())));
+        }
+      }
+      REQUIRE(max_difference <= 2);
+    }
+  }
 }
