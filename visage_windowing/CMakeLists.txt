@@ -13,7 +13,7 @@ elseif (UNIX)
   file(GLOB PLATFORM_HEADER_FILES linux/*.h)
 
   find_package(X11 REQUIRED)
-  set(X11_LIBS ${X11_LIBRARIES} ${X11_Xrandr_LIB})
+  set(X11_LIBS ${X11_LIBRARIES} ${X11_Xrandr_LIB} ${CMAKE_DL_LIBS})
   set(X11_INCLUDES ${X11_INCLUDE_DIR} ${Xrandr_INCLUDE_DIR})
 endif ()
 

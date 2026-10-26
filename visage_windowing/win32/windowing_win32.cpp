@@ -171,14 +171,14 @@ namespace visage {
     case MouseCursor::Arrow: cursor = arrow_cursor; break;
     case MouseCursor::IBeam: cursor = ibeam_cursor; break;
     case MouseCursor::Crosshair: cursor = crosshair_cursor; break;
-    case MouseCursor::Pointing: cursor = pointing_cursor; break;
+    case MouseCursor::Pointing:
+    case MouseCursor::Dragging: cursor = pointing_cursor; break;
     case MouseCursor::HorizontalResize: cursor = horizontal_resize_cursor; break;
     case MouseCursor::VerticalResize: cursor = vertical_resize_cursor; break;
     case MouseCursor::TopLeftResize:
     case MouseCursor::BottomRightResize: cursor = top_left_to_bottom_right_resize_cursor; break;
     case MouseCursor::TopRightResize:
     case MouseCursor::BottomLeftResize: cursor = top_right_to_bottom_left_resize_cursor; break;
-    case MouseCursor::Dragging:
     case MouseCursor::MultiDirectionalResize: cursor = multi_directional_resize_cursor; break;
     case MouseCursor::Invisible: cursor = nullptr; break;
     default: cursor = arrow_cursor; break;

@@ -125,6 +125,19 @@ namespace visage {
     return [NSCursor arrowCursor];
   }
 
+  static NSCursor* systemCursorFile(NSString* name) {
+    NSString* path = [@"/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/"
+                      @"HIServices.framework/Versions/A/Resources/cursors" stringByAppendingPathComponent:name];
+    NSImage* image = [[NSImage alloc] initWithContentsOfFile:[path stringByAppendingPathComponent:@"cursor.pdf"]];
+    NSDictionary* info = [NSDictionary
+        dictionaryWithContentsOfFile:[path stringByAppendingPathComponent:@"info.plist"]];
+    if (image == nil || info == nil)
+      return [NSCursor arrowCursor];
+
+    NSPoint hot_spot = NSMakePoint([info[@"hotx"] doubleValue], [info[@"hoty"] doubleValue]);
+    return [[NSCursor alloc] initWithImage:image hotSpot:hot_spot];
+  }
+
   static NSCursor* diagonalResizeCursor(bool top, bool left) {
 #if defined(__MAC_15_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_15_0
     if (@available(macOS 15.0, *)) {
@@ -156,6 +169,7 @@ namespace visage {
     static const NSCursor* dragging_cursor = [NSCursor openHandCursor];
     static const NSCursor* horizontal_resize_cursor = [NSCursor resizeLeftRightCursor];
     static const NSCursor* vertical_resize_cursor = [NSCursor resizeUpDownCursor];
+    static const NSCursor* multi_directional_resize_cursor = systemCursorFile(@"move");
     static const NSCursor* top_left_resize_cursor = diagonalResizeCursor(true, true);
     static const NSCursor* top_right_resize_cursor = diagonalResizeCursor(true, false);
     static const NSCursor* bottom_left_resize_cursor = diagonalResizeCursor(false, true);
@@ -167,8 +181,8 @@ namespace visage {
     case MouseCursor::IBeam: cursor = ibeam_cursor; break;
     case MouseCursor::Crosshair: cursor = crosshair_cursor; break;
     case MouseCursor::Pointing: cursor = pointing_cursor; break;
-    case MouseCursor::MultiDirectionalResize:
     case MouseCursor::Dragging: cursor = dragging_cursor; break;
+    case MouseCursor::MultiDirectionalResize: cursor = multi_directional_resize_cursor; break;
     case MouseCursor::HorizontalResize: cursor = horizontal_resize_cursor; break;
     case MouseCursor::VerticalResize: cursor = vertical_resize_cursor; break;
     case MouseCursor::TopLeftResize: cursor = top_left_resize_cursor; break;
