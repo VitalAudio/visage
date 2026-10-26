@@ -3237,3 +3237,50 @@ TEST_CASE("Bloom doesn't glow dark around subtracted shapes", "[graphics]") {
   REQUIRE(render(false) == Approx(0x80).margin(2));
   REQUIRE(render(true) == Approx(render(false)).margin(2));
 }
+
+TEST_CASE("Strokes at a DPI scale match the same stroke drawn at the scaled size", "[graphics]") {
+  auto testPath = [](float k) {
+    Path path;
+    path.moveTo(4 * k, 36 * k);
+    path.lineTo(20 * k, 2 * k);
+    path.quadraticTo(40 * k, 10 * k, 36 * k, 36 * k);
+    path.lineTo(20 * k, 24 * k);
+    path.close();
+    return path;
+  };
+
+  for (float dpi : { 2.0f, 1.5f }) {
+    for (bool dashed : { false, true }) {
+      INFO("DPI " << dpi << (dashed ? ", dashed" : ""));
+      int size = std::round(60 * dpi);
+      auto render = [&](float canvas_dpi, float k) {
+        Canvas canvas;
+        canvas.setDpiScale(canvas_dpi);
+        canvas.setWindowless(size, size);
+        canvas.setNativePixelScale();
+        canvas.setColor(0xff000000);
+        canvas.fill(0, 0, size, size);
+        canvas.setLogicalPixelScale();
+        canvas.setColor(0xffffffff);
+        std::vector<float> dashes;
+        if (dashed)
+          dashes = { 6 * k, 4 * k };
+        canvas.stroke(testPath(k), 10 * k, 10 * k, 40 * k, 40 * k, 3 * k, Path::Join::Round,
+                      Path::EndCap::Round, dashes, 2 * k);
+        return canvas.takeScreenshot();
+      };
+
+      Screenshot expected = render(1.0f, dpi);
+      Screenshot actual = render(dpi, 1.0f);
+      int max_difference = 0;
+      for (int y = 0; y < size; ++y) {
+        for (int x = 0; x < size; ++x) {
+          int difference = std::abs(static_cast<int>(expected.sample(x, y).hexRed()) -
+                                    static_cast<int>(actual.sample(x, y).hexRed()));
+          max_difference = std::max(max_difference, difference);
+        }
+      }
+      REQUIRE(max_difference <= 2);
+    }
+  }
+}
