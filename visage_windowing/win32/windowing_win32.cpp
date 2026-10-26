@@ -162,6 +162,8 @@ namespace visage {
     static const HCURSOR pointing_cursor = LoadCursor(nullptr, IDC_HAND);
     static const HCURSOR horizontal_resize_cursor = LoadCursor(nullptr, IDC_SIZEWE);
     static const HCURSOR vertical_resize_cursor = LoadCursor(nullptr, IDC_SIZENS);
+    static const HCURSOR top_left_to_bottom_right_resize_cursor = LoadCursor(nullptr, IDC_SIZENWSE);
+    static const HCURSOR top_right_to_bottom_left_resize_cursor = LoadCursor(nullptr, IDC_SIZENESW);
     static const HCURSOR multi_directional_resize_cursor = LoadCursor(nullptr, IDC_SIZEALL);
 
     HCURSOR cursor;
@@ -172,6 +174,10 @@ namespace visage {
     case MouseCursor::Pointing: cursor = pointing_cursor; break;
     case MouseCursor::HorizontalResize: cursor = horizontal_resize_cursor; break;
     case MouseCursor::VerticalResize: cursor = vertical_resize_cursor; break;
+    case MouseCursor::TopLeftResize:
+    case MouseCursor::BottomRightResize: cursor = top_left_to_bottom_right_resize_cursor; break;
+    case MouseCursor::TopRightResize:
+    case MouseCursor::BottomLeftResize: cursor = top_right_to_bottom_left_resize_cursor; break;
     case MouseCursor::Dragging:
     case MouseCursor::MultiDirectionalResize: cursor = multi_directional_resize_cursor; break;
     case MouseCursor::Invisible: cursor = nullptr; break;

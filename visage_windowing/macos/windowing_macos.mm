@@ -114,6 +114,33 @@ namespace visage {
 
   static MouseCursor current_cursor_style = MouseCursor::Arrow;
 
+  static NSCursor* privateCursor(NSString* name) {
+    SEL selector = NSSelectorFromString(name);
+    if ([NSCursor respondsToSelector:selector]) {
+      NSCursor* (*get_cursor)(id, SEL) = (NSCursor * (*)(id, SEL))[NSCursor methodForSelector:selector];
+      NSCursor* cursor = get_cursor([NSCursor class], selector);
+      if (cursor)
+        return cursor;
+    }
+    return [NSCursor arrowCursor];
+  }
+
+  static NSCursor* diagonalResizeCursor(bool top, bool left) {
+#if defined(__MAC_15_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_15_0
+    if (@available(macOS 15.0, *)) {
+      NSCursorFrameResizePosition position;
+      if (top)
+        position = left ? NSCursorFrameResizePositionTopLeft : NSCursorFrameResizePositionTopRight;
+      else
+        position = left ? NSCursorFrameResizePositionBottomLeft : NSCursorFrameResizePositionBottomRight;
+      return [NSCursor frameResizeCursorFromPosition:position
+                                        inDirections:NSCursorFrameResizeDirectionsAll];
+    }
+#endif
+    return privateCursor(top == left ? @"_windowResizeNorthWestSouthEastCursor" :
+                                       @"_windowResizeNorthEastSouthWestCursor");
+  }
+
   void setCursorStyle(MouseCursor style) {
     current_cursor_style = style;
     if (style == MouseCursor::Invisible) {
@@ -129,6 +156,10 @@ namespace visage {
     static const NSCursor* dragging_cursor = [NSCursor openHandCursor];
     static const NSCursor* horizontal_resize_cursor = [NSCursor resizeLeftRightCursor];
     static const NSCursor* vertical_resize_cursor = [NSCursor resizeUpDownCursor];
+    static const NSCursor* top_left_resize_cursor = diagonalResizeCursor(true, true);
+    static const NSCursor* top_right_resize_cursor = diagonalResizeCursor(true, false);
+    static const NSCursor* bottom_left_resize_cursor = diagonalResizeCursor(false, true);
+    static const NSCursor* bottom_right_resize_cursor = diagonalResizeCursor(false, false);
 
     const NSCursor* cursor = nil;
     switch (style) {
@@ -140,6 +171,10 @@ namespace visage {
     case MouseCursor::Dragging: cursor = dragging_cursor; break;
     case MouseCursor::HorizontalResize: cursor = horizontal_resize_cursor; break;
     case MouseCursor::VerticalResize: cursor = vertical_resize_cursor; break;
+    case MouseCursor::TopLeftResize: cursor = top_left_resize_cursor; break;
+    case MouseCursor::TopRightResize: cursor = top_right_resize_cursor; break;
+    case MouseCursor::BottomLeftResize: cursor = bottom_left_resize_cursor; break;
+    case MouseCursor::BottomRightResize: cursor = bottom_right_resize_cursor; break;
     default: return;
     }
     [cursor set];
