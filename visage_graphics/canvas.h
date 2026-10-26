@@ -417,8 +417,10 @@ namespace visage {
              const T4& height) {
       Svg new_svg(svg_data, svg_size);
       new_svg.setDimensions(pixels(width) / state_.scale, pixels(height) / state_.scale, state_.scale);
-      new_svg.setFillBrush(state_.set_brush);
-      new_svg.setStrokeBrush(state_.set_brush);
+      Brush brush = state_.set_brush;
+      brush.transform(Transform::translation(-pixels(x) / state_.scale, -pixels(y) / state_.scale));
+      new_svg.setFillBrush(brush);
+      new_svg.setStrokeBrush(brush);
       svg(new_svg, x, y, width, height);
     }
 
