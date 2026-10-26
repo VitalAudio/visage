@@ -220,6 +220,22 @@ namespace visage {
     return false;
   }
 
+  // [NSApp stop:] only takes effect after the next event, so post one in case
+  // this was called outside of event handling, like from a timer.
+  static void stopEventLoop() {
+    [NSApp stop:nil];
+    NSEvent* wake_event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
+                                             location:NSZeroPoint
+                                        modifierFlags:0
+                                            timestamp:0
+                                         windowNumber:0
+                                              context:nil
+                                              subtype:0
+                                                data1:0
+                                                data2:0];
+    [NSApp postEvent:wake_event atStart:YES];
+  }
+
   KeyCode translateKeyCode(int mac_key_code) {
     switch (mac_key_code) {
     case kVK_ANSI_A: return KeyCode::A;
@@ -1134,17 +1150,7 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
 
 @implementation VisageAppDelegate
 - (void)stopEventLoop {
-  [NSApp stop:nil];
-  NSEvent* wake_event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
-                                           location:NSZeroPoint
-                                      modifierFlags:0
-                                          timestamp:0
-                                       windowNumber:0
-                                            context:nil
-                                            subtype:0
-                                              data1:0
-                                              data2:0];
-  [NSApp postEvent:wake_event atStart:YES];
+  visage::stopEventLoop();
 }
 
 - (void)handleQuitEvent:(NSAppleEventDescriptor*)event
@@ -1404,7 +1410,7 @@ namespace visage {
     });
 
     if (running_event_loop_ && !NativeWindowLookup::instance().anyWindowOpen())
-      [NSApp stop:nil];
+      stopEventLoop();
   }
 
   void WindowMac::setParentWindow(NSWindow* window) {
