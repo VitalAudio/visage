@@ -64,6 +64,7 @@ namespace visage {
 @property NSPoint text_input_screen_position;
 @property NSUInteger typed_length;
 @property bool command_requested;
+@property bool has_focus;
 
 - (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window;
 - (void)dragEndedAtScreenPoint:(NSPoint)screen_point;
