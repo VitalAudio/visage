@@ -514,17 +514,14 @@ namespace visage {
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
 
-      vertices[0].value1 = packed_data.x();
-      vertices[0].value2 = packed_data.y();
-
-      vertices[1].value1 = packed_data.x() + packed_data.w();
-      vertices[1].value2 = packed_data.y();
-
-      vertices[2].value1 = packed_data.x();
-      vertices[2].value2 = packed_data.y();
-
-      vertices[3].value1 = packed_data.x() + packed_data.w();
-      vertices[3].value2 = packed_data.y();
+      float left = vertices[0].x - 0.5f;
+      float span = vertices[0].dimension_x + 1.0f;
+      for (int i = 0; i < kVerticesPerQuad; ++i) {
+        float x = vertices[i].x + vertices[i].coordinate_x * 0.5f;
+        x = std::min(std::max(x, vertices[i].clamp_left), vertices[i].clamp_right);
+        vertices[i].value1 = packed_data.x() + packed_data.w() * (x - left) / span;
+        vertices[i].value2 = packed_data.y();
+      }
     }
 
     ImageAtlas* data_atlas = nullptr;
