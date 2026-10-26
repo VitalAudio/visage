@@ -21,9 +21,11 @@
 
 #include "visage_graphics/canvas.h"
 
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
 #include <functional>
+#include <utility>
 
 using namespace visage;
 
@@ -116,5 +118,37 @@ TEST_CASE("Graph fill covers the exact area between dense data and the fill cent
       float expected = std::max(0.0f, 0.5f - distance / 20.0f);
       REQUIRE(std::abs(coverage(screenshot, x, y) - expected * 255.0f) <= 3.0f);
     }
+  }
+}
+
+TEST_CASE("Heat maps cut by a clamp keep each value where it was", "[graphics]") {
+  HeatMapData data(8, 2);
+  for (int y = 0; y < data.height(); ++y) {
+    for (int x = 0; x < data.width(); ++x)
+      data.set(x, y, x / 7.0f);
+  }
+  auto draw = [&data](float clamp_left, float clamp_width) {
+    return render(100, 40, [&](Canvas& canvas) {
+      canvas.setClampBounds(clamp_left, 0, clamp_width, 40);
+      canvas.setColor(Brush::horizontal(0xffff0000, 0xff0000ff));
+      canvas.heatMap(data, 10, 5, 80, 30);
+    });
+  };
+
+  Screenshot full = draw(0, 100);
+  for (auto [clamp_left, clamp_width] :
+       { std::pair(0.0f, 40.0f), std::pair(35.0f, 30.0f), std::pair(60.0f, 40.0f) }) {
+    INFO("clamp " << clamp_left << " to " << clamp_left + clamp_width);
+    Screenshot clamped = draw(clamp_left, clamp_width);
+    int max_difference = 0;
+    for (int y = 5; y < 35; ++y) {
+      for (int x = std::max(10, static_cast<int>(clamp_left));
+           x < std::min(90.0f, clamp_left + clamp_width); ++x) {
+        int full_red = static_cast<int>(full.sample(x, y).hexRed());
+        int clamped_red = static_cast<int>(clamped.sample(x, y).hexRed());
+        max_difference = std::max(max_difference, std::abs(full_red - clamped_red));
+      }
+    }
+    REQUIRE(max_difference <= 2);
   }
 }
