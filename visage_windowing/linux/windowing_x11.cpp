@@ -28,6 +28,7 @@
 #include <cerrno>
 #include <clocale>
 #include <cstring>
+#include <dlfcn.h>
 #include <sstream>
 #include <X11/cursorfont.h>
 #include <X11/extensions/Xrandr.h>
@@ -267,13 +268,13 @@ namespace visage {
     case MouseCursor::IBeam: cursor = x11->cursors().ibeam_cursor; break;
     case MouseCursor::Crosshair: cursor = x11->cursors().crosshair_cursor; break;
     case MouseCursor::Pointing: cursor = x11->cursors().pointing_cursor; break;
+    case MouseCursor::Dragging: cursor = x11->cursors().dragging_cursor; break;
     case MouseCursor::HorizontalResize: cursor = x11->cursors().horizontal_resize_cursor; break;
     case MouseCursor::VerticalResize: cursor = x11->cursors().vertical_resize_cursor; break;
     case MouseCursor::TopLeftResize: cursor = x11->cursors().top_left_resize_cursor; break;
     case MouseCursor::TopRightResize: cursor = x11->cursors().top_right_resize_cursor; break;
     case MouseCursor::BottomLeftResize: cursor = x11->cursors().bottom_left_resize_cursor; break;
     case MouseCursor::BottomRightResize: cursor = x11->cursors().bottom_right_resize_cursor; break;
-    case MouseCursor::Dragging:
     case MouseCursor::MultiDirectionalResize:
       cursor = x11->cursors().multi_directional_resize_cursor;
       break;
@@ -716,6 +717,18 @@ namespace visage {
     return window;
   }
 
+  static Cursor themeCursor(Display* display, const char* name, unsigned int fallback_shape) {
+    using LoadCursorFunction = Cursor (*)(Display*, const char*);
+    Cursor cursor = 0;
+    if (void* xcursor = dlopen("libXcursor.so.1", RTLD_LAZY | RTLD_LOCAL)) {
+      auto load_cursor = reinterpret_cast<LoadCursorFunction>(dlsym(xcursor, "XcursorLibraryLoadCursor"));
+      if (load_cursor)
+        cursor = load_cursor(display, name);
+      dlclose(xcursor);
+    }
+    return cursor ? cursor : XCreateFontCursor(display, fallback_shape);
+  }
+
   X11Connection::Cursors::Cursors(Display* display) {
     if (display == nullptr)
       return;
@@ -732,6 +745,7 @@ namespace visage {
     ibeam_cursor = XCreateFontCursor(display, XC_xterm);
     crosshair_cursor = XCreateFontCursor(display, XC_crosshair);
     pointing_cursor = XCreateFontCursor(display, XC_hand2);
+    dragging_cursor = themeCursor(display, "grab", XC_hand1);
     horizontal_resize_cursor = XCreateFontCursor(display, XC_sb_h_double_arrow);
     vertical_resize_cursor = XCreateFontCursor(display, XC_sb_v_double_arrow);
     top_left_resize_cursor = XCreateFontCursor(display, XC_top_left_corner);
