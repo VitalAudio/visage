@@ -75,6 +75,10 @@ namespace visage {
     case MouseCursor::Pointing: return "pointer";
     case MouseCursor::HorizontalResize: return "ew-resize";
     case MouseCursor::VerticalResize: return "ns-resize";
+    case MouseCursor::TopLeftResize:
+    case MouseCursor::BottomRightResize: return "nwse-resize";
+    case MouseCursor::TopRightResize:
+    case MouseCursor::BottomLeftResize: return "nesw-resize";
     case MouseCursor::Dragging:
     case MouseCursor::MultiDirectionalResize: return "move";
     default: return "";
