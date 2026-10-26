@@ -133,3 +133,7 @@ set_target_properties(visage PROPERTIES FOLDER "visage")
 if (VISAGE_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif ()
+
+if (VISAGE_BUILD_TESTS)
+  add_subdirectory(manual_tests)
+endif ()
