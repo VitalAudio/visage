@@ -549,6 +549,10 @@ namespace visage {
       float new_y = std::max(top, std::floor(clamp.top) - kClampBuffer);
       float new_width = std::max(0.0f, std::min(right, std::ceil(clamp.right) + kClampBuffer) - new_x);
       float new_height = std::max(0.0f, std::min(bottom, std::ceil(clamp.bottom) + kClampBuffer) - new_y);
+      gradient_left = left;
+      gradient_top = top;
+      gradient_right = right;
+      gradient_bottom = bottom;
 
       float shift_x = new_x - x;
       float shift_y = new_y - y;
@@ -561,11 +565,20 @@ namespace visage {
     }
 
     void setVertexData(Vertex* vertices) const {
+      float offset_x = vertices[0].x - x;
+      float offset_y = vertices[0].y - y;
+      PackedBrush::setVertexGradientPositions(brush, vertices, kVerticesPerQuad, offset_x, offset_y,
+                                              gradient_left + offset_x, gradient_top + offset_y,
+                                              gradient_right + offset_x, gradient_bottom + offset_y);
       path_atlas->setPathAtlasCoordinates(vertices, packed_path);
     }
 
     PathAtlas* path_atlas = nullptr;
     float scale = 1.0f;
+    float gradient_left = 0.0f;
+    float gradient_top = 0.0f;
+    float gradient_right = 0.0f;
+    float gradient_bottom = 0.0f;
     PathAtlas::PackedPath packed_path;
   };
 

@@ -32,9 +32,14 @@
 #include "visage_utils/child_process.h"
 #include "visage_utils/file_system.h"
 
+#include <algorithm>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdlib>
+#include <functional>
+#include <string>
+#include <utility>
+#include <vector>
 
 #if VISAGE_LINUX
 #include <dlfcn.h>
@@ -3268,6 +3273,63 @@ TEST_CASE("Segments and arcs point in the direction they are drawn", "[graphics]
       float distance = row < 2 ? 0.5f * kRadius : kRadius - 0.5f * kThickness;
       REQUIRE(sample(i, row, distance, kAngles[i]) == 0xff);
       REQUIRE(sample(i, row, distance, -kAngles[i]) == 0);
+    }
+  }
+}
+
+TEST_CASE("Horizontal and vertical brushes keep their range on paths cut by a clamp",
+          "[graphics]") {
+  Path path;
+  path.moveTo(4, 36);
+  path.lineTo(20, 2);
+  path.quadraticTo(40, 10, 36, 36);
+  path.close();
+  GraphData graph(5);
+  for (int i = 0; i < graph.numPoints(); ++i)
+    graph[i] = 0.2f + 0.15f * i;
+
+  std::vector<std::pair<std::string, std::function<void(Canvas&)>>> shapes = {
+    { "fill", [&](Canvas& canvas) { canvas.fill(path, 10, 10, 40, 40); } },
+    { "stroke", [&](Canvas& canvas) { canvas.stroke(path, 10, 10, 40, 40, 3); } },
+    { "graph line", [&](Canvas& canvas) { canvas.graphLine(graph, 10, 10, 40, 40, 3); } },
+  };
+  std::vector<std::pair<std::string, Brush>> brushes = {
+    { "horizontal", Brush::horizontal(0xffff0000, 0xff0000ff) },
+    { "vertical", Brush::vertical(0xffff0000, 0xff0000ff) },
+  };
+  std::vector<Bounds> clamps = { { 0, 0, 30, 60 }, { 30, 0, 30, 60 }, { 0, 0, 60, 30 }, { 0, 30, 60, 30 } };
+
+  for (const auto& [shape_name, draw] : shapes) {
+    for (const auto& [brush_name, brush] : brushes) {
+      auto render = [&](const Bounds& clamp) {
+        Canvas canvas;
+        canvas.setWindowless(60, 60);
+        canvas.setColor(0xff000000);
+        canvas.fill(0, 0, 60, 60);
+        canvas.setClampBounds(clamp.x(), clamp.y(), clamp.width(), clamp.height());
+        canvas.setColor(brush);
+        draw(canvas);
+        return canvas.takeScreenshot();
+      };
+
+      Screenshot full = render({ 0, 0, 60, 60 });
+      for (const Bounds& clamp : clamps) {
+        INFO(shape_name << ", " << brush_name << ", clamp " << clamp.x() << ", " << clamp.y()
+                        << ", " << clamp.width() << ", " << clamp.height());
+        Screenshot clamped = render(clamp);
+        int max_difference = 0;
+        for (int y = clamp.y(); y < clamp.bottom(); ++y) {
+          for (int x = clamp.x(); x < clamp.right(); ++x) {
+            Color a = full.sample(x, y);
+            Color b = clamped.sample(x, y);
+            max_difference = std::max(max_difference, std::abs(static_cast<int>(a.hexRed()) -
+                                                               static_cast<int>(b.hexRed())));
+            max_difference = std::max(max_difference, std::abs(static_cast<int>(a.hexBlue()) -
+                                                               static_cast<int>(b.hexBlue())));
+          }
+        }
+        REQUIRE(max_difference <= 2);
+      }
     }
   }
 }
