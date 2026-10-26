@@ -506,6 +506,42 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
   return YES;
 }
 
+- (void)setFocused:(bool)focused {
+  if (self.has_focus == focused)
+    return;
+
+  self.has_focus = focused;
+  if (self.visage_window == nullptr)
+    return;
+
+  if (focused)
+    self.visage_window->handleFocusGained();
+  else
+    self.visage_window->handleFocusLost();
+}
+
+- (void)updateFocus {
+  [self setFocused:self.window.isKeyWindow && self.window.firstResponder == self];
+}
+
+- (BOOL)becomeFirstResponder {
+  BOOL accepted = [super becomeFirstResponder];
+  if (accepted)
+    [self setFocused:self.window.isKeyWindow];
+  return accepted;
+}
+
+- (BOOL)resignFirstResponder {
+  BOOL accepted = [super resignFirstResponder];
+  if (accepted)
+    [self setFocused:false];
+  return accepted;
+}
+
+- (void)windowKeyChanged:(NSNotification*)notification {
+  [self updateFocus];
+}
+
 - (BOOL)acceptsFirstMouse:(NSEvent*)event {
   return YES;
 }
@@ -966,10 +1002,13 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
 - (void)viewWillMoveToWindow:(NSWindow*)new_window {
   [super viewWillMoveToWindow:new_window];
 
-  if (self.window)
-    [[NSNotificationCenter defaultCenter] removeObserver:self
-                                                    name:NSWindowDidChangeOcclusionStateNotification
-                                                  object:self.window];
+  if (self.window) {
+    NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
+    [center removeObserver:self name:NSWindowDidChangeOcclusionStateNotification object:self.window];
+    [center removeObserver:self name:NSWindowDidBecomeKeyNotification object:self.window];
+    [center removeObserver:self name:NSWindowDidResignKeyNotification object:self.window];
+  }
+  [self setFocused:false];
 
   if (new_window) {
     [new_window setAcceptsMouseMovedEvents:YES];
@@ -981,6 +1020,14 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(windowOcclusionChanged:)
                                                  name:NSWindowDidChangeOcclusionStateNotification
+                                               object:new_window];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(windowKeyChanged:)
+                                                 name:NSWindowDidBecomeKeyNotification
+                                               object:new_window];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(windowKeyChanged:)
+                                                 name:NSWindowDidResignKeyNotification
                                                object:new_window];
   }
   else if (self.visage_window)
