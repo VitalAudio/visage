@@ -32,6 +32,8 @@
 
 #include "windowing_win32.h"
 
+#include "cursors/hand_cursors.h"
+
 #include "visage_utils/events.h"
 #include "visage_utils/file_system.h"
 #include "visage_utils/string_utils.h"
@@ -43,6 +45,7 @@
 #include <map>
 #include <ShlObj.h>
 #include <string>
+#include <vector>
 #include <windowsx.h>
 
 #define WM_VBLANK (WM_USER + 1)
@@ -155,11 +158,38 @@ namespace visage {
     CloseClipboard();
   }
 
+  static HCURSOR bitmapCursor(const char* const* art) {
+    int width = GetSystemMetrics(SM_CXCURSOR);
+    int height = GetSystemMetrics(SM_CYCURSOR);
+    int scale = std::max(1, std::min(width, height) / (2 * hand_cursors::kSize));
+    int row_bytes = ((width + 15) / 16) * 2;
+    std::vector<BYTE> and_plane(row_bytes * height, 0xff);
+    std::vector<BYTE> xor_plane(row_bytes * height, 0);
+    int art_width = std::min(width, hand_cursors::kSize * scale);
+    int art_height = std::min(height, hand_cursors::kSize * scale);
+    for (int y = 0; y < art_height; ++y) {
+      for (int x = 0; x < art_width; ++x) {
+        char pixel = art[y / scale][x / scale];
+        if (pixel == ' ')
+          continue;
+        BYTE bit = 0x80 >> (x % 8);
+        and_plane[y * row_bytes + x / 8] &= ~bit;
+        if (pixel == 'o')
+          xor_plane[y * row_bytes + x / 8] |= bit;
+      }
+    }
+    return CreateCursor(GetModuleHandle(nullptr), hand_cursors::kHotSpotX * scale,
+                        hand_cursors::kHotSpotY * scale, width, height, and_plane.data(),
+                        xor_plane.data());
+  }
+
   void setCursorStyle(MouseCursor style) {
     static const HCURSOR arrow_cursor = LoadCursor(nullptr, IDC_ARROW);
     static const HCURSOR ibeam_cursor = LoadCursor(nullptr, IDC_IBEAM);
     static const HCURSOR crosshair_cursor = LoadCursor(nullptr, IDC_CROSS);
     static const HCURSOR pointing_cursor = LoadCursor(nullptr, IDC_HAND);
+    static const HCURSOR drag_cursor = bitmapCursor(hand_cursors::kOpenHand);
+    static const HCURSOR dragging_cursor = bitmapCursor(hand_cursors::kClosedHand);
     static const HCURSOR horizontal_resize_cursor = LoadCursor(nullptr, IDC_SIZEWE);
     static const HCURSOR vertical_resize_cursor = LoadCursor(nullptr, IDC_SIZENS);
     static const HCURSOR top_left_to_bottom_right_resize_cursor = LoadCursor(nullptr, IDC_SIZENWSE);
@@ -171,8 +201,9 @@ namespace visage {
     case MouseCursor::Arrow: cursor = arrow_cursor; break;
     case MouseCursor::IBeam: cursor = ibeam_cursor; break;
     case MouseCursor::Crosshair: cursor = crosshair_cursor; break;
-    case MouseCursor::Pointing:
-    case MouseCursor::Dragging: cursor = pointing_cursor; break;
+    case MouseCursor::Pointing: cursor = pointing_cursor; break;
+    case MouseCursor::Drag: cursor = drag_cursor; break;
+    case MouseCursor::Dragging: cursor = dragging_cursor; break;
     case MouseCursor::HorizontalResize: cursor = horizontal_resize_cursor; break;
     case MouseCursor::VerticalResize: cursor = vertical_resize_cursor; break;
     case MouseCursor::TopLeftResize:

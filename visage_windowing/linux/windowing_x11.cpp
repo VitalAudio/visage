@@ -22,6 +22,8 @@
 #if VISAGE_LINUX
 #include "windowing_x11.h"
 
+#include "cursors/hand_cursors.h"
+
 #include "visage_utils/thread_utils.h"
 
 #include <cctype>
@@ -268,6 +270,7 @@ namespace visage {
     case MouseCursor::IBeam: cursor = x11->cursors().ibeam_cursor; break;
     case MouseCursor::Crosshair: cursor = x11->cursors().crosshair_cursor; break;
     case MouseCursor::Pointing: cursor = x11->cursors().pointing_cursor; break;
+    case MouseCursor::Drag: cursor = x11->cursors().drag_cursor; break;
     case MouseCursor::Dragging: cursor = x11->cursors().dragging_cursor; break;
     case MouseCursor::HorizontalResize: cursor = x11->cursors().horizontal_resize_cursor; break;
     case MouseCursor::VerticalResize: cursor = x11->cursors().vertical_resize_cursor; break;
@@ -717,7 +720,38 @@ namespace visage {
     return window;
   }
 
-  static Cursor themeCursor(Display* display, const char* name, unsigned int fallback_shape) {
+  static Cursor bitmapCursor(Display* display, const char* const* art) {
+    static constexpr int kRowBytes = (hand_cursors::kSize + 7) / 8;
+    char source[hand_cursors::kSize * kRowBytes] = {};
+    char mask[hand_cursors::kSize * kRowBytes] = {};
+    for (int y = 0; y < hand_cursors::kSize; ++y) {
+      for (int x = 0; x < hand_cursors::kSize; ++x) {
+        if (art[y][x] == ' ')
+          continue;
+        char bit = static_cast<char>(1 << (x % 8));
+        mask[y * kRowBytes + x / 8] |= bit;
+        if (art[y][x] == 'X')
+          source[y * kRowBytes + x / 8] |= bit;
+      }
+    }
+
+    ::Window root = DefaultRootWindow(display);
+    Pixmap source_pixmap = XCreateBitmapFromData(display, root, source, hand_cursors::kSize,
+                                                 hand_cursors::kSize);
+    Pixmap mask_pixmap = XCreateBitmapFromData(display, root, mask, hand_cursors::kSize,
+                                               hand_cursors::kSize);
+    XColor black = {};
+    black.flags = DoRed | DoGreen | DoBlue;
+    XColor white = black;
+    white.red = white.green = white.blue = 0xffff;
+    Cursor cursor = XCreatePixmapCursor(display, source_pixmap, mask_pixmap, &black, &white,
+                                        hand_cursors::kHotSpotX, hand_cursors::kHotSpotY);
+    XFreePixmap(display, source_pixmap);
+    XFreePixmap(display, mask_pixmap);
+    return cursor;
+  }
+
+  static Cursor themeCursor(Display* display, const char* name, const char* const* fallback_art) {
     using LoadCursorFunction = Cursor (*)(Display*, const char*);
     Cursor cursor = 0;
     if (void* xcursor = dlopen("libXcursor.so.1", RTLD_LAZY | RTLD_LOCAL)) {
@@ -726,7 +760,7 @@ namespace visage {
         cursor = load_cursor(display, name);
       dlclose(xcursor);
     }
-    return cursor ? cursor : XCreateFontCursor(display, fallback_shape);
+    return cursor ? cursor : bitmapCursor(display, fallback_art);
   }
 
   X11Connection::Cursors::Cursors(Display* display) {
@@ -745,7 +779,8 @@ namespace visage {
     ibeam_cursor = XCreateFontCursor(display, XC_xterm);
     crosshair_cursor = XCreateFontCursor(display, XC_crosshair);
     pointing_cursor = XCreateFontCursor(display, XC_hand2);
-    dragging_cursor = themeCursor(display, "grab", XC_hand1);
+    drag_cursor = themeCursor(display, "grab", hand_cursors::kOpenHand);
+    dragging_cursor = themeCursor(display, "grabbing", hand_cursors::kClosedHand);
     horizontal_resize_cursor = XCreateFontCursor(display, XC_sb_h_double_arrow);
     vertical_resize_cursor = XCreateFontCursor(display, XC_sb_v_double_arrow);
     top_left_resize_cursor = XCreateFontCursor(display, XC_top_left_corner);

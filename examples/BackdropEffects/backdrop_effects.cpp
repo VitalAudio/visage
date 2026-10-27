@@ -230,6 +230,8 @@ public:
     resizing_ = position.x > width() - kResizeHandle && position.y > height() - kResizeHandle;
     drag_start_ = e.windowPosition();
     start_bounds_ = bounds();
+    if (!resizing_)
+      setCursorStyle(visage::MouseCursor::Dragging);
   }
 
   void mouseDrag(const visage::MouseEvent& e) override {
@@ -243,9 +245,11 @@ public:
                 start_bounds_.height());
   }
 
+  void mouseUp(const visage::MouseEvent& e) override { mouseMove(e); }
+
   void mouseMove(const visage::MouseEvent& e) override {
     bool corner = e.position.x > width() - kResizeHandle && e.position.y > height() - kResizeHandle;
-    setCursorStyle(corner ? visage::MouseCursor::MultiDirectionalResize : visage::MouseCursor::Dragging);
+    setCursorStyle(corner ? visage::MouseCursor::MultiDirectionalResize : visage::MouseCursor::Drag);
   }
 
   void mouseExit(const visage::MouseEvent& e) override {

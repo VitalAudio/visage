@@ -19,11 +19,13 @@ endif ()
 
 file(GLOB HEADERS *.h)
 file(GLOB SOURCE_FILES *.cpp)
+file(GLOB CURSOR_HEADERS cursors/*.h)
 
 amalgamate_headers(${VISAGE_INCLUDE}/visage/windowing.h "${HEADERS}")
 list(APPEND HEADERS ${VISAGE_INCLUDE}/visage/windowing.h)
 
-add_library(VisageWindowing OBJECT ${SOURCE_FILES} ${PLATFORM_SOURCE_FILES} ${HEADERS} ${PLATFORM_HEADER_FILES})
+add_library(VisageWindowing OBJECT ${SOURCE_FILES} ${PLATFORM_SOURCE_FILES} ${HEADERS} ${PLATFORM_HEADER_FILES}
+            ${CURSOR_HEADERS})
 target_include_directories(VisageWindowing
   PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
