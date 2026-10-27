@@ -5,6 +5,7 @@ elseif (WIN32)
   file(GLOB PLATFORM_SOURCE_FILES win32/*.cpp)
   file(GLOB PLATFORM_HEADER_FILES win32/*.h)
   set(WIN_LIBS dxgi Shell32 Comctl32)
+  file(GLOB CURSOR_FILES cursors/*.cur)
 elseif (APPLE)
   file(GLOB PLATFORM_SOURCE_FILES macos/*.mm)
   file(GLOB PLATFORM_HEADER_FILES macos/*.h)
@@ -15,6 +16,7 @@ elseif (UNIX)
   find_package(X11 REQUIRED)
   set(X11_LIBS ${X11_LIBRARIES} ${X11_Xrandr_LIB} ${CMAKE_DL_LIBS})
   set(X11_INCLUDES ${X11_INCLUDE_DIR} ${Xrandr_INCLUDE_DIR})
+  file(GLOB CURSOR_FILES cursors/*.cur)
 endif ()
 
 file(GLOB HEADERS *.h)
@@ -33,6 +35,12 @@ target_include_directories(VisageWindowing
   ${X11_INCLUDES}
 )
 target_link_libraries(VisageWindowing PRIVATE ${X11_LIBS} ${WIN_LIBS})
+
+if (CURSOR_FILES)
+  add_embedded_resources(VisageEmbeddedCursors "cursors.h" "visage::cursors" "${CURSOR_FILES}")
+  target_link_libraries(VisageWindowing PRIVATE VisageEmbeddedCursors)
+  set_target_properties(VisageEmbeddedCursors PROPERTIES FOLDER "visage")
+endif ()
 
 set_target_properties(VisageWindowing PROPERTIES FOLDER "visage")
 if (APPLE)

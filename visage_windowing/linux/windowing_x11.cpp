@@ -22,8 +22,8 @@
 #if VISAGE_LINUX
 #include "windowing_x11.h"
 
-#include "cursors/hand_cursors.h"
-
+#include "cursors/cursor_file.h"
+#include "embedded/cursors.h"
 #include "visage_utils/thread_utils.h"
 
 #include <cctype>
@@ -720,39 +720,6 @@ namespace visage {
     return window;
   }
 
-  static Cursor bitmapHandCursor(Display* display, bool closed) {
-    static constexpr int kSize = hand_cursors::kDesignSize;
-    static constexpr int kRowBytes = (kSize + 7) / 8;
-    std::vector<uint32_t> pixels = hand_cursors::render(closed, kSize);
-    char source[kSize * kRowBytes] = {};
-    char mask[kSize * kRowBytes] = {};
-    for (int y = 0; y < kSize; ++y) {
-      for (int x = 0; x < kSize; ++x) {
-        uint32_t pixel = pixels[y * kSize + x];
-        if ((pixel >> 24) < 0x80)
-          continue;
-        char bit = static_cast<char>(1 << (x % 8));
-        mask[y * kRowBytes + x / 8] |= bit;
-        if ((pixel & 0xff) < 0x80)
-          source[y * kRowBytes + x / 8] |= bit;
-      }
-    }
-
-    ::Window root = DefaultRootWindow(display);
-    Pixmap source_pixmap = XCreateBitmapFromData(display, root, source, kSize, kSize);
-    Pixmap mask_pixmap = XCreateBitmapFromData(display, root, mask, kSize, kSize);
-    XColor black = {};
-    black.flags = DoRed | DoGreen | DoBlue;
-    XColor white = black;
-    white.red = white.green = white.blue = 0xffff;
-    Cursor cursor = XCreatePixmapCursor(display, source_pixmap, mask_pixmap, &black, &white,
-                                        hand_cursors::hotSpot(hand_cursors::kHotSpotX, kSize),
-                                        hand_cursors::hotSpot(hand_cursors::kHotSpotY, kSize));
-    XFreePixmap(display, source_pixmap);
-    XFreePixmap(display, mask_pixmap);
-    return cursor;
-  }
-
   struct XcursorImage {
     unsigned int version;
     unsigned int size;
@@ -764,48 +731,58 @@ namespace visage {
     unsigned int* pixels;
   };
 
-  static Cursor handCursor(Display* display, const char* theme_name, bool closed) {
-    using LoadCursorFunction = Cursor (*)(Display*, const char*);
-    using DefaultSizeFunction = int (*)(Display*);
+  static Cursor embeddedCursor(void* xcursor, Display* display, const EmbeddedFile& file) {
     using ImageCreateFunction = XcursorImage* (*)(int, int);
     using ImageDestroyFunction = void (*)(XcursorImage*);
     using ImageLoadCursorFunction = Cursor (*)(Display*, const XcursorImage*);
 
-    void* xcursor = dlopen("libXcursor.so.1", RTLD_LAZY | RTLD_LOCAL);
-    if (xcursor == nullptr)
-      return bitmapHandCursor(display, closed);
-
-    Cursor cursor = 0;
-    if (auto load_cursor = reinterpret_cast<LoadCursorFunction>(dlsym(xcursor,
-                                                                      "XcursorLibraryLoadCursor")))
-      cursor = load_cursor(display, theme_name);
-
-    auto default_size = reinterpret_cast<DefaultSizeFunction>(dlsym(xcursor,
-                                                                    "XcursorGetDefaultSize"));
     auto image_create = reinterpret_cast<ImageCreateFunction>(dlsym(xcursor, "XcursorImageCreate"));
     auto image_destroy = reinterpret_cast<ImageDestroyFunction>(dlsym(xcursor,
                                                                       "XcursorImageDestroy"));
     auto image_load_cursor =
         reinterpret_cast<ImageLoadCursorFunction>(dlsym(xcursor, "XcursorImageLoadCursor"));
-    if (cursor == 0 && default_size && image_create && image_destroy && image_load_cursor) {
-      int size = default_size(display);
-      if (size <= 0)
-        size = hand_cursors::kDesignSize;
-      if (XcursorImage* image = image_create(size, size)) {
-        std::vector<uint32_t> pixels = hand_cursors::render(closed, size);
-        for (int i = 0; i < size * size; ++i) {
-          uint32_t alpha = pixels[i] >> 24;
-          uint32_t gray = ((pixels[i] & 0xff) * alpha + 127) / 255;
-          image->pixels[i] = (alpha << 24) | (gray << 16) | (gray << 8) | gray;
-        }
-        image->xhot = hand_cursors::hotSpot(hand_cursors::kHotSpotX, size);
-        image->yhot = hand_cursors::hotSpot(hand_cursors::kHotSpotY, size);
-        cursor = image_load_cursor(display, image);
-        image_destroy(image);
-      }
+    cursor_file::Entry entry;
+    if (!image_create || !image_destroy || !image_load_cursor ||
+        !cursor_file::bestEntry(file.data, file.size, entry)) {
+      return 0;
     }
-    dlclose(xcursor);
-    return cursor ? cursor : bitmapHandCursor(display, closed);
+
+    std::vector<uint32_t> pixels = cursor_file::decode(entry);
+    if (pixels.empty())
+      return 0;
+
+    XcursorImage* image = image_create(entry.width, entry.height);
+    if (image == nullptr)
+      return 0;
+
+    for (size_t i = 0; i < pixels.size(); ++i) {
+      uint32_t alpha = pixels[i] >> 24;
+      uint32_t red = ((pixels[i] >> 16) & 0xff) * alpha / 255;
+      uint32_t green = ((pixels[i] >> 8) & 0xff) * alpha / 255;
+      uint32_t blue = (pixels[i] & 0xff) * alpha / 255;
+      image->pixels[i] = (alpha << 24) | (red << 16) | (green << 8) | blue;
+    }
+    image->xhot = entry.hot_x;
+    image->yhot = entry.hot_y;
+    Cursor cursor = image_load_cursor(display, image);
+    image_destroy(image);
+    return cursor;
+  }
+
+  static Cursor handCursor(Display* display, const char* theme_name, const EmbeddedFile& file,
+                           unsigned int fallback_shape) {
+    using LoadCursorFunction = Cursor (*)(Display*, const char*);
+
+    Cursor cursor = 0;
+    if (void* xcursor = dlopen("libXcursor.so.1", RTLD_LAZY | RTLD_LOCAL)) {
+      if (auto load_cursor =
+              reinterpret_cast<LoadCursorFunction>(dlsym(xcursor, "XcursorLibraryLoadCursor")))
+        cursor = load_cursor(display, theme_name);
+      if (cursor == 0)
+        cursor = embeddedCursor(xcursor, display, file);
+      dlclose(xcursor);
+    }
+    return cursor ? cursor : XCreateFontCursor(display, fallback_shape);
   }
 
   X11Connection::Cursors::Cursors(Display* display) {
@@ -824,8 +801,8 @@ namespace visage {
     ibeam_cursor = XCreateFontCursor(display, XC_xterm);
     crosshair_cursor = XCreateFontCursor(display, XC_crosshair);
     pointing_cursor = XCreateFontCursor(display, XC_hand2);
-    drag_cursor = handCursor(display, "grab", false);
-    dragging_cursor = handCursor(display, "grabbing", true);
+    drag_cursor = handCursor(display, "grab", cursors::hand_grab_cur, XC_hand1);
+    dragging_cursor = handCursor(display, "grabbing", cursors::hand_grabbing_cur, XC_fleur);
     horizontal_resize_cursor = XCreateFontCursor(display, XC_sb_h_double_arrow);
     vertical_resize_cursor = XCreateFontCursor(display, XC_sb_v_double_arrow);
     top_left_resize_cursor = XCreateFontCursor(display, XC_top_left_corner);
