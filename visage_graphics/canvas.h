@@ -502,13 +502,13 @@ namespace visage {
       if (path.numPoints() == 0)
         return;
 
-      for (float& dash : dash_array)
-        dash *= state_.scale;
-      Path stroked = path.scaled(state_.scale)
-                         .stroke(pixels(stroke_width), join, end_cap, std::move(dash_array),
-                                 dash_offset * state_.scale, miter_limit);
-      addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
-                               pixels(width), pixels(height), stroked, pathAtlas(), 1.0f));
+      Path resolution_path = path;
+      resolution_path.setResolutionMatrix(path.resolutionMatrix() * state_.scale);
+      Path stroked = resolution_path.stroke(pixels(stroke_width) / state_.scale, join, end_cap,
+                                            std::move(dash_array), dash_offset, miter_limit);
+      addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x),
+                               state_.y + pixels(y), pixels(width), pixels(height), stroked,
+                               pathAtlas(), state_.scale));
     }
 
     void saveState() { state_memory_.push_back(state_); }

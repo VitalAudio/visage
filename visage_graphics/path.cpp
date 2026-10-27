@@ -692,6 +692,8 @@ namespace visage {
       dash_array.clear();
 
     Path stroke_path;
+    stroke_path.resolution_matrix_ = resolution_matrix_;
+    stroke_path.error_tolerance_ = error_tolerance_;
     if (!dash_array.empty()) {
       if (dash_offset < 0.0f)
         dash_offset = dash_total - std::fmod(-dash_offset, dash_total);
