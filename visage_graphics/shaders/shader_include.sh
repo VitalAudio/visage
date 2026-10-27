@@ -21,6 +21,10 @@ vec4 internalTexelFetch(BgfxSampler2D _sampler, ivec2 _coord, int _lod) {
 	return _sampler.m_texture.Load(ivec3(_coord, _lod));
 }
 
+vec4 internalTexture2DLod(BgfxSampler2D _sampler, vec2 _coord, float _level) {
+	return _sampler.m_texture.SampleLevel(_sampler.m_sampler, _coord, _level);
+}
+
 #		define SAMPLER2D(_name, _reg) \
 			uniform SamplerState _name ## Sampler : REGISTER(s, _reg); \
 			uniform Texture2D _name ## Texture : REGISTER(t, _reg); \
@@ -28,6 +32,7 @@ vec4 internalTexelFetch(BgfxSampler2D _sampler, ivec2 _coord, int _lod) {
 #		define sampler2D BgfxSampler2D
 #		define texture2D(_sampler, _coord) internalTexture2D(_sampler, _coord)
 #		define texelFetch(_sampler, _coord, _lod) internalTexelFetch(_sampler, _coord, _lod)
+#		define texture2DLod(_sampler, _coord, _level) internalTexture2DLod(_sampler, _coord, _level)
 #	else
 #		define SAMPLER2D(_name, _reg) uniform sampler2D _name : REGISTER(s, _reg)
 #		define texture2D(_sampler, _coord) tex2D(_sampler, _coord)
@@ -52,6 +57,7 @@ vec4  mod(vec4  _a, vec4  _b) { return _a - _b * floor(_a / _b); }
 
 #	if BGFX_SHADER_LANGUAGE_GLSL >= 130
 #		define texture2D(_sampler, _coord)      texture(_sampler, _coord)
+#		define texture2DLod(_sampler, _coord, _level) textureLod(_sampler, _coord, _level)
 #	endif // BGFX_SHADER_LANGUAGE_GLSL >= 130
 #endif // BGFX_SHADER_LANGUAGE_*
 

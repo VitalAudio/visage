@@ -803,8 +803,15 @@ namespace visage {
                             image.height, image, imageAtlas()));
     }
 
-    void addGraphLine(const GraphData& data, float x, float y, float width, float height, float thickness);
-    void addGraphFill(const GraphData& data, float x, float y, float width, float height, float center);
+    void addGraphLine(const GraphData& data, float x, float y, float width, float height, float thickness) {
+      addShape(GraphLineWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
+                                height, thickness, data, dataAtlas()));
+    }
+
+    void addGraphFill(const GraphData& data, float x, float y, float width, float height, float center) {
+      addShape(GraphFillWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width,
+                                height, center, data, dataAtlas()));
+    }
 
     void addHeatMap(const HeatMapData& data, float x, float y, float width, float height) {
       addShape(HeatMapWrapper(state_.clamp, state_.brush, state_.x + x, state_.y + y, width, height,
