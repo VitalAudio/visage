@@ -43,7 +43,17 @@ namespace visage::cursor_file {
     return read16(data) | (read16(data + 2) << 16);
   }
 
-  inline bool bestEntry(const unsigned char* data, int size, Entry& result) {
+  inline bool closerSize(const Entry& candidate, const Entry& current, int target_size) {
+    bool candidate_fits = candidate.width >= target_size;
+    bool current_fits = current.width >= target_size;
+    if (candidate_fits != current_fits)
+      return candidate_fits;
+    if (candidate.width != current.width)
+      return candidate_fits ? candidate.width < current.width : candidate.width > current.width;
+    return candidate.bits_per_pixel > current.bits_per_pixel;
+  }
+
+  inline bool bestEntry(const unsigned char* data, int size, int target_size, Entry& result) {
     static constexpr int kHeaderSize = 6;
     static constexpr int kEntrySize = 16;
     static constexpr int kBitmapHeaderSize = 40;
@@ -70,7 +80,7 @@ namespace visage::cursor_file {
       candidate.bits_per_pixel = read16(data + offset + 14);
       candidate.image = data + offset;
       candidate.image_size = image_size;
-      if (!found || candidate.bits_per_pixel > result.bits_per_pixel) {
+      if (!found || closerSize(candidate, result, target_size)) {
         result = candidate;
         found = true;
       }

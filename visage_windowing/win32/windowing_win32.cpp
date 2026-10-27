@@ -160,7 +160,7 @@ namespace visage {
 
   static HCURSOR embeddedCursor(const EmbeddedFile& file) {
     cursor_file::Entry entry;
-    if (!cursor_file::bestEntry(file.data, file.size, entry))
+    if (!cursor_file::bestEntry(file.data, file.size, GetSystemMetrics(SM_CXCURSOR), entry))
       return LoadCursor(nullptr, IDC_ARROW);
 
     std::vector<BYTE> resource(4 + entry.image_size);
@@ -169,8 +169,8 @@ namespace visage {
     resource[2] = entry.hot_y & 0xff;
     resource[3] = entry.hot_y >> 8;
     memcpy(resource.data() + 4, entry.image, entry.image_size);
-    HICON cursor = CreateIconFromResourceEx(resource.data(), static_cast<DWORD>(resource.size()),
-                                            FALSE, 0x00030000, 0, 0, LR_DEFAULTSIZE);
+    HICON cursor = CreateIconFromResourceEx(resource.data(), static_cast<DWORD>(resource.size()), FALSE,
+                                            0x00030000, entry.width, entry.height, LR_DEFAULTCOLOR);
     return cursor ? cursor : LoadCursor(nullptr, IDC_ARROW);
   }
 

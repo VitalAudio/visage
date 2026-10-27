@@ -735,15 +735,19 @@ namespace visage {
     using ImageCreateFunction = XcursorImage* (*)(int, int);
     using ImageDestroyFunction = void (*)(XcursorImage*);
     using ImageLoadCursorFunction = Cursor (*)(Display*, const XcursorImage*);
+    using DefaultSizeFunction = int (*)(Display*);
 
+    auto default_size = reinterpret_cast<DefaultSizeFunction>(dlsym(xcursor,
+                                                                    "XcursorGetDefaultSize"));
     auto image_create = reinterpret_cast<ImageCreateFunction>(dlsym(xcursor, "XcursorImageCreate"));
     auto image_destroy = reinterpret_cast<ImageDestroyFunction>(dlsym(xcursor,
                                                                       "XcursorImageDestroy"));
     auto image_load_cursor =
         reinterpret_cast<ImageLoadCursorFunction>(dlsym(xcursor, "XcursorImageLoadCursor"));
     cursor_file::Entry entry;
+    int target_size = default_size ? default_size(display) : 0;
     if (!image_create || !image_destroy || !image_load_cursor ||
-        !cursor_file::bestEntry(file.data, file.size, entry)) {
+        !cursor_file::bestEntry(file.data, file.size, target_size, entry)) {
       return 0;
     }
 
