@@ -464,6 +464,23 @@ TEST_CASE("Stroke dash pattern restarts for each subpath", "[graphics]") {
   REQUIRE(second_max == Catch::Approx(5.0f).margin(1e-4f));
 }
 
+TEST_CASE("Dashed strokes keep the path's resolution matrix", "[graphics]") {
+  Path path;
+  path.moveTo(0, 0);
+  path.lineTo(20, 0);
+  path.lineTo(20, 20);
+
+  Path solid = path;
+  solid.setResolutionMatrix(Matrix::scale(8.0f, 8.0f));
+  Path dashed = solid;
+  int solid_points = solid.stroke(4.0f, Path::Join::Round, Path::EndCap::Round).numPoints();
+  int dashed_points = dashed.stroke(4.0f, Path::Join::Round, Path::EndCap::Round, { 100.0f }).numPoints();
+  int low_resolution_points = path.stroke(4.0f, Path::Join::Round, Path::EndCap::Round).numPoints();
+
+  REQUIRE(solid_points > low_resolution_points);
+  REQUIRE(dashed_points == solid_points);
+}
+
 TEST_CASE("Relative arc with zero radius", "[graphics]") {
   Path path;
   path.moveTo(5, 5);
