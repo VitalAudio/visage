@@ -4,15 +4,10 @@ $input v_texture_uv
 
 SAMPLER2D(s_texture, 0);
 uniform vec4 u_amount;
-uniform vec4 u_atlas_scale;
 uniform vec4 u_texture_clamp;
 
-vec4 sampleTexel(vec2 texel) {
-  return texture2D(s_texture, clamp(texel * u_atlas_scale.xy, u_texture_clamp.xy, u_texture_clamp.zw));
-}
-
 void main() {
-  vec4 color = sampleTexel(v_texture_uv / u_atlas_scale.xy);
+  vec4 color = texture2D(s_texture, clamp(v_texture_uv, u_texture_clamp.xy, u_texture_clamp.zw));
   float levels = max(u_amount.x, 2.0) - 1.0;
   vec3 straight = color.rgb / max(color.a, 0.0001);
   vec3 stepped = floor(straight * levels + 0.5) / levels;
