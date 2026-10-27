@@ -32,8 +32,8 @@
 
 #include "windowing_win32.h"
 
-#include "cursors/hand_cursors.h"
-
+#include "cursors/cursor_file.h"
+#include "embedded/cursors.h"
 #include "visage_utils/events.h"
 #include "visage_utils/file_system.h"
 #include "visage_utils/string_utils.h"
@@ -158,77 +158,20 @@ namespace visage {
     CloseClipboard();
   }
 
-  static int cursorSize() {
-    static HMODULE user32 = LoadLibraryA("user32.dll");
-    static auto dpiForWindow = procedure<GetDpiForWindow_t>(user32, "GetDpiForWindow");
-
-    DWORD base_size = 0;
-    DWORD data_size = sizeof(base_size);
-    if (RegGetValueW(HKEY_CURRENT_USER, L"Control Panel\\Cursors", L"CursorBaseSize",
-                     RRF_RT_REG_DWORD, nullptr, &base_size, &data_size) != ERROR_SUCCESS ||
-        base_size == 0) {
-      base_size = hand_cursors::kDesignSize;
-    }
-
-    UINT dpi = 0;
-    POINT position;
-    if (dpiForWindow && GetCursorPos(&position)) {
-      if (HWND hwnd = WindowFromPoint(position))
-        dpi = dpiForWindow(hwnd);
-    }
-    if (dpi == 0) {
-      HDC screen = GetDC(nullptr);
-      dpi = GetDeviceCaps(screen, LOGPIXELSX);
-      ReleaseDC(nullptr, screen);
-    }
-    return MulDiv(base_size, dpi, USER_DEFAULT_SCREEN_DPI);
-  }
-
-  static HCURSOR createHandCursor(bool closed, int size) {
-    std::vector<uint32_t> pixels = hand_cursors::render(closed, size);
-
-    BITMAPV5HEADER header = {};
-    header.bV5Size = sizeof(header);
-    header.bV5Width = size;
-    header.bV5Height = -size;
-    header.bV5Planes = 1;
-    header.bV5BitCount = 32;
-    header.bV5Compression = BI_BITFIELDS;
-    header.bV5RedMask = 0x00ff0000;
-    header.bV5GreenMask = 0x0000ff00;
-    header.bV5BlueMask = 0x000000ff;
-    header.bV5AlphaMask = 0xff000000;
-
-    void* bits = nullptr;
-    HDC screen = GetDC(nullptr);
-    HBITMAP color = CreateDIBSection(screen, reinterpret_cast<BITMAPINFO*>(&header), DIB_RGB_COLORS,
-                                     &bits, nullptr, 0);
-    ReleaseDC(nullptr, screen);
-    if (color == nullptr)
+  static HCURSOR embeddedCursor(const EmbeddedFile& file) {
+    cursor_file::Entry entry;
+    if (!cursor_file::bestEntry(file.data, file.size, entry))
       return LoadCursor(nullptr, IDC_ARROW);
 
-    memcpy(bits, pixels.data(), pixels.size() * sizeof(uint32_t));
-    HBITMAP mask = CreateBitmap(size, size, 1, 1, nullptr);
-
-    ICONINFO icon_info = {};
-    icon_info.fIcon = FALSE;
-    icon_info.xHotspot = hand_cursors::hotSpot(hand_cursors::kHotSpotX, size);
-    icon_info.yHotspot = hand_cursors::hotSpot(hand_cursors::kHotSpotY, size);
-    icon_info.hbmMask = mask;
-    icon_info.hbmColor = color;
-    HCURSOR cursor = CreateIconIndirect(&icon_info);
-    DeleteObject(color);
-    DeleteObject(mask);
+    std::vector<BYTE> resource(4 + entry.image_size);
+    resource[0] = entry.hot_x & 0xff;
+    resource[1] = entry.hot_x >> 8;
+    resource[2] = entry.hot_y & 0xff;
+    resource[3] = entry.hot_y >> 8;
+    memcpy(resource.data() + 4, entry.image, entry.image_size);
+    HICON cursor = CreateIconFromResourceEx(resource.data(), static_cast<DWORD>(resource.size()),
+                                            FALSE, 0x00030000, 0, 0, LR_DEFAULTSIZE);
     return cursor ? cursor : LoadCursor(nullptr, IDC_ARROW);
-  }
-
-  static HCURSOR handCursor(bool closed) {
-    static std::map<std::pair<bool, int>, HCURSOR> cursors;
-    int size = cursorSize();
-    auto& cursor = cursors[{ closed, size }];
-    if (cursor == nullptr)
-      cursor = createHandCursor(closed, size);
-    return cursor;
   }
 
   void setCursorStyle(MouseCursor style) {
@@ -236,6 +179,8 @@ namespace visage {
     static const HCURSOR ibeam_cursor = LoadCursor(nullptr, IDC_IBEAM);
     static const HCURSOR crosshair_cursor = LoadCursor(nullptr, IDC_CROSS);
     static const HCURSOR pointing_cursor = LoadCursor(nullptr, IDC_HAND);
+    static const HCURSOR drag_cursor = embeddedCursor(cursors::hand_grab_cur);
+    static const HCURSOR dragging_cursor = embeddedCursor(cursors::hand_grabbing_cur);
     static const HCURSOR horizontal_resize_cursor = LoadCursor(nullptr, IDC_SIZEWE);
     static const HCURSOR vertical_resize_cursor = LoadCursor(nullptr, IDC_SIZENS);
     static const HCURSOR top_left_to_bottom_right_resize_cursor = LoadCursor(nullptr, IDC_SIZENWSE);
@@ -248,8 +193,8 @@ namespace visage {
     case MouseCursor::IBeam: cursor = ibeam_cursor; break;
     case MouseCursor::Crosshair: cursor = crosshair_cursor; break;
     case MouseCursor::Pointing: cursor = pointing_cursor; break;
-    case MouseCursor::Drag: cursor = handCursor(false); break;
-    case MouseCursor::Dragging: cursor = handCursor(true); break;
+    case MouseCursor::Drag: cursor = drag_cursor; break;
+    case MouseCursor::Dragging: cursor = dragging_cursor; break;
     case MouseCursor::HorizontalResize: cursor = horizontal_resize_cursor; break;
     case MouseCursor::VerticalResize: cursor = vertical_resize_cursor; break;
     case MouseCursor::TopLeftResize:
