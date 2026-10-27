@@ -220,8 +220,6 @@ namespace visage {
     return false;
   }
 
-  // [NSApp stop:] only takes effect after the next event, so post one in case
-  // this was called outside of event handling, like from a timer.
   static void stopEventLoop() {
     [NSApp stop:nil];
     NSEvent* wake_event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
