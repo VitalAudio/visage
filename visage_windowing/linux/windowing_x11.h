@@ -88,6 +88,7 @@ namespace visage {
       Cursor ibeam_cursor;
       Cursor crosshair_cursor;
       Cursor pointing_cursor;
+      Cursor drag_cursor;
       Cursor dragging_cursor;
       Cursor horizontal_resize_cursor;
       Cursor vertical_resize_cursor;

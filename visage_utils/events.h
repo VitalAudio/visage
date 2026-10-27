@@ -44,6 +44,7 @@ namespace visage {
     IBeam,
     Crosshair,
     Pointing,
+    Drag,
     Dragging,
     HorizontalResize,
     VerticalResize,

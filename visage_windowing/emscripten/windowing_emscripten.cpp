@@ -79,7 +79,8 @@ namespace visage {
     case MouseCursor::BottomRightResize: return "nwse-resize";
     case MouseCursor::TopRightResize:
     case MouseCursor::BottomLeftResize: return "nesw-resize";
-    case MouseCursor::Dragging: return "grab";
+    case MouseCursor::Drag: return "grab";
+    case MouseCursor::Dragging: return "grabbing";
     case MouseCursor::MultiDirectionalResize: return "move";
     default: return "";
     }
