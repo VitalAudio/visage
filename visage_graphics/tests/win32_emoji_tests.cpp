@@ -62,9 +62,8 @@ namespace {
       CoUninitialize();
 
     char text[128];
-    std::snprintf(text, sizeof(text), "%08lx %d %08lx",
-                  static_cast<unsigned long>(child_initial_result), child_drawn_pixels,
-                  static_cast<unsigned long>(final_result));
+    std::snprintf(text, sizeof(text), "%08lx %d %08lx", static_cast<unsigned long>(child_initial_result),
+                  child_drawn_pixels, static_cast<unsigned long>(final_result));
     HANDLE file = CreateFileW(child_result_path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
                               FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file != INVALID_HANDLE_VALUE) {

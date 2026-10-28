@@ -71,9 +71,8 @@ namespace {
     if (msg == WM_DPICHANGED) {
       host_log.dpi_changes++;
       const RECT* suggested = reinterpret_cast<const RECT*>(l_param);
-      SetWindowPos(hwnd, nullptr, suggested->left, suggested->top,
-                   suggested->right - suggested->left, suggested->bottom - suggested->top,
-                   SWP_NOZORDER | SWP_NOACTIVATE);
+      SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, suggested->right - suggested->left,
+                   suggested->bottom - suggested->top, SWP_NOZORDER | SWP_NOACTIVATE);
       return 0;
     }
     if (msg == WM_SIZE) {
@@ -97,8 +96,7 @@ namespace {
   const HostClass kPlainHost = { L"VisageWin32PluginTestPlainHost", DefWindowProcW };
 
   struct HostWindow {
-    HostWindow(const HostClass& host_class, int width, int height,
-               DPI_AWARENESS_CONTEXT awareness = nullptr) {
+    HostWindow(const HostClass& host_class, int width, int height, DPI_AWARENESS_CONTEXT awareness = nullptr) {
       WNDCLASSEXW window_class = {};
       window_class.cbSize = sizeof(window_class);
       window_class.lpfnWndProc = host_class.proc;
@@ -109,9 +107,8 @@ namespace {
       DPI_AWARENESS_CONTEXT previous = nullptr;
       if (awareness)
         previous = SetThreadDpiAwarenessContext(awareness);
-      hwnd = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, host_class.name, L"host",
-                             WS_POPUP, 40, 40, width, height, nullptr, nullptr,
-                             GetModuleHandleW(nullptr), nullptr);
+      hwnd = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, host_class.name, L"host", WS_POPUP, 40,
+                             40, width, height, nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
       if (previous)
         SetThreadDpiAwarenessContext(previous);
       host_log = {};
@@ -169,8 +166,7 @@ namespace {
   }
 
   std::unique_ptr<Window> showPluginWindow(HWND parent) {
-    auto window = createPluginWindow(Dimension::nativePixels(200), Dimension::nativePixels(100),
-                                     parent);
+    auto window = createPluginWindow(Dimension::nativePixels(200), Dimension::nativePixels(100), parent);
     if (window)
       window->show();
     return window;
@@ -439,8 +435,7 @@ TEST_CASE("Win32 plugin windows let the host handle its own WM_DPICHANGED", "[in
   GetWindowRect(parent.hwnd, &before);
   RECT suggested = { before.left + 5, before.top + 5, before.left + 5 + 260, before.top + 5 + 130 };
   host_log = {};
-  SendMessageW(parent.hwnd, WM_DPICHANGED, MAKEWPARAM(dpi, dpi),
-               reinterpret_cast<LPARAM>(&suggested));
+  SendMessageW(parent.hwnd, WM_DPICHANGED, MAKEWPARAM(dpi, dpi), reinterpret_cast<LPARAM>(&suggested));
 
   CHECK(host_log.dpi_changes == 1);
 
@@ -505,12 +500,10 @@ TEST_CASE("Win32 plugin windows report their new size when their parent's DPI ch
   int old_height = static_cast<int>(kLogicalHeight * stale_scale);
   int new_width = 2 * static_cast<int>(dpi);
   int new_height = static_cast<int>(dpi);
-  SetWindowPos(parent.hwnd, nullptr, 0, 0, old_width, old_height,
-               SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOMOVE);
+  SetWindowPos(parent.hwnd, nullptr, 0, 0, old_width, old_height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOMOVE);
 
   std::unique_ptr<Window> window = createPluginWindow(Dimension::nativePixels(old_width),
-                                                      Dimension::nativePixels(old_height),
-                                                      parent.hwnd);
+                                                      Dimension::nativePixels(old_height), parent.hwnd);
   REQUIRE(window);
   window->setDpiScale(stale_scale);
 
@@ -528,8 +521,7 @@ TEST_CASE("Win32 plugin windows report their new size when their parent's DPI ch
   RECT suggested = { window_rect.left, window_rect.top, window_rect.left + new_width,
                      window_rect.top + new_height };
   host_log.dpi_changes = 0;
-  SendMessageW(parent.hwnd, WM_DPICHANGED, MAKEWPARAM(dpi, dpi),
-               reinterpret_cast<LPARAM>(&suggested));
+  SendMessageW(parent.hwnd, WM_DPICHANGED, MAKEWPARAM(dpi, dpi), reinterpret_cast<LPARAM>(&suggested));
   INFO("Host saw " << host_log.dpi_changes << " WM_DPICHANGED");
 
   CHECK(window->dpiScale() == scale);

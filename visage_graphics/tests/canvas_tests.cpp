@@ -1622,12 +1622,8 @@ TEST_CASE("Blurred region with a hidden backdrop child still blurs", "[graphics]
 }
 
 TEST_CASE("Post effects destroyed before rendering", "[graphics]") {
-  {
-    BlurPostEffect blur;
-  }
-  {
-    BloomPostEffect bloom;
-  }
+  { BlurPostEffect blur; }
+  { BloomPostEffect bloom; }
 }
 
 TEST_CASE("Bloom keeps the alpha of its content", "[graphics]") {

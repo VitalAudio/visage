@@ -178,8 +178,8 @@ namespace {
   public:
     explicit SysCommandSpy(HWND hwnd) : hwnd_(hwnd) {
       SetPropW(hwnd_, kSpyProperty, this);
-      original_ = reinterpret_cast<WNDPROC>(
-          SetWindowLongPtrW(hwnd_, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&SysCommandSpy::proc)));
+      original_ = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(hwnd_, GWLP_WNDPROC,
+                                                              reinterpret_cast<LONG_PTR>(&SysCommandSpy::proc)));
     }
 
     ~SysCommandSpy() {
@@ -271,8 +271,7 @@ namespace {
     int loop_saw_plugin_key_messages = 0;
 
     PluginInHost() {
-      window = createPluginWindow(Dimension::nativePixels(100), Dimension::nativePixels(100),
-                                  host.hwnd);
+      window = createPluginWindow(Dimension::nativePixels(100), Dimension::nativePixels(100), host.hwnd);
       if (window) {
         window->setEventHandler(&recorder);
         plugin = static_cast<HWND>(window->nativeHandle());
@@ -291,8 +290,7 @@ namespace {
     void runHostLoop() {
       MSG message;
       while (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
-        if (plugin && message.hwnd == plugin && message.message >= WM_KEYFIRST &&
-            message.message <= WM_KEYLAST)
+        if (plugin && message.hwnd == plugin && message.message >= WM_KEYFIRST && message.message <= WM_KEYLAST)
           loop_saw_plugin_key_messages++;
         TranslateMessage(&message);
         DispatchMessageW(&message);
