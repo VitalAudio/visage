@@ -329,6 +329,7 @@ namespace visage {
 
   private:
     void updateGradient(const PackedGradientRect* gradient);
+    void uploadDirtyRows();
     void resize();
 
     void removeGradient(const Gradient& gradient) {
@@ -346,6 +347,9 @@ namespace visage {
 
     bool hdr_ = false;
     bool repacked_ = false;
+    std::vector<uint64_t> color_data_;
+    int dirty_top_ = 0;
+    int dirty_bottom_ = 0;
     PackedAtlasMap<const PackedGradientRect*> atlas_map_;
     std::unique_ptr<GradientAtlasTexture> texture_;
     std::shared_ptr<GradientAtlas*> reference_;

@@ -116,41 +116,63 @@ namespace visage {
   GradientAtlas::~GradientAtlas() = default;
 
   void GradientAtlas::updateGradient(const PackedGradientRect* gradient) {
-    if (texture_ == nullptr || !bgfx::isValid(texture_->handle))
+    int width = atlas_map_.width();
+    if (repacked_ || color_data_.size() != static_cast<size_t>(width) * atlas_map_.height())
       return;
 
     int resolution = gradient->gradient.resolution();
     if (resolution == 0)
       return;
 
-    std::unique_ptr<uint64_t[]> color_data = std::make_unique<uint64_t[]>(resolution);
+    uint64_t* row = color_data_.data() + gradient->y * width + gradient->x;
     float step = 1.0f / std::max(1, resolution - 1);
     for (int i = 0; i < resolution; ++i)
-      color_data[i] = gradient->gradient.sample(i * step).toABGR16F();
+      row[i] = gradient->gradient.sample(i * step).toABGR16F();
 
-    bgfx::updateTexture2D(texture_->handle, 0, 0, gradient->x, gradient->y, resolution, 1,
-                          bgfx::copy(color_data.get(), resolution * sizeof(uint64_t)));
+    if (dirty_top_ >= dirty_bottom_) {
+      dirty_top_ = gradient->y;
+      dirty_bottom_ = gradient->y + 1;
+    }
+    else {
+      dirty_top_ = std::min(dirty_top_, gradient->y);
+      dirty_bottom_ = std::max(dirty_bottom_, gradient->y + 1);
+    }
+  }
+
+  void GradientAtlas::uploadDirtyRows() {
+    if (dirty_top_ >= dirty_bottom_)
+      return;
+
+    int width = atlas_map_.width();
+    int rows = dirty_bottom_ - dirty_top_;
+    bgfx::updateTexture2D(texture_->handle, 0, 0, 0, dirty_top_, width, rows,
+                          bgfx::copy(color_data_.data() + dirty_top_ * width,
+                                     width * rows * sizeof(uint64_t)));
+    dirty_top_ = 0;
+    dirty_bottom_ = 0;
   }
 
   void GradientAtlas::checkInit() {
     if (texture_ == nullptr)
       texture_ = std::make_unique<GradientAtlasTexture>();
 
+    int width = atlas_map_.width();
+    int height = atlas_map_.height();
     if (!bgfx::isValid(texture_->handle)) {
-      int width = atlas_map_.width();
-      int height = atlas_map_.height();
       texture_->handle = bgfx::createTexture2D(width, height, false, 1, bgfx::TextureFormat::RGBA16F);
-      std::unique_ptr<uint64_t[]> clear = std::make_unique<uint64_t[]>(width * height);
-      bgfx::updateTexture2D(texture_->handle, 0, 0, 0, 0, width, height,
-                            bgfx::copy(clear.get(), width * height * sizeof(uint64_t)));
       repacked_ = true;
     }
 
     if (repacked_) {
       repacked_ = false;
+      color_data_.assign(static_cast<size_t>(width) * height, 0);
       for (auto& gradient : gradients_)
         updateGradient(gradient.second.get());
+      dirty_top_ = 0;
+      dirty_bottom_ = height;
     }
+
+    uploadDirtyRows();
   }
 
   void GradientAtlas::destroy() {
