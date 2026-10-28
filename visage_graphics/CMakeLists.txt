@@ -66,6 +66,9 @@ FetchContent_Declare(bgfx GIT_REPOSITORY https://github.com/bkaradzic/bgfx.cmake
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(bgfx)
+if (XCODE)
+  set_target_properties(bgfx PROPERTIES XCODE_ATTRIBUTE_GCC_INPUT_FILETYPE sourcecode.cpp.objcpp)
+endif ()
 
 FetchContent_Declare(freetype GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
   GIT_SHALLOW TRUE
