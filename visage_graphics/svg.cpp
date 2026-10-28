@@ -47,9 +47,11 @@ namespace visage {
   }
 
   static std::string decodeXmlReferences(const std::string& value) {
-    static const std::unordered_map<std::string, std::string> kNamed = {
-      { "quot", "\"" }, { "apos", "'" }, { "lt", "<" }, { "gt", ">" }, { "amp", "&" }
-    };
+    static const std::unordered_map<std::string, std::string> kNamed = { { "quot", "\"" },
+                                                                         { "apos", "'" },
+                                                                         { "lt", "<" },
+                                                                         { "gt", ">" },
+                                                                         { "amp", "&" } };
 
     std::string result;
     for (size_t i = 0; i < value.size(); ++i) {

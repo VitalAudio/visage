@@ -46,8 +46,7 @@ namespace {
       auto base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
       auto dos = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
       auto nt = reinterpret_cast<IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
-      const IMAGE_DATA_DIRECTORY& imports =
-          nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+      const IMAGE_DATA_DIRECTORY& imports = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
       if (imports.VirtualAddress == 0)
         return;
 
@@ -164,8 +163,7 @@ namespace {
   std::function<void(IDataObject*)>* drag_inspector = nullptr;
   int drags_started = 0;
 
-  HRESULT WINAPI inspectingDoDragDrop(IDataObject* data_object, IDropSource*, DWORD,
-                                      DWORD* effect) {
+  HRESULT WINAPI inspectingDoDragDrop(IDataObject* data_object, IDropSource*, DWORD, DWORD* effect) {
     drags_started++;
     if (drag_inspector && data_object)
       (*drag_inspector)(data_object);
@@ -184,8 +182,7 @@ namespace {
 
     window->setEventHandler(&handler);
     {
-      ScopedImportHook hook("ole32.dll", "DoDragDrop",
-                            reinterpret_cast<void*>(&inspectingDoDragDrop));
+      ScopedImportHook hook("ole32.dll", "DoDragDrop", reinterpret_cast<void*>(&inspectingDoDragDrop));
       if (!hook.installed())
         return false;
 
@@ -289,8 +286,7 @@ namespace {
       auto drop_files = static_cast<DROPFILES*>(GlobalLock(global));
       drop_files->pFiles = sizeof(DROPFILES);
       drop_files->fWide = TRUE;
-      auto destination = reinterpret_cast<wchar_t*>(reinterpret_cast<char*>(drop_files) +
-                                                    sizeof(DROPFILES));
+      auto destination = reinterpret_cast<wchar_t*>(reinterpret_cast<char*>(drop_files) + sizeof(DROPFILES));
       for (const std::wstring& path : paths_) {
         memcpy(destination, path.c_str(), path.size() * sizeof(wchar_t));
         destination += path.size() + 1;
@@ -332,8 +328,8 @@ namespace {
   };
 
   std::string utf8(const std::wstring& wide) {
-    int size = WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), static_cast<int>(wide.size()),
-                                   nullptr, 0, nullptr, nullptr);
+    int size = WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), static_cast<int>(wide.size()), nullptr,
+                                   0, nullptr, nullptr);
     std::string result(size, '\0');
     WideCharToMultiByte(CP_UTF8, 0, wide.c_str(), static_cast<int>(wide.size()), result.data(),
                         size, nullptr, nullptr);
@@ -458,10 +454,8 @@ TEST_CASE("Win32 drag data reports E_OUTOFMEMORY when it can't copy the file lis
   HRESULT lock_result = E_FAIL;
   DWORD lock_tymed = TYMED_NULL;
 
-  ScopedImportHook alloc_hook("KERNEL32.dll", "GlobalAlloc",
-                              reinterpret_cast<void*>(&failingGlobalAlloc));
-  ScopedImportHook lock_hook("KERNEL32.dll", "GlobalLock",
-                             reinterpret_cast<void*>(&failingGlobalLock));
+  ScopedImportHook alloc_hook("KERNEL32.dll", "GlobalAlloc", reinterpret_cast<void*>(&failingGlobalAlloc));
+  ScopedImportHook lock_hook("KERNEL32.dll", "GlobalLock", reinterpret_cast<void*>(&failingGlobalLock));
   REQUIRE(alloc_hook.installed());
   REQUIRE(lock_hook.installed());
   real_global_alloc = alloc_hook.original<GlobalAlloc_t>();

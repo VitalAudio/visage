@@ -85,8 +85,7 @@ TEST_CASE("Win32 child processes get arguments outside the ANSI code page unchan
   REQUIRE(output == "contents");
 }
 
-TEST_CASE("Win32 child process scripts in a non-ANSI directory with spaces get quoted arguments",
-          "[utils]") {
+TEST_CASE("Win32 child process scripts in a non-ANSI directory with spaces get quoted arguments", "[utils]") {
   TempDirectory directory(L"visage win32 child " + kNonAnsiName);
   std::filesystem::path script = directory.path / L"print args.cmd";
   writeFile(script, "@echo [%~1] [%~2]\r\n");

@@ -1952,7 +1952,8 @@ TEST_CASE("Svg frame masks", "[integration]") {
   REQUIRE(clipped.sample(5, 15).hexRed() == 0x00);
 
   for (const char* mask_type : { R"(mask-type="alpha")", R"(style="mask-type: alpha")" }) {
-    Screenshot alpha = svgFrameScreenshot(std::string(R"svg(<svg viewBox="0 0 20 20"><mask id="m" )svg") + mask_type +
+    Screenshot alpha = svgFrameScreenshot(std::string(R"svg(<svg viewBox="0 0 20 20"><mask id="m" )svg") +
+                                          mask_type +
                                           R"svg(><rect width="10" height="20" fill="black"/></mask><rect width="20" height="20" fill="white" mask="url(#m)"/></svg>)svg");
     REQUIRE(alpha.sample(5, 10).hexRed() == 0xff);
     REQUIRE(alpha.sample(15, 10).hexRed() == 0x00);
@@ -2267,7 +2268,8 @@ TEST_CASE("Resizing a window many times keeps its swap chain valid", "[integrati
     canvas.setColor(0xff000000);
     canvas.fill();
   };
-  std::unique_ptr<Window> window = createWindow(Dimension::nativePixels(100), Dimension::nativePixels(100));
+  std::unique_ptr<Window> window = createWindow(Dimension::nativePixels(100),
+                                                Dimension::nativePixels(100));
   app.addToWindow(window.get());
   for (int i = 0; i < 100; ++i) {
     window->handleResized(100 + i, 100 + i);
@@ -2374,7 +2376,8 @@ TEST_CASE("Window opens after rendering offscreen", "[integration]") {
     canvas.setColor(0xff000000);
     canvas.fill();
   };
-  std::unique_ptr<Window> window = createWindow(Dimension::nativePixels(100), Dimension::nativePixels(100));
+  std::unique_ptr<Window> window = createWindow(Dimension::nativePixels(100),
+                                                Dimension::nativePixels(100));
   app.addToWindow(window.get());
   app.drawWindow();
   app.drawWindow();

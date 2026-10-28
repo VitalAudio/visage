@@ -83,8 +83,7 @@ namespace {
   }
 
   LPARAM screenPointLParam(int x, int y) {
-    return MAKELPARAM(static_cast<WORD>(static_cast<short>(x)),
-                      static_cast<WORD>(static_cast<short>(y)));
+    return MAKELPARAM(static_cast<WORD>(static_cast<short>(x)), static_cast<WORD>(static_cast<short>(y)));
   }
 
   struct ClientDecoratedWindow {

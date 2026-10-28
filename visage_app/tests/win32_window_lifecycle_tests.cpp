@@ -124,9 +124,8 @@ namespace {
         window_class.lpszClassName = kClassName;
         registered = RegisterClassExW(&window_class) != 0;
       }
-      hwnd = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, kClassName, L"host",
-                             WS_POPUP | WS_VISIBLE, 40, 40, 200, 150, nullptr, nullptr,
-                             GetModuleHandleW(nullptr), nullptr);
+      hwnd = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, kClassName, L"host", WS_POPUP | WS_VISIBLE,
+                             40, 40, 200, 150, nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
     }
 
     ~HostWindow() {
@@ -162,8 +161,7 @@ TEST_CASE("Win32 destroying a window from a timer doesn't end the running event 
 
   std::unique_ptr<Window> loop_window = createWindow(Dimension::nativePixels(100),
                                                      Dimension::nativePixels(80));
-  std::unique_ptr<Window> other = createWindow(Dimension::nativePixels(160),
-                                               Dimension::nativePixels(120));
+  std::unique_ptr<Window> other = createWindow(Dimension::nativePixels(160), Dimension::nativePixels(120));
   REQUIRE(loop_window);
   REQUIRE(other);
   other->show();
