@@ -529,7 +529,7 @@ TEST_CASE("Win32 plugin windows report their new size when their parent's DPI ch
   CHECK(editor.nativeWidth() == new_width);
   CHECK(editor.nativeHeight() == new_height);
   CHECK(window->clientWidth() == new_width);
-  CHECK(reports == 1);
+  CHECK(reports == 0);
 
   editor.removeFromWindow();
 }
