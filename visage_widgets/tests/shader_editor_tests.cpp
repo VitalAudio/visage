@@ -116,3 +116,28 @@ TEST_CASE("ShaderEditor compile results arriving after it's deleted are ignored"
   editor.reset();
   EventManager::instance().checkEventTimers();
 }
+
+#if VISAGE_LIVE_SHADERS
+TEST_CASE("Live shader compilation runs in process and reports errors", "[widgets]") {
+  static constexpr char kValid[] = "$input v_coordinates\n\n#include <shader_include.sh>\n\n"
+                                   "uniform vec4 u_color;\n\nvoid main() {\n  gl_FragColor = u_color;\n}\n";
+  static constexpr char kInvalid[] = "$input v_coordinates\n\nvoid main() {\n  gl_FragColor = missing;\n}\n";
+
+  ShaderCompiler compiler;
+  auto compile = [&compiler](const std::string& code) {
+    std::string result = "pending";
+    compiler.compile("fs_live_test", code, [&result](const std::string& message) { result = message; });
+    for (int i = 0; i < 5000 && result == "pending"; ++i) {
+      EventManager::instance().checkEventTimers();
+      Thread::sleep(1);
+    }
+    return result;
+  };
+
+  REQUIRE(compile(kValid).empty());
+  std::string error = compile(kInvalid);
+  REQUIRE(error != "pending");
+  REQUIRE(error.find("missing") != std::string::npos);
+  compiler.stop();
+}
+#endif

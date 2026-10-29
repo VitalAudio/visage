@@ -29,12 +29,16 @@
 #include "visage_utils/file_system.h"
 #include "visage_utils/string_utils.h"
 
+#if VISAGE_LIVE_SHADERS
+#include "shader_compiler.h"
+#endif
+
 namespace visage {
   static std::string shaderExecutable() {
 #if VISAGE_WINDOWS
-    return "visage_shaderc.exe";
+    return "shader_compiler.exe";
 #else
-    return "visage_shaderc";
+    return "shader_compiler";
 #endif
   }
 
@@ -184,7 +188,7 @@ namespace visage {
   bool ShaderCompiler::compileShader() {
     new_code_ = false;
 
-    File compile_path = std::filesystem::temp_directory_path() / "shader_compiler";
+    File compile_path = createTemporaryFile("shader_compiler");
     File include_path = compile_path / "includes";
     std::filesystem::create_directories(include_path);
 
@@ -202,6 +206,41 @@ namespace visage {
     loadCode(shader_name, code, callback);
 
     ShaderType shader_type = shader_name[0] == 'v' ? ShaderType::Vertex : ShaderType::Fragment;
+    File temporary_shader = compile_path / shader_name;
+
+#if VISAGE_LIVE_SHADERS
+    shaderc::CompileOptions options;
+    options.input = utf8Path(temporary_shader);
+    options.source = code;
+    options.varying_source.assign(reinterpret_cast<const char*>(shaders::varying_def_sc.data),
+                                  shaders::varying_def_sc.size);
+    options.include_dirs.push_back(utf8Path(include_path));
+    options.stage = shader_type == ShaderType::Vertex ? gpu::ShaderStage::Vertex : gpu::ShaderStage::Fragment;
+#if VISAGE_WINDOWS
+    options.target = gpu::ShaderCode::Dxbc;
+#elif VISAGE_MAC
+    options.target = gpu::ShaderCode::Msl;
+#else
+    options.target = gpu::ShaderCode::Spirv;
+#endif
+
+    std::vector<uint8_t> blob;
+    std::string error;
+    bool compiled = shaderc::compile(options, blob, error);
+    std::filesystem::remove_all(compile_path);
+    if (!compiled) {
+      runOnEventThread([callback, error]() { callback(error); });
+      return false;
+    }
+
+    std::string compiled_shader(blob.begin(), blob.end());
+    runOnEventThread([compiled_shader, shader_name, callback]() {
+      if (ShaderCache::swapShader(shader_name, compiled_shader.c_str(), compiled_shader.size()))
+        ProgramCache::refreshAllProgramsWithShader(shader_name);
+      callback("");
+    });
+    return true;
+#else
     std::string type = typeArgument(shader_type);
 
 #if VISAGE_WINDOWS
@@ -223,7 +262,6 @@ namespace visage {
       return false;
     }
 
-    File temporary_shader = compile_path / shader_name;
     replaceFileWithText(temporary_shader, code);
 
     std::string arguments = "-f \"" + utf8Path(temporary_shader) + "\" -i \"" +
@@ -247,6 +285,7 @@ namespace visage {
     runOnEventThread([callback, output]() { callback(output); });
     std::filesystem::remove_all(compile_path);
     return true;
+#endif
   }
 
   ShaderEditor::ShaderEditor() {
