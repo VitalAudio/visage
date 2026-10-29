@@ -667,9 +667,9 @@ namespace {
 }
 
 TEST_CASE("PopupMenu shown by a press follows its drag", "[ui]") {
+  PressEventHandler handler;
   Frame parent;
   parent.setBounds(0, 0, 400, 400);
-  PressEventHandler handler;
   parent.setEventHandler(&handler);
   Frame source;
   parent.addChild(&source);

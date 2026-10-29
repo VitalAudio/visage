@@ -1254,10 +1254,10 @@ TEST_CASE("Luminance frame mask applies to a bloom frame's output", "[integratio
 
 TEST_CASE("Luminance frame mask keeps its strength next to a bloom frame", "[integration]") {
   auto render = [](bool bloom_neighbor) {
+    BloomPostEffect bloom;
     ApplicationEditor app;
     Frame masked;
     Frame neighbor;
-    BloomPostEffect bloom;
     bloom.setBloomIntensity(0.0f);
     app.onDraw() = [](Canvas& canvas) {
       canvas.setColor(0xff000000);
@@ -1351,16 +1351,16 @@ TEST_CASE("A full mask keeps a frame's HDR output for an outer bloom", "[integra
     kShader
   };
   auto render = [](Inner inner_kind, bool masked) {
+    BloomPostEffect outer_bloom;
+    BloomPostEffect inner_bloom;
+    ShaderPostEffect shader(test_shaders::vs_test_post_effect, test_shaders::fs_test_opaque);
     ApplicationEditor app;
     Frame outer;
     Frame inner;
-    BloomPostEffect outer_bloom;
     outer_bloom.setBloomSize(10.0f);
     outer_bloom.setBloomIntensity(0.8f);
-    BloomPostEffect inner_bloom;
     inner_bloom.setBloomSize(6.0f);
     inner_bloom.setBloomIntensity(0.5f);
-    ShaderPostEffect shader(test_shaders::vs_test_post_effect, test_shaders::fs_test_opaque);
     app.onDraw() = [](Canvas& canvas) {
       for (int x = 0; x < kWidth; x += 8) {
         canvas.setColor(x % 16 ? 0xff304050 : 0xffa0c0e0);
@@ -1547,11 +1547,11 @@ TEST_CASE("Translucent frames keep their shader effect's own blend state", "[int
 
 TEST_CASE("Fading or masking a drawn bloom frame keeps its sibling's glow", "[integration]") {
   for (bool mask : { false, true }) {
+    BloomPostEffect bloom_a;
+    BloomPostEffect bloom_b;
     ApplicationEditor app;
     Frame a;
     Frame b;
-    BloomPostEffect bloom_a;
-    BloomPostEffect bloom_b;
     for (BloomPostEffect* bloom : { &bloom_a, &bloom_b }) {
       bloom->setBloomSize(8.0f);
       bloom->setBloomIntensity(0.4f);
@@ -1624,11 +1624,11 @@ TEST_CASE("Fading a drawn shader frame leaves its parent's layer alone", "[integ
 
 TEST_CASE("Translucent bloom frames don't change with their siblings", "[integration]") {
   auto render = [](bool sibling) {
+    BloomPostEffect bloom_a;
+    BloomPostEffect bloom_b;
     ApplicationEditor app;
     Frame a;
     Frame b;
-    BloomPostEffect bloom_a;
-    BloomPostEffect bloom_b;
     auto draw = [](Canvas& canvas) {
       canvas.setColor(Color(0xffffe0a0, 2.5f));
       canvas.fill(20, 14, 12, 12);
@@ -1661,13 +1661,13 @@ TEST_CASE("Translucent bloom frames don't change with their siblings", "[integra
 }
 
 TEST_CASE("Fading a shader frame inside a bloom frame keeps its glow", "[integration]") {
+  BloomPostEffect bloom;
+  ShaderPostEffect shader(test_shaders::vs_test_post_effect, test_shaders::fs_test_color_mult);
   ApplicationEditor app;
   Frame bloom_frame;
   Frame shader_frame;
-  BloomPostEffect bloom;
   bloom.setBloomSize(8.0f);
   bloom.setBloomIntensity(0.4f);
-  ShaderPostEffect shader(test_shaders::vs_test_post_effect, test_shaders::fs_test_color_mult);
   app.onDraw() = [](Canvas& canvas) {
     canvas.setColor(0xff304050);
     canvas.fill();
@@ -1707,9 +1707,9 @@ TEST_CASE("Unmasked shader frames blend with their layer blend mode", "[integrat
   static constexpr int kWidth = 60;
   static constexpr int kHeight = 40;
   auto render = [](BlendMode blend_mode, bool masked) {
+    ShaderPostEffect opaque(test_shaders::vs_test_post_effect, test_shaders::fs_test_opaque);
     ApplicationEditor app;
     Frame frame;
-    ShaderPostEffect opaque(test_shaders::vs_test_post_effect, test_shaders::fs_test_opaque);
     app.onDraw() = [](Canvas& canvas) {
       canvas.setColor(0xff304050);
       canvas.fill(0, 0, kWidth / 2, kHeight);
@@ -1782,11 +1782,11 @@ TEST_CASE("Blend modes on bloom frames don't change their siblings", "[integrati
   };
 
   {
+    BloomPostEffect bloom_a;
+    BloomPostEffect bloom_b;
     ApplicationEditor app;
     Frame a;
     Frame b;
-    BloomPostEffect bloom_a;
-    BloomPostEffect bloom_b;
     setup(app, a, b, bloom_a, bloom_b, true);
     app.drawWindow();
     Screenshot before = app.takeScreenshot();
@@ -1798,11 +1798,11 @@ TEST_CASE("Blend modes on bloom frames don't change their siblings", "[integrati
   }
 
   auto render_add = [&setup](bool sibling) {
+    BloomPostEffect bloom_a;
+    BloomPostEffect bloom_b;
     ApplicationEditor app;
     Frame a;
     Frame b;
-    BloomPostEffect bloom_a;
-    BloomPostEffect bloom_b;
     setup(app, a, b, bloom_a, bloom_b, sibling);
     a.setLayerBlendMode(BlendMode::Add);
     app.drawWindow();
@@ -1814,13 +1814,13 @@ TEST_CASE("Blend modes on bloom frames don't change their siblings", "[integrati
 }
 
 TEST_CASE("Blending a shader frame inside a bloom frame and back keeps its glow", "[integration]") {
+  BloomPostEffect bloom;
+  ShaderPostEffect shader(test_shaders::vs_test_post_effect, test_shaders::fs_test_color_mult);
   ApplicationEditor app;
   Frame bloom_frame;
   Frame shader_frame;
-  BloomPostEffect bloom;
   bloom.setBloomSize(8.0f);
   bloom.setBloomIntensity(0.4f);
-  ShaderPostEffect shader(test_shaders::vs_test_post_effect, test_shaders::fs_test_color_mult);
   app.onDraw() = [](Canvas& canvas) {
     canvas.setColor(0xff304050);
     canvas.fill();
