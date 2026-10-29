@@ -56,6 +56,7 @@ namespace visage::gpu {
   X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR)     \
   X(vkGetPhysicalDeviceSurfaceFormatsKHR)          \
   X(vkGetPhysicalDeviceSurfacePresentModesKHR)     \
+  X(vkGetPhysicalDeviceXlibPresentationSupportKHR) \
   X(vkCreateXlibSurfaceKHR)
 
 #define VISAGE_VK_DEBUG_FUNCTIONS(X)  \
@@ -1021,16 +1022,6 @@ namespace visage::gpu {
       std::vector<VkPhysicalDevice> devices(count);
       vkEnumeratePhysicalDevices(instance_, &count, devices.data());
 
-      auto score = [](const VkPhysicalDeviceProperties& properties) {
-        switch (properties.deviceType) {
-        case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU: return 4;
-        case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: return 3;
-        case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU: return 2;
-        case VK_PHYSICAL_DEVICE_TYPE_CPU: return 1;
-        default: return 0;
-        }
-      };
-
       int best_score = -1;
       for (VkPhysicalDevice device : devices) {
         VkPhysicalDeviceProperties properties;
@@ -1053,17 +1044,21 @@ namespace visage::gpu {
         std::vector<VkQueueFamilyProperties> families(family_count);
         vkGetPhysicalDeviceQueueFamilyProperties(device, &family_count, families.data());
         uint32_t family = UINT32_MAX;
-        for (uint32_t i = 0; i < family_count; ++i) {
+        bool presents = false;
+        for (uint32_t i = 0; i < family_count && !presents; ++i) {
           VkQueueFlags needed = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
-          if ((families[i].queueFlags & needed) == needed) {
+          if ((families[i].queueFlags & needed) != needed)
+            continue;
+
+          presents = canPresent(device, i);
+          if (family == UINT32_MAX || presents)
             family = i;
-            break;
-          }
         }
         if (family == UINT32_MAX)
           continue;
 
-        int device_score = score(properties);
+        bool cpu = properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU;
+        int device_score = (presents ? 2 : 0) + (cpu ? 0 : 1);
         if (device_score > best_score) {
           best_score = device_score;
           physical_device_ = device;
@@ -1076,6 +1071,15 @@ namespace visage::gpu {
 
       vkGetPhysicalDeviceMemoryProperties(physical_device_, &memory_properties_);
       return true;
+    }
+
+    bool canPresent(VkPhysicalDevice device, uint32_t family) const {
+      ::Display* display = static_cast<::Display*>(init_.display);
+      if (display == nullptr)
+        return true;
+
+      VisualID visual = DefaultVisual(display, DefaultScreen(display))->visualid;
+      return vkGetPhysicalDeviceXlibPresentationSupportKHR(device, family, display, visual);
     }
 
     bool createDevice() {
