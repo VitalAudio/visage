@@ -620,6 +620,51 @@ TEST_CASE("Canvas gradient atlas growth", "[graphics]") {
   }
 }
 
+TEST_CASE("Solid colors that change every frame draw correctly from recycled atlas slots", "[graphics]") {
+  static constexpr int kColumns = 30;
+  static constexpr int kRows = 20;
+  static constexpr int kCellWidth = 6;
+  static constexpr int kCellHeight = 10;
+  static constexpr int kTestWidth = kColumns * kCellWidth;
+  static constexpr int kTestHeight = kRows * kCellHeight + kCellHeight;
+  static constexpr int kFrames = 6;
+
+  auto cell_color = [](int frame, int cell) -> unsigned int {
+    int value = frame * kColumns * kRows + cell;
+    return 0xff000000 | ((value & 0xff) << 16) | (((value >> 8) & 0xff) << 8) | 0x40;
+  };
+  Gradient stripe(0xffff0000, 0xff0000ff);
+  stripe.setRepeat(true);
+
+  Canvas canvas;
+  canvas.setWindowless(kTestWidth, kTestHeight);
+
+  for (int frame = 0; frame < kFrames; ++frame) {
+    canvas.clearDrawnShapes();
+    canvas.setColor(Brush::horizontal(stripe));
+    canvas.fill(0, kRows * kCellHeight, kTestWidth, kCellHeight);
+    for (int r = 0; r < kRows; ++r) {
+      for (int c = 0; c < kColumns; ++c) {
+        canvas.setColor(cell_color(frame, r * kColumns + c));
+        canvas.fill(c * kCellWidth, r * kCellHeight, kCellWidth, kCellHeight);
+      }
+    }
+    canvas.submit();
+  }
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  for (int r = 0; r < kRows; ++r) {
+    for (int c = 0; c < kColumns; ++c) {
+      Color expected = cell_color(kFrames - 1, r * kColumns + c);
+      Color sample = screenshot.sample(c * kCellWidth + kCellWidth / 2, r * kCellHeight + kCellHeight / 2);
+      INFO("Cell " << r << ", " << c);
+      REQUIRE(std::abs(static_cast<int>(sample.hexRed()) - static_cast<int>(expected.hexRed())) <= 1);
+      REQUIRE(std::abs(static_cast<int>(sample.hexGreen()) - static_cast<int>(expected.hexGreen())) <= 1);
+      REQUIRE(std::abs(static_cast<int>(sample.hexBlue()) - static_cast<int>(expected.hexBlue())) <= 1);
+    }
+  }
+}
+
 TEST_CASE("Recycled shape batches keep their shape type", "[graphics]") {
   int freed_owner = 0;
   ShapeBatcher batcher;

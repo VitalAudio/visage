@@ -240,22 +240,28 @@ namespace visage {
 
   class GradientAtlas {
   public:
+    struct PackedGradientReference;
+
     struct PackedGradientRect {
       explicit PackedGradientRect(Gradient g) : gradient(std::move(g)) { }
 
       Gradient gradient;
       int x = 0;
       int y = 0;
+      int solid_row = -1;
+      int solid_column = 0;
+      bool stale = false;
+      bool in_stale_list = false;
+      std::weak_ptr<PackedGradientReference> reference;
     };
 
     struct PackedGradientReference {
-      PackedGradientReference(std::weak_ptr<GradientAtlas*> atlas,
-                              const PackedGradientRect* packed_gradient_rect) :
+      PackedGradientReference(std::weak_ptr<GradientAtlas*> atlas, PackedGradientRect* packed_gradient_rect) :
           atlas(std::move(atlas)), packed_gradient_rect(packed_gradient_rect) { }
       ~PackedGradientReference();
 
       std::weak_ptr<GradientAtlas*> atlas;
-      const PackedGradientRect* packed_gradient_rect = nullptr;
+      PackedGradientRect* packed_gradient_rect = nullptr;
     };
 
     class PackedGradient {
@@ -286,32 +292,44 @@ namespace visage {
     ~GradientAtlas();
 
     PackedGradient addGradient(const Gradient& gradient) {
-      if (gradients_.count(gradient) == 0) {
+      auto found = gradients_.find(gradient);
+      if (found == gradients_.end()) {
         std::unique_ptr<PackedGradientRect> packed_gradient_rect = std::make_unique<PackedGradientRect>(gradient);
-        if (!atlas_map_.addRect(packed_gradient_rect.get(), gradient.resolution(), 1))
-          resize();
+        if (gradient.resolution() == 1)
+          addSolid(packed_gradient_rect.get());
+        else {
+          if (!atlas_map_.addRect(packed_gradient_rect.get(), gradient.resolution(), 1))
+            resize();
 
-        const PackedRect& rect = atlas_map_.rectForId(packed_gradient_rect.get());
-        packed_gradient_rect->x = rect.x;
-        packed_gradient_rect->y = rect.y;
+          const PackedRect& rect = atlas_map_.rectForId(packed_gradient_rect.get());
+          packed_gradient_rect->x = rect.x;
+          packed_gradient_rect->y = rect.y;
+        }
         updateGradient(packed_gradient_rect.get());
-        gradients_[gradient] = std::move(packed_gradient_rect);
+        found = gradients_.emplace(gradient, std::move(packed_gradient_rect)).first;
       }
-      stale_gradients_.erase(gradient);
 
-      if (auto reference = references_[gradient].lock())
+      PackedGradientRect* packed_gradient_rect = found->second.get();
+      if (auto reference = packed_gradient_rect->reference.lock())
         return PackedGradient(reference);
 
-      auto reference = std::make_shared<PackedGradientReference>(reference_, gradients_[gradient].get());
-      references_[gradient] = reference;
+      packed_gradient_rect->stale = false;
+      auto reference = std::make_shared<PackedGradientReference>(reference_, packed_gradient_rect);
+      packed_gradient_rect->reference = reference;
       return PackedGradient(reference);
     }
 
     void clearStaleGradients() {
-      for (const auto& stale : stale_gradients_) {
-        gradients_.erase(stale.first);
-        atlas_map_.removeRect(stale.second);
-        references_.erase(stale.first);
+      for (PackedGradientRect* stale : stale_gradients_) {
+        stale->in_stale_list = false;
+        if (!stale->stale)
+          continue;
+
+        if (stale->solid_row >= 0)
+          free_solids_.push_back({ stale->solid_row, stale->solid_column });
+        else
+          atlas_map_.removeRect(stale);
+        gradients_.erase(gradients_.find(stale->gradient));
       }
       stale_gradients_.clear();
     }
@@ -332,18 +350,20 @@ namespace visage {
     void uploadDirtyRows();
     void resize();
 
-    void removeGradient(const Gradient& gradient) {
-      VISAGE_ASSERT(gradients_.count(gradient));
-      stale_gradients_[gradient] = gradients_[gradient].get();
+    void addSolid(PackedGradientRect* packed_gradient_rect);
+
+    void removeGradient(PackedGradientRect* packed_gradient_rect) {
+      packed_gradient_rect->stale = true;
+      if (!packed_gradient_rect->in_stale_list) {
+        packed_gradient_rect->in_stale_list = true;
+        stale_gradients_.push_back(packed_gradient_rect);
+      }
     }
 
-    void removeGradient(const PackedGradientRect* packed_gradient_rect) {
-      removeGradient(packed_gradient_rect->gradient);
-    }
-
-    std::map<Gradient, std::weak_ptr<PackedGradientReference>> references_;
     std::map<Gradient, std::unique_ptr<PackedGradientRect>> gradients_;
-    std::map<Gradient, const PackedGradientRect*> stale_gradients_;
+    std::vector<PackedGradientRect*> stale_gradients_;
+    std::vector<std::unique_ptr<PackedGradientRect>> solid_rows_;
+    std::vector<std::pair<int, int>> free_solids_;
 
     bool hdr_ = false;
     bool repacked_ = false;

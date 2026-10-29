@@ -187,11 +187,49 @@ namespace visage {
     if (atlas_map_.width() != prev_width || atlas_map_.height() != prev_height)
       texture_.reset();
 
-    for (auto& gradient : gradients_) {
-      const PackedRect& rect = atlas_map_.rectForId(gradient.second.get());
-      gradient.second->x = rect.x;
-      gradient.second->y = rect.y;
+    for (auto& row : solid_rows_) {
+      const PackedRect& rect = atlas_map_.rectForId(row.get());
+      row->x = rect.x;
+      row->y = rect.y;
     }
+
+    for (auto& gradient : gradients_) {
+      PackedGradientRect* packed_gradient_rect = gradient.second.get();
+      if (packed_gradient_rect->solid_row >= 0) {
+        const PackedGradientRect* row = solid_rows_[packed_gradient_rect->solid_row].get();
+        packed_gradient_rect->x = row->x + packed_gradient_rect->solid_column;
+        packed_gradient_rect->y = row->y;
+      }
+      else {
+        const PackedRect& rect = atlas_map_.rectForId(packed_gradient_rect);
+        packed_gradient_rect->x = rect.x;
+        packed_gradient_rect->y = rect.y;
+      }
+    }
+  }
+
+  void GradientAtlas::addSolid(PackedGradientRect* packed_gradient_rect) {
+    if (free_solids_.empty()) {
+      int row_index = solid_rows_.size();
+      solid_rows_.push_back(std::make_unique<PackedGradientRect>(Gradient()));
+      PackedGradientRect* row = solid_rows_.back().get();
+      if (!atlas_map_.addRect(row, Gradient::kMaxGradientResolution, 1))
+        resize();
+
+      const PackedRect& rect = atlas_map_.rectForId(row);
+      row->x = rect.x;
+      row->y = rect.y;
+      for (int i = Gradient::kMaxGradientResolution - 1; i >= 0; --i)
+        free_solids_.push_back({ row_index, i });
+    }
+
+    auto [row_index, column] = free_solids_.back();
+    free_solids_.pop_back();
+    const PackedGradientRect* row = solid_rows_[row_index].get();
+    packed_gradient_rect->solid_row = row_index;
+    packed_gradient_rect->solid_column = column;
+    packed_gradient_rect->x = row->x + column;
+    packed_gradient_rect->y = row->y;
   }
 
   const bgfx::TextureHandle& GradientAtlas::colorTextureHandle() {
