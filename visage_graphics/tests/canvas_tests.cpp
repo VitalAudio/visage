@@ -3232,3 +3232,42 @@ TEST_CASE("Bloom doesn't glow dark around subtracted shapes", "[graphics]") {
   REQUIRE(render(false) == Approx(0x80).margin(2));
   REQUIRE(render(true) == Approx(render(false)).margin(2));
 }
+
+TEST_CASE("Segments and arcs point in the direction they are drawn", "[graphics]") {
+  static constexpr float kAngles[] = { 0.6f, 2.0f, 3.8f, 5.2f };
+  static constexpr float kCell = 100.0f;
+  static constexpr float kRadius = 40.0f;
+  static constexpr float kThickness = 8.0f;
+
+  Canvas canvas;
+  canvas.setWindowless(4 * kCell, 4 * kCell);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, canvas.width(), canvas.height());
+  canvas.setColor(0xffffffff);
+  for (int i = 0; i < 4; ++i) {
+    float center_x = (i + 0.5f) * kCell;
+    float end_x = center_x + kRadius * std::cos(kAngles[i]);
+    float end_y = kRadius * std::sin(kAngles[i]);
+    canvas.segment(center_x, 0.5f * kCell, end_x, 0.5f * kCell + end_y, kThickness, true);
+    canvas.segment(center_x, 1.5f * kCell, end_x, 1.5f * kCell + end_y, kThickness, false);
+    canvas.arc(center_x - kRadius, 2.5f * kCell - kRadius, 2.0f * kRadius, kThickness, kAngles[i],
+               0.8f, true);
+    canvas.arc(center_x - kRadius, 3.5f * kCell - kRadius, 2.0f * kRadius, kThickness, kAngles[i],
+               0.8f, false);
+  }
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  auto sample = [&screenshot](int column, int row, float distance, float angle) {
+    float x = (column + 0.5f) * kCell + distance * std::cos(angle);
+    float y = (row + 0.5f) * kCell + distance * std::sin(angle);
+    return screenshot.sample(x, y).hexRed();
+  };
+
+  for (int i = 0; i < 4; ++i) {
+    for (int row = 0; row < 4; ++row) {
+      float distance = row < 2 ? 0.5f * kRadius : kRadius - 0.5f * kThickness;
+      REQUIRE(sample(i, row, distance, kAngles[i]) == 0xff);
+      REQUIRE(sample(i, row, distance, -kAngles[i]) == 0);
+    }
+  }
+}
