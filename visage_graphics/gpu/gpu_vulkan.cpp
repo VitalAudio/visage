@@ -148,6 +148,7 @@ namespace visage::gpu {
     constexpr int kResourceBindingOffset = 16;
     constexpr VkDeviceSize kRingChunkSize = 1 << 20;
     constexpr uint32_t kDescriptorPoolSets = 1024;
+    constexpr uint64_t kAcquireTimeoutNs = 1000000000;
 
     struct FormatInfo {
       VkFormat format;
@@ -1026,7 +1027,7 @@ namespace visage::gpu {
       for (VkPhysicalDevice device : devices) {
         VkPhysicalDeviceProperties properties;
         vkGetPhysicalDeviceProperties(device, &properties);
-        if (VK_API_VERSION_MINOR(properties.apiVersion) < 1 && VK_API_VERSION_MAJOR(properties.apiVersion) <= 1)
+        if (VK_VERSION_MINOR(properties.apiVersion) < 1 && VK_VERSION_MAJOR(properties.apiVersion) <= 1)
           continue;
 
         uint32_t extension_count = 0;
@@ -1552,7 +1553,7 @@ namespace visage::gpu {
         if ((chain.needs_recreate || chain.swap_chain == VK_NULL_HANDLE) && !recreateSwapChain(chain))
           return false;
 
-        VkResult result = vkAcquireNextImageKHR(device_, chain.swap_chain, UINT64_MAX, semaphore,
+        VkResult result = vkAcquireNextImageKHR(device_, chain.swap_chain, kAcquireTimeoutNs, semaphore,
                                                 VK_NULL_HANDLE, &chain.current_image);
         if (result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR) {
           if (result == VK_SUBOPTIMAL_KHR)

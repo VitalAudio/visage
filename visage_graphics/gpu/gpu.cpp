@@ -218,11 +218,23 @@ namespace visage::gpu {
       ComputeBinding compute_bindings[kMaxComputeBindings];
 
       FrameData frame;
+      bool submitting = false;
+      std::vector<ReadRequest> pending_reads;
+      std::vector<uint16_t> pending_screenshots;
       std::vector<PendingUpdate> updates;
       std::vector<PendingDestroy> destroys;
     };
 
     Context* context = nullptr;
+
+    uint32_t formatBytes(TextureFormat format) {
+      switch (format) {
+      case TextureFormat::R8: return 1;
+      case TextureFormat::RGBA16F: return 8;
+      case TextureFormat::RGBA32F: return 16;
+      default: return 4;
+      }
+    }
 
     uint32_t uniformTypeFloats(UniformType type) {
       switch (type) {
@@ -274,6 +286,23 @@ namespace visage::gpu {
         }
       }
       return offset;
+    }
+
+    bool computeBindingsMatch(const ShaderEntry& shader) {
+      for (const ShaderStorage& storage : shader.info.storage) {
+        const ComputeBinding& binding = context->compute_bindings[storage.stage];
+        if (binding.image != storage.image)
+          return false;
+        if (storage.image) {
+          if (!context->textures.valid(binding.handle) ||
+              !(context->textures[binding.handle].desc.flags & kTextureStorage))
+            return false;
+        }
+        else if (!context->buffers.valid(binding.handle) ||
+                 !(context->buffers[binding.handle].desc.flags & kBufferComputeReadWrite))
+          return false;
+      }
+      return true;
     }
 
     void resetDraw() {
@@ -541,7 +570,8 @@ namespace visage::gpu {
   TextureHandle createTexture2D(int width, int height, TextureFormat format, uint32_t flags,
                                 const Memory* memory) {
     if (context == nullptr || width <= 0 || height <= 0 || width > context->caps.max_texture_size ||
-        height > context->caps.max_texture_size) {
+        height > context->caps.max_texture_size ||
+        (memory && memory->size < static_cast<uint64_t>(width) * height * formatBytes(format))) {
       release(memory);
       return {};
     }
@@ -571,6 +601,15 @@ namespace visage::gpu {
       return;
     }
 
+    const TextureDesc& desc = context->textures[handle.idx].desc;
+    uint64_t row_bytes = static_cast<uint64_t>(width) * formatBytes(desc.format);
+    uint64_t source_pitch = pitch ? static_cast<uint64_t>(pitch) : row_bytes;
+    if (x < 0 || y < 0 || x + width > desc.width || y + height > desc.height || source_pitch < row_bytes ||
+        memory->size < source_pitch * (height - 1) + row_bytes) {
+      release(memory);
+      return;
+    }
+
     PendingUpdate update;
     update.texture = true;
     update.idx = handle.idx;
@@ -587,12 +626,12 @@ namespace visage::gpu {
     if (context == nullptr || !context->textures.valid(handle.idx))
       return 0;
 
-    context->frame.reads.push_back({ handle.idx, data });
-    return context->frame_number + 1;
+    context->pending_reads.push_back({ handle.idx, data });
+    return context->frame_number + (context->submitting ? 2 : 1);
   }
 
   void destroy(TextureHandle handle) {
-    if (context && context->textures.valid(handle.idx))
+    if (context && context->textures.valid(handle.idx) && !context->textures[handle.idx].owned_by_frame_buffer)
       context->destroys.push_back({ PendingDestroy::Texture, handle.idx });
   }
 
@@ -668,7 +707,7 @@ namespace visage::gpu {
 
   void requestScreenShot(FrameBufferHandle handle) {
     if (context && context->frame_buffers.valid(handle.idx))
-      context->frame.screenshots.push_back(handle.idx);
+      context->pending_screenshots.push_back(handle.idx);
   }
 
   void destroy(FrameBufferHandle handle) {
@@ -978,7 +1017,7 @@ namespace visage::gpu {
       return;
 
     if (context->programs.valid(program.idx) && context->programs[program.idx].compute && groups_x &&
-        groups_y && groups_z) {
+        groups_y && groups_z && computeBindingsMatch(context->shaders[context->programs[program.idx].vertex])) {
       ComputeItem item;
       item.program = program.idx;
       std::copy(std::begin(context->compute_bindings), std::end(context->compute_bindings),
@@ -1005,6 +1044,8 @@ namespace visage::gpu {
 
     const TextureDesc& source_desc = context->textures[source.idx].desc;
     const TextureDesc& dest_desc = context->textures[destination.idx].desc;
+    if (source_x < 0 || source_y < 0 || dest_x < 0 || dest_y < 0 || source_desc.format != dest_desc.format)
+      return;
     if (width < 0)
       width = source_desc.width - source_x;
     if (height < 0)
@@ -1081,7 +1122,13 @@ namespace visage::gpu {
     stats.num_views = static_cast<int>(frame.views.size());
     stats.width = width;
     stats.height = height;
+    frame.reads = std::move(context->pending_reads);
+    frame.screenshots = std::move(context->pending_screenshots);
+    context->pending_reads.clear();
+    context->pending_screenshots.clear();
+    context->submitting = true;
     backend->submitFrame(frame, stats);
+    context->submitting = false;
 
     frame.views.clear();
     frame.draws.clear();

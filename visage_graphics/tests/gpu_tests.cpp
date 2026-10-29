@@ -58,6 +58,17 @@ TEST_CASE("Shader blobs keep their reflection and code through a round trip", "[
   REQUIRE(parsed.workgroup_size[0] == 64);
   REQUIRE(parsed.code == info.code);
 
+  std::vector<uint8_t> huge_code = blob;
+  size_t code_size_offset = blob.size() - info.code.size() - 4;
+  for (int i = 0; i < 4; ++i)
+    huge_code[code_size_offset + i] = 0xff;
+  REQUIRE_FALSE(gpu::parseShader(huge_code.data(), static_cast<uint32_t>(huge_code.size()), parsed));
+
+  gpu::ShaderInfo overflowing = info;
+  overflowing.uniforms[1].offset = 128;
+  std::vector<uint8_t> overflowing_blob = gpu::writeShader(overflowing);
+  REQUIRE_FALSE(gpu::parseShader(overflowing_blob.data(), static_cast<uint32_t>(overflowing_blob.size()), parsed));
+
   blob.resize(blob.size() - 1);
   REQUIRE_FALSE(gpu::parseShader(blob.data(), static_cast<uint32_t>(blob.size()), parsed));
   REQUIRE_FALSE(gpu::parseShader(reinterpret_cast<const uint8_t*>("bad"), 3, parsed));
@@ -79,6 +90,13 @@ TEST_CASE("GPU handles are released after the frame that destroys them", "[graph
   REQUIRE(gpu::isValid(gpu::getTexture(frame_buffer)));
   REQUIRE(gpu::getStats()->num_textures == 2);
   REQUIRE(gpu::getStats()->num_buffers == 1);
+
+  gpu::destroy(gpu::getTexture(frame_buffer));
+  gpu::frame();
+  REQUIRE(gpu::getStats()->num_textures == 2);
+
+  REQUIRE_FALSE(gpu::isValid(gpu::createTexture2D(8, 8, gpu::TextureFormat::RGBA8, 0, gpu::alloc(8 * 8 * 4 - 1))));
+  REQUIRE(gpu::getStats()->num_textures == 2);
 
   gpu::destroy(texture);
   gpu::destroy(frame_buffer);
