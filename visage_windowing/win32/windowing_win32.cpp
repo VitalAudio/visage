@@ -287,7 +287,7 @@ namespace visage {
 
     void updateMonitors() {
       clear();
-      if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&factory_)))) {
+      if (FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&factory_)))) {
         factory_ = nullptr;
         return;
       }
@@ -332,8 +332,9 @@ namespace visage {
       while (shouldRun()) {
         HMONITOR monitor = window_->monitor();
         long long now_us = time::microseconds();
-        if (monitor_outputs_.count(monitor) == 0 && now_us - last_update_us >= kMonitorRetryUs) {
-          updateMonitors();
+        if (now_us - last_update_us >= kMonitorRetryUs) {
+          if (monitor_outputs_.count(monitor) == 0 || (factory_ && !factory_->IsCurrent()))
+            updateMonitors();
           last_update_us = now_us;
         }
 
@@ -377,7 +378,7 @@ namespace visage {
 
     WindowWin32* window_ = nullptr;
 
-    IDXGIFactory* factory_ = nullptr;
+    IDXGIFactory1* factory_ = nullptr;
     std::vector<IDXGIAdapter*> adapters_;
     std::map<HMONITOR, IDXGIOutput*> monitor_outputs_;
 
