@@ -73,7 +73,7 @@ TEST_CASE("Echo child process", "[utils]") {
 TEST_CASE("Child process timeout", "[utils]") {
 #if VISAGE_WINDOWS
   std::string command = "cmd.exe";
-  std::string argument = "/C timeout /t 2 /nobreak";
+  std::string argument = "/C ping -n 3 127.0.0.1";
 #else
   std::string command = "/bin/sleep";
   std::string argument = "2";
