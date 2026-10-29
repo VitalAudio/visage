@@ -25,36 +25,25 @@
 #include "region.h"
 #include "renderer.h"
 
-#include <bgfx/bgfx.h>
+#include "gpu/gpu.h"
 
 namespace visage {
   struct TemporaryFrameBuffer {
-    bgfx::FrameBufferHandle handle = BGFX_INVALID_HANDLE;
+    gpu::FrameBufferHandle handle = {};
     int width = 0;
     int height = 0;
-    bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8;
+    gpu::TextureFormat format = gpu::TextureFormat::RGBA8;
     bool in_use = false;
     unsigned int last_used = 0;
   };
 
   struct FrameBufferData {
-    bgfx::TextureHandle read_back_handle = BGFX_INVALID_HANDLE;
-    bgfx::FrameBufferHandle handle = BGFX_INVALID_HANDLE;
-    bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8;
+    gpu::TextureHandle read_back_handle = {};
+    gpu::FrameBufferHandle handle = {};
+    gpu::TextureFormat format = gpu::TextureFormat::RGBA8;
     std::vector<TemporaryFrameBuffer> temporaries;
     unsigned int submits = 0;
   };
-
-  static bgfx::SwapChain swapChain(void* window_handle, int width, int height,
-                                   bgfx::TextureFormat::Enum format) {
-    bgfx::SwapChain swap_chain;
-    swap_chain.nwh = window_handle;
-    swap_chain.ndt = Renderer::instance().display();
-    swap_chain.width = width;
-    swap_chain.height = height;
-    swap_chain.formatColor = format;
-    return swap_chain;
-  }
 
   struct RegionPosition {
     RegionPosition(Region* region, std::vector<IBounds> invalid_rects, int position, int x = 0, int y = 0) :
@@ -185,75 +174,72 @@ namespace visage {
   Layer::~Layer() {
     destroyFrameBuffer();
     for (TemporaryFrameBuffer& temporary : frame_buffer_data_->temporaries)
-      bgfx::destroy(temporary.handle);
+      gpu::destroy(temporary.handle);
   }
 
   void Layer::checkFrameBuffer() {
-    static constexpr uint64_t kFrameBufferFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP |
-                                                  BGFX_SAMPLER_V_CLAMP;
+    static constexpr uint32_t kFrameBufferFlags = gpu::kSamplerClamp;
 
-    if (bgfx::isValid(frame_buffer_data_->handle))
+    if (gpu::isValid(frame_buffer_data_->handle))
       return;
 
     bool hdr = hdr_ && window_handle_ == nullptr && Renderer::instance().floatRenderTargetsSupported();
-    frame_buffer_data_->format = hdr ? bgfx::TextureFormat::RGBA16F : bgfx::TextureFormat::RGBA8;
+    frame_buffer_data_->format = hdr ? gpu::TextureFormat::RGBA16F : gpu::TextureFormat::RGBA8;
 
     if (window_handle_)
-      frame_buffer_data_->handle = bgfx::createFrameBuffer(swapChain(window_handle_, width_, height_,
-                                                                     frame_buffer_data_->format));
+      frame_buffer_data_->handle = gpu::createFrameBuffer(window_handle_, width_, height_,
+                                                          frame_buffer_data_->format);
     else {
       if (headless_render_) {
-        uint64_t flags = BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK;
-        frame_buffer_data_->read_back_handle = bgfx::createTexture2D(width_, height_, false, 1,
-                                                                     bgfx::TextureFormat::RGBA8, flags);
+        uint32_t flags = gpu::kTextureBlitDst | gpu::kTextureReadBack;
+        frame_buffer_data_->read_back_handle = gpu::createTexture2D(width_, height_,
+                                                                    gpu::TextureFormat::RGBA8, flags);
       }
-      frame_buffer_data_->handle = bgfx::createFrameBuffer(width_, height_, frame_buffer_data_->format,
-                                                           kFrameBufferFlags);
+      frame_buffer_data_->handle = gpu::createFrameBuffer(width_, height_, frame_buffer_data_->format,
+                                                          kFrameBufferFlags);
     }
 
     needs_full_clear_ = true;
-    bottom_left_origin_ = bgfx::getCaps()->originBottomLeft;
+    bottom_left_origin_ = gpu::getCaps()->origin_bottom_left;
   }
 
   void Layer::resizeFrameBuffer() {
-    if (window_handle_ && bgfx::isValid(frame_buffer_data_->handle))
-      bgfx::updateSwapChain(frame_buffer_data_->handle,
-                            swapChain(window_handle_, width_, height_, frame_buffer_data_->format));
+    if (window_handle_ && gpu::isValid(frame_buffer_data_->handle))
+      gpu::resizeFrameBuffer(frame_buffer_data_->handle, width_, height_);
     else
       destroyFrameBuffer();
   }
 
   bool Layer::removeFromWindow() {
-    bool had_swap_chain = window_handle_ && bgfx::isValid(frame_buffer_data_->handle);
+    bool had_swap_chain = window_handle_ && gpu::isValid(frame_buffer_data_->handle);
     window_handle_ = nullptr;
     destroyFrameBuffer();
     return had_swap_chain;
   }
 
   void Layer::destroyFrameBuffer() {
-    if (bgfx::isValid(frame_buffer_data_->handle)) {
-      bgfx::destroy(frame_buffer_data_->handle);
-      frame_buffer_data_->handle = BGFX_INVALID_HANDLE;
+    if (gpu::isValid(frame_buffer_data_->handle)) {
+      gpu::destroy(frame_buffer_data_->handle);
+      frame_buffer_data_->handle = {};
     }
-    if (bgfx::isValid(frame_buffer_data_->read_back_handle)) {
-      bgfx::destroy(frame_buffer_data_->read_back_handle);
-      frame_buffer_data_->read_back_handle = BGFX_INVALID_HANDLE;
+    if (gpu::isValid(frame_buffer_data_->read_back_handle)) {
+      gpu::destroy(frame_buffer_data_->read_back_handle);
+      frame_buffer_data_->read_back_handle = {};
     }
   }
 
-  bgfx::FrameBufferHandle& Layer::frameBuffer() const {
+  gpu::FrameBufferHandle& Layer::frameBuffer() const {
     return frame_buffer_data_->handle;
   }
 
   int Layer::frameBufferFormat() const {
-    return frame_buffer_data_->format;
+    return static_cast<int>(frame_buffer_data_->format);
   }
 
-  bgfx::FrameBufferHandle Layer::temporaryFrameBuffer(int width, int height) {
-    static constexpr uint64_t kFrameBufferFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP |
-                                                  BGFX_SAMPLER_V_CLAMP;
+  gpu::FrameBufferHandle Layer::temporaryFrameBuffer(int width, int height) {
+    static constexpr uint32_t kFrameBufferFlags = gpu::kSamplerClamp;
 
-    bgfx::TextureFormat::Enum format = frame_buffer_data_->format;
+    gpu::TextureFormat format = frame_buffer_data_->format;
     for (TemporaryFrameBuffer& temporary : frame_buffer_data_->temporaries) {
       if (!temporary.in_use && temporary.width == width && temporary.height == height &&
           temporary.format == format) {
@@ -264,7 +250,7 @@ namespace visage {
     }
 
     TemporaryFrameBuffer temporary;
-    temporary.handle = bgfx::createFrameBuffer(width, height, format, kFrameBufferFlags);
+    temporary.handle = gpu::createFrameBuffer(width, height, format, kFrameBufferFlags);
     temporary.width = width;
     temporary.height = height;
     temporary.format = format;
@@ -274,7 +260,7 @@ namespace visage {
     return temporary.handle;
   }
 
-  void Layer::releaseTemporaryFrameBuffer(bgfx::FrameBufferHandle handle) {
+  void Layer::releaseTemporaryFrameBuffer(gpu::FrameBufferHandle handle) {
     for (TemporaryFrameBuffer& temporary : frame_buffer_data_->temporaries) {
       if (temporary.handle.idx == handle.idx)
         temporary.in_use = false;
@@ -290,7 +276,7 @@ namespace visage {
       if (temporary.in_use || current_submit - temporary.last_used < kMaxIdleSubmits)
         return false;
 
-      bgfx::destroy(temporary.handle);
+      gpu::destroy(temporary.handle);
       return true;
     };
     temporaries.erase(std::remove_if(temporaries.begin(), temporaries.end(), idle), temporaries.end());
@@ -424,15 +410,13 @@ namespace visage {
     submit_pass = reserveViews(submit_pass);
     if (screenshot_requested_ && !headless_render_) {
       screenshot_requested_ = false;
-      bgfx::requestScreenShot(frame_buffer_data_->handle, "screenshot.png");
+      gpu::requestScreenShot(frame_buffer_data_->handle);
     }
 
-    bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
-    bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
-    bgfx::setViewClear(submit_pass, BGFX_CLEAR_NONE);
+    gpu::setViewRect(submit_pass, 0, 0, width_, height_);
 
-    if (bgfx::isValid(frame_buffer_data_->handle))
-      bgfx::setViewFrameBuffer(submit_pass, frame_buffer_data_->handle);
+    if (gpu::isValid(frame_buffer_data_->handle))
+      gpu::setViewFrameBuffer(submit_pass, frame_buffer_data_->handle);
 
     if (clear)
       clearInvalidRectAreas(submit_pass);
@@ -468,16 +452,13 @@ namespace visage {
       current_batch = next_batch;
     }
 
-    if (screenshot_requested_ && bgfx::isValid(frame_buffer_data_->read_back_handle)) {
+    if (screenshot_requested_ && gpu::isValid(frame_buffer_data_->read_back_handle)) {
       screenshot_requested_ = false;
-      bgfx::TextureRegion read_back;
-      read_back.init(frame_buffer_data_->read_back_handle);
-      bgfx::TextureRegion source;
-      source.init(bgfx::getTexture(frame_buffer_data_->handle), 0, 0, width_, height_);
-      bgfx::blit(submit_pass + 1, read_back, source);
+      gpu::blit(submit_pass + 1, frame_buffer_data_->read_back_handle, 0, 0,
+                gpu::getTexture(frame_buffer_data_->handle), 0, 0, width_, height_);
 
       screenshot_.setDimensions(width_, height_);
-      uint32_t ready_frame = bgfx::read(read_back, screenshot_.data());
+      uint32_t ready_frame = gpu::readTexture(frame_buffer_data_->read_back_handle, screenshot_.data());
       while (advanceFrame() < ready_frame) {
       }
       if (bottom_left_origin_)
@@ -491,10 +472,10 @@ namespace visage {
 
   int Layer::reserveViews(int submit_pass) {
     static constexpr int kMaxViewsPerStep = 64;
-    if (submit_pass + kMaxViewsPerStep <= bgfx::getCaps()->limits.maxViews)
+    if (submit_pass + kMaxViewsPerStep <= gpu::kMaxViews)
       return submit_pass;
 
-    advanceFrame(BGFX_FRAME_FLUSH);
+    advanceFrame();
     view_flushes_++;
     return 0;
   }
@@ -570,8 +551,6 @@ namespace visage {
 
   void Layer::requestScreenshot() {
     screenshot_requested_ = true;
-    if (!headless_render_)
-      Renderer::resetResolution(width_, height_);
     invalidate();
   }
 

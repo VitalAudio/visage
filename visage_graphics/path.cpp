@@ -27,7 +27,7 @@
 #include "shape_batcher.h"
 #include "uniforms.h"
 
-#include <bgfx/bgfx.h>
+#include "gpu/gpu.h"
 #include <complex>
 #include <memory>
 
@@ -846,11 +846,11 @@ namespace visage {
   }
 
   struct PathAtlasTexture {
-    bgfx::FrameBufferHandle handle = { bgfx::kInvalidHandle };
+    gpu::FrameBufferHandle handle = {};
 
     ~PathAtlasTexture() {
-      if (bgfx::isValid(handle))
-        bgfx::destroy(handle);
+      if (gpu::isValid(handle))
+        gpu::destroy(handle);
     }
   };
 
@@ -869,8 +869,8 @@ namespace visage {
   template<const char* name>
   void setPathUniform(float value0, float value1 = 0.0f, float value2 = 0.0f, float value3 = 0.0f) {
     float values[4] = { value0, value1, value2, value3 };
-    const bgfx::UniformHandle& uniform = UniformCache::uniformHandle(name);
-    bgfx::setUniform(uniform, values);
+    const gpu::UniformHandle& uniform = UniformCache::uniformHandle(name);
+    gpu::setUniform(uniform, values);
   }
 
   bool PathAtlas::beginUpdate(int submit_pass) {
@@ -878,11 +878,8 @@ namespace visage {
                                     [](const auto& path) { return path->needs_update; });
     if (!needs_update)
       return false;
-
-    bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
-    bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
-    bgfx::setViewClear(submit_pass, BGFX_CLEAR_NONE);
-    bgfx::setViewFrameBuffer(submit_pass, frame_buffer_->handle);
+    gpu::setViewRect(submit_pass, 0, 0, width_, height_);
+    gpu::setViewFrameBuffer(submit_pass, frame_buffer_->handle);
     if (!needs_full_clear_)
       return true;
 
@@ -899,9 +896,9 @@ namespace visage {
       clear_vertices[i].v = 0.0f;
     }
 
-    bgfx::setState(BGFX_STATE_WRITE_R);
+    gpu::setState(gpu::RenderState::write(gpu::kWriteR));
     setPathUniform<Uniforms::kColor>(0.0f);
-    bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_clear, shaders::fs_clear));
+    gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_clear, shaders::fs_clear));
     return true;
   }
 
@@ -949,8 +946,7 @@ namespace visage {
   }
 
   void PathAtlas::checkInit() {
-    constexpr uint64_t kFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP |
-                                BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT;
+    constexpr uint32_t kFlags = gpu::kSamplerClamp | gpu::kSamplerPoint;
     if (needs_packing_) {
       resize();
       needs_packing_ = false;
@@ -960,9 +956,9 @@ namespace visage {
     if (frame_buffer_ == nullptr)
       frame_buffer_ = std::make_unique<PathAtlasTexture>();
 
-    if (!bgfx::isValid(frame_buffer_->handle) && atlas_map_.width() && atlas_map_.height()) {
-      frame_buffer_->handle = bgfx::createFrameBuffer(atlas_map_.width(), atlas_map_.height(),
-                                                      bgfx::TextureFormat::R8, kFlags);
+    if (!gpu::isValid(frame_buffer_->handle) && atlas_map_.width() && atlas_map_.height()) {
+      frame_buffer_->handle = gpu::createFrameBuffer(atlas_map_.width(), atlas_map_.height(),
+                                                      gpu::TextureFormat::R8, kFlags);
       width_ = atlas_map_.width();
       height_ = atlas_map_.height();
       needs_full_clear_ = true;
@@ -986,7 +982,7 @@ namespace visage {
     }
   }
 
-  const bgfx::FrameBufferHandle& PathAtlas::frameBufferHandle() {
+  const gpu::FrameBufferHandle& PathAtlas::frameBufferHandle() {
     return frame_buffer_->handle;
   }
 }

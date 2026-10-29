@@ -79,6 +79,9 @@ namespace visage {
     void setWindowTitle(const std::string& title) override;
     IPoint maxWindowDimensions() const override;
     void setAlwaysOnTop(bool on_top) override;
+    void setFrameWaiter(std::function<bool(int)> waiter) override;
+    void waitForFrame() override;
+    void framePresented() override;
 
     bool isMouseTracked() const { return mouse_tracked_; }
 
@@ -106,6 +109,11 @@ namespace visage {
     std::unique_ptr<EventHooks> event_hooks_;
     DragDropTarget* drag_drop_target_ = nullptr;
     std::unique_ptr<VBlankThread> v_blank_thread_;
+    std::function<bool(int)> pending_frame_waiter_;
+    int unmatched_presents_ = 0;
+    bool waits_for_frames_ = false;
+    bool stalled_draw_ = false;
+    long long last_draw_us_ = 0;
 
     Window::Decoration decoration_ = Window::Decoration::Native;
     std::wstring utf16_string_entry_;

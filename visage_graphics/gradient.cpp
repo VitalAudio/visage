@@ -21,7 +21,7 @@
 
 #include "gradient.h"
 
-#include <bgfx/bgfx.h>
+#include "gpu/gpu.h"
 #include <sstream>
 
 namespace visage {
@@ -94,11 +94,11 @@ namespace visage {
   }
 
   struct GradientAtlasTexture {
-    bgfx::TextureHandle handle = { bgfx::kInvalidHandle };
+    gpu::TextureHandle handle = {};
 
     ~GradientAtlasTexture() {
-      if (bgfx::isValid(handle))
-        bgfx::destroy(handle);
+      if (gpu::isValid(handle))
+        gpu::destroy(handle);
     }
   };
 
@@ -145,8 +145,8 @@ namespace visage {
 
     int width = atlas_map_.width();
     int rows = dirty_bottom_ - dirty_top_;
-    bgfx::updateTexture2D(texture_->handle, 0, 0, 0, dirty_top_, width, rows,
-                          bgfx::copy(color_data_.data() + dirty_top_ * width,
+    gpu::updateTexture2D(texture_->handle, 0, dirty_top_, width, rows,
+                          gpu::copy(color_data_.data() + dirty_top_ * width,
                                      width * rows * sizeof(uint64_t)));
     dirty_top_ = 0;
     dirty_bottom_ = 0;
@@ -158,8 +158,8 @@ namespace visage {
 
     int width = atlas_map_.width();
     int height = atlas_map_.height();
-    if (!bgfx::isValid(texture_->handle)) {
-      texture_->handle = bgfx::createTexture2D(width, height, false, 1, bgfx::TextureFormat::RGBA16F);
+    if (!gpu::isValid(texture_->handle)) {
+      texture_->handle = gpu::createTexture2D(width, height, gpu::TextureFormat::RGBA16F);
       repacked_ = true;
     }
 
@@ -232,7 +232,7 @@ namespace visage {
     packed_gradient_rect->y = row->y;
   }
 
-  const bgfx::TextureHandle& GradientAtlas::colorTextureHandle() {
+  const gpu::TextureHandle& GradientAtlas::colorTextureHandle() {
     checkInit();
     return texture_->handle;
   }

@@ -25,7 +25,7 @@
 #include "visage_utils/file_system.h"
 #include "visage_utils/thread_utils.h"
 
-#include <bgfx/bgfx.h>
+#include "gpu/gpu.h"
 #include <freetype/freetype.h>
 #include <set>
 #include <vector>
@@ -136,15 +136,15 @@ namespace visage {
     }
 
     ~PackedFont() {
-      if (bgfx::isValid(texture_handle_))
-        bgfx::destroy(texture_handle_);
+      if (gpu::isValid(texture_handle_))
+        gpu::destroy(texture_handle_);
       type_face_ = nullptr;
     }
 
     void releaseTexture() {
-      if (bgfx::isValid(texture_handle_)) {
-        bgfx::destroy(texture_handle_);
-        texture_handle_ = BGFX_INVALID_HANDLE;
+      if (gpu::isValid(texture_handle_)) {
+        gpu::destroy(texture_handle_);
+        texture_handle_ = {};
       }
     }
 
@@ -187,9 +187,9 @@ namespace visage {
                                                    texture.get(), packed_glyph->width, 0, 0);
       }
 
-      bgfx::updateTexture2D(texture_handle_, 0, 0, packed_glyph->atlas_left,
+      gpu::updateTexture2D(texture_handle_, packed_glyph->atlas_left,
                             packed_glyph->atlas_top, packed_glyph->width, packed_glyph->height,
-                            bgfx::copy(texture.get(), size * kChannels));
+                            gpu::copy(texture.get(), size * kChannels));
     }
 
     PackedGlyph* packCharacterGlyph(PackedGlyph* packed_glyph, const TypeFace* type_face, char32_t character) {
@@ -231,14 +231,13 @@ namespace visage {
     }
 
     void checkInit() {
-      if (!bgfx::isValid(texture_handle_)) {
-        texture_handle_ = bgfx::createTexture2D(atlas_map_.width(), atlas_map_.height(), false, 1,
-                                                bgfx::TextureFormat::BGRA8);
+      if (!gpu::isValid(texture_handle_)) {
+        texture_handle_ = gpu::createTexture2D(atlas_map_.width(), atlas_map_.height(), gpu::TextureFormat::BGRA8);
         int width = atlas_map_.width();
         int height = atlas_map_.height();
         std::unique_ptr<unsigned int[]> clear = std::make_unique<unsigned int[]>(width * height);
-        bgfx::updateTexture2D(texture_handle_, 0, 0, 0, 0, width, height,
-                              bgfx::copy(clear.get(), width * height * kChannels));
+        gpu::updateTexture2D(texture_handle_, 0, 0, width, height,
+                              gpu::copy(clear.get(), width * height * kChannels));
 
         for (auto& glyph : packed_glyphs_)
           rasterizeGlyph(glyph.first, &glyph.second);
@@ -247,7 +246,7 @@ namespace visage {
 
     int atlasWidth() const { return atlas_map_.width(); }
     int atlasHeight() const { return atlas_map_.height(); }
-    bgfx::TextureHandle& textureHandle() { return texture_handle_; }
+    gpu::TextureHandle& textureHandle() { return texture_handle_; }
     int lineHeight() const { return type_face_->lineHeight(); }
     int size() const { return size_; }
     const unsigned char* data() const { return data_; }
@@ -264,7 +263,7 @@ namespace visage {
       packed_glyph->atlas_left = rect.x;
       packed_glyph->atlas_top = rect.y;
 
-      if (bgfx::isValid(texture_handle_))
+      if (gpu::isValid(texture_handle_))
         rasterizeGlyph(character, packed_glyph);
     }
 
@@ -277,7 +276,7 @@ namespace visage {
     int data_size_ = 0;
 
     std::map<char32_t, PackedGlyph> packed_glyphs_;
-    bgfx::TextureHandle texture_handle_ = { bgfx::kInvalidHandle };
+    gpu::TextureHandle texture_handle_ = {};
   };
 
   bool Font::hasNewLine(const char32_t* string, int length) {
@@ -506,8 +505,8 @@ namespace visage {
     return packed_font_ ? packed_font_->atlasHeight() : 0;
   }
 
-  const bgfx::TextureHandle& Font::textureHandle() const {
-    static const bgfx::TextureHandle kInvalidHandle = BGFX_INVALID_HANDLE;
+  const gpu::TextureHandle& Font::textureHandle() const {
+    static const gpu::TextureHandle kInvalidHandle = {};
     if (packed_font_ == nullptr)
       return kInvalidHandle;
 

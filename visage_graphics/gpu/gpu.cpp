@@ -508,6 +508,11 @@ namespace visage::gpu {
     return true;
   }
 
+  void setDisplay(void* display) {
+    if (context && display)
+      context->init.display = display;
+  }
+
   bool initialized() {
     return context != nullptr;
   }

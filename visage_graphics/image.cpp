@@ -21,7 +21,7 @@
 
 #include "image.h"
 
-#include <bgfx/bgfx.h>
+#include "gpu/gpu.h"
 #include <cstring>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -55,23 +55,23 @@ namespace visage {
     ~ImageAtlasTexture() { destroyHandle(); }
 
     void destroyHandle() {
-      if (bgfx::isValid(texture_handle_))
-        bgfx::destroy(texture_handle_);
+      if (gpu::isValid(texture_handle_))
+        gpu::destroy(texture_handle_);
 
-      texture_handle_ = BGFX_INVALID_HANDLE;
+      texture_handle_ = {};
     }
 
-    bool hasHandle() const { return bgfx::isValid(texture_handle_); }
+    bool hasHandle() const { return gpu::isValid(texture_handle_); }
 
-    bgfx::TextureHandle& handle() { return texture_handle_; }
+    gpu::TextureHandle& handle() { return texture_handle_; }
 
     void checkHandle() {
-      if (!bgfx::isValid(texture_handle_)) {
+      if (!gpu::isValid(texture_handle_)) {
         if (data_type_ == ImageAtlas::DataType::Float32)
-          texture_handle_ = bgfx::createTexture2D(width_, height_, false, 1, bgfx::TextureFormat::R32F,
-                                                  BGFX_SAMPLER_MIN_POINT | BGFX_SAMPLER_MAG_POINT);
+          texture_handle_ = gpu::createTexture2D(width_, height_, gpu::TextureFormat::R32F,
+                                                  gpu::kSamplerPoint);
         else
-          texture_handle_ = bgfx::createTexture2D(width_, height_, false, 1, bgfx::TextureFormat::RGBA8);
+          texture_handle_ = gpu::createTexture2D(width_, height_, gpu::TextureFormat::RGBA8);
       }
     }
 
@@ -81,16 +81,16 @@ namespace visage {
     }
 
     void updateTexture(const unsigned char* data, int x, int y, int width, int height) {
-      VISAGE_ASSERT(bgfx::isValid(texture_handle_));
-      bgfx::updateTexture2D(texture_handle_, 0, 0, x, y, width, height,
-                            bgfx::copy(data, width * height * 4));
+      VISAGE_ASSERT(gpu::isValid(texture_handle_));
+      gpu::updateTexture2D(texture_handle_, x, y, width, height,
+                            gpu::copy(data, width * height * 4));
     }
 
   private:
     int width_ = 0;
     int height_ = 0;
     ImageAtlas::DataType data_type_ = ImageAtlas::DataType::RGBA8;
-    bgfx::TextureHandle texture_handle_ = BGFX_INVALID_HANDLE;
+    gpu::TextureHandle texture_handle_ = {};
   };
 
   ImageAtlas::PackedImageReference::~PackedImageReference() {
@@ -168,7 +168,7 @@ namespace visage {
   }
 
   void ImageAtlas::updateImage(const PackedImageRect* image) const {
-    if (texture_ == nullptr || !bgfx::isValid(texture_->handle()))
+    if (texture_ == nullptr || !gpu::isValid(texture_->handle()))
       return;
 
     PackedRect packed_rect = atlas_map_.rectForId(image);
@@ -199,7 +199,7 @@ namespace visage {
       VISAGE_ASSERT(false);
   }
 
-  const bgfx::TextureHandle& ImageAtlas::textureHandle() {
+  const gpu::TextureHandle& ImageAtlas::textureHandle() {
     VISAGE_ASSERT(texture_.get());
     if (!texture_->hasHandle() || repacked_) {
       texture_->checkHandle();

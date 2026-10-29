@@ -343,7 +343,7 @@ namespace visage {
     int width() const { return atlas_map_.width(); }
     int height() const { return atlas_map_.height(); }
 
-    const bgfx::TextureHandle& colorTextureHandle();
+    const gpu::TextureHandle& colorTextureHandle();
 
   private:
     void updateGradient(const PackedGradientRect* gradient);

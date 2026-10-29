@@ -21,7 +21,8 @@
 
 #include "graphics_utils.h"
 
-#include <bgfx/bgfx.h>
+#include "gpu/gpu.h"
+
 #include <cctype>
 #include <locale>
 #include <sstream>
@@ -31,7 +32,8 @@
 #include <stb/stb_rect_pack.h>
 
 #if VISAGE_EMSCRIPTEN
-#include <bx/hash.h>
+#include "gpu/gpu_backend.h"
+
 #include <emscripten/emscripten.h>
 #include <GLES2/gl2.h>
 #include <regex>
@@ -55,7 +57,10 @@ namespace visage {
       "#define texture3D   texture\n"
       "#define textureCube texture\n"
       "out vec4 bgfx_FragColor;\n"
-      "#define gl_FragColor bgfx_FragColor\n";
+      "#define gl_FragColor bgfx_FragColor\n"
+      "vec2 vec2_splat(float _x) { return vec2(_x, _x); }\n"
+      "vec3 vec3_splat(float _x) { return vec3(_x, _x, _x); }\n"
+      "vec4 vec4_splat(float _x) { return vec4(_x, _x, _x, _x); }\n";
 
   static std::map<std::string, std::string> parseVarying(const std::string& input) {
     std::map<std::string, std::string> varying;
@@ -77,68 +82,69 @@ namespace visage {
     return varying;
   }
 
-  static std::string parseUniforms(std::string& input) {
-    std::string uniform_header;
+  static void parseUniforms(std::string& input, gpu::ShaderInfo& info) {
     std::istringstream stream(input);
     std::string line;
     std::string result;
 
-    int count = 0;
     while (std::getline(stream, line)) {
-      if (line.rfind("uniform ", 0))
+      if (line.rfind("uniform ", 0)) {
         result += line + "\n";
-      else {
-        ++count;
-        std::string content = line.substr(8);
-        std::istringstream line_stream(content);
-        std::string type, name;
-        std::string precision = "highp";
-        line_stream >> type;
-        if (type == "highp" || type == "mediump" || type == "lowp") {
-          precision = type;
-          line_stream >> type;
-        }
-
-        line_stream >> name;
-        size_t end_pos = name.find_first_of(';');
-        if (end_pos != std::string::npos)
-          name = name.erase(end_pos);
-
-        uniform_header += (unsigned char)name.size();
-        uniform_header += name;
-
-        if (type == "vec4" || type == "float4")
-          uniform_header += (unsigned char)2;
-        else if (type == "mat3" || type == "float3x3")
-          uniform_header += (unsigned char)3;
-        else if (type == "mat4" || type == "float4x4")
-          uniform_header += (unsigned char)4;
-        else
-          uniform_header += (unsigned char)0;
-
-        uniform_header += (unsigned char)1;
-        uniform_header += (unsigned char)0;
-        uniform_header += (unsigned char)0;
-        uniform_header += (unsigned char)1;
-        uniform_header += (unsigned char)0;
-        uniform_header += (unsigned char)0;
-        uniform_header += (unsigned char)(type == "sampler2D" ? 2 : 0);
-        uniform_header += (unsigned char)0;
-        uniform_header += (unsigned char)0;
-
-        result.append("uniform ");
-        result.append(precision);
-        result.append(" ");
-        result.append(type);
-        result.append(" " + name + ";\n");
+        continue;
       }
+
+      std::string content = line.substr(8);
+      std::istringstream line_stream(content);
+      std::string type, name;
+      std::string precision = "highp";
+      line_stream >> type;
+      if (type == "highp" || type == "mediump" || type == "lowp") {
+        precision = type;
+        line_stream >> type;
+      }
+
+      line_stream >> name;
+      size_t end_pos = name.find_first_of(';');
+      if (end_pos != std::string::npos)
+        name = name.erase(end_pos);
+
+      gpu::ShaderUniform uniform;
+      uniform.name = name;
+      uniform.offset = static_cast<uint16_t>(info.uniform_block_size);
+      if (type == "vec4" || type == "float4") {
+        uniform.type = gpu::UniformType::Vec4;
+        info.uniform_block_size += 16;
+        info.uniforms.push_back(uniform);
+      }
+      else if (type == "mat3" || type == "float3x3") {
+        uniform.type = gpu::UniformType::Mat3;
+        info.uniform_block_size += 48;
+        info.uniforms.push_back(uniform);
+      }
+      else if (type == "mat4" || type == "float4x4") {
+        uniform.type = gpu::UniformType::Mat4;
+        info.uniform_block_size += 64;
+        info.uniforms.push_back(uniform);
+      }
+
+      result.append("uniform ");
+      result.append(precision);
+      result.append(" ");
+      result.append(type);
+      result.append(" " + name + ";\n");
     }
 
     input = result;
-    std::string size;
-    size += char(count);
-    size += char(0);
-    return size + uniform_header;
+  }
+
+  static void parseSamplers(const std::string& input, gpu::ShaderInfo& info) {
+    std::regex sampler_regex(R"(\bSAMPLER2D\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*,\s*([0-9]+)\s*\))");
+    for (auto it = std::sregex_iterator(input.begin(), input.end(), sampler_regex); it != std::sregex_iterator(); ++it) {
+      gpu::ShaderSampler sampler;
+      sampler.name = (*it)[1].str();
+      sampler.stage = static_cast<uint8_t>(std::stoi((*it)[2].str()));
+      info.samplers.push_back(sampler);
+    }
   }
 
   static std::vector<std::string> parseInputs(const std::string& input) {
@@ -208,29 +214,13 @@ namespace visage {
     result = std::regex_replace(result, std::regex(R"(\bmul\(([^,]+),([^)]+)\))"), R"((($1) * ($2)))");
     result = std::regex_replace(result, std::regex(R"(\bsaturate\(([^,]+)\))"), R"(clamp(($1), 0.0, 1.0))");
     result = std::regex_replace(result, std::regex(R"(\batan2\(([^,]+),([^)]+)\))"), R"(atan(($1),($2)))");
+    gpu::ShaderInfo info;
+    info.stage = gpu::ShaderStage::Fragment;
+    info.code_type = gpu::ShaderCode::Essl;
+    parseSamplers(result, info);
     result = std::regex_replace(result, std::regex(R"(\bSAMPLER2D\(([^,]+),([^)]+)\))"),
                                 R"(uniform sampler2D $1)");
-
-    auto write_int = [](std::string& str, int integer) {
-      str += static_cast<char>(integer & 0xFF);
-      str += static_cast<char>((integer >> 8) & 0xFF);
-      str += static_cast<char>((integer >> 16) & 0xFF);
-      str += static_cast<char>((integer >> 24) & 0xFF);
-    };
-
-    std::string header = "FSH";
-    header += char(12);
-
-    bx::HashMurmur2A murmur {};
-    murmur.begin();
-    for (auto& input : inputs)
-      murmur.add(input.c_str(), (uint32_t)input.size());
-
-    write_int(header, murmur.end());
-    write_int(header, 0);
-    write_int(header, 0);
-    write_int(header, 0);
-    header += parseUniforms(result);
+    parseUniforms(result, info);
 
     std::map<std::string, std::string> varying = parseVarying(varying_source);
     std::string varying_list;
@@ -240,10 +230,12 @@ namespace visage {
     }
     result = kWebGlPrelude + varying_list + result;
 
-    write_int(header, result.length());
     std::string error;
     if (testCompileShader(result, error)) {
-      result = header + result;
+      std::string code = "#version 300 es\n" + result;
+      info.code.assign(code.begin(), code.end());
+      std::vector<uint8_t> blob = gpu::writeShader(info);
+      result.assign(blob.begin(), blob.end());
       return true;
     }
 
@@ -350,7 +342,7 @@ namespace visage {
 
   int maxTextureDimension() {
     static constexpr int kDefaultMaxDimension = 1 << 14;
-    int max_texture_size = bgfx::getCaps()->limits.maxTextureSize;
+    int max_texture_size = gpu::getCaps()->max_texture_size;
     return max_texture_size ? std::min(kDefaultMaxDimension, max_texture_size) : kDefaultMaxDimension;
   }
 
@@ -377,91 +369,91 @@ namespace visage {
     return packed_;
   }
 
-  bgfx::VertexLayout& UvVertex::layout() {
-    static bgfx::VertexLayout layout;
+  gpu::VertexLayout& UvVertex::layout() {
+    static gpu::VertexLayout layout;
     static bool initialized = false;
 
     if (!initialized) {
       initialized = true;
-      layout.begin().add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float).end();
+      layout.begin().add(gpu::Attrib::Position, 4).end();
     }
 
     return layout;
   }
 
-  bgfx::VertexLayout& ShapeVertex::layout() {
-    static bgfx::VertexLayout layout;
+  gpu::VertexLayout& ShapeVertex::layout() {
+    static gpu::VertexLayout layout;
     static bool initialized = false;
 
     if (!initialized) {
       initialized = true;
       layout.begin()
-          .add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color1, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color2, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord2, 4, bgfx::AttribType::Float)
+          .add(gpu::Attrib::Position, 4)
+          .add(gpu::Attrib::Color0, 4)
+          .add(gpu::Attrib::Color1, 4)
+          .add(gpu::Attrib::Color2, 4)
+          .add(gpu::Attrib::TexCoord0, 4)
+          .add(gpu::Attrib::TexCoord1, 4)
+          .add(gpu::Attrib::TexCoord2, 4)
           .end();
     }
 
     return layout;
   }
 
-  bgfx::VertexLayout& ComplexShapeVertex::layout() {
-    static bgfx::VertexLayout layout;
+  gpu::VertexLayout& ComplexShapeVertex::layout() {
+    static gpu::VertexLayout layout;
     static bool initialized = false;
 
     if (!initialized) {
       initialized = true;
       layout.begin()
-          .add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color1, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color2, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord2, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord3, 4, bgfx::AttribType::Float)
+          .add(gpu::Attrib::Position, 4)
+          .add(gpu::Attrib::Color0, 4)
+          .add(gpu::Attrib::Color1, 4)
+          .add(gpu::Attrib::Color2, 4)
+          .add(gpu::Attrib::TexCoord0, 4)
+          .add(gpu::Attrib::TexCoord1, 4)
+          .add(gpu::Attrib::TexCoord2, 4)
+          .add(gpu::Attrib::TexCoord3, 4)
           .end();
     }
 
     return layout;
   }
 
-  bgfx::VertexLayout& TextureVertex::layout() {
-    static bgfx::VertexLayout layout;
+  gpu::VertexLayout& TextureVertex::layout() {
+    static gpu::VertexLayout layout;
     static bool initialized = false;
 
     if (!initialized) {
       initialized = true;
       layout.begin()
-          .add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color1, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color2, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float)
+          .add(gpu::Attrib::Position, 4)
+          .add(gpu::Attrib::Color0, 4)
+          .add(gpu::Attrib::Color1, 4)
+          .add(gpu::Attrib::Color2, 4)
+          .add(gpu::Attrib::TexCoord0, 4)
+          .add(gpu::Attrib::TexCoord1, 4)
           .end();
     }
 
     return layout;
   }
 
-  bgfx::VertexLayout& PostEffectVertex::layout() {
-    static bgfx::VertexLayout layout;
+  gpu::VertexLayout& PostEffectVertex::layout() {
+    static gpu::VertexLayout layout;
     static bool initialized = false;
 
     if (!initialized) {
       initialized = true;
       layout.begin()
-          .add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color1, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::Color2, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
-          .add(bgfx::Attrib::TexCoord1, 4, bgfx::AttribType::Float)
+          .add(gpu::Attrib::Position, 4)
+          .add(gpu::Attrib::Color0, 4)
+          .add(gpu::Attrib::Color1, 4)
+          .add(gpu::Attrib::Color2, 4)
+          .add(gpu::Attrib::TexCoord0, 4)
+          .add(gpu::Attrib::TexCoord1, 4)
           .end();
     }
 

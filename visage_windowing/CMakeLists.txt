@@ -13,9 +13,15 @@ elseif (UNIX)
   file(GLOB PLATFORM_SOURCE_FILES linux/*.cpp)
   file(GLOB PLATFORM_HEADER_FILES linux/*.h)
 
-  find_package(X11 REQUIRED)
-  set(X11_LIBS ${X11_LIBRARIES} ${X11_Xrandr_LIB} ${CMAKE_DL_LIBS})
-  set(X11_INCLUDES ${X11_INCLUDE_DIR} ${Xrandr_INCLUDE_DIR})
+  find_package(X11 REQUIRED COMPONENTS xcb)
+  find_library(VISAGE_XCB_PRESENT_LIB NAMES xcb-present)
+  find_path(VISAGE_XCB_PRESENT_INCLUDE_DIR xcb/present.h)
+  if (NOT VISAGE_XCB_PRESENT_LIB OR NOT VISAGE_XCB_PRESENT_INCLUDE_DIR)
+    message(FATAL_ERROR "VISAGE: xcb-present is required on Linux (libxcb-present-dev on Debian and Ubuntu)")
+  endif ()
+  set(X11_LIBS ${X11_LIBRARIES} ${X11_Xrandr_LIB} ${CMAKE_DL_LIBS} ${X11_xcb_LIB} ${VISAGE_XCB_PRESENT_LIB})
+  set(X11_INCLUDES ${X11_INCLUDE_DIR} ${Xrandr_INCLUDE_DIR} ${X11_xcb_INCLUDE_PATH}
+                   ${VISAGE_XCB_PRESENT_INCLUDE_DIR})
   file(GLOB CURSOR_FILES cursors/*.cur)
 endif ()
 

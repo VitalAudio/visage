@@ -153,9 +153,12 @@ namespace visage {
 
   void ApplicationEditor::removeFromWindow() {
     window_event_handler_ = nullptr;
-    if (window_)
+    if (window_) {
+      window_->setFrameWaiter(nullptr);
       window_->setDrawCallback(nullptr);
+    }
     window_ = nullptr;
+    waited_frame_buffer_id_ = -1;
     canvas_->removeFromWindow();
   }
 
@@ -169,8 +172,25 @@ namespace visage {
     if (!initialized())
       init();
 
+    if (window_)
+      window_->waitForFrame();
+
+    int frame = canvas_->frameCount();
     drawStaleChildren();
     canvas_->submit();
+    if (window_ == nullptr)
+      return;
+
+    if (canvas_->frameCount() != frame)
+      window_->framePresented();
+
+    int frame_buffer_id = canvas_->frameBufferId();
+    if (frame_buffer_id != waited_frame_buffer_id_) {
+      waited_frame_buffer_id_ = frame_buffer_id;
+      window_->setFrameWaiter([frame_buffer_id](int timeout_ms) {
+        return Canvas::waitForFrame(frame_buffer_id, timeout_ms);
+      });
+    }
   }
 
   void ApplicationEditor::setFixedAspectRatio(bool fixed) {

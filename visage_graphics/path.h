@@ -766,7 +766,7 @@ namespace visage {
     int width() const { return width_; }
     int height() const { return height_; }
 
-    const bgfx::FrameBufferHandle& frameBufferHandle();
+    const gpu::FrameBufferHandle& frameBufferHandle();
 
     void removePath(const PackedPathRect* packed_path_rect) {
       atlas_map_.removeRect(packed_path_rect);

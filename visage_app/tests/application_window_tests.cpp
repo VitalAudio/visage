@@ -56,6 +56,37 @@ namespace {
   }
 }
 
+TEST_CASE("A window opened after windowless rendering still draws", "[integration]") {
+  if (!hasDisplay()) {
+    SUCCEED("No X display");
+    return;
+  }
+
+  Canvas windowless;
+  windowless.setWindowless(10, 10);
+  windowless.takeScreenshot();
+
+  ApplicationWindow app;
+  app.onDraw() = [&app](Canvas& canvas) {
+    canvas.setColor(0xff20c040);
+    canvas.fill(0, 0, app.width(), app.height());
+  };
+  app.show(Dimension::nativePixels(60), Dimension::nativePixels(40));
+
+  Screenshot screenshot;
+  int ticks = 0;
+  Steps steps({ [&] { return ++ticks > 5; },
+                [&] {
+                  screenshot = app.takeScreenshot();
+                  app.close();
+                  return true;
+                } });
+  app.runEventLoop();
+
+  REQUIRE(screenshot.width() == 60);
+  REQUIRE(screenshot.sample(30, 20).hexGreen() == 0xc0);
+}
+
 TEST_CASE("An ApplicationWindow can be shown again from its own draw callback", "[integration]") {
   if (!hasDisplay()) {
     SUCCEED("No X display");

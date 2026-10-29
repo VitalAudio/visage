@@ -32,81 +32,76 @@
 #include "uniforms.h"
 #include "visage_utils/space.h"
 
-#include <bgfx/bgfx.h>
+#include "gpu/gpu.h"
+
 #include <map>
 #include <memory>
 
 namespace visage {
-  static constexpr uint64_t blendModeValue(BlendMode blend_mode) {
+  static constexpr gpu::RenderState blendModeValue(BlendMode blend_mode) {
+    using gpu::BlendFactor;
+    using gpu::RenderState;
     switch (blend_mode) {
     case BlendMode::Opaque:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ZERO);
+      return RenderState::write(gpu::kWriteRGBA).blendFunc(BlendFactor::One, BlendFactor::Zero);
     case BlendMode::Alpha:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
-    case BlendMode::Add:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE);
+      return RenderState::write(gpu::kWriteRGBA).blendFunc(BlendFactor::One, BlendFactor::InvSrcAlpha);
+    case BlendMode::Add: return RenderState::write(gpu::kWriteRGBA).blendFunc(BlendFactor::One, BlendFactor::One);
     case BlendMode::Sub:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE,
-                                            BGFX_STATE_BLEND_ZERO, BGFX_STATE_BLEND_ONE) |
-             BGFX_STATE_BLEND_EQUATION_SEPARATE(BGFX_STATE_BLEND_EQUATION_REVSUB,
-                                                BGFX_STATE_BLEND_EQUATION_ADD);
+      return RenderState::write(gpu::kWriteRGBA)
+          .blendFuncSeparate(BlendFactor::One, BlendFactor::One, BlendFactor::Zero, BlendFactor::One)
+          .blendEquationSeparate(gpu::BlendOp::ReverseSubtract, gpu::BlendOp::Add);
     case BlendMode::Mult:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_DST_COLOR, BGFX_STATE_BLEND_INV_SRC_ALPHA,
-                                            BGFX_STATE_BLEND_ZERO, BGFX_STATE_BLEND_ONE);
+      return RenderState::write(gpu::kWriteRGBA)
+          .blendFuncSeparate(BlendFactor::DstColor, BlendFactor::InvSrcAlpha, BlendFactor::Zero, BlendFactor::One);
     case BlendMode::MaskAdd:
-      return BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+      return RenderState::write(gpu::kWriteA).blendFunc(BlendFactor::One, BlendFactor::InvSrcAlpha);
     case BlendMode::MaskRemove:
-      return BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE) |
-             BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_REVSUB);
+      return RenderState::write(gpu::kWriteA)
+          .blendFunc(BlendFactor::One, BlendFactor::One)
+          .blendEquation(gpu::BlendOp::ReverseSubtract);
     case BlendMode::MaskMult:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ZERO, BGFX_STATE_BLEND_SRC_ALPHA);
+      return RenderState::write(gpu::kWriteRGBA).blendFunc(BlendFactor::Zero, BlendFactor::SrcAlpha);
     }
 
     VISAGE_ASSERT(false);
-    return 0;
+    return {};
   }
 
   void setBlendMode(BlendMode blend_mode) {
-    bgfx::setState(blendModeValue(blend_mode));
+    gpu::setState(blendModeValue(blend_mode));
   }
 
-  void submitBlended(BlendMode blend_mode, int submit_pass, bgfx::ProgramHandle program) {
-    static constexpr uint64_t kMultiplyUncovered = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                                                   BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_INV_DST_ALPHA,
-                                                                         BGFX_STATE_BLEND_ONE);
+  void submitBlended(BlendMode blend_mode, int submit_pass, gpu::ProgramHandle program) {
+    static constexpr gpu::RenderState kMultiplyUncovered = gpu::RenderState::write(gpu::kWriteRGBA)
+                                                               .blendFunc(gpu::BlendFactor::InvDstAlpha,
+                                                                          gpu::BlendFactor::One);
 
     setBlendMode(blend_mode);
     if (blend_mode == BlendMode::Mult) {
-      bgfx::submit(submit_pass, program, 0, BGFX_DISCARD_NONE);
-      bgfx::setState(kMultiplyUncovered);
+      gpu::submit(submit_pass, program, true);
+      gpu::setState(kMultiplyUncovered);
     }
-    bgfx::submit(submit_pass, program);
+    gpu::submit(submit_pass, program);
   }
 
   template<const char* name>
   void setUniform(const void* value) {
-    const bgfx::UniformHandle& uniform = UniformCache::uniformHandle(name);
-    bgfx::setUniform(uniform, value);
+    const gpu::UniformHandle& uniform = UniformCache::uniformHandle(name);
+    gpu::setUniform(uniform, value);
   }
 
   template<const char* name>
   void setUniform(float value0, float value1 = 0.0f, float value2 = 0.0f, float value3 = 0.0f) {
-    const bgfx::UniformHandle& uniform = UniformCache::uniformHandle(name);
+    const gpu::UniformHandle& uniform = UniformCache::uniformHandle(name);
     float vec[4] = { value0, value1, value2, value3 };
-    bgfx::setUniform(uniform, vec);
+    gpu::setUniform(uniform, vec);
   }
 
   template<const char* name>
-  void setTexture(int stage, bgfx::TextureHandle handle) {
-    const bgfx::UniformHandle& uniform = UniformCache::uniformHandle(name, UniformCache::Sampler);
-    bgfx::setTexture(stage, uniform, handle);
+  void setTexture(int stage, gpu::TextureHandle handle) {
+    const gpu::UniformHandle& uniform = UniformCache::uniformHandle(name, UniformCache::Sampler);
+    gpu::setTexture(stage, uniform, handle);
   }
 
   inline void setUniformBounds(int x, int y, int width, int height) {
@@ -127,7 +122,7 @@ namespace visage {
   }
 
   void setAlphaClamp(const Layer& layer) {
-    bool hdr = layer.frameBufferFormat() == bgfx::TextureFormat::RGBA16F;
+    bool hdr = layer.frameBufferFormat() == static_cast<int>(gpu::TextureFormat::RGBA16F);
     setUniform<Uniforms::kAlphaClamp>(hdr ? 0.0f : 1.0f);
   }
 
@@ -155,16 +150,12 @@ namespace visage {
     static constexpr uint64_t kMinSize = 1 << 12;
     static constexpr uint64_t kMaxBytes = 1 << 30;
     static constexpr int kUsageFrames = 120;
-#if VISAGE_BACKGROUND_GRAPHICS_THREAD
-    static constexpr uint64_t kFrameLatency = 2;
-#else
     static constexpr uint64_t kFrameLatency = 1;
-#endif
 
     static void endFrame() { frame_++; }
 
-    explicit BufferPool(const bgfx::VertexLayout* layout) :
-        indices_(layout == nullptr), stride_(layout ? layout->getStride() : sizeof(uint32_t)) {
+    explicit BufferPool(const gpu::VertexLayout* layout) :
+        indices_(layout == nullptr), stride_(layout ? layout->stride() : sizeof(uint32_t)) {
       if (layout)
         layout_ = *layout;
     }
@@ -204,12 +195,12 @@ namespace visage {
       if (staging_ == nullptr || used_ == uploaded_)
         return;
 
-      const bgfx::Memory* memory = bgfx::makeRef(staging_->data.get() + uploaded_ * stride_,
+      const gpu::Memory* memory = gpu::makeRef(staging_->data.get() + uploaded_ * stride_,
                                                  (used_ - uploaded_) * stride_);
       if (indices_)
-        bgfx::update(index_buffer_, uploaded_, memory);
+        gpu::update(index_buffer_, uploaded_, memory);
       else
-        bgfx::update(vertex_buffer_, uploaded_, memory);
+        gpu::update(vertex_buffer_, uploaded_, memory);
       uploaded_ = used_;
     }
 
@@ -222,25 +213,25 @@ namespace visage {
     }
 
     void setVertexBuffer(uint32_t start, uint32_t count) const {
-      bgfx::setVertexBuffer(0, vertex_buffer_, start, count);
+      gpu::setVertexBuffer(0, vertex_buffer_, start, count);
     }
 
     void setIndexBuffer(uint32_t start, uint32_t count) const {
-      bgfx::setIndexBuffer(index_buffer_, start, count);
+      gpu::setIndexBuffer(index_buffer_, start, count);
     }
 
     bool setQuadIndexBuffer(int num_quads) {
-      if (!bgfx::isValid(quad_index_buffer_)) {
+      if (!gpu::isValid(quad_index_buffer_)) {
         std::vector<uint32_t> indices(capacity_ / kVerticesPerQuad * kIndicesPerQuad);
         setQuadIndices(indices.data(), capacity_ / kVerticesPerQuad);
-        quad_index_buffer_ = bgfx::createIndexBuffer(bgfx::copy(indices.data(),
+        quad_index_buffer_ = gpu::createIndexBuffer(gpu::copy(indices.data(),
                                                                 indices.size() * sizeof(uint32_t)),
-                                                     BGFX_BUFFER_INDEX32);
-        if (!bgfx::isValid(quad_index_buffer_))
+                                                     gpu::kBufferIndex32);
+        if (!gpu::isValid(quad_index_buffer_))
           return false;
       }
 
-      bgfx::setIndexBuffer(quad_index_buffer_, 0, num_quads * kIndicesPerQuad);
+      gpu::setIndexBuffer(quad_index_buffer_, 0, num_quads * kIndicesPerQuad);
       return true;
     }
 
@@ -279,15 +270,15 @@ namespace visage {
     }
 
     void destroyBuffers() {
-      if (bgfx::isValid(vertex_buffer_))
-        bgfx::destroy(vertex_buffer_);
-      if (bgfx::isValid(index_buffer_))
-        bgfx::destroy(index_buffer_);
-      if (bgfx::isValid(quad_index_buffer_))
-        bgfx::destroy(quad_index_buffer_);
-      vertex_buffer_ = BGFX_INVALID_HANDLE;
-      index_buffer_ = BGFX_INVALID_HANDLE;
-      quad_index_buffer_ = BGFX_INVALID_HANDLE;
+      if (gpu::isValid(vertex_buffer_))
+        gpu::destroy(vertex_buffer_);
+      if (gpu::isValid(index_buffer_))
+        gpu::destroy(index_buffer_);
+      if (gpu::isValid(quad_index_buffer_))
+        gpu::destroy(quad_index_buffer_);
+      vertex_buffer_ = {};
+      index_buffer_ = {};
+      quad_index_buffer_ = {};
       staging_ = nullptr;
       capacity_ = 0;
       uploaded_ = 0;
@@ -345,10 +336,10 @@ namespace visage {
         return false;
 
       if (indices_)
-        index_buffer_ = bgfx::createDynamicIndexBuffer(capacity, BGFX_BUFFER_INDEX32);
+        index_buffer_ = gpu::createDynamicIndexBuffer(capacity, gpu::kBufferIndex32);
       else
-        vertex_buffer_ = bgfx::createDynamicVertexBuffer(capacity, layout_);
-      if (indices_ ? !bgfx::isValid(index_buffer_) : !bgfx::isValid(vertex_buffer_)) {
+        vertex_buffer_ = gpu::createDynamicVertexBuffer(capacity, layout_);
+      if (indices_ ? !gpu::isValid(index_buffer_) : !gpu::isValid(vertex_buffer_)) {
         destroyBuffers();
         return false;
       }
@@ -363,11 +354,11 @@ namespace visage {
     static inline uint64_t frame_ = kFrameLatency;
 
     bool indices_ = false;
-    bgfx::VertexLayout layout_;
+    gpu::VertexLayout layout_;
     uint64_t stride_ = 0;
-    bgfx::DynamicVertexBufferHandle vertex_buffer_ = BGFX_INVALID_HANDLE;
-    bgfx::DynamicIndexBufferHandle index_buffer_ = BGFX_INVALID_HANDLE;
-    bgfx::IndexBufferHandle quad_index_buffer_ = BGFX_INVALID_HANDLE;
+    gpu::BufferHandle vertex_buffer_ = {};
+    gpu::BufferHandle index_buffer_ = {};
+    gpu::BufferHandle quad_index_buffer_ = {};
     std::vector<std::unique_ptr<Staging>> staging_blocks_;
     Staging* staging_ = nullptr;
     uint64_t capacity_ = 0;
@@ -385,8 +376,8 @@ namespace visage {
     return *pools;
   }
 
-  static BufferPool& vertexBufferPool(const bgfx::VertexLayout& layout) {
-    std::unique_ptr<BufferPool>& pool = vertexBufferPools()[layout.m_hash];
+  static BufferPool& vertexBufferPool(const gpu::VertexLayout& layout) {
+    std::unique_ptr<BufferPool>& pool = vertexBufferPools()[layout.hash()];
     if (pool == nullptr)
       pool = std::make_unique<BufferPool>(&layout);
     return *pool;
@@ -407,11 +398,11 @@ namespace visage {
     BufferPool::endFrame();
   }
 
-  uint32_t advanceFrame(uint8_t flags) {
+  uint32_t advanceFrame() {
     for (auto& pool : vertexBufferPools())
       pool.second->upload();
     indexBufferPool().upload();
-    return bgfx::frame(flags);
+    return gpu::frame();
   }
 
   void releaseBufferPools() {
@@ -426,13 +417,13 @@ namespace visage {
     indexBufferPool().releaseStaging();
   }
 
-  uint64_t bufferPoolCapacity(const bgfx::VertexLayout& layout) {
-    auto pool = vertexBufferPools().find(layout.m_hash);
+  uint64_t bufferPoolCapacity(const gpu::VertexLayout& layout) {
+    auto pool = vertexBufferPools().find(layout.hash());
     return pool == vertexBufferPools().end() ? 0 : pool->second->capacity();
   }
 
-  uint64_t bufferPoolStagingBytes(const bgfx::VertexLayout& layout) {
-    auto pool = vertexBufferPools().find(layout.m_hash);
+  uint64_t bufferPoolStagingBytes(const gpu::VertexLayout& layout) {
+    auto pool = vertexBufferPools().find(layout.hash());
     return pool == vertexBufferPools().end() ? 0 : pool->second->stagingBytes();
   }
 
@@ -441,7 +432,7 @@ namespace visage {
   }
 
   void flushBufferPoolFrame() {
-    advanceFrame(BGFX_FRAME_FLUSH);
+    advanceFrame();
     for (auto& pool : vertexBufferPools())
       pool.second->split();
     indexBufferPool().split();
@@ -458,7 +449,7 @@ namespace visage {
     flushBufferPoolFrame();
   }
 
-  uint8_t* initQuadVerticesWithLayout(int num_quads, const bgfx::VertexLayout& layout) {
+  uint8_t* initQuadVerticesWithLayout(int num_quads, const gpu::VertexLayout& layout) {
     BufferPool& pool = vertexBufferPool(layout);
     uint32_t start = 0;
     uint8_t* vertices = pool.allocate(num_quads * kVerticesPerQuad, &start);
@@ -469,7 +460,7 @@ namespace visage {
     return vertices;
   }
 
-  uint8_t* initVerticesWithLayout(int num_vertices, const bgfx::VertexLayout& layout) {
+  uint8_t* initVerticesWithLayout(int num_vertices, const gpu::VertexLayout& layout) {
     BufferPool& pool = vertexBufferPool(layout);
     uint32_t start = 0;
     uint8_t* vertices = pool.allocate(num_vertices, &start);
@@ -478,7 +469,7 @@ namespace visage {
     return vertices;
   }
 
-  bool initIndexedVerticesWithLayout(int num_vertices, const bgfx::VertexLayout& layout,
+  bool initIndexedVerticesWithLayout(int num_vertices, const gpu::VertexLayout& layout,
                                      int num_indices, uint8_t** vertices, uint32_t** indices) {
     BufferPool& vertex_pool = vertexBufferPool(layout);
     BufferPool& index_pool = indexBufferPool();
@@ -512,7 +503,7 @@ namespace visage {
   }
 
   void setPathAtlasUniform(PathAtlas* atlas) {
-    setTexture<Uniforms::kTexture>(1, bgfx::getTexture(atlas->frameBufferHandle()));
+    setTexture<Uniforms::kTexture>(1, gpu::getTexture(atlas->frameBufferHandle()));
     setUniform<Uniforms::kAtlasScale>(1.0f / atlas->width(), 1.0f / atlas->height());
   }
 
@@ -735,7 +726,7 @@ namespace visage {
     Layer* source_layer = batches[0].shapes->front().region->layer();
     setUniform<Uniforms::kAtlasScale>(1.0f / source_layer->width(), 1.0f / source_layer->height());
 
-    setTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
+    setTexture<Uniforms::kTexture>(0, gpu::getTexture(source_layer->frameBuffer()));
     setUniformDimensions(layer.width(), layer.height());
     setOriginFlipUniform(layer.bottomLeftOrigin());
     submitBlended(blend_mode, submit_pass,

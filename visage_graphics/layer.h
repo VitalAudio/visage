@@ -41,10 +41,10 @@ namespace visage {
     void resizeFrameBuffer();
     void destroyFrameBuffer();
 
-    bgfx::FrameBufferHandle& frameBuffer() const;
+    gpu::FrameBufferHandle& frameBuffer() const;
     int frameBufferFormat() const;
-    bgfx::FrameBufferHandle temporaryFrameBuffer(int width, int height);
-    void releaseTemporaryFrameBuffer(bgfx::FrameBufferHandle handle);
+    gpu::FrameBufferHandle temporaryFrameBuffer(int width, int height);
+    void releaseTemporaryFrameBuffer(gpu::FrameBufferHandle handle);
     void destroyIdleTemporaryFrameBuffers();
 
     GradientAtlas* gradientAtlas() const { return gradient_atlas_; }

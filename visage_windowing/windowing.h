@@ -115,6 +115,9 @@ namespace visage {
     virtual void setFixedAspectRatio(bool fixed) { }
     virtual IPoint maxWindowDimensions() const = 0;
     virtual void setAlwaysOnTop(bool on_top) { }
+    virtual void framePresented() { }
+    virtual void waitForFrame() { }
+    virtual void setFrameWaiter(std::function<bool(int)> waiter) { }
 
     void setDrawCallback(std::function<void(double)> callback) {
       draw_callback_ = std::move(callback);
