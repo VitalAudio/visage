@@ -157,13 +157,13 @@ float sdFlatSegment(vec2 position, vec2 point1, vec2 point2, float thickness) {
   float size = length(point2 - point1);
   vec2 normalized_delta = (point2 - point1) / size;
   vec2 delta = (position - (point1 + point2) * 0.5);
-  delta = mul(delta, mat2(normalized_delta.x, -normalized_delta.y, normalized_delta.y, normalized_delta.x));
+  delta = vec2(dot(delta, normalized_delta), dot(delta, vec2(-normalized_delta.y, normalized_delta.x)));
   delta = abs(delta) - vec2(size, thickness) * 0.5;
   return length(max(delta, 0.0)) + min(max(delta.x, delta.y), 0.0);
 }
 
 float sdArc(vec2 position, vec2 middle_coords, vec2 curve_coords, float radius, float thickness) {
-  position = mul(position, mat2(middle_coords.x, middle_coords.y, -middle_coords.y, middle_coords.x));
+  position = vec2(dot(position, vec2(middle_coords.x, -middle_coords.y)), dot(position, middle_coords.yx));
   position.x = abs(position.x);
   float k = (curve_coords.y * position.x > curve_coords.x * position.y) ? dot(position.xy, curve_coords) : length(position);
   return sqrt(max(0.0, dot(position, position) + radius * radius - 2.0 * radius * k)) - thickness;
@@ -171,7 +171,7 @@ float sdArc(vec2 position, vec2 middle_coords, vec2 curve_coords, float radius, 
 
 float sdFlatArc(vec2 position, vec2 middle_coords, vec2 curve_coords, float radius, float thickness) {
   float dist = length(position);
-  position = mul(position, mat2(-middle_coords.x, -middle_coords.y, middle_coords.y, -middle_coords.x));
+  position = vec2(dot(position, vec2(-middle_coords.x, middle_coords.y)), -dot(position, middle_coords.yx));
   position.x = abs(position.x);
   position = mul(position, mat2(curve_coords.y, curve_coords.x, curve_coords.x, -curve_coords.y));
   position = vec2((position.y > 0.0) ? position.x : dist * sign(-curve_coords.x), (position.x > 0.0) ? position.y : dist);

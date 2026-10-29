@@ -4,7 +4,6 @@ $output v_coordinates, v_dimensions, v_shader_values, v_shader_values1, v_positi
 #include <shader_include.sh>
 
 uniform vec4 u_bounds;
-uniform vec4 u_origin_flip;
 
 void main() {
   vec2 minimum = a_texcoord1.xy;
@@ -22,7 +21,7 @@ void main() {
   gl_Position = vec4(adjusted_position, 0.5, 1.0);
   v_shader_values = a_texcoord2;
 
-  float center_radians = v_shader_values.z * u_origin_flip.x - u_origin_flip.y * kPi;
+  float center_radians = v_shader_values.z;
   float arc_radians = min(v_shader_values.w, kPi * 0.999);
   v_shader_values1.x = sin(center_radians);
   v_shader_values1.y = cos(center_radians);
