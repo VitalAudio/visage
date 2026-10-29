@@ -26,5 +26,5 @@ jobs:
           mkdir cmake_build
           cd cmake_build
           cmake -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DVISAGE_ADDRESS_SANITIZER=ON -DVISAGE_ENABLE_GRAPHICS_DEBUG_LOGGING=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -G "Unix Makefiles" ..
-          cmake --build . --target package --parallel
+          cmake --build . --target package --parallel 4
           ctest --output-on-failure
