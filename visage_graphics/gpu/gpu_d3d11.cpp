@@ -272,10 +272,10 @@ namespace visage::gpu {
     }
 
     void shutdown() override {
-      if (context_) {
+      if (context_)
         context_->ClearState();
-        context_->Flush();
-      }
+      resetPipelineCache();
+      current_rtv_ = nullptr;
 
       for (auto& texture : textures_)
         releaseTexture(texture.second);
@@ -304,6 +304,8 @@ namespace visage::gpu {
 
       release(rasterizer_state_);
       release(depth_state_);
+      if (context_)
+        context_->Flush();
       release(factory_);
       release(context_);
       release(device_);
@@ -669,10 +671,11 @@ namespace visage::gpu {
 
     void beginFrame(uint32_t) override { cpu_start_ = std::chrono::steady_clock::now(); }
 
-    void submitFrame(const FrameData& frame, Stats& stats) override {
-      if (device_lost_ || checkDeviceLost(device_->GetDeviceRemovedReason()))
-        return;
+    bool deviceLost() override {
+      return device_lost_ || (device_ && checkDeviceLost(device_->GetDeviceRemovedReason()));
+    }
 
+    void submitFrame(const FrameData& frame, Stats& stats) override {
       resetPipelineCache();
       context_->RSSetState(rasterizer_state_);
       context_->OMSetDepthStencilState(depth_state_, 0);

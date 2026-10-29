@@ -243,6 +243,7 @@ namespace visage {
     int width() const { return atlas_map_.width(); }
     int height() const { return atlas_map_.height(); }
     const gpu::TextureHandle& textureHandle();
+    void destroyTexture();
     void setImageCoordinates(TextureVertex* vertices, const PackedImage& image) const;
     int numChannels() const { return data_type_ == DataType::Float32 ? 1 : 4; }
     int bytesPerChannel() const { return data_type_ == DataType::Float32 ? 4 : 1; }

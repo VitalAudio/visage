@@ -158,10 +158,11 @@ namespace visage::gpu {
         context_ = emscripten_webgl_create_context(kCanvas, &attributes);
         if (context_ <= 0)
           return false;
-        owns_context_ = true;
       }
-      if (emscripten_webgl_make_context_current(context_) != EMSCRIPTEN_RESULT_SUCCESS)
+      if (emscripten_is_webgl_context_lost(context_) ||
+          emscripten_webgl_make_context_current(context_) != EMSCRIPTEN_RESULT_SUCCESS)
         return false;
+      emscripten_set_webglcontextlost_callback(kCanvas, this, true, contextLost);
 
       bool color_buffer_float = emscripten_webgl_enable_extension(context_, "EXT_color_buffer_float");
       bool color_buffer_half_float = emscripten_webgl_enable_extension(context_, "EXT_color_buffer_half_float");
@@ -203,6 +204,8 @@ namespace visage::gpu {
       if (context_ <= 0)
         return;
 
+      emscripten_set_webglcontextlost_callback(kCanvas, nullptr, true, nullptr);
+
       for (Texture& texture : textures_) {
         if (texture.used)
           glDeleteTextures(1, &texture.texture);
@@ -235,8 +238,6 @@ namespace visage::gpu {
       glDeleteFramebuffers(1, &read_framebuffer_);
       glDeleteFramebuffers(1, &draw_framebuffer_);
       glDeleteVertexArrays(1, &vertex_array_);
-      if (owns_context_)
-        emscripten_webgl_destroy_context(context_);
       context_ = 0;
     }
 
@@ -441,6 +442,8 @@ namespace visage::gpu {
 
     bool waitForFrame(uint16_t, int) override { return true; }
 
+    bool deviceLost() override { return lost_ || emscripten_is_webgl_context_lost(context_); }
+
     void beginFrame(uint32_t) override { emscripten_webgl_make_context_current(context_); }
 
     void submitFrame(const FrameData& frame, Stats&) override {
@@ -467,6 +470,11 @@ namespace visage::gpu {
     }
 
   private:
+    static EM_BOOL contextLost(int, const void*, void* user_data) {
+      static_cast<GlesBackend*>(user_data)->lost_ = true;
+      return EM_TRUE;
+    }
+
     void logMessage(const char* message) const {
       if (init_.log_callback)
         init_.log_callback(message);
@@ -766,7 +774,7 @@ namespace visage::gpu {
 
     Init init_;
     EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context_ = 0;
-    bool owns_context_ = false;
+    bool lost_ = false;
     GLuint vertex_array_ = 0;
     GLuint read_framebuffer_ = 0;
     GLuint draw_framebuffer_ = 0;

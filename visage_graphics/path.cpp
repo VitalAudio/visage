@@ -945,6 +945,12 @@ namespace visage {
     tile_renderer_.reset();
   }
 
+  void PathAtlas::invalidateAll() {
+    destroy();
+    for (auto& path : paths_)
+      path->needs_update = true;
+  }
+
   void PathAtlas::checkInit() {
     constexpr uint32_t kFlags = gpu::kSamplerClamp | gpu::kSamplerPoint;
     if (needs_packing_) {

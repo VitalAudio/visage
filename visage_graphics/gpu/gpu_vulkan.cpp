@@ -754,12 +754,13 @@ namespace visage::gpu {
     }
 
     bool waitForFrame(uint16_t, int) override { return true; }
+    bool deviceLost() override { return device_lost_; }
 
     void beginFrame(uint32_t frame_number) override {
       slot_index_ = frame_number % kFramesInFlight;
       FrameSlot& slot = slots_[slot_index_];
       if (slot.submitted) {
-        vkWaitForFences(device_, 1, &slot.fence, VK_TRUE, UINT64_MAX);
+        checkResult(vkWaitForFences(device_, 1, &slot.fence, VK_TRUE, UINT64_MAX));
         slot.submitted = false;
       }
       vkResetFences(device_, 1, &slot.fence);
@@ -842,7 +843,7 @@ namespace visage::gpu {
       submit.signalSemaphoreCount = static_cast<uint32_t>(signal_semaphores.size());
       submit.pSignalSemaphores = signal_semaphores.data();
       FrameSlot& slot = slots_[slot_index_];
-      if (vkQueueSubmit(queue_, 1, &submit, slot.fence) == VK_SUCCESS)
+      if (checkResult(vkQueueSubmit(queue_, 1, &submit, slot.fence)) == VK_SUCCESS)
         slot.submitted = true;
       else
         log("Vulkan queue submit failed");
@@ -855,7 +856,7 @@ namespace visage::gpu {
         present.swapchainCount = 1;
         present.pSwapchains = &chain.swap_chain;
         present.pImageIndices = &chain.current_image;
-        VkResult result = vkQueuePresentKHR(queue_, &present);
+        VkResult result = checkResult(vkQueuePresentKHR(queue_, &present));
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
           chain.needs_recreate = true;
         else if (result == VK_ERROR_SURFACE_LOST_KHR)
@@ -864,8 +865,7 @@ namespace visage::gpu {
       }
 
       if (!reads.empty()) {
-        if (slot.submitted) {
-          vkWaitForFences(device_, 1, &slot.fence, VK_TRUE, UINT64_MAX);
+        if (slot.submitted && checkResult(vkWaitForFences(device_, 1, &slot.fence, VK_TRUE, UINT64_MAX)) == VK_SUCCESS) {
           for (ReadBack& read : reads)
             finishRead(read);
         }
@@ -895,6 +895,14 @@ namespace visage::gpu {
                (static_cast<size_t>(key.format) * 131);
       }
     };
+
+    VkResult checkResult(VkResult result) {
+      if (result == VK_ERROR_DEVICE_LOST && !device_lost_) {
+        device_lost_ = true;
+        log("Vulkan device lost");
+      }
+      return result;
+    }
 
     void log(const char* message) const {
       if (init_.log_callback)
@@ -1553,8 +1561,8 @@ namespace visage::gpu {
         if ((chain.needs_recreate || chain.swap_chain == VK_NULL_HANDLE) && !recreateSwapChain(chain))
           return false;
 
-        VkResult result = vkAcquireNextImageKHR(device_, chain.swap_chain, kAcquireTimeoutNs, semaphore,
-                                                VK_NULL_HANDLE, &chain.current_image);
+        VkResult result = checkResult(vkAcquireNextImageKHR(device_, chain.swap_chain, kAcquireTimeoutNs, semaphore,
+                                                            VK_NULL_HANDLE, &chain.current_image));
         if (result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR) {
           if (result == VK_SUBOPTIMAL_KHR)
             chain.needs_recreate = true;
@@ -2220,6 +2228,7 @@ namespace visage::gpu {
     VkPhysicalDeviceMemoryProperties memory_properties_ {};
     uint32_t queue_family_ = 0;
     uint32_t num_allocations_ = 0;
+    bool device_lost_ = false;
     VkDevice device_ = VK_NULL_HANDLE;
     VkQueue queue_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout graphics_set_layout_ = VK_NULL_HANDLE;

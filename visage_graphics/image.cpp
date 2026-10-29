@@ -199,6 +199,11 @@ namespace visage {
       VISAGE_ASSERT(false);
   }
 
+  void ImageAtlas::destroyTexture() {
+    if (texture_)
+      texture_->destroyHandle();
+  }
+
   const gpu::TextureHandle& ImageAtlas::textureHandle() {
     VISAGE_ASSERT(texture_.get());
     if (!texture_->hasHandle() || repacked_) {

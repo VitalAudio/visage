@@ -822,6 +822,8 @@ namespace visage {
                               data, dataAtlas()));
     }
 
+    void restoreLostContents();
+
     Renderer::Reference renderer_reference_;
     Palette* palette_ = nullptr;
     float dpi_scale_ = 1.0f;
@@ -829,6 +831,7 @@ namespace visage {
     double delta_time_ = 0.0;
     int render_frame_ = 0;
     int last_skipped_frame_ = 0;
+    uint32_t contents_generation_ = 0;
 
     std::vector<State> state_memory_;
     State state_;

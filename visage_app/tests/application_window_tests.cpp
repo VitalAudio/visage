@@ -20,6 +20,7 @@
  */
 
 #include "visage/app.h"
+#include "visage_graphics/gpu/gpu.h"
 #include "visage_utils/child_process.h"
 #include "visage_utils/file_system.h"
 
@@ -53,6 +54,51 @@ namespace {
   bool hasDisplay() {
     const char* display_name = std::getenv("DISPLAY");
     return display_name && display_name[0];
+  }
+}
+
+TEST_CASE("A window draws the same after the GPU device is lost", "[integration]") {
+  if (!hasDisplay()) {
+    SUCCEED("No X display");
+    return;
+  }
+
+  ApplicationWindow app;
+  app.onDraw() = [&app](Canvas& canvas) {
+    canvas.setColor(0xff2040c0);
+    canvas.fill(0, 0, app.width(), app.height());
+    canvas.setColor(0xffffc000);
+    canvas.circle(10, 10, 40);
+  };
+  app.show(Dimension::nativePixels(100), Dimension::nativePixels(80));
+
+  Screenshot before;
+  Screenshot after;
+  int ticks = 0;
+  Steps steps({ [&] { return ++ticks > 5; },
+                [&] {
+                  before = app.takeScreenshot();
+                  gpu::simulateDeviceLoss();
+                  ticks = 0;
+                  return true;
+                },
+                [&] { return ++ticks > 5; },
+                [&] {
+                  after = app.takeScreenshot();
+                  app.close();
+                  return true;
+                } });
+  app.runEventLoop();
+
+  REQUIRE(before.width() == 100);
+  REQUIRE(after.width() == before.width());
+  REQUIRE(after.height() == before.height());
+  for (int y = 0; y < before.height(); y += 3) {
+    for (int x = 0; x < before.width(); x += 3) {
+      INFO("x " << x << " y " << y);
+      REQUIRE(after.sample(x, y).hexRed() == before.sample(x, y).hexRed());
+      REQUIRE(after.sample(x, y).hexBlue() == before.sample(x, y).hexBlue());
+    }
   }
 }
 
