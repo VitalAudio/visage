@@ -7,9 +7,14 @@ if (WIN32)
 elseif (APPLE)
   list(APPEND SOURCE_FILES macos/emoji_macos.cpp)
   list(APPEND PLATFORM_FILES macos/windowless_context.mm)
+elseif (EMSCRIPTEN)
+  list(APPEND SOURCE_FILES linux/emoji_linux.cpp)
+  list(APPEND PLATFORM_FILES gpu/gpu.cpp gpu/gpu_shader.cpp gpu/gpu_gles.cpp)
 elseif (UNIX)
   list(APPEND SOURCE_FILES linux/emoji_linux.cpp)
+  list(APPEND PLATFORM_FILES gpu/gpu.cpp gpu/gpu_shader.cpp gpu/gpu_vulkan.cpp)
 endif ()
+file(GLOB GPU_HEADERS gpu/*.h)
 
 if (VISAGE_AMALGAMATED_BUILD)
   amalgamate_sources(AMALGAMATED ${CMAKE_CURRENT_BINARY_DIR}/visage_graphics_amalgamated "${SOURCE_FILES}")
@@ -19,7 +24,7 @@ endif ()
 amalgamate_headers(${VISAGE_INCLUDE}/visage/graphics.h "${HEADERS}")
 list(APPEND HEADERS ${VISAGE_INCLUDE}/visage/graphics.h)
 
-add_library(VisageGraphics OBJECT ${SOURCE_FILES} ${PLATFORM_FILES} ${HEADERS})
+add_library(VisageGraphics OBJECT ${SOURCE_FILES} ${PLATFORM_FILES} ${HEADERS} ${GPU_HEADERS})
 
 if (APPLE)
   find_library(METAL_LIBRARY Metal)
@@ -27,6 +32,20 @@ if (APPLE)
   set(METAL_LIBS ${METAL_LIBRARY} ${METALKIT_LIBRARY})
 elseif (UNIX)
   add_definitions(-D_LARGEFILE64_SOURCE)
+endif ()
+
+if (UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+  find_path(VISAGE_VULKAN_INCLUDE_DIR vulkan/vulkan.h)
+  if (NOT VISAGE_VULKAN_INCLUDE_DIR)
+    FetchContent_Declare(vulkan_headers GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Headers.git
+      GIT_TAG v1.4.341
+      GIT_SHALLOW TRUE
+      EXCLUDE_FROM_ALL
+    )
+    FetchContent_MakeAvailable(vulkan_headers)
+    set(VISAGE_VULKAN_INCLUDE_DIR ${vulkan_headers_SOURCE_DIR}/include)
+  endif ()
+  target_include_directories(VisageGraphics SYSTEM PRIVATE ${VISAGE_VULKAN_INCLUDE_DIR})
 endif ()
 
 set(BGFX_BUILD_EXAMPLES OFF CACHE INTERNAL "" FORCE)
