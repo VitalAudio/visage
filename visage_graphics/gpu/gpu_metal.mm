@@ -29,6 +29,7 @@
 #include <atomic>
 #include <cstring>
 #include <map>
+#include <memory>
 #include <string>
 #include <tuple>
 
@@ -36,6 +37,7 @@ namespace visage::gpu {
   namespace {
     constexpr int kMaxFramesInFlight = 3;
     constexpr int kMaxDrawables = 3;
+    constexpr int64_t kLostFrameWaitMs = 100;
     constexpr int kVertexBufferIndex = 30;
     constexpr uint32_t kMaxSetBytes = 4096;
     constexpr uint32_t kUniformAlignment = 256;
@@ -190,6 +192,13 @@ namespace visage::gpu {
       uint32_t size = 0;
     };
 
+    struct SharedState {
+      dispatch_semaphore_t frames_semaphore = dispatch_semaphore_create(kMaxFramesInFlight);
+      std::atomic<double> gpu_frame_ms = 0.0;
+      std::atomic<long> command_buffer_error = 0;
+      std::atomic<bool> device_lost = false;
+    };
+
     struct PendingScreenshot {
       uint16_t frame_buffer = kInvalidHandle;
       id<MTLBuffer> buffer = nil;
@@ -202,6 +211,7 @@ namespace visage::gpu {
   public:
     bool init(const Init& init, Caps& caps) override {
       init_ = init;
+      state_ = std::make_shared<SharedState>();
       device_ = MTLCreateSystemDefaultDevice();
       if (device_ == nil)
         return false;
@@ -210,7 +220,14 @@ namespace visage::gpu {
       if (queue_ == nil)
         return false;
 
-      frames_semaphore_ = dispatch_semaphore_create(kMaxFramesInFlight);
+      std::shared_ptr<SharedState> state = state_;
+      id<MTLDevice> __weak watched = device_;
+      MTLCopyAllDevicesWithObserver(&device_observer_, ^(id<MTLDevice> device, MTLDeviceNotificationName name) {
+        bool removed = [name isEqualToString:MTLDeviceWasRemovedNotification] ||
+                       [name isEqualToString:MTLDeviceRemovalRequestedNotification];
+        if (removed && device == watched)
+          state->device_lost = true;
+      });
 
       caps.renderer = RendererType::Metal;
       caps.origin_bottom_left = false;
@@ -240,11 +257,18 @@ namespace visage::gpu {
         command_buffer_ = nil;
       }
 
-      if (frames_semaphore_) {
-        for (int i = 0; i < kMaxFramesInFlight; ++i)
-          dispatch_semaphore_wait(frames_semaphore_, DISPATCH_TIME_FOREVER);
-        for (int i = 0; i < kMaxFramesInFlight; ++i)
-          dispatch_semaphore_signal(frames_semaphore_);
+      if (device_observer_) {
+        MTLRemoveDeviceObserver(device_observer_);
+        device_observer_ = nil;
+      }
+
+      if (state_) {
+        int acquired = 0;
+        for (int i = 0; i < kMaxFramesInFlight && waitForFrameSlot(); ++i)
+          acquired++;
+        for (int i = 0; i < acquired; ++i)
+          dispatch_semaphore_signal(state_->frames_semaphore);
+        state_ = nullptr;
       }
 
       textures_.clear();
@@ -516,6 +540,8 @@ namespace visage::gpu {
 
     bool waitForFrame(uint16_t, int) override { return true; }
 
+    bool deviceLost() override { return state_ && state_->device_lost; }
+
     void beginFrame(uint32_t) override {
       @autoreleasepool {
         startFrame();
@@ -530,8 +556,8 @@ namespace visage::gpu {
 
   private:
     void startFrame() {
-      dispatch_semaphore_wait(frames_semaphore_, DISPATCH_TIME_FOREVER);
-      long error = command_buffer_error_.exchange(0);
+      waitForFrameSlot();
+      long error = state_->command_buffer_error.exchange(0);
       if (error) {
         std::string message = "Metal command buffer failed with error " + std::to_string(error);
         log(message.c_str(), nil);
@@ -542,15 +568,21 @@ namespace visage::gpu {
         chunk.used = 0;
 
       command_buffer_ = [queue_ commandBuffer];
-      dispatch_semaphore_t semaphore = frames_semaphore_;
-      std::atomic<double>* gpu_ms = &gpu_frame_ms_;
-      std::atomic<long>* command_buffer_error = &command_buffer_error_;
+      if (command_buffer_ == nil) {
+        state_->device_lost = true;
+        dispatch_semaphore_signal(state_->frames_semaphore);
+        return;
+      }
+
+      std::shared_ptr<SharedState> state = state_;
       [command_buffer_ addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
-        if (buffer.status == MTLCommandBufferStatusError)
-          command_buffer_error->store(buffer.error ? buffer.error.code : -1);
+        if (buffer.status == MTLCommandBufferStatusError) {
+          state->command_buffer_error = buffer.error ? buffer.error.code : -1;
+          state->device_lost = true;
+        }
         if (buffer.GPUEndTime > buffer.GPUStartTime)
-          gpu_ms->store((buffer.GPUEndTime - buffer.GPUStartTime) * 1000.0);
-        dispatch_semaphore_signal(semaphore);
+          state->gpu_frame_ms = (buffer.GPUEndTime - buffer.GPUStartTime) * 1000.0;
+        dispatch_semaphore_signal(state->frames_semaphore);
       }];
     }
 
@@ -593,7 +625,7 @@ namespace visage::gpu {
         }
       }
 
-      stats.gpu_frame_ms = gpu_frame_ms_.load();
+      stats.gpu_frame_ms = state_->gpu_frame_ms.load();
     }
 
     static void copyRows(uint8_t* dest, uint32_t dest_pitch, const uint8_t* source,
@@ -613,6 +645,16 @@ namespace visage::gpu {
       if (error)
         text += std::string(": ") + error.localizedDescription.UTF8String;
       init_.log_callback(text.c_str());
+    }
+
+    bool waitForFrameSlot() {
+      while (true) {
+        dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, kLostFrameWaitMs * NSEC_PER_MSEC);
+        if (dispatch_semaphore_wait(state_->frames_semaphore, timeout) == 0)
+          return true;
+        if (state_->device_lost)
+          return false;
+      }
     }
 
     static CGColorSpaceRef srgbColorSpace() {
@@ -1059,10 +1101,9 @@ namespace visage::gpu {
     id<MTLCommandQueue> queue_ = nil;
     id<MTLCommandBuffer> command_buffer_ = nil;
     id<MTLBlitCommandEncoder> update_encoder_ = nil;
-    dispatch_semaphore_t frames_semaphore_ = nil;
+    std::shared_ptr<SharedState> state_;
+    id<NSObject> device_observer_ = nil;
     int frame_slot_ = 0;
-    std::atomic<double> gpu_frame_ms_ = 0.0;
-    std::atomic<long> command_buffer_error_ = 0;
 
     std::vector<Texture> textures_;
     std::vector<Buffer> buffers_;

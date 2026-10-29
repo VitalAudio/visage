@@ -763,6 +763,7 @@ namespace visage {
 
     int updatePaths(int submit_pass);
     void destroy();
+    void invalidateAll();
     int width() const { return width_; }
     int height() const { return height_; }
 

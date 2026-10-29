@@ -86,6 +86,11 @@ namespace visage {
       vertices[3].texture_y = rect.bottom;
     }
 
+    void invalidateContents() {
+      needs_full_clear_ = true;
+      invalidate();
+    }
+
     void invalidate() {
       invalid_rects_.clear();
       for (const auto& region : regions_)

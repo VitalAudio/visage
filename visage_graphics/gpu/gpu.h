@@ -339,4 +339,7 @@ namespace visage::gpu {
 
   uint32_t frame();
   uint32_t frameNumber();
+  uint32_t contentsGeneration();
+  bool deviceLost();
+  void simulateDeviceLoss();
 }

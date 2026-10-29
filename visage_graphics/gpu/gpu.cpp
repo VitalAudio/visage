@@ -22,9 +22,11 @@
 #include "gpu_backend.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstring>
 #include <map>
+#include <mutex>
 #include <unordered_map>
 
 namespace visage::gpu {
@@ -98,6 +100,8 @@ namespace visage::gpu {
     struct FrameBufferEntry {
       bool used = false;
       bool swap_chain = false;
+      void* window_handle = nullptr;
+      TextureFormat format = TextureFormat::RGBA8;
       uint16_t texture = kInvalidHandle;
       int width = 0;
       int height = 0;
@@ -107,6 +111,7 @@ namespace visage::gpu {
       bool used = false;
       BufferDesc desc;
       uint32_t stride = 0;
+      std::vector<uint8_t> initial_data;
     };
 
     struct ShaderEntry {
@@ -199,7 +204,10 @@ namespace visage::gpu {
       Caps caps;
       Stats stats;
       std::unique_ptr<Backend> backend;
+      std::mutex backend_mutex;
       uint32_t frame_number = 0;
+      bool lost = false;
+      bool simulate_loss = false;
 
       HandlePool<TextureEntry> textures;
       HandlePool<FrameBufferEntry> frame_buffers;
@@ -226,6 +234,7 @@ namespace visage::gpu {
     };
 
     Context* context = nullptr;
+    std::atomic<uint32_t> contents_generation = 0;
 
     uint32_t formatBytes(TextureFormat format) {
       switch (format) {
@@ -377,6 +386,8 @@ namespace visage::gpu {
       BufferEntry& entry = context->buffers[idx];
       entry.desc = desc;
       entry.stride = stride;
+      if (memory && !desc.dynamic)
+        entry.initial_data.assign(memory->data, memory->data + memory->size);
       bool created = context->backend->createBuffer(idx, desc, memory ? memory->data : nullptr);
       release(memory);
       if (!created) {
@@ -505,6 +516,7 @@ namespace visage::gpu {
 
     new_context->backend = std::move(backend);
     context = new_context.release();
+    contents_generation++;
     return true;
   }
 
@@ -679,6 +691,8 @@ namespace visage::gpu {
 
     FrameBufferEntry& entry = context->frame_buffers[idx];
     entry.swap_chain = true;
+    entry.window_handle = window_handle;
+    entry.format = format;
     entry.width = width;
     entry.height = height;
     return { idx };
@@ -707,6 +721,7 @@ namespace visage::gpu {
     Context* current = context;
     if (current == nullptr || !isValid(handle))
       return true;
+    std::lock_guard<std::mutex> lock(current->backend_mutex);
     return current->backend->waitForFrame(handle.idx, timeout_ms);
   }
 
@@ -804,8 +819,6 @@ namespace visage::gpu {
     ShaderEntry& entry = context->shaders[idx];
     for (const ShaderUniform& uniform : info.uniforms)
       entry.uniform_slots.push_back(uniformSlot(uniform.name));
-    info.code.clear();
-    info.code.shrink_to_fit();
     entry.info = std::move(info);
     return { idx };
   }
@@ -1066,6 +1079,80 @@ namespace visage::gpu {
     context->view_items[view].push_back({ ViewItem::Blit, index });
   }
 
+  static std::unique_ptr<Backend> createInitializedBackend(Caps& caps) {
+    std::unique_ptr<Backend> backend = createBackend(context->init.type);
+    if (backend && backend->init(context->init, caps))
+      return backend;
+    if (backend)
+      backend->shutdown();
+    return nullptr;
+  }
+
+  static void recreateResources() {
+    Backend* backend = context->backend.get();
+    context->textures.forEach([&](uint16_t idx) {
+      if (!context->textures[idx].owned_by_frame_buffer)
+        backend->createTexture(idx, context->textures[idx].desc, nullptr, 0);
+    });
+    context->buffers.forEach([&](uint16_t idx) {
+      const BufferEntry& entry = context->buffers[idx];
+      backend->createBuffer(idx, entry.desc, entry.initial_data.empty() ? nullptr : entry.initial_data.data());
+    });
+    context->shaders.forEach([&](uint16_t idx) { backend->createShader(idx, context->shaders[idx].info); });
+    context->programs.forEach([&](uint16_t idx) {
+      const ProgramEntry& entry = context->programs[idx];
+      if (entry.compute)
+        backend->createComputeProgram(idx, entry.vertex);
+      else
+        backend->createProgram(idx, entry.vertex, entry.fragment);
+    });
+    context->frame_buffers.forEach([&](uint16_t idx) {
+      const FrameBufferEntry& entry = context->frame_buffers[idx];
+      if (entry.swap_chain) {
+        backend->createSwapChain(idx, entry.window_handle, context->init.display, entry.width, entry.height,
+                                 entry.format);
+      }
+      else if (context->textures.valid(entry.texture)) {
+        backend->createTexture(entry.texture, context->textures[entry.texture].desc, nullptr, 0);
+        backend->createFrameBuffer(idx, entry.texture);
+      }
+    });
+  }
+
+  static void recoverDevice() {
+    Caps caps;
+    bool recovered = false;
+    {
+      std::lock_guard<std::mutex> lock(context->backend_mutex);
+      context->backend->shutdown();
+      context->backend = createInitializedBackend(caps);
+      recovered = context->backend != nullptr;
+      if (!recovered) {
+        caps = Caps();
+        context->backend = createNoopBackend();
+        context->backend->init(context->init, caps);
+      }
+    }
+
+    context->caps = caps;
+    recreateResources();
+    context->lost = !recovered;
+    contents_generation++;
+  }
+
+  uint32_t contentsGeneration() {
+    return contents_generation;
+  }
+
+  bool deviceLost() {
+    return context && (context->lost || context->simulate_loss || context->backend->deviceLost());
+  }
+
+  void simulateDeviceLoss() {
+    if (context)
+      context->simulate_loss = true;
+  }
+
   uint32_t frameNumber() {
     return context ? context->frame_number : 0;
   }
@@ -1073,6 +1160,9 @@ namespace visage::gpu {
   uint32_t frame() {
     if (context == nullptr)
       return 0;
+
+    if (context->lost || context->backend->deviceLost())
+      recoverDevice();
 
     auto start = std::chrono::steady_clock::now();
     Backend* backend = context->backend.get();
@@ -1157,6 +1247,11 @@ namespace visage::gpu {
       }
       if (valid)
         destroyNow(destroy);
+    }
+
+    if (context->simulate_loss || backend->deviceLost()) {
+      context->simulate_loss = false;
+      recoverDevice();
     }
 
     auto end = std::chrono::steady_clock::now();

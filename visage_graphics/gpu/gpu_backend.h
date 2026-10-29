@@ -206,6 +206,7 @@ namespace visage::gpu {
     virtual void resizeSwapChain(uint16_t idx, int width, int height) = 0;
     virtual void destroyFrameBuffer(uint16_t idx) = 0;
     virtual bool waitForFrame(uint16_t idx, int timeout_ms) = 0;
+    virtual bool deviceLost() { return false; }
 
     virtual void beginFrame(uint32_t frame_number) = 0;
     virtual void submitFrame(const FrameData& frame, Stats& stats) = 0;

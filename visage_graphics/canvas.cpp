@@ -78,7 +78,31 @@ namespace visage {
     setClampBounds(0, 0, width, height);
   }
 
+  void Canvas::restoreLostContents() {
+    static uint32_t font_generation = 0;
+    uint32_t generation = gpu::contentsGeneration();
+    if (font_generation != generation) {
+      font_generation = generation;
+      FontCache::releaseTextures();
+    }
+
+    gradient_atlas_.destroy();
+    image_atlas_.destroyTexture();
+    data_atlas_.destroyTexture();
+    path_atlas_.invalidateAll();
+    for (Layer* layer : layers_)
+      layer->invalidateContents();
+  }
+
   int Canvas::submit(int submit_pass) {
+    if (gpu::deviceLost())
+      advanceFrame();
+
+    if (contents_generation_ != gpu::contentsGeneration()) {
+      contents_generation_ = gpu::contentsGeneration();
+      restoreLostContents();
+    }
+
     beginBufferPoolFrame();
     for (int i = 1; i < layers_.size(); ++i)
       layers_[i]->updateHdr(*layers_[i - 1]);
