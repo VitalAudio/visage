@@ -59,7 +59,7 @@ namespace visage::gpu {
       Reader(const uint8_t* data, uint32_t size) : data_(data), size_(size) { }
 
       bool u8(uint8_t& value) {
-        if (position_ + 1 > size_)
+        if (position_ >= size_)
           return false;
         value = data_[position_++];
         return true;
@@ -79,7 +79,7 @@ namespace visage::gpu {
         return true;
       }
       bool bytes(void* result, uint32_t size) {
-        if (position_ + size > size_)
+        if (size > size_ - position_)
           return false;
         std::memcpy(result, data_ + position_, size);
         position_ += size;
@@ -92,6 +92,8 @@ namespace visage::gpu {
         value.resize(length);
         return bytes(value.data(), length);
       }
+
+      uint32_t remaining() const { return size_ - position_; }
 
     private:
       const uint8_t* data_ = nullptr;
@@ -174,6 +176,11 @@ namespace visage::gpu {
     }
     if (!reader.u32(info.uniform_block_size))
       return false;
+    for (const ShaderUniform& uniform : info.uniforms) {
+      uint32_t element_bytes = uniform.type == UniformType::Mat4 ? 64 : (uniform.type == UniformType::Mat3 ? 48 : 16);
+      if (uniform.num == 0 || uniform.offset + element_bytes * uniform.num > info.uniform_block_size)
+        return false;
+    }
 
     uint8_t num_samplers = 0;
     if (!reader.u8(num_samplers))
@@ -216,7 +223,7 @@ namespace visage::gpu {
     }
 
     uint32_t code_size = 0;
-    if (!reader.u32(code_size))
+    if (!reader.u32(code_size) || code_size > reader.remaining())
       return false;
     info.code.resize(code_size);
     return reader.bytes(info.code.data(), code_size);

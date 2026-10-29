@@ -702,13 +702,66 @@ namespace visage::gpu {
       }
     }
 
+    static uint16_t halfFromFloat(float value) {
+      uint32_t bits = 0;
+      std::memcpy(&bits, &value, sizeof(bits));
+      uint32_t sign = (bits >> 16) & 0x8000;
+      int exponent = static_cast<int>((bits >> 23) & 0xff) - 127 + 15;
+      uint32_t mantissa = bits & 0x7fffff;
+      if (((bits >> 23) & 0xff) == 0xff)
+        return static_cast<uint16_t>(sign | 0x7c00 | (mantissa ? 0x200 : 0));
+      if (exponent >= 31)
+        return static_cast<uint16_t>(sign | 0x7c00);
+      if (exponent <= 0) {
+        if (exponent < -10)
+          return static_cast<uint16_t>(sign);
+        mantissa |= 0x800000;
+        return static_cast<uint16_t>(sign | (mantissa >> (14 - exponent)));
+      }
+      return static_cast<uint16_t>(sign | (exponent << 10) | (mantissa >> 13));
+    }
+
     void readTexture(Texture& texture, void* data) {
+      int width = texture.desc.width;
+      int height = texture.desc.height;
+      size_t pixels = static_cast<size_t>(width) * height;
       glBindFramebuffer(GL_READ_FRAMEBUFFER, read_framebuffer_);
       glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture.texture, 0);
-      glReadPixels(0, 0, texture.desc.width, texture.desc.height, texture.format.format, texture.format.type, data);
+
+      switch (texture.desc.format) {
+      case TextureFormat::RGBA8:
+      case TextureFormat::BGRA8:
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        if (texture.desc.format == TextureFormat::BGRA8)
+          swizzleRedBlue(static_cast<uint8_t*>(data), pixels);
+        break;
+      case TextureFormat::R8: {
+        std::vector<uint8_t> rgba(pixels * 4);
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+        auto result = static_cast<uint8_t*>(data);
+        for (size_t i = 0; i < pixels; ++i)
+          result[i] = rgba[i * 4];
+        break;
+      }
+      default: {
+        std::vector<float> rgba(pixels * 4);
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT, rgba.data());
+        if (texture.desc.format == TextureFormat::RGBA32F)
+          std::memcpy(data, rgba.data(), rgba.size() * sizeof(float));
+        else if (texture.desc.format == TextureFormat::R32F) {
+          auto result = static_cast<float*>(data);
+          for (size_t i = 0; i < pixels; ++i)
+            result[i] = rgba[i * 4];
+        }
+        else {
+          auto result = static_cast<uint16_t*>(data);
+          for (size_t i = 0; i < rgba.size(); ++i)
+            result[i] = halfFromFloat(rgba[i]);
+        }
+        break;
+      }
+      }
       glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-      if (texture.desc.format == TextureFormat::BGRA8)
-        swizzleRedBlue(static_cast<uint8_t*>(data), static_cast<size_t>(texture.desc.width) * texture.desc.height);
     }
 
     Init init_;

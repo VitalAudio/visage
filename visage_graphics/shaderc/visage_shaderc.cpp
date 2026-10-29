@@ -291,6 +291,15 @@ namespace {
 
   private:
     IncludeResult* find(const char* header_name, const char* includer_name, bool local) {
+      static constexpr char kComputeInclude[] = "bgfx_compute.sh";
+      static constexpr char kComputeSource[] = "vec2 vec2_splat(float _x) { return vec2(_x, _x); }\n"
+                                               "vec3 vec3_splat(float _x) { return vec3(_x, _x, _x); }\n"
+                                               "vec4 vec4_splat(float _x) { return vec4(_x, _x, _x, _x); }\n";
+      if (std::strcmp(header_name, kComputeInclude) == 0) {
+        auto contents = new std::string(kComputeSource);
+        return new IncludeResult(kComputeInclude, contents->data(), contents->size(), contents);
+      }
+
       std::vector<std::filesystem::path> search;
       if (local && includer_name && includer_name[0])
         search.push_back(std::filesystem::path(includer_name).parent_path());
