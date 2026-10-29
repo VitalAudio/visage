@@ -596,6 +596,7 @@ namespace manual {
           { "IBeam", visage::MouseCursor::IBeam },
           { "Crosshair", visage::MouseCursor::Crosshair },
           { "Pointing", visage::MouseCursor::Pointing },
+          { "Drag", visage::MouseCursor::Drag },
           { "Dragging", visage::MouseCursor::Dragging },
           { "HorizontalResize", visage::MouseCursor::HorizontalResize },
           { "VerticalResize", visage::MouseCursor::VerticalResize },
