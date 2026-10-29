@@ -470,7 +470,7 @@ namespace visage {
 
       setBlendMode(BlendMode::Opaque);
       setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(scratch), sampler);
-      setScreenVertexBuffer(inverted);
+      setScreenVertexBuffer(inverted && !(in_place && stages == 0));
 
       bgfx::setIndexBuffer(screenBuffers().index_buffer);
       if (in_place && stages == 0)
@@ -492,7 +492,7 @@ namespace visage {
         setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(levels[i]), sampler);
         setPostEffectUniform<Uniforms::kResampleValues>(dest_width * 0.5f / widths_[i],
                                                         dest_height * 0.5f / heights_[i]);
-        setScreenVertexBuffer(inverted);
+        setScreenVertexBuffer(inverted && !(i == 1 && in_place));
         bgfx::setIndexBuffer(screenBuffers().index_buffer);
         if (i == 1 && in_place)
           setRegionView(submit_pass, region);
