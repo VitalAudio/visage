@@ -22,17 +22,29 @@
 #include "image.h"
 
 #include <bgfx/bgfx.h>
-#include <bimg/decode.h>
-#include <bx/allocator.h>
 #include <cstring>
+
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_STATIC
+#define STBI_NO_STDIO
+#include <stb/stb_image.h>
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include <stb_image_resize2.h>
 
 namespace visage {
-  static bx::DefaultAllocator* allocator() {
-    static bx::DefaultAllocator allocator;
-    return &allocator;
+  struct DecodedImage {
+    ~DecodedImage() { stbi_image_free(data); }
+
+    unsigned char* data = nullptr;
+    int width = 0;
+    int height = 0;
+  };
+
+  static bool decodeImage(const unsigned char* data, int size, DecodedImage& result) {
+    int channels = 0;
+    result.data = stbi_load_from_memory(data, size, &result.width, &result.height, &channels, 4);
+    return result.data != nullptr;
   }
 
   class ImageAtlasTexture {
@@ -98,11 +110,10 @@ namespace visage {
       int width = image.width;
       int height = image.height;
       if (image.width == 0 && image.data && image.data_size > 0) {
-        bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image.data, image.data_size);
-        if (image_container) {
-          width = image_container->m_width;
-          height = image_container->m_height;
-          bimg::imageFree(image_container);
+        int channels = 0;
+        if (!stbi_info_from_memory(image.data, image.data_size, &width, &height, &channels)) {
+          width = 0;
+          height = 0;
         }
       }
 
@@ -169,23 +180,20 @@ namespace visage {
     if (image->image.data == nullptr || image->image.data_size <= 0)
       return;
 
-    bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image->image.data,
-                                                             image->image.data_size,
-                                                             bimg::TextureFormat::RGBA8);
-    if (image_container) {
-      unsigned char* image_data = static_cast<unsigned char*>(image_container->m_data);
-      if (image_container->m_width == packed_rect.w && image_container->m_height == packed_rect.h)
+    DecodedImage decoded;
+    if (decodeImage(image->image.data, image->image.data_size, decoded)) {
+      unsigned char* image_data = decoded.data;
+      if (decoded.width == packed_rect.w && decoded.height == packed_rect.h)
         texture_->updateTexture(image_data, packed_rect.x, packed_rect.y, packed_rect.w, packed_rect.h);
       else {
         int size = packed_rect.w * packed_rect.h * numChannels();
         std::unique_ptr<unsigned char[]> resampled = std::make_unique<unsigned char[]>(size);
-        stbir_resize_uint8_srgb(image_data, image_container->m_width, image_container->m_height,
-                                image_container->m_width * numChannels(), resampled.get(),
+        stbir_resize_uint8_srgb(image_data, decoded.width, decoded.height,
+                                decoded.width * numChannels(), resampled.get(),
                                 packed_rect.w, packed_rect.h, packed_rect.w * numChannels(), STBIR_RGBA);
         texture_->updateTexture(resampled.get(), packed_rect.x, packed_rect.y, packed_rect.w,
                                 packed_rect.h);
       }
-      bimg::imageFree(image_container);
     }
     else
       VISAGE_ASSERT(false);
