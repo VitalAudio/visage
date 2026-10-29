@@ -32,9 +32,9 @@
 namespace visage {
   static std::string shaderExecutable() {
 #if VISAGE_WINDOWS
-    return "shaderc.exe";
+    return "visage_shaderc.exe";
 #else
-    return "shaderc";
+    return "visage_shaderc";
 #endif
   }
 

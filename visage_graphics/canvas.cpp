@@ -25,11 +25,11 @@
 #include "renderer.h"
 #include "theme.h"
 
-#include <bgfx/bgfx.h>
+#include "gpu/gpu.h"
 
 namespace visage {
   bool Canvas::swapChainSupported() {
-    return bgfx::getCaps()->supported & BGFX_CAPS_SWAP_CHAIN;
+    return gpu::getCaps()->swap_chain;
   }
 
   Canvas::Canvas() :
@@ -58,17 +58,14 @@ namespace visage {
   }
 
   void Canvas::removeFromWindow() {
-    if (composite_layer_.removeFromWindow()) {
+    if (composite_layer_.removeFromWindow())
       advanceFrame();
-      advanceFrame();
-    }
   }
 
   void Canvas::setWindowless(int width, int height) {
     setDimensions(width, height);
     composite_layer_.setWindowlessRender(width, height);
     Renderer::instance().initializeWindowless();
-    bgfx::reset(BGFX_RESET_FLUSH_AFTER_RENDER | BGFX_RESET_FLIP_AFTER_RENDER);
   }
 
   void Canvas::setDimensions(int width, int height) {
@@ -114,8 +111,6 @@ namespace visage {
       composite_layer_.invalidate();
       submission = composite_layer_.submit(submission, backdrop_count);
       advanceFrame();
-      if (render_frame_ == 0)
-        advanceFrame();
       endBufferPoolFrame();
 
       render_frame_++;
@@ -132,16 +127,20 @@ namespace visage {
     return submission;
   }
 
-  const Screenshot& Canvas::takeScreenshot() {
-    static constexpr int kCaptureFrames = 2;
+  int Canvas::frameBufferId() const {
+    gpu::FrameBufferHandle handle = composite_layer_.frameBuffer();
+    return gpu::isValid(handle) ? handle.idx : -1;
+  }
 
+  bool Canvas::waitForFrame(int frame_buffer_id, int timeout_ms) {
+    gpu::FrameBufferHandle handle = { static_cast<uint16_t>(frame_buffer_id) };
+    return frame_buffer_id < 0 || gpu::waitForFrame(handle, timeout_ms);
+  }
+
+  const Screenshot& Canvas::takeScreenshot() {
     composite_layer_.requestScreenshot();
     default_region_.invalidate();
     submit();
-    if (!composite_layer_.isHeadlessRender()) {
-      for (int i = 0; i < kCaptureFrames; ++i)
-        advanceFrame();
-    }
     return composite_layer_.screenshot();
   }
 
@@ -219,43 +218,18 @@ namespace visage {
   }
 
   std::vector<std::string> Canvas::debugInfo() const {
-    static const std::vector<std::pair<unsigned long long, std::string>> caps_list {
-      { BGFX_CAPS_BLEND_INDEPENDENT, "Blend independent is supported." },
-      { BGFX_CAPS_COMPUTE, "Compute shaders are supported." },
-      { BGFX_CAPS_CONSERVATIVE_RASTER, "Conservative rasterization is supported." },
-      { BGFX_CAPS_DRAW_INDIRECT, "Draw indirect is supported." },
-      { BGFX_CAPS_FRAGMENT_ORDERING, "Fragment ordering is available in fragment shader." },
-      { BGFX_CAPS_GRAPHICS_DEBUGGER, "Graphics debugger is present." },
-      { BGFX_CAPS_HDR10, "HDR10 rendering is supported." },
-      { BGFX_CAPS_IMAGE_RW, "Image Read/Write is supported." },
-      { BGFX_CAPS_INDEX32, "32-bit indices are supported." },
-      { BGFX_CAPS_RENDERER_MULTITHREADED, "Renderer is on separate thread." },
-      { BGFX_CAPS_SWAP_CHAIN, "Multiple windows are supported." },
-      { BGFX_CAPS_TEXTURE_CUBE_ARRAY, "Cubemap texture array is supported." },
-      { BGFX_CAPS_TEXTURE_DIRECT_ACCESS, "CPU direct access to GPU texture memory." },
-      { BGFX_CAPS_VERTEX_ATTRIB_UINT10, "Vertex attribute 10_10_10_2 is supported." },
-      { BGFX_CAPS_VIEWPORT_LAYER_ARRAY, "Viewport layer is available in vertex shader." },
-    };
-
-    const bgfx::Caps* caps = bgfx::getCaps();
+    const gpu::Caps* caps = gpu::getCaps();
     std::vector<std::string> result;
-    result.push_back(std::string("Graphics API: ") + bgfx::getRendererName(caps->rendererType));
+    result.push_back(std::string("Graphics API: ") + gpu::rendererName(caps->renderer));
     float hz = 1.0f / std::max(0.001f, refresh_time_);
     result.push_back("Refresh Rate : " + std::to_string(hz) + " Hz");
 
-    const bgfx::Stats* stats = bgfx::getStats();
-    result.push_back("Render wait: " + std::to_string(stats->waitRender));
-    result.push_back("Submit wait: " + std::to_string(stats->waitSubmit));
-    result.push_back("Draw number: " + std::to_string(stats->numDraw));
-    result.push_back("Num views: " + std::to_string(stats->numViews));
-
-    for (auto& cap : caps_list) {
-      if (caps->supported & cap.first)
-        result.push_back("YES - " + cap.second);
-      else
-        result.push_back("    - " + cap.second);
-    }
-
+    const gpu::Stats* stats = gpu::getStats();
+    result.push_back("Frame submit: " + std::to_string(stats->cpu_frame_ms) + " ms");
+    result.push_back("Draw number: " + std::to_string(stats->num_draws));
+    result.push_back("Num views: " + std::to_string(stats->num_views));
+    result.push_back(std::string(caps->compute ? "YES" : "    ") + " - Compute shaders are supported.");
+    result.push_back(std::string(caps->swap_chain ? "YES" : "    ") + " - Multiple windows are supported.");
     return result;
   }
 

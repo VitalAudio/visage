@@ -277,6 +277,7 @@ namespace visage::gpu {
   const char* rendererName(RendererType type);
 
   bool init(const Init& init);
+  void setDisplay(void* display);
   void shutdown();
   bool initialized();
   const Caps* getCaps();

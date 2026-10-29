@@ -57,24 +57,24 @@ namespace visage {
   void setUniformDimensions(int width, int height);
   void setOriginFlipUniform(bool origin_flip);
   void setBlendMode(BlendMode draw_state);
-  void submitBlended(BlendMode blend_mode, int submit_pass, bgfx::ProgramHandle program);
+  void submitBlended(BlendMode blend_mode, int submit_pass, gpu::ProgramHandle program);
   void setAlphaClamp(const Layer& layer);
 
   static constexpr uint64_t kBufferPoolChunkBytes = 4 << 20;
 
   void beginBufferPoolFrame();
   void endBufferPoolFrame();
-  uint32_t advanceFrame(uint8_t flags = 0);
+  uint32_t advanceFrame();
   void releaseBufferPools();
   void releaseBufferPoolStaging();
-  uint64_t bufferPoolCapacity(const bgfx::VertexLayout& layout);
-  uint64_t bufferPoolStagingBytes(const bgfx::VertexLayout& layout);
+  uint64_t bufferPoolCapacity(const gpu::VertexLayout& layout);
+  uint64_t bufferPoolStagingBytes(const gpu::VertexLayout& layout);
   int maxQuadsPerChunk(int vertex_size);
   void flushBufferPoolFrame();
   void reserveBufferPoolBytes(uint64_t bytes);
-  uint8_t* initQuadVerticesWithLayout(int num_quads, const bgfx::VertexLayout& layout);
-  uint8_t* initVerticesWithLayout(int num_vertices, const bgfx::VertexLayout& layout);
-  bool initIndexedVerticesWithLayout(int num_vertices, const bgfx::VertexLayout& layout,
+  uint8_t* initQuadVerticesWithLayout(int num_quads, const gpu::VertexLayout& layout);
+  uint8_t* initVerticesWithLayout(int num_vertices, const gpu::VertexLayout& layout);
+  bool initIndexedVerticesWithLayout(int num_vertices, const gpu::VertexLayout& layout,
                                      int num_indices, uint8_t** vertices, uint32_t** indices);
 
   template<typename T>

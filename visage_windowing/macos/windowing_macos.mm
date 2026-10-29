@@ -533,7 +533,7 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
 }
 
 - (void)drawInMTKView:(MTKView*)view {
-  if (!view.currentDrawable || !view.currentRenderPassDescriptor)
+  if (view.drawableSize.width <= 0 || view.drawableSize.height <= 0)
     return;
 
   view.layer.contentsScale = self.visage_window->dpiScale();

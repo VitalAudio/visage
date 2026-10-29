@@ -103,6 +103,8 @@ namespace visage {
     double time() const { return render_time_; }
     double deltaTime() const { return delta_time_; }
     int frameCount() const { return render_frame_; }
+    int frameBufferId() const;
+    static bool waitForFrame(int frame_buffer_id, int timeout_ms);
 
     void setBlendMode(BlendMode blend_mode) { state_.blend_mode = blend_mode; }
 

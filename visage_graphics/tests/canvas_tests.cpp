@@ -23,6 +23,7 @@
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/color.h"
 #include "visage_graphics/gradient.h"
+#include "visage_graphics/gpu/gpu.h"
 #include "visage_graphics/graphics_caches.h"
 #include "visage_graphics/post_effects.h"
 #include "visage_graphics/renderer.h"
@@ -31,7 +32,6 @@
 #include "visage_utils/child_process.h"
 #include "visage_utils/file_system.h"
 
-#include <bgfx/bgfx.h>
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <cstdlib>
@@ -703,10 +703,10 @@ TEST_CASE("Windowless canvas resizes don't leak textures", "[graphics]") {
   };
 
   screenshot(16);
-  int textures = bgfx::getStats()->numTextures;
+  int textures = gpu::getStats()->num_textures;
   for (int i = 0; i < 8; ++i)
     screenshot(17 + i);
-  REQUIRE(bgfx::getStats()->numTextures <= textures);
+  REQUIRE(gpu::getStats()->num_textures <= textures);
 }
 
 TEST_CASE("Destroying blur and bloom effects doesn't leak vertex buffers", "[graphics]") {
@@ -738,12 +738,12 @@ TEST_CASE("Destroying blur and bloom effects doesn't leak vertex buffers", "[gra
   };
 
   draw_effects();
-  bgfx::frame();
-  int vertex_buffers = bgfx::getStats()->numVertexBuffers;
+  gpu::frame();
+  int vertex_buffers = gpu::getStats()->num_buffers;
   for (int i = 0; i < 4; ++i)
     draw_effects();
-  bgfx::frame();
-  REQUIRE(bgfx::getStats()->numVertexBuffers <= vertex_buffers);
+  gpu::frame();
+  REQUIRE(gpu::getStats()->num_buffers <= vertex_buffers);
 }
 
 TEST_CASE("Canvas screenshot shows the current frame", "[graphics]") {
@@ -785,7 +785,7 @@ TEST_CASE("Resizing a post effect region doesn't render extra frames", "[graphic
   region.setBounds(0, 0, 32, 32);
 
   auto frames = [&] {
-    uint32_t start = bgfx::frame();
+    uint32_t start = gpu::frame();
     region.clear();
     region.invalidate();
     canvas.beginRegion(&region);
@@ -793,7 +793,7 @@ TEST_CASE("Resizing a post effect region doesn't render extra frames", "[graphic
     canvas.fill(0, 0, region.width(), region.height());
     canvas.endRegion();
     canvas.submit();
-    return bgfx::frame() - start - 1;
+    return gpu::frame() - start - 1;
   };
 
   frames();
@@ -1559,7 +1559,7 @@ TEST_CASE("Blurred regions share temporary frame buffers", "[graphics]") {
       canvas.endRegion();
     }
     canvas.submit();
-    return bgfx::getStats()->numFrameBuffers;
+    return gpu::getStats()->num_frame_buffers;
   };
 
   int without_blur = frame_buffers();
@@ -1600,7 +1600,7 @@ TEST_CASE("Blurred regions only blur again when their content changes", "[graphi
       canvas.endRegion();
       canvas.submit();
     }
-    return bgfx::getStats()->numDraw;
+    return gpu::getStats()->num_draws;
   };
 
   REQUIRE(draws_per_frame(5) == draws_per_frame(0));
@@ -2002,7 +2002,7 @@ TEST_CASE("Canvas draws a batch too big for 16-bit indices", "[graphics]") {
   REQUIRE(screenshot.sample(kWidth - 1, kHeight - 1).hexRed() == 0xff);
 }
 
-TEST_CASE("Buffer pools fail cleanly when bgfx runs out of buffer handles", "[graphics]") {
+TEST_CASE("Buffer pools fail cleanly when the GPU runs out of buffer handles", "[graphics]") {
   static constexpr int kIdleFrames = 130;
   Canvas canvas;
   canvas.setWindowless(20, 20);
@@ -2011,14 +2011,14 @@ TEST_CASE("Buffer pools fail cleanly when bgfx runs out of buffer handles", "[gr
     canvas.submit();
   REQUIRE(bufferPoolCapacity(UvVertex::layout()) == 0);
 
-  std::vector<bgfx::DynamicVertexBufferHandle> handles;
-  for (bgfx::DynamicVertexBufferHandle handle = bgfx::createDynamicVertexBuffer(1, UvVertex::layout());
-       bgfx::isValid(handle); handle = bgfx::createDynamicVertexBuffer(1, UvVertex::layout()))
+  std::vector<gpu::BufferHandle> handles;
+  for (gpu::BufferHandle handle = gpu::createDynamicVertexBuffer(1, UvVertex::layout());
+       gpu::isValid(handle); handle = gpu::createDynamicVertexBuffer(1, UvVertex::layout()))
     handles.push_back(handle);
 
   REQUIRE(initQuadVertices<UvVertex>(1) == nullptr);
-  for (bgfx::DynamicVertexBufferHandle handle : handles)
-    bgfx::destroy(handle);
+  for (gpu::BufferHandle handle : handles)
+    gpu::destroy(handle);
   canvas.takeScreenshot();
 
   canvas.setColor(0xffffffff);
@@ -2031,9 +2031,9 @@ TEST_CASE("Buffer pools persist across frames and are released when idle", "[gra
   static constexpr int kHeight = 100;
   static constexpr int kIdleFrames = 130;
   auto num_dynamic_buffers = []() {
-    bgfx::frame();
-    bgfx::frame();
-    return bgfx::getStats()->numDynamicVertexBuffers;
+    gpu::frame();
+    gpu::frame();
+    return gpu::getStats()->num_buffers;
   };
 
   Canvas canvas;
@@ -2060,88 +2060,6 @@ TEST_CASE("Buffer pools persist across frames and are released when idle", "[gra
   REQUIRE(num_dynamic_buffers() == baseline);
 }
 
-static void fillTransientBuffers() {
-  bgfx::TransientVertexBuffer filler {};
-  uint32_t available = bgfx::getAvailTransientVertexBuffer(UINT32_MAX, UvVertex::layout());
-  if (available)
-    bgfx::allocTransientVertexBuffer(&filler, available, UvVertex::layout());
-}
-
-TEST_CASE("Paths render when the transient buffers are full", "[graphics]") {
-  Canvas canvas;
-  canvas.setWindowless(40, 40);
-  canvas.submit();
-  canvas.setColor(0xff000000);
-  canvas.fill(0, 0, 40, 40);
-
-  Path path;
-  path.moveTo(4, 4);
-  path.lineTo(36, 4);
-  path.lineTo(36, 36);
-  path.lineTo(4, 36);
-  path.close();
-  canvas.setColor(0xffffffff);
-  canvas.fill(path);
-
-  fillTransientBuffers();
-  REQUIRE(canvas.takeScreenshot().sample(20, 20).hexRed() == 0xff);
-}
-
-TEST_CASE("Post effects render when the transient buffers are full", "[graphics]") {
-  Canvas canvas;
-  canvas.setWindowless(64, 64);
-  canvas.submit();
-  BlurPostEffect blur;
-  blur.setBlurRadius(10.0f);
-  Region region;
-  canvas.addRegion(&region);
-  region.setNeedsLayer(true);
-  region.setPostEffect(&blur);
-  region.setBounds(0, 0, 64, 64);
-  canvas.beginRegion(&region);
-  canvas.setColor(0xffff0000);
-  canvas.fill(0, 0, 32, 64);
-  canvas.setColor(0xff0000ff);
-  canvas.fill(32, 0, 32, 64);
-  canvas.endRegion();
-
-  fillTransientBuffers();
-  Color center = canvas.takeScreenshot().sample(32, 32);
-  REQUIRE(center.hexRed() > 0x20);
-  REQUIRE(center.hexBlue() > 0x20);
-}
-
-TEST_CASE("Backdrop effects render when the transient buffers are full", "[graphics]") {
-  Canvas canvas;
-  canvas.setWindowless(64, 32);
-  canvas.submit();
-  BlurPostEffect blur;
-  blur.setBlurRadius(8.0f);
-  Region panel;
-  Region glass;
-  canvas.addRegion(&panel);
-  panel.setNeedsLayer(true);
-  panel.setBounds(0, 0, 64, 32);
-  panel.addRegion(&glass);
-  glass.setNeedsLayer(true);
-  glass.setBackdropEffect(&blur);
-  glass.setBounds(16, 0, 32, 32);
-
-  canvas.beginRegion(&panel);
-  canvas.setColor(0xffff0000);
-  canvas.fill(0, 0, 32, 32);
-  canvas.setColor(0xff0000ff);
-  canvas.fill(32, 0, 32, 32);
-  canvas.endRegion();
-  canvas.beginRegion(&glass);
-  canvas.endRegion();
-
-  fillTransientBuffers();
-  Color center = canvas.takeScreenshot().sample(32, 16);
-  REQUIRE(center.hexRed() > 0x20);
-  REQUIRE(center.hexBlue() > 0x20);
-}
-
 TEST_CASE("Buffer pools shrink to recent use and are released when unused", "[graphics]") {
   static constexpr int kUsageFrames = 120;
   Canvas canvas;
@@ -2152,13 +2070,13 @@ TEST_CASE("Buffer pools shrink to recent use and are released when unused", "[gr
     beginBufferPoolFrame();
     if (num_quads)
       REQUIRE(initQuadVertices<UvVertex>(num_quads) != nullptr);
-    bgfx::discard();
-    bgfx::frame();
+    gpu::discard();
+    gpu::frame();
     endBufferPoolFrame();
   };
   auto capacity = [] { return bufferPoolCapacity(UvVertex::layout()); };
   auto staging = [] { return bufferPoolStagingBytes(UvVertex::layout()); };
-  uint64_t stride = UvVertex::layout().getStride();
+  uint64_t stride = UvVertex::layout().stride();
 
   for (int i = 0; i < 3 * kUsageFrames && capacity(); ++i)
     frame(0);
@@ -2281,17 +2199,17 @@ TEST_CASE("Buffer pools keep staging when later splits leave every block idle", 
   int text_quads = maxQuadsPerChunk(sizeof(TextureVertex));
   auto draw_chunks = [&] {
     for (int i = 0; i < 3; ++i) {
-      bgfx::discard();
+      gpu::discard();
       reserveBufferPoolBytes(uint64_t(shape_quads) * kVerticesPerQuad * sizeof(ShapeVertex));
       REQUIRE(initQuadVertices<ShapeVertex>(shape_quads) != nullptr);
     }
     for (int i = 0; i < 2; ++i) {
-      bgfx::discard();
+      gpu::discard();
       reserveBufferPoolBytes(uint64_t(text_quads) * kVerticesPerQuad * sizeof(TextureVertex));
       REQUIRE(initQuadVertices<TextureVertex>(text_quads) != nullptr);
     }
-    bgfx::discard();
-    bgfx::frame();
+    gpu::discard();
+    gpu::frame();
     endBufferPoolFrame();
   };
   auto staging = [] { return bufferPoolStagingBytes(ShapeVertex::layout()); };
@@ -2987,19 +2905,16 @@ TEST_CASE("Radial gradients with focal radii at or beyond the radius render like
 TEST_CASE("Renderer reads captured screenshots in their format and row order", "[graphics]") {
   struct Capture {
     const void* data;
-    int format;
+    bool bgra;
     bool y_flip;
   };
 
   static const uint8_t kBgraBottomUp[] = { 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0xff };
   static const uint8_t kRgbaTopDown[] = { 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0xff };
-  static const uint32_t kRgb10A2TopDown[] = { 0xc00003ff, 0xfff00000 };
-  for (const Capture& capture : { Capture { kBgraBottomUp, bgfx::TextureFormat::BGRA8, true },
-                                  Capture { kRgbaTopDown, bgfx::TextureFormat::RGBA8, false },
-                                  Capture { kRgb10A2TopDown, bgfx::TextureFormat::RGB10A2, false } }) {
-    INFO("format " << capture.format);
+  for (const Capture& capture : { Capture { kBgraBottomUp, true, true }, Capture { kRgbaTopDown, false, false } }) {
+    INFO("bgra " << capture.bgra);
     Renderer::instance().setScreenshotData(static_cast<const uint8_t*>(capture.data), 1, 2, 4,
-                                           capture.format, capture.y_flip);
+                                           capture.bgra, capture.y_flip);
     const Screenshot& screenshot = Renderer::instance().screenshot();
     REQUIRE(screenshot.sample(0, 0).hexRed() == 0xff);
     REQUIRE(screenshot.sample(0, 0).hexBlue() == 0x00);
@@ -3021,8 +2936,8 @@ TEST_CASE("Layer atlas grows one side at a time", "[graphics]") {
 
   Layer* layer = first.layer();
   REQUIRE(layer->width() * layer->height() <= 4096 * 8192);
-  REQUIRE(layer->width() <= bgfx::getCaps()->limits.maxTextureSize);
-  REQUIRE(layer->height() <= bgfx::getCaps()->limits.maxTextureSize);
+  REQUIRE(layer->width() <= gpu::getCaps()->max_texture_size);
+  REQUIRE(layer->height() <= gpu::getCaps()->max_texture_size);
 }
 
 TEST_CASE("Over a hundred bloom regions all glow in their own color", "[graphics]") {
@@ -3114,7 +3029,7 @@ TEST_CASE("Blur resized every frame doesn't pile up frame buffers", "[graphics]"
   }
 
   const Screenshot& screenshot = canvas.takeScreenshot();
-  REQUIRE(bgfx::getStats()->numFrameBuffers < 200);
+  REQUIRE(gpu::getStats()->num_frame_buffers < 200);
   Color center = screenshot.sample(region.width() / 2, region.height() / 2);
   REQUIRE(center.hexRed() > 0x20);
   REQUIRE(center.hexBlue() > 0x20);
@@ -3127,11 +3042,11 @@ TEST_CASE("Temporary frame buffers are reused when their sizes come back", "[gra
   Canvas canvas;
   canvas.setWindowless(64, 64);
   Layer* layer = canvas.layer(1);
-  bgfx::FrameBufferHandle handles[kSizes];
+  gpu::FrameBufferHandle handles[kSizes];
 
   for (int submit = 0; submit < 4 * kPeriod; ++submit) {
     for (int i = submit % kPeriod; i < kSizes; i += kPeriod) {
-      bgfx::FrameBufferHandle handle = layer->temporaryFrameBuffer(16 + i, 16);
+      gpu::FrameBufferHandle handle = layer->temporaryFrameBuffer(16 + i, 16);
       if (submit >= kPeriod)
         REQUIRE(handle.idx == handles[i].idx);
       handles[i] = handle;
@@ -3165,7 +3080,7 @@ TEST_CASE("Bloom resized every frame doesn't pile up frame buffers", "[graphics]
   }
 
   const Screenshot& screenshot = canvas.takeScreenshot();
-  REQUIRE(bgfx::getStats()->numFrameBuffers < 200);
+  REQUIRE(gpu::getStats()->num_frame_buffers < 200);
   REQUIRE(screenshot.sample(region.width() / 2 + 12, region.height() / 2).hexRed() > 0x40);
 }
 
@@ -3232,23 +3147,15 @@ TEST_CASE("Thousands of live blur effects all blur", "[graphics]") {
   }
 }
 
-TEST_CASE("Shader data that bgfx rejects leaves an invalid cached handle", "[graphics]") {
+TEST_CASE("Shader data the GPU layer rejects leaves an invalid cached handle", "[graphics]") {
   static constexpr unsigned char kNotAShader[] = { 'b', 'a', 'd', ' ', 'd', 'a', 't', 'a' };
   static const EmbeddedFile kFile = { "not_a_shader", kNotAShader, sizeof(kNotAShader) };
 
   Canvas canvas;
   canvas.setWindowless(8, 8);
-  REQUIRE_FALSE(bgfx::isValid(ShaderCache::shaderHandle(kFile)));
-  REQUIRE_FALSE(bgfx::isValid(ShaderCache::shaderHandle(kFile)));
+  REQUIRE_FALSE(gpu::isValid(ShaderCache::shaderHandle(kFile)));
+  REQUIRE_FALSE(gpu::isValid(ShaderCache::shaderHandle(kFile)));
 }
-
-#ifdef NDEBUG
-TEST_CASE("Uniform names that bgfx rejects leave an invalid cached handle", "[graphics]") {
-  Canvas canvas;
-  canvas.setWindowless(8, 8);
-  REQUIRE_FALSE(bgfx::isValid(UniformCache::uniformHandle("bad name")));
-}
-#endif
 
 TEST_CASE("Subtracted shapes over transparent pixels don't darken the HDR layer below",
           "[graphics]") {

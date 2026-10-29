@@ -29,14 +29,14 @@
 #include <string>
 #include <vector>
 
-namespace bgfx {
-  struct VertexLayout;
+namespace visage::gpu {
+  class VertexLayout;
   struct TextureHandle;
+  struct FrameBufferHandle;
+  struct BufferHandle;
   struct ShaderHandle;
   struct ProgramHandle;
   struct UniformHandle;
-  struct IndexBufferHandle;
-  struct FrameBufferHandle;
 }
 
 namespace visage {
@@ -220,7 +220,7 @@ namespace visage {
     float u;
     float v;
 
-    static bgfx::VertexLayout& layout();
+    static gpu::VertexLayout& layout();
   };
 
   struct GradientTexturePosition {
@@ -264,7 +264,7 @@ namespace visage {
     float value1;
     float value2;
 
-    static bgfx::VertexLayout& layout();
+    static gpu::VertexLayout& layout();
   };
 
   struct ComplexShapeVertex {
@@ -291,7 +291,7 @@ namespace visage {
     float value5;
     float value6;
 
-    static bgfx::VertexLayout& layout();
+    static gpu::VertexLayout& layout();
   };
 
   struct TextureVertex {
@@ -310,7 +310,7 @@ namespace visage {
     float clamp_right;
     float clamp_bottom;
 
-    static bgfx::VertexLayout& layout();
+    static gpu::VertexLayout& layout();
   };
 
   struct PostEffectVertex {
@@ -329,6 +329,6 @@ namespace visage {
     float clamp_right;
     float clamp_bottom;
 
-    static bgfx::VertexLayout& layout();
+    static gpu::VertexLayout& layout();
   };
 }

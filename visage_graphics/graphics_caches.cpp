@@ -21,7 +21,8 @@
 
 #include "graphics_caches.h"
 
-#include <bgfx/bgfx.h>
+#include "gpu/gpu.h"
+
 #include <map>
 
 namespace visage {
@@ -42,15 +43,15 @@ namespace visage {
 
   template<typename T>
   static void releaseHandle(const T& current, const T& original) {
-    if (current.idx != original.idx && bgfx::isValid(current))
-      bgfx::destroy(current);
+    if (current.idx != original.idx && gpu::isValid(current))
+      gpu::destroy(current);
   }
 
   template<typename T>
   static void replaceHandle(T& current, const T& original, T replacement) {
     releaseHandle(current, original);
     if (replacement.idx == original.idx)
-      bgfx::destroy(replacement);
+      gpu::destroy(replacement);
     current = replacement;
   }
 
@@ -61,8 +62,8 @@ namespace visage {
   }
 
   struct ShaderCacheMap {
-    std::map<const char*, bgfx::ShaderHandle> cache;
-    std::map<const char*, bgfx::ShaderHandle> originals;
+    std::map<const char*, gpu::ShaderHandle> cache;
+    std::map<const char*, gpu::ShaderHandle> originals;
     std::map<std::string, const char*> name_lookup;
   };
 
@@ -78,34 +79,34 @@ namespace visage {
     for (auto& shader : cache_->cache)
       restoreHandle(shader.second, cache_->originals[shader.first]);
     for (const auto& shader : cache_->originals) {
-      if (bgfx::isValid(shader.second))
-        bgfx::destroy(shader.second);
+      if (gpu::isValid(shader.second))
+        gpu::destroy(shader.second);
     }
     cache_ = std::make_unique<ShaderCacheMap>();
   }
 
-  bgfx::ShaderHandle& ShaderCache::handle(const EmbeddedFile& file) const {
+  gpu::ShaderHandle& ShaderCache::handle(const EmbeddedFile& file) const {
     auto file_data = reinterpret_cast<const char*>(file.data);
     if (cache_->cache.count(file_data))
       return cache_->cache[file_data];
 
-    const bgfx::Memory* shader_memory = bgfx::copy(file.data, file.size);
+    const gpu::Memory* shader_memory = gpu::copy(file.data, file.size);
     cache_->name_lookup[file.name] = file_data;
-    cache_->cache[file_data] = bgfx::createShader(shader_memory);
+    cache_->cache[file_data] = gpu::createShader(shader_memory);
     cache_->originals[file_data] = cache_->cache[file_data];
 
     return cache_->cache[file_data];
   }
 
-  bgfx::ShaderHandle& ShaderCache::handle(const char* data) const {
+  gpu::ShaderHandle& ShaderCache::handle(const char* data) const {
     VISAGE_ASSERT(cache_->cache.count(data));
     return cache_->cache[data];
   }
 
   bool ShaderCache::swap(const char* original_data, const char* data, int size) const {
     VISAGE_ASSERT(cache_->cache.count(original_data));
-    bgfx::ShaderHandle handle = bgfx::createShader(bgfx::copy(data, size));
-    if (!bgfx::isValid(handle))
+    gpu::ShaderHandle handle = gpu::createShader(gpu::copy(data, size));
+    if (!gpu::isValid(handle))
       return false;
 
     replaceHandle(cache_->cache[original_data], cache_->originals[original_data], handle);
@@ -135,8 +136,8 @@ namespace visage {
 
   struct ProgramCacheMap {
     std::map<const char*, std::map<const char*, ProgramCache::ShaderPair>> shader_lookup;
-    std::map<const char*, std::map<const char*, bgfx::ProgramHandle>> cache;
-    std::map<const char*, std::map<const char*, bgfx::ProgramHandle>> originals;
+    std::map<const char*, std::map<const char*, gpu::ProgramHandle>> cache;
+    std::map<const char*, std::map<const char*, gpu::ProgramHandle>> originals;
   };
 
   ProgramCache::ProgramCache() {
@@ -150,10 +151,10 @@ namespace visage {
   void ProgramCache::releaseHandles() {
     for (auto& programs : cache_->cache) {
       for (auto& program : programs.second) {
-        const bgfx::ProgramHandle& original = cache_->originals[programs.first][program.first];
+        const gpu::ProgramHandle& original = cache_->originals[programs.first][program.first];
         restoreHandle(program.second, original);
-        if (bgfx::isValid(original))
-          bgfx::destroy(original);
+        if (gpu::isValid(original))
+          gpu::destroy(original);
       }
     }
     cache_ = std::make_unique<ProgramCacheMap>();
@@ -168,14 +169,14 @@ namespace visage {
     return results;
   }
 
-  bgfx::ProgramHandle& ProgramCache::handle(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
+  gpu::ProgramHandle& ProgramCache::handle(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
     auto vertex_data = reinterpret_cast<const char*>(vertex.data);
     auto fragment_data = reinterpret_cast<const char*>(fragment.data);
 
     if (cache_->cache.count(vertex_data) && cache_->cache[vertex_data].count(fragment_data))
       return cache_->cache[vertex_data][fragment_data];
 
-    bgfx::ProgramHandle program = bgfx::createProgram(ShaderCache::shaderHandle(vertex),
+    gpu::ProgramHandle program = gpu::createProgram(ShaderCache::shaderHandle(vertex),
                                                       ShaderCache::shaderHandle(fragment), false);
     cache_->cache[vertex_data][fragment_data] = program;
     cache_->shader_lookup[vertex_data][fragment_data] = { vertex, fragment };
@@ -185,13 +186,13 @@ namespace visage {
   }
 
   void ProgramCache::reload(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
-    bgfx::ProgramHandle& current = handle(vertex, fragment);
-    bgfx::ProgramHandle program = bgfx::createProgram(ShaderCache::shaderHandle(vertex),
+    gpu::ProgramHandle& current = handle(vertex, fragment);
+    gpu::ProgramHandle program = gpu::createProgram(ShaderCache::shaderHandle(vertex),
                                                       ShaderCache::shaderHandle(fragment), false);
     auto vertex_data = reinterpret_cast<const char*>(vertex.data);
     auto fragment_data = reinterpret_cast<const char*>(fragment.data);
 
-    if (bgfx::isValid(program))
+    if (gpu::isValid(program))
       replaceHandle(current, cache_->originals[vertex_data][fragment_data], program);
   }
 
@@ -199,10 +200,10 @@ namespace visage {
     for (auto& vertex : cache_->cache) {
       for (auto& fragment : vertex.second) {
         if (shader_data == vertex.first || shader_data == fragment.first) {
-          bgfx::ProgramHandle handle = bgfx::createProgram(ShaderCache::shaderHandle(vertex.first),
+          gpu::ProgramHandle handle = gpu::createProgram(ShaderCache::shaderHandle(vertex.first),
                                                            ShaderCache::shaderHandle(fragment.first),
                                                            false);
-          if (bgfx::isValid(handle))
+          if (gpu::isValid(handle))
             replaceHandle(fragment.second, cache_->originals[vertex.first][fragment.first], handle);
         }
       }
@@ -220,13 +221,13 @@ namespace visage {
     auto vertex_data = reinterpret_cast<const char*>(vertex.data);
     auto fragment_data = reinterpret_cast<const char*>(fragment.data);
     if (cache_->originals.count(vertex_data) && cache_->originals[vertex_data].count(fragment_data)) {
-      const bgfx::ProgramHandle& original = cache_->originals[vertex_data][fragment_data];
+      const gpu::ProgramHandle& original = cache_->originals[vertex_data][fragment_data];
       restoreHandle(cache_->cache[vertex_data][fragment_data], original);
     }
   }
 
   struct UniformCacheMap {
-    std::map<std::string, bgfx::UniformHandle, std::less<>> cache;
+    std::map<std::string, gpu::UniformHandle, std::less<>> cache;
   };
 
   UniformCache::UniformCache() {
@@ -239,26 +240,26 @@ namespace visage {
 
   void UniformCache::releaseHandles() {
     for (const auto& uniform : cache_->cache) {
-      if (bgfx::isValid(uniform.second))
-        bgfx::destroy(uniform.second);
+      if (gpu::isValid(uniform.second))
+        gpu::destroy(uniform.second);
     }
     cache_ = std::make_unique<UniformCacheMap>();
   }
 
-  bgfx::UniformHandle& UniformCache::handle(const char* name, Type type, int size) const {
+  gpu::UniformHandle& UniformCache::handle(const char* name, Type type, int size) const {
     auto existing = cache_->cache.find(name);
     if (existing != cache_->cache.end())
       return existing->second;
 
-    bgfx::UniformType::Enum bgfx_type = bgfx::UniformType::Vec4;
+    gpu::UniformType gpu_type = gpu::UniformType::Vec4;
     switch (type) {
-    case Sampler: bgfx_type = bgfx::UniformType::Sampler; break;
-    case Vec4: bgfx_type = bgfx::UniformType::Vec4; break;
-    case Mat3: bgfx_type = bgfx::UniformType::Mat3; break;
-    case Mat4: bgfx_type = bgfx::UniformType::Mat4; break;
+    case Sampler: gpu_type = gpu::UniformType::Sampler; break;
+    case Vec4: gpu_type = gpu::UniformType::Vec4; break;
+    case Mat3: gpu_type = gpu::UniformType::Mat3; break;
+    case Mat4: gpu_type = gpu::UniformType::Mat4; break;
     }
 
-    cache_->cache[name] = bgfx::createUniform(name, bgfx_type, size);
+    cache_->cache[name] = gpu::createUniform(name, gpu_type, size);
     return cache_->cache[name];
   }
 }

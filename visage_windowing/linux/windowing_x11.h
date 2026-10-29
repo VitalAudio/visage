@@ -293,8 +293,18 @@ namespace visage {
     X11Connection* x11Connection() { return x11_; }
     bool isPluginWindow() const { return plugin_x11_ != nullptr; }
     bool timerThreadRunning() { return timer_thread_running_.load(); }
+    void framePresented() override;
+    long long lastPresentMicroseconds() const { return last_present_us_.load(); }
+    void presentCompleted() {
+      if (presents_outstanding_.load() > 0)
+        presents_outstanding_--;
+    }
+    int presentsOutstanding() const { return presents_outstanding_.load(); }
+    void resetPresents() { presents_outstanding_ = 0; }
+    bool requestTick() { return !tick_pending_.exchange(true); }
+    void clearTick() { tick_pending_ = false; }
     double drawTime() const;
-    int timerMs() const { return timer_microseconds_.load() / 1000; }
+    long long timerMicroseconds() const { return timer_microseconds_.load(); }
 
   private:
     static WindowX11* last_active_window_;
@@ -351,6 +361,9 @@ namespace visage {
     std::map<KeySym, bool> pressed_;
     std::atomic<long long> timer_microseconds_ = 16667;
     std::atomic<bool> timer_thread_running_ = false;
+    std::atomic<int> presents_outstanding_ = 0;
+    std::atomic<long long> last_present_us_ = 0;
+    std::atomic<bool> tick_pending_ = false;
     std::unique_ptr<std::thread> timer_thread_;
   };
 }

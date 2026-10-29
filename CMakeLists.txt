@@ -27,7 +27,6 @@ set(CMAKE_OBJCXX_VISIBILITY_PRESET hidden)
 
 option(VISAGE_AMALGAMATED_BUILD "Compile sources together" ON)
 option(VISAGE_ENABLE_WIDGETS "Add widgets library" ON)
-option(VISAGE_ENABLE_BACKGROUND_GRAPHICS_THREAD "Offloads graphics rendering to a background thread" OFF)
 option(VISAGE_ENABLE_GRAPHICS_DEBUG_LOGGING "Shows graphics debug log in console in debug mode" OFF)
 option(VISAGE_ADDRESS_SANITIZER "Enable AddressSanitizer" OFF)
 
@@ -117,6 +116,8 @@ target_compile_features(visage PUBLIC cxx_std_20)
 if (UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
   target_link_options(visage INTERFACE
                       "LINKER:--exclude-libs,$<TARGET_FILE_NAME:freetype>")
+elseif (EMSCRIPTEN)
+  target_link_options(visage INTERFACE "-sMAX_WEBGL_VERSION=2")
 endif ()
 target_link_libraries(visage PRIVATE
   VisageApp

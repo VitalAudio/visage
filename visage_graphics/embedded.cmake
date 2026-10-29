@@ -1,112 +1,80 @@
+include(ExternalProject)
+
+if (VISAGE_SHADERC)
+  set(VISAGE_SHADERC_EXECUTABLE ${VISAGE_SHADERC} CACHE INTERNAL "")
+  set(VISAGE_SHADERC_TARGET "" CACHE INTERNAL "")
+elseif (NOT TARGET VisageShadercHost)
+  set(VISAGE_SHADERC_BINARY_DIR ${CMAKE_BINARY_DIR}/visage_shaderc)
+  if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+    set(VISAGE_SHADERC_EXECUTABLE ${VISAGE_SHADERC_BINARY_DIR}/bin/visage_shaderc.exe CACHE INTERNAL "")
+  else ()
+    set(VISAGE_SHADERC_EXECUTABLE ${VISAGE_SHADERC_BINARY_DIR}/bin/visage_shaderc CACHE INTERNAL "")
+  endif ()
+
+  set(VISAGE_SHADERC_ARGS -DCMAKE_BUILD_TYPE=Release)
+  if (CMAKE_CROSSCOMPILING)
+    list(APPEND VISAGE_SHADERC_ARGS -DCMAKE_TOOLCHAIN_FILE=)
+  endif ()
+  if (CMAKE_CXX_COMPILER_LAUNCHER)
+    list(APPEND VISAGE_SHADERC_ARGS -DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}
+         -DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER})
+  endif ()
+
+  ExternalProject_Add(VisageShadercHost
+    SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/shaderc
+    BINARY_DIR ${VISAGE_SHADERC_BINARY_DIR}
+    CMAKE_ARGS ${VISAGE_SHADERC_ARGS}
+    BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --target visage_shaderc
+    INSTALL_COMMAND ""
+    BUILD_BYPRODUCTS ${VISAGE_SHADERC_EXECUTABLE}
+    BUILD_ALWAYS TRUE
+  )
+  set_target_properties(VisageShadercHost PROPERTIES FOLDER "visage/tools")
+  set(VISAGE_SHADERC_TARGET VisageShadercHost CACHE INTERNAL "")
+endif ()
 
 function(visage_embed_shaders project include_filename namespace original_shaders)
   file(GLOB_RECURSE SHADER_INCLUDES shaders/*.sh shaders/varying.def.sc)
   file(GLOB LIBRARY_SHADER_INCLUDES ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders/*.sh)
-  set(SHADER_DEPENDENCIES ${SHADER_INCLUDES} ${LIBRARY_SHADER_INCLUDES})
+  set(SHADER_DEPENDENCIES ${SHADER_INCLUDES} ${LIBRARY_SHADER_INCLUDES} ${VISAGE_SHADERC_EXECUTABLE}
+      ${VISAGE_SHADERC_TARGET})
   list(REMOVE_DUPLICATES SHADER_DEPENDENCIES)
 
-  set(SHADER_FOLDER ${CMAKE_CURRENT_BINARY_DIR}/shaders)
-  set(DX_FOLDER ${CMAKE_CURRENT_BINARY_DIR}/shaders/dx)
-  set(METAL_FOLDER ${CMAKE_CURRENT_BINARY_DIR}/shaders/metal)
-  set(GLSL_FOLDER ${CMAKE_CURRENT_BINARY_DIR}/shaders/glsl)
-  set(SPIRV_FOLDER ${CMAKE_CURRENT_BINARY_DIR}/shaders/spirv)
-  set(ESSL_FOLDER ${CMAKE_CURRENT_BINARY_DIR}/shaders/essl)
-
-  if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-    set(SHADERC "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/bin/win32/shaderc.exe")
-  elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
-    set(SHADERC "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/bin/macos/shaderc")
-  elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
-    set(SHADERC "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/bin/linux/shaderc")
-  endif()
-
-  file(MAKE_DIRECTORY ${SHADER_FOLDER})
-  file(MAKE_DIRECTORY ${DX_FOLDER})
-  file(MAKE_DIRECTORY ${METAL_FOLDER})
-  file(MAKE_DIRECTORY ${GLSL_FOLDER})
-  file(MAKE_DIRECTORY ${SPIRV_FOLDER})
-  file(MAKE_DIRECTORY ${ESSL_FOLDER})
-
   if (EMSCRIPTEN)
-    set(OPENGLES TRUE)
-    set(SHADER_PLATFORM "asm.js")
+    set(SHADER_TARGET essl)
   elseif (WIN32)
-    set(SHADER_PLATFORM "windows")
-    set(DIRECTX TRUE)
+    set(SHADER_TARGET dxbc)
   elseif (APPLE)
-    set(SHADER_PLATFORM "osx")
-    set(METAL TRUE)
-  elseif (UNIX)
-    set(LINUX TRUE)
-    set(VULKAN TRUE)
-    set(SHADER_PLATFORM "linux")
-  endif()
+    set(SHADER_TARGET msl)
+  else ()
+    set(SHADER_TARGET spirv)
+  endif ()
+
+  set(SHADER_FOLDER ${CMAKE_CURRENT_BINARY_DIR}/shaders/${SHADER_TARGET})
+  file(MAKE_DIRECTORY ${SHADER_FOLDER})
 
   foreach(SHADER ${original_shaders})
     get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
 
     set(SHADER_TYPE "f")
-    set(SHADER_INCLUDES_ARGS -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders)
-    set(DX_PROFILE s_4_0)
-    set(GLSL_PROFILE 330)
     if (SHADER_NAME MATCHES "^v")
       set(SHADER_TYPE "v")
     elseif (SHADER_NAME MATCHES "^cs_")
       set(SHADER_TYPE "c")
-      list(APPEND SHADER_INCLUDES_ARGS -i ${BGFX_DIR}/src)
-      set(DX_PROFILE s_5_0)
-      set(GLSL_PROFILE 430)
     endif()
 
-    if (OPENGLES AND NOT SHADER_TYPE STREQUAL "c")
-      set(ESSL_PATH ${ESSL_FOLDER}/${SHADER_NAME})
-      list(APPEND SHADER_BINS ${ESSL_PATH})
-      add_custom_command(
-        OUTPUT ${ESSL_PATH}
-        COMMAND ${SHADERC} ${SHADER_INCLUDES_ARGS} -f ${SHADER} -o ${ESSL_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p 300_es
-        DEPENDS ${SHADER} ${SHADERC} ${SHADER_DEPENDENCIES}
-      )
-    endif()
+    if (SHADER_TYPE STREQUAL "c" AND EMSCRIPTEN)
+      continue()
+    endif ()
 
-    if (DIRECTX)
-      set(DX_PATH ${DX_FOLDER}/${SHADER_NAME})
-      list(APPEND SHADER_BINS ${DX_PATH})
-      add_custom_command(
-        OUTPUT ${DX_PATH}
-        COMMAND ${SHADERC} ${SHADER_INCLUDES_ARGS} -O 3 -f ${SHADER} -o ${DX_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p ${DX_PROFILE}
-        DEPENDS ${SHADER} ${SHADERC} ${SHADER_DEPENDENCIES}
-      )
-    endif()
-
-    if (METAL)
-      set(METAL_PATH ${METAL_FOLDER}/${SHADER_NAME})
-      list(APPEND SHADER_BINS ${METAL_PATH})
-      add_custom_command(
-        OUTPUT ${METAL_PATH}
-        COMMAND ${SHADERC} ${SHADER_INCLUDES_ARGS} -f ${SHADER} -o ${METAL_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p metal
-        DEPENDS ${SHADER} ${SHADERC} ${SHADER_DEPENDENCIES}
-      )
-    endif()
-
-    if (OPENGL)
-      set(GLSL_PATH ${GLSL_FOLDER}/${SHADER_NAME})
-      list(APPEND SHADER_BINS ${GLSL_PATH})
-      add_custom_command(
-        OUTPUT ${GLSL_PATH}
-        COMMAND ${SHADERC} ${SHADER_INCLUDES_ARGS} -f ${SHADER} -o ${GLSL_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p ${GLSL_PROFILE}
-        DEPENDS ${SHADER} ${SHADERC} ${SHADER_DEPENDENCIES}
-      )
-    endif()
-
-    if (VULKAN)
-      set(SPIRV_PATH ${SPIRV_FOLDER}/${SHADER_NAME})
-      list(APPEND SHADER_BINS ${SPIRV_PATH})
-      add_custom_command(
-        OUTPUT ${SPIRV_PATH}
-        COMMAND ${SHADERC} ${SHADER_INCLUDES_ARGS} -f ${SHADER} -o ${SPIRV_PATH} --type ${SHADER_TYPE} --platform ${SHADER_PLATFORM} -p spirv
-        DEPENDS ${SHADER} ${SHADERC} ${SHADER_DEPENDENCIES}
-      )
-    endif()
+    set(SHADER_PATH ${SHADER_FOLDER}/${SHADER_NAME})
+    list(APPEND SHADER_BINS ${SHADER_PATH})
+    add_custom_command(
+      OUTPUT ${SHADER_PATH}
+      COMMAND ${VISAGE_SHADERC_EXECUTABLE} -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders -f ${SHADER}
+              -o ${SHADER_PATH} --type ${SHADER_TYPE} --target ${SHADER_TARGET}
+      DEPENDS ${SHADER} ${SHADER_DEPENDENCIES}
+    )
   endforeach()
 
   set(SHADER_RESOURCES

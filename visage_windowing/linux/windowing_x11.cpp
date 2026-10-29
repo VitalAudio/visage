@@ -31,10 +31,13 @@
 #include <clocale>
 #include <cstring>
 #include <dlfcn.h>
+#include <poll.h>
 #include <sstream>
 #include <X11/cursorfont.h>
 #include <X11/extensions/Xrandr.h>
 #include <X11/Xutil.h>
+#include <xcb/present.h>
+#include <xcb/xcb.h>
 
 namespace visage {
   static std::string _clipboard_text;
@@ -65,18 +68,6 @@ namespace visage {
       auto windows = native_window_lookup_;
       for (auto& window : windows)
         window.second->close();
-    }
-
-    void drawAll() const {
-      std::vector<void*> handles;
-      for (auto& window : native_window_lookup_)
-        handles.push_back(window.first);
-
-      for (void* handle : handles) {
-        auto it = native_window_lookup_.find(handle);
-        if (it != native_window_lookup_.end())
-          it->second->drawCallback(it->second->drawTime());
-      }
     }
 
     WindowX11* findWindow(::Window handle) {
@@ -899,6 +890,106 @@ namespace visage {
       XSetErrorHandler(current);
   }
 
+  static long long refreshMicroseconds(const MonitorInfo& monitor_info) {
+    double refresh_rate = monitor_info.refresh_rate > 0 ? monitor_info.refresh_rate :
+                                                          MonitorInfo::kDefaultRefreshRate;
+    return std::llround(1000000.0 / refresh_rate);
+  }
+
+  static void threadTimerCallback(WindowX11* window) {
+    static constexpr int kReconnectMs = 100;
+    static constexpr long long kStalledPresentUs = 100000;
+
+    xcb_connection_t* connection = xcb_connect(nullptr, nullptr);
+    while (xcb_connection_has_error(connection) && window->timerThreadRunning()) {
+      xcb_disconnect(connection);
+      Thread::sleep(kReconnectMs);
+      connection = xcb_connect(nullptr, nullptr);
+    }
+    if (xcb_connection_has_error(connection)) {
+      xcb_disconnect(connection);
+      return;
+    }
+
+    xcb_window_t window_handle = (xcb_window_t)(uintptr_t)window->nativeHandle();
+    const char* atom_name = "VISAGE_TIMER_EVENT";
+    xcb_intern_atom_reply_t* atom_reply = xcb_intern_atom_reply(connection,
+                                                                xcb_intern_atom(connection, False,
+                                                                                std::strlen(atom_name),
+                                                                                atom_name),
+                                                                nullptr);
+    xcb_atom_t timer_event = atom_reply ? atom_reply->atom : XCB_NONE;
+    free(atom_reply);
+
+    const xcb_query_extension_reply_t* present = xcb_get_extension_data(connection, &xcb_present_id);
+    bool has_present = present && present->present;
+    if (has_present)
+      xcb_present_select_input(connection, xcb_generate_id(connection), window_handle,
+                               XCB_PRESENT_EVENT_MASK_COMPLETE_NOTIFY);
+    xcb_flush(connection);
+
+    bool completion_driven = false;
+    long long next_tick_us = time::microseconds();
+    pollfd fd = { xcb_get_file_descriptor(connection), POLLIN, 0 };
+    while (window->timerThreadRunning()) {
+      long long period_us = window->timerMicroseconds();
+      long long now_us = time::microseconds();
+      int outstanding = window->presentsOutstanding();
+      long long deadline_us = completion_driven && outstanding ?
+                                  window->lastPresentMicroseconds() + kStalledPresentUs :
+                                  next_tick_us;
+      int timeout_ms = std::max(0LL, (deadline_us - now_us + 999) / 1000);
+      poll(&fd, 1, std::min(timeout_ms, kReconnectMs));
+
+      bool tick = false;
+      while (xcb_generic_event_t* event = xcb_poll_for_event(connection)) {
+        auto* complete = reinterpret_cast<xcb_present_complete_notify_event_t*>(event);
+        if ((event->response_type & 0x7f) == XCB_GE_GENERIC && has_present &&
+            complete->extension == present->major_opcode &&
+            complete->event_type == XCB_PRESENT_EVENT_COMPLETE_NOTIFY &&
+            complete->kind == XCB_PRESENT_COMPLETE_KIND_PIXMAP && complete->window == window_handle) {
+          window->presentCompleted();
+          completion_driven = true;
+          tick = window->presentsOutstanding() == 0;
+        }
+        free(event);
+      }
+      if (xcb_connection_has_error(connection))
+        break;
+
+      now_us = time::microseconds();
+      outstanding = window->presentsOutstanding();
+      if (completion_driven && outstanding &&
+          now_us >= window->lastPresentMicroseconds() + kStalledPresentUs) {
+        completion_driven = false;
+        window->resetPresents();
+        outstanding = 0;
+      }
+      if (!tick && (!completion_driven || outstanding == 0) && now_us >= next_tick_us)
+        tick = true;
+      if (!tick)
+        continue;
+
+      if (completion_driven)
+        next_tick_us = now_us + period_us;
+      else
+        next_tick_us = std::max(next_tick_us + period_us, now_us);
+      if (!window->requestTick())
+        continue;
+
+      xcb_client_message_event_t message {};
+      message.response_type = XCB_CLIENT_MESSAGE;
+      message.format = 32;
+      message.window = window_handle;
+      message.type = timer_event;
+      xcb_send_event(connection, False, window_handle, XCB_EVENT_MASK_NO_EVENT,
+                     reinterpret_cast<const char*>(&message));
+      xcb_flush(connection);
+    }
+
+    xcb_disconnect(connection);
+  }
+
   WindowX11* WindowX11::last_active_window_ = nullptr;
 
   WindowX11::WindowX11(int x, int y, int width, int height, Decoration decoration) :
@@ -932,41 +1023,13 @@ namespace visage {
     XFree(size_hints);
 
     XSelectInput(display, window_handle_, kEventMask);
+    timer_microseconds_ = refreshMicroseconds(monitor_info_);
+    timer_thread_running_ = true;
+    timer_thread_ = std::make_unique<std::thread>(threadTimerCallback, this);
     start_draw_microseconds_ = time::microseconds();
     setDpiScale(monitor_info_.dpi / kDefaultDpi);
     XFlush(display);
     NativeWindowLookup::instance().addWindow(this);
-  }
-
-  static void threadTimerCallback(WindowX11* window) {
-    static constexpr int kReconnectMs = 100;
-
-    ::Display* display = X11Connection::openDisplay();
-    while (display == nullptr && window->timerThreadRunning()) {
-      Thread::sleep(kReconnectMs);
-      display = X11Connection::openDisplay();
-    }
-    if (display == nullptr)
-      return;
-
-    Atom timer_event = XInternAtom(display, "VISAGE_TIMER_EVENT", False);
-    ::Window window_handle = (::Window)window->nativeHandle();
-    while (window->timerThreadRunning()) {
-      Thread::sleep(window->timerMs());
-
-      XEvent event;
-      memset(&event, 0, sizeof(event));
-      event.type = ClientMessage;
-      event.xclient.window = window_handle;
-      event.xclient.message_type = timer_event;
-      event.xclient.format = 32;
-      event.xclient.data.l[0] = 0;
-
-      XSendEvent(display, window_handle, False, NoEventMask, &event);
-      XFlush(display);
-    }
-
-    XCloseDisplay(display);
   }
 
   WindowX11::WindowX11(int width, int height, void* parent_handle) : Window(width, height) {
@@ -1004,6 +1067,7 @@ namespace visage {
     XSelectInput(display, window_handle_, kEventMask);
     XFlush(display);
 
+    timer_microseconds_ = refreshMicroseconds(monitor_info_);
     timer_thread_running_ = true;
     timer_thread_ = std::make_unique<std::thread>(threadTimerCallback, this);
     start_draw_microseconds_ = time::microseconds();
@@ -1047,6 +1111,11 @@ namespace visage {
     if (x11_->display())
       XSync(x11_->display(), False);
     releaseErrorHandler();
+  }
+
+  void WindowX11::framePresented() {
+    last_present_us_ = time::microseconds();
+    presents_outstanding_++;
   }
 
   double WindowX11::drawTime() const {
@@ -1644,6 +1713,7 @@ namespace visage {
       }
       else if (event.xany.window == window_handle_ && event.type == ClientMessage &&
                event.xclient.message_type == x11_->timerEvent()) {
+        clearTick();
         if (!timer_fired) {
           timer_fired = true;
           drawCallback(drawTime());
@@ -2045,16 +2115,10 @@ namespace visage {
 
   void WindowX11::runEventLoop() {
     X11Connection* x11 = x11_;
-    long long timer_microseconds = timer_microseconds_;
     Display* display = x11->display();
 
-    timeval timeout {};
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 0;
     fd_set read_fds;
     unsigned int fd = ConnectionNumber(display);
-
-    long long last_timer_microseconds = time::microseconds();
 
     XEvent event;
     bool running = true;
@@ -2062,13 +2126,9 @@ namespace visage {
       FD_ZERO(&read_fds);
       FD_SET(fd, &read_fds);
 
-      timeout.tv_sec = 0;
-      long long us_to_timer = timer_microseconds - (time::microseconds() - last_timer_microseconds);
       int result = 0;
-      if (us_to_timer > 0) {
-        timeout.tv_usec = us_to_timer;
-        result = select(fd + 1, &read_fds, nullptr, nullptr, &timeout);
-      }
+      if (!XPending(display))
+        result = select(fd + 1, &read_fds, nullptr, nullptr, nullptr);
 
       if (result == -1 && errno != EINTR)
         running = false;
@@ -2085,10 +2145,17 @@ namespace visage {
           continue;
         }
 
-        if (event.type == Expose && window->decoration_ != Decoration::Native) {
+        if (event.type == Expose) {
           int height = window->clientHeight();
-          window->handleResized(window->clientWidth(), height + 1);
+          if (window->decoration_ != Decoration::Native)
+            window->handleResized(window->clientWidth(), height + 1);
           window->handleResized(window->clientWidth(), height);
+        }
+
+        if (event.type == ClientMessage && event.xclient.message_type == x11->timerEvent()) {
+          window->clearTick();
+          window->drawCallback(window->drawTime());
+          continue;
         }
 
         if (event.type == DestroyNotify ||
@@ -2102,11 +2169,6 @@ namespace visage {
         }
         else
           window->processEvent(event);
-      }
-
-      if (timer_microseconds - (time::microseconds() - last_timer_microseconds) <= 0) {
-        last_timer_microseconds = time::microseconds();
-        NativeWindowLookup::instance().drawAll();
       }
     }
   }

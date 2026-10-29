@@ -27,7 +27,7 @@
 #include "uniforms.h"
 
 #include <algorithm>
-#include <bgfx/bgfx.h>
+#include "gpu/gpu.h"
 #include <cfloat>
 #include <cmath>
 #include <cstring>
@@ -204,18 +204,18 @@ namespace visage {
   template<const char* name>
   static void setTileUniform(float value0, float value1 = 0.0f, float value2 = 0.0f, float value3 = 0.0f) {
     float values[4] = { value0, value1, value2, value3 };
-    const bgfx::UniformHandle& uniform = UniformCache::uniformHandle(name);
-    bgfx::setUniform(uniform, values);
+    const gpu::UniformHandle& uniform = UniformCache::uniformHandle(name);
+    gpu::setUniform(uniform, values);
   }
 
   template<const char* name>
-  static void setTileTexture(int stage, bgfx::TextureHandle handle) {
-    const bgfx::UniformHandle& uniform = UniformCache::uniformHandle(name, UniformCache::Sampler);
-    bgfx::setTexture(stage, uniform, handle);
+  static void setTileTexture(int stage, gpu::TextureHandle handle) {
+    const gpu::UniformHandle& uniform = UniformCache::uniformHandle(name, UniformCache::Sampler);
+    gpu::setTexture(stage, uniform, handle);
   }
 
   static void setTileBounds(int width, int height) {
-    if (bgfx::getCaps()->originBottomLeft)
+    if (gpu::getCaps()->origin_bottom_left)
       setTileUniform<Uniforms::kBounds>(2.0f / width, 2.0f / height, -1.0f, -1.0f);
     else
       setTileUniform<Uniforms::kBounds>(2.0f / width, -2.0f / height, -1.0f, 1.0f);
@@ -232,16 +232,16 @@ namespace visage {
     float cover;
     float even_odd;
 
-    static bgfx::VertexLayout& layout() {
-      static bgfx::VertexLayout layout;
+    static gpu::VertexLayout& layout() {
+      static gpu::VertexLayout layout;
       static bool initialized = false;
 
       if (!initialized) {
         initialized = true;
         layout.begin()
-            .add(bgfx::Attrib::Position, 4, bgfx::AttribType::Float)
-            .add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float)
-            .add(bgfx::Attrib::TexCoord1, 1, bgfx::AttribType::Float)
+            .add(gpu::Attrib::Position, 4)
+            .add(gpu::Attrib::TexCoord0, 4)
+            .add(gpu::Attrib::TexCoord1, 1)
             .end();
       }
 
@@ -249,13 +249,13 @@ namespace visage {
     }
   };
 
-  static bgfx::VertexLayout& pathTileVec4Layout() {
-    static bgfx::VertexLayout layout;
+  static gpu::VertexLayout& pathTileVec4Layout() {
+    static gpu::VertexLayout layout;
     static bool initialized = false;
 
     if (!initialized) {
       initialized = true;
-      layout.begin().add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float).end();
+      layout.begin().add(gpu::Attrib::TexCoord0, 4).end();
     }
 
     return layout;
@@ -263,9 +263,9 @@ namespace visage {
 
   template<typename T>
   static void destroyTileHandle(T& handle) {
-    if (bgfx::isValid(handle))
-      bgfx::destroy(handle);
-    handle = BGFX_INVALID_HANDLE;
+    if (gpu::isValid(handle))
+      gpu::destroy(handle);
+    handle = {};
   }
 
   static uint32_t tileBufferCapacity(uint32_t needed) {
@@ -275,35 +275,35 @@ namespace visage {
     return capacity;
   }
 
-  static bool ensureTileBuffer(bgfx::DynamicVertexBufferHandle& handle, uint32_t& capacity,
+  static bool ensureTileBuffer(gpu::BufferHandle& handle, uint32_t& capacity,
                                uint32_t needed, uint16_t flags) {
-    if (bgfx::isValid(handle) && capacity >= needed)
+    if (gpu::isValid(handle) && capacity >= needed)
       return true;
 
     destroyTileHandle(handle);
     capacity = tileBufferCapacity(needed);
-    handle = bgfx::createDynamicVertexBuffer(capacity, pathTileVec4Layout(), flags);
-    return bgfx::isValid(handle);
+    handle = gpu::createDynamicVertexBuffer(capacity, pathTileVec4Layout(), flags);
+    return gpu::isValid(handle);
   }
 
-  static bool ensureTileBuffer(bgfx::DynamicIndexBufferHandle& handle, uint32_t& capacity,
-                               uint32_t needed, uint16_t flags) {
-    if (bgfx::isValid(handle) && capacity >= needed)
+  static bool ensureTileIndexBuffer(gpu::BufferHandle& handle, uint32_t& capacity,
+                                    uint32_t needed, uint16_t flags) {
+    if (gpu::isValid(handle) && capacity >= needed)
       return true;
 
     destroyTileHandle(handle);
     capacity = tileBufferCapacity(needed);
-    handle = bgfx::createDynamicIndexBuffer(capacity, flags | BGFX_BUFFER_INDEX32);
-    return bgfx::isValid(handle);
+    handle = gpu::createDynamicIndexBuffer(capacity, flags | gpu::kBufferIndex32);
+    return gpu::isValid(handle);
   }
 
-  static bool ensureTileTexture(bgfx::TextureHandle& handle, int& rows, int width,
-                                int needed_texels, uint64_t flags) {
-    int max_size = bgfx::getCaps()->limits.maxTextureSize;
+  static bool ensureTileTexture(gpu::TextureHandle& handle, int& rows, int width,
+                                int needed_texels, uint32_t flags) {
+    int max_size = gpu::getCaps()->max_texture_size;
     int needed_rows = std::max(1, (needed_texels + width - 1) / width);
     if (needed_rows > max_size)
       return false;
-    if (bgfx::isValid(handle) && rows >= needed_rows)
+    if (gpu::isValid(handle) && rows >= needed_rows)
       return true;
 
     destroyTileHandle(handle);
@@ -311,14 +311,14 @@ namespace visage {
     while (rows < needed_rows)
       rows *= 2;
     rows = std::min(rows, max_size);
-    handle = bgfx::createTexture2D(width, rows, false, 1, bgfx::TextureFormat::RGBA32F,
-                                   flags | BGFX_SAMPLER_POINT | BGFX_SAMPLER_UVW_CLAMP);
-    return bgfx::isValid(handle);
+    handle = gpu::createTexture2D(width, rows, gpu::TextureFormat::RGBA32F,
+                                  flags | gpu::kSamplerPoint | gpu::kSamplerClamp);
+    return gpu::isValid(handle);
   }
 
   static int tileTextureWidth() {
     static constexpr int kTextureWidth = 2048;
-    return std::min<int>(kTextureWidth, bgfx::getCaps()->limits.maxTextureSize);
+    return std::min<int>(kTextureWidth, gpu::getCaps()->max_texture_size);
   }
 
   struct PathTileRenderer::Resources {
@@ -337,31 +337,31 @@ namespace visage {
       destroyTileHandle(columns_program);
     }
 
-    bgfx::TextureHandle segment_texture = BGFX_INVALID_HANDLE;
+    gpu::TextureHandle segment_texture = {};
     int segment_texture_rows = 0;
     std::vector<int> tile_bases;
     std::vector<int> segment_bases;
     std::vector<int> cover_bases;
 
-    bgfx::TextureHandle gpu_segment_texture = BGFX_INVALID_HANDLE;
-    bgfx::TextureHandle gpu_tile_texture = BGFX_INVALID_HANDLE;
+    gpu::TextureHandle gpu_segment_texture = {};
+    gpu::TextureHandle gpu_tile_texture = {};
     int gpu_segment_texture_rows = 0;
     int gpu_tile_texture_rows = 0;
-    bgfx::DynamicVertexBufferHandle edges = BGFX_INVALID_HANDLE;
-    bgfx::DynamicIndexBufferHandle edge_paths = BGFX_INVALID_HANDLE;
-    bgfx::DynamicVertexBufferHandle paths = BGFX_INVALID_HANDLE;
-    bgfx::DynamicIndexBufferHandle tiles = BGFX_INVALID_HANDLE;
-    bgfx::DynamicIndexBufferHandle counter = BGFX_INVALID_HANDLE;
-    bgfx::DynamicIndexBufferHandle covers = BGFX_INVALID_HANDLE;
+    gpu::BufferHandle edges = {};
+    gpu::BufferHandle edge_paths = {};
+    gpu::BufferHandle paths = {};
+    gpu::BufferHandle tiles = {};
+    gpu::BufferHandle counter = {};
+    gpu::BufferHandle covers = {};
     uint32_t edge_capacity = 0;
     uint32_t edge_path_capacity = 0;
     uint32_t path_capacity = 0;
     uint32_t tile_capacity = 0;
     uint32_t counter_capacity = 0;
     uint32_t cover_capacity = 0;
-    bgfx::ProgramHandle clear_program = BGFX_INVALID_HANDLE;
-    bgfx::ProgramHandle bin_program = BGFX_INVALID_HANDLE;
-    bgfx::ProgramHandle columns_program = BGFX_INVALID_HANDLE;
+    gpu::ProgramHandle clear_program = {};
+    gpu::ProgramHandle bin_program = {};
+    gpu::ProgramHandle columns_program = {};
     std::vector<float> edge_data;
     std::vector<uint32_t> edge_path_data;
     std::vector<float> path_data;
@@ -371,9 +371,8 @@ namespace visage {
 #if VISAGE_EMSCRIPTEN
     return false;
 #else
-    const bgfx::Caps* caps = bgfx::getCaps();
-    return (caps->supported & BGFX_CAPS_COMPUTE) &&
-           (caps->formats[bgfx::TextureFormat::RGBA32F] & BGFX_CAPS_FORMAT_TEXTURE_IMAGE_WRITE);
+    const gpu::Caps* caps = gpu::getCaps();
+    return caps->compute && (caps->formats[static_cast<int>(gpu::TextureFormat::RGBA32F)] & gpu::kFormatStorage);
 #endif
   }
 
@@ -440,13 +439,13 @@ namespace visage {
     if (texels) {
       int texture_rows = (texels + texture_width - 1) / texture_width;
       uint32_t bytes = texture_width * texture_rows * sizeof(PathTileSegment);
-      const bgfx::Memory* memory = bgfx::alloc(bytes);
+      const gpu::Memory* memory = gpu::alloc(bytes);
       size_t segment_bytes = num_segments * sizeof(PathTileSegment);
       size_t cover_bytes = num_covers * sizeof(float);
       std::memcpy(memory->data, segments.data() + segment_base, segment_bytes);
       std::memcpy(memory->data + segment_bytes, covers.data() + cover_base, cover_bytes);
       std::memset(memory->data + segment_bytes + cover_bytes, 0, bytes - segment_bytes - cover_bytes);
-      bgfx::updateTexture2D(resources.segment_texture, 0, 0, 0, 0, texture_width, texture_rows, memory);
+      gpu::updateTexture2D(resources.segment_texture, 0, 0, texture_width, texture_rows, memory);
     }
 
     const std::vector<PathTile>& tiles = binner_.tiles();
@@ -488,11 +487,11 @@ namespace visage {
       return true;
 
     auto submit = [&] {
-      bgfx::setState(BGFX_STATE_WRITE_R);
+      gpu::setState(gpu::RenderState::write(gpu::kWriteR));
       setTileBounds(atlas_width, atlas_height);
       setTileUniform<Uniforms::kDimensions>(texture_width);
       setTileTexture<Uniforms::kTexture>(0, resources.segment_texture);
-      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_path_tile, shaders::fs_path_tile));
+      gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_path_tile, shaders::fs_path_tile));
     };
 
     QuadChunker<PathTileVertex> chunker(num_quads);
@@ -603,71 +602,68 @@ namespace visage {
     if (segment_bound > kMaxPathTileTexels || segment_bound + 4 * uint64_t(num_tiles) >= kMaxExactTexelIndex)
       return false;
 
-    if (!bgfx::isValid(resources.clear_program)) {
-      resources.clear_program = bgfx::createProgram(ShaderCache::shaderHandle(shaders::cs_path_tile_clear),
+    if (!gpu::isValid(resources.clear_program)) {
+      resources.clear_program = gpu::createProgram(ShaderCache::shaderHandle(shaders::cs_path_tile_clear),
                                                     false);
-      resources.bin_program = bgfx::createProgram(ShaderCache::shaderHandle(shaders::cs_path_tile_bin),
+      resources.bin_program = gpu::createProgram(ShaderCache::shaderHandle(shaders::cs_path_tile_bin),
                                                   false);
-      resources.columns_program = bgfx::createProgram(ShaderCache::shaderHandle(shaders::cs_path_tile_columns),
+      resources.columns_program = gpu::createProgram(ShaderCache::shaderHandle(shaders::cs_path_tile_columns),
                                                       false);
     }
 
     int texture_width = tileTextureWidth();
     uint32_t segment_capacity = std::max<uint32_t>(1, segment_bound);
-    uint16_t read = BGFX_BUFFER_COMPUTE_READ;
-    uint16_t read_write = BGFX_BUFFER_COMPUTE_READ_WRITE;
+    uint16_t read = gpu::kBufferComputeRead;
+    uint16_t read_write = gpu::kBufferComputeReadWrite;
     bool allocated = ensureTileBuffer(resources.edges, resources.edge_capacity,
                                       std::max(1u, num_edges), read) &&
-                     ensureTileBuffer(resources.edge_paths, resources.edge_path_capacity,
+                     ensureTileIndexBuffer(resources.edge_paths, resources.edge_path_capacity,
                                       std::max(1u, num_edges), read) &&
                      ensureTileBuffer(resources.paths, resources.path_capacity, 3 * num_paths, read) &&
-                     ensureTileBuffer(resources.tiles, resources.tile_capacity, 4 * num_tiles, read_write) &&
-                     ensureTileBuffer(resources.counter, resources.counter_capacity, 4, read_write) &&
-                     ensureTileBuffer(resources.covers, resources.cover_capacity, 16 * num_tiles,
+                     ensureTileIndexBuffer(resources.tiles, resources.tile_capacity, 4 * num_tiles, read_write) &&
+                     ensureTileIndexBuffer(resources.counter, resources.counter_capacity, 4, read_write) &&
+                     ensureTileIndexBuffer(resources.covers, resources.cover_capacity, 16 * num_tiles,
                                       read_write) &&
                      ensureTileTexture(resources.gpu_segment_texture,
                                        resources.gpu_segment_texture_rows, texture_width,
-                                       segment_capacity + 4 * num_tiles, BGFX_TEXTURE_COMPUTE_WRITE) &&
+                                       segment_capacity + 4 * num_tiles, gpu::kTextureStorage) &&
                      ensureTileTexture(resources.gpu_tile_texture, resources.gpu_tile_texture_rows,
-                                       texture_width, 3 * num_tiles, BGFX_TEXTURE_COMPUTE_WRITE);
-    if (!allocated || !bgfx::isValid(resources.columns_program)) {
+                                       texture_width, 3 * num_tiles, gpu::kTextureStorage);
+    if (!allocated || !gpu::isValid(resources.columns_program)) {
       VISAGE_LOG("PathTileRenderer::submitGpu: Failed to allocate compute resources");
       return false;
     }
 
     if (num_edges) {
-      bgfx::update(resources.edges, 0,
-                   bgfx::copy(resources.edge_data.data(), resources.edge_data.size() * sizeof(float)));
-      bgfx::update(resources.edge_paths, 0,
-                   bgfx::copy(resources.edge_path_data.data(), num_edges * sizeof(uint32_t)));
+      gpu::update(resources.edges, 0,
+                   gpu::copy(resources.edge_data.data(), resources.edge_data.size() * sizeof(float)));
+      gpu::update(resources.edge_paths, 0,
+                   gpu::copy(resources.edge_path_data.data(), num_edges * sizeof(uint32_t)));
     }
-    bgfx::update(resources.paths, 0,
-                 bgfx::copy(resources.path_data.data(), resources.path_data.size() * sizeof(float)));
+    gpu::update(resources.paths, 0,
+                 gpu::copy(resources.path_data.data(), resources.path_data.size() * sizeof(float)));
 
-    bgfx::setViewMode(compute_pass, bgfx::ViewMode::Sequential);
-    bgfx::setViewClear(compute_pass, BGFX_CLEAR_NONE);
-
-    auto dispatch = [&](bgfx::ProgramHandle program, uint32_t count, float value) {
+    auto dispatch = [&](gpu::ProgramHandle program, uint32_t count, float value) {
       uint32_t groups = (count + kThreadGroupSize - 1) / kThreadGroupSize;
       uint32_t groups_x = std::min(groups, kMaxGroups);
       uint32_t groups_y = (groups + groups_x - 1) / groups_x;
       setTileUniform<Uniforms::kTileParams>(count, groups_x * kThreadGroupSize, value, segment_capacity);
       setTileUniform<Uniforms::kTileLayout>(texture_width, segment_capacity);
-      bgfx::dispatch(compute_pass, program, groups_x, groups_y, 1);
+      gpu::dispatch(compute_pass, program, groups_x, groups_y, 1);
     };
 
-    bgfx::setBuffer(0, resources.tiles, bgfx::Access::ReadWrite);
-    bgfx::setBuffer(1, resources.counter, bgfx::Access::ReadWrite);
-    bgfx::setBuffer(2, resources.covers, bgfx::Access::ReadWrite);
+    gpu::setBuffer(0, resources.tiles, gpu::Access::ReadWrite);
+    gpu::setBuffer(1, resources.counter, gpu::Access::ReadWrite);
+    gpu::setBuffer(2, resources.covers, gpu::Access::ReadWrite);
     dispatch(resources.clear_program, 16 * num_tiles, 0.0f);
 
     auto bind_bin_inputs = [&] {
-      bgfx::setBuffer(0, resources.edges, bgfx::Access::Read);
-      bgfx::setBuffer(1, resources.edge_paths, bgfx::Access::Read);
-      bgfx::setBuffer(2, resources.paths, bgfx::Access::Read);
-      bgfx::setBuffer(3, resources.tiles, bgfx::Access::ReadWrite);
-      bgfx::setImage(4, resources.gpu_segment_texture, 0, bgfx::Access::Write, bgfx::TextureFormat::RGBA32F);
-      bgfx::setBuffer(5, resources.covers, bgfx::Access::ReadWrite);
+      gpu::setBuffer(0, resources.edges, gpu::Access::Read);
+      gpu::setBuffer(1, resources.edge_paths, gpu::Access::Read);
+      gpu::setBuffer(2, resources.paths, gpu::Access::Read);
+      gpu::setBuffer(3, resources.tiles, gpu::Access::ReadWrite);
+      gpu::setImage(4, resources.gpu_segment_texture, gpu::Access::Write);
+      gpu::setBuffer(5, resources.covers, gpu::Access::ReadWrite);
     };
 
     if (num_edges) {
@@ -675,12 +671,12 @@ namespace visage {
       dispatch(resources.bin_program, num_edges, 0.0f);
     }
 
-    bgfx::setBuffer(0, resources.paths, bgfx::Access::Read);
-    bgfx::setBuffer(1, resources.tiles, bgfx::Access::ReadWrite);
-    bgfx::setBuffer(2, resources.counter, bgfx::Access::ReadWrite);
-    bgfx::setBuffer(3, resources.covers, bgfx::Access::Read);
-    bgfx::setImage(4, resources.gpu_segment_texture, 0, bgfx::Access::Write, bgfx::TextureFormat::RGBA32F);
-    bgfx::setImage(5, resources.gpu_tile_texture, 0, bgfx::Access::Write, bgfx::TextureFormat::RGBA32F);
+    gpu::setBuffer(0, resources.paths, gpu::Access::Read);
+    gpu::setBuffer(1, resources.tiles, gpu::Access::ReadWrite);
+    gpu::setBuffer(2, resources.counter, gpu::Access::ReadWrite);
+    gpu::setBuffer(3, resources.covers, gpu::Access::Read);
+    gpu::setImage(4, resources.gpu_segment_texture, gpu::Access::Write);
+    gpu::setImage(5, resources.gpu_tile_texture, gpu::Access::Write);
     dispatch(resources.columns_program, num_columns, num_paths);
 
     if (num_edges) {
@@ -688,13 +684,13 @@ namespace visage {
       dispatch(resources.bin_program, num_edges, 1.0f);
     }
 
-    bgfx::setVertexCount(6 * num_tiles);
-    bgfx::setState(BGFX_STATE_WRITE_R);
+    gpu::setVertexCount(6 * num_tiles);
+    gpu::setState(gpu::RenderState::write(gpu::kWriteR));
     setTileBounds(atlas_width, atlas_height);
     setTileUniform<Uniforms::kDimensions>(texture_width);
     setTileTexture<Uniforms::kTexture>(0, resources.gpu_segment_texture);
     setTileTexture<Uniforms::kTexture2>(1, resources.gpu_tile_texture);
-    bgfx::submit(raster_pass,
+    gpu::submit(raster_pass,
                  ProgramCache::programHandle(shaders::vs_path_tile_gpu, shaders::fs_path_tile));
     return true;
 #endif

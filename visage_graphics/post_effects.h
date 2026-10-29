@@ -64,11 +64,11 @@ namespace visage {
 
     bool hasCopy() const;
     Layer* layer() const;
-    bgfx::FrameBufferHandle frameBuffer() const;
+    gpu::FrameBufferHandle frameBuffer() const;
     int width() const { return bounds_.width(); }
     int height() const { return bounds_.height(); }
     void setUniforms(const BatchVector<SampleRegion>& batches, PostEffectVertex* vertices,
-                     bgfx::FrameBufferHandle texture) const;
+                     gpu::FrameBufferHandle texture) const;
 
   private:
     std::unique_ptr<BackdropHandles> handles_;

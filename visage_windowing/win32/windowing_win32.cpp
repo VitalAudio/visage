@@ -42,13 +42,14 @@
 #include <algorithm>
 #include <CommCtrl.h>
 #include <dxgi1_4.h>
+#include <functional>
 #include <map>
+#include <mutex>
 #include <ShlObj.h>
 #include <string>
 #include <vector>
 #include <windowsx.h>
 
-#define WM_VBLANK (WM_USER + 1)
 
 typedef DPI_AWARENESS_CONTEXT(WINAPI* GetWindowDpiAwarenessContext_t)(HWND);
 typedef DPI_AWARENESS_CONTEXT(WINAPI* GetThreadDpiAwarenessContext_t)();
@@ -255,13 +256,18 @@ namespace visage {
     SetCursorPos(position.x, position.y);
   }
 
+  static constexpr UINT kHiddenTickMessage = WM_APP + 0x56;
+
   class VBlankThread : public Thread {
   public:
-    explicit VBlankThread(WindowWin32* window) : window_(window) { }
+    explicit VBlankThread(WindowWin32* window) : window_(window) {
+      ready_event_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    }
 
     ~VBlankThread() override {
       stop();
       clear();
+      CloseHandle(ready_event_);
     }
 
     void clear() {
@@ -298,13 +304,30 @@ namespace visage {
       }
     }
 
+    void setFrameWaiter(std::function<bool(int)> waiter, int unmatched_presents) {
+      std::lock_guard<std::mutex> lock(waiter_mutex_);
+      waiter_ = std::move(waiter);
+      unmatched_presents_ = waiter_ ? unmatched_presents : 0;
+      ready_ = false;
+    }
+
+    bool ready() const { return ready_.load(); }
+    void consumeReady() { ready_ = false; }
+    void waitForReady(int timeout_ms) {
+      if (!ready_.load())
+        WaitForSingleObject(ready_event_, timeout_ms);
+    }
+
     void run() override {
       static constexpr int kFallbackFrameMs = 16;
+      static constexpr int kFrameWaitTimeoutMs = 50;
       static constexpr long long kMonitorRetryUs = 1000000;
+      static constexpr long long kMinFrameUs = 2000;
 
       updateMonitors();
       start_us_ = time::microseconds();
       long long last_update_us = start_us_;
+      long long last_tick_us = start_us_;
 
       while (shouldRun()) {
         HMONITOR monitor = window_->monitor();
@@ -314,29 +337,84 @@ namespace visage {
           last_update_us = now_us;
         }
 
-        auto output = monitor_outputs_.find(monitor);
-        if (output == monitor_outputs_.end() || FAILED(output->second->WaitForVBlank()))
-          sleep(kFallbackFrameMs);
+        if (!waitForFrame(kFrameWaitTimeoutMs) || time::microseconds() - last_tick_us < kMinFrameUs) {
+          auto output = monitor_outputs_.find(monitor);
+          if (output == monitor_outputs_.end() || FAILED(output->second->WaitForVBlank()) ||
+              time::microseconds() - last_tick_us < kMinFrameUs)
+            sleep(kFallbackFrameMs);
+        }
+        last_tick_us = time::microseconds();
 
         long long us = time::microseconds() - start_us_;
         time_ = us * (1.0 / 1000000.0);
-        SendMessage(window_->windowHandle(), WM_VBLANK, 0, 0);
+        HWND hwnd = window_->windowHandle();
+        if (IsWindowVisible(hwnd) && !IsIconic(GetAncestor(hwnd, GA_ROOT)))
+          InvalidateRect(hwnd, nullptr, FALSE);
+        else if (!hidden_tick_pending_.exchange(true))
+          PostMessage(hwnd, kHiddenTickMessage, 0, 0);
       }
     }
 
     double vBlankTime() const { return time_.load(); }
+    void hiddenTickHandled() { hidden_tick_pending_ = false; }
 
   private:
+    bool waitForFrame(int timeout_ms) {
+      std::lock_guard<std::mutex> lock(waiter_mutex_);
+      if (!waiter_ || ready_)
+        return false;
+
+      for (; unmatched_presents_ > 0; --unmatched_presents_)
+        waiter_(timeout_ms);
+
+      if (!waiter_(timeout_ms))
+        return false;
+
+      ready_ = true;
+      SetEvent(ready_event_);
+      return true;
+    }
+
     WindowWin32* window_ = nullptr;
 
     IDXGIFactory* factory_ = nullptr;
     std::vector<IDXGIAdapter*> adapters_;
     std::map<HMONITOR, IDXGIOutput*> monitor_outputs_;
 
+    std::mutex waiter_mutex_;
+    std::function<bool(int)> waiter_;
+    int unmatched_presents_ = 0;
+    HANDLE ready_event_ = nullptr;
+    std::atomic<bool> ready_ = false;
+    std::atomic<bool> hidden_tick_pending_ = false;
+
     std::atomic<double> time_ = 0.0;
     long long start_us_ = 0;
   };
 
+  void WindowWin32::setFrameWaiter(std::function<bool(int)> waiter) {
+    if (v_blank_thread_ == nullptr) {
+      pending_frame_waiter_ = std::move(waiter);
+      return;
+    }
+
+    waits_for_frames_ = waiter != nullptr;
+    v_blank_thread_->setFrameWaiter(std::move(waiter), unmatched_presents_);
+    unmatched_presents_ = 0;
+  }
+
+  void WindowWin32::waitForFrame() {
+    static constexpr int kForcedFrameTimeoutMs = 50;
+    if (waits_for_frames_ && !stalled_draw_)
+      v_blank_thread_->waitForReady(kForcedFrameTimeoutMs);
+  }
+
+  void WindowWin32::framePresented() {
+    if (waits_for_frames_)
+      v_blank_thread_->consumeReady();
+    else
+      unmatched_presents_++;
+  }
   class DpiAwareness {
   public:
     DpiAwareness() {
@@ -1012,8 +1090,37 @@ namespace visage {
 
   LRESULT WindowWin32::handleWindowProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
     switch (msg) {
-    case WM_VBLANK: {
+    case WM_PAINT: {
+      if (v_blank_thread_ == nullptr)
+        break;
+
+      static constexpr long long kStalledFrameUs = 100000;
+      ValidateRect(hwnd, nullptr);
+      long long now_us = time::microseconds();
+      if (waits_for_frames_ && !v_blank_thread_->ready()) {
+        if (now_us - last_draw_us_ < kStalledFrameUs)
+          return 0;
+        stalled_draw_ = true;
+      }
+
+      last_draw_us_ = now_us;
       setVisible(IsWindowVisible(hwnd) && !IsIconic(GetAncestor(hwnd, GA_ROOT)));
+      drawCallback(v_blank_thread_->vBlankTime());
+      stalled_draw_ = false;
+      return 0;
+    }
+    case kHiddenTickMessage: {
+      if (v_blank_thread_ == nullptr)
+        return 0;
+
+      v_blank_thread_->hiddenTickHandled();
+      bool visible = IsWindowVisible(hwnd) && !IsIconic(GetAncestor(hwnd, GA_ROOT));
+      if (visible) {
+        InvalidateRect(hwnd, nullptr, FALSE);
+        return 0;
+      }
+
+      setVisible(false);
       drawCallback(v_blank_thread_->vBlankTime());
       return 0;
     }
@@ -1581,6 +1688,8 @@ namespace visage {
     if (v_blank_thread_ == nullptr) {
       v_blank_thread_ = std::make_unique<VBlankThread>(this);
       v_blank_thread_->start();
+      if (pending_frame_waiter_)
+        setFrameWaiter(std::move(pending_frame_waiter_));
     }
     handleWindowShown();
   }
