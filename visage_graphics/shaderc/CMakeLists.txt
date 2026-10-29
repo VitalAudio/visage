@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
-project(VisageShaderc LANGUAGES C CXX)
+project(VisageShaderCompiler LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 foreach (CONFIG Debug Release RelWithDebInfo MinSizeRel)
   string(TOUPPER ${CONFIG} CONFIG_UPPER)
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} ${CMAKE_BINARY_DIR}/bin)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} ${CMAKE_CURRENT_BINARY_DIR}/bin)
 endforeach ()
 
 include(FetchContent)
@@ -40,15 +40,20 @@ FetchContent_Declare(spirv_cross GIT_REPOSITORY https://github.com/KhronosGroup/
 FetchContent_MakeAvailable(glslang spirv_cross)
 set(CMAKE_MESSAGE_LOG_LEVEL "NOTICE")
 
-set(SHADERC_SOURCES visage_shaderc.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../gpu/gpu_shader.cpp)
+set(SHADER_COMPILER_SOURCES shader_compiler.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../gpu/gpu_shader.cpp)
 if (WIN32)
-  list(APPEND SHADERC_SOURCES visage_shaderc_dxbc.cpp)
+  list(APPEND SHADER_COMPILER_SOURCES visage_shaderc_dxbc.cpp)
 endif ()
 
-add_executable(visage_shaderc ${SHADERC_SOURCES})
-target_include_directories(visage_shaderc PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
-target_link_libraries(visage_shaderc PRIVATE glslang glslang-default-resource-limits SPIRV
+add_library(VisageShaderCompiler STATIC ${SHADER_COMPILER_SOURCES} shader_compiler.h)
+target_include_directories(VisageShaderCompiler PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/.. ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(VisageShaderCompiler PRIVATE glslang glslang-default-resource-limits SPIRV
                       spirv-cross-core spirv-cross-glsl spirv-cross-hlsl spirv-cross-msl)
+target_compile_features(VisageShaderCompiler PUBLIC cxx_std_17)
 if (WIN32)
-  target_link_libraries(visage_shaderc PRIVATE d3dcompiler)
+  target_link_libraries(VisageShaderCompiler PRIVATE d3dcompiler)
 endif ()
+
+add_executable(shader_compiler visage_shaderc.cpp)
+target_link_libraries(shader_compiler PRIVATE VisageShaderCompiler)
+set_target_properties(VisageShaderCompiler shader_compiler PROPERTIES FOLDER "visage/tools")

@@ -12,13 +12,22 @@ add_embedded_resources(EmbeddedFontResources "example_fonts.h" "resources::fonts
 add_embedded_resources(EmbeddedIconResources "example_icons.h" "resources::icons" "${ICON_FILES}")
 add_embedded_resources(EmbeddedImageResources "example_images.h" "resources::images" "${IMAGE_FILES}")
 
-get_filename_component(SHADERC_NAME ${VISAGE_SHADERC_EXECUTABLE} NAME)
-add_custom_command(
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${SHADERC_NAME}
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${VISAGE_SHADERC_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/${SHADERC_NAME}
-  DEPENDS ${VISAGE_SHADERC_EXECUTABLE} ${VISAGE_SHADERC_TARGET}
-)
-add_custom_target(ExampleShaderCompiler DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${SHADERC_NAME})
+if (VISAGE_SHADER_COMPILER_TARGET STREQUAL "shader_compiler")
+  add_custom_target(ExampleShaderCompiler
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:shader_compiler>
+            ${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:shader_compiler>
+    DEPENDS shader_compiler
+  )
+else ()
+  get_filename_component(SHADER_COMPILER_NAME ${VISAGE_SHADER_COMPILER_EXECUTABLE} NAME)
+  add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${SHADER_COMPILER_NAME}
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${VISAGE_SHADER_COMPILER_EXECUTABLE}
+            ${CMAKE_CURRENT_BINARY_DIR}/${SHADER_COMPILER_NAME}
+    DEPENDS ${VISAGE_SHADER_COMPILER_EXECUTABLE} ${VISAGE_SHADER_COMPILER_TARGET}
+  )
+  add_custom_target(ExampleShaderCompiler DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${SHADER_COMPILER_NAME})
+endif ()
 set_target_properties(ExampleShaderCompiler PROPERTIES FOLDER "examples")
 
 foreach (EXAMPLE ${EXAMPLES})

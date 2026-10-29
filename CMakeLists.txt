@@ -29,6 +29,7 @@ option(VISAGE_AMALGAMATED_BUILD "Compile sources together" ON)
 option(VISAGE_ENABLE_WIDGETS "Add widgets library" ON)
 option(VISAGE_ENABLE_GRAPHICS_DEBUG_LOGGING "Shows graphics debug log in console in debug mode" OFF)
 option(VISAGE_ADDRESS_SANITIZER "Enable AddressSanitizer" OFF)
+option(VISAGE_LIVE_SHADERS "Link the shader compiler into the app for live shader editing" OFF)
 
 if (VISAGE_ADDRESS_SANITIZER)
   if (MSVC)
