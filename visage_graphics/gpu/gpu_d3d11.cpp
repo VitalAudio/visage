@@ -215,8 +215,12 @@ namespace visage::gpu {
       IDXGIDevice* dxgi_device = nullptr;
       IDXGIAdapter* adapter = nullptr;
       if (SUCCEEDED(device_->QueryInterface(__uuidof(IDXGIDevice), (void**)&dxgi_device)) &&
-          SUCCEEDED(dxgi_device->GetAdapter(&adapter)))
+          SUCCEEDED(dxgi_device->GetAdapter(&adapter))) {
         adapter->GetParent(__uuidof(IDXGIFactory2), (void**)&factory_);
+        DXGI_ADAPTER_DESC adapter_desc;
+        if (SUCCEEDED(adapter->GetDesc(&adapter_desc)))
+          basic_render_adapter_ = adapter_desc.VendorId == 0x1414 && adapter_desc.DeviceId == 0x8c;
+      }
       release(adapter);
       release(dxgi_device);
       if (factory_ == nullptr) {
@@ -672,7 +676,23 @@ namespace visage::gpu {
     void beginFrame(uint32_t) override { cpu_start_ = std::chrono::steady_clock::now(); }
 
     bool deviceLost() override {
-      return device_lost_ || (device_ && checkDeviceLost(device_->GetDeviceRemovedReason()));
+      if (device_lost_ || (device_ && checkDeviceLost(device_->GetDeviceRemovedReason())))
+        return true;
+
+      static constexpr auto kAdapterCheckInterval = std::chrono::milliseconds(250);
+      if (!basic_render_adapter_ || factory_ == nullptr)
+        return false;
+
+      auto now = std::chrono::steady_clock::now();
+      if (now - last_adapter_check_ < kAdapterCheckInterval)
+        return false;
+
+      last_adapter_check_ = now;
+      if (factory_->IsCurrent() || device_lost_.exchange(true))
+        return device_lost_;
+
+      log("D3D11: adapters changed while on the Microsoft Basic Render Driver, rebuilding");
+      return true;
     }
 
     void submitFrame(const FrameData& frame, Stats& stats) override {
@@ -1229,6 +1249,8 @@ namespace visage::gpu {
     D3D_FEATURE_LEVEL feature_level_ = D3D_FEATURE_LEVEL_11_0;
     bool tearing_supported_ = false;
     std::atomic<bool> device_lost_ = false;
+    bool basic_render_adapter_ = false;
+    std::chrono::steady_clock::time_point last_adapter_check_;
     HMODULE compiler_ = nullptr;
     D3DCompileFunction compile_ = nullptr;
 
