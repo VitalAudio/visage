@@ -29,29 +29,9 @@ namespace visage {
     int w = width();
     int h = height();
 
-    int yg_y = h / 6;
-    int gc_y = h / 3;
-    int cb_y = h / 2;
-    int bp_y = 2 * h / 3;
-    int pr_y = 5 * h / 6;
-
-    canvas.setColor(Brush::vertical(0xffff0000, 0xffffff00));
-    canvas.rectangle(0, 0, w, yg_y);
-
-    canvas.setColor(Brush::vertical(0xffffff00, 0xff00ff00));
-    canvas.rectangle(0, yg_y, w, gc_y - yg_y);
-
-    canvas.setColor(Brush::vertical(0xff00ff00, 0xff00ffff));
-    canvas.rectangle(0, gc_y, w, cb_y - gc_y);
-
-    canvas.setColor(Brush::vertical(0xff00ffff, 0xff0000ff));
-    canvas.rectangle(0, cb_y, w, bp_y - cb_y);
-
-    canvas.setColor(Brush::vertical(0xff0000ff, 0xffff00ff));
-    canvas.rectangle(0, bp_y, w, pr_y - bp_y);
-
-    canvas.setColor(Brush::vertical(0xffff00ff, 0xffff0000));
-    canvas.rectangle(0, pr_y, w, h - pr_y);
+    canvas.setColor(Brush::vertical(Gradient(0xffff0000, 0xffffff00, 0xff00ff00, 0xff00ffff, 0xff0000ff,
+                                             0xffff00ff, 0xffff0000)));
+    canvas.rectangle(0, 0, w, h);
 
     float y = h * hue_ / Color::kHueRange;
     canvas.setColor(0xff000000);
