@@ -23,6 +23,11 @@
 #include "emoji.h"
 
 #include <freetype/freetype.h>
+#include <map>
+
+#if VISAGE_LINUX
+#include <fontconfig/fontconfig.h>
+#endif
 
 namespace visage {
 
@@ -70,6 +75,55 @@ namespace visage {
       }
     }
 
+#if VISAGE_LINUX
+    const FallbackFont& fallbackFont(char32_t character) {
+      auto found = fallback_fonts_.find(character);
+      if (found != fallback_fonts_.end())
+        return found->second;
+
+      FallbackFont& fallback = fallback_fonts_[character];
+      if (FT_Get_Char_Index(face_, character))
+        return fallback;
+
+      FcPattern* pattern = FcPatternCreate();
+      FcCharSet* char_set = FcCharSetCreate();
+      FcCharSetAddChar(char_set, character);
+      FcPatternAddCharSet(pattern, FC_CHARSET, char_set);
+      FcPatternAddString(pattern, FC_FAMILY, reinterpret_cast<const FcChar8*>("sans-serif"));
+      FcConfigSubstitute(nullptr, pattern, FcMatchPattern);
+      FcDefaultSubstitute(pattern);
+
+      FcResult result = FcResultNoMatch;
+      FcFontSet* font_set = FcFontSort(nullptr, pattern, FcFalse, nullptr, &result);
+      for (int i = 0; font_set && i < font_set->nfont; ++i) {
+        FcPattern* font = font_set->fonts[i];
+        FcCharSet* font_chars = nullptr;
+        FcBool scalable = FcFalse;
+        FcBool color = FcFalse;
+        FcChar8* file = nullptr;
+        if (FcPatternGetCharSet(font, FC_CHARSET, 0, &font_chars) != FcResultMatch ||
+            !FcCharSetHasChar(font_chars, character))
+          continue;
+        if (FcPatternGetBool(font, FC_SCALABLE, 0, &scalable) != FcResultMatch || !scalable)
+          continue;
+        if (FcPatternGetBool(font, FC_COLOR, 0, &color) == FcResultMatch && color)
+          continue;
+        if (FcPatternGetString(font, FC_FILE, 0, &file) != FcResultMatch)
+          continue;
+
+        fallback.path = reinterpret_cast<const char*>(file);
+        FcPatternGetInteger(font, FC_INDEX, 0, &fallback.index);
+        break;
+      }
+
+      if (font_set)
+        FcFontSetDestroy(font_set);
+      FcCharSetDestroy(char_set);
+      FcPatternDestroy(pattern);
+      return fallback;
+    }
+#endif
+
     ~EmojiRasterizerImpl() {
       FT_Done_Face(face_);
       FT_Done_FreeType(library_);
@@ -78,6 +132,7 @@ namespace visage {
   private:
     FT_Library library_ = nullptr;
     FT_Face face_ = nullptr;
+    std::map<char32_t, FallbackFont> fallback_fonts_;
   };
 
   EmojiRasterizer::EmojiRasterizer() {
@@ -90,4 +145,10 @@ namespace visage {
                                        unsigned int* dest, int dest_width, int x, int y) {
     impl_->drawIntoBuffer(emoji, font_size, write_width, dest, dest_width, x, y);
   }
+
+#if VISAGE_LINUX
+  const FallbackFont& EmojiRasterizer::fallbackFont(char32_t character) {
+    return impl_->fallbackFont(character);
+  }
+#endif
 }

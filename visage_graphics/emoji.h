@@ -22,9 +22,15 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 namespace visage {
   class EmojiRasterizerImpl;
+
+  struct FallbackFont {
+    std::string path;
+    int index = 0;
+  };
 
   class EmojiRasterizer {
   public:
@@ -32,6 +38,9 @@ namespace visage {
 
     void drawIntoBuffer(char32_t emoji, int font_size, int write_width, unsigned int* dest,
                         int dest_width, int x, int y);
+#if VISAGE_LINUX
+    const FallbackFont& fallbackFont(char32_t character);
+#endif
 
   private:
     EmojiRasterizer();

@@ -282,6 +282,39 @@ TEST_CASE("Emoji rasterizer character missing from emoji font", "[graphics]") {
   }
   REQUIRE(drawn > 0);
 }
+
+TEST_CASE("Characters missing from the font use a system font", "[graphics]") {
+  static constexpr char32_t kCharacter = U'\u0433';
+  if (EmojiRasterizer::instance().fallbackFont(kCharacter).path.empty())
+    SKIP("No system font has the character");
+
+  Font font(24, fonts::Lato_Regular_ttf_data, sizeof(fonts::Lato_Regular_ttf_data), 1.0f);
+  float width = font.stringWidth(U"\u0433");
+  REQUIRE(width > 0.0f);
+  REQUIRE(width < 0.75f * font.lineHeight());
+
+  Canvas canvas;
+  canvas.setWindowless(40, 40);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 40, 40);
+  canvas.setColor(0xffff0000);
+  canvas.text(U"\u0433", font, Font::kCenter, 0, 0, 40, 40);
+  Screenshot screenshot = canvas.takeScreenshot();
+  int red = 0;
+  for (int y = 0; y < 40; ++y) {
+    for (int x = 0; x < 40; ++x) {
+      Color color = screenshot.sample(x, y);
+      REQUIRE(color.green() < 0.01f);
+      if (color.red() > 0.5f)
+        ++red;
+    }
+  }
+  REQUIRE(red > 0);
+}
+
+TEST_CASE("Emoji do not use a system font", "[graphics]") {
+  REQUIRE(EmojiRasterizer::instance().fallbackFont(U'\U0001F600').path.empty());
+}
 #endif
 
 TEST_CASE("A Font held in a global is released after the font cache", "[graphics]") {

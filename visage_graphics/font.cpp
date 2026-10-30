@@ -57,6 +57,15 @@ namespace visage {
       return face;
     }
 
+    static FT_Face newFileFace(const std::string& path, int index) {
+      FT_Face face = nullptr;
+      if (FT_New_Face(instance().library_, path.c_str(), index, &face))
+        return nullptr;
+
+      instance().faces_.insert(face);
+      return face;
+    }
+
     static void doneFace(FT_Face face) {
       if (face == nullptr)
         return;
@@ -92,6 +101,12 @@ namespace visage {
 
     TypeFace(int size, const unsigned char* data, int data_size) {
       face_ = FreeTypeLibrary::newMemoryFace(data, data_size);
+      if (face_)
+        FT_Set_Pixel_Sizes(face_, 0, std::max(0, size));
+    }
+
+    TypeFace(int size, const std::string& path, int index) {
+      face_ = FreeTypeLibrary::newFileFace(path, index);
       if (face_)
         FT_Set_Pixel_Sizes(face_, 0, std::max(0, size));
     }
@@ -227,6 +242,11 @@ namespace visage {
       if (type_face_->hasCharacter(character))
         return packCharacterGlyph(packed_glyph, type_face_.get(), character);
 
+#if VISAGE_LINUX
+      if (const TypeFace* fallback = fallbackTypeFace(character))
+        return packCharacterGlyph(packed_glyph, fallback, character);
+#endif
+
       return packEmojiGlyph(packed_glyph, character);
     }
 
@@ -256,6 +276,22 @@ namespace visage {
     const std::string& id() const { return id_; }
 
   private:
+#if VISAGE_LINUX
+    const TypeFace* fallbackTypeFace(char32_t character) {
+      if (type_face_->face() == nullptr)
+        return nullptr;
+
+      const FallbackFont& fallback = EmojiRasterizer::instance().fallbackFont(character);
+      if (fallback.path.empty())
+        return nullptr;
+
+      std::unique_ptr<TypeFace>& type_face = fallback_type_faces_[{ fallback.path, fallback.index }];
+      if (type_face == nullptr)
+        type_face = std::make_unique<TypeFace>(size_, fallback.path, fallback.index);
+      return type_face->hasCharacter(character) ? type_face.get() : nullptr;
+    }
+#endif
+
     void packGlyph(PackedGlyph* packed_glyph, char32_t character) {
       if (!atlas_map_.addRect(character, packed_glyph->width, packed_glyph->height))
         resize();
@@ -277,6 +313,7 @@ namespace visage {
     int data_size_ = 0;
 
     std::map<char32_t, PackedGlyph> packed_glyphs_;
+    std::map<std::pair<std::string, int>, std::unique_ptr<TypeFace>> fallback_type_faces_;
     gpu::TextureHandle texture_handle_ = {};
   };
 
