@@ -20,6 +20,47 @@ the single source of truth for coding agents; `CLAUDE.md` imports it.
 - `examples/` example apps. `manual_tests/` an interactive app for checks automated tests can't do
   (see its README).
 
+## Library API
+
+Visage is a library, so public headers are its API. Read the headers for signatures; this is a map.
+
+- Users include the amalgamated headers generated into the build tree: `<visage/app.h>`,
+  `<visage/ui.h>`, `<visage/graphics.h>`, `<visage/widgets.h>`, `<visage/windowing.h>` and
+  `<visage/utils.h>`. Each one includes every header of its library, so a new public header is
+  picked up automatically.
+- `visage_ui/frame.h` `Frame` is the UI building block. Subclass it and override `draw(Canvas&)`,
+  `resized()`, the mouse and key handlers and the lifecycle hooks (`init()`, `destroy()`,
+  `visibilityChanged()`, `dpiChanged()`), or set the matching callbacks (`onDraw()`, `onResize()`,
+  `onVisibilityChange()` and so on). Call `redraw()` when visual state changes; only dirty frames
+  are redrawn.
+- Children: `addChild(Frame*)` or `addChild(Frame&)` does not take ownership, while
+  `addChild(std::unique_ptr<Frame>)` does. Bounds are in logical pixels relative to the parent.
+- `visage_ui/layout.h` flexbox-style layout through `frame.layout()` and `setFlexLayout(true)`.
+  Sizes are `Dimension`s (`visage_utils/dimension.h`), with literals `_px` (logical), `_npx`
+  (native), `_vw`, `_vh`, `_vmin` in `visage::dimension`.
+- `visage_graphics/canvas.h` `Canvas` is the immediate-mode drawing API used in `draw()`: set a color
+  or gradient brush, then draw shapes, paths, text, images and SVGs.
+- `visage_app/application_window.h` `ApplicationWindow` owns a native window for standalone apps
+  (`show()`, `runEventLoop()`). `ApplicationEditor` is the root frame for embedding in a host window,
+  such as a plugin (`addToWindow()`); see `examples/ClapPlugin` and `examples/BringYourOwnWindow`.
+- `visage_windowing/windowing.h` `Window` and `createWindow()`/`createPluginWindow()` are the
+  native window layer under the app classes.
+- Theming: colors and values are declared with `VISAGE_THEME_COLOR(Name, default)` and
+  `VISAGE_THEME_VALUE` (`visage_graphics/theme.h`) and resolved through a `Palette` set on a frame
+  tree with `setPalette()`. Pass a `theme::ColorId` to `canvas.setColor()` instead of hard-coding
+  colors in reusable components.
+- `visage_widgets/` ready-made components (buttons, text editor, graph line, color picker, shader
+  quad and editor) built only on the public API; use them as reference implementations.
+- `visage_utils/events.h` `CallbackList` is the callback type behind `onDraw()` and similar members.
+- Threading: frames, canvases and windows belong to the main event thread. From another thread, hand
+  work over with `runOnEventThread()` (`visage_ui/events.h`).
+- Internal, not public API: `visage_graphics/gpu/` backends, `visage_graphics/shaderc/`,
+  and `visage_windowing/<platform>/`. Changes there must not leak
+  platform types into public headers.
+- `examples/` shows idiomatic usage for each feature (Basic, Layout, Paths, Gradients, PostEffects,
+  BlendModes, MultiWindow, MouseEvents and more); start there before inventing a pattern. Public API
+  changes are breaking for users, so call them out in the PR description.
+
 ## Build
 
 ```sh
