@@ -40,7 +40,7 @@ namespace visage {
     static Renderer& instance();
 
     void initializeWindowless() { initialize(nullptr, nullptr); }
-    void initialize(void* model_window, void* display);
+    void initialize(void* model_window, void* display, bool wayland_display = false);
     void checkInitialization();
     void watchForLeaks();
     void setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool bgra, bool y_flip);
@@ -64,6 +64,7 @@ namespace visage {
     std::atomic<int> references_ = 0;
     void* model_window_ = nullptr;
     void* display_ = nullptr;
+    bool wayland_display_ = false;
     bool supported_ = false;
     bool swap_chain_supported_ = false;
     bool float_render_targets_supported_ = false;

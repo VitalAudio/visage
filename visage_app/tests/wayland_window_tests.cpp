@@ -20,7 +20,6 @@
  */
 
 #include "visage/app.h"
-#include "visage/utils.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
@@ -34,7 +33,7 @@ namespace {
     setenv("VISAGE_WINDOWING", "wayland", 1);
     std::unique_ptr<Window> window = createWindow(Dimension::logicalPixels(100),
                                                   Dimension::logicalPixels(100));
-    return window && isWaylandDisplay(window->globalDisplay());
+    return window && window->waylandDisplay();
   }
 }
 
@@ -56,7 +55,7 @@ TEST_CASE("Wayland windows map, present frames and close", "[integration]") {
   app.show(Dimension::logicalPixels(200), Dimension::logicalPixels(100));
   Window* window = app.window();
   REQUIRE(window);
-  REQUIRE(isWaylandDisplay(window->globalDisplay()));
+  REQUIRE(window->waylandDisplay());
   REQUIRE(window->dpiScale() == defaultDpiScale());
   REQUIRE(window->clientWidth() == std::round(200 * window->dpiScale()));
   REQUIRE(window->clientHeight() == std::round(100 * window->dpiScale()));

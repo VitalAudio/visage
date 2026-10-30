@@ -204,6 +204,7 @@ namespace visage::gpu {
     virtual bool createSwapChain(uint16_t idx, void* window_handle, void* display, int width,
                                  int height, TextureFormat format) = 0;
     virtual void resizeSwapChain(uint16_t idx, int width, int height) = 0;
+    virtual void setDisplay(void* display, bool wayland) { }
     virtual void destroyFrameBuffer(uint16_t idx) = 0;
     virtual bool waitForFrame(uint16_t idx, int timeout_ms) = 0;
     virtual bool deviceLost() { return false; }

@@ -265,6 +265,7 @@ namespace visage::gpu {
   struct Init {
     RendererType type = RendererType::Noop;
     void* display = nullptr;
+    bool wayland = false;
     bool vsync = true;
     bool color_managed = true;
     bool debug = false;
@@ -277,7 +278,7 @@ namespace visage::gpu {
   const char* rendererName(RendererType type);
 
   bool init(const Init& init);
-  void setDisplay(void* display);
+  void setDisplay(void* display, bool wayland);
   void shutdown();
   bool initialized();
   const Caps* getCaps();

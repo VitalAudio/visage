@@ -20,7 +20,6 @@
  */
 
 #include "gpu_backend.h"
-#include "visage_utils/native_display.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -747,6 +746,11 @@ namespace visage::gpu {
       return true;
     }
 
+    void setDisplay(void* display, bool wayland) override {
+      init_.display = display;
+      init_.wayland = wayland;
+    }
+
     void resizeSwapChain(uint16_t idx, int width, int height) override {
       SwapChain* chain = frame_buffers_[idx].chain.get();
       if (chain == nullptr)
@@ -971,10 +975,9 @@ namespace visage::gpu {
       };
 
       std::vector<const char*> enabled;
-      bool wayland = isWaylandDisplay(init_.display);
       xlib_ = has_extension(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
       wayland_ = has_extension(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
-      if (!has_extension(VK_KHR_SURFACE_EXTENSION_NAME) || !(wayland ? wayland_ : xlib_))
+      if (!has_extension(VK_KHR_SURFACE_EXTENSION_NAME) || !(init_.wayland ? wayland_ : xlib_))
         return false;
       enabled.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
       if (xlib_)
@@ -1111,7 +1114,7 @@ namespace visage::gpu {
       if (init_.display == nullptr)
         return true;
 
-      if (isWaylandDisplay(init_.display)) {
+      if (init_.wayland) {
         auto display = static_cast<wl_display*>(init_.display);
         return vkGetPhysicalDeviceWaylandPresentationSupportKHR(device, family, display);
       }
@@ -1550,7 +1553,7 @@ namespace visage::gpu {
     }
 
     bool createPlatformSurface(SwapChain& chain) {
-      if (isWaylandDisplay(chain.display)) {
+      if (init_.wayland) {
         if (!wayland_)
           return false;
         VkWaylandSurfaceCreateInfoKHR surface_info { VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR };

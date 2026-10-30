@@ -60,6 +60,7 @@ namespace visage {
     void runEventLoop() override;
     void* nativeHandle() const override { return surface_; }
     void* globalDisplay() const override;
+    bool waylandDisplay() const override { return true; }
     int posixFd() const override;
 
     void windowContentsResized(int width, int height) override;

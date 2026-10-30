@@ -122,7 +122,8 @@ namespace visage {
   void ApplicationEditor::addToWindow(Window* window) {
     window_ = window;
 
-    Renderer::instance().initialize(window_->initWindow(), window->globalDisplay());
+    Renderer::instance().initialize(window_->initWindow(), window->globalDisplay(),
+                                    window->waylandDisplay());
     canvas_->pairToWindow(window_->graphicsHandle(), window->clientWidth(), window->clientHeight());
     top_level_->setDpiScale(window_->dpiScale());
     top_level_->setNativeBounds(0, 0, window->clientWidth(), window->clientHeight());

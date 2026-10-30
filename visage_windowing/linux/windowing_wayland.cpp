@@ -22,7 +22,6 @@
 #if VISAGE_LINUX && VISAGE_WAYLAND
 #include "windowing_wayland.h"
 
-#include "visage_utils/native_display.h"
 #include "visage_utils/string_utils.h"
 #include "visage_utils/time_utils.h"
 #include "windowing_x11.h"
@@ -202,7 +201,6 @@ namespace visage {
 
       wl_display_roundtrip(display_);
       xkb_context_ = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-      setWaylandDisplay(display_);
     }
 
     WaylandConnection(const WaylandConnection&) = delete;

@@ -55,10 +55,11 @@ namespace visage {
     return renderer;
   }
 
-  void Renderer::initialize(void* model_window, void* display) {
+  void Renderer::initialize(void* model_window, void* display, bool wayland_display) {
     if (display_ == nullptr) {
       display_ = display;
-      gpu::setDisplay(display_);
+      wayland_display_ = wayland_display;
+      gpu::setDisplay(display_, wayland_display_);
     }
 
     if (initialized_)
@@ -70,6 +71,7 @@ namespace visage {
     gpu::Init init;
     init.type = gpu::defaultRendererType();
     init.display = display_;
+    init.wayland = wayland_display_;
     init.vsync = kVsync;
     init.color_managed = color_managed_;
 #if VISAGE_GRAPHICS_DEBUG_LOGGING
@@ -104,7 +106,7 @@ namespace visage {
 
   void Renderer::checkInitialization() {
     if (!initialized_ && shut_down_)
-      initialize(model_window_, display_);
+      initialize(model_window_, display_, wayland_display_);
   }
 
   void Renderer::watchForLeaks() {

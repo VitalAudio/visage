@@ -13,7 +13,7 @@ the single source of truth for coding agents; `CLAUDE.md` imports it.
 - `visage_graphics/shaderc/` the in-tree shader compiler (glslang and SPIRV-Cross through
   FetchContent). It builds the `shader_compiler` executable, which emits SPIR-V, MSL and DXBC.
 - `visage_graphics/shaders/` shader sources. Embedded shaders are always compiled at build time.
-- `visage_windowing/` native windows and events per platform (`macos/`, `win32/`, `linux/` for X11,
+- `visage_windowing/` native windows and events per platform (`macos/`, `win32/`, `linux/` for X11 and Wayland,
   `emscripten/`).
 - `visage_ui/`, `visage_widgets/`, `visage_app/`, `visage_utils/`, `visage_file_embed/` the
   remaining libraries.
@@ -73,7 +73,7 @@ Useful options: `VISAGE_BUILD_TESTS`, `VISAGE_BUILD_EXAMPLES` (both on for a top
 default, links the shader compiler into apps for live shader editing). `VISAGE_SHADER_COMPILER`
 points at a prebuilt `shader_compiler` instead of building one.
 
-Linux needs the X11 and Vulkan development packages listed in `.github/workflows/linux-test.yaml`.
+Linux needs the X11, Wayland and Vulkan development packages listed in `.github/workflows/linux-test.yaml`.
 Set `VISAGE_VULKAN_VALIDATION=1` to enable Vulkan validation layers at runtime.
 
 Emscripten:

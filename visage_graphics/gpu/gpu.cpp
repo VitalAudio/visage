@@ -524,9 +524,12 @@ namespace visage::gpu {
     return true;
   }
 
-  void setDisplay(void* display) {
-    if (context && display)
+  void setDisplay(void* display, bool wayland) {
+    if (context && display) {
       context->init.display = display;
+      context->init.wayland = wayland;
+      context->backend->setDisplay(display, wayland);
+    }
   }
 
   bool initialized() {
