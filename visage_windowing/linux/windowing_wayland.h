@@ -30,6 +30,7 @@
 
 struct wl_callback;
 struct wl_output;
+struct wl_subsurface;
 struct wl_surface;
 struct wp_fractional_scale_v1;
 struct wp_viewport;
@@ -59,6 +60,7 @@ namespace visage {
 
     void runEventLoop() override;
     void* nativeHandle() const override { return surface_; }
+    void* graphicsHandle() const override { return content_surface_; }
     void* globalDisplay() const override;
     bool waylandDisplay() const override { return true; }
     int posixFd() const override;
@@ -114,7 +116,8 @@ namespace visage {
     int resizeOperationForPosition(int x, int y) const;
     void createRole(bool maximized);
     void waitForConfigure();
-    void unmapSurface();
+    void commitParent();
+    void waitForPresentedFrame();
     void drawConfigured();
     void destroyRole();
     void setMinimumSize();
@@ -128,6 +131,10 @@ namespace visage {
     Decoration decoration_ = Decoration::Native;
     wl_surface* surface_ = nullptr;
     wp_viewport* viewport_ = nullptr;
+    wl_surface* content_surface_ = nullptr;
+    wp_viewport* content_viewport_ = nullptr;
+    wl_subsurface* subsurface_ = nullptr;
+    bool parent_buffer_attached_ = false;
     wp_fractional_scale_v1* fractional_scale_ = nullptr;
     xdg_surface* xdg_surface_ = nullptr;
     xdg_toplevel* xdg_toplevel_ = nullptr;
@@ -157,6 +164,7 @@ namespace visage {
 
     bool frame_presented_ = false;
     bool waiting_for_frame_ = false;
+    bool frame_in_flight_ = false;
     long long frame_wait_start_us_ = 0;
     long long next_tick_us_ = 0;
     long long start_draw_microseconds_ = 0;

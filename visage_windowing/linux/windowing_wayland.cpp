@@ -195,7 +195,8 @@ namespace visage {
       registry_ = wl_display_get_registry(display_);
       wl_registry_add_listener(registry_, &kRegistryListener, this);
       wl_display_roundtrip(display_);
-      if (compositor_ == nullptr || wm_base_ == nullptr || shm_ == nullptr) {
+      if (compositor_ == nullptr || subcompositor_ == nullptr || wm_base_ == nullptr ||
+          shm_ == nullptr || viewporter_ == nullptr) {
         wl_display_disconnect(display_);
         display_ = nullptr;
         return;
@@ -209,6 +210,25 @@ namespace visage {
 
     wl_display* display() const { return display_; }
     wl_compositor* compositor() const { return compositor_; }
+    wl_subcompositor* subcompositor() const { return subcompositor_; }
+
+    wl_buffer* fillBuffer() {
+      static constexpr uint32_t kBlack = 0xff000000;
+
+      if (fill_buffer_)
+        return fill_buffer_;
+
+      int fd = memfd_create("visage-fill", MFD_CLOEXEC);
+      if (fd < 0)
+        return nullptr;
+      if (ftruncate(fd, sizeof(kBlack)) == 0 && pwrite(fd, &kBlack, sizeof(kBlack), 0) == sizeof(kBlack)) {
+        wl_shm_pool* pool = wl_shm_create_pool(shm_, fd, sizeof(kBlack));
+        fill_buffer_ = wl_shm_pool_create_buffer(pool, 0, 1, 1, sizeof(kBlack), WL_SHM_FORMAT_XRGB8888);
+        wl_shm_pool_destroy(pool);
+      }
+      close(fd);
+      return fill_buffer_;
+    }
     wp_viewporter* viewporter() const { return viewporter_; }
     wp_fractional_scale_manager_v1* fractionalScaleManager() const {
       return fractional_scale_manager_;
@@ -496,6 +516,8 @@ namespace visage {
         compositor_version_ = std::min(version, 6u);
         compositor_ = static_cast<wl_compositor*>(bind(&wl_compositor_interface, 6));
       }
+      else if (std::strcmp(interface, wl_subcompositor_interface.name) == 0)
+        subcompositor_ = static_cast<wl_subcompositor*>(bind(&wl_subcompositor_interface, 1));
       else if (std::strcmp(interface, wl_shm_interface.name) == 0)
         shm_ = static_cast<wl_shm*>(bind(&wl_shm_interface, 1));
       else if (std::strcmp(interface, xdg_wm_base_interface.name) == 0) {
@@ -1033,7 +1055,9 @@ namespace visage {
     wl_registry* registry_ = nullptr;
     wl_compositor* compositor_ = nullptr;
     uint32_t compositor_version_ = 0;
+    wl_subcompositor* subcompositor_ = nullptr;
     wl_shm* shm_ = nullptr;
+    wl_buffer* fill_buffer_ = nullptr;
     xdg_wm_base* wm_base_ = nullptr;
     zxdg_decoration_manager_v1* decoration_manager_ = nullptr;
     wp_viewporter* viewporter_ = nullptr;
@@ -1441,15 +1465,24 @@ namespace visage {
 
     surface_ = wl_compositor_create_surface(wayland_->compositor());
     wl_surface_add_listener(surface_, &kSurfaceListener, this);
-    if (wayland_->viewporter())
-      viewport_ = wp_viewporter_get_viewport(wayland_->viewporter(), surface_);
-    if (viewport_ && wayland_->fractionalScaleManager()) {
+    viewport_ = wp_viewporter_get_viewport(wayland_->viewporter(), surface_);
+
+    content_surface_ = wl_compositor_create_surface(wayland_->compositor());
+    content_viewport_ = wp_viewporter_get_viewport(wayland_->viewporter(), content_surface_);
+    subsurface_ = wl_subcompositor_get_subsurface(wayland_->subcompositor(), content_surface_, surface_);
+    wl_subsurface_set_desync(subsurface_);
+    wl_region* input_region = wl_compositor_create_region(wayland_->compositor());
+    wl_surface_set_input_region(content_surface_, input_region);
+    wl_region_destroy(input_region);
+
+    if (wayland_->fractionalScaleManager()) {
       fractional_scale_ = wp_fractional_scale_manager_v1_get_fractional_scale(wayland_->fractionalScaleManager(),
                                                                               surface_);
       wp_fractional_scale_v1_add_listener(fractional_scale_, &kFractionalScaleListener, this);
       fractional_ = true;
     }
     applyLogicalSize();
+    wl_surface_commit(content_surface_);
 
     start_draw_microseconds_ = time::microseconds();
     next_tick_us_ = start_draw_microseconds_;
@@ -1464,6 +1497,12 @@ namespace visage {
     destroyRole();
     if (frame_callback_)
       wl_callback_destroy(frame_callback_);
+    if (subsurface_)
+      wl_subsurface_destroy(subsurface_);
+    if (content_viewport_)
+      wp_viewport_destroy(content_viewport_);
+    if (content_surface_)
+      wl_surface_destroy(content_surface_);
     if (fractional_scale_)
       wp_fractional_scale_v1_destroy(fractional_scale_);
     if (viewport_)
@@ -1496,13 +1535,14 @@ namespace visage {
 
     bool drawable = configured_ && shown_ && isVisible();
     if (drawable && frame_callback_ == nullptr) {
-      frame_callback_ = wl_surface_frame(surface_);
+      frame_callback_ = wl_surface_frame(content_surface_);
       wl_callback_add_listener(frame_callback_, &kFrameListener, this);
     }
 
     frame_presented_ = false;
     drawCallback((now - start_draw_microseconds_) / 1000000.0);
     if (frame_presented_ && frame_callback_) {
+      frame_in_flight_ = true;
       waiting_for_frame_ = true;
       frame_wait_start_us_ = now;
     }
@@ -1512,6 +1552,7 @@ namespace visage {
     if (frame_callback_)
       wl_callback_destroy(frame_callback_);
     frame_callback_ = nullptr;
+    frame_in_flight_ = false;
     waiting_for_frame_ = false;
     next_tick_us_ = time::microseconds();
   }
@@ -1577,19 +1618,23 @@ namespace visage {
     float scale = dpiScale();
     logical_width_ = std::max(1, static_cast<int>(std::round(clientWidth() / scale)));
     logical_height_ = std::max(1, static_cast<int>(std::round(clientHeight() / scale)));
-    if (viewport_) {
-      wp_viewport_set_destination(viewport_, logical_width_, logical_height_);
-      return;
-    }
+    wp_viewport_set_destination(viewport_, logical_width_, logical_height_);
+    wp_viewport_set_destination(content_viewport_, logical_width_, logical_height_);
+  }
 
-    int integer_scale = std::round(scale);
-    bool divisible = integer_scale > 0 && clientWidth() % integer_scale == 0 &&
-                     clientHeight() % integer_scale == 0;
-    wl_surface_set_buffer_scale(surface_, divisible ? integer_scale : 1);
+  void WindowWayland::commitParent() {
+    if (configured_ && shown_ && !parent_buffer_attached_) {
+      wl_surface_attach(surface_, wayland_->fillBuffer(), 0, 0);
+      wl_surface_damage_buffer(surface_, 0, 0, 1, 1);
+      parent_buffer_attached_ = true;
+    }
+    wl_surface_commit(surface_);
   }
 
   void WindowWayland::windowContentsResized(int, int) {
     applyLogicalSize();
+    if (configured_ && shown_)
+      commitParent();
   }
 
   void WindowWayland::setMinimumSize() {
@@ -1660,37 +1705,21 @@ namespace visage {
   }
 
   void WindowWayland::drawConfigured() {
-    if (waiting_for_configure_) {
+    commitParent();
+    if (waiting_for_configure_)
       next_tick_us_ = time::microseconds();
-      wl_surface_commit(surface_);
-      return;
-    }
-    if (waiting_for_frame_)
-      return;
-
-    tick();
-    if (!frame_presented_)
-      wl_surface_commit(surface_);
+    else if (!waiting_for_frame_)
+      tick();
   }
 
-  void WindowWayland::unmapSurface() {
+  void WindowWayland::waitForPresentedFrame() {
     static constexpr int kWaitStepMs = 5;
-    static const wl_callback_listener kUnmappedListener = {
-      [](void* data, wl_callback*, uint32_t) { *static_cast<bool*>(data) = true; },
-    };
-
-    bool unmapped = false;
-    wl_callback* callback = wl_surface_frame(surface_);
-    wl_callback_add_listener(callback, &kUnmappedListener, &unmapped);
-    wl_surface_attach(surface_, nullptr, 0, 0);
-    wl_surface_commit(surface_);
 
     long long deadline = time::microseconds() + kStalledFrameUs;
-    while (!unmapped && time::microseconds() < deadline) {
+    while (frame_in_flight_ && time::microseconds() < deadline) {
       if (!wayland_->dispatch(kWaitStepMs))
-        break;
+        return;
     }
-    wl_callback_destroy(callback);
   }
 
   void WindowWayland::waitForConfigure() {
@@ -1789,9 +1818,13 @@ namespace visage {
     if (shown_) {
       shown_ = false;
       unlockPointer();
-      destroyRole();
       setVisible(false);
-      unmapSurface();
+      waitForPresentedFrame();
+      destroyRole();
+      wl_surface_attach(surface_, nullptr, 0, 0);
+      wl_surface_commit(surface_);
+      parent_buffer_attached_ = false;
+      wl_display_flush(wayland_->display());
     }
     handleWindowHidden();
   }
