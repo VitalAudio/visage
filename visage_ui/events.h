@@ -35,6 +35,8 @@ namespace visage {
   class EventTimer {
   public:
     EventTimer() = default;
+    EventTimer(const EventTimer&) = delete;
+    EventTimer& operator=(const EventTimer&) = delete;
     virtual ~EventTimer();
 
     auto& onTimerCallback() { return on_timer_callback_; }
@@ -59,10 +61,7 @@ namespace visage {
 
   class EventManager {
   public:
-    static EventManager& instance() {
-      static EventManager instance;
-      return instance;
-    }
+    static EventManager& instance();
 
     EventManager(const EventManager&) = delete;
     EventManager& operator=(const EventManager&) = delete;
@@ -81,7 +80,7 @@ namespace visage {
     std::mutex callback_mutex_;
   };
 
-  static void runOnEventThread(std::function<void()> function) {
+  inline void runOnEventThread(std::function<void()> function) {
     EventManager::instance().addCallback(std::move(function));
   }
 
@@ -99,6 +98,7 @@ namespace visage {
     bool isMainModifier() const { return isRegCtrlDown() || isCmdDown(); }
 
     bool isDown() const { return is_down; }
+    bool isCancelled() const { return is_cancelled; }
     bool isMouse() const { return !isTouch(); }
     bool isTouch() const { return button_state & kMouseButtonTouch; }
     bool hasWheelMomentum() const { return wheel_momentum; }
@@ -127,6 +127,7 @@ namespace visage {
 
     int modifiers = 0;
     bool is_down = false;
+    bool is_cancelled = false;
     float wheel_delta_x = 0.0f;
     float wheel_delta_y = 0.0f;
     float precise_wheel_delta_x = 0.0f;

@@ -49,15 +49,16 @@ namespace visage {
 
 - (void)invoke:(id)sender {
   const visage::PopupMenu* menu = (const visage::PopupMenu*)[[sender representedObject] pointerValue];
-  menu->onSelection().callback(menu->id());
-  visage::NativeMenu::menu().onSelection().callback(menu->id());
+  int id = menu->id();
+  menu->onSelection().callback(id);
+  visage::NativeMenu::menu().onSelection().callback(id);
 }
 @end
 
 namespace visage {
   NSMenu* buildMenu(const PopupMenu& popup_menu, id target) {
+    static PopupMenuTarget* handler = [[PopupMenuTarget alloc] init];
     NSMenu* menu = [[NSMenu alloc] init];
-    auto handler = [[PopupMenuTarget alloc] init];
 
     for (const auto& item : popup_menu.options()) {
       NSString* name = [NSString stringWithUTF8String:item.name().toUtf8().c_str()];
@@ -106,8 +107,12 @@ namespace visage {
 
   void setNativeMenuBar(const PopupMenu& popup_menu) {
     @autoreleasepool {
+      NSMenu* previous_menu = [NSApp mainMenu];
       NativeMenu::setPopup(popup_menu);
       [NSApp setMainMenu:buildMenu(NativeMenu::menu(), nil)];
+      dispatch_async(dispatch_get_main_queue(), ^{
+        (void)previous_menu;
+      });
     }
   }
 }

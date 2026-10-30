@@ -81,9 +81,10 @@ namespace visage {
   }
 
   void Button::mouseDown(const MouseEvent& e) {
-    if (!active_)
+    if (!active_ || (e.button_state & ~e.button_id))
       return;
 
+    pressed_button_ = e.button_id;
     alt_clicked_ = e.isAltDown();
     hover_amount_.target(false);
     redraw();
@@ -93,11 +94,15 @@ namespace visage {
   }
 
   void Button::mouseUp(const MouseEvent& e) {
+    if (e.button_id != kMouseButtonNone && e.button_id != pressed_button_)
+      return;
+
+    pressed_button_ = kMouseButtonNone;
     if (!active_)
       return;
 
     redraw();
-    if (localBounds().contains(e.position)) {
+    if (!e.isCancelled() && localBounds().contains(e.position)) {
       hover_amount_.target(true, true);
       if (!toggle_on_mouse_down_)
         notify(toggle());

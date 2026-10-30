@@ -22,14 +22,15 @@
 #include "layout.h"
 
 namespace visage {
-  std::vector<IBounds> Layout::flexChildGroup(const std::vector<const Layout*>& children, IBounds bounds,
-                                              float dpi_scale, IBounds& bounding_box) const {
-    int width = bounds.width();
-    int height = bounds.height();
+  std::vector<IBounds> Layout::flexChildGroup(const std::vector<const Layout*>& children,
+                                              IBounds bounds, IBounds container, float dpi_scale,
+                                              IBounds& bounding_box) const {
+    int width = container.width();
+    int height = container.height();
     int dim = flex_rows_ ? 1 : 0;
     int cross_dim = 1 - dim;
 
-    int flex_area = flex_rows_ ? height : width;
+    int flex_area = flex_rows_ ? bounds.height() : bounds.width();
     int flex_gap = flex_gap_.computeInt(dpi_scale, width, height);
     flex_area -= flex_gap * (children.size() - 1);
     float total_flex_grow = 0.0f;
@@ -66,7 +67,7 @@ namespace visage {
 
     if (flex_area < 0) {
       for (int i = 0; i < children.size(); ++i) {
-        if (children[i]->flex_shrink_) {
+        if (children[i]->flex_shrink_ && dimensions[i] > 0) {
           int delta = std::round(flex_area * children[i]->flex_shrink_ * dimensions[i] / total_flex_shrink);
           delta = std::max(delta, -dimensions[i]);
           total_flex_shrink -= children[i]->flex_shrink_ * dimensions[i];
@@ -80,7 +81,7 @@ namespace visage {
     results.reserve(children.size());
 
     int position = 0;
-    int cross_area = flex_rows_ ? width : height;
+    int cross_area = flex_rows_ ? bounds.width() : bounds.height();
     for (int i = 0; i < children.size(); ++i) {
       int cross_before = children[i]->margin_before_[cross_dim].computeInt(dpi_scale, width, height);
       int cross_after = children[i]->margin_after_[cross_dim].computeInt(dpi_scale, width, height);
@@ -112,7 +113,7 @@ namespace visage {
     }
 
     if (flex_reverse_direction_) {
-      int full_flex_area = flex_rows_ ? height : width;
+      int full_flex_area = flex_rows_ ? bounds.height() : bounds.width();
       for (IBounds& result : results)
         result.setX(full_flex_area - result.right());
     }
@@ -243,13 +244,18 @@ namespace visage {
       auto group = std::vector<const Layout*>(children.begin() + group_index,
                                               children.begin() + breaks[i]);
       group_index = breaks[i];
-      std::vector<IBounds> children_bounds = flexChildGroup(group, group_bounds, dpi_scale, bounding_box);
+      std::vector<IBounds> children_bounds = flexChildGroup(group, group_bounds, bounds, dpi_scale,
+                                                            bounding_box);
       results.insert(results.end(), children_bounds.begin(), children_bounds.end());
     }
 
     if (flex_wrap_ < 0) {
-      for (IBounds& result : results)
-        result.setX(bounds.x() + bounds.right() - result.right());
+      for (IBounds& result : results) {
+        if (flex_rows_)
+          result.setX(bounds.x() + bounds.right() - result.right());
+        else
+          result.setY(bounds.y() + bounds.bottom() - result.bottom());
+      }
     }
 
     return results;

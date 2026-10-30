@@ -24,6 +24,7 @@
 #include "text_editor.h"
 #include "visage_graphics/graphics_caches.h"
 #include "visage_ui/frame.h"
+#include "visage_utils/file_system.h"
 #include "visage_utils/thread_utils.h"
 
 #include <mutex>
@@ -78,10 +79,10 @@ namespace visage {
 
     static constexpr const char* profileArgument(Backend backend, ShaderType type) {
       switch (backend) {
-      case Backend::Glsl: return "120";
+      case Backend::Glsl: return "330";
       case Backend::Vulkan: return "spirv";
       case Backend::Metal: return "metal";
-      case Backend::Dx11: return type == ShaderType::Vertex ? "s_4_0 -O3" : "s_4_0 -O3";
+      case Backend::Dx11: return type == ShaderType::Vertex ? "s_4_0 -O 3" : "s_4_0 -O 3";
       default: return "";
       }
     }
@@ -94,10 +95,7 @@ namespace visage {
       compileWebGlShader(shader_name, std::move(code), callback);
 #else
       setCode(shader_name, std::move(code), std::move(callback));
-      if (completed()) {
-        stop();
-        start();
-      }
+      wakeWorker();
 #endif
     }
 
@@ -110,15 +108,22 @@ namespace visage {
 
     void watchShaders(const std::vector<std::string>& shaders) {
 #if !VISAGE_EMSCRIPTEN
-      for (const std::string& shader : shaders)
-        watched_edit_times_[shader] = 0;
+      {
+        std::lock_guard lock(watch_mutex_);
+        for (const std::string& shader : shaders)
+          watched_edit_times_[shader] = 0;
+      }
 
-      start();
+      wakeWorker();
 #endif
     }
 
   private:
+    void wakeWorker();
+    bool finishIfIdle();
     void compileWaitingShader();
+    bool watching();
+    std::vector<std::string> watchedShaders();
     void loadShaderEditTimes();
     void checkShaderForEdits(const std::string& file_path);
     bool compileShader();
@@ -141,11 +146,14 @@ namespace visage {
     }
 
     std::atomic<bool> new_code_ = false;
-    std::string compiler_path_;
+    std::mutex worker_mutex_;
+    bool worker_running_ = false;
+    File compiler_path_;
     std::mutex code_mutex_;
     std::string shader_name_;
     std::function<void(std::string)> callback_ = nullptr;
     std::string shader_code_;
+    std::mutex watch_mutex_;
     std::map<std::string, int> watched_edit_times_;
   };
 
@@ -174,5 +182,6 @@ namespace visage {
     TextEditor error_;
     TextEditor editor_;
     Frame status_;
+    std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
   };
 }

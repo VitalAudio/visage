@@ -26,6 +26,7 @@
 #include "layer.h"
 #include "path.h"
 #include "region.h"
+#include "renderer.h"
 #include "screenshot.h"
 #include "shape_batcher.h"
 #include "svg.h"
@@ -81,13 +82,14 @@ namespace visage {
     void changePackedLayer(Region* region, int from, int to);
 
     void pairToWindow(void* window_handle, int width, int height) {
+      Renderer::instance().checkInitialization();
       VISAGE_ASSERT(swapChainSupported());
       composite_layer_.pairToWindow(window_handle, width, height);
       setDimensions(width, height);
     }
 
     void setWindowless(int width, int height);
-    void removeFromWindow() { composite_layer_.removeFromWindow(); }
+    void removeFromWindow();
 
     int width() const { return composite_layer_.width(); }
     int height() const { return composite_layer_.height(); }
@@ -101,17 +103,23 @@ namespace visage {
     double time() const { return render_time_; }
     double deltaTime() const { return delta_time_; }
     int frameCount() const { return render_frame_; }
+    int frameBufferId() const;
+    static bool waitForFrame(int frame_buffer_id, int timeout_ms);
 
     void setBlendMode(BlendMode blend_mode) { state_.blend_mode = blend_mode; }
 
     const Brush& brush() { return state_.set_brush; }
     void setBrush(const Brush& brush) {
       state_.set_brush = brush;
-      state_.brush = state_.current_region->addBrush(&gradient_atlas_, brush.gradient(),
-                                                     brush.position() * state_.scale);
+      GradientPosition position = brush.position() * state_.scale;
+      position = position.transformed(Transform::translation(state_.x, state_.y));
+      state_.brush = state_.current_region->addBrush(&gradient_atlas_, brush.gradient(), position);
     }
     void setColor(const Brush& brush) { setBrush(brush); }
-    void setColor(unsigned int color) { setBrush(Brush::solid(color)); }
+    template<typename T, typename = EnableIfArgb<T>>
+    void setColor(T color) {
+      setBrush(Brush::solid(static_cast<unsigned int>(color)));
+    }
     void setColor(const Color& color) { setBrush(Brush::solid(color)); }
     void setColor(theme::ColorId color_id) { setBrush(color(color_id)); }
 
@@ -120,18 +128,18 @@ namespace visage {
     }
 
     void fill() {
-      addShape(Fill(state_.clamp, state_.brush, state_.x, state_.y,
+      addShape(Fill(state_.clamp, state_.brush, state_.clamp.left, state_.clamp.top,
                     state_.clamp.right - state_.clamp.left, state_.clamp.bottom - state_.clamp.top));
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
     void fill(const T1& x, const T2& y, const T3& width, const T4& height) {
-      float fill_x = pixels(x);
-      float fill_y = pixels(y);
+      float fill_x = state_.x + pixels(x);
+      float fill_y = state_.y + pixels(y);
       float fill_w = pixels(width);
       float fill_h = pixels(height);
-      addShape(Fill(state_.clamp.clamp(fill_x, fill_y, fill_w, fill_h), state_.brush,
-                    state_.x + fill_x, state_.y + fill_y, fill_w, fill_h));
+      addShape(Fill(state_.clamp.clamp(fill_x, fill_y, fill_w, fill_h), state_.brush, fill_x,
+                    fill_y, fill_w, fill_h));
     }
 
     template<typename T1, typename T2, typename T3>
@@ -168,10 +176,10 @@ namespace visage {
       addShape(squircle);
     }
 
-    template<typename T1, typename T2, typename T3, typename T4, typename T5>
-    void superEllipse(const T1& x, const T2& y, const T3& width, const T4& height, const T5& power) {
+    template<typename T1, typename T2, typename T3, typename T4>
+    void superEllipse(const T1& x, const T2& y, const T3& width, const T4& height, float power) {
       addShape(Squircle(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
-                        pixels(width), pixels(height), pixels(power)));
+                        pixels(width), pixels(height), power));
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
@@ -390,6 +398,9 @@ namespace visage {
       }
     }
 
+    // Quick drawing for simple SVGs: draws each shape with its own fill and stroke. Opacity, clip
+    // paths and masks need compositing and are ignored, except that opacity 0 hides an element.
+    // Use SvgFrame for those.
     template<typename T1, typename T2>
     void svg(const Svg& svg, const T1& x, const T2& y) {
       addSvg(svg, pixels(x) / state_.scale, pixels(y) / state_.scale, svg.width(), svg.height());
@@ -406,8 +417,10 @@ namespace visage {
              const T4& height) {
       Svg new_svg(svg_data, svg_size);
       new_svg.setDimensions(pixels(width) / state_.scale, pixels(height) / state_.scale, state_.scale);
-      new_svg.setFillBrush(state_.set_brush);
-      new_svg.setStrokeBrush(state_.set_brush);
+      Brush brush = state_.set_brush;
+      brush.transform(Transform::translation(-pixels(x) / state_.scale, -pixels(y) / state_.scale));
+      new_svg.setFillBrush(brush);
+      new_svg.setStrokeBrush(brush);
       svg(new_svg, x, y, width, height);
     }
 
@@ -493,11 +506,12 @@ namespace visage {
       if (path.numPoints() == 0)
         return;
 
-      addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x),
-                               state_.y + pixels(y), pixels(width), pixels(height),
-                               path.stroke(pixels(stroke_width), join, end_cap, dash_array,
-                                           dash_offset, miter_limit),
-                               state_.scale));
+      Path resolution_path = path;
+      resolution_path.setResolutionMatrix(path.resolutionMatrix() * state_.scale);
+      Path stroked = resolution_path.stroke(pixels(stroke_width) / state_.scale, join, end_cap,
+                                            std::move(dash_array), dash_offset, miter_limit);
+      addShape(PathFillWrapper(state_.clamp, state_.brush, state_.x + pixels(x), state_.y + pixels(y),
+                               pixels(width), pixels(height), stroked, pathAtlas(), state_.scale));
     }
 
     void saveState() { state_memory_.push_back(state_); }
@@ -526,13 +540,18 @@ namespace visage {
       state_.x = 0;
       state_.y = 0;
       setLogicalPixelScale();
-      state_.brush = nullptr;
+      state_.brush = &default_brush_;
       state_.blend_mode = BlendMode::Alpha;
       setClampBounds(0, 0, region->width(), region->height());
       state_.current_region = region;
     }
 
-    void endRegion() { restoreState(); }
+    void endRegion() {
+      VISAGE_ASSERT(state_memory_.size() == 1);
+      if (state_memory_.size() > 1)
+        state_memory_.erase(state_memory_.begin() + 1, state_memory_.end());
+      restoreState();
+    }
 
     void setPalette(Palette* palette) { palette_ = palette; }
     void setPaletteOverride(theme::OverrideId override_id) {
@@ -590,7 +609,7 @@ namespace visage {
 
     void addSegment(float a_x, float a_y, float b_x, float b_y, float thickness,
                     bool rounded = false, float pixel_width = 1.0f) {
-      if (thickness <= 0.0f)
+      if (thickness <= 0.0f || (!rounded && a_x == b_x && a_y == b_y))
         return;
 
       float x = std::min(a_x, b_x) - thickness;
@@ -710,7 +729,10 @@ namespace visage {
       float inscribed_circle_x = (d_bc * a_x + d_ca * b_x + d_ab * c_x) / perimeter;
       float inscribed_circle_y = (d_bc * a_y + d_ca * b_y + d_ab * c_y) / perimeter;
       float s = perimeter * 0.5f;
-      float inscribed_circle_radius = sqrtf(s * (s - d_ab) * (s - d_bc) * (s - d_ca)) / s;
+      float area = std::abs((b_x - a_x) * (c_y - a_y) - (b_y - a_y) * (c_x - a_x)) * 0.5f;
+      float inscribed_circle_radius = area / s;
+      if (inscribed_circle_radius <= 0.0f)
+        return;
 
       rounding = std::min(rounding, inscribed_circle_radius);
       float shrinking = rounding / inscribed_circle_radius;
@@ -773,9 +795,11 @@ namespace visage {
     void addSvg(const Svg& svg, float x, float y, float width, float height) {
       SvgDrawable::ColorContext context;
       Brush current = state_.set_brush;
-      if (state_.brush)
+      if (state_.brush != &default_brush_)
         context.current_color = &current;
+      saveState();
       svg.drawable()->drawAll(*this, &context, x, y, width, height);
+      restoreState();
     }
 
     void addImage(const Image& image, float x, float y) {
@@ -798,17 +822,22 @@ namespace visage {
                               data, dataAtlas()));
     }
 
+    void restoreLostContents();
+
+    Renderer::Reference renderer_reference_;
     Palette* palette_ = nullptr;
     float dpi_scale_ = 1.0f;
     double render_time_ = 0.0;
     double delta_time_ = 0.0;
     int render_frame_ = 0;
     int last_skipped_frame_ = 0;
+    uint32_t contents_generation_ = 0;
 
     std::vector<State> state_memory_;
     State state_;
 
     GradientAtlas gradient_atlas_;
+    PackedBrush default_brush_;
     PathAtlas path_atlas_;
     ImageAtlas image_atlas_;
     ImageAtlas data_atlas_;

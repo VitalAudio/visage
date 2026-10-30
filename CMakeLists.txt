@@ -5,8 +5,12 @@ if (APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
   set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS deployment version")
 endif ()
 
-if (NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
+if (NOT DEFINED CMAKE_CXX_STANDARD OR CMAKE_CXX_STANDARD LESS 20)
+  set(CMAKE_CXX_STANDARD 20)
+endif ()
+
+if (NOT DEFINED CMAKE_POSITION_INDEPENDENT_CODE)
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif ()
 
 project(visage VERSION 0.1.0)
@@ -16,11 +20,16 @@ if (APPLE)
   enable_language(OBJCXX)
 endif ()
 
+set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+set(CMAKE_OBJC_VISIBILITY_PRESET hidden)
+set(CMAKE_OBJCXX_VISIBILITY_PRESET hidden)
+
 option(VISAGE_AMALGAMATED_BUILD "Compile sources together" ON)
 option(VISAGE_ENABLE_WIDGETS "Add widgets library" ON)
-option(VISAGE_ENABLE_BACKGROUND_GRAPHICS_THREAD "Offloads graphics rendering to a background thread" OFF)
 option(VISAGE_ENABLE_GRAPHICS_DEBUG_LOGGING "Shows graphics debug log in console in debug mode" OFF)
 option(VISAGE_ADDRESS_SANITIZER "Enable AddressSanitizer" OFF)
+option(VISAGE_LIVE_SHADERS "Link the shader compiler into the app for live shader editing" OFF)
 
 if (VISAGE_ADDRESS_SANITIZER)
   if (MSVC)
@@ -37,7 +46,6 @@ set(VISAGE_APPLICATION_NAME ${CMAKE_PROJECT_NAME} CACHE STRING "Application name
 if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   option(VISAGE_BUILD_EXAMPLES "Build examples" ON)
   option(VISAGE_BUILD_TESTS "Build tests" ON)
-  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 else ()
   option(VISAGE_BUILD_EXAMPLES "Build examples" OFF)
   option(VISAGE_BUILD_TESTS "Build tests" OFF)
@@ -105,6 +113,13 @@ add_library(visage STATIC
 )
 
 target_include_directories(visage SYSTEM PUBLIC ${VISAGE_INCLUDE_PATH} ${VISAGE_INCLUDE})
+target_compile_features(visage PUBLIC cxx_std_20)
+if (UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+  target_link_options(visage INTERFACE
+                      "LINKER:--exclude-libs,$<TARGET_FILE_NAME:freetype>")
+elseif (EMSCRIPTEN)
+  target_link_options(visage INTERFACE "-sMAX_WEBGL_VERSION=2")
+endif ()
 target_link_libraries(visage PRIVATE
   VisageApp
   VisageGraphics
@@ -118,4 +133,8 @@ set_target_properties(visage PROPERTIES FOLDER "visage")
 
 if (VISAGE_BUILD_EXAMPLES)
   add_subdirectory(examples)
+endif ()
+
+if (VISAGE_BUILD_TESTS)
+  add_subdirectory(manual_tests)
 endif ()

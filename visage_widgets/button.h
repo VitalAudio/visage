@@ -75,6 +75,7 @@ namespace visage {
     bool toggle_on_mouse_down_ = false;
     bool set_pointer_cursor_ = true;
     bool alt_clicked_ = false;
+    MouseButton pressed_button_ = kMouseButtonNone;
 
     VISAGE_LEAK_CHECKER(Button)
   };
@@ -208,6 +209,7 @@ namespace visage {
     virtual void toggleValueChanged() { }
     void setToggledAndNotify(bool toggled) override {
       toggled_ = toggled;
+      toggleValueChanged();
       redraw();
       notify(toggled);
     }
@@ -216,8 +218,11 @@ namespace visage {
     void setUndoable(bool undoable) { undoable_ = undoable; }
 
   private:
+    friend class ButtonChangeAction;
+
     bool toggled_ = false;
     bool undoable_ = true;
+    std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
 
     VISAGE_LEAK_CHECKER(ToggleButton)
   };
@@ -225,13 +230,20 @@ namespace visage {
   class ButtonChangeAction : public UndoableAction {
   public:
     ButtonChangeAction(ToggleButton* button, bool toggled_on) :
-        button_(button), toggled_on_(toggled_on) { }
+        button_(button), button_alive_(button->alive_), toggled_on_(toggled_on) { }
 
-    void undo() override { button_->setToggledAndNotify(!toggled_on_); }
-    void redo() override { button_->setToggledAndNotify(toggled_on_); }
+    void undo() override {
+      if (!button_alive_.expired())
+        button_->setToggledAndNotify(!toggled_on_);
+    }
+    void redo() override {
+      if (!button_alive_.expired())
+        button_->setToggledAndNotify(toggled_on_);
+    }
 
   private:
     ToggleButton* button_ = nullptr;
+    std::weak_ptr<bool> button_alive_;
     bool toggled_on_ = false;
   };
 

@@ -16,7 +16,8 @@ void main() {
   v_gradient_texture_pos = a_color0;
   v_gradient_pos = a_color1;
   v_gradient_pos2 = a_color2;
-  vec2 rotated_delta = a_texcoord0.z * delta + a_texcoord0.w * delta.yx;
+  vec2 rotated_delta = vec2(a_texcoord0.z * delta.x + a_texcoord0.w * delta.y,
+                            a_texcoord0.z * delta.y - a_texcoord0.w * delta.x);
   v_coordinates = (a_texcoord0.xy + rotated_delta) * u_atlas_scale.xy;
   vec2 adjusted_position = clamped * u_bounds.xy + u_bounds.zw;
   gl_Position = vec4(adjusted_position, 0.5, 1.0);

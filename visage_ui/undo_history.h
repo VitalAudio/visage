@@ -21,9 +21,11 @@
 
 #pragma once
 
+#include <algorithm>
 #include <deque>
 #include <functional>
 #include <memory>
+#include <vector>
 
 namespace visage {
   class UndoableAction {
@@ -67,6 +69,7 @@ namespace visage {
       virtual void undoPerformed() = 0;
       virtual void redoPerformed() = 0;
       virtual void undoActionAdded() = 0;
+      virtual void undoHistoryCleared() { }
     };
 
     UndoHistory() = default;
@@ -79,6 +82,7 @@ namespace visage {
     void clearUndoHistory() {
       actions_.clear();
       undone_actions_.clear();
+      notify(&Listener::undoHistoryCleared);
     }
 
     UndoableAction* peekUndo() const {
@@ -89,10 +93,22 @@ namespace visage {
     }
 
     void addListener(Listener* listener) { listeners_.push_back(listener); }
+    void removeListener(Listener* listener) {
+      listeners_.erase(std::remove(listeners_.begin(), listeners_.end(), listener), listeners_.end());
+    }
 
   private:
+    void notify(void (Listener::*function)()) {
+      std::vector<Listener*> listeners = listeners_;
+      for (Listener* listener : listeners) {
+        if (std::find(listeners_.begin(), listeners_.end(), listener) != listeners_.end())
+          (listener->*function)();
+      }
+    }
+
     std::deque<std::unique_ptr<UndoableAction>> actions_;
     std::deque<std::unique_ptr<UndoableAction>> undone_actions_;
     std::vector<Listener*> listeners_;
+    bool performing_action_ = false;
   };
 }

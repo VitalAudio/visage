@@ -41,7 +41,7 @@ namespace visage {
         canvas.rectangle(c, r, kSquareWidth, kSquareWidth);
     }
 
-    std::vector<Brush> colors = palette_->colorList();
+    const std::vector<Brush>& colors = palette_->colorList();
     int palette_width = w * kPaletteWidthRatio;
     float color_height = colorHeight();
     int color_position = color_list_.yPosition();
@@ -170,14 +170,14 @@ namespace visage {
     color_list_.setScrollBarBounds(w - 20, 0, 20, h - w);
   }
 
-  void PaletteColorEditor::checkColorHover(const MouseEvent& e) {
-    theme::ColorId color_id = colorIdIndex(e);
+  void PaletteColorEditor::checkColorHover(const MouseEvent& e, const ColorIdGroups& color_ids) {
+    theme::ColorId color_id = colorIdIndex(e, color_ids);
     if (color_id.isValid())
       highlight_ = palette_->colorMap(current_override_id_, color_id);
   }
 
-  void PaletteColorEditor::checkScrollHeight() {
-    int list_length = listLength(palette_->colorIdList(current_override_id_));
+  void PaletteColorEditor::checkScrollHeight(const ColorIdGroups& color_ids) {
+    int list_length = listLength(color_ids);
     setScrollableHeight(kColorIdHeight * list_length, height() - width());
   }
 
@@ -203,8 +203,7 @@ namespace visage {
     return length;
   }
 
-  theme::ColorId PaletteColorEditor::colorIdIndex(const MouseEvent& e) const {
-    std::map<std::string, std::vector<theme::ColorId>> color_ids = palette_->colorIdList(current_override_id_);
+  theme::ColorId PaletteColorEditor::colorIdIndex(const MouseEvent& e, const ColorIdGroups& color_ids) const {
     int w = width();
     int palette_width = w * kPaletteWidthRatio;
     if (e.position.x > w || e.position.x < palette_width)
@@ -350,14 +349,19 @@ namespace visage {
     setColorPickerBounds();
   }
 
-  PaletteValueEditor::PaletteValueEditor(Palette* palette) : palette_(palette) {
-    for (auto& text_editor : text_editors_) {
-      text_editor.setTextFieldEntry();
-      text_editor.setDefaultText("Not Set");
-      text_editor.setMargin(8, 0);
-      text_editor.setFont(Font(kValueIdHeight / 3, fonts::Lato_Regular_ttf));
-      addScrolledChild(&text_editor, false);
+  PaletteValueEditor::PaletteValueEditor(Palette* palette) : palette_(palette) { }
+
+  TextEditor& PaletteValueEditor::textEditor(int index) {
+    while (text_editors_.size() <= index) {
+      auto text_editor = std::make_unique<TextEditor>();
+      text_editor->setTextFieldEntry();
+      text_editor->setDefaultText("Not Set");
+      text_editor->setMargin(8, 0);
+      text_editor->setFont(Font(kValueIdHeight / 3, fonts::Lato_Regular_ttf));
+      addScrolledChild(text_editor.get(), false);
+      text_editors_.push_back(std::move(text_editor));
     }
+    return *text_editors_[index];
   }
 
   void PaletteValueEditor::draw(Canvas& canvas) {
@@ -442,8 +446,9 @@ namespace visage {
     for (const auto& group : value_ids) {
       if (isExpanded(group.first)) {
         for (theme::ValueId value_id : group.second) {
-          text_editors_[index].onTextChange() = [this, index, value_id] {
-            String text = String(text_editors_[index].text()).trim();
+          TextEditor& text_editor = textEditor(index);
+          text_editor.onTextChange() = [this, index, value_id] {
+            String text = String(text_editors_[index]->text()).trim();
             if (text.isEmpty())
               palette_->removeValue(current_override_id_, value_id);
             else
@@ -451,28 +456,27 @@ namespace visage {
             topParentFrame()->redrawAll();
           };
 
-          text_editors_[index].setBounds(x, y, edit_width, edit_height);
-          text_editors_[index].setVisible(true);
+          text_editor.setBounds(x, y, edit_width, edit_height);
+          text_editor.setVisible(true);
 
           float matched_value = 0.0f;
           if (palette_->value(current_override_id_, value_id, matched_value))
-            text_editors_[index].setText(String(matched_value).toUtf8());
+            text_editor.setText(String(matched_value).toUtf8());
           else
-            text_editors_[index].setText("");
+            text_editor.setText("");
 
-          text_editors_[index].setDefaultText(String(theme::ValueId::defaultValue(value_id)).toUtf8());
+          text_editor.setDefaultText(String(theme::ValueId::defaultValue(value_id)).toUtf8());
 
           index++;
           y += kValueIdHeight;
         }
       }
-      else {
-        for (int i = 0; i < group.second.size(); ++i)
-          text_editors_[index++].setVisible(false);
-      }
 
       y += kValueIdHeight;
     }
+
+    for (int i = index; i < text_editors_.size(); ++i)
+      text_editors_[i]->setVisible(false);
   }
 
   void PaletteValueEditor::checkScrollHeight() {

@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "color.h"
 #include "visage_utils/space.h"
 
 #include <cstdint>
@@ -39,16 +40,18 @@ namespace visage {
         flipBlueRed();
     }
 
-    Screenshot(const uint8_t* data, int width, int height, int pitch, bool blue_red = false) :
-        width_(width), height_(height) {
+    Screenshot(const uint8_t* data, int width, int height, int pitch, bool blue_red = false,
+               bool bottom_up = false) : width_(width), height_(height) {
       VISAGE_ASSERT(pitch >= width * 4);
 
       data_.resize(width * height * 4);
-      if (pitch == width * 4)
+      if (pitch == width * 4 && !bottom_up)
         std::copy_n(data, width * height * 4, data_.data());
       else {
-        for (int y = 0; y < height; ++y)
-          std::copy_n(data + y * pitch, width * 4, data_.data() + y * width * 4);
+        for (int y = 0; y < height; ++y) {
+          int row = bottom_up ? height - 1 - y : y;
+          std::copy_n(data + row * pitch, width * 4, data_.data() + y * width * 4);
+        }
       }
 
       if (blue_red)

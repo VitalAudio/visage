@@ -79,9 +79,9 @@ private:
     if (app_ == nullptr)
       return;
 #if __APPLE__
-    app_->setWindowDimensions(width, height);
+    app_->setWindowDimensionsFromHost(width, height);
 #else
-    app_->setNativeWindowDimensions(width, height);
+    app_->setNativeWindowDimensionsFromHost(width, height);
 #endif
   }
 

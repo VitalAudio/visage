@@ -23,11 +23,25 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
-#include <chrono>
 #include <filesystem>
-#include <thread>
+#include <set>
+
+#if VISAGE_WINDOWS
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 
 using namespace visage;
+
+static std::filesystem::path uniqueTempPath(const std::string& name) {
+#if VISAGE_WINDOWS
+  int process_id = _getpid();
+#else
+  int process_id = getpid();
+#endif
+  return std::filesystem::temp_directory_path() / (std::to_string(process_id) + "_" + name);
+}
 
 TEST_CASE("File existence check", "[utils]") {
   File temp_file = createTemporaryFile("txt");
@@ -106,6 +120,15 @@ TEST_CASE("Load non-existent file", "[utils]") {
   REQUIRE(size == 10);
 }
 
+TEST_CASE("Loading a directory as a file", "[utils]") {
+  File directory = std::filesystem::temp_directory_path();
+  REQUIRE(loadFileAsString(directory).empty());
+
+  size_t size = 10;
+  REQUIRE(loadFileData(directory, size) == nullptr);
+  REQUIRE(size == 10);
+}
+
 TEST_CASE("Empty file operations", "[utils]") {
   File temp_file = createTemporaryFile("empty");
 
@@ -136,6 +159,23 @@ TEST_CASE("File name utilities", "[utils]") {
   File multiple_dots = "/path/to/file.backup.txt";
   REQUIRE(fileName(multiple_dots) == "file.backup.txt");
   REQUIRE(fileStem(multiple_dots) == "file.backup");
+
+  File unicode = std::filesystem::u8path("/path/to/ni\xc3\xb1o \xe6\x96\x87.txt");
+  REQUIRE(fileName(unicode) == "ni\xc3\xb1o \xe6\x96\x87.txt");
+  REQUIRE(fileStem(unicode) == "ni\xc3\xb1o \xe6\x96\x87");
+}
+
+TEST_CASE("File search matches names with non-ASCII characters", "[utils]") {
+  File directory = createTemporaryFile("search");
+  std::filesystem::create_directories(directory);
+  File file = directory / std::filesystem::u8path("\xe6\x96\x87\xe4\xbb\xb6.txt");
+  REQUIRE(replaceFileWithText(file, "contents"));
+
+  std::vector<File> matches = searchForFiles(directory, "\xe6\x96\x87");
+  std::filesystem::remove_all(directory);
+
+  REQUIRE(matches.size() == 1);
+  REQUIRE(fileName(matches[0]) == "\xe6\x96\x87\xe4\xbb\xb6.txt");
 }
 
 TEST_CASE("Host executable path", "[utils]") {
@@ -153,11 +193,12 @@ TEST_CASE("System directories", "[utils]") {
 
   REQUIRE_FALSE(app_data.empty());
   REQUIRE_FALSE(documents.empty());
+  REQUIRE(app_data.is_absolute());
+  REQUIRE(documents.is_absolute());
 }
 
 TEST_CASE("Temporary file creation", "[utils]") {
   File temp1 = createTemporaryFile("test");
-  std::this_thread::sleep_for(std::chrono::milliseconds(1));
   File temp2 = createTemporaryFile("test");
 
   REQUIRE(temp1 != temp2);
@@ -168,8 +209,32 @@ TEST_CASE("Temporary file creation", "[utils]") {
   REQUIRE(temp_no_ext.extension() == ".");
 }
 
+TEST_CASE("Temporary files are unique when created quickly", "[utils]") {
+  std::set<File> files;
+  for (int i = 0; i < 1000; ++i) {
+    File file = createTemporaryFile("test");
+    REQUIRE_FALSE(fileExists(file));
+    REQUIRE(replaceFileWithText(file, ""));
+    files.insert(file);
+  }
+
+  for (const File& file : files)
+    std::filesystem::remove(file);
+
+  REQUIRE(files.size() == 1000);
+}
+
+#if VISAGE_LINUX
+TEST_CASE("File writes report errors when flushing fails", "[utils]") {
+  unsigned char data[] = { 1, 2, 3 };
+  REQUIRE_FALSE(replaceFileWithData("/dev/full", data, sizeof(data)));
+  REQUIRE_FALSE(replaceFileWithText("/dev/full", "text"));
+  REQUIRE_FALSE(appendTextToFile("/dev/full", "text"));
+}
+#endif
+
 TEST_CASE("Search for files", "[utils]") {
-  std::filesystem::path temp_dir = std::filesystem::temp_directory_path() / "visage_test_search";
+  std::filesystem::path temp_dir = uniqueTempPath("visage_test_search");
   std::filesystem::create_directories(temp_dir);
 
   (void)replaceFileWithText(temp_dir / "test1.txt", "content");
@@ -191,8 +256,7 @@ TEST_CASE("Search for files", "[utils]") {
 }
 
 TEST_CASE("Search for directories", "[utils]") {
-  std::filesystem::path temp_dir = std::filesystem::temp_directory_path() /
-                                   "visage_test_dir_search";
+  std::filesystem::path temp_dir = uniqueTempPath("visage_test_dir_search");
   std::filesystem::create_directories(temp_dir);
 
   std::filesystem::create_directories(temp_dir / "testdir1");
@@ -222,6 +286,26 @@ TEST_CASE("Search in non-existent directory", "[utils]") {
   REQUIRE(dirs.empty());
 }
 
+#if !VISAGE_WINDOWS
+TEST_CASE("Search for files skips unreadable directories", "[utils]") {
+  std::filesystem::path temp_dir = uniqueTempPath("visage_test_search_unreadable");
+  std::filesystem::path locked = temp_dir / "locked";
+  std::filesystem::create_directories(locked);
+  (void)replaceFileWithText(temp_dir / "readable.txt", "content");
+  (void)replaceFileWithText(locked / "hidden.txt", "content");
+  std::filesystem::permissions(locked, std::filesystem::perms::none);
+
+  std::vector<File> files;
+  CHECK_NOTHROW(files = searchForFiles(temp_dir, ".*\\.txt"));
+
+  std::filesystem::permissions(locked, std::filesystem::perms::owner_all);
+  std::filesystem::remove_all(temp_dir);
+
+  if (geteuid() != 0)
+    REQUIRE(files.size() == 1);
+}
+#endif
+
 TEST_CASE("Write access check", "[utils]") {
   File temp_file = createTemporaryFile("access_test");
 
@@ -230,3 +314,16 @@ TEST_CASE("Write access check", "[utils]") {
 
   std::filesystem::remove(temp_file);
 }
+
+TEST_CASE("Write access check for missing files", "[utils]") {
+  File missing = std::filesystem::temp_directory_path() / "visage_missing_write_access_test";
+  REQUIRE_FALSE(fileExists(missing));
+  REQUIRE_FALSE(hasWriteAccess(missing));
+}
+
+#if !VISAGE_WINDOWS
+TEST_CASE("Write access check for files owned by another user", "[utils]") {
+  if (geteuid() != 0)
+    REQUIRE_FALSE(hasWriteAccess("/etc/passwd"));
+}
+#endif

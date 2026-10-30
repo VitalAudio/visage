@@ -23,10 +23,11 @@
 
 #include "string_utils.h"
 
+#include <dlfcn.h>
 #include <iostream>
 
 namespace visage {
-  inline void debugLogString(const char* file, unsigned int line, const String& log_message) {
+  void debugLogString(const char* file, unsigned int line, const String& log_message) {
     std::cerr << file << " (" << line << ") " << log_message.toUtf8();
     if (log_message.isEmpty() || log_message[log_message.size() - 1] != '\n')
       std::cerr << std::endl;
@@ -53,5 +54,14 @@ namespace visage {
 
   void forceCrash() {
     __builtin_trap();
+  }
+
+  bool hasStaticStorage(const void* address) {
+#if VISAGE_EMSCRIPTEN
+    return false;
+#else
+    Dl_info info;
+    return dladdr(address, &info) != 0;
+#endif
   }
 }

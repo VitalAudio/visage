@@ -22,22 +22,20 @@
 #include "path.h"
 
 #include "embedded/shaders.h"
+#include "gpu/gpu.h"
 #include "graphics_caches.h"
+#include "path_tiles.h"
 #include "shape_batcher.h"
 #include "uniforms.h"
 
-#include <bgfx/bgfx.h>
 #include <complex>
 #include <memory>
 
 namespace visage {
   static float toFloat(const std::string& str) {
-    try {
-      return std::stof(str);
-    }
-    catch (...) {
-      return 0.0f;
-    }
+    float result = 0.0f;
+    readFloat(str, result);
+    return result;
   }
 
   template<typename T>
@@ -49,11 +47,28 @@ namespace visage {
     return std::acos(value);
   }
 
+  static double maxDeltaRadians(double error_ratio) {
+    static constexpr double kMinDeltaRadians = 2.0 * kPi / (1 << 16);
+    return std::max(kMinDeltaRadians, 2.0 * clampedACos(1.0 - error_ratio));
+  }
+
+  static std::pair<float, float> sideSpan(float low, float high, float low_radius, float high_radius) {
+    float start = std::min(low + low_radius, high);
+    return { start, std::max(high - high_radius, start) };
+  }
+
   template<typename T>
   static void roundedRectangle(T& t, float x, float y, float width, float height, float rx_top_left,
                                float ry_top_left, float rx_top_right, float ry_top_right,
                                float rx_bottom_right, float ry_bottom_right, float rx_bottom_left,
                                float ry_bottom_left) {
+    float left = std::min(x, x + width);
+    float right = std::max(x, x + width);
+    float top = std::min(y, y + height);
+    float bottom = std::max(y, y + height);
+    width = std::abs(width);
+    height = std::abs(height);
+
     float scale = 1.0f;
     if (rx_top_left + rx_top_right)
       scale = std::min(scale, width / (rx_top_left + rx_top_right));
@@ -73,47 +88,54 @@ namespace visage {
     rx_bottom_left *= scale;
     ry_bottom_left *= scale;
 
-    t.moveTo(x + rx_top_left, y);
-    t.lineTo(x + width - rx_top_right, y);
-    t.arcTo(rx_top_right, ry_top_right, 0.0f, false, true, Point(x + width, y + ry_top_right), false);
-    t.lineTo(x + width, y + height - ry_bottom_right);
-    t.arcTo(rx_bottom_right, ry_bottom_right, 0.0f, false, true,
-            Point(x + width - rx_bottom_right, y + height), false);
-    t.lineTo(x + rx_bottom_left, y + height);
-    t.arcTo(rx_bottom_left, ry_bottom_left, 0.0f, false, true, Point(x, y + height - ry_bottom_left), false);
-    t.lineTo(x, y + ry_top_left);
-    t.arcTo(rx_top_left, ry_top_left, 0.0f, false, true, Point(x + rx_top_left, y), false);
+    auto [top_start, top_end] = sideSpan(left, right, rx_top_left, rx_top_right);
+    auto [right_start, right_end] = sideSpan(top, bottom, ry_top_right, ry_bottom_right);
+    auto [bottom_end, bottom_start] = sideSpan(left, right, rx_bottom_left, rx_bottom_right);
+    auto [left_end, left_start] = sideSpan(top, bottom, ry_top_left, ry_bottom_left);
+
+    t.moveTo(top_start, top);
+    t.lineTo(top_end, top);
+    t.arcTo(rx_top_right, ry_top_right, 0.0f, false, true, Point(right, right_start), false);
+    t.lineTo(right, right_end);
+    t.arcTo(rx_bottom_right, ry_bottom_right, 0.0f, false, true, Point(bottom_start, bottom), false);
+    t.lineTo(bottom_end, bottom);
+    t.arcTo(rx_bottom_left, ry_bottom_left, 0.0f, false, true, Point(left, left_start), false);
+    t.lineTo(left, left_end);
+    t.arcTo(rx_top_left, ry_top_left, 0.0f, false, true, Point(top_start, top), false);
     t.close();
   }
 
   template<typename T>
   static void roundedRectangle(T& t, float x, float y, float width, float height, float rx, float ry) {
-    rx = std::min(rx, width * 0.5f);
-    ry = std::min(ry, height * 0.5f);
-    t.moveTo(x + rx, y);
-    t.lineTo(x + width - rx, y);
-    t.arcTo(rx, ry, 0.0f, false, true, Point(x + width, y + ry), false);
-    t.lineTo(x + width, y + height - ry);
-    t.arcTo(rx, ry, 0.0f, false, true, Point(x + width - rx, y + height), false);
-    t.lineTo(x + rx, y + height);
-    t.arcTo(rx, ry, 0.0f, false, true, Point(x, y + height - ry), false);
-    t.lineTo(x, y + ry);
-    t.arcTo(rx, ry, 0.0f, false, true, Point(x + rx, y), false);
+    rx = std::min(rx, std::abs(width) * 0.5f);
+    ry = std::min(ry, std::abs(height) * 0.5f);
+    roundedRectangle(t, x, y, width, height, rx, ry, rx, ry, rx, ry, rx, ry);
+  }
+
+  template<typename T>
+  static void ellipse(T& t, float cx, float cy, float rx, float ry) {
+    t.moveTo(cx + rx, cy);
+    t.arcTo(rx, ry, 0.0f, false, true, Point(cx, cy + ry), false);
+    t.arcTo(rx, ry, 0.0f, false, true, Point(cx - rx, cy), false);
+    t.arcTo(rx, ry, 0.0f, false, true, Point(cx, cy - ry), false);
+    t.arcTo(rx, ry, 0.0f, false, true, Point(cx + rx, cy), false);
     t.close();
   }
 
   void Path::arcTo(float rx, float ry, float x_axis_rotation, bool large_arc, bool sweep_flag,
                    Point point, bool relative) {
+    current_control_points_ = ControlPoints::Linear;
     rx = std::abs(rx);
     ry = std::abs(ry);
     if (rx == 0.0f || ry == 0.0f) {
-      lineTo(point);
+      lineTo(point, relative);
       return;
     }
 
     if (currentPath().points.empty())
       addPoint(last_point_);
 
+    int start_index = currentPath().points.size() - 1;
     Point from = last_point_;
     if (relative)
       point += last_point_;
@@ -141,141 +163,168 @@ namespace visage {
     if (!sweep_flag)
       arc_angle = -arc_angle;
 
-    Point adjusted_radius = resolution_matrix_ * Point(rx, ry);
+    Point adjusted_radius = resolution_matrix_ * Point(radius, radius / radius_ratio);
     float max_radius = std::max(std::abs(adjusted_radius.x), std::abs(adjusted_radius.y));
-    float max_delta_radians = 2.0f * clampedACos(1.0f - error_tolerance_ / max_radius);
+    float max_delta_radians = maxDeltaRadians(error_tolerance_ / max_radius);
     int num_points = std::ceil(std::abs(arc_angle) / max_delta_radians);
 
     std::complex<float> position(-center.x, -center.y);
     float angle_delta = arc_angle / num_points;
     std::complex<float> rotation = std::polar(1.0f, angle_delta);
+    float sweep = arc_angle < 0.0f ? -1.0f : 1.0f;
+    auto tangent = [&](std::complex<float> arc_position) {
+      Point result(-arc_position.imag() * sweep, arc_position.real() * sweep);
+      result.y /= radius_ratio;
+      return ellipse_rotation * result;
+    };
+    Point start_tangent = tangent(position);
 
     for (int i = 0; i < num_points; ++i) {
       position *= rotation;
       Point p = center + Point(position.real(), position.imag());
       p.y /= radius_ratio;
       p = ellipse_rotation * p + from;
-      addPoint(p);
+      addCurvePoint(i == num_points - 1 ? point : p, tangent(position));
     }
+    setCurveTangents(start_index, start_tangent, tangent(position));
   }
 
-  static float parseNumber(const std::string& str, size_t& i, bool bit_flags = false) {
-    std::string number;
-    while (i < str.size()) {
-      bool sign = str[i] == '-' || str[i] == '+';
-      if (std::isdigit(str[i]) || (number.empty() && sign) || str[i] == '.' || str[i] == 'e' ||
-          str[i] == 'E') {
-        if (str[i] == '.') {
-          if (number.find('.') != std::string::npos)
-            return toFloat(number);
-        }
-        number += str[i++];
+  static void skipSeparators(const std::string& str, size_t& i) {
+    while (i < str.size() && (std::isspace(str[i]) || str[i] == ','))
+      ++i;
+  }
+
+  static bool parseNumber(const std::string& str, size_t& i, float& result) {
+    skipSeparators(str, i);
+    size_t start = i;
+    if (i < str.size() && (str[i] == '-' || str[i] == '+'))
+      ++i;
+
+    bool digits = false;
+    while (i < str.size() && std::isdigit(str[i])) {
+      ++i;
+      digits = true;
+    }
+    if (i < str.size() && str[i] == '.') {
+      ++i;
+      while (i < str.size() && std::isdigit(str[i])) {
+        ++i;
+        digits = true;
       }
-      else if (str[i] == ',' || std::isspace(str[i]) || sign) {
-        if (!number.empty())
-          return toFloat(number);
-        if (!sign)
+    }
+    if (!digits) {
+      i = start;
+      return false;
+    }
+
+    if (i < str.size() && (str[i] == 'e' || str[i] == 'E')) {
+      size_t exponent = i++;
+      if (i < str.size() && (str[i] == '-' || str[i] == '+'))
+        ++i;
+      if (i < str.size() && std::isdigit(str[i])) {
+        while (i < str.size() && std::isdigit(str[i]))
           ++i;
       }
-      else if (std::isalpha(str[i]))
-        break;
       else
-        ++i;
+        i = exponent;
+    }
 
-      if (bit_flags && !number.empty())
-        return toFloat(number);
+    result = toFloat(str.substr(start, i - start));
+    return true;
+  }
+
+  static bool parseFlag(const std::string& str, size_t& i, bool& result) {
+    skipSeparators(str, i);
+    if (i >= str.size() || (str[i] != '0' && str[i] != '1'))
+      return false;
+    result = str[i++] == '1';
+    return true;
+  }
+
+  static bool parseNumbers(const std::string& str, size_t& i, float* results, int count) {
+    for (int n = 0; n < count; ++n) {
+      if (!parseNumber(str, i, results[n]))
+        return false;
     }
-    if (number.empty()) {
-      VISAGE_ASSERT(false);
-      return 0.0f;
-    }
-    return toFloat(number);
+    return true;
   }
 
   Path::CommandList Path::parseSvgPath(const std::string& path) {
     CommandList commands;
     size_t i = 0;
     char command_char = 0;
-    while (i < path.size()) {
-      if (std::isspace(path[i])) {
+    while (true) {
+      while (i < path.size() && std::isspace(path[i]))
         ++i;
-        continue;
-      }
+      if (i >= path.size())
+        break;
 
-      char new_command = path[i];
-      if (std::isalpha(new_command)) {
-        command_char = new_command;
-        ++i;
-      }
+      if (std::isalpha(path[i]))
+        command_char = path[i++];
+      else if (command_char == 0)
+        break;
 
       char type = std::toupper(command_char);
       bool relative = std::islower(command_char);
+      if (commands.empty() && type != 'M')
+        break;
 
+      float v[6] {};
       if (type == 'M') {
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.moveTo(x, y, relative);
-
-        if (std::isspace(path[i])) {
-          ++i;
-          continue;
-        }
-
-        if (i < path.size() && !std::isalpha(path[i])) {
-          x = parseNumber(path, i);
-          y = parseNumber(path, i);
-          commands.lineTo(x, y, relative);
-        }
+        if (!parseNumbers(path, i, v, 2))
+          break;
+        commands.moveTo(v[0], v[1], relative);
+        command_char = relative ? 'l' : 'L';
       }
       else if (type == 'L') {
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.lineTo(x, y, relative);
+        if (!parseNumbers(path, i, v, 2))
+          break;
+        commands.lineTo(v[0], v[1], relative);
       }
-      else if (type == 'H')
-        commands.horizontalTo(parseNumber(path, i), relative);
-      else if (type == 'V')
-        commands.verticalTo(parseNumber(path, i), relative);
-      else if (type == 'Z')
+      else if (type == 'H') {
+        if (!parseNumber(path, i, v[0]))
+          break;
+        commands.horizontalTo(v[0], relative);
+      }
+      else if (type == 'V') {
+        if (!parseNumber(path, i, v[0]))
+          break;
+        commands.verticalTo(v[0], relative);
+      }
+      else if (type == 'Z') {
         commands.close();
+        command_char = 0;
+      }
       else if (type == 'C') {
-        float cx1 = parseNumber(path, i);
-        float cy1 = parseNumber(path, i);
-        float cx2 = parseNumber(path, i);
-        float cy2 = parseNumber(path, i);
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.bezierTo(cx1, cy1, cx2, cy2, x, y, relative);
+        if (!parseNumbers(path, i, v, 6))
+          break;
+        commands.bezierTo(v[0], v[1], v[2], v[3], v[4], v[5], relative);
       }
       else if (type == 'S') {
-        float cx = parseNumber(path, i);
-        float cy = parseNumber(path, i);
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.smoothBezierTo(cx, cy, x, y, relative);
+        if (!parseNumbers(path, i, v, 4))
+          break;
+        commands.smoothBezierTo(v[0], v[1], v[2], v[3], relative);
       }
       else if (type == 'Q') {
-        float cx = parseNumber(path, i);
-        float cy = parseNumber(path, i);
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.quadraticTo(cx, cy, x, y, relative);
+        if (!parseNumbers(path, i, v, 4))
+          break;
+        commands.quadraticTo(v[0], v[1], v[2], v[3], relative);
       }
       else if (type == 'T') {
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.smoothQuadraticTo(x, y, relative);
+        if (!parseNumbers(path, i, v, 2))
+          break;
+        commands.smoothQuadraticTo(v[0], v[1], relative);
       }
       else if (type == 'A') {
-        float rx = parseNumber(path, i);
-        float ry = parseNumber(path, i);
-        float rotation = parseNumber(path, i);
-        bool large_arc = parseNumber(path, i, true);
-        bool sweep = parseNumber(path, i, true);
-        float x = parseNumber(path, i);
-        float y = parseNumber(path, i);
-        commands.arcTo(rx, ry, rotation, large_arc, sweep, x, y, relative);
+        bool large_arc = false;
+        bool sweep = false;
+        if (!parseNumbers(path, i, v, 3) || !parseFlag(path, i, large_arc) ||
+            !parseFlag(path, i, sweep) || !parseNumber(path, i, v[3]) || !parseNumber(path, i, v[4]))
+          break;
+        commands.arcTo(v[0], v[1], v[2], large_arc, sweep, v[3], v[4], relative);
       }
+      else
+        break;
     }
     return commands;
   }
@@ -303,11 +352,61 @@ namespace visage {
   }
 
   void Path::CommandList::addEllipse(float cx, float cy, float rx, float ry) {
-    moveTo(cx + rx, cy);
-    arcTo(rx, ry, 180.0f, false, true, Point(cx - rx, cy), false);
-    arcTo(rx, ry, 180.0f, false, true, Point(cx + rx, cy), false);
+    ellipse(*this, cx, cy, rx, ry);
+  }
 
-    close();
+  Point Path::CommandList::quadraticControl(int index) const {
+    if (at(index).type == 'Q')
+      return at(index).control1;
+
+    Point from = index > 0 ? at(index - 1).end : at(index).end;
+    if (at(index).type != 'T' || index == 0 || (at(index - 1).type != 'Q' && at(index - 1).type != 'T'))
+      return from;
+    return from * 2.0f - quadraticControl(index - 1);
+  }
+
+  std::pair<Point, Point> Path::CommandList::tangentPoints(int index) const {
+    const Command& command = at(index);
+    Point from = index > 0 ? at(index - 1).end : command.end;
+    if (command.type == 'Q' || command.type == 'T') {
+      Point control = quadraticControl(index);
+      return { control, control };
+    }
+    if (command.type == 'S') {
+      Point first = from;
+      if (index > 0 && at(index - 1).type == 'C')
+        first = from * 2.0f - at(index - 1).control2;
+      else if (index > 0 && at(index - 1).type == 'S')
+        first = from * 2.0f - at(index - 1).control1;
+      return { first, command.control1 };
+    }
+    if (command.type != 'A')
+      return { command.control1, command.control2 };
+
+    float rx = std::abs(command.control1.x);
+    float ry = std::abs(command.control1.y);
+    auto ellipse_rotation = Matrix::rotation(command.control2.x);
+    Point delta = ellipse_rotation.transposed() * (command.end - from);
+    if (rx == 0.0f || ry == 0.0f || delta.length() == 0.0f)
+      return { command.control1, command.control2 };
+
+    float radius_ratio = rx / ry;
+    delta.y *= radius_ratio;
+    float length = delta.length();
+    float radius = std::max(length * 0.5f, rx);
+    float center_offset = std::sqrt(std::max(0.0f, radius * radius - length * length * 0.25f));
+    Point normal = Point(delta.y, -delta.x) / length;
+    bool sweep = command.flags & kSweep;
+    if (static_cast<bool>(command.flags & kLargeArc) != sweep)
+      normal = -normal;
+
+    Point center = delta * 0.5f + normal * center_offset;
+    auto tangent = [&](Point position) {
+      Point result = sweep ? Point(-position.y, position.x) : Point(position.y, -position.x);
+      result.y /= radius_ratio;
+      return ellipse_rotation * result;
+    };
+    return { from + tangent(-center), command.end - tangent(delta - center) };
   }
 
   void Path::CommandList::addCircle(float cx, float cy, float r) {
@@ -335,11 +434,7 @@ namespace visage {
   }
 
   void Path::addEllipse(float cx, float cy, float rx, float ry) {
-    moveTo(cx + rx, cy);
-    arcTo(rx, ry, 180.0f, false, true, Point(cx - rx, cy), false);
-    arcTo(rx, ry, 180.0f, false, true, Point(cx + rx, cy), false);
-
-    close();
+    ellipse(*this, cx, cy, rx, ry);
   }
 
   void Path::addCircle(float cx, float cy, float r) {
@@ -372,15 +467,17 @@ namespace visage {
     }
   }
 
-  Path Path::combine(Path& other, FillRule fill_rule) const {
+  Path Path::combine(const Path& other, FillRule fill_rule) const {
     Path combined = *this;
     for (auto& path : other.paths_)
       combined.paths_.push_back(path);
+    for (auto& path : combined.paths_)
+      path.tangents.clear();
     combined.fill_rule_ = fill_rule;
     return combined;
   }
 
-  Path::SubPath Path::singlePointOffset(Point point, float amount, EndCap end_cap) {
+  Path::SubPath Path::singlePointOffset(Point point, float amount, EndCap end_cap) const {
     SubPath sub_path;
     if (amount < 0.0)
       return sub_path;
@@ -394,7 +491,7 @@ namespace visage {
     }
     else if (end_cap == EndCap::Round) {
       float adjusted_radius = (resolution_matrix_ * Point(amount, 0.0f)).length();
-      float max_delta_radians = 2.0 * clampedACos(1.0 - kDefaultErrorTolerance / adjusted_radius);
+      float max_delta_radians = maxDeltaRadians(kDefaultErrorTolerance / adjusted_radius);
       int num_points = std::max<int>(1, std::ceil(2.0 * kPi / max_delta_radians - 0.1));
       std::complex<float> position(amount, 0.0);
       float angle_delta = 2.0 * kPi / num_points;
@@ -410,20 +507,25 @@ namespace visage {
     return sub_path;
   }
 
-  Path Path::offset(float amount, Join join, EndCap end_cap, float miter_limit) {
-    return offset(amount, join, Join::Miter, end_cap, miter_limit);
+  Path Path::offset(float amount, Join join, EndCap end_cap, float miter_limit) const {
+    return offset(amount, join, false, end_cap, miter_limit);
   }
 
-  Path Path::offset(float amount, Join join, Join inner_join, EndCap end_cap, float miter_limit) {
+  Path Path::offset(float amount, Join join, bool pivot_inner_joins, EndCap end_cap, float miter_limit) const {
     static constexpr float kMinOffset = 0.001f;
+    static constexpr float kNearlyStraight = 1.0f / 4096.0f;
     Path result;
 
     if (std::abs(amount) < kMinOffset)
       return result;
 
     float square_miter_limit = miter_limit * miter_limit;
+    auto chord_offset = [amount](const Point& from, const Point& to) {
+      Point chord = (to - from).normalized();
+      return Point(-chord.y, chord.x) * amount;
+    };
     float adjusted_radius = (resolution_matrix_ * Point(amount, 0.0f)).length();
-    float max_delta_radians = 2.0f * clampedACos(1.0 - kDefaultErrorTolerance / adjusted_radius);
+    float max_delta_radians = maxDeltaRadians(kDefaultErrorTolerance / adjusted_radius);
     for (const auto& sub_path : paths_) {
       if (sub_path.points.empty())
         continue;
@@ -435,17 +537,43 @@ namespace visage {
       }
 
       std::vector<Point> new_path;
-      Point point = sub_path.points.back();
-      Point prev = sub_path.points[sub_path.points.size() - 2];
-      Point prev_direction = (point - prev).normalized();
-      Point prev_offset = Point(-prev_direction.y, prev_direction.x) * amount;
+      int last = sub_path.points.size() - 1;
+      bool has_tangents = sub_path.tangents.size() == sub_path.points.size();
+      auto stored_in = [&](int index) {
+        if (!has_tangents || sub_path.tangents[index].smooth)
+          return Point();
+        return sub_path.tangents[index].in;
+      };
+      auto stored_out = [&](int index) {
+        if (has_tangents && index == last && closed_points && sub_path.tangents[index].out == Point())
+          index = 0;
+        if (!has_tangents || sub_path.tangents[index].smooth)
+          return Point();
+        return sub_path.tangents[index].out;
+      };
 
-      for (const Point& next : sub_path.points) {
+      int point_index = last;
+      Point point = sub_path.points.back();
+      Point prev = sub_path.points[last - 1];
+
+      for (int next_index = 0; next_index <= last; ++next_index) {
+        const Point& next = sub_path.points[next_index];
         if (next == point)
           continue;
 
-        Point direction = (next - point).normalized();
+        Point in_tangent = stored_in(point_index);
+        Point out_tangent = stored_out(point_index);
+        if (in_tangent.dot(point - prev) <= 0.0f)
+          in_tangent = {};
+        if (out_tangent.dot(next - point) <= 0.0f)
+          out_tangent = {};
+        Point prev_direction = (in_tangent == Point() ? point - prev : in_tangent).normalized();
+        Point direction = (out_tangent == Point() ? next - point : out_tangent).normalized();
+        Point prev_offset = Point(-prev_direction.y, prev_direction.x) * amount;
         auto offset = Point(-direction.y, direction.x) * amount;
+        Point prev_line_start = in_tangent == Point() ? prev + prev_offset :
+                                                        point + prev_offset - prev_direction;
+        Point line_end = out_tangent == Point() ? next + offset : point + offset + direction;
 
         auto type = join;
         if (prev == next) {
@@ -456,11 +584,35 @@ namespace visage {
           else if (end_cap == EndCap::Round)
             type = Join::Round;
         }
-        bool convex = stableOrientation(prev, point, next) <= 0.0;
-        if (convex == (amount < 0.0f))
-          type = inner_join;
+        bool tangent_join = prev != next && (in_tangent != Point() || out_tangent != Point());
+        bool convex = tangent_join ? prev_direction.cross(direction) <= 0.0f :
+                                     stableOrientation(prev, point, next) <= 0.0;
+        bool inner = convex == (amount < 0.0f);
+        if (inner)
+          type = pivot_inner_joins ? Join::Bevel : Join::Miter;
 
-        if (type == Join::Bevel) {
+        bool smooth = has_tangents && sub_path.tangents[point_index].smooth;
+        bool pivot = inner && pivot_inner_joins && !smooth &&
+                     1.0f - prev_direction.dot(direction) > kNearlyStraight;
+        Point delta_prev = point - prev;
+        Point delta = next - point;
+        float det = delta_prev.cross(delta);
+        if (pivot && det != 0.0f) {
+          Point start_delta = (point + offset) - (prev + prev_offset);
+          float t_prev = start_delta.cross(delta) / det;
+          float t = start_delta.cross(delta_prev) / det;
+          pivot = t_prev < 0.5f || t > 0.5f;
+        }
+
+        if (in_tangent != Point())
+          new_path.push_back(point + chord_offset(prev, point));
+
+        if (pivot) {
+          new_path.push_back(point + prev_offset);
+          new_path.push_back(point);
+          new_path.push_back(point + offset);
+        }
+        else if (type == Join::Bevel) {
           new_path.push_back(point + prev_offset);
           new_path.push_back(point + offset);
         }
@@ -469,13 +621,17 @@ namespace visage {
           Point square_center = point + square_offset;
           Point square_tangent = { -square_offset.y, square_offset.x };
           auto intersection_prev = findIntersection(square_center, square_center + square_tangent,
-                                                    prev + prev_offset, point + prev_offset);
+                                                    prev_line_start, point + prev_offset);
           auto intersection = findIntersection(square_center, square_center + square_tangent,
-                                               point + offset, next + offset);
-          VISAGE_ASSERT(intersection_prev.has_value());
-          VISAGE_ASSERT(intersection.has_value());
-          new_path.push_back(intersection_prev.value());
-          new_path.push_back(intersection.value());
+                                               point + offset, line_end);
+          if (intersection_prev.has_value() && intersection.has_value()) {
+            new_path.push_back(intersection_prev.value());
+            new_path.push_back(intersection.value());
+          }
+          else {
+            new_path.push_back(point + prev_offset);
+            new_path.push_back(point + offset);
+          }
         }
         else if (type == Join::Round) {
           float arc_angle = clampedACos(prev_offset.dot(offset) / (amount * amount));
@@ -491,8 +647,8 @@ namespace visage {
           }
         }
         else if (type == Join::Miter) {
-          auto intersection = findIntersection(prev + prev_offset, point + prev_offset,
-                                               point + offset, next + offset);
+          auto intersection = findIntersection(prev_line_start, point + prev_offset, point + offset,
+                                               line_end);
           if (intersection.has_value() &&
               (intersection.value() - point).squareMagnitude() / (amount * amount) < square_miter_limit) {
             new_path.push_back(intersection.value());
@@ -504,10 +660,12 @@ namespace visage {
           }
         }
 
+        if (out_tangent != Point())
+          new_path.push_back(point + chord_offset(point, next));
+
         prev = point;
         point = next;
-        prev_direction = direction;
-        prev_offset = offset;
+        point_index = next_index;
       }
 
       result.paths_.push_back(SubPath { std::move(new_path), true });
@@ -517,7 +675,7 @@ namespace visage {
   }
 
   Path Path::stroke(float stroke_width, Join join, EndCap end_cap, std::vector<float> dash_array,
-                    float dash_offset, float miter_limit) {
+                    float dash_offset, float miter_limit) const {
     float dash_total = 0.0f;
     for (auto& dash : dash_array)
       dash_total += dash;
@@ -528,41 +686,96 @@ namespace visage {
     if (dash_array.size() % 2 != 0)
       dash_total *= 2.0f;
 
+    static constexpr float kMaxDashPeriods = 1 << 20;
+    static constexpr float kDashSnap = 0.00000025f;
+    if (length() > dash_total * kMaxDashPeriods)
+      dash_array.clear();
+
     Path stroke_path;
+    stroke_path.resolution_matrix_ = resolution_matrix_;
+    stroke_path.error_tolerance_ = error_tolerance_;
     if (!dash_array.empty()) {
       if (dash_offset < 0.0f)
         dash_offset = dash_total - std::fmod(-dash_offset, dash_total);
       else
         dash_offset = std::fmod(dash_offset, dash_total);
 
-      int dash_index = 0;
-      bool fill = true;
-      float dash_length = dash_array[0];
-      while (dash_offset > dash_length) {
-        dash_offset -= dash_length;
-        dash_index = (dash_index + 1) % dash_array.size();
-        dash_length = dash_array[dash_index];
-        fill = !fill;
+      int start_dash_index = 0;
+      bool start_fill = true;
+      float start_dash_length = dash_array[0];
+      while (dash_offset > start_dash_length) {
+        dash_offset -= start_dash_length;
+        start_dash_index = (start_dash_index + 1) % dash_array.size();
+        start_dash_length = dash_array[start_dash_index];
+        start_fill = !start_fill;
       }
 
-      dash_length -= dash_offset;
+      start_dash_length -= dash_offset;
 
+      auto magnitude = [](const Point& point) {
+        return std::max(std::abs(point.x), std::abs(point.y));
+      };
       for (auto& path : paths_) {
         if (path.points.empty())
           continue;
 
+        int dash_index = start_dash_index;
+        bool fill = start_fill;
+        float dash_length = start_dash_length;
+        bool has_tangents = path.tangents.size() == path.points.size();
+        Point start_tangent = has_tangents ? path.tangents[0].out : Point();
+        auto copy_tangents = [&](int vertex, Point end_tangent = {}) {
+          SubPath& dash = stroke_path.paths_.back();
+          if (!has_tangents || dash.points.empty())
+            return;
+          if (start_tangent != Point() && dash.points.size() == 2) {
+            dash.tangents.resize(dash.points.size());
+            dash.tangents[0].out = start_tangent;
+          }
+          if (vertex >= 0) {
+            dash.tangents.resize(dash.points.size());
+            dash.tangents.back() = path.tangents[vertex];
+          }
+          else if (end_tangent != Point() || !dash.tangents.empty()) {
+            dash.tangents.resize(dash.points.size());
+            dash.tangents.back() = { end_tangent, {}, false };
+          }
+        };
+        auto cut_tangent = [&](int index, const Point& point, bool end) {
+          if (!has_tangents)
+            return Point();
+          if (end && point == path.points[index - 1])
+            return path.tangents[index - 1].in;
+          Point from = path.tangents[index - 1].out.normalized();
+          Point to = path.tangents[index].in.normalized();
+          if (from.dot(to) <= 0.0f)
+            return Point();
+          float chord = (path.points[index] - path.points[index - 1]).length();
+          float t = chord > 0.0f ? (point - path.points[index - 1]).length() / chord : 0.0f;
+          return from + (to - from) * t;
+        };
+        bool join_ends = path.closed && fill;
+        int first_dash = -1;
         auto prev = path.points[0];
         stroke_path.moveTo(prev);
         for (int i = 1; i < path.points.size(); ++i) {
           auto length = (path.points[i] - prev).length();
-          while (length > dash_length) {
+          float snap = std::max({ dash_total, length, magnitude(prev), magnitude(path.points[i]) }) * kDashSnap;
+          while (length > dash_length + snap) {
             auto ratio = dash_length / length;
             auto point = prev + (path.points[i] - prev) * ratio;
 
-            if (fill)
+            if (fill) {
               stroke_path.lineTo(point);
-            else
+              copy_tangents(-1, cut_tangent(i, point, true));
+            }
+            else {
               stroke_path.moveTo(point);
+              start_tangent = cut_tangent(i, point, false);
+            }
+
+            if (join_ends && first_dash < 0)
+              first_dash = stroke_path.paths_.size() - 1;
 
             prev = point;
             length -= dash_length;
@@ -571,11 +784,32 @@ namespace visage {
             dash_length = dash_array[dash_index];
             fill = !fill;
           }
-          if (fill)
+          if (fill) {
             stroke_path.lineTo(path.points[i]);
+            copy_tangents(i);
+          }
 
           dash_length -= (path.points[i] - prev).length();
+          if (dash_length < snap)
+            dash_length = 0.0f;
           prev = path.points[i];
+        }
+
+        if (join_ends && fill && path.points.size() > 1) {
+          if (first_dash < 0)
+            stroke_path.paths_.back().closed = true;
+          else if (first_dash < stroke_path.paths_.size() - 1) {
+            auto& first = stroke_path.paths_[first_dash];
+            auto& last = stroke_path.paths_.back();
+            if (!first.tangents.empty() || !last.tangents.empty()) {
+              first.tangents.resize(first.points.size());
+              last.tangents.resize(last.points.size());
+              last.tangents.back().out = first.tangents[0].out;
+              last.tangents.insert(last.tangents.end(), first.tangents.begin() + 1, first.tangents.end());
+            }
+            last.points.insert(last.points.end(), first.points.begin() + 1, first.points.end());
+            stroke_path.paths_.erase(stroke_path.paths_.begin() + first_dash);
+          }
         }
       }
     }
@@ -586,29 +820,37 @@ namespace visage {
     for (auto& path : stroke_path.paths_) {
       if (path.points.size() > 1 && path.closed) {
         SubPath inner = path;
-        std::reverse(inner.points.begin(), inner.points.end());
+        reverseSubPath(inner);
         inner_paths.push_back(inner);
       }
 
       else {
         int start_size = path.points.size();
-        for (int i = start_size - 2; i > 0; --i)
+        bool has_tangents = path.tangents.size() == path.points.size();
+        for (int i = start_size - 2; i > 0; --i) {
           path.points.push_back(path.points[i]);
+          if (has_tangents)
+            path.tangents.push_back({ -path.tangents[i].out, -path.tangents[i].in, path.tangents[i].smooth });
+        }
+        if (has_tangents && start_size > 1) {
+          path.tangents[start_size - 1].out = -path.tangents[start_size - 1].in;
+          path.tangents[0].in = -path.tangents[0].out;
+        }
       }
     }
 
     stroke_path.paths_.insert(stroke_path.paths_.end(), inner_paths.begin(), inner_paths.end());
-    stroke_path = stroke_path.offset(stroke_width / 2.0f, join, Join::Bevel, end_cap, miter_limit);
+    stroke_path = stroke_path.offset(stroke_width / 2.0f, join, true, end_cap, miter_limit);
     stroke_path.fill_rule_ = FillRule::NonZero;
     return stroke_path;
   }
 
   struct PathAtlasTexture {
-    bgfx::FrameBufferHandle handle = { bgfx::kInvalidHandle };
+    gpu::FrameBufferHandle handle = {};
 
     ~PathAtlasTexture() {
-      if (bgfx::isValid(handle))
-        bgfx::destroy(handle);
+      if (gpu::isValid(handle))
+        gpu::destroy(handle);
     }
   };
 
@@ -627,219 +869,105 @@ namespace visage {
   template<const char* name>
   void setPathUniform(float value0, float value1 = 0.0f, float value2 = 0.0f, float value3 = 0.0f) {
     float values[4] = { value0, value1, value2, value3 };
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
-    bgfx::setUniform(uniform, values);
+    const gpu::UniformHandle& uniform = UniformCache::uniformHandle(name);
+    gpu::setUniform(uniform, values);
   }
 
-  bool PathAtlas::clearUpdatedPathAreas(int submit_pass) {
-    int total_need_update = 0;
-    for (auto& path : paths_) {
-      if (path->needs_update)
-        ++total_need_update;
-    }
+  bool PathAtlas::beginUpdate(int submit_pass) {
+    bool needs_update = std::any_of(paths_.begin(), paths_.end(),
+                                    [](const auto& path) { return path->needs_update; });
+    if (!needs_update)
+      return false;
+    gpu::setViewRect(submit_pass, 0, 0, width_, height_);
+    gpu::setViewFrameBuffer(submit_pass, frame_buffer_->handle);
+    if (!needs_full_clear_)
+      return true;
 
-    if (total_need_update == 0)
+    auto clear_vertices = initQuadVertices<UvVertex>(1);
+    if (clear_vertices == nullptr)
       return false;
 
-    float width_scale = 2.0f / width_;
-    float height_scale = 2.0f / height_;
-
-    bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
-    bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
-    bgfx::setViewClear(submit_pass, BGFX_CLEAR_NONE);
-    bgfx::setViewFrameBuffer(submit_pass, frame_buffer_->handle);
-    bgfx::setState(BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ZERO));
-    auto clear_vertices = initQuadVertices<UvVertex>(total_need_update);
-    int vertex_index = 0;
-    for (auto& path : paths_) {
-      if (path->needs_update) {
-        float left = path->x * width_scale - 1.0f;
-        float top = 1.0f - path->y * height_scale;
-        float right = left + path->w * width_scale;
-        float bottom = top - path->h * height_scale;
-        clear_vertices[vertex_index].x = left;
-        clear_vertices[vertex_index].y = top;
-        clear_vertices[vertex_index + 1].x = right;
-        clear_vertices[vertex_index + 1].y = top;
-        clear_vertices[vertex_index + 2].x = left;
-        clear_vertices[vertex_index + 2].y = bottom;
-        clear_vertices[vertex_index + 3].x = right;
-        clear_vertices[vertex_index + 3].y = bottom;
-        clear_vertices[vertex_index].u = 1.0f;
-        clear_vertices[vertex_index].v = 0.0f;
-        clear_vertices[vertex_index + 1].u = 1.0f;
-        clear_vertices[vertex_index + 1].v = 0.0f;
-        clear_vertices[vertex_index + 2].u = 0.0f;
-        clear_vertices[vertex_index + 2].v = 0.0f;
-        clear_vertices[vertex_index + 3].u = 0.0f;
-        clear_vertices[vertex_index + 3].v = 0.0f;
-        vertex_index += 4;
-      }
+    needs_full_clear_ = false;
+    float positions[kVerticesPerQuad][2] = { { -1.0f, 1.0f }, { 1.0f, 1.0f }, { -1.0f, -1.0f }, { 1.0f, -1.0f } };
+    for (int i = 0; i < kVerticesPerQuad; ++i) {
+      clear_vertices[i].x = positions[i][0];
+      clear_vertices[i].y = positions[i][1];
+      clear_vertices[i].u = 0.0f;
+      clear_vertices[i].v = 0.0f;
     }
 
-    if (bgfx::getCaps()->originBottomLeft) {
-      for (int i = 0; i < vertex_index; ++i)
-        clear_vertices[i].y = -clear_vertices[i].y;
-    }
-
+    gpu::setState(gpu::RenderState::write(gpu::kWriteR));
     setPathUniform<Uniforms::kColor>(0.0f);
-    bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_clear, shaders::fs_clear));
-
+    gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_clear, shaders::fs_clear));
     return true;
   }
 
-  int PathAtlas::updatePaths(int submit_pass) {
-    constexpr int kTriangleIndices[] = { 0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5 };
-    constexpr int kConservativeVerticesPerTriangle = 3;
-    constexpr int kRegularVerticesPerTriangle = 6;
-    constexpr float kTriangleDrawOffset = 2.0f;
+  static PathAtlas::Binning& binningSetting() {
+    static PathAtlas::Binning setting = PathAtlas::Binning::Gpu;
+    return setting;
+  }
 
+  void PathAtlas::setBinning(Binning binning) {
+    binningSetting() = binning;
+  }
+
+  PathAtlas::Binning PathAtlas::activeBinning() {
+    if (binningSetting() == Binning::Gpu && PathTileRenderer::computeSupported())
+      return Binning::Gpu;
+    return Binning::Cpu;
+  }
+
+  int PathAtlas::updatePaths(int submit_pass) {
     checkInit();
 
-    if (!clearUpdatedPathAreas(submit_pass))
+    bool gpu = activeBinning() == Binning::Gpu;
+    int raster_pass = gpu ? submit_pass + 1 : submit_pass;
+    if (!beginUpdate(raster_pass))
       return submit_pass;
 
-    int num_triangles = 0;
+    std::vector<PathTileRenderer::Cell> cells;
     for (auto& path : paths_) {
       if (path->needs_update) {
-        for (const auto& sub_path : path->path.subPaths()) {
-          if (sub_path.points.size() > 2)
-            num_triangles += sub_path.points.size();
-        }
-      }
-    }
-
-    auto state = BGFX_STATE_WRITE_R | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ONE);
-    int vertices_per_triangle = kRegularVerticesPerTriangle;
-    int indices_per_triangle = sizeof(kTriangleIndices) / sizeof(int);
-    int vertices_per_point = 2;
-    bool conservative_raster = bgfx::getCaps()->supported & BGFX_CAPS_CONSERVATIVE_RASTER;
-    if (conservative_raster) {
-      state |= BGFX_STATE_CONSERVATIVE_RASTER;
-      vertices_per_triangle = kConservativeVerticesPerTriangle;
-      indices_per_triangle = 3;
-      vertices_per_point = 1;
-    }
-
-    bgfx::setState(state);
-    bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::TransientIndexBuffer index_buffer {};
-    int num_vertices = num_triangles * vertices_per_triangle;
-    int num_indices = num_triangles * indices_per_triangle;
-    if (!bgfx::allocTransientBuffers(&vertex_buffer, PathVertex::layout(), num_vertices,
-                                     &index_buffer, num_indices, true)) {
-      VISAGE_LOG("PathAtlas::updatePaths: Failed to allocate transient buffers");
-      return submit_pass + 1;
-    }
-
-    auto vertices = reinterpret_cast<PathVertex*>(vertex_buffer.data);
-    auto indices = reinterpret_cast<uint32_t*>(index_buffer.data);
-    if (indices == nullptr || vertices == nullptr) {
-      VISAGE_LOG("PathAtlas::updatePaths: Failed to map transient buffers");
-      return submit_pass + 1;
-    }
-
-    bgfx::setVertexBuffer(0, &vertex_buffer);
-    bgfx::setIndexBuffer(&index_buffer);
-
-    uint32_t vertex = 0;
-    uint32_t triangle_index = 0;
-    for (auto& path : paths_) {
-      if (path->needs_update) {
+        cells.push_back({ &path->path, path->x, path->y, path->w, path->h });
         path->needs_update = false;
-
-        for (const auto& sub_path : path->path.subPaths()) {
-          if (sub_path.points.size() <= 2)
-            continue;
-
-          float average_x = 0.0f;
-          float max_y = 0.0f;
-          for (const auto& point : sub_path.points) {
-            max_y = std::max(max_y, point.y);
-            average_x += point.x;
-          }
-          average_x /= static_cast<float>(sub_path.points.size());
-
-          float x = path->x;
-          float y = path->y;
-          float anchor_x = x + average_x;
-          float anchor_y = y + max_y + kTriangleDrawOffset;
-          float last_x = x + sub_path.points.back().x;
-          float last_y = y + sub_path.points.back().y;
-          for (int i = 0; i < sub_path.points.size(); ++i) {
-            for (int k = 0; k < indices_per_triangle; ++k)
-              indices[triangle_index++] = vertex + kTriangleIndices[k];
-
-            float new_x = x + sub_path.points[i].x;
-            float new_y = y + sub_path.points[i].y;
-            float index = 0.0f;
-
-            for (int v = vertex; v < vertex + vertices_per_triangle;) {
-              float direction = 1.0f;
-              for (int p = 0; p < vertices_per_point; ++p, ++v) {
-                vertices[v].index = index;
-                vertices[v].direction = direction;
-                direction *= -1.0f;
-              }
-              index += 1.0f;
-            }
-
-            for (int v = 0; v < vertices_per_triangle; ++v) {
-              vertices[vertex].x1 = anchor_x;
-              vertices[vertex].y1 = anchor_y;
-              vertices[vertex].x2 = last_x;
-              vertices[vertex].y2 = last_y;
-              vertices[vertex].x3 = new_x;
-              vertices[vertex].y3 = new_y;
-              ++vertex;
-            }
-
-            last_x = new_x;
-            last_y = new_y;
-          }
-        }
       }
     }
 
-    VISAGE_ASSERT(vertex == num_vertices);
-    VISAGE_ASSERT(triangle_index == num_indices);
-
-    bool origin_flip = bgfx::getCaps()->originBottomLeft;
-    setPathUniform<Uniforms::kColor>(1.0f);
-    setPathUniform<Uniforms::kOriginFlip>(origin_flip ? -1.0 : 1.0);
-
-    if (origin_flip)
-      setPathUniform<Uniforms::kBounds>(2.0f / width_, 2.0f / height_, -1.0f, -1.0f);
-    else
-      setPathUniform<Uniforms::kBounds>(2.0f / width_, -2.0f / height_, -1.0f, 1.0f);
-
-    if (conservative_raster)
-      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_conservative_path_fill,
-                                                            shaders::fs_path_fill));
-    else
-      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_path_fill, shaders::fs_path_fill));
-    return submit_pass + 1;
+    if (tile_renderer_ == nullptr)
+      tile_renderer_ = std::make_unique<PathTileRenderer>();
+    if (!gpu || !tile_renderer_->submitGpu(cells, submit_pass, raster_pass, width_, height_))
+      tile_renderer_->submitCpu(cells, raster_pass, width_, height_);
+    return raster_pass + 1;
   }
 
   void PathAtlas::destroy() {
     frame_buffer_.reset();
+    tile_renderer_.reset();
+  }
+
+  void PathAtlas::invalidateAll() {
+    destroy();
+    for (auto& path : paths_)
+      path->needs_update = true;
   }
 
   void PathAtlas::checkInit() {
-    constexpr uint64_t kFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
+    constexpr uint32_t kFlags = gpu::kSamplerClamp | gpu::kSamplerPoint;
     if (needs_packing_) {
       resize();
       needs_packing_ = false;
+      needs_full_clear_ = true;
     }
 
     if (frame_buffer_ == nullptr)
       frame_buffer_ = std::make_unique<PathAtlasTexture>();
 
-    if (!bgfx::isValid(frame_buffer_->handle) && atlas_map_.width() && atlas_map_.height()) {
-      frame_buffer_->handle = bgfx::createFrameBuffer(atlas_map_.width(), atlas_map_.height(),
-                                                      bgfx::TextureFormat::R16F, kFlags);
+    if (!gpu::isValid(frame_buffer_->handle) && atlas_map_.width() && atlas_map_.height()) {
+      frame_buffer_->handle = gpu::createFrameBuffer(atlas_map_.width(), atlas_map_.height(),
+                                                     gpu::TextureFormat::R8, kFlags);
       width_ = atlas_map_.width();
       height_ = atlas_map_.height();
+      needs_full_clear_ = true;
     }
   }
 
@@ -860,7 +988,7 @@ namespace visage {
     }
   }
 
-  const bgfx::FrameBufferHandle& PathAtlas::frameBufferHandle() {
+  const gpu::FrameBufferHandle& PathAtlas::frameBufferHandle() {
     return frame_buffer_->handle;
   }
 }

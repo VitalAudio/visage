@@ -97,30 +97,37 @@ namespace visage {
 
     virtual void runEventLoop() = 0;
     virtual void* nativeHandle() const = 0;
+    virtual void* graphicsHandle() const { return nativeHandle(); }
     virtual void windowContentsResized(int width, int height) = 0;
 
     virtual void* initWindow() const { return nullptr; }
     virtual void* globalDisplay() const { return nullptr; }
     virtual void processPluginFdEvents() { }
-    virtual int posixFd() const { return 0; }
+    virtual int posixFd() const { return -1; }
 
     virtual void show() = 0;
     virtual void showMaximized() = 0;
     virtual void hide() = 0;
     virtual void close() = 0;
     virtual bool isShowing() const = 0;
+    virtual bool isClosed() const { return false; }
     virtual void setWindowTitle(const std::string& title) = 0;
     virtual void setFixedAspectRatio(bool fixed) { }
     virtual IPoint maxWindowDimensions() const = 0;
     virtual void setAlwaysOnTop(bool on_top) { }
+    virtual void framePresented() { }
+    virtual void waitForFrame() { }
+    virtual void setFrameWaiter(std::function<bool(int)> waiter) { }
 
     void setDrawCallback(std::function<void(double)> callback) {
       draw_callback_ = std::move(callback);
     }
 
     void drawCallback(double time) const {
-      if (draw_callback_)
-        draw_callback_(time);
+      if (draw_callback_) {
+        std::function<void(double)> callback = draw_callback_;
+        callback(time);
+      }
     }
 
     bool isVisible() const { return visible_; }
@@ -187,11 +194,14 @@ namespace visage {
     void setVisible(bool visible) { visible_ = visible; }
 
   private:
+    static constexpr int kDoubleClickDistance = 2;
     static int double_click_speed_;
 
     struct RepeatClick {
       int click_count = 0;
       long long last_click_ms = 0;
+      MouseButton last_button = kMouseButtonNone;
+      IPoint first_click_position;
     };
 
     EventHandler* event_handler_ = nullptr;

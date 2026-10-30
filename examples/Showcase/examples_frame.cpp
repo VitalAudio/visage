@@ -236,13 +236,15 @@ ExamplesFrame::ExamplesFrame() {
   setupTextEditors();
   sections_.push_back(std::make_unique<ExampleSection>("Text Editing", &text_editor_container_));
 
-  image_container_.setMasked(true);
   image_container_.onDraw() = [this](visage::Canvas& canvas) {
     canvas.setColor(0xffffffff);
     int offset = (image_container_.width() - image_container_.height()) / 2;
     canvas.image(resources::images::test_png, offset, 0, image_container_.height(),
                  image_container_.height());
-    canvas.setBlendMode(visage::BlendMode::Mult);
+  };
+  image_container_.onDrawMask() = [this](visage::Canvas& canvas) {
+    canvas.setColor(0xffffffff);
+    int offset = (image_container_.width() - image_container_.height()) / 2;
     canvas.squircle(offset, 0, image_container_.height());
   };
 

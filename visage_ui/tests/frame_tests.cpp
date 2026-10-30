@@ -21,6 +21,7 @@
 
 #include "visage_graphics/canvas.h"
 #include "visage_ui/frame.h"
+#include "visage_ui/svg_frame.h"
 #include "visage_utils/events.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -39,6 +40,7 @@ public:
   int mouse_up_count = 0;
   bool last_key_press_result = false;
   bool last_mouse_wheel_result = false;
+  std::string last_text_input;
 
   void draw(Canvas& canvas) override {
     draw_count++;
@@ -73,6 +75,8 @@ public:
   bool keyPress(const KeyEvent& e) override { return last_key_press_result; }
 
   bool mouseWheel(const MouseEvent& e) override { return last_mouse_wheel_result; }
+
+  void textInput(const std::string& text) override { last_text_input = text; }
 };
 
 TEST_CASE("Frame construction and naming", "[ui]") {
@@ -199,14 +203,6 @@ TEST_CASE("Frame hierarchy management", "[ui]") {
     REQUIRE(parent.indexOfChild(child1_ptr) == -1);
   }
 
-  SECTION("Removing all children") {
-    parent.addChild(std::move(child1));
-    parent.addChild(std::move(child2));
-
-    parent.removeAllChildren();
-    REQUIRE(parent.children().empty());
-  }
-
   SECTION("Parent-child relationships") {
     Frame grandparent;
     grandparent.addChild(&parent);
@@ -279,6 +275,15 @@ TEST_CASE("Frame event handling", "[ui]") {
 
     frame.last_mouse_wheel_result = false;
     REQUIRE_FALSE(frame.processMouseWheel(wheel_event));
+  }
+
+  SECTION("Text input events") {
+    std::string callback_text;
+    frame.onTextInput() += [&](const std::string& text) { callback_text = text; };
+
+    frame.processTextInput("abc");
+    REQUIRE(frame.last_text_input == "abc");
+    REQUIRE(callback_text == "abc");
   }
 }
 
@@ -360,11 +365,6 @@ TEST_CASE("Frame transparency and effects", "[ui]") {
     frame.setCached(true);
     frame.setCached(false);
   }
-
-  SECTION("Setting masked state") {
-    frame.setMasked(true);
-    frame.setMasked(false);
-  }
 }
 
 TEST_CASE("Frame on-top handling", "[ui]") {
@@ -430,6 +430,18 @@ TEST_CASE("Frame event handler integration", "[ui]") {
   MockEventHandler handler;
   frame.setEventHandler(&handler);
 
+  SECTION("Taking the mouse press") {
+    REQUIRE_FALSE(frame.takeMouseDrag());
+
+    Frame* taker = nullptr;
+    handler.take_mouse_drag = [&](Frame* f) {
+      taker = f;
+      return true;
+    };
+    REQUIRE(frame.takeMouseDrag());
+    REQUIRE(taker == &frame);
+  }
+
   SECTION("Redraw requests") {
     frame.setVisible(true);
     frame.setDrawing(true);
@@ -487,4 +499,263 @@ TEST_CASE("Frame layout management", "[ui]") {
     frame.setFlexLayout(false);
     REQUIRE_FALSE(frame.layout().flex());
   }
+}
+
+TEST_CASE("Frame listen", "[ui]") {
+  SECTION("Stops listening when the listener is destroyed") {
+    Frame parent;
+    int calls = 0;
+    auto child = std::make_unique<Frame>();
+    child->listen(parent.onResize(), [&calls] { calls++; });
+
+    parent.setBounds(0, 0, 10, 10);
+    REQUIRE(calls == 1);
+    child.reset();
+    parent.setBounds(0, 0, 20, 20);
+    REQUIRE(calls == 1);
+  }
+
+  SECTION("Source destroyed first") {
+    auto parent = std::make_unique<Frame>();
+    Frame child;
+    child.listen(parent->onResize(), [] {});
+    parent.reset();
+  }
+}
+
+TEST_CASE("Frame removed by its own mouse event", "[ui]") {
+  Frame parent;
+  auto owned_child = std::make_unique<Frame>();
+  Frame* child = owned_child.get();
+  parent.addChild(std::move(owned_child));
+  parent.setReceiveChildMouseEvents(true);
+
+  int parent_mouse_downs = 0;
+  parent.onMouseDown() += [&](const MouseEvent&) { parent_mouse_downs++; };
+  child->onMouseDown() += [&](const MouseEvent&) { parent.removeChild(child); };
+
+  MouseEvent mouse_event {};
+  child->processMouseDown(mouse_event);
+  REQUIRE(parent_mouse_downs == 1);
+}
+
+TEST_CASE("Frame removed with its parent by its own mouse event", "[ui]") {
+  Frame list;
+  auto owned_row = std::make_unique<Frame>();
+  Frame* row = owned_row.get();
+  list.addChild(std::move(owned_row));
+  auto owned_button = std::make_unique<Frame>();
+  Frame* button = owned_button.get();
+  row->addChild(std::move(owned_button));
+
+  button->onMouseUp() += [&](const MouseEvent&) { list.removeChild(row); };
+
+  MouseEvent mouse_event {};
+  button->processMouseUp(mouse_event);
+  REQUIRE(list.children().empty());
+}
+
+TEST_CASE("Frame hierarchy changes notify when added and removed", "[ui]") {
+  Frame parent;
+  Frame child;
+  Frame grandchild;
+  child.addChild(grandchild);
+
+  std::vector<Frame*> child_parents;
+  int grandchild_changes = 0;
+  child.onHierarchyChange() += [&] { child_parents.push_back(child.parent()); };
+  grandchild.onHierarchyChange() += [&] { grandchild_changes++; };
+
+  parent.addChild(child);
+  REQUIRE(child_parents == std::vector<Frame*> { &parent });
+  REQUIRE(grandchild_changes == 1);
+
+  parent.removeChild(child);
+  REQUIRE(child_parents == std::vector<Frame*> { &parent, nullptr });
+  REQUIRE(grandchild_changes == 2);
+}
+
+TEST_CASE("Frame remove child that isn't a child", "[ui]") {
+  Frame parent;
+  Frame other_parent;
+  Frame child;
+  Frame other_child;
+  parent.addChild(child);
+  other_parent.addChild(other_child);
+
+  parent.removeChild(other_child);
+  REQUIRE(parent.children().size() == 1);
+  REQUIRE(other_child.parent() == &other_parent);
+}
+
+TEST_CASE("Frame added to a new parent", "[ui]") {
+  Frame first_parent;
+  Frame second_parent;
+
+  SECTION("Unowned child") {
+    Frame child;
+    first_parent.addChild(child);
+    second_parent.addChild(child);
+    REQUIRE(first_parent.children().empty());
+    REQUIRE(second_parent.children().size() == 1);
+    REQUIRE(child.parent() == &second_parent);
+  }
+
+  SECTION("Owned child") {
+    auto old_parent = std::make_unique<Frame>();
+    auto owned_child = std::make_unique<Frame>();
+    Frame* child = owned_child.get();
+    old_parent->addChild(std::move(owned_child));
+    second_parent.addChild(child);
+    old_parent.reset();
+    REQUIRE(second_parent.children().size() == 1);
+    REQUIRE(child->parent() == &second_parent);
+  }
+
+  SECTION("Same parent") {
+    Frame child;
+    first_parent.addChild(child);
+    first_parent.addChild(child);
+    REQUIRE(first_parent.children().size() == 1);
+  }
+}
+
+TEST_CASE("Frame added to a new parent draws only when the new parent draws", "[ui]") {
+  Frame first_parent;
+  Frame second_parent;
+  Frame child;
+  Frame grandchild;
+  child.addChild(grandchild);
+
+  first_parent.addChild(child);
+  first_parent.setVisible(false);
+  REQUIRE_FALSE(child.isDrawing());
+
+  second_parent.addChild(child);
+  REQUIRE(child.isDrawing());
+  REQUIRE(grandchild.isDrawing());
+
+  first_parent.addChild(child);
+  REQUIRE_FALSE(child.isDrawing());
+  REQUIRE_FALSE(grandchild.isDrawing());
+
+  second_parent.addChild(child, false);
+  REQUIRE_FALSE(child.isVisible());
+  REQUIRE_FALSE(child.isDrawing());
+  REQUIRE_FALSE(grandchild.isDrawing());
+}
+
+TEST_CASE("Frame DPI change updates children before notifying", "[ui]") {
+  Frame parent;
+  Frame child;
+  parent.setBounds(0, 0, 400, 300);
+  parent.addChild(child);
+
+  float child_dpi_in_callback = 0.0f;
+  parent.onDpiChange() += [&] {
+    child_dpi_in_callback = child.dpiScale();
+    child.setBounds(0, 0, 75, 10);
+  };
+
+  parent.setDpiScale(2.0f);
+  REQUIRE(child_dpi_in_callback == 2.0f);
+  REQUIRE(child.nativeWidth() == 150);
+}
+
+TEST_CASE("Frame DPI change updates native bounds of children", "[ui]") {
+  Frame parent;
+  Frame child;
+  parent.setBounds(0, 0, 400, 300);
+  parent.addChild(child);
+  child.setBounds(10, 20, 100, 50);
+
+  parent.setDpiScale(2.0f);
+  REQUIRE(IBounds(child.nativeX(), child.nativeY(), child.nativeWidth(), child.nativeHeight()) ==
+          IBounds(20, 40, 200, 100));
+}
+
+TEST_CASE("Frame sized before being added uses the parent's DPI", "[ui]") {
+  Frame parent;
+  parent.setDpiScale(2.0f);
+  Frame child;
+  child.setBounds(10, 20, 100, 50);
+
+  parent.addChild(child);
+  REQUIRE(IBounds(child.nativeX(), child.nativeY(), child.nativeWidth(), child.nativeHeight()) ==
+          IBounds(20, 40, 200, 100));
+}
+
+TEST_CASE("SvgFrame ignores mouse events however it is constructed", "[ui]") {
+  static constexpr char kSvg[] = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">"
+                                 "<rect width=\"10\" height=\"10\"/></svg>";
+  const auto* data = reinterpret_cast<const uint8_t*>(kSvg);
+
+  SvgFrame from_nothing;
+  SvgFrame from_data(data, sizeof(kSvg) - 1);
+  SvgFrame from_file(EmbeddedFile { "icon.svg", data, sizeof(kSvg) - 1 });
+  REQUIRE(from_nothing.ignoresMouseEvents());
+  REQUIRE(from_data.ignoresMouseEvents());
+  REQUIRE(from_file.ignoresMouseEvents());
+}
+
+TEST_CASE("Frame undo helpers use the frame itself when it is the undo history", "[ui]") {
+  class HistoryFrame : public Frame,
+                       public UndoHistory { };
+
+  HistoryFrame frame;
+  Frame child;
+  frame.addChild(child);
+  int value = 0;
+
+  frame.addUndoableAction(std::make_unique<LambdaAction>([&value] { value = 1; },
+                                                         [&value] { value = 2; }));
+  REQUIRE(frame.Frame::canUndo());
+  REQUIRE(child.canUndo());
+
+  frame.triggerUndo();
+  REQUIRE(value == 1);
+  REQUIRE(frame.Frame::canRedo());
+  frame.triggerRedo();
+  REQUIRE(value == 2);
+}
+
+TEST_CASE("Masked frames are destroyed cleanly while attached to a parent", "[ui]") {
+  Frame parent;
+  auto frame = std::make_unique<Frame>();
+  frame->onDrawMask() = [](Canvas&) {};
+  parent.addChild(frame.get());
+  frame.reset();
+  REQUIRE(parent.children().empty());
+}
+
+TEST_CASE("Deleting or removing a child frame invalidates the area it covered", "[ui]") {
+  Canvas canvas;
+  canvas.setWindowless(100, 100);
+  Frame parent;
+  canvas.addRegion(parent.region());
+  parent.region()->setNeedsLayer(true);
+  parent.setBounds(0, 0, 100, 100);
+
+  auto child = std::make_unique<Frame>();
+  parent.addChild(child.get());
+  child->setBounds(10, 20, 30, 40);
+  canvas.takeScreenshot();
+
+  Layer* layer = parent.region()->layer();
+  REQUIRE(layer->invalidRects().count(parent.region()) == 0);
+
+  SECTION("Deleted") {
+    child.reset();
+  }
+  SECTION("Removed") {
+    parent.removeChild(child.get());
+  }
+
+  REQUIRE(parent.children().empty());
+  REQUIRE(layer->invalidRects().count(parent.region()) == 1);
+
+  IBounds covered;
+  for (const IBounds& rect : layer->invalidRects().at(parent.region()))
+    covered = covered.width() ? covered.unioned(rect) : rect;
+  REQUIRE(covered.contains(IBounds(10, 20, 30, 40)));
 }

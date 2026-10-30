@@ -26,6 +26,42 @@
 
 using namespace visage;
 
+TEST_CASE("Point scalar division", "[utils]") {
+  Point point(4.0f, 8.0f);
+  REQUIRE(point / 2.0f == Point(2.0f, 4.0f));
+  REQUIRE(2.0f / point == Point(0.5f, 0.25f));
+}
+
+TEST_CASE("Matrix inverse of small scales", "[utils]") {
+  Matrix inverse = Matrix::scale(1e-4f, 1e-4f).inversed();
+  REQUIRE(inverse.matrix[0][0] == Catch::Approx(1e4f));
+  REQUIRE(inverse.matrix[1][1] == Catch::Approx(1e4f));
+
+  Matrix singular = Matrix(1.0f, 2.0f, 2.0f, 4.0f).inversed();
+  REQUIRE(singular.matrix[0][0] == 0.0f);
+  REQUIRE(singular.matrix[1][1] == 0.0f);
+
+  IMatrix integer_singular = IMatrix(1, 2, 2, 4).inversed();
+  REQUIRE(integer_singular.matrix[0][0] == 0);
+}
+
+TEST_CASE("Bounds subtract without overlap", "[utils]") {
+  IBounds bounds(0, 0, 10, 10);
+  IBounds result;
+  REQUIRE(bounds.subtract(IBounds(20, 2, 5, 20), result));
+  REQUIRE(result == bounds);
+  REQUIRE(bounds.subtract(IBounds(20, 2, 5, 5), result));
+  REQUIRE(result == bounds);
+}
+
+TEST_CASE("Bounds round keeps adjacent bounds adjacent", "[utils]") {
+  Bounds left(10.5f, 10.5f, 10.5f, 10.5f);
+  Bounds right(21.0f, 10.5f, 10.5f, 10.5f);
+  Bounds below(10.5f, 21.0f, 10.5f, 10.5f);
+  REQUIRE(left.round().right() == right.round().x());
+  REQUIRE(left.round().bottom() == below.round().y());
+}
+
 TEST_CASE("Bounds intersection", "[utils]") {
   IBounds bounds1(-1, -2, 10, 10);
   IBounds bounds2(7, 5, 15, 15);
@@ -34,6 +70,21 @@ TEST_CASE("Bounds intersection", "[utils]") {
   REQUIRE(intersection.y() == 5);
   REQUIRE(intersection.width() == 2);
   REQUIRE(intersection.height() == 3);
+}
+
+TEST_CASE("Bounds unions keep lines of either direction", "[utils]") {
+  Bounds box(0.0f, 0.0f, 10.0f, 10.0f);
+  REQUIRE(box.unioned({ 20.0f, 0.0f, 0.0f, 10.0f }) == Bounds(0.0f, 0.0f, 20.0f, 10.0f));
+  REQUIRE(box.unioned({ 0.0f, 20.0f, 10.0f, 0.0f }) == Bounds(0.0f, 0.0f, 10.0f, 20.0f));
+  REQUIRE(Bounds(20.0f, 0.0f, 0.0f, 10.0f).unioned(box) == Bounds(0.0f, 0.0f, 20.0f, 10.0f));
+  REQUIRE(Bounds().unioned({ 5.0f, 5.0f, 0.0f, 10.0f }) == Bounds(5.0f, 5.0f, 0.0f, 10.0f));
+  REQUIRE(Bounds(5.0f, 5.0f, 0.0f, 10.0f).unioned({}) == Bounds(5.0f, 5.0f, 0.0f, 10.0f));
+  REQUIRE(box.unioned({}) == box);
+
+  IBounds ibox(0, 0, 10, 10);
+  REQUIRE(ibox.unioned({ 20, 0, 0, 10 }) == IBounds(0, 0, 20, 10));
+  REQUIRE(IBounds(20, 0, 0, 10).unioned(ibox) == IBounds(0, 0, 20, 10));
+  REQUIRE(IBounds().unioned(ibox) == ibox);
 }
 
 TEST_CASE("Bounds subtract failed corner intersect", "[utils]") {
@@ -377,4 +428,14 @@ TEST_CASE("IBounds reduced asymmetric", "[utils]") {
     REQUIRE(reduced.width() == 0);
     REQUIRE(reduced.height() == 0);
   }
+}
+
+TEST_CASE("Matrix equality compares every entry", "[utils]") {
+  Matrix matrix(1.0f, 2.0f, 3.0f, 4.0f);
+  REQUIRE(matrix == Matrix(1.0f, 2.0f, 3.0f, 4.0f));
+  REQUIRE_FALSE(matrix != Matrix(1.0f, 2.0f, 3.0f, 4.0f));
+  REQUIRE(matrix != Matrix(5.0f, 2.0f, 3.0f, 4.0f));
+  REQUIRE(matrix != Matrix(1.0f, 5.0f, 3.0f, 4.0f));
+  REQUIRE(matrix != Matrix(1.0f, 2.0f, 5.0f, 4.0f));
+  REQUIRE(matrix != Matrix(1.0f, 2.0f, 3.0f, 5.0f));
 }

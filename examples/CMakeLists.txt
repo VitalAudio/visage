@@ -12,13 +12,23 @@ add_embedded_resources(EmbeddedFontResources "example_fonts.h" "resources::fonts
 add_embedded_resources(EmbeddedIconResources "example_icons.h" "resources::icons" "${ICON_FILES}")
 add_embedded_resources(EmbeddedImageResources "example_images.h" "resources::images" "${IMAGE_FILES}")
 
-if (WIN32)
-  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/../visage_graphics/bin/win32/shaderc.exe" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-elseif (APPLE)
-  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/../visage_graphics/bin/macos/shaderc" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-else (UNIX)
-  file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/../visage_graphics/bin/linux/shaderc" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+if (VISAGE_SHADER_COMPILER_TARGET STREQUAL "shader_compiler")
+  add_custom_target(ExampleShaderCompiler
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:shader_compiler>
+            ${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:shader_compiler>
+    DEPENDS shader_compiler
+  )
+else ()
+  get_filename_component(SHADER_COMPILER_NAME ${VISAGE_SHADER_COMPILER_EXECUTABLE} NAME)
+  add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${SHADER_COMPILER_NAME}
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${VISAGE_SHADER_COMPILER_EXECUTABLE}
+            ${CMAKE_CURRENT_BINARY_DIR}/${SHADER_COMPILER_NAME}
+    DEPENDS ${VISAGE_SHADER_COMPILER_EXECUTABLE} ${VISAGE_SHADER_COMPILER_TARGET}
+  )
+  add_custom_target(ExampleShaderCompiler DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${SHADER_COMPILER_NAME})
 endif ()
+set_target_properties(ExampleShaderCompiler PROPERTIES FOLDER "examples")
 
 foreach (EXAMPLE ${EXAMPLES})
   file(GLOB SOURCE_FILES ${EXAMPLE}/*.cpp)
@@ -26,6 +36,7 @@ foreach (EXAMPLE ${EXAMPLES})
 
   if (IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${EXAMPLE}" AND SOURCE_FILES AND NOT EXAMPLE STREQUAL "ClapPlugin")
     add_executable(Example${EXAMPLE} main.cpp ${SOURCE_FILES} ${HEADER_FILES})
+    add_dependencies(Example${EXAMPLE} ExampleShaderCompiler)
 
     if (WIN32)
       set_target_properties(Example${EXAMPLE} PROPERTIES WIN32_EXECUTABLE YES)

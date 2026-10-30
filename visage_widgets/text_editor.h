@@ -25,6 +25,8 @@
 #include "visage_ui/frame.h"
 #include "visage_ui/scroll_bar.h"
 
+#include <set>
+
 namespace visage {
   class TextEditor : public ScrollableFrame {
   public:
@@ -37,13 +39,19 @@ namespace visage {
     static constexpr char32_t kUmlautCharacter = U'\u00A8';
     static constexpr char32_t kCircumflexCharacter = U'\u02C6';
 
-    static bool isAlphaNumeric(char character) {
+    static bool isAlphaNumeric(char32_t character) {
       return (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') ||
              (character >= '0' && character <= '9');
     }
 
-    static bool isVariableCharacter(char character) {
-      return isAlphaNumeric(character) || character == '_';
+    static bool isWhiteSpace(char32_t character) {
+      return character == ' ' || character == '\t' || character == '\n' || character == '\r' ||
+             character == 0xa0 || (character >= 0x2000 && character <= 0x200b) || character == 0x3000;
+    }
+
+    static bool isVariableCharacter(char32_t character) {
+      return isAlphaNumeric(character) || character == '_' ||
+             (character >= 0x80 && !isWhiteSpace(character));
     }
 
     enum ActionState {
@@ -122,6 +130,7 @@ namespace visage {
     void doubleClick(const MouseEvent& e);
     void tripleClick(const MouseEvent& e);
     bool handleDeadKey(const KeyEvent& key);
+    bool handleKeyPress(const KeyEvent& key);
     bool keyPress(const KeyEvent& key) override;
     bool keyRelease(const KeyEvent& key) override;
     bool receivesTextInput() override { return active_; }
@@ -152,7 +161,7 @@ namespace visage {
     bool undo();
     bool redo();
 
-    void insertTextAtCaret(const String& insert_text);
+    int insertTextAtCaret(const String& insert_text);
 
     void setBackgroundRounding(float rounding) {
       background_rounding_ = rounding;
@@ -187,9 +196,14 @@ namespace visage {
         line_breaks_ = text_.font().lineBreaks(text_.text().c_str(), text_.text().length(),
                                                width() - 2 * xMargin());
       }
+      else
+        line_breaks_.clear();
     }
 
     void setText(const String& text) {
+      undo_history_.clear();
+      undone_history_.clear();
+      action_state_ = kNone;
       if (max_characters_)
         text_.setText(text.substring(0, max_characters_));
       else
@@ -208,6 +222,7 @@ namespace visage {
       default_text_.setMultiLine(multi_line);
       if (multi_line)
         x_position_ = 0;
+      setLineBreaks();
     }
     void setSelectOnFocus(bool select_on_focus) { select_on_focus_ = select_on_focus; }
     void setJustification(Font::Justification justification) {
@@ -235,7 +250,11 @@ namespace visage {
     float xMarginSize() const {
       return set_x_margin_ ? set_x_margin_ : paletteValue(TextEditorMarginX);
     }
-    void addUndoPosition() { undo_history_.emplace_back(text_.text(), caret_position_); }
+    void addUndoPosition() {
+      if (undo_history_.size() >= kMaxUndoHistory)
+        undo_history_.erase(undo_history_.begin());
+      undo_history_.emplace_back(text_.text(), caret_position_);
+    }
 
     CallbackList<void()> on_text_change_;
     CallbackList<void()> on_enter_key_;
@@ -255,6 +274,7 @@ namespace visage {
     bool select_on_focus_ = false;
     bool mouse_focus_ = false;
     bool active_ = true;
+    std::set<KeyCode> consumed_keys_;
 
     theme::ColorId background_color_id_ = TextEditorBackground;
     float background_rounding_ = 1.0f;

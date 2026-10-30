@@ -116,8 +116,8 @@ namespace visage {
 
     int atlasWidth() const;
     int atlasHeight() const;
-    int size() const { return size_; }
-    const bgfx::TextureHandle& textureHandle() const;
+    float size() const { return size_; }
+    const gpu::TextureHandle& textureHandle() const;
 
     void setVertexPositions(FontAtlasQuad* quads, const char32_t* text, int length, float x,
                             float y, float width, float height,
@@ -130,6 +130,9 @@ namespace visage {
     const PackedFont* packedFont() const { return packed_font_; }
 
   private:
+    Font(float size, const PackedFont* packed_font, float dpi_scale);
+
+    const PackedGlyph* packedGlyph(char32_t character) const;
     int nativeWidthOverflowIndex(const char32_t* string, int string_length, float width,
                                  bool round = false, int character_override = 0) const;
     float nativeStringWidth(const char32_t* string, int length, int character_override = 0) const;
@@ -155,6 +158,8 @@ namespace visage {
         instance()->removeStaleFonts();
     }
 
+    static void releaseTextures();
+
   private:
     struct TypeFaceData {
       TypeFaceData(const unsigned char* data, int data_size) : data(data), data_size(data_size) { }
@@ -164,34 +169,41 @@ namespace visage {
       bool operator<(const TypeFaceData& other) const {
         if (data_size != other.data_size)
           return data_size < other.data_size;
+        if (data == other.data)
+          return false;
         if (data == nullptr || other.data == nullptr)
           return data < other.data;
         return std::memcmp(data, other.data, data_size) < 0;
       }
     };
 
-    static FontCache* instance() {
-      static FontCache cache;
-      return &cache;
-    }
+    static FontCache* instance();
 
     static PackedFont* loadPackedFont(int size, const EmbeddedFile& font) {
-      std::string id = "embed: " + std::string(font.name) + " - " + std::to_string(size);
-      return instance()->createOrLoadPackedFont(id, size, font.data, font.size);
+      return instance()->createOrLoadPackedFont("embed: " + std::string(font.name), size, font.data,
+                                                font.size);
     }
 
     static PackedFont* loadPackedFont(int size, const std::string& file_path);
     static PackedFont* loadPackedFont(const PackedFont* packed_font);
+    static PackedFont* loadPackedFont(int size, const PackedFont* packed_font);
     static PackedFont* loadPackedFont(int size, const unsigned char* font_data, int data_size);
 
     static void returnPackedFont(PackedFont* packed_font) {
-      instance()->decrementPackedFont(packed_font);
+      if (!destroyed())
+        instance()->decrementPackedFont(packed_font);
+    }
+
+    static bool& destroyed() {
+      static bool destroyed = false;
+      return destroyed;
     }
 
     FontCache();
 
     PackedFont* incrementPackedFont(const std::string& id);
-    PackedFont* createOrLoadPackedFont(const std::string& id, int size,
+    TypeFaceData storedTypeFaceData(const unsigned char* data, int data_size);
+    PackedFont* createOrLoadPackedFont(const std::string& type_face_id, int size,
                                        const unsigned char* font_data, int data_size);
     void decrementPackedFont(PackedFont* packed_font);
     void removeStaleFonts();

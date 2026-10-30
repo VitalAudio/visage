@@ -108,7 +108,7 @@ bool ClapPlugin::guiSetParent(const clap_window* window) noexcept {
 
 #if __linux__
   if (_host.canUsePosixFdSupport() && app_->window()) {
-    int fd_flags = CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE | CLAP_POSIX_FD_ERROR;
+    int fd_flags = CLAP_POSIX_FD_READ | CLAP_POSIX_FD_ERROR;
     return _host.posixFdSupportRegister(app_->window()->posixFd(), fd_flags);
   }
 #endif
@@ -126,7 +126,7 @@ bool ClapPlugin::guiGetResizeHints(clap_gui_resize_hints_t* hints) noexcept {
 
   if (fixed_aspect_ratio) {
     hints->aspect_ratio_width = app_->height() * app_->aspectRatio();
-    hints->aspect_ratio_height = app_->width();
+    hints->aspect_ratio_height = app_->height();
   }
   return true;
 }

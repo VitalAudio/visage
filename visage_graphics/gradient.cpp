@@ -21,7 +21,9 @@
 
 #include "gradient.h"
 
-#include <bgfx/bgfx.h>
+#include "gpu/gpu.h"
+
+#include <sstream>
 
 namespace visage {
 
@@ -78,11 +80,12 @@ namespace visage {
   }
 
   void Gradient::decode(std::istringstream& stream) {
-    int size, repeat, reflect;
+    int size = 0, repeat = 0, reflect = 0;
     stream >> repeat >> reflect >> size;
     repeat_ = repeat;
     reflect_ = reflect;
 
+    size = std::max(0, size);
     positions_.resize(size);
     colors_.resize(size);
     for (auto& position : positions_)
@@ -92,11 +95,11 @@ namespace visage {
   }
 
   struct GradientAtlasTexture {
-    bgfx::TextureHandle handle = { bgfx::kInvalidHandle };
+    gpu::TextureHandle handle = {};
 
     ~GradientAtlasTexture() {
-      if (bgfx::isValid(handle))
-        bgfx::destroy(handle);
+      if (gpu::isValid(handle))
+        gpu::destroy(handle);
     }
   };
 
@@ -114,36 +117,63 @@ namespace visage {
   GradientAtlas::~GradientAtlas() = default;
 
   void GradientAtlas::updateGradient(const PackedGradientRect* gradient) {
-    if (texture_ == nullptr || !bgfx::isValid(texture_->handle))
+    int width = atlas_map_.width();
+    if (repacked_ || color_data_.size() != static_cast<size_t>(width) * atlas_map_.height())
       return;
 
     int resolution = gradient->gradient.resolution();
     if (resolution == 0)
       return;
 
-    std::unique_ptr<uint64_t[]> color_data = std::make_unique<uint64_t[]>(resolution);
+    uint64_t* row = color_data_.data() + gradient->y * width + gradient->x;
     float step = 1.0f / std::max(1, resolution - 1);
     for (int i = 0; i < resolution; ++i)
-      color_data[i] = gradient->gradient.sample(i * step).toABGR16F();
+      row[i] = gradient->gradient.sample(i * step).toABGR16F();
 
-    bgfx::updateTexture2D(texture_->handle, 0, 0, gradient->x, gradient->y, resolution, 1,
-                          bgfx::copy(color_data.get(), resolution * sizeof(uint64_t)));
+    if (dirty_top_ >= dirty_bottom_) {
+      dirty_top_ = gradient->y;
+      dirty_bottom_ = gradient->y + 1;
+    }
+    else {
+      dirty_top_ = std::min(dirty_top_, gradient->y);
+      dirty_bottom_ = std::max(dirty_bottom_, gradient->y + 1);
+    }
+  }
+
+  void GradientAtlas::uploadDirtyRows() {
+    if (dirty_top_ >= dirty_bottom_)
+      return;
+
+    int width = atlas_map_.width();
+    int rows = dirty_bottom_ - dirty_top_;
+    gpu::updateTexture2D(texture_->handle, 0, dirty_top_, width, rows,
+                         gpu::copy(color_data_.data() + dirty_top_ * width,
+                                   width * rows * sizeof(uint64_t)));
+    dirty_top_ = 0;
+    dirty_bottom_ = 0;
   }
 
   void GradientAtlas::checkInit() {
     if (texture_ == nullptr)
       texture_ = std::make_unique<GradientAtlasTexture>();
 
-    if (!bgfx::isValid(texture_->handle)) {
-      texture_->handle = bgfx::createTexture2D(atlas_map_.width(), atlas_map_.height(), false, 1,
-                                               bgfx::TextureFormat::RGBA16F);
+    int width = atlas_map_.width();
+    int height = atlas_map_.height();
+    if (!gpu::isValid(texture_->handle)) {
+      texture_->handle = gpu::createTexture2D(width, height, gpu::TextureFormat::RGBA16F);
+      repacked_ = true;
     }
 
     if (repacked_) {
       repacked_ = false;
+      color_data_.assign(static_cast<size_t>(width) * height, 0);
       for (auto& gradient : gradients_)
         updateGradient(gradient.second.get());
+      dirty_top_ = 0;
+      dirty_bottom_ = height;
     }
+
+    uploadDirtyRows();
   }
 
   void GradientAtlas::destroy() {
@@ -155,17 +185,55 @@ namespace visage {
     int prev_height = atlas_map_.height();
     atlas_map_.pack();
     repacked_ = true;
-    if (atlas_map_.width() != prev_width && atlas_map_.height() != prev_height)
+    if (atlas_map_.width() != prev_width || atlas_map_.height() != prev_height)
       texture_.reset();
 
+    for (auto& row : solid_rows_) {
+      const PackedRect& rect = atlas_map_.rectForId(row.get());
+      row->x = rect.x;
+      row->y = rect.y;
+    }
+
     for (auto& gradient : gradients_) {
-      const PackedRect& rect = atlas_map_.rectForId(gradient.second.get());
-      gradient.second->x = rect.x;
-      gradient.second->y = rect.y;
+      PackedGradientRect* packed_gradient_rect = gradient.second.get();
+      if (packed_gradient_rect->solid_row >= 0) {
+        const PackedGradientRect* row = solid_rows_[packed_gradient_rect->solid_row].get();
+        packed_gradient_rect->x = row->x + packed_gradient_rect->solid_column;
+        packed_gradient_rect->y = row->y;
+      }
+      else {
+        const PackedRect& rect = atlas_map_.rectForId(packed_gradient_rect);
+        packed_gradient_rect->x = rect.x;
+        packed_gradient_rect->y = rect.y;
+      }
     }
   }
 
-  const bgfx::TextureHandle& GradientAtlas::colorTextureHandle() {
+  void GradientAtlas::addSolid(PackedGradientRect* packed_gradient_rect) {
+    if (free_solids_.empty()) {
+      int row_index = solid_rows_.size();
+      solid_rows_.push_back(std::make_unique<PackedGradientRect>(Gradient()));
+      PackedGradientRect* row = solid_rows_.back().get();
+      if (!atlas_map_.addRect(row, Gradient::kMaxGradientResolution, 1))
+        resize();
+
+      const PackedRect& rect = atlas_map_.rectForId(row);
+      row->x = rect.x;
+      row->y = rect.y;
+      for (int i = Gradient::kMaxGradientResolution - 1; i >= 0; --i)
+        free_solids_.push_back({ row_index, i });
+    }
+
+    auto [row_index, column] = free_solids_.back();
+    free_solids_.pop_back();
+    const PackedGradientRect* row = solid_rows_[row_index].get();
+    packed_gradient_rect->solid_row = row_index;
+    packed_gradient_rect->solid_column = column;
+    packed_gradient_rect->x = row->x + column;
+    packed_gradient_rect->y = row->y;
+  }
+
+  const gpu::TextureHandle& GradientAtlas::colorTextureHandle() {
     checkInit();
     return texture_->handle;
   }
@@ -176,12 +244,23 @@ namespace visage {
     return stream.str();
   }
 
+  static constexpr int kRadialWithCoefficients = -1;
+
   void GradientPosition::encode(std::ostringstream& stream) const {
-    stream << static_cast<int>(shape) << std::endl;
+    if (shape == InterpolationShape::Radial)
+      stream << kRadialWithCoefficients << std::endl;
+    else
+      stream << static_cast<int>(shape) << std::endl;
     stream << point1.x << std::endl;
     stream << point1.y << std::endl;
     stream << point2.x << std::endl;
     stream << point2.y << std::endl;
+    if (shape == InterpolationShape::Radial) {
+      stream << focal_radius << std::endl;
+      stream << coefficientx2 << std::endl;
+      stream << coefficienty2 << std::endl;
+      stream << coefficientxy << std::endl;
+    }
   }
 
   void GradientPosition::decode(const std::string& data) {
@@ -192,11 +271,18 @@ namespace visage {
   void GradientPosition::decode(std::istringstream& stream) {
     int shape_int = 0;
     stream >> shape_int;
-    shape = static_cast<InterpolationShape>(shape_int);
+    bool has_coefficients = shape_int == kRadialWithCoefficients;
+    shape = has_coefficients ? InterpolationShape::Radial : static_cast<InterpolationShape>(shape_int);
     stream >> point1.x;
     stream >> point1.y;
     stream >> point2.x;
     stream >> point2.y;
+    if (has_coefficients) {
+      stream >> focal_radius;
+      stream >> coefficientx2;
+      stream >> coefficienty2;
+      stream >> coefficientxy;
+    }
   }
 
   std::string Brush::encode() const {

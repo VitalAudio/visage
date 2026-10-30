@@ -23,12 +23,16 @@
 
 #if VISAGE_LINUX
 #include "visage_utils/string_utils.h"
-#include "windowing.h"
+#include "visage_windowing/windowing.h"
 
 #include <atomic>
+#include <chrono>
+#include <cstdlib>
 #include <map>
 #include <thread>
+#include <vector>
 #include <X11/Xatom.h>
+#include <X11/XKBlib.h>
 #include <X11/Xlib.h>
 
 namespace visage {
@@ -42,6 +46,8 @@ namespace visage {
 
   class X11Connection {
   public:
+    static constexpr int kOpenAttempts = 4;
+    static constexpr int kOpenRetryMs = 10;
     static constexpr int kDndVersion = 5;
     static constexpr int kNumDndActions = 2;
     static constexpr int kNumDndTypes = 1;
@@ -52,15 +58,23 @@ namespace visage {
     }
 
     static X11Connection* globalInstance() {
-      static X11Connection connection;
-      return &connection;
+      static X11Connection* connection = new X11Connection();
+      if (connection->display_ == nullptr)
+        connection->connect(1);
+      return connection;
     }
 
     class DisplayLock {
     public:
-      explicit DisplayLock(const X11Connection* x11) : x11_(x11) { XLockDisplay(x11_->display()); }
+      explicit DisplayLock(const X11Connection* x11) : x11_(x11) {
+        if (x11_->display())
+          XLockDisplay(x11_->display());
+      }
 
-      ~DisplayLock() { XUnlockDisplay(x11_->display()); }
+      ~DisplayLock() {
+        if (x11_->display())
+          XUnlockDisplay(x11_->display());
+      }
 
     private:
       const X11Connection* x11_;
@@ -74,6 +88,8 @@ namespace visage {
       Cursor ibeam_cursor;
       Cursor crosshair_cursor;
       Cursor pointing_cursor;
+      Cursor drag_cursor;
+      Cursor dragging_cursor;
       Cursor horizontal_resize_cursor;
       Cursor vertical_resize_cursor;
       Cursor top_left_resize_cursor;
@@ -83,9 +99,22 @@ namespace visage {
       Cursor multi_directional_resize_cursor;
     };
 
-    X11Connection() {
-      display_ = XOpenDisplay(nullptr);
-      XSetErrorHandler(xErrorHandler);
+    static ::Display* openDisplay(int attempts = kOpenAttempts) {
+      const char* display_name = std::getenv("DISPLAY");
+      bool retry = display_name && display_name[0];
+      for (int i = 0;; ++i) {
+        if (::Display* display = XOpenDisplay(nullptr))
+          return display;
+        if (!retry || i + 1 >= attempts)
+          return nullptr;
+        std::this_thread::sleep_for(std::chrono::milliseconds(kOpenRetryMs << i));
+      }
+    }
+
+    X11Connection() { connect(kOpenAttempts); }
+
+    void connect(int attempts) {
+      display_ = openDisplay(attempts);
       if (display_ == nullptr)
         return;
 
@@ -97,6 +126,7 @@ namespace visage {
       clipboard_ = XInternAtom(display_, "CLIPBOARD", False);
       utf8_string_ = XInternAtom(display_, "UTF8_STRING", False);
       targets_ = XInternAtom(display_, "TARGETS", False);
+      incr_ = XInternAtom(display_, "INCR", False);
       timer_event_ = XInternAtom(display_, "VISAGE_TIMER_EVENT", False);
       delete_message_ = XInternAtom(display_, "WM_DELETE_WINDOW", False);
       dnd_aware_ = XInternAtom(display_, "XdndAware", False);
@@ -118,17 +148,24 @@ namespace visage {
       dnd_actions_[0] = dnd_action_copy_;
       dnd_actions_[1] = dnd_action_none_;
       cursors_ = std::make_unique<Cursors>(display_);
+      XkbSetDetectableAutoRepeat(display_, True, nullptr);
     }
 
     X11Connection(const X11Connection& copy) = delete;
 
-    ~X11Connection() { XCloseDisplay(display_); }
+    ~X11Connection() {
+      if (input_method_)
+        XCloseIM(input_method_);
+      if (display_)
+        XCloseDisplay(display_);
+    }
 
     ::Display* display() const { return display_; }
     ::Window rootWindow() const { return root_; }
     Atom clipboard() const { return clipboard_; }
     Atom utf8String() const { return utf8_string_; }
     Atom targets() const { return targets_; }
+    Atom incr() const { return incr_; }
     Atom timerEvent() const { return timer_event_; }
     Atom* deleteMessageRef() { return &delete_message_; }
     Atom deleteMessage() const { return delete_message_; }
@@ -153,6 +190,14 @@ namespace visage {
     const unsigned char* dndVersion() { return (unsigned char*)&dnd_version_; }
 
     const Cursors& cursors() const { return *cursors_; }
+    XIM inputMethod() {
+      if (!input_method_opened_) {
+        input_method_opened_ = true;
+        XSetLocaleModifiers("");
+        input_method_ = XOpenIM(display_, nullptr, nullptr, nullptr);
+      }
+      return input_method_;
+    }
     int fd() const { return fd_; }
 
   private:
@@ -162,6 +207,7 @@ namespace visage {
     Atom clipboard_ = 0;
     Atom utf8_string_ = 0;
     Atom targets_ = 0;
+    Atom incr_ = 0;
     Atom timer_event_ = 0;
     Atom delete_message_ = 0;
     Atom dnd_aware_ = 0;
@@ -183,6 +229,8 @@ namespace visage {
     Atom dnd_type_list_ = 0;
     Atom dnd_types_[kNumDndTypes] {};
     std::unique_ptr<Cursors> cursors_;
+    XIM input_method_ = nullptr;
+    bool input_method_opened_ = false;
   };
 
   struct MonitorInfo {
@@ -193,13 +241,17 @@ namespace visage {
     float dpi = Window::kDefaultDpi;
   };
 
+  const MonitorInfo& nearestMonitor(const std::vector<MonitorInfo>& monitors, IPoint point);
+  MonitorInfo monitorForWindow(const std::vector<MonitorInfo>& monitors, const MonitorInfo& current,
+                               IBounds window_bounds);
+
   class WindowX11 : public Window {
   public:
     static constexpr long kEventMask = ExposureMask | KeyPressMask | KeyReleaseMask |
                                        ButtonPressMask | ButtonReleaseMask | StructureNotifyMask |
                                        EnterWindowMask | LeaveWindowMask | PointerMotionMask |
                                        Button1MotionMask | Button2MotionMask | Button3MotionMask |
-                                       VisibilityChangeMask | FocusChangeMask;
+                                       VisibilityChangeMask | FocusChangeMask | PropertyChangeMask;
 
     static constexpr int kMinWidth = 80;
     static constexpr int kMinHeight = 80;
@@ -214,7 +266,7 @@ namespace visage {
 
     void runEventLoop() override;
     void processPluginFdEvents() override;
-    void processMessageWindowEvent(XEvent& event);
+    static void processMessageWindowEvent(X11Connection* x11, XEvent& event);
     void processEvent(XEvent& event);
 
     void* nativeHandle() const override { return (void*)window_handle_; }
@@ -231,20 +283,35 @@ namespace visage {
     void hide() override;
     void close() override;
     bool isShowing() const override;
+    bool isClosed() const override;
     void setFixedAspectRatio(bool fixed) override;
 
     void setWindowTitle(const std::string& title) override;
+    void setAlwaysOnTop(bool on_top) override;
     IPoint maxWindowDimensions() const override;
     MonitorInfo monitorInfo() { return monitor_info_; }
     X11Connection* x11Connection() { return x11_; }
+    bool isPluginWindow() const { return plugin_x11_ != nullptr; }
     bool timerThreadRunning() { return timer_thread_running_.load(); }
-    int timerMs() const { return timer_microseconds_.load() / 1000; }
+    void framePresented() override;
+    long long lastPresentMicroseconds() const { return last_present_us_.load(); }
+    void presentCompleted() {
+      if (presents_outstanding_.load() > 0)
+        presents_outstanding_--;
+    }
+    int presentsOutstanding() const { return presents_outstanding_.load(); }
+    void resetPresents() { presents_outstanding_ = 0; }
+    bool requestTick() { return !tick_pending_.exchange(true); }
+    void clearTick() { tick_pending_ = false; }
+    double drawTime() const;
+    long long timerMicroseconds() const { return timer_microseconds_.load(); }
 
   private:
     static WindowX11* last_active_window_;
 
     struct DragDropOutState {
       bool dragging = false;
+      bool accepted = false;
       ::Window target = 0;
     };
 
@@ -252,13 +319,15 @@ namespace visage {
 
     void createWindow(IBounds bounds);
     IPoint retrieveWindowDimensions();
+    void updateMonitor(int width, int height);
+    template<typename F>
+    void editSizeHints(F&& edit);
+    void setMinimumSizeHints();
     void passEventToParent(XEvent& event);
-    int mouseButtonState() const;
-    int modifierState() const;
 
-    ::Window windowUnderCursor(::Window inside);
-    ::Window windowUnderCursor();
+    ::Window dragDropTarget() const;
     ::Window dragDropProxy(::Window window) const;
+    ::Window dragDropReceiver(::Window target) const;
 
     void sendDragDropEnter(::Window source, ::Window target) const;
     void sendDragDropLeave(::Window source, ::Window target) const;
@@ -267,11 +336,14 @@ namespace visage {
     void sendDragDropDrop(::Window source, ::Window target) const;
     void sendDragDropSelectionNotify(XSelectionRequestEvent* request) const;
     void sendDragDropFinished(::Window source, ::Window target, bool accepted_drag) const;
+    void setDragDropFiles(std::string uri_list);
 
     X11Connection* x11_ = nullptr;
     std::unique_ptr<X11Connection> plugin_x11_;
     DragDropOutState drag_drop_out_state_;
     std::vector<std::string> drag_drop_files_;
+    bool drag_drop_incremental_ = false;
+    std::string drag_drop_data_;
     int drag_drop_target_x_ = 0;
     int drag_drop_target_y_ = 0;
     int hover_window_operation_ = 0;
@@ -282,12 +354,16 @@ namespace visage {
     IPoint mouse_down_position_;
     Decoration decoration_ = Decoration::Native;
     MonitorInfo monitor_info_;
+    IBounds last_window_bounds_;
     ::Window window_handle_ = 0;
     ::Window parent_handle_ = 0;
+    XIC input_context_ = nullptr;
     std::map<KeySym, bool> pressed_;
-    long long start_microseconds_ = 0;
     std::atomic<long long> timer_microseconds_ = 16667;
     std::atomic<bool> timer_thread_running_ = false;
+    std::atomic<int> presents_outstanding_ = 0;
+    std::atomic<long long> last_present_us_ = 0;
+    std::atomic<bool> tick_pending_ = false;
     std::unique_ptr<std::thread> timer_thread_;
   };
 }

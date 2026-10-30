@@ -29,6 +29,7 @@ namespace visage {
     static constexpr char kBounds[] = "u_bounds";
     static constexpr char kColor[] = "u_color";
     static constexpr char kColorMult[] = "u_color_mult";
+    static constexpr char kAlphaClamp[] = "u_alpha_clamp";
     static constexpr char kLimitMult[] = "u_limit_mult";
     static constexpr char kOriginFlip[] = "u_origin_flip";
     static constexpr char kAtlasScale[] = "u_atlas_scale";
@@ -40,6 +41,8 @@ namespace visage {
     static constexpr char kResampleValues2[] = "u_resample_values2";
     static constexpr char kThreshold[] = "u_threshold";
     static constexpr char kPixelSize[] = "u_pixel_size";
+    static constexpr char kTileParams[] = "u_tile_params";
+    static constexpr char kTileLayout[] = "u_tile_layout";
     static constexpr char kGradient[] = "s_gradient";
     static constexpr char kTexture[] = "s_texture";
     static constexpr char kTexture2[] = "s_texture2";

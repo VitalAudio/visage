@@ -116,6 +116,8 @@ namespace visage {
     int x_padding = selection_padding + paletteValue(PopupTextPadding);
     int option_height = paletteValue(PopupOptionHeight);
     int y = selection_padding - yPosition();
+    float popup_font_size = paletteValue(PopupFontSize);
+    Font font = font_.withSize(popup_font_size);
 
     Brush text = canvas.color(PopupMenuText).withMultipliedAlpha(opacity_);
     Brush disabled_text = canvas.color(PopupMenuDisabledText).withMultipliedAlpha(opacity_);
@@ -137,8 +139,6 @@ namespace visage {
           else
             canvas.setColor(disabled_text);
 
-          int popup_font_size = paletteValue(PopupFontSize);
-          Font font = font_.withSize(popup_font_size);
           canvas.text(options_[i].name(), font, Font::kLeft, x_padding, y, width(), option_height);
 
           if (options_[i].hasOptions()) {
@@ -203,7 +203,7 @@ namespace visage {
   }
 
   void PopupList::mouseUp(const MouseEvent& e) {
-    if (!isVisible())
+    if (!isVisible() || e.isCancelled())
       return;
 
     Point position = e.relativeTo(this).position;
@@ -225,73 +225,124 @@ namespace visage {
     opacity_animation_.setTargetValue(1.0f);
     setAcceptsKeystrokes(true);
     setIgnoresMouseEvents(true, true);
-
-    for (auto& list : lists_) {
-      addChild(&list);
-      list.setVisible(false);
-      list.addListener(this);
-    }
+    popupList(0);
   }
 
   PopupMenuFrame::~PopupMenuFrame() = default;
 
+  PopupList& PopupMenuFrame::popupList(int index) {
+    while (lists_.size() <= index) {
+      auto list = std::make_unique<PopupList>();
+      addChild(list.get(), false);
+      list->addListener(this);
+      list->setFont(font_);
+      list->setOpacity(opacity_animation_.value());
+      list->enableMouseUp(mouse_up_enabled_);
+      lists_.push_back(std::move(list));
+    }
+    return *lists_[index];
+  }
+
+  Frame* PopupMenuFrame::keyboardFocusedFrame() const {
+    FrameEventHandler* handler = eventHandler();
+    return handler && handler->keyboard_focused_frame ? handler->keyboard_focused_frame() : nullptr;
+  }
+
+  int PopupMenuFrame::listIndex(const PopupList* list) const {
+    for (int i = 0; i < lists_.size(); ++i) {
+      if (lists_[i].get() == list)
+        return i;
+    }
+    return 0;
+  }
+
   void PopupMenuFrame::draw(Canvas& canvas) {
     float opacity = opacity_animation_.update();
     for (auto& list : lists_)
-      list.setOpacity(opacity);
+      list->setOpacity(opacity);
 
     if (opacity_animation_.isAnimating())
       redraw();
-    else if (parent_ && !opacity_animation_.isTargeting())
+    else if (top_parent_ && !opacity_animation_.isTargeting())
       exit();
   }
 
   void PopupMenuFrame::show(std::unique_ptr<PopupMenuFrame> self, Frame* source, Point point) {
-    parent_ = source->topParentFrame();
-    parent_->addChild(std::move(self));
+    top_parent_ = source->topParentFrame();
+    top_parent_->addChild(std::move(self));
+    if (source->palette())
+      setPalette(source->palette());
 
     setOnTop(true);
-    setBounds(parent_->bounds());
+    setBounds(top_parent_->bounds());
 
-    for (int i = 1; i < kMaxSubMenus; ++i)
-      lists_[i].setVisible(false);
+    for (int i = 1; i < lists_.size(); ++i)
+      lists_[i]->setVisible(false);
 
     font_ = font_.withSize(paletteValue(PopupFontSize));
     setListFonts(font_);
 
-    lists_[0].setOptions(menu_.options());
-    int h = std::min(height(), lists_[0].renderHeight());
-    int w = lists_[0].renderWidth();
+    PopupList& main_list = popupList(0);
+    main_list.setOptions(menu_.options());
+    int h = std::min(height(), main_list.renderHeight());
+    int w = main_list.renderWidth();
 
-    Bounds window_bounds = parent_->relativeBounds(source);
+    Bounds window_bounds = top_parent_->relativeBounds(source);
     int x = point.x == PopupMenu::kNotSet ? window_bounds.x() : window_bounds.x() + point.x;
     int y = point.y == PopupMenu::kNotSet ? window_bounds.bottom() : window_bounds.y() + point.y;
     int bottom = y + h;
     int right = x + w;
     if (bottom > height()) {
-      int top = point.y == PopupMenu::kNotSet ? window_bounds.y() : point.y;
+      int top = point.y == PopupMenu::kNotSet ? window_bounds.y() : window_bounds.y() + point.y;
       y = std::max(0, top - h);
     }
     if (right > width())
       x = std::max(0, x - w);
 
     for (auto& list : lists_) {
-      list.resetOpenMenu();
-      list.setNoHover();
+      list->resetOpenMenu();
+      list->setNoHover();
     }
 
-    lists_[0].setBounds(x, y, w, h);
-    lists_[0].setVisible(true);
-    lists_[0].redraw();
+    main_list.setBounds(x, y, w, h);
+    main_list.setVisible(true);
+    main_list.redraw();
     opacity_animation_.target(true, true);
 
-    stopTimer();
-    startTimer(kWaitForSelection);
+    mouse_up_enabled_ = false;
     for (auto& list : lists_)
-      list.enableMouseUp(false);
+      list->enableMouseUp(false);
 
+    stopTimer();
+    startTimer(takeMouseDrag() ? kPauseMs : kWaitForSelection);
+
+    previous_focus_ = keyboardFocusedFrame();
+    if (previous_focus_)
+      previous_focus_alive_ = previous_focus_->aliveToken();
     requestKeyboardFocus();
     redraw();
+  }
+
+  void PopupMenuFrame::mouseDrag(const MouseEvent& e) {
+    PopupList& main_list = popupList(0);
+    moveHover(e.position - main_list.topLeft(), &main_list);
+    dragged_onto_menu_ = dragged_onto_menu_ || hover_list_ != nullptr;
+  }
+
+  void PopupMenuFrame::mouseUp(const MouseEvent& e) {
+    bool over_menu = false;
+    for (auto& list : lists_)
+      over_menu = over_menu || (list->isVisible() && list->bounds().contains(e.position));
+
+    if (!e.isCancelled() && dragged_onto_menu_ && (mouse_up_enabled_ || !over_menu)) {
+      PopupList& main_list = popupList(0);
+      mouseUpOutside(e.position - main_list.topLeft(), &main_list);
+    }
+
+    dragged_onto_menu_ = false;
+    mouse_up_enabled_ = true;
+    for (auto& list : lists_)
+      list->enableMouseUp(true);
   }
 
   void PopupMenuFrame::exit() {
@@ -306,6 +357,9 @@ namespace visage {
 
   void PopupMenuFrame::focusChanged(bool is_focused, bool was_clicked) {
     if (!is_focused && isVisible()) {
+      if (!done_ && opacity_animation_.isTargeting())
+        menu_.onCancel().callback();
+
       startTimer(1);
       opacity_animation_.target(false);
     }
@@ -314,16 +368,19 @@ namespace visage {
   }
 
   void PopupMenuFrame::timerCallback() {
-    if (parent_ && done_) {
-      parent_->removeChild(this);
+    if (top_parent_ && done_) {
+      if (keyboardFocusedFrame() == this && !previous_focus_alive_.expired() && previous_focus_->isDrawing())
+        previous_focus_->requestKeyboardFocus();
+      top_parent_->removeChild(this);
       return;
     }
 
     redraw();
     stopTimer();
 
+    mouse_up_enabled_ = true;
     for (auto& list : lists_)
-      list.enableMouseUp(true);
+      list->enableMouseUp(true);
 
     if (hover_list_ && hover_index_ >= 0 && hover_index_ < hover_list_->numOptions()) {
       const PopupMenu& option = hover_list_->option(hover_index_);
@@ -333,18 +390,21 @@ namespace visage {
       }
     }
 
-    int last_open_menu = kMaxSubMenus - 1;
-    for (; last_open_menu > 0 && hover_list_ != &lists_[last_open_menu]; --last_open_menu) {
-      lists_[last_open_menu].setVisible(false);
-      lists_[last_open_menu].resetOpenMenu();
+    int last_open_menu = lists_.size() - 1;
+    for (; last_open_menu > 0 && hover_list_ != lists_[last_open_menu].get(); --last_open_menu) {
+      lists_[last_open_menu]->setVisible(false);
+      lists_[last_open_menu]->resetOpenMenu();
     }
 
-    lists_[last_open_menu].resetOpenMenu();
+    lists_[last_open_menu]->resetOpenMenu();
     if (hover_index_ < 0)
-      lists_[last_open_menu].setNoHover();
+      lists_[last_open_menu]->setNoHover();
   }
 
   void PopupMenuFrame::optionSelected(const PopupMenu& option, PopupList* list) {
+    if (done_)
+      return;
+
     if (isVisible()) {
       option.onSelection().callback(option.id());
       menu_.onSelection().callback(option.id());
@@ -356,30 +416,32 @@ namespace visage {
   }
 
   void PopupMenuFrame::subMenuSelected(const PopupMenu& option, int selection_y, PopupList* list) {
-    int source_index = 0;
-    for (int i = 0; i < kMaxSubMenus; ++i) {
-      if (list == &lists_[i])
-        source_index = i;
-    }
+    int source_index = listIndex(list);
+    PopupList& source = *lists_[source_index];
+    PopupList& sub_list = popupList(source_index + 1);
 
-    lists_[source_index].setOpenMenu(lists_[source_index].hoverIndex());
-    if (source_index < kMaxSubMenus - 1) {
-      lists_[source_index + 1].setOptions(option.options());
-      int h = lists_[source_index + 1].renderHeight();
-      int w = lists_[source_index + 1].renderWidth();
-      int y = list->y() + selection_y;
-      int bottom = y + h;
-      int x = lists_[source_index].right();
-      int right = x + w;
-      if (bottom > height())
-        y = height() - h;
-      if (right > width())
-        x = lists_[source_index].x() - w;
+    bool reopening = source.openMenuIndex() == source.hoverIndex() && sub_list.isVisible();
+    source.setOpenMenu(source.hoverIndex());
+    sub_list.setOptions(option.options());
+    int h = std::min(height(), sub_list.renderHeight());
+    int w = sub_list.renderWidth();
+    int y = list->y() + selection_y - list->yPosition();
+    int bottom = y + h;
+    int x = source.right();
+    int right = x + w;
+    if (bottom > height())
+      y = height() - h;
+    y = std::max(0, y);
+    if (right > width())
+      x = source.x() - w;
 
-      lists_[source_index + 1].setBounds(x, y, w, h);
-      lists_[source_index + 1].setNoHover();
-      lists_[source_index + 1].setVisible(true);
+    sub_list.setBounds(x, y, w, h);
+    if (!reopening) {
+      sub_list.setYPosition(0);
+      sub_list.setScrollableHeight(sub_list.renderHeight(), h);
     }
+    sub_list.setNoHover();
+    sub_list.setVisible(true);
   }
 
   void PopupMenuFrame::moveHover(Point position, const PopupList* list) {
@@ -388,9 +450,11 @@ namespace visage {
     position += list->topLeft();
     hover_list_ = nullptr;
     hover_index_ = -1;
-    for (auto& sub_list : lists_) {
+    for (auto& entry : lists_) {
+      PopupList& sub_list = *entry;
       if (sub_list.isVisible() && sub_list.bounds().contains(position)) {
-        sub_list.setHoverFromPosition(position - sub_list.topLeft() + Point(0, list->yPosition()));
+        sub_list.setHoverFromPosition(position - sub_list.topLeft() + Point(0, sub_list.yPosition()));
+        sub_list.redraw();
 
         hover_list_ = &sub_list;
         hover_index_ = hover_list_->hoverIndex();
@@ -403,8 +467,12 @@ namespace visage {
   }
 
   void PopupMenuFrame::mouseUpOutside(Point position, PopupList* list) {
+    if (done_)
+      return;
+
     position += list->topLeft();
-    for (auto& sub_list : lists_) {
+    for (auto& entry : lists_) {
+      PopupList& sub_list = *entry;
       if (sub_list.isVisible() && sub_list.bounds().contains(position)) {
         sub_list.selectFromPosition(position - sub_list.topLeft());
         return;

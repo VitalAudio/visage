@@ -145,16 +145,6 @@ public:
       canvas.setColor(0x22ffffff);
       canvas.fill(0, 0, blur_glass_.width(), blur_glass_.height());
 
-      canvas.setBlendMode(visage::BlendMode::MaskRemove);
-      canvas.setColor(0xffffffff);
-      canvas.fill(0, 0, blur_glass_.width(), blur_glass_.height());
-
-      canvas.setBlendMode(visage::BlendMode::MaskAdd);
-      canvas.setColor(0xffffffff);
-      canvas.roundedRectangle(0, 0, blur_glass_.width(), blur_glass_.height(),
-                              0.5f * std::min(blur_glass_.width(), blur_glass_.height()));
-
-      canvas.setBlendMode(visage::BlendMode::Alpha);
       canvas.setColor(visage::Brush::vertical(0x44ffffff, 0x44000000));
       canvas.roundedRectangleBorder(0, 0, blur_glass_.width(), blur_glass_.height(),
                                     0.5f * std::min(blur_glass_.width(), blur_glass_.height()), 2.0f);
@@ -162,6 +152,12 @@ public:
       visage::Font font(16.0f, resources::fonts::Lato_Regular_ttf);
       canvas.text("Drag me", font, visage::Font::Justification::kCenter, 0, 0, blur_glass_.width(),
                   blur_glass_.height());
+    };
+
+    blur_glass_.onDrawMask() = [&](visage::Canvas& canvas) {
+      canvas.setColor(0xffffffff);
+      canvas.roundedRectangle(0, 0, blur_glass_.width(), blur_glass_.height(),
+                              0.5f * std::min(blur_glass_.width(), blur_glass_.height()));
     };
 
     onMouseDrag() = [&](const visage::MouseEvent& e) {

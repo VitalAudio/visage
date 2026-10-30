@@ -32,19 +32,23 @@
 
 #include "windowing_win32.h"
 
+#include "cursors/cursor_file.h"
+#include "embedded/cursors.h"
 #include "visage_utils/events.h"
 #include "visage_utils/file_system.h"
 #include "visage_utils/string_utils.h"
 #include "visage_utils/thread_utils.h"
 
 #include <algorithm>
+#include <CommCtrl.h>
 #include <dxgi1_4.h>
+#include <functional>
 #include <map>
+#include <mutex>
 #include <ShlObj.h>
 #include <string>
+#include <vector>
 #include <windowsx.h>
-
-#define WM_VBLANK (WM_USER + 1)
 
 typedef DPI_AWARENESS_CONTEXT(WINAPI* GetWindowDpiAwarenessContext_t)(HWND);
 typedef DPI_AWARENESS_CONTEXT(WINAPI* GetThreadDpiAwarenessContext_t)();
@@ -66,15 +70,9 @@ namespace visage {
       return instance;
     }
 
-    void addWindow(WindowWin32* window) {
-      native_window_lookup_[window->nativeHandle()] = window;
-      if (window->parentHandle())
-        parent_window_lookup_[window->parentHandle()] = window;
-    }
+    void addWindow(WindowWin32* window) { native_window_lookup_[window->nativeHandle()] = window; }
 
     void removeWindow(WindowWin32* window) {
-      if (parent_window_lookup_.count(window->parentHandle()))
-        parent_window_lookup_.erase(window->parentHandle());
       if (native_window_lookup_.count(window->nativeHandle()))
         native_window_lookup_.erase(window->nativeHandle());
     }
@@ -92,19 +90,6 @@ namespace visage {
       return it != native_window_lookup_.end() ? it->second : nullptr;
     }
 
-    WindowWin32* findByNativeParentHandle(HWND hwnd) {
-      auto it = parent_window_lookup_.find(hwnd);
-      return it != parent_window_lookup_.end() ? it->second : nullptr;
-    }
-
-    WindowWin32* findWindow(HWND hwnd) {
-      WindowWin32* window = findByNativeHandle(hwnd);
-      if (window)
-        return window;
-
-      return findByNativeParentHandle(hwnd);
-    }
-
     void closeAll() {
       auto windows = native_window_lookup_;
       for (auto& window : windows)
@@ -115,7 +100,6 @@ namespace visage {
     NativeWindowLookup() = default;
     ~NativeWindowLookup() = default;
 
-    std::map<void*, WindowWin32*> parent_window_lookup_;
     std::map<void*, WindowWin32*> native_window_lookup_;
   };
 
@@ -140,8 +124,14 @@ namespace visage {
     return String::convertToUtf8(result);
   }
 
+  static HWND clipboardOwner() {
+    thread_local HWND owner = CreateWindowExW(0, L"STATIC", L"", 0, 0, 0, 0, 0, HWND_MESSAGE,
+                                              nullptr, nullptr, nullptr);
+    return owner;
+  }
+
   void setClipboardText(const std::string& text) {
-    if (!OpenClipboard(nullptr))
+    if (!OpenClipboard(clipboardOwner()))
       return;
 
     std::wstring w_text = String::convertToWide(text);
@@ -154,13 +144,34 @@ namespace visage {
     }
 
     void* destination = GlobalLock(h_data);
-    if (destination != nullptr) {
-      memcpy(destination, w_text.c_str(), size);
-      GlobalUnlock(h_data);
+    if (destination == nullptr) {
+      GlobalFree(h_data);
+      CloseClipboard();
+      return;
     }
 
-    SetClipboardData(CF_UNICODETEXT, h_data);
+    memcpy(destination, w_text.c_str(), size);
+    GlobalUnlock(h_data);
+
+    if (SetClipboardData(CF_UNICODETEXT, h_data) == nullptr)
+      GlobalFree(h_data);
     CloseClipboard();
+  }
+
+  static HCURSOR embeddedCursor(const EmbeddedFile& file) {
+    cursor_file::Entry entry;
+    if (!cursor_file::bestEntry(file.data, file.size, GetSystemMetrics(SM_CXCURSOR), entry))
+      return LoadCursor(nullptr, IDC_ARROW);
+
+    std::vector<BYTE> resource(4 + entry.image_size);
+    resource[0] = entry.hot_x & 0xff;
+    resource[1] = entry.hot_x >> 8;
+    resource[2] = entry.hot_y & 0xff;
+    resource[3] = entry.hot_y >> 8;
+    memcpy(resource.data() + 4, entry.image, entry.image_size);
+    HICON cursor = CreateIconFromResourceEx(resource.data(), static_cast<DWORD>(resource.size()), FALSE,
+                                            0x00030000, entry.width, entry.height, LR_DEFAULTCOLOR);
+    return cursor ? cursor : LoadCursor(nullptr, IDC_ARROW);
   }
 
   void setCursorStyle(MouseCursor style) {
@@ -168,8 +179,12 @@ namespace visage {
     static const HCURSOR ibeam_cursor = LoadCursor(nullptr, IDC_IBEAM);
     static const HCURSOR crosshair_cursor = LoadCursor(nullptr, IDC_CROSS);
     static const HCURSOR pointing_cursor = LoadCursor(nullptr, IDC_HAND);
+    static const HCURSOR drag_cursor = embeddedCursor(cursors::hand_grab_cur);
+    static const HCURSOR dragging_cursor = embeddedCursor(cursors::hand_grabbing_cur);
     static const HCURSOR horizontal_resize_cursor = LoadCursor(nullptr, IDC_SIZEWE);
     static const HCURSOR vertical_resize_cursor = LoadCursor(nullptr, IDC_SIZENS);
+    static const HCURSOR top_left_to_bottom_right_resize_cursor = LoadCursor(nullptr, IDC_SIZENWSE);
+    static const HCURSOR top_right_to_bottom_left_resize_cursor = LoadCursor(nullptr, IDC_SIZENESW);
     static const HCURSOR multi_directional_resize_cursor = LoadCursor(nullptr, IDC_SIZEALL);
 
     HCURSOR cursor;
@@ -178,10 +193,16 @@ namespace visage {
     case MouseCursor::IBeam: cursor = ibeam_cursor; break;
     case MouseCursor::Crosshair: cursor = crosshair_cursor; break;
     case MouseCursor::Pointing: cursor = pointing_cursor; break;
+    case MouseCursor::Drag: cursor = drag_cursor; break;
+    case MouseCursor::Dragging: cursor = dragging_cursor; break;
     case MouseCursor::HorizontalResize: cursor = horizontal_resize_cursor; break;
     case MouseCursor::VerticalResize: cursor = vertical_resize_cursor; break;
-    case MouseCursor::Dragging:
+    case MouseCursor::TopLeftResize:
+    case MouseCursor::BottomRightResize: cursor = top_left_to_bottom_right_resize_cursor; break;
+    case MouseCursor::TopRightResize:
+    case MouseCursor::BottomLeftResize: cursor = top_right_to_bottom_left_resize_cursor; break;
     case MouseCursor::MultiDirectionalResize: cursor = multi_directional_resize_cursor; break;
+    case MouseCursor::Invisible: cursor = nullptr; break;
     default: cursor = arrow_cursor; break;
     }
 
@@ -189,6 +210,11 @@ namespace visage {
   }
 
   void setCursorVisible(bool visible) {
+    static bool hidden = false;
+    if (hidden == !visible)
+      return;
+
+    hidden = !visible;
     ShowCursor(visible);
   }
 
@@ -229,13 +255,18 @@ namespace visage {
     SetCursorPos(position.x, position.y);
   }
 
+  static constexpr UINT kHiddenTickMessage = WM_APP + 0x56;
+
   class VBlankThread : public Thread {
   public:
-    explicit VBlankThread(WindowWin32* window) : window_(window) { }
+    explicit VBlankThread(WindowWin32* window) : window_(window) {
+      ready_event_ = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    }
 
     ~VBlankThread() override {
       stop();
       clear();
+      CloseHandle(ready_event_);
     }
 
     void clear() {
@@ -255,7 +286,7 @@ namespace visage {
 
     void updateMonitors() {
       clear();
-      if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&factory_)))) {
+      if (FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&factory_)))) {
         factory_ = nullptr;
         return;
       }
@@ -272,39 +303,118 @@ namespace visage {
       }
     }
 
+    void setFrameWaiter(std::function<bool(int)> waiter, int unmatched_presents) {
+      std::lock_guard<std::mutex> lock(waiter_mutex_);
+      waiter_ = std::move(waiter);
+      unmatched_presents_ = waiter_ ? unmatched_presents : 0;
+      ready_ = false;
+    }
+
+    bool ready() const { return ready_.load(); }
+    void consumeReady() { ready_ = false; }
+    void waitForReady(int timeout_ms) {
+      if (!ready_.load())
+        WaitForSingleObject(ready_event_, timeout_ms);
+    }
+
     void run() override {
+      static constexpr int kFallbackFrameMs = 16;
+      static constexpr int kFrameWaitTimeoutMs = 50;
+      static constexpr long long kMonitorRetryUs = 1000000;
+      static constexpr long long kMinFrameUs = 2000;
+
       updateMonitors();
       start_us_ = time::microseconds();
+      long long last_update_us = start_us_;
+      long long last_tick_us = start_us_;
 
       while (shouldRun()) {
         HMONITOR monitor = window_->monitor();
-        if (monitor_outputs_.count(monitor) == 0) {
-          updateMonitors();
-          sleep(1);
+        long long now_us = time::microseconds();
+        if (now_us - last_update_us >= kMonitorRetryUs) {
+          if (monitor_outputs_.count(monitor) == 0 || (factory_ && !factory_->IsCurrent()))
+            updateMonitors();
+          last_update_us = now_us;
         }
-        else if (SUCCEEDED(monitor_outputs_[monitor]->WaitForVBlank())) {
-          long long us = time::microseconds() - start_us_;
-          time_ = us * (1.0 / 1000000.0);
-          SendMessage(window_->windowHandle(), WM_VBLANK, 0, 0);
+
+        if (!waitForFrame(kFrameWaitTimeoutMs) || time::microseconds() - last_tick_us < kMinFrameUs) {
+          auto output = monitor_outputs_.find(monitor);
+          if (output == monitor_outputs_.end() || FAILED(output->second->WaitForVBlank()) ||
+              time::microseconds() - last_tick_us < kMinFrameUs)
+            sleep(kFallbackFrameMs);
         }
-        else
-          sleep(1);
+        last_tick_us = time::microseconds();
+
+        long long us = time::microseconds() - start_us_;
+        time_ = us * (1.0 / 1000000.0);
+        HWND hwnd = window_->windowHandle();
+        if (IsWindowVisible(hwnd) && !IsIconic(GetAncestor(hwnd, GA_ROOT)))
+          InvalidateRect(hwnd, nullptr, FALSE);
+        else if (!hidden_tick_pending_.exchange(true))
+          PostMessage(hwnd, kHiddenTickMessage, 0, 0);
       }
     }
 
     double vBlankTime() const { return time_.load(); }
+    void hiddenTickHandled() { hidden_tick_pending_ = false; }
 
   private:
+    bool waitForFrame(int timeout_ms) {
+      std::lock_guard<std::mutex> lock(waiter_mutex_);
+      if (!waiter_ || ready_)
+        return false;
+
+      for (; unmatched_presents_ > 0; --unmatched_presents_)
+        waiter_(timeout_ms);
+
+      if (!waiter_(timeout_ms))
+        return false;
+
+      ready_ = true;
+      SetEvent(ready_event_);
+      return true;
+    }
+
     WindowWin32* window_ = nullptr;
 
-    IDXGIFactory* factory_ = nullptr;
+    IDXGIFactory1* factory_ = nullptr;
     std::vector<IDXGIAdapter*> adapters_;
     std::map<HMONITOR, IDXGIOutput*> monitor_outputs_;
+
+    std::mutex waiter_mutex_;
+    std::function<bool(int)> waiter_;
+    int unmatched_presents_ = 0;
+    HANDLE ready_event_ = nullptr;
+    std::atomic<bool> ready_ = false;
+    std::atomic<bool> hidden_tick_pending_ = false;
 
     std::atomic<double> time_ = 0.0;
     long long start_us_ = 0;
   };
 
+  void WindowWin32::setFrameWaiter(std::function<bool(int)> waiter) {
+    if (v_blank_thread_ == nullptr) {
+      pending_frame_waiter_ = std::move(waiter);
+      return;
+    }
+
+    waits_for_frames_ = waiter != nullptr;
+    v_blank_thread_->setFrameWaiter(std::move(waiter), unmatched_presents_);
+    unmatched_presents_ = 0;
+  }
+
+  void WindowWin32::waitForFrame() {
+    static constexpr int kForcedFrameTimeoutMs = 50;
+    if (waits_for_frames_ && !stalled_draw_)
+      v_blank_thread_->waitForReady(kForcedFrameTimeoutMs);
+  }
+
+  void WindowWin32::framePresented() {
+    if (waits_for_frames_)
+      v_blank_thread_->consumeReady();
+    else
+      unmatched_presents_++;
+  }
   class DpiAwareness {
   public:
     DpiAwareness() {
@@ -406,7 +516,7 @@ namespace visage {
     virtual ~DragDropEnumFormatEtc() = default;
 
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv_object) override {
-      if (riid == IID_IUnknown || riid == IID_IDataObject) {
+      if (riid == IID_IUnknown || riid == IID_IEnumFORMATETC) {
         *ppv_object = static_cast<IEnumFORMATETC*>(this);
         AddRef();
         return S_OK;
@@ -506,7 +616,10 @@ namespace visage {
 
     explicit DragDropSourceObject(const File& file) : drop_(createHDrop(file)) { }
 
-    virtual ~DragDropSourceObject() = default;
+    virtual ~DragDropSourceObject() {
+      if (drop_)
+        GlobalFree(drop_);
+    }
 
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv_object) override {
       if (riid == IID_IUnknown || riid == IID_IDataObject) {
@@ -536,22 +649,23 @@ namespace visage {
       if (!acceptsFormat(format_etc))
         return DV_E_FORMATETC;
 
-      medium->tymed = format_etc->tymed;
-      medium->pUnkForRelease = nullptr;
-
-      if (format_etc->tymed != TYMED_HGLOBAL)
-        return DV_E_FORMATETC;
-
       auto length = GlobalSize(drop_);
       void* const source = GlobalLock(drop_);
-      void* const dest = GlobalAlloc(GMEM_FIXED, length);
+      if (source == nullptr)
+        return E_OUTOFMEMORY;
 
-      if (source != nullptr && dest != nullptr)
+      void* const dest = GlobalAlloc(GMEM_FIXED, length);
+      if (dest != nullptr)
         memcpy(dest, source, length);
 
       GlobalUnlock(drop_);
 
+      if (dest == nullptr)
+        return E_OUTOFMEMORY;
+
+      medium->tymed = TYMED_HGLOBAL;
       medium->hGlobal = dest;
+      medium->pUnkForRelease = nullptr;
       return S_OK;
     }
 
@@ -673,12 +787,13 @@ namespace visage {
 
         if (h_drop != nullptr) {
           UINT file_count = DragQueryFile(h_drop, 0xFFFFFFFF, nullptr, 0);
-          WCHAR file_path[MAX_PATH];
 
           for (UINT i = 0; i < file_count; ++i) {
-            if (DragQueryFile(h_drop, i, file_path, MAX_PATH)) {
-              std::string file = String::convertToUtf8(file_path);
-              files.emplace_back(file);
+            UINT length = DragQueryFile(h_drop, i, nullptr, 0);
+            std::wstring file_path(length + 1, L'\0');
+            if (length && DragQueryFile(h_drop, i, file_path.data(), length + 1)) {
+              file_path.resize(length);
+              files.emplace_back(String::convertToUtf8(file_path));
             }
           }
 
@@ -855,7 +970,22 @@ namespace visage {
     if (scan_code >= kCodeTableSize)
       return KeyCode::Unknown;
 
-    if (GetKeyState(VK_NUMLOCK) & 0x01) {
+    bool extended = l_param & (1 << 24);
+    if (extended) {
+      switch (scan_code) {
+      case 0x1C: return KeyCode::KPEnter;
+      case 0x1D: return KeyCode::RCtrl;
+      case 0x35: return KeyCode::KPDivide;
+      case 0x38: return KeyCode::RAlt;
+      case 0x46: return KeyCode::Pause;
+      default: break;
+      }
+    }
+    else if (scan_code == 0x37)
+      return KeyCode::KPMultiply;
+    else if (scan_code == 0x45)
+      return KeyCode::Pause;
+    else if (GetKeyState(VK_NUMLOCK) & 0x01) {
       switch (scan_code) {
       case 0x47: return KeyCode::KP7;
       case 0x48: return KeyCode::KP8;
@@ -898,6 +1028,15 @@ namespace visage {
     return modifiers;
   }
 
+  static bool cursorOverWindow(HWND hwnd) {
+    POINT cursor;
+    if (!GetCursorPos(&cursor))
+      return false;
+
+    HWND found = WindowFromPoint(cursor);
+    return found == hwnd || IsChild(hwnd, found);
+  }
+
   static int mouseButtonState() {
     int state = 0;
     if (GetKeyState(VK_LBUTTON) & 0x8000)
@@ -907,10 +1046,6 @@ namespace visage {
     if (GetKeyState(VK_MBUTTON) & 0x8000)
       state |= kMouseButtonMiddle;
     return state;
-  }
-
-  static bool isTouchEvent() {  // TODO check if mouse down is touch
-    return (GetMessageExtraInfo() & 0xFFFFFF00) == 0xFF515700;
   }
 
   static int mouseButtonState(WPARAM w_param) {
@@ -930,72 +1065,6 @@ namespace visage {
       PostMessage(parent, msg, w_param, l_param);
     else
       DefWindowProc(hwnd, msg, w_param, l_param);
-  }
-
-  static bool isWindowOccluded(HWND hwnd) {
-    RECT rect;
-    if (!GetWindowRect(hwnd, &rect))
-      return false;
-
-    auto next_x = [](HWND hit_hwnd, LONG x, LONG right) -> LONG {
-      if (hit_hwnd == nullptr)
-        return right;
-
-      RECT window_rect;
-      if (!GetWindowRect(hit_hwnd, &window_rect))
-        return right;
-
-      return std::min(right, std::max(x, window_rect.right + 1));
-    };
-
-    auto next_y = [](HWND hit_hwnd, LONG y, LONG bottom) -> LONG {
-      if (hit_hwnd == nullptr)
-        return bottom;
-
-      RECT window_rect;
-      if (!GetWindowRect(hit_hwnd, &window_rect))
-        return bottom;
-
-      return std::min(bottom, std::max(y, window_rect.bottom + 1));
-    };
-
-    LONG x = rect.left;
-    while (x < rect.right) {
-      HWND hit_hwnd = WindowFromPoint(POINT { x, rect.top });
-      if (hit_hwnd == hwnd || IsChild(hwnd, hit_hwnd))
-        return false;
-
-      x = next_x(hit_hwnd, x, rect.right);
-    }
-
-    x = rect.left;
-    while (x < rect.right) {
-      HWND hit_hwnd = WindowFromPoint(POINT { x, rect.bottom });
-      if (hit_hwnd == hwnd || IsChild(hwnd, hit_hwnd))
-        return false;
-
-      x = next_x(hit_hwnd, x, rect.right);
-    }
-
-    LONG y = rect.top;
-    while (y < rect.bottom) {
-      HWND hit_hwnd = WindowFromPoint(POINT { rect.left, y });
-      if (hit_hwnd == hwnd || IsChild(hwnd, hit_hwnd))
-        return false;
-
-      y = next_y(hit_hwnd, y, rect.bottom);
-    }
-
-    y = rect.top;
-    while (y < rect.bottom) {
-      HWND hit_hwnd = WindowFromPoint(POINT { rect.right, y });
-      if (hit_hwnd == hwnd || IsChild(hwnd, hit_hwnd))
-        return false;
-
-      y = next_y(hit_hwnd, y, rect.bottom);
-    }
-
-    return true;
   }
 
   static LRESULT WINAPI windowProcedure(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
@@ -1021,7 +1090,37 @@ namespace visage {
 
   LRESULT WindowWin32::handleWindowProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
     switch (msg) {
-    case WM_VBLANK: {
+    case WM_PAINT: {
+      if (v_blank_thread_ == nullptr)
+        break;
+
+      static constexpr long long kStalledFrameUs = 100000;
+      ValidateRect(hwnd, nullptr);
+      long long now_us = time::microseconds();
+      if (waits_for_frames_ && !v_blank_thread_->ready()) {
+        if (now_us - last_draw_us_ < kStalledFrameUs)
+          return 0;
+        stalled_draw_ = true;
+      }
+
+      last_draw_us_ = now_us;
+      setVisible(IsWindowVisible(hwnd) && !IsIconic(GetAncestor(hwnd, GA_ROOT)));
+      drawCallback(v_blank_thread_->vBlankTime());
+      stalled_draw_ = false;
+      return 0;
+    }
+    case kHiddenTickMessage: {
+      if (v_blank_thread_ == nullptr)
+        return 0;
+
+      v_blank_thread_->hiddenTickHandled();
+      bool visible = IsWindowVisible(hwnd) && !IsIconic(GetAncestor(hwnd, GA_ROOT));
+      if (visible) {
+        InvalidateRect(hwnd, nullptr, FALSE);
+        return 0;
+      }
+
+      setVisible(false);
       drawCallback(v_blank_thread_->vBlankTime());
       return 0;
     }
@@ -1031,6 +1130,10 @@ namespace visage {
       bool is_repeat = (l_param & (1LL << 30LL)) != 0;
       if (!handleKeyDown(key_code, keyboardModifiers(), is_repeat))
         postMessageToParent(hwnd, msg, w_param, l_param);
+      else if (msg == WM_SYSKEYDOWN) {
+        MSG peek {};
+        PeekMessage(&peek, hwnd, WM_SYSCHAR, WM_SYSCHAR, PM_REMOVE);
+      }
       return 0;
     }
     case WM_SYSKEYUP:
@@ -1040,7 +1143,11 @@ namespace visage {
         postMessageToParent(hwnd, msg, w_param, l_param);
       return 0;
     }
-    case WM_SYSCHAR:
+    case WM_SYSCHAR: {
+      if (GetParent(hwnd) == nullptr)
+        return DefWindowProc(hwnd, msg, w_param, l_param);
+      return 0;
+    }
     case WM_CHAR: {
       handleCharacterEntry(static_cast<wchar_t>(w_param));
       SetCaretPos(-500, 200);
@@ -1048,9 +1155,15 @@ namespace visage {
       return 0;
     }
     case WM_NCMOUSEMOVE: {
+      TRACKMOUSEEVENT track {};
+      track.cbSize = sizeof(track);
+      track.dwFlags = TME_LEAVE | TME_NONCLIENT;
+      track.hwndTrack = hwnd;
+      TrackMouseEvent(&track);
+
       POINT position = { GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param) };
       ScreenToClient(window_handle_, &position);
-      handleMouseMove(position.x, position.y, mouseButtonState(w_param), keyboardModifiers());
+      handleMouseMove(position.x, position.y, mouseButtonState(), keyboardModifiers());
       break;
     }
     case WM_MOUSEMOVE: {
@@ -1078,17 +1191,14 @@ namespace visage {
       return 0;
     }
     case WM_NCMOUSELEAVE: {
-      if (currentHitTest() != HitTestResult::Client) {
-        setMouseTracked(false);
+      if (!cursorOverWindow(hwnd))
         handleMouseLeave(mouseButtonState(0), keyboardModifiers());
-      }
       break;
     }
     case WM_MOUSELEAVE: {
-      if (currentHitTest() == HitTestResult::Client) {
-        setMouseTracked(false);
+      setMouseTracked(false);
+      if (!cursorOverWindow(hwnd))
         handleMouseLeave(mouseButtonState(0), keyboardModifiers());
-      }
       return 0;
     }
     case WM_LBUTTONDOWN: {
@@ -1096,6 +1206,8 @@ namespace visage {
       SetFocus(hwnd);
       handleMouseDown(kMouseButtonLeft, GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param),
                       mouseButtonState(w_param), keyboardModifiers());
+      if (!IsWindow(hwnd))
+        return 0;
 
       if (isDragDropSource()) {
         File file = startDragDropSource();
@@ -1107,7 +1219,14 @@ namespace visage {
 
         drop_source->Release();
         data_object->Release();
+        if (!IsWindow(hwnd))
+          return 0;
+
         cleanupDragDropSource();
+
+        POINT cursor;
+        if (GetCursorPos(&cursor) && ScreenToClient(hwnd, &cursor))
+          handleMouseUp(kMouseButtonLeft, cursor.x, cursor.y, mouseButtonState(), keyboardModifiers());
       }
       else
         SetCapture(hwnd);
@@ -1223,20 +1342,21 @@ namespace visage {
     return DefWindowProc(hwnd, msg, w_param, l_param);
   }
 
-  static LRESULT WINAPI pluginParentWindowProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
-    WindowWin32* child_window = NativeWindowLookup::instance().findWindow(hwnd);
-    if (child_window == nullptr)
-      return 0;
-
-    if (msg == WM_SIZING) {
+  static LRESULT CALLBACK pluginParentWindowProc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param,
+                                                 UINT_PTR subclass_id, DWORD_PTR ref_data) {
+    WindowWin32* child_window = reinterpret_cast<WindowWin32*>(ref_data);
+    if (msg == WM_SIZING)
       child_window->handleResizing(hwnd, l_param, w_param);
-      return TRUE;
-    }
     if (msg == WM_DPICHANGED) {
-      child_window->handleDpiChange(hwnd, l_param, w_param);
-      return 0;
+      LRESULT result = DefSubclassProc(hwnd, msg, w_param, l_param);
+      child_window->handleResizeEnd(child_window->windowHandle());
+      return result;
     }
-    return CallWindowProc(child_window->parentWindowProc(), hwnd, msg, w_param, l_param);
+    if (msg == WM_NCDESTROY) {
+      RemoveWindowSubclass(hwnd, pluginParentWindowProc, subclass_id);
+      child_window->clearParentHandle();
+    }
+    return DefSubclassProc(hwnd, msg, w_param, l_param);
   }
 
   static LRESULT WINAPI standaloneWindowProcedure(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param) {
@@ -1262,12 +1382,19 @@ namespace visage {
         return 0;
       }
 
-      HMODULE user32 = LoadLibraryA("user32.dll");
-      auto dpiForWindow = procedure<GetDpiForWindow_t>(user32, "GetDpiForWindow");
-      auto dpi = dpiForWindow(hwnd);
-      auto systemMetrics = procedure<GetSystemMetricsForDpi_t>(user32, "GetSystemMetricsForDpi");
-      params->rgrc[0].top -= systemMetrics(SM_CYCAPTION, dpi) + systemMetrics(SM_CYSIZEFRAME, dpi) +
-                             systemMetrics(SM_CXPADDEDBORDER, dpi);
+      static HMODULE user32 = LoadLibraryA("user32.dll");
+      static auto dpiForWindow = procedure<GetDpiForWindow_t>(user32, "GetDpiForWindow");
+      static auto systemMetrics = procedure<GetSystemMetricsForDpi_t>(user32,
+                                                                      "GetSystemMetricsForDpi");
+      if (dpiForWindow && systemMetrics) {
+        auto dpi = dpiForWindow(hwnd);
+        params->rgrc[0].top -= systemMetrics(SM_CYCAPTION, dpi) + systemMetrics(SM_CYSIZEFRAME, dpi) +
+                               systemMetrics(SM_CXPADDEDBORDER, dpi);
+      }
+      else {
+        params->rgrc[0].top -= GetSystemMetrics(SM_CYCAPTION) + GetSystemMetrics(SM_CYSIZEFRAME) +
+                               GetSystemMetrics(SM_CXPADDEDBORDER);
+      }
     }
     if (msg == WM_NCHITTEST && window->decoration() == Window::Decoration::Client) {
       LRESULT result = DefWindowProc(hwnd, msg, w_param, l_param);
@@ -1365,7 +1492,8 @@ namespace visage {
 
   void WindowWin32::registerWindowClass() {
     HRESULT result = OleInitialize(nullptr);
-    if (result != S_OK && result != S_FALSE)
+    ole_initialized_ = result == S_OK || result == S_FALSE;
+    if (!ole_initialized_)
       VISAGE_LOG("Error initializing OLE");
 
     module_handle_ = loadModuleHandle();
@@ -1385,8 +1513,8 @@ namespace visage {
     window_class_.lpszMenuName = nullptr;
     window_class_.lpszClassName = unique_window_class_name_.c_str();
 #if VISAGE_WINDOWS_ICON_RESOURCE
-    window_class_.hIcon = LoadIcon(module_handle_, MAKEINTRESOURCE(VA_WINDOWS_ICON_RESOURCE));
-    window_class_.hIconSm = LoadIcon(module_handle_, MAKEINTRESOURCE(VA_WINDOWS_ICON_RESOURCE));
+    window_class_.hIcon = LoadIcon(module_handle_, MAKEINTRESOURCE(VISAGE_WINDOWS_ICON_RESOURCE));
+    window_class_.hIconSm = LoadIcon(module_handle_, MAKEINTRESOURCE(VISAGE_WINDOWS_ICON_RESOURCE));
 #else
     window_class_.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
     window_class_.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
@@ -1430,7 +1558,10 @@ namespace visage {
 
   std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
                                              void* parent_handle) {
-    IBounds bounds = computeWindowBounds(0, 0, width, height);
+    HWND parent = static_cast<HWND>(parent_handle);
+    DpiAwareness dpi_awareness;
+    HMONITOR monitor = MonitorFromWindow(parent, MONITOR_DEFAULTTONEAREST);
+    IBounds bounds = boundsInMonitor(monitor, dpi_awareness.dpiScale(parent), 0, 0, width, height);
     return std::make_unique<WindowWin32>(bounds.width(), bounds.height(), parent_handle);
   }
 
@@ -1477,7 +1608,6 @@ namespace visage {
     static constexpr int kWindowFlags = WS_CHILD;
 
     DpiAwareness dpi_awareness;
-    setDpiScale(dpi_awareness.dpiScale());
 
     registerWindowClass();
     window_class_.lpfnWndProc = windowProcedure;
@@ -1493,11 +1623,13 @@ namespace visage {
       return;
     }
 
+    setDpiScale(dpi_awareness.dpiScale(window_handle_));
     SetWindowLongPtr(window_handle_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
-    auto parent_proc = SetWindowLongPtr(parent_handle_, GWLP_WNDPROC,
-                                        reinterpret_cast<LONG_PTR>(pluginParentWindowProc));
-    parent_window_proc_ = reinterpret_cast<WNDPROC>(parent_proc);
+    if (!SetWindowSubclass(parent_handle_, pluginParentWindowProc, reinterpret_cast<UINT_PTR>(this),
+                           reinterpret_cast<DWORD_PTR>(this))) {
+      VISAGE_LOG("Error subclassing plugin parent window");
+    }
 
     event_hooks_ = std::make_unique<EventHooks>();
     finishWindowSetup();
@@ -1507,8 +1639,8 @@ namespace visage {
     NativeWindowLookup::instance().addWindow(this);
 
     UpdateWindow(window_handle_);
-    if (drag_drop_target_)
-      RegisterDragDrop(window_handle_, drag_drop_target_);
+    if (drag_drop_target_ && RegisterDragDrop(window_handle_, drag_drop_target_) != S_OK)
+      VISAGE_LOG("Error registering for drag and drop, file drops are disabled");
 
     updateMonitor();
   }
@@ -1520,13 +1652,14 @@ namespace visage {
     }
 
     if (parent_handle_)
-      SetWindowLongPtr(parent_handle_, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(parent_window_proc_));
+      RemoveWindowSubclass(parent_handle_, pluginParentWindowProc, reinterpret_cast<UINT_PTR>(this));
 
     NativeWindowLookup::instance().removeWindow(this);
-    KillTimer(window_handle_, kTimerId);
+    SetWindowLongPtr(window_handle_, GWLP_USERDATA, 0);
     DestroyWindow(window_handle_);
     UnregisterClass(window_class_.lpszClassName, module_handle_);
-    OleUninitialize();
+    if (ole_initialized_)
+      OleUninitialize();
   }
 
   void WindowWin32::windowContentsResized(int width, int height) {
@@ -1555,6 +1688,8 @@ namespace visage {
     if (v_blank_thread_ == nullptr) {
       v_blank_thread_ = std::make_unique<VBlankThread>(this);
       v_blank_thread_->start();
+      if (pending_frame_waiter_)
+        setFrameWaiter(std::move(pending_frame_waiter_));
     }
     handleWindowShown();
   }
@@ -1575,6 +1710,10 @@ namespace visage {
 
   bool WindowWin32::isShowing() const {
     return IsWindowVisible(window_handle_);
+  }
+
+  bool WindowWin32::isClosed() const {
+    return !IsWindow(window_handle_);
   }
 
   void WindowWin32::showMaximized() {
@@ -1645,7 +1784,7 @@ namespace visage {
 
     DpiAwareness dpi_awareness;
 
-    bool character = message->message == WM_CHAR || message->message == WM_SYSCHAR;
+    bool character = message->message == WM_CHAR;
     bool key_down = message->message == WM_KEYDOWN || message->message == WM_SYSKEYDOWN;
     bool key_up = message->message == WM_KEYUP || message->message == WM_SYSKEYUP;
 
@@ -1655,22 +1794,25 @@ namespace visage {
     if (character)
       return handleCharacterEntry(static_cast<wchar_t>(message->wParam));
 
-    bool used = false;
-    if (hasActiveTextEntry()) {
-      TranslateMessage(message);
-      MSG peek {};
-      if (PeekMessage(&peek, parentHandle(), WM_CHAR, WM_DEADCHAR, PM_REMOVE) ||
-          PeekMessage(&peek, parentHandle(), WM_SYSCHAR, WM_SYSDEADCHAR, PM_REMOVE)) {
-        used = true;
-      }
-    }
-
     KeyCode key_code = keyCodeFromScanCode(message->wParam, message->lParam);
+    bool used = false;
     if (key_down) {
       bool is_repeat = (message->lParam & (1LL << 30LL)) != 0;
-      return handleKeyDown(key_code, keyboardModifiers(), is_repeat) || used;
+      used = handleKeyDown(key_code, keyboardModifiers(), is_repeat);
     }
-    return handleKeyUp(key_code, keyboardModifiers()) || used;
+    else
+      used = handleKeyUp(key_code, keyboardModifiers());
+
+    bool system_key = message->message == WM_SYSKEYDOWN || message->message == WM_SYSKEYUP;
+    if (hasActiveTextEntry() && !system_key) {
+      TranslateMessage(message);
+      MSG peek {};
+      if (PeekMessage(&peek, parentHandle(), WM_CHAR, WM_DEADCHAR, PM_REMOVE))
+        used = true;
+    }
+    if (!used)
+      postMessageToParent(message->hwnd, message->message, message->wParam, message->lParam);
+    return true;
   }
 
   void WindowWin32::handleResizing(HWND hwnd, LPARAM l_param, WPARAM w_param) {
@@ -1735,15 +1877,18 @@ namespace visage {
   }
 
   void WindowWin32::handleDpiChange(HWND hwnd, LPARAM l_param, WPARAM w_param) {
-    IBounds borders = windowBorderSize(hwnd);
+    DpiAwareness dpi_awareness;
+    setDpiScale(dpi_awareness.dpiScale(hwnd));
+
     RECT* suggested = reinterpret_cast<RECT*>(l_param);
+    SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, suggested->right - suggested->left,
+                 suggested->bottom - suggested->top, SWP_NOZORDER | SWP_NOACTIVATE);
+
+    IBounds borders = windowBorderSize(hwnd);
     int width = suggested->right - suggested->left - borders.width();
     int height = suggested->bottom - suggested->top - borders.height();
 
     handleAdjustResize(&width, &height, true, true);
-
-    DpiAwareness dpi_awareness;
-    setDpiScale(dpi_awareness.dpiScale(hwnd));
     handleResized(width, height);
     SetWindowPos(hwnd, nullptr, suggested->left, suggested->top, width + borders.width(),
                  height + borders.height(), SWP_NOZORDER | SWP_NOACTIVATE);

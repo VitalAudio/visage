@@ -31,15 +31,16 @@ namespace visage {
     static WindowEmscripten* runningInstance() { return running_instance_; }
 
     WindowEmscripten(int width, int height);
+    ~WindowEmscripten() override;
 
     void* initWindow() const override { return (void*)"#canvas"; }
     void* nativeHandle() const override { return (void*)"#canvas"; }
 
     void runEventLoop() override;
     void windowContentsResized(int width, int height) override;
-    void show() override { }
+    void show() override;
     void showMaximized() override;
-    bool maximized() { return false; }
+    bool maximized() const { return maximized_; }
     void hide() override { }
     void close() override { }
     bool isShowing() const override { return true; }

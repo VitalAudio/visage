@@ -23,57 +23,82 @@
 
 #include "canvas.h"
 #include "embedded/shaders.h"
+#include "gpu/gpu.h"
 #include "graphics_caches.h"
 #include "uniforms.h"
 
-#include <bgfx/bgfx.h>
+#include <optional>
 
 namespace visage {
   template<const char* name>
   void setPostEffectUniform(float value0, float value1 = 0.0f, float value2 = 0.0f, float value3 = 0.0f) {
     float values[4] = { value0, value1, value2, value3 };
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
-    bgfx::setUniform(uniform, values);
+    const gpu::UniformHandle& uniform = UniformCache::uniformHandle(name);
+    gpu::setUniform(uniform, values);
   }
 
   template<const char* name>
-  void setPostEffectTexture(int stage, bgfx::TextureHandle handle) {
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Sampler, 1);
-    bgfx::setTexture(stage, uniform, handle);
+  void setPostEffectTexture(int stage, gpu::TextureHandle handle, uint32_t flags = gpu::kSamplerUseTexture) {
+    const gpu::UniformHandle& uniform = UniformCache::uniformHandle(name, UniformCache::Sampler);
+    gpu::setTexture(stage, uniform, handle, flags);
+  }
+
+  static constexpr UvVertex kScreenVertices[kVerticesPerQuad] = { { -1.0f, 1.0f, 0.0f, 0.0f },
+                                                                  { 1.0f, 1.0f, 1.0f, 0.0f },
+                                                                  { -1.0f, -1.0f, 0.0f, 1.0f },
+                                                                  { 1.0f, -1.0f, 1.0f, 1.0f } };
+  static constexpr UvVertex kInvScreenVertices[kVerticesPerQuad] = { { -1.0f, 1.0f, 0.0f, 1.0f },
+                                                                     { 1.0f, 1.0f, 1.0f, 1.0f },
+                                                                     { -1.0f, -1.0f, 0.0f, 0.0f },
+                                                                     { 1.0f, -1.0f, 1.0f, 0.0f } };
+
+  struct ScreenBuffers {
+    gpu::BufferHandle index_buffer = {};
+    gpu::BufferHandle vertex_buffer = {};
+    gpu::BufferHandle inv_vertex_buffer = {};
+  };
+
+  static ScreenBuffers screen_buffers;
+
+  static const ScreenBuffers& screenBuffers() {
+    if (!gpu::isValid(screen_buffers.index_buffer)) {
+      screen_buffers = {
+        gpu::createIndexBuffer(gpu::makeRef(kQuadTriangles, sizeof(kQuadTriangles))),
+        gpu::createVertexBuffer(gpu::makeRef(kScreenVertices, sizeof(kScreenVertices)), UvVertex::layout()),
+        gpu::createVertexBuffer(gpu::makeRef(kInvScreenVertices, sizeof(kInvScreenVertices)),
+                                UvVertex::layout()),
+      };
+    }
+    return screen_buffers;
+  }
+
+  void PostEffect::releaseScreenBuffers() {
+    if (!gpu::isValid(screen_buffers.index_buffer))
+      return;
+
+    gpu::destroy(screen_buffers.index_buffer);
+    gpu::destroy(screen_buffers.vertex_buffer);
+    gpu::destroy(screen_buffers.inv_vertex_buffer);
+    screen_buffers = {};
   }
 
   struct DownsampleHandles {
-    bgfx::IndexBufferHandle screen_index_buffer = BGFX_INVALID_HANDLE;
-    bgfx::VertexBufferHandle screen_vertex_buffer = BGFX_INVALID_HANDLE;
-    bgfx::VertexBufferHandle inv_screen_vertex_buffer = BGFX_INVALID_HANDLE;
-    bgfx::FrameBufferHandle downsample_buffers1[DownsamplePostEffect::kMaxDownsamples + 1] {};
-    bgfx::FrameBufferHandle downsample_buffers2[DownsamplePostEffect::kMaxDownsamples + 1] {};
+    std::optional<Renderer::Reference> renderer_reference;
+    gpu::FrameBufferHandle result = {};
+    gpu::FrameBufferHandle backdrop = {};
 
-    ~DownsampleHandles() { destroy(); }
-
-    void destroy() {
-      if (bgfx::isValid(screen_index_buffer))
-        bgfx::destroy(screen_index_buffer);
-      if (bgfx::isValid(screen_vertex_buffer))
-        bgfx::destroy(screen_vertex_buffer);
-      destroyFrameBuffers();
-    }
+    ~DownsampleHandles() { destroyFrameBuffers(); }
 
     void destroyFrameBuffers() {
-      for (auto& buffer : downsample_buffers1) {
-        if (bgfx::isValid(buffer))
-          bgfx::destroy(buffer);
-        buffer = BGFX_INVALID_HANDLE;
-      }
-      for (auto& buffer : downsample_buffers2) {
-        if (bgfx::isValid(buffer))
-          bgfx::destroy(buffer);
-        buffer = BGFX_INVALID_HANDLE;
-      }
-
-      bgfx::frame();
-      bgfx::frame();
+      if (gpu::isValid(result))
+        gpu::destroy(result);
+      result = {};
+      renderer_reference.reset();
     }
+  };
+
+  struct BackdropHandles {
+    gpu::FrameBufferHandle copy = {};
   };
 
   void PostEffect::submitPassthrough(const BatchVector<SampleRegion>& batches,
@@ -84,110 +109,77 @@ namespace visage {
 
     setPostEffectUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
-    setBlendMode(BlendMode::Composite);
+    setBlendMode(BlendMode::Alpha);
     setPostEffectUniform<Uniforms::kTime>(destination.time());
 
     Layer* source_layer = batches[0].shapes->front().region->layer();
     float width_scale = 1.0f / source_layer->width();
     float height_scale = 1.0f / source_layer->height();
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
+    setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(source_layer->frameBuffer()));
     setUniformDimensions(destination.width(), destination.height());
-    float value = hdr() ? 1.0f / kHdrColorMultiplier : 1.0f;
-    setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(destination.bottomLeftOrigin());
-    bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
-                                                          SampleRegion::fragmentShader()));
+    gpu::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
+                                                         SampleRegion::fragmentShader()));
   }
 
   DownsamplePostEffect::~DownsamplePostEffect() = default;
 
   DownsamplePostEffect::DownsamplePostEffect(bool hdr) : PostEffect(hdr) {
     handles_ = std::make_unique<DownsampleHandles>();
-
-    for (auto& buffer : handles_->downsample_buffers1)
-      buffer = BGFX_INVALID_HANDLE;
-
-    for (auto& buffer : handles_->downsample_buffers2)
-      buffer = BGFX_INVALID_HANDLE;
-
-    screen_vertices_[0].x = -1.0f;
-    screen_vertices_[0].y = 1.0f;
-    screen_vertices_[1].x = 1.0f;
-    screen_vertices_[1].y = 1.0f;
-    screen_vertices_[2].x = -1.0f;
-    screen_vertices_[2].y = -1.0f;
-    screen_vertices_[3].x = 1.0f;
-    screen_vertices_[3].y = -1.0f;
-
-    for (int i = 0; i < kVerticesPerQuad; ++i) {
-      screen_vertices_[i].u = screen_vertices_[i].x * 0.5f + 0.5f;
-      screen_vertices_[i].v = screen_vertices_[i].y * -0.5f + 0.5f;
-      inv_screen_vertices_[i].x = screen_vertices_[i].x;
-      inv_screen_vertices_[i].y = screen_vertices_[i].y;
-      inv_screen_vertices_[i].u = screen_vertices_[i].u;
-      inv_screen_vertices_[i].v = screen_vertices_[i].y * 0.5f + 0.5f;
-    }
   }
 
-  void DownsamplePostEffect::checkBuffers(const Region* region, bool full_resolution) {
-    static constexpr uint64_t kFrameBufferFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP |
-                                                  BGFX_SAMPLER_V_CLAMP;
+  void DownsamplePostEffect::checkBuffers(const Region* region) {
+    static constexpr uint32_t kFrameBufferFlags = gpu::kSamplerClamp;
+
+    VISAGE_ASSERT(region_ == nullptr || region_ == region);
+    region_ = region;
 
     int full_width = region->width();
     int full_height = region->height();
-    bgfx::TextureFormat::Enum format = static_cast<bgfx::TextureFormat::Enum>(region->layer()->frameBufferFormat());
-
-    if (!bgfx::isValid(handles_->screen_index_buffer)) {
-      handles_->screen_index_buffer = bgfx::createIndexBuffer(bgfx::makeRef(visage::kQuadTriangles,
-                                                                            sizeof(visage::kQuadTriangles)));
-      const bgfx::Memory* vertex_memory = bgfx::makeRef(screen_vertices_, sizeof(screen_vertices_));
-      handles_->screen_vertex_buffer = bgfx::createVertexBuffer(vertex_memory, UvVertex::layout());
-      const bgfx::Memory* inv_vertex_memory = bgfx::makeRef(inv_screen_vertices_,
-                                                            sizeof(inv_screen_vertices_));
-      handles_->inv_screen_vertex_buffer = bgfx::createVertexBuffer(inv_vertex_memory, UvVertex::layout());
-    }
+    int format = region->layer()->frameBufferFormat();
 
     if (full_width != full_width_ || full_height != full_height_ || format_ != format) {
-      full_width_ = full_width;
-      full_height_ = full_height;
+      setLevelDimensions(full_width, full_height);
       format_ = format;
       handles_->destroyFrameBuffers();
     }
 
-    if (!bgfx::isValid(handles_->downsample_buffers1[1])) {
-      int start_index = full_resolution ? 0 : 1;
-      for (int i = start_index; i <= kMaxDownsamples; ++i) {
-        int scale = 1 << i;
-        widths_[i] = std::max(1, (full_width + scale - 1) / scale);
-        heights_[i] = std::max(1, (full_height + scale - 1) / scale);
-        handles_->downsample_buffers1[i] = bgfx::createFrameBuffer(widths_[i], heights_[i], format,
-                                                                   kFrameBufferFlags);
-        handles_->downsample_buffers2[i] = bgfx::createFrameBuffer(widths_[i], heights_[i], format,
-                                                                   kFrameBufferFlags);
-      }
+    if (!gpu::isValid(handles_->result)) {
+      handles_->renderer_reference.emplace();
+      handles_->result = gpu::createFrameBuffer(widths_[1], heights_[1],
+                                                static_cast<gpu::TextureFormat>(format),
+                                                kFrameBufferFlags);
     }
   }
 
-  void DownsamplePostEffect::setInitialVertices(Region* region) {
-    bgfx::TransientVertexBuffer first_sample_buffer {};
-    bgfx::allocTransientVertexBuffer(&first_sample_buffer, 4, UvVertex::layout());
-    UvVertex* uv_data = reinterpret_cast<UvVertex*>(first_sample_buffer.data);
+  void DownsamplePostEffect::setLevelDimensions(int width, int height) {
+    full_width_ = width;
+    full_height_ = height;
+    for (int i = 0; i <= kMaxDownsamples; ++i) {
+      int scale = 1 << i;
+      widths_[i] = std::max(1, (width + scale - 1) / scale);
+      heights_[i] = std::max(1, (height + scale - 1) / scale);
+    }
+  }
+
+  static void setInitialVertices(Region* region, const IBounds& rect) {
+    UvVertex* uv_data = initVertices<UvVertex>(kVerticesPerQuad);
     if (uv_data == nullptr)
       return;
 
     for (int i = 0; i < kVerticesPerQuad; ++i) {
-      uv_data[i].x = screen_vertices_[i].x;
-      uv_data[i].y = screen_vertices_[i].y;
+      uv_data[i].x = kScreenVertices[i].x;
+      uv_data[i].y = kScreenVertices[i].y;
     }
 
     float width_scale = 1.0f / region->layer()->width();
     float height_scale = 1.0f / region->layer()->height();
-    IPoint position = region->layer()->coordinatesForRegion(region);
+    IPoint position = region->layer()->coordinatesForRegion(region) + rect.topLeft();
     float left = position.x * width_scale;
     float top = position.y * height_scale;
-    float right = left + region->width() * width_scale;
-    float bottom = top + region->height() * height_scale;
+    float right = left + rect.width() * width_scale;
+    float bottom = top + rect.height() * height_scale;
     uv_data[0].u = left;
     uv_data[0].v = top;
     uv_data[1].u = right;
@@ -203,40 +195,232 @@ namespace visage {
       uv_data[2].v = 1.0f - top;
       uv_data[3].v = 1.0f - top;
     }
-
-    bgfx::setVertexBuffer(0, &first_sample_buffer);
   }
 
   void DownsamplePostEffect::setScreenVertexBuffer(bool inverted) {
-    bgfx::setVertexBuffer(0, inverted ? handles_->inv_screen_vertex_buffer : handles_->screen_vertex_buffer);
+    gpu::setVertexBuffer(0, inverted ? screenBuffers().inv_vertex_buffer : screenBuffers().vertex_buffer);
+  }
+
+  static void setRegionTexturePositions(const BatchVector<SampleRegion>& batches,
+                                        PostEffectVertex* vertices, const Region* source,
+                                        IPoint origin, float scale_x, float scale_y) {
+    for (const auto& batch : batches) {
+      for (const SampleRegion& shape : *batch.shapes) {
+        IPoint position = -origin;
+        for (const Region* region = shape.region; region && region != source; region = region->parent())
+          position += IPoint(region->x(), region->y());
+
+        float left = position.x * scale_x;
+        float top = position.y * scale_y;
+        float right = (position.x + shape.width) * scale_x;
+        float bottom = (position.y + shape.height) * scale_y;
+        int pieces = numShapePieces(shape, batch.x, batch.y, *batch.invalid_rects);
+        for (int i = 0; i < pieces; ++i) {
+          vertices[0].texture_x = left;
+          vertices[0].texture_y = top;
+          vertices[1].texture_x = right;
+          vertices[1].texture_y = top;
+          vertices[2].texture_x = left;
+          vertices[2].texture_y = bottom;
+          vertices[3].texture_x = right;
+          vertices[3].texture_y = bottom;
+          vertices += kVerticesPerQuad;
+        }
+      }
+    }
+  }
+
+  void DownsamplePostEffect::setTexturePositions(const BatchVector<SampleRegion>& batches,
+                                                 PostEffectVertex* vertices, int level) const {
+    setRegionTexturePositions(batches, vertices, region_, {}, widths_[level] * 1.0f / full_width_,
+                              heights_[level] * 1.0f / full_height_);
+  }
+
+  static int compositeLayeredAncestors(const Region* region, const Region* source,
+                                       const IBounds& target, gpu::FrameBufferHandle destination,
+                                       gpu::BufferHandle index_buffer, int submit_pass) {
+    std::vector<const Region*> ancestors;
+    for (const Region* parent = region->parent(); parent && parent != source; parent = parent->parent()) {
+      if (parent->needsLayer())
+        ancestors.push_back(parent);
+    }
+
+    for (auto it = ancestors.rbegin(); it != ancestors.rend(); ++it) {
+      const Region* ancestor = *it;
+      const Layer* layer = ancestor->layer();
+      IBounds visible(0, 0, ancestor->width(), ancestor->height());
+      IPoint position;
+      for (const Region* child = ancestor; child != source; child = child->parent()) {
+        IPoint offset(child->x(), child->y());
+        position += offset;
+        visible = (visible + offset).intersection({ 0, 0, child->parent()->width(), child->parent()->height() });
+      }
+      visible = visible.intersection(target);
+      if (visible.width() <= 0 || visible.height() <= 0 || !gpu::isValid(layer->frameBuffer()))
+        continue;
+
+      UvVertex* vertices = initVertices<UvVertex>(kVerticesPerQuad);
+      if (vertices == nullptr)
+        return submit_pass;
+
+      bool flip = layer->bottomLeftOrigin();
+      IPoint slot = layer->coordinatesForRegion(ancestor) - position;
+      auto vertex_y = [&](int y) {
+        float ratio = (y - target.y()) * 2.0f / target.height();
+        return flip ? ratio - 1.0f : 1.0f - ratio;
+      };
+      auto texture_v = [&](int y) {
+        float v = (slot.y + y) * 1.0f / layer->height();
+        return flip ? 1.0f - v : v;
+      };
+
+      for (int i = 0; i < kVerticesPerQuad; ++i) {
+        int x = i % 2 ? visible.right() : visible.x();
+        int y = i / 2 ? visible.bottom() : visible.y();
+        vertices[i].x = (x - target.x()) * 2.0f / target.width() - 1.0f;
+        vertices[i].y = vertex_y(y);
+        vertices[i].u = (slot.x + x) * 1.0f / layer->width();
+        vertices[i].v = texture_v(y);
+      }
+
+      setBlendMode(BlendMode::Alpha);
+      setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(layer->frameBuffer()));
+      setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
+      gpu::setIndexBuffer(index_buffer);
+
+      gpu::setViewFrameBuffer(submit_pass, destination);
+      gpu::setViewRect(submit_pass, 0, 0, target.width(), target.height());
+      gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
+      submit_pass++;
+    }
+    return submit_pass;
+  }
+
+  BackdropCopy::BackdropCopy() {
+    handles_ = std::make_unique<BackdropHandles>();
+  }
+
+  BackdropCopy::~BackdropCopy() = default;
+
+  int BackdropCopy::copy(Region* source, const Region* region, int submit_pass) {
+    source_ = source;
+    handles_->copy = {};
+
+    IPoint position;
+    for (const Region* child = region; child != source; child = child->parent())
+      position += IPoint(child->x(), child->y());
+    bounds_ = IBounds(0, 0, source->width(), source->height())
+                  .intersection({ position.x, position.y, region->width(), region->height() });
+    if (bounds_.width() <= 0 || bounds_.height() <= 0)
+      return submit_pass;
+
+    Layer* layer = source->layer();
+    handles_->copy = layer->temporaryFrameBuffer(bounds_.width(), bounds_.height());
+    setBlendMode(BlendMode::Opaque);
+    setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(layer->frameBuffer()));
+    setPostEffectUniform<Uniforms::kPixelSize>(1.0f / bounds_.width(), 1.0f / bounds_.height());
+    gpu::setIndexBuffer(screenBuffers().index_buffer);
+
+    gpu::setViewFrameBuffer(submit_pass, handles_->copy);
+    gpu::setViewRect(submit_pass, 0, 0, bounds_.width(), bounds_.height());
+    setInitialVertices(source, bounds_);
+    setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
+    gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
+    submit_pass++;
+
+    return compositeLayeredAncestors(region, source, bounds_, handles_->copy,
+                                     screenBuffers().index_buffer, submit_pass);
+  }
+
+  void BackdropCopy::release() {
+    if (hasCopy())
+      layer()->releaseTemporaryFrameBuffer(handles_->copy);
+  }
+
+  bool BackdropCopy::hasCopy() const {
+    return gpu::isValid(handles_->copy);
+  }
+
+  Layer* BackdropCopy::layer() const {
+    return source_->layer();
+  }
+
+  gpu::FrameBufferHandle BackdropCopy::frameBuffer() const {
+    return handles_->copy;
+  }
+
+  void BackdropCopy::setUniforms(const BatchVector<SampleRegion>& batches,
+                                 PostEffectVertex* vertices, gpu::FrameBufferHandle texture) const {
+    setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(texture));
+    setRegionTexturePositions(batches, vertices, source_, bounds_.topLeft(), 1.0f, 1.0f);
+    setOriginFlipUniform(false);
   }
 
   BlurPostEffect::BlurPostEffect() : DownsamplePostEffect(false) { }
 
   BlurPostEffect::~BlurPostEffect() = default;
 
-  int BlurPostEffect::preprocess(Region* region, int submit_pass) {
-    static constexpr float kMaxSigma = 4.0f;
-    checkBuffers(region, true);
+  static void setRegionView(int submit_pass, Region* region) {
+    Layer* layer = region->layer();
+    IBounds bounds = layer->boundsForRegion(region);
+    gpu::setViewFrameBuffer(submit_pass, layer->frameBuffer());
+    gpu::setViewRect(submit_pass, bounds.x(), bounds.y(), bounds.width(), bounds.height());
+  }
 
-    sigma_ = blur_radius_;
-    if (sigma_ < kMinSigma)
+  int BlurPostEffect::preprocess(Region* region, int submit_pass) {
+    return blur(region, submit_pass);
+  }
+
+  int BlurPostEffect::preprocessBackdrop(Region* source, const Region* region, int submit_pass) {
+    handles_->backdrop = {};
+    submit_pass = backdrop_.copy(source, region, submit_pass);
+    if (!backdrop_.hasCopy())
       return submit_pass;
 
-    float adjusted_sigma = sigma_;
-    downsample_stages_ = 0;
-    while (adjusted_sigma > kMaxSigma) {
-      adjusted_sigma *= 0.5f;
-      downsample_stages_ += 1;
-    }
-    downsample_stages_ = std::min(kMaxDownsamples, downsample_stages_);
-    float transition = adjusted_sigma / kMaxSigma;
+    submit_pass = blur(nullptr, submit_pass);
+    backdrop_.release();
+    return submit_pass;
+  }
 
+  int BlurPostEffect::blur(Region* region, int submit_pass) {
+    static constexpr float kKernelSigma = 3.3f;
+    static constexpr uint32_t kMirror = gpu::kSamplerMirror;
+
+    bool in_place = region != nullptr;
+    float sigma = blur_radius_;
+    if (in_place && sigma < kMinSigma)
+      return submit_pass;
+
+    IBounds rect(0, 0, backdrop_.width(), backdrop_.height());
+    if (in_place)
+      rect = IBounds(0, 0, region->width(), region->height());
+    uint32_t sampler = in_place ? gpu::kSamplerUseTexture : kMirror;
+
+    Layer* layer = in_place ? region->layer() : backdrop_.layer();
+    bool inverted = layer->bottomLeftOrigin();
+    setLevelDimensions(rect.width(), rect.height());
+
+    auto kernel_sigma = [sigma](int stages) {
+      float resample_variance = ((1 << (2 * stages + 2)) - 4) * 2.0f / 9.0f;
+      return std::sqrt(std::max(0.0f, sigma * sigma - resample_variance)) / (1 << stages);
+    };
+
+    int stages = 0;
+    while (sigma >= kMinSigma && stages < kMaxDownsamples && kernel_sigma(stages) > kKernelSigma)
+      stages++;
+    float transition = std::min(1.0f, kernel_sigma(stages) / kKernelSigma);
+
+    gpu::FrameBufferHandle levels[kMaxDownsamples + 1];
     int last_width = full_width_;
     int last_height = full_height_;
 
-    bgfx::FrameBufferHandle source = region->layer()->frameBuffer();
-    for (int i = 0; i <= downsample_stages_; ++i) {
+    gpu::FrameBufferHandle source = layer->frameBuffer();
+    if (!in_place) {
+      levels[0] = backdrop_.frameBuffer();
+      source = levels[0];
+    }
+
+    for (int i = in_place ? 0 : 1; i <= stages; ++i) {
       int downsample_width = widths_[i];
       int downsample_height = heights_[i];
       float x_downsample_scale = downsample_width * 2.0f / last_width;
@@ -244,208 +428,216 @@ namespace visage {
       last_width = downsample_width;
       last_height = downsample_height;
 
-      bgfx::FrameBufferHandle destination = handles_->downsample_buffers1[i];
+      levels[i] = layer->temporaryFrameBuffer(downsample_width, downsample_height);
       setBlendMode(BlendMode::Opaque);
-      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source));
+      setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(source),
+                                               i ? sampler : gpu::kSamplerUseTexture);
       setPostEffectUniform<Uniforms::kPixelSize>(1.0f / last_width, 1.0f / last_height);
-      bgfx::setIndexBuffer(handles_->screen_index_buffer);
+      gpu::setIndexBuffer(screenBuffers().index_buffer);
 
-      bgfx::setViewFrameBuffer(submit_pass, destination);
-      bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
+      gpu::setViewFrameBuffer(submit_pass, levels[i]);
+      gpu::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
 
       if (i == 0) {
-        setInitialVertices(region);
+        setInitialVertices(region, rect);
         setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
-        bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
+        gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
       }
       else {
-        setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
+        setScreenVertexBuffer(inverted);
         setPostEffectUniform<Uniforms::kResampleValues>(x_downsample_scale, y_downsample_scale);
-        bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_blur_sample));
+        gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_blur_sample));
       }
 
       submit_pass++;
-      source = destination;
+      source = levels[i];
     }
 
-    setBlendMode(BlendMode::Opaque);
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source));
-    setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
+    if (sigma >= kMinSigma) {
+      gpu::FrameBufferHandle scratch = layer->temporaryFrameBuffer(last_width, last_height);
+      setBlendMode(BlendMode::Opaque);
+      setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(source), sampler);
+      setScreenVertexBuffer(inverted);
 
-    bgfx::setIndexBuffer(handles_->screen_index_buffer);
-    bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers2[downsample_stages_]);
-    bgfx::setViewRect(submit_pass, 0, 0, last_width, last_height);
-    setPostEffectUniform<Uniforms::kPixelSize>(transition / last_width, 0.0f);
-    bgfx::submit(submit_pass,
-                 ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
-    submit_pass++;
-
-    setBlendMode(BlendMode::Opaque);
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers2[downsample_stages_]));
-    setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
-
-    bgfx::setIndexBuffer(handles_->screen_index_buffer);
-    bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers1[downsample_stages_]);
-    bgfx::setViewRect(submit_pass, 0, 0, last_width, last_height);
-    setPostEffectUniform<Uniforms::kPixelSize>(0.0f, transition / last_height);
-    bgfx::submit(submit_pass,
-                 ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
-    submit_pass++;
-
-    for (int i = downsample_stages_; i > 1; --i) {
-      int dest_width = widths_[i - 1];
-      int dest_height = heights_[i - 1];
-
-      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[i]));
-      setPostEffectUniform<Uniforms::kResampleValues>(dest_width * 0.5f / widths_[i],
-                                                      dest_height * 0.5f / heights_[i]);
-      setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
-      bgfx::setIndexBuffer(handles_->screen_index_buffer);
-      bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers1[i - 1]);
-      bgfx::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
+      gpu::setIndexBuffer(screenBuffers().index_buffer);
+      gpu::setViewFrameBuffer(submit_pass, scratch);
+      gpu::setViewRect(submit_pass, 0, 0, last_width, last_height);
+      setPostEffectUniform<Uniforms::kPixelSize>(transition / last_width, 0.0f);
+      gpu::submit(submit_pass,
+                  ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
+      submit_pass++;
 
       setBlendMode(BlendMode::Opaque);
-      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
+      setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(scratch), sampler);
+      setScreenVertexBuffer(inverted && !(in_place && stages == 0));
+
+      gpu::setIndexBuffer(screenBuffers().index_buffer);
+      if (in_place && stages == 0)
+        setRegionView(submit_pass, region);
+      else {
+        gpu::setViewFrameBuffer(submit_pass, levels[stages]);
+        gpu::setViewRect(submit_pass, 0, 0, last_width, last_height);
+      }
+      setPostEffectUniform<Uniforms::kPixelSize>(0.0f, transition / last_height);
+      gpu::submit(submit_pass,
+                  ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
       submit_pass++;
+      layer->releaseTemporaryFrameBuffer(scratch);
+
+      for (int i = stages; i > (in_place ? 0 : 1); --i) {
+        int dest_width = widths_[i - 1];
+        int dest_height = heights_[i - 1];
+
+        setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(levels[i]), sampler);
+        setPostEffectUniform<Uniforms::kResampleValues>(dest_width * 0.5f / widths_[i],
+                                                        dest_height * 0.5f / heights_[i]);
+        setScreenVertexBuffer(inverted && !(i == 1 && in_place));
+        gpu::setIndexBuffer(screenBuffers().index_buffer);
+        if (i == 1 && in_place)
+          setRegionView(submit_pass, region);
+        else {
+          gpu::setViewFrameBuffer(submit_pass, levels[i - 1]);
+          gpu::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
+        }
+
+        setBlendMode(BlendMode::Opaque);
+        gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
+        submit_pass++;
+      }
     }
 
+    handles_->backdrop = levels[stages ? 1 : 0];
+    for (int i = in_place ? 0 : 1; i <= stages; ++i)
+      layer->releaseTemporaryFrameBuffer(levels[i]);
     return submit_pass;
   }
 
-  void BlurPostEffect::submit(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass) {
-    if (sigma_ < kMinSigma) {
-      submitPassthrough(batches, destination, submit_pass);
+  void BlurPostEffect::submitBackdrop(const BatchVector<SampleRegion>& batches, Layer& destination,
+                                      int submit_pass) {
+    if (!gpu::isValid(handles_->backdrop))
       return;
-    }
+
     auto quads = setupQuads(batches);
     if (quads.vertices == nullptr)
       return;
 
     setPostEffectUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
-    setBlendMode(BlendMode::Composite);
+    setBlendMode(BlendMode::Alpha);
     setPostEffectUniform<Uniforms::kTime>(destination.time());
-
-    float width_scale = 1.0f / widths_[0];
-    float height_scale = 1.0f / heights_[0];
-    setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
-
-    int source_index = downsample_stages_ ? 1 : 0;
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[source_index]));
-
-    for (int i = 0; i < quads.num_shapes; ++i) {
-      quads.vertices[i * kVerticesPerQuad].texture_x = 0.0f;
-      quads.vertices[i * kVerticesPerQuad].texture_y = 0.0f;
-      quads.vertices[i * kVerticesPerQuad + 1].texture_x = widths_[0];
-      quads.vertices[i * kVerticesPerQuad + 1].texture_y = 0.0f;
-      quads.vertices[i * kVerticesPerQuad + 2].texture_x = 0.0f;
-      quads.vertices[i * kVerticesPerQuad + 2].texture_y = heights_[0];
-      quads.vertices[i * kVerticesPerQuad + 3].texture_x = widths_[0];
-      quads.vertices[i * kVerticesPerQuad + 3].texture_y = heights_[0];
-    }
+    setPostEffectUniform<Uniforms::kAtlasScale>(1.0f / backdrop_.width(), 1.0f / backdrop_.height());
+    backdrop_.setUniforms(batches, quads.vertices, handles_->backdrop);
     setUniformDimensions(destination.width(), destination.height());
-
-    float value = destination.hdr() ? kHdrColorMultiplier : 1.0f;
-    setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
-    setOriginFlipUniform(false);
-    bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
-                                                          SampleRegion::fragmentShader()));
+    gpu::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
+                                                         SampleRegion::fragmentShader()));
   }
 
-  BloomPostEffect::BloomPostEffect() : DownsamplePostEffect(true) { }
+  BloomPostEffect::BloomPostEffect() : DownsamplePostEffect(true) {
+    VISAGE_ASSERT(!hasStaticStorage(this));
+  }
 
   BloomPostEffect::~BloomPostEffect() = default;
 
   int BloomPostEffect::preprocess(Region* region, int submit_pass) {
-    checkBuffers(region, false);
+    checkBuffers(region);
 
-    float hdr_range = hdr() ? kHdrColorRange : 1.0f;
     float stages = std::max(std::floor(bloom_size_) + 0.99f, 0.0f);
     stages = std::max(1.0f, std::min(stages, kMaxDownsamples + 0.99f));
     downsamples_ = stages;
 
+    Layer* layer = region->layer();
+    gpu::FrameBufferHandle levels[kMaxDownsamples + 1];
+    gpu::FrameBufferHandle scratch[kMaxDownsamples + 1];
+    levels[1] = handles_->result;
+    for (int i = 2; i <= downsamples_; ++i) {
+      levels[i] = layer->temporaryFrameBuffer(widths_[i], heights_[i]);
+      scratch[i] = layer->temporaryFrameBuffer(widths_[i], heights_[i]);
+    }
+
     setBlendMode(BlendMode::Opaque);
-    setInitialVertices(region);
+    setInitialVertices(region, { 0, 0, region->width(), region->height() });
     setPostEffectUniform<Uniforms::kResampleValues>(1.0f, 1.0f);
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(region->layer()->frameBuffer()));
+    setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(region->layer()->frameBuffer()));
 
-    bgfx::setIndexBuffer(handles_->screen_index_buffer);
-    bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers1[1]);
-    bgfx::setViewRect(submit_pass, 0, 0, widths_[1], heights_[1]);
-    float mult_val = hdr_range * bloom_intensity_;
-    setPostEffectUniform<Uniforms::kMult>(mult_val, mult_val, mult_val, 1.0f);
-    float hdr_mult = hdr() ? kHdrColorMultiplier : 1.0f;
-    setPostEffectUniform<Uniforms::kThreshold>(hdr_mult);
+    gpu::setIndexBuffer(screenBuffers().index_buffer);
+    gpu::setViewFrameBuffer(submit_pass, levels[1]);
+    gpu::setViewRect(submit_pass, 0, 0, widths_[1], heights_[1]);
+    setPostEffectUniform<Uniforms::kMult>(bloom_intensity_, bloom_intensity_, bloom_intensity_, 1.0f);
+    setPostEffectUniform<Uniforms::kThreshold>(1.0f);
 
-    bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_mult_threshold));
+    gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_mult_threshold));
     submit_pass++;
 
-    bgfx::FrameBufferHandle source = handles_->downsample_buffers1[1];
+    gpu::FrameBufferHandle source = levels[1];
     for (int i = 1; i < downsamples_; ++i) {
       int downsample_width = widths_[i + 1];
       int downsample_height = heights_[i + 1];
       float x_downsample_scale = downsample_width * 2.0f / widths_[i];
       float y_downsample_scale = downsample_height * 2.0f / heights_[i];
 
-      bgfx::FrameBufferHandle destination = handles_->downsample_buffers1[i + 1];
+      gpu::FrameBufferHandle destination = levels[i + 1];
       setBlendMode(BlendMode::Opaque);
-      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source));
-      bgfx::setIndexBuffer(handles_->screen_index_buffer);
+      setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(source));
+      gpu::setIndexBuffer(screenBuffers().index_buffer);
       setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
       setPostEffectUniform<Uniforms::kResampleValues>(x_downsample_scale, y_downsample_scale);
 
-      bgfx::setViewFrameBuffer(submit_pass, destination);
-      bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
+      gpu::setViewFrameBuffer(submit_pass, destination);
+      gpu::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
 
-      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
+      gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
       submit_pass++;
 
       setBlendMode(BlendMode::Opaque);
-      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(destination));
+      setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(destination));
       setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
-      bgfx::setIndexBuffer(handles_->screen_index_buffer);
-      bgfx::setViewFrameBuffer(submit_pass, handles_->downsample_buffers2[i + 1]);
-      bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
+      gpu::setIndexBuffer(screenBuffers().index_buffer);
+      gpu::setViewFrameBuffer(submit_pass, scratch[i + 1]);
+      gpu::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
       setPostEffectUniform<Uniforms::kPixelSize>(1.0f / downsample_width);
 
-      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_full_screen_texture,
-                                                            shaders::fs_small_blur));
+      gpu::submit(submit_pass,
+                  ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_small_blur));
       submit_pass++;
 
       setBlendMode(BlendMode::Opaque);
-      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers2[i + 1]));
+      setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(scratch[i + 1]));
       setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
-      bgfx::setIndexBuffer(handles_->screen_index_buffer);
-      bgfx::setViewFrameBuffer(submit_pass, destination);
-      bgfx::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
+      gpu::setIndexBuffer(screenBuffers().index_buffer);
+      gpu::setViewFrameBuffer(submit_pass, destination);
+      gpu::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
       setPostEffectUniform<Uniforms::kPixelSize>(0.0f, 1.0f / downsample_height);
-      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_full_screen_texture,
-                                                            shaders::fs_small_blur));
+      gpu::submit(submit_pass,
+                  ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_small_blur));
       submit_pass++;
 
       source = destination;
     }
 
     for (int i = downsamples_ - 1; i > 0; --i) {
-      bgfx::FrameBufferHandle destination = handles_->downsample_buffers1[i];
+      gpu::FrameBufferHandle destination = levels[i];
       int dest_width = widths_[i];
       int dest_height = heights_[i];
 
-      setBlendMode(BlendMode::Add);
+      gpu::setState(gpu::RenderState::write(gpu::kWriteRGB).blendFunc(gpu::BlendFactor::One, gpu::BlendFactor::One));
 
-      setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(handles_->downsample_buffers1[i + 1]));
+      setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(levels[i + 1]));
       setPostEffectUniform<Uniforms::kResampleValues>(dest_width * 0.5f / widths_[i + 1],
                                                       dest_height * 0.5f / heights_[i + 1]);
       setPostEffectUniform<Uniforms::kMult>(2.0f, 2.0f, 2.0f, 1.0f);
       setScreenVertexBuffer(region->layer()->bottomLeftOrigin());
-      bgfx::setIndexBuffer(handles_->screen_index_buffer);
-      bgfx::setViewFrameBuffer(submit_pass, destination);
-      bgfx::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
+      gpu::setIndexBuffer(screenBuffers().index_buffer);
+      gpu::setViewFrameBuffer(submit_pass, destination);
+      gpu::setViewRect(submit_pass, 0, 0, dest_width, dest_height);
 
-      bgfx::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_mult));
+      gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_mult));
       submit_pass++;
     }
 
+    for (int i = 2; i <= downsamples_; ++i) {
+      layer->releaseTemporaryFrameBuffer(levels[i]);
+      layer->releaseTemporaryFrameBuffer(scratch[i]);
+    }
     return submit_pass;
   }
 
@@ -460,50 +652,65 @@ namespace visage {
     if (quads.vertices == nullptr)
       return;
 
-    for (int i = 0; i < quads.num_shapes; ++i) {
-      quads.vertices[i * kVerticesPerQuad].texture_x = 0.0f;
-      quads.vertices[i * kVerticesPerQuad].texture_y = 0.0f;
-      quads.vertices[i * kVerticesPerQuad + 1].texture_x = widths_[1];
-      quads.vertices[i * kVerticesPerQuad + 1].texture_y = 0.0f;
-      quads.vertices[i * kVerticesPerQuad + 2].texture_x = 0.0f;
-      quads.vertices[i * kVerticesPerQuad + 2].texture_y = heights_[1];
-      quads.vertices[i * kVerticesPerQuad + 3].texture_x = widths_[1];
-      quads.vertices[i * kVerticesPerQuad + 3].texture_y = heights_[1];
+    setTexturePositions(batches, quads.vertices, 0);
+    for (int i = 0; i < quads.num_shapes * kVerticesPerQuad; ++i) {
+      quads.vertices[i].value1 = 1.0f;
+      quads.vertices[i].value2 = 0.0f;
     }
 
-    setBlendMode(BlendMode::Add);
+    gpu::setState(gpu::RenderState::write(gpu::kWriteRGB).blendFunc(gpu::BlendFactor::One, gpu::BlendFactor::One));
 
-    float width_scale = 1.0f / widths_[1];
-    float height_scale = 1.0f / heights_[1];
+    float width_scale = 1.0f / widths_[0];
+    float height_scale = 1.0f / heights_[0];
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
     float mult = bloom_intensity_ * Color::kGradientNormalization;
     setPostEffectUniform<Uniforms::kColorMult>(mult, mult, mult, 1.0f);
+    setAlphaClamp(destination);
     setPostEffectTexture<Uniforms::kGradient>(0, destination.gradientAtlas()->colorTextureHandle());
-    setPostEffectTexture<Uniforms::kTexture>(1, bgfx::getTexture(handles_->downsample_buffers1[1]));
+    setPostEffectTexture<Uniforms::kTexture>(1, gpu::getTexture(handles_->result));
     setUniformDimensions(destination.width(), destination.height());
-    bgfx::submit(submit_pass,
-                 ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_tinted_texture));
+    gpu::submit(submit_pass,
+                ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_tinted_texture));
+  }
+
+  int ShaderPostEffect::preprocessBackdrop(Region* source, const Region* region, int submit_pass) {
+    submit_pass = backdrop_.copy(source, region, submit_pass);
+    backdrop_.release();
+    return submit_pass;
   }
 
   void ShaderPostEffect::submit(const BatchVector<SampleRegion>& batches, Layer& destination,
                                 int submit_pass) {
+    submitShader(batches, destination, submit_pass, false);
+  }
+
+  void ShaderPostEffect::submitBackdrop(const BatchVector<SampleRegion>& batches,
+                                        Layer& destination, int submit_pass) {
+    if (backdrop_.hasCopy())
+      submitShader(batches, destination, submit_pass, true);
+  }
+
+  void ShaderPostEffect::submitShader(const BatchVector<SampleRegion>& batches, Layer& destination,
+                                      int submit_pass, bool backdrop) {
     auto quads = setupQuads(batches);
     if (quads.vertices == nullptr)
       return;
 
     setPostEffectUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
-    setBlendMode(BlendMode::Composite);
     setPostEffectUniform<Uniforms::kTime>(destination.time());
 
     Layer* source_layer = batches[0].shapes->front().region->layer();
-    float width_scale = 1.0f / source_layer->width();
-    float height_scale = 1.0f / source_layer->height();
+    float width_scale = 1.0f / (backdrop ? backdrop_.width() : source_layer->width());
+    float height_scale = 1.0f / (backdrop ? backdrop_.height() : source_layer->height());
     setPostEffectUniform<Uniforms::kAtlasScale>(width_scale, height_scale);
-    setPostEffectTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
-    float value = hdr() ? 1.0f / kHdrColorMultiplier : 1.0f;
-    setPostEffectUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
-    setOriginFlipUniform(destination.bottomLeftOrigin());
+    setPostEffectUniform<Uniforms::kColorMult>(1.0f, 1.0f, 1.0f, 1.0f);
+    if (backdrop)
+      backdrop_.setUniforms(batches, quads.vertices, backdrop_.frameBuffer());
+    else {
+      setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(source_layer->frameBuffer()));
+      setOriginFlipUniform(destination.bottomLeftOrigin());
+    }
 
     float min_x = (std::min(quads.vertices[0].texture_x, quads.vertices[3].texture_x) + 0.5f) * width_scale;
     float min_y = (std::min(quads.vertices[0].texture_y, quads.vertices[3].texture_y) + 0.5f) * height_scale;
@@ -519,9 +726,13 @@ namespace visage {
     setUniformDimensions(destination.width(), destination.height());
 
     for (const auto& uniform : uniforms_)
-      bgfx::setUniform(UniformCache::uniformHandle(uniform.first.c_str()), uniform.second.data);
+      gpu::setUniform(UniformCache::uniformHandle(uniform.first.c_str()), uniform.second.data);
 
-    bgfx::ProgramHandle program = ProgramCache::programHandle(vertexShader(), fragmentShader());
-    bgfx::submit(submit_pass, program);
+    submitBlended(state_, submit_pass, ProgramCache::programHandle(vertexShader(), fragmentShader()));
+  }
+
+  LuminanceMaskPostEffect::LuminanceMaskPostEffect() :
+      ShaderPostEffect(shaders::vs_post_effect, shaders::fs_luminance_mask) {
+    setState(BlendMode::MaskMult);
   }
 }

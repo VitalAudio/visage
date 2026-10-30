@@ -23,6 +23,7 @@
 #include "visage_ui/frame.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <thread>
 
 using namespace visage;
 
@@ -77,6 +78,34 @@ TEST_CASE("EventManager functionality", "[ui]") {
     manager.checkEventTimers();
 
     manager.removeTimer(&timer1);
+  }
+}
+
+TEST_CASE("EventTimer deleted or stopped by another timer", "[ui]") {
+  EventManager& manager = EventManager::instance();
+
+  SECTION("Deleted") {
+    EventTimer first;
+    auto second = std::make_unique<TestEventTimer>();
+    first.onTimerCallback() = [&] { second = nullptr; };
+    first.startTimer(1);
+    second->startTimer(1);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    manager.checkEventTimers();
+    REQUIRE(second == nullptr);
+  }
+
+  SECTION("Stopped") {
+    EventTimer first;
+    TestEventTimer second;
+    first.onTimerCallback() = [&] { second.stopTimer(); };
+    first.startTimer(1);
+    second.startTimer(1);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    manager.checkEventTimers();
+    REQUIRE(second.callback_count == 0);
   }
 }
 
@@ -340,4 +369,13 @@ TEST_CASE("KeyEvent repeat handling", "[ui]") {
 
   REQUIRE(repeat_event.isRepeat());
   REQUIRE_FALSE(normal_event.isRepeat());
+}
+TEST_CASE("EventTimer checkTimer runs the timer once it is due", "[ui]") {
+  TestEventTimer timer;
+  timer.startTimer(50);
+  long long now = time::milliseconds();
+
+  REQUIRE_FALSE(timer.checkTimer(now));
+  REQUIRE(timer.checkTimer(now + 1000));
+  REQUIRE(timer.callback_count == 1);
 }

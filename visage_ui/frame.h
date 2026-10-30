@@ -35,11 +35,18 @@
 namespace visage {
   class Frame;
 
+  enum class MaskType {
+    Alpha,
+    Luminance
+  };
+
   struct FrameEventHandler {
     std::function<void(Frame*)> request_redraw = nullptr;
     std::function<void(Frame*)> request_keyboard_focus = nullptr;
     std::function<void(Frame*)> remove_from_hierarchy = nullptr;
+    std::function<Frame*()> keyboard_focused_frame = nullptr;
     std::function<void(bool)> set_mouse_relative_mode = nullptr;
+    std::function<bool(Frame*)> take_mouse_drag = nullptr;
     std::function<void(MouseCursor)> set_cursor_style = nullptr;
     std::function<void(bool)> set_cursor_visible = nullptr;
     std::function<std::string()> read_clipboard_text = nullptr;
@@ -51,14 +58,28 @@ namespace visage {
     Frame() = default;
     explicit Frame(std::string name) : name_(std::move(name)) { }
     virtual ~Frame() {
+      listeners_.clear();
       notifyRemoveFromHierarchy();
       if (parent_)
         parent_->eraseChild(this);
 
-      removeAllChildren();
+      on_child_removed_.clear();
+      detachAllChildren();
+    }
+
+    template<typename T, typename F>
+    void listen(CallbackList<T>& list, F&& callback) {
+      listeners_.push_back(list.connect(std::forward<F>(callback)));
     }
 
     auto& onDraw() { return on_draw_; }
+    auto& onDrawMask() {
+      if (mask_frame_ == nullptr)
+        createMaskFrame();
+      return mask_frame_->onDraw();
+    }
+    void setMaskType(MaskType mask_type);
+    MaskType maskType() const { return mask_type_; }
     auto& onResize() { return on_resize_; }
     auto& onChildBoundsChanged() { return on_child_bounds_changed_; }
     auto& onChildAdded() { return on_child_added_; }
@@ -134,6 +155,8 @@ namespace visage {
     void redraw() {
       if (isVisible() && isDrawing() && !redrawing_)
         redrawing_ = requestRedraw();
+      if (mask_frame_)
+        mask_frame_->redraw();
     }
 
     void redrawAll() {
@@ -143,6 +166,7 @@ namespace visage {
     }
 
     Region* region() { return &region_; }
+    Region* outerRegion() { return group_ ? group_.get() : &region_; }
 
     void setPostEffect(PostEffect* post_effect);
     PostEffect* postEffect() const { return post_effect_; }
@@ -175,6 +199,7 @@ namespace visage {
         return;
 
       alpha_transparency_ = alpha;
+      updateGroup();
       redraw();
     }
 
@@ -185,8 +210,9 @@ namespace visage {
       redraw();
     }
 
-    void setMasked(bool masked) {
-      masked_ = masked;
+    void setLayerBlendMode(BlendMode blend_mode) {
+      layer_blend_mode_ = blend_mode;
+      updateGroup();
       redraw();
     }
 
@@ -205,7 +231,6 @@ namespace visage {
     void addChild(std::unique_ptr<Frame> child, bool make_visible = true);
     void removeChild(Frame* child);
     void removeChild(Frame& child) { removeChild(&child); }
-    void removeAllChildren();
     int indexOfChild(const Frame* child) const;
     void setParent(Frame* parent) {
       VISAGE_ASSERT(parent != this);
@@ -216,6 +241,11 @@ namespace visage {
     }
     Frame* parent() const { return parent_; }
     const std::vector<Frame*>& children() const { return children_; }
+    std::weak_ptr<bool> aliveToken() {
+      if (alive_ == nullptr)
+        alive_ = std::make_shared<bool>(true);
+      return alive_;
+    }
 
     void setEventHandler(FrameEventHandler* handler) {
       event_handler_ = handler;
@@ -309,13 +339,15 @@ namespace visage {
       bool changed = dpi_scale_ != dpi_scale;
       dpi_scale_ = dpi_scale;
 
-      if (changed) {
-        on_dpi_change_.callback();
-        redraw();
-      }
-
       for (Frame* child : children_)
         child->setDpiScale(dpi_scale);
+
+      if (changed) {
+        on_dpi_change_.callback();
+        if (parent_)
+          setBounds(bounds_);
+        redraw();
+      }
     }
 
     float dpiScale() const { return dpi_scale_; }
@@ -339,6 +371,12 @@ namespace visage {
 
       if (event_handler_ && event_handler_->remove_from_hierarchy)
         event_handler_->remove_from_hierarchy(this);
+    }
+
+    bool takeMouseDrag() {
+      if (event_handler_ && event_handler_->take_mouse_drag)
+        return event_handler_->take_mouse_drag(this);
+      return false;
     }
 
     void setMouseRelativeMode(bool visible) {
@@ -381,7 +419,7 @@ namespace visage {
 
     bool processKeyPress(const KeyEvent& e) { return on_key_press_.callback(e); }
     bool processKeyRelease(const KeyEvent& e) { return on_key_release_.callback(e); }
-    void processTextInput(const std::string& text) { textInput(text); }
+    void processTextInput(const std::string& text) { on_text_input_.callback(text); }
 
     float paletteValue(theme::ValueId value_id) const;
     Brush paletteColor(theme::ColorId color_id) const;
@@ -393,13 +431,19 @@ namespace visage {
     bool canRedo() const;
 
   private:
+    UndoHistory* undoHistory() const;
+    Frame* keyboardFocusInside() const;
     void propagateMouseEvent(const MouseEvent& e, void (Frame::*handler)(const MouseEvent&)) {
+      Frame* frame = parent_;
+      std::weak_ptr<bool> frame_alive = frame ? frame->aliveToken() : std::weak_ptr<bool>();
       (this->*handler)(e);
-      auto frame = parent_;
-      while (frame) {
+      while (frame && !frame_alive.expired()) {
+        Frame* parent = frame->parent_;
+        std::weak_ptr<bool> parent_alive = parent ? parent->aliveToken() : std::weak_ptr<bool>();
         if (frame->receiveChildMouseEvents())
           (frame->*handler)(e);
-        frame = frame->parent_;
+        frame = parent;
+        frame_alive = parent_alive;
       }
     }
 
@@ -419,9 +463,23 @@ namespace visage {
     void initChildren();
     void destroyChildren();
     void eraseChild(Frame* child);
+    void detachAllChildren();
+    void createMaskFrame();
+    void updateGroup();
+
+    bool groupsPostEffect() const {
+      return post_effect_ && !post_effect_->appliedInPlace() && !post_effect_->hdr() &&
+             post_effect_->state() == BlendMode::Alpha;
+    }
+
+    bool needsGroup() const {
+      return mask_frame_ || ((alpha_transparency_ != 1.0f || layer_blend_mode_ != BlendMode::Alpha) &&
+                             groupsPostEffect());
+    }
 
     bool requiresLayer() const {
-      return post_effect_ || backdrop_effect_ || cached_ || masked_ || alpha_transparency_ != 1.0f;
+      return post_effect_ || backdrop_effect_ || cached_ ||
+             (!grouped_ && (alpha_transparency_ != 1.0f || layer_blend_mode_ != BlendMode::Alpha));
     }
 
     std::string name_;
@@ -449,6 +507,7 @@ namespace visage {
     CallbackList<bool(const KeyEvent&)> on_key_press_ { [this](auto& e) { return keyPress(e); } };
     CallbackList<bool(const KeyEvent&)> on_key_release_ { [this](auto& e) { return keyRelease(e); } };
     CallbackList<void(const std::string&)> on_text_input_ { [this](auto& text) { textInput(text); } };
+    std::vector<CallbackConnection> listeners_;
 
     bool on_top_ = false;
     bool visible_ = true;
@@ -462,6 +521,7 @@ namespace visage {
     std::map<Frame*, std::unique_ptr<Frame>> owned_children_;
     Frame* parent_ = nullptr;
     FrameEventHandler* event_handler_ = nullptr;
+    std::shared_ptr<bool> alive_;
 
     float dpi_scale_ = 1.0f;
     Palette* palette_ = nullptr;
@@ -472,9 +532,14 @@ namespace visage {
     std::unique_ptr<BlurPostEffect> blur_effect_;
     PostEffect* backdrop_effect_ = nullptr;
     bool cached_ = false;
-    bool masked_ = false;
+    MaskType mask_type_ = MaskType::Alpha;
+    std::unique_ptr<LuminanceMaskPostEffect> luminance_mask_effect_;
+    std::unique_ptr<Frame> mask_frame_;
     float alpha_transparency_ = 1.0f;
+    BlendMode layer_blend_mode_ = BlendMode::Alpha;
     Region region_;
+    std::unique_ptr<Region> group_;
+    bool grouped_ = false;
     std::unique_ptr<Layout> layout_;
     bool drawing_ = true;
     bool redrawing_ = false;

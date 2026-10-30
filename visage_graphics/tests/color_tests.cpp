@@ -19,12 +19,14 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "visage_graphics/canvas.h"
 #include "visage_graphics/color.h"
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <random>
 #include <sstream>
+#include <type_traits>
 
 using namespace visage;
 using namespace Catch;
@@ -83,6 +85,54 @@ TEST_CASE("Color fromHexString correctly initializes", "[graphics]") {
   REQUIRE(Color(0xff123456) == Color::fromHexString("123456"));
   REQUIRE(Color(0xff123456) == Color::fromHexString("#123456"));
   REQUIRE(Color(0) == Color::fromHexString(""));
+
+  REQUIRE(Color() == Color::fromHexString("#12zz56"));
+  REQUIRE(Color() == Color::fromHexString("ggg"));
+  REQUIRE(Color() == Color::fromHexString("#12345 "));
+  REQUIRE(Color() == Color::fromHexString("-12345"));
+  REQUIRE(Color(0xffaabbcc) == Color::fromHexString("#AbC"));
+}
+
+TEST_CASE("Assigning a hex value resets the HDR value", "[graphics]") {
+  Color color(0xff102030, 4.0f);
+  color = 0xffffffff;
+  REQUIRE(color == Color(0xffffffff));
+  REQUIRE(color.hdr() == 1.0f);
+}
+
+namespace {
+  enum {
+    kTestEnumColor = 0xffff0000u
+  };
+
+  template<typename T, typename = void>
+  struct CanvasTakesColor : std::false_type { };
+
+  template<typename T>
+  struct CanvasTakesColor<T, std::void_t<decltype(std::declval<Canvas&>().setColor(std::declval<T>()))>>
+      : std::true_type { };
+}
+
+TEST_CASE("Only integers and enums convert to colors", "[graphics]") {
+  REQUIRE(std::is_convertible_v<unsigned int, Color>);
+  REQUIRE(std::is_convertible_v<int, Color>);
+  REQUIRE(std::is_convertible_v<decltype(kTestEnumColor), Color>);
+  REQUIRE(std::is_assignable_v<Color&, unsigned int>);
+  REQUIRE_FALSE(std::is_convertible_v<float, Color>);
+  REQUIRE_FALSE(std::is_convertible_v<double, Color>);
+  REQUIRE_FALSE(std::is_assignable_v<Color&, float>);
+
+  REQUIRE(CanvasTakesColor<unsigned int>::value);
+  REQUIRE(CanvasTakesColor<int>::value);
+  REQUIRE(CanvasTakesColor<decltype(kTestEnumColor)>::value);
+  REQUIRE(CanvasTakesColor<Color>::value);
+  REQUIRE_FALSE(CanvasTakesColor<float>::value);
+  REQUIRE_FALSE(CanvasTakesColor<double>::value);
+
+  Color color = 0xff102030;
+  REQUIRE(color == Color(0xff102030u));
+  color = 0x80405060;
+  REQUIRE(color.toARGB() == 0x80405060);
 }
 
 TEST_CASE("Color toARGBHexString converts correctly", "[graphics]") {
@@ -133,6 +183,14 @@ TEST_CASE("Color to 16-bit formats", "[graphics]") {
   REQUIRE(((color.toARGB16() >> 32) & 0xffff) == 0x1111);
   REQUIRE(((color.toARGB16() >> 16) & 0xffff) == 0x5555);
   REQUIRE((color.toARGB16() & 0xffff) == 0xAAAA);
+}
+
+TEST_CASE("Color converts dim channels to subnormal half floats", "[graphics]") {
+  auto red_half = [](float red) { return Color(1.0f, red, 0.0f, 0.0f).toABGR16F() & 0xffff; };
+  REQUIRE(red_half(0.002f) == 524);
+  REQUIRE(red_half(0.0005f) == 131);
+  REQUIRE(red_half(64.0f / (1 << 24)) == 1);
+  REQUIRE((Color(1.0f / (1 << 24), 0.0f, 0.0f, 0.0f).toABGR16F() >> 48) == 1);
 }
 
 TEST_CASE("Color arithmetic operations work correctly", "[graphics]") {

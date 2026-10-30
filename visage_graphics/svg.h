@@ -26,8 +26,11 @@
 #include "visage_graphics/path.h"
 #include "visage_utils/clone_ptr.h"
 
+#include <array>
 #include <map>
 #include <memory>
+#include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -56,7 +59,8 @@ namespace visage {
     std::vector<std::string> classes;
     std::vector<CssSelector> parents;
 
-    bool matches(const Tag& tag) const;
+    bool matches(const Tag& tag, const std::map<const Tag*, const Tag*>& tag_parents) const;
+    bool matchesTag(const Tag& tag) const;
   };
 
   struct GradientDef {
@@ -80,6 +84,9 @@ namespace visage {
     Brush toBrush(Bounds box) const {
       if (type == Type::Solid)
         return Brush::solid(gradient.colors().front());
+      if ((type == Type::Linear || type == Type::Radial) && !user_space &&
+          (box.width() == 0.0f || box.height() == 0.0f))
+        return fallback ? Brush::solid(*fallback) : Brush::none();
 
       GradientPosition position;
       if (type == Type::Radial) {
@@ -109,13 +116,16 @@ namespace visage {
     Point point2 = Point(1.0f, 0.0f);
     float focal_radius = 0.0f;
     float radius = 0.5f;
+    std::vector<std::pair<int, float>> current_color_stops;
+    std::optional<Color> fallback;
   };
 
   struct DrawableState {
-    GradientDef current_color = GradientDef(0xff000000);
+    GradientDef current_color = GradientDef::Type::CurrentColor;
     GradientDef fill_gradient = GradientDef(0xff000000);
     float fill_opacity = 1.0f;
-    bool non_zero_fill = false;
+    bool non_zero_fill = true;
+    bool non_zero_clip = true;
 
     GradientDef stroke_gradient;
     float stroke_opacity = 1.0f;
@@ -129,6 +139,9 @@ namespace visage {
     float stroke_miter_limit = 4.0f;
 
     bool visible = true;
+    Marker* marker_start = nullptr;
+    Marker* marker_mid = nullptr;
+    Marker* marker_end = nullptr;
   };
 
   struct SvgViewSettings {
@@ -139,11 +152,23 @@ namespace visage {
     std::string scale;
   };
 
+  using ColorMatrix = std::array<float, 20>;
+
   struct SvgDrawable {
+    struct MaskSettings {
+      Bounds region;
+      bool alpha = false;
+      bool user_space = false;
+      bool content_bounding_box = false;
+    };
+
     struct ColorContext {
       const Brush* current_color = nullptr;
-      const Brush* fill_color = nullptr;
-      const Brush* stroke_color = nullptr;
+    };
+
+    struct ClipPaths {
+      std::shared_ptr<const std::vector<Path>> paths;
+      Transform transform;
     };
 
     SvgDrawable() = default;
@@ -154,6 +179,8 @@ namespace visage {
     void drawAll(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
     bool setContextColor(Canvas& canvas, const ColorContext* context, const GradientDef& gradient,
                          float color_opacity) const;
+    static Brush withCurrentColor(Brush brush, const GradientDef& gradient,
+                                  const Brush* current_color, float opacity);
     void fill(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
     void stroke(Canvas& canvas, ColorContext* context, float x, float y, float width, float height) const;
     bool hasFill() const { return !fill_brush.isNone() && state.fill_opacity > 0.0f; }
@@ -188,13 +215,15 @@ namespace visage {
         child->setAllCurrentColor(brush);
     }
 
-    Bounds boundingFillBox() const {
+    Bounds boundingFillBox(bool include_unfilled = false) const {
       Bounds bounds;
-      if (hasFill())
+      if (include_unfilled || hasFill())
         bounds = path.boundingBox();
 
-      for (auto& child : children)
-        bounds = bounds.unioned(child->boundingFillBox());
+      for (auto& child : children) {
+        if (!child->mask_settings)
+          bounds = bounds.unioned(child->boundingFillBox(include_unfilled));
+      }
 
       return bounds;
     }
@@ -204,8 +233,10 @@ namespace visage {
       if (hasStroke())
         bounds = stroke_path.boundingBox();
 
-      for (auto& child : children)
-        bounds = bounds.unioned(child->boundingStrokeBox());
+      for (auto& child : children) {
+        if (!child->mask_settings)
+          bounds = bounds.unioned(child->boundingStrokeBox());
+      }
 
       return bounds;
     }
@@ -228,21 +259,28 @@ namespace visage {
       }
       for (auto& child : children) {
         child->transformPaths(transform);
-        post_bounding_box = post_bounding_box.unioned(child->post_bounding_box);
+        if (!child->is_defines && !child->is_clip_path && !child->mask_settings && child->display)
+          post_bounding_box = post_bounding_box.unioned(child->post_bounding_box);
       }
-      for (auto& clip_path : clipping_paths)
-        clip_path = clip_path.transformed(transform);
+      for (auto& clip : clipping_paths)
+        clip.transform = transform * clip.transform;
+      for (auto& intersection : clip_intersections) {
+        for (auto& clip : intersection)
+          clip.transform = transform * clip.transform;
+      }
     }
 
-    void gatherPaths(std::vector<Path>& paths) {
-      if (path.numPoints())
-        paths.push_back(path);
-
-      for (auto& child : children)
-        child->gatherPaths(paths);
-
-      path.clear();
-      stroke_path.clear();
+    void gatherClipPaths(std::vector<Path>& paths) const {
+      for (const auto& child : children) {
+        const SvgDrawable* shape = child->is_use && child->children.size() == 1 ?
+                                       child->children.front().get() :
+                                       child.get();
+        if (child->display && shape->display && shape->state.visible && shape->path.numPoints()) {
+          paths.push_back(shape->path);
+          paths.back().setFillRule(shape->state.non_zero_clip ? Path::FillRule::NonZero :
+                                                                Path::FillRule::EvenOdd);
+        }
+      }
     }
 
     void checkPathClipping(const Matrix& scale_matrix, const Bounds& view_box,
@@ -250,7 +288,29 @@ namespace visage {
     void initPaths(const Matrix& scale_matrix, const Bounds& view_box);
     void adjustPaths(const Matrix& scale_matrix, const Bounds& view_box,
                      std::map<std::string, SvgDrawable*>& clip_paths);
+    void collectClipPaths(std::map<std::string, SvgDrawable*>& clip_paths);
+    std::shared_ptr<const std::vector<Path>> clipOutline(const Matrix& scale_matrix, const Bounds& view_box);
     void strokePath(const Matrix& scale_matrix, const Bounds& view_box);
+    void resolveContextPaint(const Brush& context_fill, const Brush& context_stroke);
+    void applyColorMatrices();
+    void transformColors(const ColorMatrix& matrix);
+    void fitMask(SvgDrawable& mask, const Matrix& scale_matrix, const Bounds& view_box,
+                 std::map<std::string, SvgDrawable*>& clip_paths) const;
+    const SvgDrawable* maskContent() const {
+      for (const auto& child : children) {
+        if (child->mask_settings)
+          return child.get();
+      }
+      return nullptr;
+    }
+
+    Transform originTransform(const Bounds& view_box) const {
+      float origin_x = transform_origin_x * (transform_origin_x_ratio ? view_box.width() : 1.0f);
+      float origin_y = transform_origin_y * (transform_origin_y_ratio ? view_box.height() : 1.0f);
+      return Transform::translation(origin_x, origin_y) * local_transform *
+             Transform::translation(-origin_x, -origin_y);
+    }
+
     void setSize(const SvgViewSettings& view, float width, float height, float scale = 1.0f) {
       if (width == 0.0f || height == 0.0f)
         return;
@@ -259,8 +319,11 @@ namespace visage {
       auto initial_transform = initialTransform(view, width, height);
       auto dpi_scale = Matrix::scale(scale, scale);
       initPaths(dpi_scale * initial_transform.matrix, view.view_box);
+      collectClipPaths(clip_paths);
       adjustPaths(dpi_scale * initial_transform.matrix, view.view_box, clip_paths);
       transformPaths(initial_transform);
+      resolveContextPaint(Brush::none(), Brush::none());
+      applyColorMatrices();
     }
 
     void setSize(const SvgViewSettings& view) { setSize(view, view.width, view.height); }
@@ -306,6 +369,7 @@ namespace visage {
 
     std::string id;
     bool is_defines = false;
+    bool display = true;
     Path::CommandList command_list;
     std::vector<clone_ptr<SvgDrawable>> children;
 
@@ -319,15 +383,21 @@ namespace visage {
     DrawableState state;
     Brush fill_brush;
     Brush stroke_brush;
+    float stroke_alpha = 1.0f;
     Path path;
     Path stroke_path;
     Bounds post_bounding_box;
-    std::vector<Path> clipping_paths;
-    Marker* marker_start = nullptr;
-    Marker* marker_mid = nullptr;
-    Marker* marker_end = nullptr;
+    std::vector<ClipPaths> clipping_paths;
+    std::vector<std::vector<ClipPaths>> clip_intersections;
+    std::map<int, std::shared_ptr<const std::vector<Path>>> clip_cache;
+    float clip_cache_resolution = 0.0f;
+    std::optional<Bounds> view_clip;
+    std::optional<MaskSettings> mask_settings;
+    std::optional<ColorMatrix> color_matrix;
 
     bool is_clip_path = false;
+    bool is_marker = false;
+    bool is_use = false;
     bool is_clip_bounding_box = false;
     std::string clip_path_shape;
   };
@@ -335,7 +405,8 @@ namespace visage {
   struct Marker {
     SvgDrawable drawable;
     bool reverse_start_marker = false;
-    bool use_angle = false;
+    bool use_angle = true;
+    bool stroke_width_units = true;
     float marker_angle = 0.0f;
   };
 
@@ -364,21 +435,32 @@ namespace visage {
     bool loadDrawable(const Tag& tag, SvgDrawable* drawable) const;
 
     void loadDrawableStyle(const Tag& tag, std::vector<DrawableState>& state_stack, SvgDrawable* drawable);
-    GradientDef parseGradient(const std::string& color_string);
+    void loadViewport(const Tag& tag, SvgDrawable* drawable);
+    std::optional<GradientDef> parseGradient(const std::string& color_string);
 
-    void collectDefs(std::vector<Tag>& tags);
+    void collectDefs(std::vector<Tag>& tags, const std::set<std::string>& references);
     void collectGradients(std::vector<Tag>& tags);
     void collectMarkers(std::vector<Tag>& tags);
-    void resolveUses(std::vector<Tag>& tags);
+    void collectMasks(std::vector<Tag>& tags);
+    void collectFilters(std::vector<Tag>& tags);
+    void attachMask(const std::string& id, SvgDrawable* drawable) const;
+    void resolveUses(std::vector<Tag>& tags, std::set<std::string>& reference_ids, int depth = 0);
     void parseCssStyle(const std::string& style);
     void loadStyleTags(std::vector<Tag>& tags);
+    void collectTagParents(const std::vector<Tag>& tags, const Tag* parent);
 
     std::unique_ptr<SvgDrawable> drawable_;
     std::map<std::string, Tag> defs_;
     std::map<std::string, GradientDef> gradients_;
     std::map<std::string, std::unique_ptr<Marker>> markers_;
+    std::map<std::string, std::unique_ptr<SvgDrawable>> masks_;
+    std::map<std::string, ColorMatrix> filters_;
     std::vector<std::pair<CssSelector, std::string>> style_lookup_;
+    std::map<const Tag*, const Tag*> tag_parents_;
     SvgViewSettings view_;
+    int svg_depth_ = 0;
+    std::optional<Color> background_color_;
+    std::string mask_id_;
     float draw_width_ = 0.0f;
     float draw_height_ = 0.0f;
   };
@@ -434,7 +516,7 @@ namespace visage {
 
   private:
     void setDrawableDimensions(int width, int height, float scale) {
-      if (width != draw_width_ || height != draw_height_) {
+      if (width != draw_width_ || height != draw_height_ || scale != draw_scale_) {
         draw_width_ = width;
         draw_height_ = height;
         draw_scale_ = scale;

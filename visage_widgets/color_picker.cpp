@@ -29,29 +29,9 @@ namespace visage {
     int w = width();
     int h = height();
 
-    int yg_y = h / 6;
-    int gc_y = h / 3;
-    int cb_y = h / 2;
-    int bp_y = 2 * h / 3;
-    int pr_y = 5 * h / 6;
-
-    canvas.setColor(Brush::vertical(0xffff0000, 0xffffff00));
-    canvas.rectangle(0, 0, w, yg_y);
-
-    canvas.setColor(Brush::vertical(0xffffff00, 0xff00ff00));
-    canvas.rectangle(0, yg_y, w, gc_y - yg_y);
-
-    canvas.setColor(Brush::vertical(0xff00ff00, 0xff00ffff));
-    canvas.rectangle(0, gc_y, w, cb_y - gc_y);
-
-    canvas.setColor(Brush::vertical(0xff00ffff, 0xff0000ff));
-    canvas.rectangle(0, cb_y, w, bp_y - cb_y);
-
-    canvas.setColor(Brush::vertical(0xff0000ff, 0xffff00ff));
-    canvas.rectangle(0, bp_y, w, pr_y - bp_y);
-
-    canvas.setColor(Brush::vertical(0xffff00ff, 0xffff0000));
-    canvas.rectangle(0, pr_y, w, h - pr_y);
+    canvas.setColor(Brush::vertical(Gradient(0xffff0000, 0xffffff00, 0xff00ff00, 0xff00ffff,
+                                             0xff0000ff, 0xffff00ff, 0xffff0000)));
+    canvas.rectangle(0, 0, w, h);
 
     float y = h * hue_ / Color::kHueRange;
     canvas.setColor(0xff000000);
@@ -105,11 +85,21 @@ namespace visage {
     hdr_text_.setMaxCharacters(kDecimalSigFigs + 1);
 
     hex_text_.onEnterKey() += [this] { requestKeyboardFocus(); };
+    hex_text_.onFocusChange() += [this](bool is_focused, bool) {
+      if (!is_focused)
+        hex_text_.setText(color_.toRGBHexString());
+    };
     alpha_text_.onEnterKey() += [this] { requestKeyboardFocus(); };
     hdr_text_.onEnterKey() += [this] { requestKeyboardFocus(); };
 
     hex_text_.onTextChange() += [this] {
-      color_ = Color::fromHexString(hex_text_.text().toUtf8());
+      std::string hex = hex_text_.text().toUtf8();
+      if (hex.size() != 6 || hex.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
+        return;
+
+      color_ = Color::fromHexString(hex);
+      color_.setAlpha(alpha_);
+      color_.setHdr(hdr_);
       hue_.setHue(color_.hue());
       value_saturation_.setValue(color_.value());
       value_saturation_.setSaturation(color_.saturation());

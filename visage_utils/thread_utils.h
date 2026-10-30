@@ -33,8 +33,8 @@
 namespace visage {
   class Thread {
   public:
-    static inline std::thread::id main_thread_id_;
-    static inline bool main_thread_set_ = false;
+    static std::thread::id main_thread_id_;
+    static bool main_thread_set_;
 
     static void setAsMainThread() {
       main_thread_set_ = true;
@@ -67,6 +67,7 @@ namespace visage {
       if (running())
         return;
 
+      stop();
       should_run_ = true;
       completed_ = false;
       thread_ = std::make_unique<std::thread>(&Thread::startRun, this);
@@ -101,7 +102,7 @@ namespace visage {
 
     const std::string& name() const { return name_; }
     bool shouldRun() const { return should_run_.load(); }
-    bool running() const { return thread_ && thread_->joinable(); }
+    bool running() const { return thread_ && !completed(); }
     bool completed() const { return completed_.load(); }
 
   private:

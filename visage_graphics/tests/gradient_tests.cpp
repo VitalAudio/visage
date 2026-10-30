@@ -19,6 +19,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "visage_graphics/canvas.h"
 #include "visage_graphics/color.h"
 #include "visage_graphics/gradient.h"
 
@@ -98,6 +99,27 @@ TEST_CASE("Gradient color manipulation", "[graphics]") {
     REQUIRE(gradient.colors()[2] == red);
   }
 
+  SECTION("setResolution keeps positions in sync") {
+    Color red(1.0f, 1.0f, 0.0f, 0.0f);
+    Color blue(1.0f, 0.0f, 0.0f, 1.0f);
+    Gradient gradient(red);
+
+    gradient.setResolution(2);
+    gradient.setColor(1, blue);
+    REQUIRE(gradient.sample(0.0f) == red);
+    REQUIRE(gradient.sample(1.0f) == blue);
+    REQUIRE(gradient.sample(0.5f).red() == Approx(0.5f));
+    REQUIRE(Gradient::compare(gradient, Gradient(red, blue)) == 0);
+
+    Gradient decoded;
+    decoded.decode(gradient.encode());
+    REQUIRE(Gradient::compare(decoded, gradient) == 0);
+
+    gradient.setResolution(1);
+    REQUIRE(gradient.sample(0.5f) == red);
+    REQUIRE(Gradient::compare(gradient, Gradient(red)) == 0);
+  }
+
   SECTION("setColor modifies color at index") {
     Gradient gradient;
     gradient.setResolution(3);
@@ -146,6 +168,23 @@ TEST_CASE("Gradient sampling", "[graphics]") {
 
     color = gradient.sample(1.0f);
     REQUIRE(color == blue);
+  }
+
+  SECTION("Stops sharing the first offset") {
+    Color white(1.0f, 1.0f, 1.0f, 1.0f);
+    Color red(1.0f, 1.0f, 0.0f, 0.0f);
+    Color blue(1.0f, 0.0f, 0.0f, 1.0f);
+    Gradient gradient;
+    gradient.addColorStop(white, 0.0f);
+    gradient.addColorStop(red, 0.0f);
+    gradient.addColorStop(blue, 1.0f);
+
+    REQUIRE(gradient.sample(0.0f) == white);
+    REQUIRE(gradient.sample(0.5f).red() == Approx(0.5f));
+    REQUIRE(gradient.sample(0.5f).blue() == Approx(0.5f));
+
+    gradient.setRepeat(true);
+    REQUIRE(gradient.sample(0.0f) == red);
   }
 }
 
@@ -358,6 +397,27 @@ TEST_CASE("GradientPosition", "[graphics]") {
   }
 }
 
+TEST_CASE("Brush blends between a solid color and a gradient", "[graphics]") {
+  using Shape = GradientPosition::InterpolationShape;
+  Brush solid = Brush::solid(0xffff0000);
+  Brush vertical = Brush::vertical(0xffff0000, 0xff0000ff);
+  Brush linear = Brush::linear(0xffff0000, 0xff0000ff, { 0.0f, 0.0f }, { 20.0f, 0.0f });
+
+  REQUIRE(Brush::interpolate(solid, vertical, 1.0f).position().shape == Shape::Vertical);
+  REQUIRE(Brush::interpolate(vertical, solid, 0.0f).position().shape == Shape::Vertical);
+  GradientPosition halfway = Brush::interpolate(solid, linear, 0.5f).position();
+  REQUIRE(halfway.shape == Shape::PointsLinear);
+  REQUIRE(halfway.point2.x == Approx(20.0f));
+
+  Canvas canvas;
+  canvas.setWindowless(20, 20);
+  canvas.setColor(Brush::interpolate(solid, vertical, 1.0f));
+  canvas.fill(0, 0, 20, 20);
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(screenshot.sample(10, 1).hexRed() > 0xe0);
+  REQUIRE(screenshot.sample(10, 18).hexBlue() > 0xe0);
+}
+
 TEST_CASE("Brush creation", "[graphics]") {
   SECTION("Solid brush") {
     Color red(1.0f, 1.0f, 0.0f, 0.0f);
@@ -423,7 +483,9 @@ TEST_CASE("Brush operations", "[graphics]") {
     REQUIRE(result.gradient().colors()[0].red() == Approx(0.5f));
     REQUIRE(result.gradient().colors()[0].blue() == Approx(0.5f));
 
-    REQUIRE(result.position().shape == GradientPosition::InterpolationShape::Solid);
+    REQUIRE(result.position().shape == GradientPosition::InterpolationShape::PointsLinear);
+    REQUIRE(result.position().point1 == from);
+    REQUIRE(result.position().point2 == to);
   }
 
   SECTION("Alpha multiplication") {
@@ -491,4 +553,70 @@ TEST_CASE("Brush operations", "[graphics]") {
     REQUIRE(position.coefficienty2 == Approx(end_position.coefficienty2).margin(0.01f));
     REQUIRE(position.coefficientxy == Approx(end_position.coefficientxy).margin(0.01f));
   }
+}
+
+TEST_CASE("Gradient atlas ignores leftover GPU memory", "[graphics]") {
+  Canvas canvas;
+  {
+    Canvas previous;
+    previous.setWindowless(256, 256);
+    previous.setColor(0xff336699);
+    previous.fill(0, 0, previous.width(), previous.height());
+    previous.submit();
+    previous.takeScreenshot();
+  }
+
+  canvas.setWindowless(64, 64);
+  canvas.setColor(0xffff0000);
+  canvas.fill(0, 0, canvas.width(), canvas.height());
+  canvas.submit();
+  const Screenshot& screenshot = canvas.takeScreenshot();
+
+  for (int y = 0; y < screenshot.height(); y += 9) {
+    for (int x = 0; x < screenshot.width(); x += 9)
+      REQUIRE(screenshot.sample(x, y).toARGB() == 0xffff0000);
+  }
+}
+
+TEST_CASE("Radial brushes keep their shape through encoding", "[graphics]") {
+  Brush radial = Brush::radial(0xffff0000, 0xff0000ff, { 10.0f, 20.0f }, 5.0f, 8.0f,
+                               { 12.0f, 21.0f }, 0.25f);
+  Brush vertical = Brush::vertical(0xff00ff00, 0xffffffff);
+
+  std::ostringstream stream;
+  radial.encode(stream);
+  vertical.encode(stream);
+
+  Brush decoded_radial;
+  Brush decoded_vertical;
+  std::istringstream input(stream.str());
+  decoded_radial.decode(input);
+  decoded_vertical.decode(input);
+
+  const GradientPosition& original = radial.position();
+  const GradientPosition& decoded = decoded_radial.position();
+  REQUIRE(decoded.shape == GradientPosition::InterpolationShape::Radial);
+  REQUIRE(decoded.point1 == original.point1);
+  REQUIRE(decoded.point2 == original.point2);
+  REQUIRE(decoded.focal_radius == Approx(original.focal_radius));
+  REQUIRE(decoded.coefficientx2 == Approx(original.coefficientx2));
+  REQUIRE(decoded.coefficienty2 == Approx(original.coefficienty2));
+  REQUIRE(decoded.coefficientxy == Approx(original.coefficientxy));
+  REQUIRE(decoded_vertical.position().shape == GradientPosition::InterpolationShape::Vertical);
+  REQUIRE(decoded_vertical.gradient().colors()[1] == vertical.gradient().colors()[1]);
+}
+
+TEST_CASE("Brushes saved before radial coefficients were encoded still decode", "[graphics]") {
+  int radial = static_cast<int>(GradientPosition::InterpolationShape::Radial);
+  std::string old_radial = Gradient(0xffff0000, 0xff0000ff).encode() + std::to_string(radial) +
+                           "\n10\n20\n10\n20\n";
+  Brush vertical = Brush::vertical(0xff00ff00, 0xffffffff);
+  std::istringstream input(old_radial + vertical.encode());
+
+  Brush decoded_radial;
+  Brush decoded_vertical;
+  decoded_radial.decode(input);
+  decoded_vertical.decode(input);
+  REQUIRE(decoded_vertical.position().shape == GradientPosition::InterpolationShape::Vertical);
+  REQUIRE(decoded_vertical.gradient().colors()[1] == vertical.gradient().colors()[1]);
 }

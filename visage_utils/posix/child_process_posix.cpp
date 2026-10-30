@@ -26,32 +26,97 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <spawn.h>
-#include <sstream>
 #include <string>
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
 #include <vector>
 
+#if VISAGE_MAC
+#include <crt_externs.h>
+#else
+extern char** environ;
+#endif
+
 namespace visage {
+  static char** environment() {
+#if VISAGE_MAC
+    return *_NSGetEnviron();
+#else
+    return environ;
+#endif
+  }
+
   static void closePipes(int out_pipe, int err_pipe) {
     close(out_pipe);
     close(err_pipe);
   }
 
   static void terminateAndCleanup(pid_t pid, int out_pipe, int err_pipe, int* status) {
+    static constexpr int kTerminateTimeoutMs = 100;
+
     kill(pid, SIGTERM);
     closePipes(out_pipe, err_pipe);
-    waitpid(pid, status, 0);
+
+    auto start_time = std::chrono::steady_clock::now();
+    while (waitpid(pid, status, WNOHANG) == 0) {
+      auto elapsed = std::chrono::steady_clock::now() - start_time;
+      if (std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > kTerminateTimeoutMs) {
+        kill(pid, SIGKILL);
+        waitpid(pid, status, 0);
+        return;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  }
+
+  static std::vector<std::string> splitArguments(const std::string& arguments) {
+    std::vector<std::string> result;
+    std::string argument;
+    bool has_argument = false;
+    bool quoted = false;
+    size_t backslashes = 0;
+
+    for (char c : arguments) {
+      if (c == '\\') {
+        backslashes++;
+        has_argument = true;
+        continue;
+      }
+
+      if (c == '"') {
+        argument.append(backslashes / 2, '\\');
+        if (backslashes % 2)
+          argument.push_back(c);
+        else
+          quoted = !quoted;
+        has_argument = true;
+      }
+      else {
+        argument.append(backslashes, '\\');
+        if ((c == ' ' || c == '\t') && !quoted) {
+          if (has_argument)
+            result.push_back(argument);
+          argument.clear();
+          has_argument = false;
+        }
+        else {
+          argument.push_back(c);
+          has_argument = true;
+        }
+      }
+      backslashes = 0;
+    }
+
+    argument.append(backslashes, '\\');
+    if (has_argument)
+      result.push_back(argument);
+    return result;
   }
 
   static std::vector<char*> parseArguments(const std::string& command, const std::string& arguments,
                                            std::vector<std::string>& storage) {
-    std::istringstream stream(arguments);
-    std::string segment;
-    while (std::getline(stream, segment, ' '))
-      storage.push_back(segment);
-
+    storage = splitArguments(arguments);
     storage.insert(storage.begin(), command);
 
     std::vector<char*> args;
@@ -63,8 +128,13 @@ namespace visage {
   }
 
   static bool setupPipes(int out_pipe[2], int err_pipe[2], posix_spawn_file_actions_t* file_actions) {
-    if (pipe(out_pipe) == -1 || pipe(err_pipe) == -1)
+    if (pipe(out_pipe) == -1)
       return false;
+
+    if (pipe(err_pipe) == -1) {
+      closePipes(out_pipe[0], out_pipe[1]);
+      return false;
+    }
 
     posix_spawn_file_actions_init(file_actions);
     posix_spawn_file_actions_adddup2(file_actions, out_pipe[1], STDOUT_FILENO);
@@ -76,24 +146,11 @@ namespace visage {
     return true;
   }
 
-  static void gracefulTerminate(pid_t pid, int* status) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    int termination_check = waitpid(pid, status, WNOHANG);
-    if (termination_check == 0) {
-      kill(pid, SIGKILL);
-      waitpid(pid, status, 0);
-    }
-  }
-
-  static bool readPipeWithSizeCheck(int pipe_fd, char* buffer, std::string& output, pid_t pid,
-                                    int out_pipe, int err_pipe, int* status) {
+  static bool readPipeWithSizeCheck(int pipe_fd, char* buffer, std::string& output) {
     ssize_t count;
     while ((count = read(pipe_fd, buffer, 255)) > 0) {
-      if (output.size() + count > kMaxOutputSize) {
-        terminateAndCleanup(pid, out_pipe, err_pipe, status);
+      if (output.size() + count > kMaxOutputSize)
         return false;
-      }
       output += std::string(buffer, count);
     }
     return true;
@@ -101,8 +158,6 @@ namespace visage {
 
   bool spawnChildProcess(const std::string& command, const std::string& arguments,
                          std::string& output, int timeout_ms) {
-    static constexpr char* kEnvironment[] = { nullptr };
-
     std::vector<std::string> arg_storage;
     std::vector<char*> args = parseArguments(command, arguments, arg_storage);
 
@@ -115,7 +170,11 @@ namespace visage {
 
     pid_t pid;
     int status;
-    int result = posix_spawn(&pid, command.c_str(), &file_actions, nullptr, args.data(), kEnvironment);
+#if VISAGE_EMSCRIPTEN
+    int result = posix_spawn(&pid, command.c_str(), &file_actions, nullptr, args.data(), environment());
+#else
+    int result = posix_spawnp(&pid, command.c_str(), &file_actions, nullptr, args.data(), environment());
+#endif
 
     posix_spawn_file_actions_destroy(&file_actions);
 
@@ -151,16 +210,16 @@ namespace visage {
         }
       }
 
-      if (!readPipeWithSizeCheck(out_pipe[0], buffer, output, pid, out_pipe[0], err_pipe[0], &status))
-        return false;
-
-      if (!readPipeWithSizeCheck(err_pipe[0], buffer, output, pid, out_pipe[0], err_pipe[0], &status))
-        return false;
+      bool output_fits = readPipeWithSizeCheck(out_pipe[0], buffer, output) &&
+                         readPipeWithSizeCheck(err_pipe[0], buffer, output);
 
       auto elapsed = std::chrono::steady_clock::now() - start_time;
-      if (std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > timeout_ms) {
-        terminateAndCleanup(pid, out_pipe[0], err_pipe[0], &status);
-        gracefulTerminate(pid, &status);
+      bool timed_out = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count() > timeout_ms;
+      if (!output_fits || (timed_out && !process_finished)) {
+        if (process_finished)
+          closePipes(out_pipe[0], err_pipe[0]);
+        else
+          terminateAndCleanup(pid, out_pipe[0], err_pipe[0], &status);
         return false;
       }
 

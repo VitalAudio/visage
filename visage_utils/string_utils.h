@@ -27,43 +27,56 @@
 namespace visage {
   class String {
   public:
+    static constexpr char32_t kReplacementCharacter = 0xFFFD;
+
+    static bool isValidCharacter(char32_t character) {
+      return character < 0xD800 || (character > 0xDFFF && character <= 0x10FFFF);
+    }
+
     template<typename Utf32String>
     static Utf32String convertUtf8ToUtf32(const std::string& utf8_str) {
       Utf32String result;
       result.reserve(utf8_str.size());
 
-      for (size_t i = 0; i < utf8_str.size(); ++i) {
-        unsigned char ch = utf8_str[i];
-
-        if (ch < 0x80)  // ASCII character
+      size_t i = 0;
+      while (i < utf8_str.size()) {
+        unsigned char ch = utf8_str[i++];
+        if (ch < 0x80) {  // ASCII character
           result.push_back(ch);
-        else if (ch < 0xC0)  // Error on continuation byte
-          result.push_back('*');
-        else if (ch < 0xE0) {  // 2 byte character
-          if (i + 1 >= utf8_str.size())  // Error - unfinished character.
-            return result;
-
-          result.push_back(((ch & 0x1F) << 6) | (utf8_str[i + 1] & 0x3F));
-          i += 1;
+          continue;
         }
-        else if (ch < 0xF0) {  // 3 byte character
-          if (i + 2 >= utf8_str.size())  // Error - unfinished character.
-            return result;
 
-          result.push_back(((ch & 0x0F) << 12) | ((utf8_str[i + 1] & 0x3F) << 6) |
-                           (utf8_str[i + 2] & 0x3F));
-          i += 2;
+        int continuation_bytes = 0;
+        char32_t character = 0;
+        char32_t min_character = 0;
+        if (ch >= 0xC2 && ch < 0xE0) {  // 2 byte character
+          continuation_bytes = 1;
+          character = ch & 0x1F;
+          min_character = 0x80;
         }
-        else if (ch < 0xF8) {  // 4 byte character
-          if (i + 3 >= utf8_str.size())  // Error - unfinished character.
-            return result;
+        else if (ch >= 0xE0 && ch < 0xF0) {  // 3 byte character
+          continuation_bytes = 2;
+          character = ch & 0x0F;
+          min_character = 0x800;
+        }
+        else if (ch >= 0xF0 && ch < 0xF5) {  // 4 byte character
+          continuation_bytes = 3;
+          character = ch & 0x07;
+          min_character = 0x10000;
+        }
 
-          result.push_back(((ch & 0x07) << 18) | ((utf8_str[i + 1] & 0x3F) << 12) |
-                           ((utf8_str[i + 2] & 0x3F) << 6) | (utf8_str[i + 3] & 0x3F));
-          i += 3;
+        int read = 0;
+        while (read < continuation_bytes && i < utf8_str.size() &&
+               (static_cast<unsigned char>(utf8_str[i]) & 0xC0) == 0x80) {
+          character = (character << 6) | (utf8_str[i++] & 0x3F);
+          read++;
         }
-        else  // Error
-          return result;
+
+        if (continuation_bytes && read == continuation_bytes && character >= min_character &&
+            isValidCharacter(character))
+          result.push_back(character);
+        else
+          result.push_back(kReplacementCharacter);
       }
 
       return result;
@@ -74,7 +87,11 @@ namespace visage {
       std::string result;
       result.reserve(utf32_str.size() * 4);
 
-      for (auto character : utf32_str) {
+      for (auto value : utf32_str) {
+        char32_t character = static_cast<char32_t>(value);
+        if (!isValidCharacter(character))
+          character = kReplacementCharacter;
+
         if (character < 0x80)  // ASCII character
           result.push_back(static_cast<char>(character));
         else if (character < 0x800) {  // 2 byte character
@@ -86,14 +103,12 @@ namespace visage {
           result.push_back(static_cast<char>(((character >> 6) & 0x3F) | 0x80));
           result.push_back(static_cast<char>((character & 0x3F) | 0x80));
         }
-        else if (character < 0x110000) {  // 4 byte character
+        else {  // 4 byte character
           result.push_back(static_cast<char>((character >> 18) | 0xF0));
           result.push_back(static_cast<char>(((character >> 12) & 0x3F) | 0x80));
           result.push_back(static_cast<char>(((character >> 6) & 0x3F) | 0x80));
           result.push_back(static_cast<char>((character & 0x3F) | 0x80));
         }
-        else  // Error
-          return result;
       }
       return result;
     }
@@ -104,20 +119,18 @@ namespace visage {
       result.reserve(utf32_str.size());
 
       for (char32_t character : utf32_str) {
-        if (character <= 0xFFFF) {
-          if (character >= 0xD800 && character <= 0xDFFF)  // Error
-            return result;
+        if (!isValidCharacter(character))
+          character = kReplacementCharacter;
+
+        if (character < 0x10000)
           result.push_back(static_cast<char16_t>(character));
-        }
-        else if (character <= 0x10FFFF) {
+        else {
           character -= 0x10000;
           auto high_surrogate = static_cast<char16_t>((character >> 10) + 0xD800);
           auto low_surrogate = static_cast<char16_t>((character & 0x3FF) + 0xDC00);
           result.push_back(high_surrogate);
           result.push_back(low_surrogate);
         }
-        else  // Error
-          return result;
       }
       return result;
     }
@@ -129,21 +142,15 @@ namespace visage {
 
       for (size_t i = 0; i < utf16_str.size(); ++i) {
         char16_t ch = utf16_str[i];
+        bool high_surrogate = ch >= 0xD800 && ch <= 0xDBFF;
+        char16_t low_surrogate = i + 1 < utf16_str.size() ? utf16_str[i + 1] : 0;
 
-        if (ch >= 0xD800 && ch <= 0xDBFF) {  // 4 byte character
-          if (i + 1 >= utf16_str.size())  // Error - unfinished character
-            return result;
-
-          char16_t low_surrogate = utf16_str[++i];
-
-          if (low_surrogate < 0xDC00 || low_surrogate > 0xDFFF)  // Error - bad low surrogate
-            return result;
-
-          char32_t character = 0x10000 + ((ch - 0xD800) << 10) + (low_surrogate - 0xDC00);
-          result.push_back(character);
+        if (high_surrogate && low_surrogate >= 0xDC00 && low_surrogate <= 0xDFFF) {  // 4 byte character
+          result.push_back(0x10000 + ((ch - 0xD800) << 10) + (low_surrogate - 0xDC00));
+          ++i;
         }
-        else if (ch >= 0xDC00 && ch <= 0xDFFF)  // Error - missing high surrogate
-          return result;
+        else if (ch >= 0xD800 && ch <= 0xDFFF)
+          result.push_back(kReplacementCharacter);
         else  // 2 byte character
           result.push_back(static_cast<char32_t>(ch));
       }
@@ -187,6 +194,8 @@ namespace visage {
     static int naturalCompare(const String& a, const String& b);
     static int naturalCompare(const std::u32string& a, const std::u32string& b);
     static int naturalCompare(const std::string& a, const std::string& b);
+    static constexpr int kDecimalPlaces = 6;
+    static std::string formatDecimal(double value, int decimal_places = kDecimalPlaces);
 
     String() = default;
 
@@ -196,8 +205,6 @@ namespace visage {
     String(const char32_t* string) : string_(string) { }
     String(const wchar_t* string) : string_(convertToUtf32(string)) { }
     String(const char* string) : string_(convertToUtf32(string)) { }
-
-    String(const String& other) = default;
 
     explicit String(bool value) : String(value ? U"true" : U"false") { }
     String(char32_t character) { string_.push_back(character); }
@@ -213,17 +220,22 @@ namespace visage {
     String(unsigned long value) : String(std::to_string(value)) { }
     String(long long value) : String(std::to_string(value)) { }
     String(unsigned long long value) : String(std::to_string(value)) { }
-    String(float value) : String(std::to_string(value)) { removeTrailingZeros(); }
-    String(float value, int precision) : String(std::to_string(value)) {
+    String(float value) : String(formatDecimal(value)) { removeTrailingZeros(); }
+    String(float value, int precision) :
+        String(formatDecimal(value, precision > kDecimalPlaces ? precision : kDecimalPlaces)) {
       *this = withPrecision(precision);
     }
 
-    String(double value) : String(std::to_string(value)) { removeTrailingZeros(); }
-    String(double value, int precision) : String(std::to_string(value)) {
+    String(double value) : String(formatDecimal(value)) { removeTrailingZeros(); }
+    String(double value, int precision) :
+        String(formatDecimal(value, precision > kDecimalPlaces ? precision : kDecimalPlaces)) {
       *this = withPrecision(precision);
     }
 
     String withPrecision(int precision) const {
+      if (precision < 0)
+        return roundedToPowerOfTen(precision);
+
       size_t pos = find('.');
 
       if (pos == std::u32string::npos)
@@ -237,11 +249,13 @@ namespace visage {
           --pos;
           if (string_[pos] == '9')
             result[pos] = '0';
-          else if (string_[pos] != '.') {
+          else if (string_[pos] != '.' && string_[pos] != '-') {
             ++result[pos];
             carry = false;
           }
         }
+        if (carry && result[0] == '-')
+          return U"-1" + result.substr(1);
         if (carry)
           return U"1" + result;
 
@@ -275,14 +289,7 @@ namespace visage {
     String removeCharacters(const String& characters) const;
     String removeEmojiVariations() const;
 
-    float toFloat() const {
-      try {
-        return std::stof(toUtf8());
-      }
-      catch (...) {
-        return 0.0f;
-      }
-    }
+    float toFloat() const;
 
     int toInt() const {
       try {
@@ -399,6 +406,40 @@ namespace visage {
     }
 
   private:
+    String roundedToPowerOfTen(int precision) const {
+      size_t end = string_.find('.');
+      if (end == std::u32string::npos)
+        end = string_.length();
+      bool negative = end > 0 && string_[0] == '-';
+      size_t start = negative ? 1 : 0;
+      if (start == end)
+        return string_;
+      for (size_t i = start; i < end; ++i) {
+        if (string_[i] < '0' || string_[i] > '9')
+          return string_;
+      }
+
+      int digit_count = static_cast<int>(end - start);
+      if (precision < -digit_count)
+        return U"0";
+
+      int zeros = -precision;
+      std::u32string digits = std::u32string(zeros, '0') + string_.substr(start, end - start);
+      size_t keep = digits.length() - zeros;
+      bool carry = digits[keep] >= '5';
+      std::u32string result = digits.substr(0, keep);
+      for (size_t i = keep; i > 0 && carry; --i) {
+        carry = result[i - 1] == '9';
+        result[i - 1] = carry ? '0' : result[i - 1] + 1;
+      }
+      result += std::u32string(zeros, '0');
+
+      size_t first_digit = result.find_first_not_of('0');
+      if (first_digit == std::u32string::npos)
+        return U"0";
+      return (negative ? U"-" : U"") + result.substr(first_digit);
+    }
+
     std::u32string string_;
   };
 

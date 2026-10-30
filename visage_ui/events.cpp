@@ -25,6 +25,10 @@
 #include "visage_utils/time_utils.h"
 
 namespace visage {
+  EventManager& EventManager::instance() {
+    static EventManager instance;
+    return instance;
+  }
 
   EventTimer::~EventTimer() {
     if (isRunning())
@@ -50,7 +54,7 @@ namespace visage {
     }
   }
 
-  inline bool EventTimer::checkTimer(long long current_time) {
+  bool EventTimer::checkTimer(long long current_time) {
     VISAGE_ASSERT(isRunning());
 
     if (current_time - last_run_time_ >= ms_) {
@@ -86,8 +90,10 @@ namespace visage {
       callbacks.swap(callbacks_);
     }
 
-    for (auto timer : timers)
-      timer->checkTimer(current_time);
+    for (auto timer : timers) {
+      if (std::find(timers_.begin(), timers_.end(), timer) != timers_.end())
+        timer->checkTimer(current_time);
+    }
 
     for (auto& callback : callbacks)
       callback();

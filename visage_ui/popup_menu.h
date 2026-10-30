@@ -27,6 +27,8 @@
 #include "visage_graphics/font.h"
 
 #include <climits>
+#include <memory>
+#include <vector>
 
 namespace visage {
   class PopupMenu;
@@ -158,6 +160,7 @@ namespace visage {
     void addListener(Listener* listener) { listeners_.push_back(listener); }
     void resetOpenMenu() { menu_open_index_ = -1; }
     void setOpenMenu(int index) { menu_open_index_ = index; }
+    int openMenuIndex() const { return menu_open_index_; }
     void setOpacity(float opacity) {
       opacity_ = opacity;
       redraw();
@@ -177,7 +180,6 @@ namespace visage {
                          public PopupList::Listener,
                          public EventTimer {
   public:
-    static constexpr int kMaxSubMenus = 4;
     static constexpr int kWaitForSelection = 20;
     static constexpr int kPauseMs = 400;
 
@@ -193,10 +195,12 @@ namespace visage {
     }
     void setListFonts(const Font& font) {
       for (auto& list : lists_)
-        list.setFont(font);
+        list->setFont(font);
     }
 
     void exit();
+    void mouseDrag(const MouseEvent& e) override;
+    void mouseUp(const MouseEvent& e) override;
     void hierarchyChanged() override;
     void focusChanged(bool is_focused, bool was_clicked) override;
     void visibilityChanged() override { opacity_animation_.target(isVisible(), true); }
@@ -211,11 +215,19 @@ namespace visage {
     float opacity() const { return opacity_animation_.value(); }
 
   private:
+    PopupList& popupList(int index);
+    int listIndex(const PopupList* list) const;
+    Frame* keyboardFocusedFrame() const;
+
     PopupMenu menu_;
-    Frame* parent_ = nullptr;
+    Frame* top_parent_ = nullptr;
+    Frame* previous_focus_ = nullptr;
+    std::weak_ptr<bool> previous_focus_alive_;
     bool done_ = false;
+    bool mouse_up_enabled_ = false;
+    bool dragged_onto_menu_ = false;
     Animation<float> opacity_animation_;
-    PopupList lists_[kMaxSubMenus];
+    std::vector<std::unique_ptr<PopupList>> lists_;
     int hover_index_ = -1;
     Font font_;
     PopupList* hover_list_ = nullptr;

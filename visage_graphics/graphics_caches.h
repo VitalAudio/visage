@@ -31,16 +31,13 @@ namespace visage {
 
   class ShaderCache {
   public:
-    static ShaderCache* instance() {
-      static ShaderCache cache;
-      return &cache;
-    }
+    static ShaderCache* instance();
 
-    static bgfx::ShaderHandle& shaderHandle(const EmbeddedFile& file) {
+    static gpu::ShaderHandle& shaderHandle(const EmbeddedFile& file) {
       return instance()->handle(file);
     }
 
-    static bgfx::ShaderHandle& shaderHandle(const char* data) { return instance()->handle(data); }
+    static gpu::ShaderHandle& shaderHandle(const char* data) { return instance()->handle(data); }
 
     static bool swapShader(const EmbeddedFile& file, const char* data, int size) {
       return instance()->swap(file, data, size);
@@ -56,12 +53,16 @@ namespace visage {
       return instance()->shaderData(name);
     }
 
+    static void release() { instance()->releaseHandles(); }
+
   private:
     ShaderCache();
     ~ShaderCache();
 
-    bgfx::ShaderHandle& handle(const EmbeddedFile& file) const;
-    bgfx::ShaderHandle& handle(const char* data) const;
+    void releaseHandles();
+
+    gpu::ShaderHandle& handle(const EmbeddedFile& file) const;
+    gpu::ShaderHandle& handle(const char* data) const;
     bool swap(const char* original_data, const char* data, int size) const;
     bool swap(const EmbeddedFile& file, const char* data, int size) const;
     bool swap(const std::string& name, const char* data, int size) const;
@@ -78,12 +79,9 @@ namespace visage {
       EmbeddedFile fragment;
     };
 
-    static ProgramCache* instance() {
-      static ProgramCache cache;
-      return &cache;
-    }
+    static ProgramCache* instance();
 
-    static bgfx::ProgramHandle& programHandle(const EmbeddedFile& vertex, const EmbeddedFile& fragment) {
+    static gpu::ProgramHandle& programHandle(const EmbeddedFile& vertex, const EmbeddedFile& fragment) {
       return instance()->handle(vertex, fragment);
     }
 
@@ -104,14 +102,17 @@ namespace visage {
     }
 
     static std::vector<ShaderPair> programList() { return instance()->listPrograms(); }
+    static void release() { instance()->releaseHandles(); }
 
   private:
     ProgramCache();
     ~ProgramCache();
 
+    void releaseHandles();
+
     std::vector<ShaderPair> listPrograms() const;
 
-    bgfx::ProgramHandle& handle(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const;
+    gpu::ProgramHandle& handle(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const;
     void reload(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const;
     void reloadAll(const char* shader_data) const;
     void reloadAll(const std::string& shader_name) const;
@@ -130,20 +131,21 @@ namespace visage {
       Mat4,
     };
 
-    static UniformCache* instance() {
-      static UniformCache cache;
-      return &cache;
-    }
+    static UniformCache* instance();
 
-    static bgfx::UniformHandle& uniformHandle(const char* name, Type type = Vec4) {
+    static gpu::UniformHandle& uniformHandle(const char* name, Type type = Vec4) {
       return instance()->handle(name, type);
     }
+
+    static void release() { instance()->releaseHandles(); }
 
   private:
     UniformCache();
     ~UniformCache();
 
-    bgfx::UniformHandle& handle(const char* name, Type type, int size = 1) const;
+    void releaseHandles();
+
+    gpu::UniformHandle& handle(const char* name, Type type, int size = 1) const;
 
     std::unique_ptr<UniformCacheMap> cache_;
   };

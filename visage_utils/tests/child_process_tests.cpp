@@ -28,9 +28,26 @@
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <csignal>
+#include <filesystem>
+#include <fstream>
 #include <thread>
 
+#if VISAGE_WINDOWS
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
+
 using namespace visage;
+
+static std::filesystem::path uniqueTempPath(const std::string& name) {
+#if VISAGE_WINDOWS
+  int pid = _getpid();
+#else
+  int pid = getpid();
+#endif
+  return std::filesystem::temp_directory_path() / (std::to_string(pid) + "_" + name);
+}
 
 TEST_CASE("Child process doesn't exist", "[utils]") {
   std::string command = "asdfjkasdfjkabjbizkejzvbieizieizeiezize";
@@ -56,7 +73,7 @@ TEST_CASE("Echo child process", "[utils]") {
 TEST_CASE("Child process timeout", "[utils]") {
 #if VISAGE_WINDOWS
   std::string command = "cmd.exe";
-  std::string argument = "/C timeout /t 2 /nobreak";
+  std::string argument = "/C ping -n 3 127.0.0.1";
 #else
   std::string command = "/bin/sleep";
   std::string argument = "2";
@@ -69,6 +86,24 @@ TEST_CASE("Child process timeout", "[utils]") {
 
   REQUIRE(elapsed >= std::chrono::milliseconds(90));
 }
+
+#if !VISAGE_WINDOWS
+TEST_CASE("Child process timeout kills a child that ignores termination", "[utils]") {
+  std::filesystem::path script = uniqueTempPath("visage_ignore_term.sh");
+  {
+    std::ofstream file(script);
+    file << "trap '' TERM\nwhile :; do :; done\n";
+  }
+
+  std::string output;
+  auto start = std::chrono::steady_clock::now();
+  REQUIRE_FALSE(spawnChildProcess("/bin/sh", script.string(), output, 100));
+  auto elapsed = std::chrono::steady_clock::now() - start;
+  std::filesystem::remove(script);
+
+  REQUIRE(elapsed < std::chrono::seconds(2));
+}
+#endif
 
 TEST_CASE("Child process with multiple arguments", "[utils]") {
 #if VISAGE_WINDOWS
@@ -107,16 +142,12 @@ TEST_CASE("Child process with stderr output", "[utils]") {
   REQUIRE(spawnChildProcess(command, argument, output, 1000));
   REQUIRE(String(output).trim().toUtf8() == "error message");
 #else
-  std::string command = "python3";
-  std::string argument = "-c import sys; sys.stderr.write('error message\\n')";
+  std::string command = "/bin/sh";
+  std::string argument = "-c \"echo error message 1>&2\"";
 
   std::string output;
-  if (spawnChildProcess(command, argument, output, 1000)) {
-    REQUIRE(String(output).trim().toUtf8() == "error message");
-  }
-  else {
-    REQUIRE(true);
-  }
+  REQUIRE(spawnChildProcess(command, argument, output, 1000));
+  REQUIRE(String(output).trim().toUtf8() == "error message");
 #endif
 }
 
@@ -165,6 +196,85 @@ TEST_CASE("Child process with spaces in arguments", "[utils]") {
   REQUIRE(String(output).trim().toUtf8() == "hello world test");
 }
 
+#if !VISAGE_WINDOWS
+TEST_CASE("Child process with quoted arguments", "[utils]") {
+  std::string output;
+  REQUIRE(spawnChildProcess("/usr/bin/printf", R"([%s] "two  words"  plain "a \"quote\"" "" a\b)",
+                            output, 1000));
+  REQUIRE(output == R"([two  words][plain][a "quote"][][a\b])");
+}
+
+TEST_CASE("Child process with a quoted path containing spaces", "[utils]") {
+  std::filesystem::path path = uniqueTempPath("visage child process test.txt");
+  {
+    std::ofstream file(path);
+    file << "contents";
+  }
+
+  std::string output;
+  bool result = spawnChildProcess("/bin/cat", "\"" + path.string() + "\"", output, 1000);
+  std::filesystem::remove(path);
+
+  REQUIRE(result);
+  REQUIRE(output == "contents");
+}
+
+TEST_CASE("Child process searches the path for commands", "[utils]") {
+  std::string output;
+  REQUIRE(spawnChildProcess("echo", "found", output, 1000));
+  REQUIRE(String(output).trim().toUtf8() == "found");
+}
+
+TEST_CASE("Child process inherits the environment", "[utils]") {
+  setenv("VISAGE_CHILD_PROCESS_TEST", "inherited", 1);
+  std::string output;
+  bool result = spawnChildProcess("/bin/sh", "-c \"echo $VISAGE_CHILD_PROCESS_TEST\"", output, 1000);
+  unsetenv("VISAGE_CHILD_PROCESS_TEST");
+
+  REQUIRE(result);
+  REQUIRE(String(output).trim().toUtf8() == "inherited");
+}
+#else
+TEST_CASE("Child process command path containing spaces", "[utils]") {
+  std::filesystem::path directory = uniqueTempPath("visage_child_process");
+  std::filesystem::path command = directory / "decoy dir" / "cmd.exe";
+  std::filesystem::create_directories(command.parent_path());
+
+  const char* com_spec = std::getenv("ComSpec");
+  const char* system_root = std::getenv("SystemRoot");
+  REQUIRE(com_spec);
+  REQUIRE(system_root);
+  auto overwrite = std::filesystem::copy_options::overwrite_existing;
+  std::filesystem::copy_file(com_spec, command, overwrite);
+  std::filesystem::copy_file(std::filesystem::path(system_root) / "System32" / "hostname.exe",
+                             directory / "decoy.exe", overwrite);
+
+  std::string output;
+  bool result = spawnChildProcess(String::convertToUtf8(command.wstring()), "/C echo found", output, 10000);
+  std::filesystem::remove_all(directory);
+
+  REQUIRE(result);
+  REQUIRE(String(output).trim().toUtf8() == "found");
+}
+
+TEST_CASE("Child process command path outside the ANSI code page", "[utils]") {
+  std::filesystem::path directory = uniqueTempPath("visage_child_process_unicode");
+  std::filesystem::path command = directory / std::filesystem::u8path("\xe6\x96\x87\xe4\xbb\xb6") / "cmd.exe";
+  std::filesystem::create_directories(command.parent_path());
+
+  const char* com_spec = std::getenv("ComSpec");
+  REQUIRE(com_spec);
+  std::filesystem::copy_file(com_spec, command, std::filesystem::copy_options::overwrite_existing);
+
+  std::string output;
+  bool result = spawnChildProcess(String::convertToUtf8(command.wstring()), "/C echo found", output, 10000);
+  std::filesystem::remove_all(directory);
+
+  REQUIRE(result);
+  REQUIRE(String(output).trim().toUtf8() == "found");
+}
+#endif
+
 TEST_CASE("Child process immediate completion", "[utils]") {
 #if VISAGE_WINDOWS
   std::string command = "cmd.exe";
@@ -205,18 +315,15 @@ TEST_CASE("Child process with mixed stdout and stderr", "[utils]") {
   REQUIRE(trimmed.find("stdout") != std::string::npos);
   REQUIRE(trimmed.find("stderr") != std::string::npos);
 #else
-  std::string command = "python3";
-  std::string argument = "-c import sys; print('stdout'); sys.stderr.write('stderr\\n')";
+  std::string command = "/bin/sh";
+  std::string argument = "-c \"echo stdout; echo stderr 1>&2\"";
 
   std::string output;
-  if (spawnChildProcess(command, argument, output, 1000)) {
-    std::string trimmed = String(output).trim().toUtf8();
-    REQUIRE(trimmed.find("stdout") != std::string::npos);
-    REQUIRE(trimmed.find("stderr") != std::string::npos);
-  }
-  else {
-    REQUIRE(true);
-  }
+  REQUIRE(spawnChildProcess(command, argument, output, 1000));
+
+  std::string trimmed = String(output).trim().toUtf8();
+  REQUIRE(trimmed.find("stdout") != std::string::npos);
+  REQUIRE(trimmed.find("stderr") != std::string::npos);
 #endif
 }
 

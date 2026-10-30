@@ -29,37 +29,34 @@
 #include <string>
 #include <vector>
 
-namespace bgfx {
-  struct VertexLayout;
+namespace visage::gpu {
+  class VertexLayout;
   struct TextureHandle;
+  struct FrameBufferHandle;
+  struct BufferHandle;
   struct ShaderHandle;
   struct ProgramHandle;
   struct UniformHandle;
-  struct IndexBufferHandle;
-  struct FrameBufferHandle;
-  struct TransientIndexBuffer;
-  struct TransientVertexBuffer;
 }
 
 namespace visage {
   enum class BlendMode {
     Opaque,
-    Composite,
     Alpha,
     Add,
     Sub,
     Mult,
     MaskAdd,
     MaskRemove,
+    MaskMult,
   };
 
-  static constexpr float kHdrColorRange = 4.0f;
-  static constexpr float kHdrColorMultiplier = 1.0f / kHdrColorRange;
   static constexpr int kVerticesPerQuad = 4;
   static constexpr int kIndicesPerQuad = 6;
 
   bool preprocessWebGlShader(std::string& result, const std::string& code,
                              const std::string& utils_source, const std::string& varying_source);
+  bool readFloat(const std::string& string, float& result, size_t* number_end = nullptr);
 
   const uint16_t kQuadTriangles[] = {
     0, 1, 2, 2, 1, 3,
@@ -80,6 +77,8 @@ namespace visage {
     int right;
     int bottom;
   };
+
+  int maxTextureDimension();
 
   class AtlasPacker {
   public:
@@ -125,8 +124,6 @@ namespace visage {
     }
 
     void pack(int start_width = kDefaultWidth, int start_height = kDefaultWidth) {
-      static constexpr int kMaxDimension = 1 << 14;
-
       checkRemovedRects();
       if (packed_rects_.size() == 1) {
         width_ = std::max(1, packed_rects_[0].w + packer_.padding());
@@ -135,19 +132,21 @@ namespace visage {
           VISAGE_ASSERT(false);
       }
       else if (!packed_rects_.empty()) {
-        width_ = std::max(kDefaultWidth, start_width);
-        height_ = std::max(kDefaultWidth, start_height);
+        int max_dimension = maxTextureDimension();
+        width_ = fixed_width_ ? fixed_width_ :
+                                std::min(max_dimension, std::max(kDefaultWidth, start_width));
+        height_ = std::min(max_dimension, std::max(kDefaultWidth, start_height));
 
-        while (width_ < kMaxDimension * 2 || height_ < kMaxDimension * 2) {
-          width_ = fixed_width_ ? fixed_width_ : std::min(kMaxDimension, width_);
-          height_ = std::min(kMaxDimension, height_);
-          if (packer_.pack(packed_rects_, width_, height_))
+        while (!packer_.pack(packed_rects_, width_, height_)) {
+          if (!fixed_width_ && width_ <= height_ && width_ < max_dimension)
+            width_ = std::min(max_dimension, width_ * 2);
+          else if (height_ < max_dimension)
+            height_ = std::min(max_dimension, height_ * 2);
+          else {
+            VISAGE_ASSERT(false);
             return;
-
-          width_ *= 2;
-          height_ *= 2;
+          }
         }
-        VISAGE_ASSERT(false);
       }
     }
 
@@ -221,20 +220,7 @@ namespace visage {
     float u;
     float v;
 
-    static bgfx::VertexLayout& layout();
-  };
-
-  struct PathVertex {
-    float index;
-    float direction;
-    float x1;
-    float y1;
-    float x2;
-    float y2;
-    float x3;
-    float y3;
-
-    static bgfx::VertexLayout& layout();
+    static gpu::VertexLayout& layout();
   };
 
   struct GradientTexturePosition {
@@ -278,7 +264,7 @@ namespace visage {
     float value1;
     float value2;
 
-    static bgfx::VertexLayout& layout();
+    static gpu::VertexLayout& layout();
   };
 
   struct ComplexShapeVertex {
@@ -305,7 +291,7 @@ namespace visage {
     float value5;
     float value6;
 
-    static bgfx::VertexLayout& layout();
+    static gpu::VertexLayout& layout();
   };
 
   struct TextureVertex {
@@ -324,7 +310,7 @@ namespace visage {
     float clamp_right;
     float clamp_bottom;
 
-    static bgfx::VertexLayout& layout();
+    static gpu::VertexLayout& layout();
   };
 
   struct PostEffectVertex {
@@ -343,6 +329,6 @@ namespace visage {
     float clamp_right;
     float clamp_bottom;
 
-    static bgfx::VertexLayout& layout();
+    static gpu::VertexLayout& layout();
   };
 }

@@ -22,6 +22,7 @@
 #include "visage_ui/scroll_bar.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <thread>
 
 using namespace visage;
 
@@ -68,6 +69,27 @@ TEST_CASE("ScrollBar position and view management", "[ui]") {
   }
 }
 
+TEST_CASE("ScrollBar keeps fractional ranges and positions", "[ui]") {
+  ScrollBar scroll_bar;
+  scroll_bar.setViewPosition(100.5f, 100.25f, 0.25f);
+  REQUIRE(scroll_bar.viewRange() == 100.5f);
+  REQUIRE(scroll_bar.viewHeight() == 100.25f);
+  REQUIRE_FALSE(scroll_bar.ignoresMouseEvents());
+
+  ScrollBar dragged;
+  dragged.setBounds(0, 0, 20, 200);
+  dragged.setViewPosition(300.0f, 100.0f, 0.0f);
+  float scrolled = 0.0f;
+  dragged.addScrollCallback([&scrolled](float position) { scrolled = position; });
+
+  MouseEvent event;
+  event.position = { 10.0f, 10.0f };
+  dragged.mouseDown(event);
+  event.position = { 10.0f, 11.0f };
+  dragged.mouseDrag(event);
+  REQUIRE(scrolled == 1.5f);
+}
+
 TEST_CASE("ScrollBar mouse events", "[ui]") {
   ScrollBar scroll_bar;
   scroll_bar.setBounds(0, 0, 20, 100);
@@ -99,6 +121,23 @@ TEST_CASE("ScrollBar mouse events", "[ui]") {
     event.relative_position = { 10, 60 };
     scroll_bar.mouseDrag(event);
   }
+}
+
+TEST_CASE("ScrollBar drag keeps fractional mouse movement", "[ui]") {
+  ScrollBar scroll_bar;
+  scroll_bar.setBounds(0, 0, 20, 200);
+  scroll_bar.setViewPosition(400, 200, 0);
+  float scrolled = 0.0f;
+  scroll_bar.addScrollCallback([&scrolled](float position) { scrolled = position; });
+
+  MouseEvent event;
+  event.position = { 10.0f, 10.5f };
+  scroll_bar.mouseDown(event);
+  for (float y : { 11.0f, 11.5f, 12.0f }) {
+    event.position = { 10.0f, y };
+    scroll_bar.mouseDrag(event);
+  }
+  REQUIRE(scrolled == 3.0f);
 }
 
 TEST_CASE("ScrollBar resize handling", "[ui]") {
@@ -155,6 +194,15 @@ TEST_CASE("ScrollableFrame scroll operations", "[ui]") {
     REQUIRE(scrollable_frame.yPosition() > 50);
   }
 
+  SECTION("Scroll down at bottom boundary") {
+    scrollable_frame.setScrollableHeight(400, 200);
+    scrollable_frame.setYPosition(190);
+    scrollable_frame.scrollDown();
+    REQUIRE(scrollable_frame.yPosition() == 200);
+    scrollable_frame.scrollDown();
+    REQUIRE(scrollable_frame.yPosition() == 200);
+  }
+
   SECTION("Scroll up at top boundary") {
     scrollable_frame.setScrollableHeight(400, 200);
     scrollable_frame.setYPosition(0);
@@ -176,6 +224,11 @@ TEST_CASE("ScrollableFrame scrollable children", "[ui]") {
 
   SECTION("Adding scrolled child with visibility control") {
     scrollable_frame.addScrolledChild(&child_frame, false);
+    REQUIRE_FALSE(child_frame.isVisible());
+  }
+
+  SECTION("Adding scrolled child by reference with visibility control") {
+    scrollable_frame.addScrolledChild(child_frame, false);
     REQUIRE_FALSE(child_frame.isVisible());
   }
 }
@@ -300,4 +353,47 @@ TEST_CASE("ScrollableFrame scroll bar access", "[ui]") {
     ScrollBar& scroll_bar = scrollable_frame.scrollBar();
     scroll_bar.setRounding(10.0f);
   }
+}
+
+TEST_CASE("ScrollableFrame smooth scrolling", "[ui]") {
+  MouseEvent wheel_event;
+  wheel_event.precise_wheel_delta_y = -1.0f;
+
+  SECTION("Reaches the target position") {
+    ScrollableFrame scrollable_frame;
+    scrollable_frame.setBounds(0, 0, 100, 200);
+    scrollable_frame.setScrollableHeight(400, 200);
+    scrollable_frame.setSmoothTime(0.01f);
+    REQUIRE(scrollable_frame.mouseWheel(wheel_event));
+
+    for (int i = 0; i < 100 && scrollable_frame.yPosition() != 100.0f; ++i) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      EventManager::instance().checkEventTimers();
+    }
+    REQUIRE(scrollable_frame.yPosition() == 100.0f);
+  }
+
+  SECTION("Deleted while scrolling") {
+    auto scrollable_frame = std::make_unique<ScrollableFrame>();
+    scrollable_frame->setBounds(0, 0, 100, 200);
+    scrollable_frame->setScrollableHeight(400, 200);
+    REQUIRE(scrollable_frame->mouseWheel(wheel_event));
+
+    scrollable_frame = nullptr;
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    EventManager::instance().checkEventTimers();
+  }
+}
+
+TEST_CASE("ScrollableFrame destroyed with scrolled children", "[ui]") {
+  auto scrollable_frame = std::make_unique<ScrollableFrame>();
+  scrollable_frame->setBounds(0, 0, 100, 200);
+  auto child = std::make_unique<Frame>();
+  child->setBounds(0, 0, 100, 400);
+  scrollable_frame->addScrolledChild(std::move(child));
+
+  int scroll_count = 0;
+  scrollable_frame->onScroll() += [&](ScrollableFrame*) { scroll_count++; };
+  scrollable_frame = nullptr;
+  REQUIRE(scroll_count == 0);
 }

@@ -99,9 +99,6 @@ namespace visage {
   }
 
   TextEditor::TextEditor(const std::string& name) : ScrollableFrame(name) {
-    undo_history_.reserve(kMaxUndoHistory);
-    undone_history_.reserve(kMaxUndoHistory);
-
     setAcceptsKeystrokes(true);
     text_.setFont(Font(10, fonts::Lato_Regular_ttf, 1.0f));
     default_text_.setFont(Font(10, fonts::Lato_Regular_ttf, 1.0f));
@@ -232,7 +229,7 @@ namespace visage {
   std::pair<int, int> TextEditor::lineRange(int line) const {
     int start_index = 0;
     int end_index = textLength();
-    line = std::max(line, 0);
+    line = std::max(0, std::min<int>(line, line_breaks_.size()));
 
     if (line > 0)
       start_index = line_breaks_[line - 1];
@@ -263,7 +260,10 @@ namespace visage {
 
     int index = font().widthOverflowIndex(text_.text().c_str() + range.first, range.second - range.first,
                                           position.first - line_x, true, text_.characterOverride());
-    return std::min(range.first + index, range.second);
+    int max_index = range.second;
+    if (line < line_breaks_.size() && max_index == line_breaks_[line])
+      max_index = std::max(range.first, max_index - 1);
+    return std::min(range.first + index, max_index);
   }
 
   bool TextEditor::enterPressed() {
@@ -301,6 +301,9 @@ namespace visage {
   }
 
   void TextEditor::deleteSelected() {
+    if (selectionStart() == selectionEnd())
+      return;
+
     undone_history_.clear();
 
     if (action_state_ != kDeleting)
@@ -384,7 +387,11 @@ namespace visage {
   }
 
   int TextEditor::beginningOfWord() const {
-    int index = caret_position_ - 1;
+    int index = caret_position_;
+    while (index > 0 && isWhiteSpace(text_.text()[index - 1]))
+      --index;
+
+    --index;
     while (index > 0 && isVariableCharacter(text_.text()[index - 1]))
       --index;
     return std::max(0, index);
@@ -392,7 +399,11 @@ namespace visage {
 
   int TextEditor::endOfWord() const {
     int string_length = textLength();
-    int index = caret_position_ + 1;
+    int index = caret_position_;
+    while (index < string_length && isWhiteSpace(text_.text()[index]))
+      ++index;
+
+    ++index;
     while (index < string_length && isVariableCharacter(text_.text()[index]))
       ++index;
     return std::min(string_length, index);
@@ -460,45 +471,64 @@ namespace visage {
   }
 
   bool TextEditor::handleDeadKey(const KeyEvent& key) {
+    DeadKey dead_key = DeadKey::None;
+    char32_t accent = 0;
     switch (key.key_code) {
     case KeyCode::E:
-      insertTextAtCaret(kAcuteAccentCharacter);
-      dead_key_entry_ = DeadKey::AcuteAccent;
+      dead_key = DeadKey::AcuteAccent;
+      accent = kAcuteAccentCharacter;
       break;
     case KeyCode::Grave:
-      insertTextAtCaret(kGraveAccentCharacter);
-      dead_key_entry_ = DeadKey::GraveAccent;
+      dead_key = DeadKey::GraveAccent;
+      accent = kGraveAccentCharacter;
       break;
     case KeyCode::N:
-      insertTextAtCaret(kTildeCharacter);
-      dead_key_entry_ = DeadKey::Tilde;
+      dead_key = DeadKey::Tilde;
+      accent = kTildeCharacter;
       break;
     case KeyCode::U:
-      insertTextAtCaret(kUmlautCharacter);
-      dead_key_entry_ = DeadKey::Umlaut;
+      dead_key = DeadKey::Umlaut;
+      accent = kUmlautCharacter;
       break;
     case KeyCode::I:
-      insertTextAtCaret(kCircumflexCharacter);
-      dead_key_entry_ = DeadKey::Circumflex;
+      dead_key = DeadKey::Circumflex;
+      accent = kCircumflexCharacter;
       break;
-    default: dead_key_entry_ = DeadKey::None; break;
-    }
-    if (dead_key_entry_ != DeadKey::None) {
-      selection_position_ = caret_position_ - 1;
-      makeCaretVisible();
+    default: dead_key_entry_ = DeadKey::None; return false;
     }
 
-    return dead_key_entry_ != DeadKey::None;
+    if (insertTextAtCaret(accent) == 0)
+      return false;
+
+    dead_key_entry_ = dead_key;
+    selection_position_ = caret_position_ - 1;
+    makeCaretVisible();
+    return true;
   }
 
-  bool TextEditor::keyPress(const KeyEvent& key) {
+  bool TextEditor::handleKeyPress(const KeyEvent& key) {
     redraw();
 
     bool modifier = key.isMainModifier();
     if (key.isAltDown()) {
-      if (!modifier)
+#if VISAGE_MAC || VISAGE_EMSCRIPTEN
+      if (modifier)
+        return false;
+
+      if (key.keyCode() == KeyCode::Left)
+        return moveCaretLeft(true, key.isShiftDown());
+      if (key.keyCode() == KeyCode::Right)
+        return moveCaretRight(true, key.isShiftDown());
+      if (key.keyCode() == KeyCode::Backspace)
+        return deleteBackwards(true);
+      if (key.keyCode() == KeyCode::Delete)
+        return deleteForwards(true);
+      if (active_)
         handleDeadKey(key);
-      return !modifier;
+      return true;
+#else
+      return false;
+#endif
     }
 
     KeyCode code = key.keyCode();
@@ -587,8 +617,21 @@ namespace visage {
     return key.modifierMask() == 0 || key.modifierMask() == kModifierShift;
   }
 
+  bool TextEditor::keyPress(const KeyEvent& key) {
+    std::weak_ptr<bool> alive = aliveToken();
+    bool used = handleKeyPress(key);
+    if (alive.expired() || !hasKeyboardFocus())
+      return used;
+
+    if (used)
+      consumed_keys_.insert(key.keyCode());
+    else
+      consumed_keys_.erase(key.keyCode());
+    return used;
+  }
+
   bool TextEditor::keyRelease(const KeyEvent& key) {
-    return active_;
+    return consumed_keys_.erase(key.keyCode()) > 0;
   }
 
   String TextEditor::translateDeadKeyText(const String& text) const {
@@ -619,6 +662,7 @@ namespace visage {
   void TextEditor::focusChanged(bool is_focused, bool was_clicked) {
     redraw();
     if (!is_focused) {
+      consumed_keys_.clear();
       if (dead_key_entry_ != DeadKey::None) {
         dead_key_entry_ = DeadKey::None;
         selection_position_ = caret_position_;
@@ -767,6 +811,9 @@ namespace visage {
   }
 
   bool TextEditor::pasteFromClipboard() {
+    if (!active_)
+      return false;
+
     addUndoPosition();
     action_state_ = kInserting;
     insertTextAtCaret(readClipboardText());
@@ -774,6 +821,9 @@ namespace visage {
   }
 
   bool TextEditor::deleteBackwards(bool modifier) {
+    if (!active_)
+      return false;
+
     if (caret_position_ == selection_position_) {
       if (modifier)
         selection_position_ = beginningOfWord();
@@ -786,6 +836,9 @@ namespace visage {
   }
 
   bool TextEditor::deleteForwards(bool modifier) {
+    if (!active_)
+      return false;
+
     if (caret_position_ == selection_position_) {
       if (modifier)
         selection_position_ = endOfWord();
@@ -805,6 +858,9 @@ namespace visage {
   }
 
   bool TextEditor::undo() {
+    if (!active_)
+      return false;
+
     if (undo_history_.empty())
       return true;
 
@@ -822,8 +878,11 @@ namespace visage {
   }
 
   bool TextEditor::redo() {
-    if (undone_history_.empty())
+    if (!active_)
       return false;
+
+    if (undone_history_.empty())
+      return true;
 
     addUndoPosition();
     std::pair<String, int> state = undone_history_.back();
@@ -837,7 +896,7 @@ namespace visage {
     return true;
   }
 
-  void TextEditor::insertTextAtCaret(const String& insert_text) {
+  int TextEditor::insertTextAtCaret(const String& insert_text) {
     undone_history_.clear();
     String text = translateDeadKeyText(insert_text);
     if (dead_key_entry_ != DeadKey::None && text == insert_text)
@@ -846,6 +905,8 @@ namespace visage {
     dead_key_entry_ = DeadKey::None;
     if (!filtered_characters_.empty())
       text = text.removeCharacters(filtered_characters_);
+    if (!text_.multiLine())
+      text = text.removeCharacters("\r\n");
     text = text.removeEmojiVariations();
 
     if (action_state_ != kInserting)
@@ -865,8 +926,11 @@ namespace visage {
     selection_position_ = caret_position_;
     makeCaretVisible();
 
+    std::weak_ptr<bool> alive = aliveToken();
     on_text_change_.callback();
-    redraw();
+    if (!alive.expired())
+      redraw();
+    return max_text;
   }
 
   void TextEditor::setNumberEntry() {

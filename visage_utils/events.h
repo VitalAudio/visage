@@ -44,6 +44,7 @@ namespace visage {
     IBeam,
     Crosshair,
     Pointing,
+    Drag,
     Dragging,
     HorizontalResize,
     VerticalResize,
@@ -326,6 +327,40 @@ namespace visage {
     return key_code != KeyCode::Unknown && (static_cast<int>(key_code) & kUnprintableKeycodeMask) == 0;
   }
 
+  class CallbackConnection {
+  public:
+    CallbackConnection() = default;
+    CallbackConnection(std::weak_ptr<bool> list_alive, std::function<void()> remove) :
+        list_alive_(std::move(list_alive)), remove_(std::move(remove)) { }
+
+    CallbackConnection(const CallbackConnection&) = delete;
+    CallbackConnection& operator=(const CallbackConnection&) = delete;
+
+    CallbackConnection(CallbackConnection&& other) noexcept { *this = std::move(other); }
+
+    CallbackConnection& operator=(CallbackConnection&& other) noexcept {
+      disconnect();
+      list_alive_ = std::move(other.list_alive_);
+      remove_ = std::move(other.remove_);
+      other.list_alive_.reset();
+      other.remove_ = nullptr;
+      return *this;
+    }
+
+    ~CallbackConnection() { disconnect(); }
+
+    void disconnect() {
+      if (remove_ && !list_alive_.expired())
+        remove_();
+      list_alive_.reset();
+      remove_ = nullptr;
+    }
+
+  private:
+    std::weak_ptr<bool> list_alive_;
+    std::function<void()> remove_;
+  };
+
   template<typename T>
   class CallbackList {
   public:
@@ -344,19 +379,40 @@ namespace visage {
       add(callback);
     }
 
-    CallbackList(const CallbackList& other) = default;
-    CallbackList& operator=(const CallbackList& other) = default;
+    CallbackList(const CallbackList& other) :
+        original_(other.original_), callbacks_(other.callbacks_), next_id_(other.next_id_) { }
 
-    void add(std::function<T> callback) { callbacks_.push_back(std::move(callback)); }
+    CallbackList& operator=(const CallbackList& other) {
+      if (this != &other) {
+        original_ = other.original_;
+        callbacks_ = other.callbacks_;
+        next_id_ = other.next_id_;
+        alive_ = nullptr;
+      }
+      return *this;
+    }
+
+    int add(std::function<T> callback) {
+      int id = next_id_++;
+      mutableCallbacks().push_back({ id, std::move(callback) });
+      return id;
+    }
 
     CallbackList& operator+=(std::function<T> callback) {
       add(callback);
       return *this;
     }
 
-    void set(std::function<T> callback) {
-      callbacks_.clear();
-      callbacks_.push_back(std::move(callback));
+    CallbackConnection connect(std::function<T> callback) {
+      int id = add(std::move(callback));
+      if (alive_ == nullptr)
+        alive_ = std::make_shared<bool>(true);
+      return CallbackConnection(alive_, [this, id] { remove(id); });
+    }
+
+    int set(std::function<T> callback) {
+      mutableCallbacks().clear();
+      return add(std::move(callback));
     }
 
     CallbackList& operator=(const std::function<T>& callback) {
@@ -364,42 +420,53 @@ namespace visage {
       return *this;
     }
 
-    void remove(const std::function<T>& callback) {
-      auto compare = [&](const std::function<T>& other) {
-        return other.target_type() == callback.target_type();
-      };
-
-      auto it = std::remove_if(callbacks_.begin(), callbacks_.end(), compare);
-      callbacks_.erase(it, callbacks_.end());
-    }
-
-    CallbackList& operator-=(const std::function<T>& callback) {
-      remove(callback);
-      return *this;
+    void remove(int id) {
+      Callbacks& callbacks = mutableCallbacks();
+      auto it = std::find_if(callbacks.begin(), callbacks.end(),
+                             [id](const Entry& entry) { return entry.id == id; });
+      if (it != callbacks.end())
+        callbacks.erase(it);
     }
 
     void reset() {
-      callbacks_.clear();
+      mutableCallbacks().clear();
       if (original_)
-        callbacks_.push_back(*original_);
+        add(*original_);
     }
 
-    void clear() { callbacks_.clear(); }
-    bool isEmpty() const { return callbacks_.empty(); }
+    void clear() { mutableCallbacks().clear(); }
+    bool isEmpty() const { return callbacks_ == nullptr || callbacks_->empty(); }
 
     template<typename... Args>
     auto callback(Args&&... args) const {
-      if (callbacks_.empty())
+      if (isEmpty())
         return defaultResult<decltype(std::declval<std::function<T>>()(args...))>();
 
-      for (size_t i = 0; i + 1 < callbacks_.size(); ++i)
-        callbacks_[i](std::forward<Args>(args)...);
+      std::shared_ptr<const Callbacks> callbacks = callbacks_;
+      for (size_t i = 0; i + 1 < callbacks->size(); ++i)
+        (*callbacks)[i].callback(args...);
 
-      return callbacks_.back()(std::forward<Args>(args)...);
+      return callbacks->back().callback(std::forward<Args>(args)...);
     }
 
   private:
+    struct Entry {
+      int id = 0;
+      std::function<T> callback;
+    };
+    typedef std::vector<Entry> Callbacks;
+
+    Callbacks& mutableCallbacks() {
+      if (callbacks_ == nullptr)
+        callbacks_ = std::make_shared<Callbacks>();
+      else if (callbacks_.use_count() > 1)
+        callbacks_ = std::make_shared<Callbacks>(*callbacks_);
+      return *callbacks_;
+    }
+
     clone_ptr<std::function<T>> original_;
-    std::vector<std::function<T>> callbacks_;
+    std::shared_ptr<Callbacks> callbacks_;
+    int next_id_ = 1;
+    std::shared_ptr<bool> alive_;
   };
 }

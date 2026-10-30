@@ -21,26 +21,30 @@
 
 #include "canvas.h"
 
+#include "gpu/gpu.h"
 #include "palette.h"
 #include "renderer.h"
 #include "theme.h"
 
-#include <bgfx/bgfx.h>
-
 namespace visage {
   bool Canvas::swapChainSupported() {
-    return bgfx::getCaps()->supported & BGFX_CAPS_SWAP_CHAIN;
+    return gpu::getCaps()->swap_chain;
   }
 
   Canvas::Canvas() :
+      default_brush_(&gradient_atlas_, Brush::solid(0xffffffff)),
       image_atlas_(ImageAtlas::DataType::RGBA8), data_atlas_(ImageAtlas::DataType::Float32),
       composite_layer_(&gradient_atlas_) {
+    VISAGE_ASSERT(!hasStaticStorage(this));
+    Renderer::instance().watchForLeaks();
+    state_.brush = &default_brush_;
     state_.current_region = &default_region_;
     layers_.push_back(&composite_layer_);
     composite_layer_.addRegion(&window_region_);
 
     window_region_.setCanvas(this);
     window_region_.addRegion(&default_region_);
+    default_region_.setLayerBlendMode(BlendMode::Opaque);
     default_region_.setCanvas(this);
     default_region_.setNeedsLayer(true);
   }
@@ -52,11 +56,15 @@ namespace visage {
     composite_layer_.addRegion(&window_region_);
   }
 
+  void Canvas::removeFromWindow() {
+    if (composite_layer_.removeFromWindow())
+      advanceFrame();
+  }
+
   void Canvas::setWindowless(int width, int height) {
     setDimensions(width, height);
     composite_layer_.setWindowlessRender(width, height);
     Renderer::instance().initializeWindowless();
-    bgfx::reset(0, 0, BGFX_RESET_FLUSH_AFTER_RENDER | BGFX_RESET_FLIP_AFTER_RENDER);
   }
 
   void Canvas::setDimensions(int width, int height) {
@@ -69,33 +77,64 @@ namespace visage {
     setClampBounds(0, 0, width, height);
   }
 
+  void Canvas::restoreLostContents() {
+    static uint32_t font_generation = 0;
+    uint32_t generation = gpu::contentsGeneration();
+    if (font_generation != generation) {
+      font_generation = generation;
+      FontCache::releaseTextures();
+    }
+
+    gradient_atlas_.destroy();
+    image_atlas_.destroyTexture();
+    data_atlas_.destroyTexture();
+    path_atlas_.invalidateAll();
+    for (Layer* layer : layers_)
+      layer->invalidateContents();
+  }
+
   int Canvas::submit(int submit_pass) {
-    default_region_.computeBackdropCount();
-    int submission = submit_pass;
-    int last_submission = submission - 1;
+    if (gpu::deviceLost())
+      advanceFrame();
 
-    submission = path_atlas_.updatePaths(submission);
+    if (contents_generation_ != gpu::contentsGeneration()) {
+      contents_generation_ = gpu::contentsGeneration();
+      restoreLostContents();
+    }
 
+    beginBufferPoolFrame();
+    for (int i = 1; i < layers_.size(); ++i)
+      layers_[i]->updateHdr(*layers_[i - 1]);
+
+    int backdrop_count = window_region_.computeBackdropCount();
+    int submission = path_atlas_.updatePaths(submit_pass);
+
+    for (int i = 2; i < layers_.size(); ++i)
+      layers_[i]->invalidateBackdropsIfAllInvalidated();
     for (int i = 2; i < layers_.size(); ++i) {
       if (!layers_[1]->invalidRects().empty())
         layers_[i]->checkBackdropInvalidation(layers_[1]->invalidRects().begin()->second);
     }
 
-    for (int backdrop = 0; submission != last_submission; backdrop++) {
-      last_submission = submission;
+    int layers_start = submission;
+    int start_flushes = Layer::viewFlushes();
+    for (int backdrop = 0; backdrop <= backdrop_count; ++backdrop) {
       for (int i = layers_.size() - 1; i > 0; --i)
         submission = layers_[i]->submit(submission, backdrop);
+      if (submission == layers_start && Layer::viewFlushes() == start_flushes)
+        break;
     }
 
-    for (int i = 1; i < layers_.size(); ++i)
+    for (int i = 1; i < layers_.size(); ++i) {
       layers_[i]->clearInvalidRects();
+      layers_[i]->destroyIdleTemporaryFrameBuffers();
+    }
 
-    if (submission > submit_pass) {
+    if (submission > submit_pass || Layer::viewFlushes() != start_flushes) {
       composite_layer_.invalidate();
-      submission = composite_layer_.submit(submission, 0);
-      bgfx::frame();
-      if (render_frame_ == 0)
-        bgfx::frame();
+      submission = composite_layer_.submit(submission, backdrop_count);
+      advanceFrame();
+      endBufferPoolFrame();
 
       render_frame_++;
       FontCache::clearStaleFonts();
@@ -105,9 +144,20 @@ namespace visage {
     }
     else if (last_skipped_frame_ != render_frame_) {
       last_skipped_frame_ = render_frame_;
-      bgfx::frame();
+      advanceFrame();
+      endBufferPoolFrame();
     }
     return submission;
+  }
+
+  int Canvas::frameBufferId() const {
+    gpu::FrameBufferHandle handle = composite_layer_.frameBuffer();
+    return gpu::isValid(handle) ? handle.idx : -1;
+  }
+
+  bool Canvas::waitForFrame(int frame_buffer_id, int timeout_ms) {
+    gpu::FrameBufferHandle handle = { static_cast<uint16_t>(frame_buffer_id) };
+    return frame_buffer_id < 0 || gpu::waitForFrame(handle, timeout_ms);
   }
 
   const Screenshot& Canvas::takeScreenshot() {
@@ -191,55 +241,20 @@ namespace visage {
   }
 
   std::vector<std::string> Canvas::debugInfo() const {
-    static const std::vector<std::pair<unsigned long long, std::string>> caps_list {
-      { BGFX_CAPS_ALPHA_TO_COVERAGE, "Alpha to coverage is supported." },
-      { BGFX_CAPS_BLEND_INDEPENDENT, "Blend independent is supported." },
-      { BGFX_CAPS_COMPUTE, "Compute shaders are supported." },
-      { BGFX_CAPS_CONSERVATIVE_RASTER, "Conservative rasterization is supported." },
-      { BGFX_CAPS_DRAW_INDIRECT, "Draw indirect is supported." },
-      { BGFX_CAPS_FRAGMENT_DEPTH, "Fragment depth is available in fragment shader." },
-      { BGFX_CAPS_FRAGMENT_ORDERING, "Fragment ordering is available in fragment shader." },
-      { BGFX_CAPS_GRAPHICS_DEBUGGER, "Graphics debugger is present." },
-      { BGFX_CAPS_HDR10, "HDR10 rendering is supported." },
-      { BGFX_CAPS_HIDPI, "HiDPI rendering is supported." },
-      { BGFX_CAPS_IMAGE_RW, "Image Read/Write is supported." },
-      { BGFX_CAPS_INDEX32, "32-bit indices are supported." },
-      { BGFX_CAPS_INSTANCING, "Instancing is supported." },
-      { BGFX_CAPS_OCCLUSION_QUERY, "Occlusion query is supported." },
-      { BGFX_CAPS_RENDERER_MULTITHREADED, "Renderer is on separate thread." },
-      { BGFX_CAPS_SWAP_CHAIN, "Multiple windows are supported." },
-      { BGFX_CAPS_TEXTURE_2D_ARRAY, "2D texture array is supported." },
-      { BGFX_CAPS_TEXTURE_3D, "3D textures are supported." },
-      { BGFX_CAPS_TEXTURE_BLIT, "Texture blit is supported." },
-      { BGFX_CAPS_TEXTURE_COMPARE_LEQUAL, "Texture compare less equal mode is supported." },
-      { BGFX_CAPS_TEXTURE_CUBE_ARRAY, "Cubemap texture array is supported." },
-      { BGFX_CAPS_TEXTURE_DIRECT_ACCESS, "CPU direct access to GPU texture memory." },
-      { BGFX_CAPS_TEXTURE_READ_BACK, "Read-back texture is supported." },
-      { BGFX_CAPS_VERTEX_ATTRIB_HALF, "Vertex attribute half-float is supported." },
-      { BGFX_CAPS_VERTEX_ATTRIB_UINT10, "Vertex attribute 10_10_10_2 is supported." },
-      { BGFX_CAPS_VERTEX_ID, "Rendering with VertexID only is supported." },
-      { BGFX_CAPS_VIEWPORT_LAYER_ARRAY, "Viewport layer is available in vertex shader." },
-    };
-
-    const bgfx::Caps* caps = bgfx::getCaps();
+    const gpu::Caps* caps = gpu::getCaps();
     std::vector<std::string> result;
-    result.push_back(std::string("Graphics API: ") + bgfx::getRendererName(caps->rendererType));
+    result.push_back(std::string("Graphics API: ") + gpu::rendererName(caps->renderer));
     float hz = 1.0f / std::max(0.001f, refresh_time_);
     result.push_back("Refresh Rate : " + std::to_string(hz) + " Hz");
 
-    const bgfx::Stats* stats = bgfx::getStats();
-    result.push_back("Render wait: " + std::to_string(stats->waitRender));
-    result.push_back("Submit wait: " + std::to_string(stats->waitSubmit));
-    result.push_back("Draw number: " + std::to_string(stats->numDraw));
-    result.push_back("Num views: " + std::to_string(stats->numViews));
-
-    for (auto& cap : caps_list) {
-      if (caps->supported & cap.first)
-        result.push_back("YES - " + cap.second);
-      else
-        result.push_back("    - " + cap.second);
-    }
-
+    const gpu::Stats* stats = gpu::getStats();
+    result.push_back("Frame submit: " + std::to_string(stats->cpu_frame_ms) + " ms");
+    result.push_back("Draw number: " + std::to_string(stats->num_draws));
+    result.push_back("Num views: " + std::to_string(stats->num_views));
+    result.push_back(std::string(caps->compute ? "YES" : "    ") +
+                     " - Compute shaders are supported.");
+    result.push_back(std::string(caps->swap_chain ? "YES" : "    ") +
+                     " - Multiple windows are supported.");
     return result;
   }
 

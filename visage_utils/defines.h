@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdarg>
 
 namespace visage {
@@ -45,6 +46,7 @@ namespace visage {
 
   void debugAssert(bool condition, const char* file, unsigned int line);
   void forceCrash();
+  bool hasStaticStorage(const void* address);
 }
 
 #define VISAGE_FORCE_CRASH() visage::forceCrash()
@@ -71,7 +73,7 @@ namespace visage {
     void remove() { count_--; }
 
   private:
-    int count_ = 0;
+    std::atomic<int> count_ = 0;
   };
 
   template<typename T>
@@ -95,8 +97,19 @@ namespace visage {
 #else
 #define VISAGE_ASSERT(x) ((void)0)
 #define VISAGE_LOG(x, ...) ((void)0)
-#define VISAGE_LEAK_CHECKER(className)
 #define no_except noexcept
+
+namespace visage {
+  template<typename T>
+  class LeakChecker {
+  public:
+    LeakChecker() { }
+    LeakChecker(const LeakChecker& other) { }
+    ~LeakChecker() { }
+  };
+}
+
+#define VISAGE_LEAK_CHECKER(className) visage::LeakChecker<className> leakChecker;
 #endif
 
 #if VISAGE_WINDOWS

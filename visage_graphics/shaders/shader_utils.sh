@@ -16,7 +16,9 @@ float sdSquircle(vec2 position, vec2 rectangle, float power) {
   vec2 normalized = abs(position) / rectangle;
   float distance = pow(pow(normalized.x, power) + pow(normalized.y, power), 1.0 / power);
   float len = length(position);
-  return distance * len - len;
+  if (len == 0.0)
+    return -min(rectangle.x, rectangle.y);
+  return len - len / distance;
 }
 
 float sdRectangle(vec2 position, vec2 rectangle) {
@@ -37,7 +39,8 @@ float sdRoundedDiamond(vec2 position, vec2 diamond, float rounding) {
 
 float linearGradient(vec2 point_from, vec2 point_to, vec2 position) {
   vec2 delta = point_to - point_from;
-  return dot(position - point_from, delta) / dot(delta, delta);
+  float length_squared = dot(delta, delta);
+  return length_squared > 0.0 ? dot(position - point_from, delta) / length_squared : 1.0;
 }
 
 vec2 radialGradient(vec2 position, vec2 focal_point, vec4 coefficient) {
@@ -55,9 +58,15 @@ vec2 radialGradient(vec2 position, vec2 focal_point, vec4 coefficient) {
 
 uniform vec4 u_radial_gradient;
 uniform vec4 u_color_mult;
+uniform vec4 u_alpha_clamp;
 
 vec4 sampleGradient(sampler2D gradient_texture, vec2 texture_pos1, vec2 texture_pos2, float t) {
-  return u_color_mult * texture2D(gradient_texture, mix(texture_pos1, texture_pos2, t));
+  vec4 color = u_color_mult * texture2D(gradient_texture, mix(texture_pos1, texture_pos2, t));
+  return vec4(color.rgb * color.a, color.a);
+}
+
+vec4 clampToAlpha(vec4 color) {
+  return vec4(mix(color.rgb, min(color.rgb, color.aaa), u_alpha_clamp.x), color.a);
 }
 
 vec4 gradient(sampler2D gradient_texture, vec4 texture_pos, vec4 gradient_pos1, vec4 gradient_pos2, vec2 position) {
@@ -79,7 +88,8 @@ vec4 gradient(sampler2D gradient_texture, vec4 texture_pos, vec4 gradient_pos1, 
 float sdSegment(vec2 position, vec2 point1, vec2 point2) {
   vec2 position_delta = position - point1;
   vec2 line_delta = point2 - point1;
-  float t = clamp(dot(position_delta, line_delta) / dot(line_delta, line_delta), 0.0, 1.0);
+  float length_squared = dot(line_delta, line_delta);
+  float t = length_squared > 0.0 ? clamp(dot(position_delta, line_delta) / length_squared, 0.0, 1.0) : 0.0;
   return length(position_delta - line_delta * t);
 }
 
@@ -147,13 +157,13 @@ float sdFlatSegment(vec2 position, vec2 point1, vec2 point2, float thickness) {
   float size = length(point2 - point1);
   vec2 normalized_delta = (point2 - point1) / size;
   vec2 delta = (position - (point1 + point2) * 0.5);
-  delta = mul(delta, mat2(normalized_delta.x, -normalized_delta.y, normalized_delta.y, normalized_delta.x));
+  delta = vec2(dot(delta, normalized_delta), dot(delta, vec2(-normalized_delta.y, normalized_delta.x)));
   delta = abs(delta) - vec2(size, thickness) * 0.5;
   return length(max(delta, 0.0)) + min(max(delta.x, delta.y), 0.0);
 }
 
 float sdArc(vec2 position, vec2 middle_coords, vec2 curve_coords, float radius, float thickness) {
-  position = mul(position, mat2(middle_coords.x, middle_coords.y, -middle_coords.y, middle_coords.x));
+  position = vec2(dot(position, vec2(middle_coords.x, -middle_coords.y)), dot(position, middle_coords.yx));
   position.x = abs(position.x);
   float k = (curve_coords.y * position.x > curve_coords.x * position.y) ? dot(position.xy, curve_coords) : length(position);
   return sqrt(max(0.0, dot(position, position) + radius * radius - 2.0 * radius * k)) - thickness;
@@ -161,7 +171,7 @@ float sdArc(vec2 position, vec2 middle_coords, vec2 curve_coords, float radius, 
 
 float sdFlatArc(vec2 position, vec2 middle_coords, vec2 curve_coords, float radius, float thickness) {
   float dist = length(position);
-  position = mul(position, mat2(-middle_coords.x, -middle_coords.y, middle_coords.y, -middle_coords.x));
+  position = vec2(dot(position, vec2(-middle_coords.x, middle_coords.y)), -dot(position, middle_coords.yx));
   position.x = abs(position.x);
   position = mul(position, mat2(curve_coords.y, curve_coords.x, curve_coords.x, -curve_coords.y));
   position = vec2((position.y > 0.0) ? position.x : dist * sign(-curve_coords.x), (position.x > 0.0) ? position.y : dist);

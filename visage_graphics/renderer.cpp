@@ -21,148 +21,121 @@
 
 #include "renderer.h"
 
+#include "font.h"
+#include "gpu/gpu.h"
+#include "graphics_caches.h"
+#include "post_effects.h"
+#include "shape_batcher.h"
 #include "visage_utils/string_utils.h"
 
-#include <bgfx/bgfx.h>
-#include <bgfx/platform.h>
+#if VISAGE_EMSCRIPTEN
+#include <emscripten/html5_webgl.h>
+#endif
 
 namespace visage {
-  class GraphicsCallbackHandler : public bgfx::CallbackI {
-    void fatal(const char* file_path, uint16_t line, bgfx::Fatal::Enum _code, const char* error) override {
-      VISAGE_LOG(String(file_path) + String(" (") + line + String(") "));
-      VISAGE_LOG(error);
-      VISAGE_LOG("Graphics fatal error");
-      VISAGE_ASSERT(false);
-    }
-
-    void traceVargs(const char* file_path, uint16_t line, const char* format, va_list arg_list) override {
-#if VISAGE_GRAPHICS_DEBUG_LOGGING
-      visage::debugLogArgs(file_path, line, format, arg_list);
-#endif
-    }
-
-    void profilerBegin(const char*, uint32_t, const char*, uint16_t) override { }
-    void profilerBeginLiteral(const char*, uint32_t, const char*, uint16_t) override { }
-    void profilerEnd() override { }
-    uint32_t cacheReadSize(uint64_t) override { return 0; }
-    bool cacheRead(uint64_t, void*, uint32_t) override { return false; }
-    void cacheWrite(uint64_t, const void*, uint32_t) override { }
-
-    void screenShot(const char* file_path, uint32_t width, uint32_t height, uint32_t pitch,
-                    const void* data, uint32_t size, bool y_flip) override {
-      Renderer::instance().setScreenshotData(static_cast<const uint8_t*>(data), width, height, pitch, true);
-    }
-
-    void captureBegin(uint32_t, uint32_t, uint32_t, bgfx::TextureFormat::Enum, bool) override { }
-    void captureEnd() override { }
-    void captureFrame(const void*, uint32_t) override { }
-  };
-
-  static constexpr uint32_t resetFlags() {
-#if VISAGE_WINDOWS
-    return BGFX_RESET_FLIP_AFTER_RENDER;
-#elif VISAGE_MAC
-    return BGFX_RESET_FLIP_AFTER_RENDER | BGFX_RESET_VSYNC;
-#elif VISAGE_LINUX
-    return BGFX_RESET_VSYNC;
+#if VISAGE_MAC
+  static constexpr bool kVsync = false;
 #else
-    return 0;
+  static constexpr bool kVsync = true;
 #endif
+
+#if VISAGE_EMSCRIPTEN
+  static bool enableWebGlExtension(const char* name) {
+    return emscripten_webgl_enable_extension(emscripten_webgl_get_current_context(), name);
   }
+#else
+  static bool renderTargetSupported(gpu::TextureFormat format) {
+    static constexpr uint32_t kRequired = gpu::kFormatTexture | gpu::kFormatRenderTarget;
+    return (gpu::getCaps()->formats[static_cast<int>(format)] & kRequired) == kRequired;
+  }
+#endif
 
   Renderer& Renderer::instance() {
     static Renderer renderer;
     return renderer;
   }
 
-  Renderer::Renderer() : Thread("Renderer Thread") { }
-
-  Renderer::~Renderer() {
-    stop();
-  }
-
-  void Renderer::startRenderThread() {
-#if VISAGE_BACKGROUND_GRAPHICS_THREAD
-    start();
-    while (!render_thread_started_.load())
-      yield();
-#endif
-  }
-
-  void Renderer::run() {
-    render();
-  }
-
-  void Renderer::render() {
-    static constexpr int kRenderTimeout = 100;
-    render_thread_started_ = bgfx::renderFrame() == bgfx::RenderFrame::NoContext;
-
-    while (shouldRun())
-      bgfx::renderFrame(kRenderTimeout);
-  }
-
   void Renderer::initialize(void* model_window, void* display) {
+    if (display_ == nullptr) {
+      display_ = display;
+      gpu::setDisplay(display_);
+    }
+
     if (initialized_)
       return;
 
-    callback_handler_ = std::make_unique<GraphicsCallbackHandler>();
     initialized_ = true;
-    startRenderThread();
+    model_window_ = model_window;
 
-    bgfx::Init bgfx_init;
-    bgfx_init.resolution.numBackBuffers = 1;
-    bgfx_init.resolution.width = 0;
-    bgfx_init.resolution.height = 0;
-    bgfx_init.callback = callback_handler_.get();
-
-    bgfx_init.platformData.ndt = display;
-    bgfx_init.platformData.nwh = model_window;
-    bgfx_init.platformData.type = bgfx::NativeWindowHandleType::Default;
-
-    bgfx::RendererType::Enum supported_renderers[bgfx::RendererType::Count];
-    uint8_t num_supported = bgfx::getSupportedRenderers(bgfx::RendererType::Count, supported_renderers);
-
-#if VISAGE_WINDOWS
-    bgfx_init.type = bgfx::RendererType::Direct3D11;
-#if USE_DIRECTX12
-    for (int i = 0; i < num_supported; ++i) {
-      if (supported_renderers[i] == bgfx::RendererType::Direct3D12)
-        bgfx_init.type = bgfx::RendererType::Direct3D12;
-    }
+    gpu::Init init;
+    init.type = gpu::defaultRendererType();
+    init.display = display_;
+    init.vsync = kVsync;
+    init.color_managed = color_managed_;
+#if VISAGE_GRAPHICS_DEBUG_LOGGING
+    init.debug = true;
+    init.log_callback = [](const char* message) { VISAGE_LOG(message); };
 #endif
-#elif VISAGE_MAC
-    bgfx_init.type = bgfx::RendererType::Metal;
-    bgfx_init.resolution.width = 1;
-    bgfx_init.resolution.height = 1;
-#elif VISAGE_LINUX
-    bgfx_init.type = bgfx::RendererType::Vulkan;
-#elif VISAGE_EMSCRIPTEN
-    bgfx_init.type = bgfx::RendererType::OpenGLES;
-#endif
+    init.screenshot_callback = [](gpu::FrameBufferHandle, const uint8_t* data, int width,
+                                  int height, int pitch, bool bgra) {
+      Renderer::instance().setScreenshotData(data, width, height, pitch, bgra,
+                                             gpu::getCaps()->origin_bottom_left);
+    };
 
-    bgfx_init.resolution.reset = resetFlags();
-
-    for (int i = 0; i < num_supported && !supported_; ++i)
-      supported_ = supported_renderers[i] == bgfx_init.type;
-
+    supported_ = gpu::rendererSupported(init.type) && gpu::init(init);
     if (!supported_) {
       VISAGE_ASSERT(false);
-      std::string renderer_name = bgfx::getRendererName(bgfx_init.type);
-      error_message_ = renderer_name + " is required and not supported on this computer.";
+      error_message_ = std::string(gpu::rendererName(init.type)) +
+                       " is required and not supported on this computer.";
+      gpu::Init fallback;
+      fallback.type = gpu::RendererType::Noop;
+      gpu::init(fallback);
     }
+    swap_chain_supported_ = gpu::getCaps()->swap_chain;
 
-    bgfx::init(bgfx_init);
-    VISAGE_ASSERT(bgfx::getRendererType() == bgfx_init.type);
-    swap_chain_supported_ = bgfx::getCaps()->supported & BGFX_CAPS_SWAP_CHAIN;
-  }
-
-  void Renderer::resetResolution(int width, int height) {
-#if VISAGE_MAC
-    bgfx::reset(width, height, resetFlags());
+#if VISAGE_EMSCRIPTEN
+    bool color_buffer_float = enableWebGlExtension("EXT_color_buffer_float");
+    float_render_targets_supported_ = color_buffer_float ||
+                                      enableWebGlExtension("EXT_color_buffer_half_float");
+#else
+    float_render_targets_supported_ = renderTargetSupported(gpu::TextureFormat::RGBA16F);
 #endif
   }
 
-  void Renderer::setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool blue_red) {
-    screenshot_ = Screenshot(data, width, height, pitch, blue_red);
+  void Renderer::checkInitialization() {
+    if (!initialized_ && shut_down_)
+      initialize(model_window_, display_);
+  }
+
+  void Renderer::watchForLeaks() {
+    struct LeakCheck {
+      ~LeakCheck() { VISAGE_ASSERT(Renderer::instance().references_ == 0); }
+    };
+    static LeakCheck check;
+  }
+
+  void Renderer::removeReference() {
+    if (--references_ > 0 || !initialized_)
+      return;
+
+    shutdown();
+  }
+
+  void Renderer::shutdown() {
+    FontCache::releaseTextures();
+    PostEffect::releaseScreenBuffers();
+    ProgramCache::release();
+    ShaderCache::release();
+    UniformCache::release();
+    releaseBufferPools();
+    gpu::shutdown();
+    releaseBufferPoolStaging();
+    initialized_ = false;
+    shut_down_ = true;
+  }
+
+  void Renderer::setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool bgra,
+                                   bool y_flip) {
+    screenshot_ = Screenshot(data, width, height, pitch, bgra, y_flip);
   }
 }

@@ -29,8 +29,8 @@ namespace visage {
   public:
     SvgFrame() { setIgnoresMouseEvents(true, false); }
 
-    SvgFrame(const EmbeddedFile& file) { load(file); }
-    SvgFrame(const uint8_t* data, size_t size) { load(data, size); }
+    SvgFrame(const EmbeddedFile& file) : SvgFrame() { load(file); }
+    SvgFrame(const uint8_t* data, size_t size) : SvgFrame() { load(data, size); }
 
     void load(const Svg& svg) {
       svg_ = svg;
@@ -83,84 +83,129 @@ namespace visage {
   private:
     class SubFrame : public Frame {
     public:
-      SubFrame(SvgDrawable* drawable, SvgDrawable::ColorContext* context) :
-          drawable_(drawable), context_(context) {
-        setAlphaTransparency(drawable_->opacity);
-        addSubFrames(drawable);
+      SubFrame(SvgDrawable* drawable, SvgDrawable::ColorContext* context, bool content_only = false,
+               int clip_level = 0) :
+          drawable_(drawable), context_(context), content_only_(content_only) {
+        if (content_only)
+          return;
 
-        if (!drawable_->clipping_paths.empty()) {
-          setMasked(true);
-          clipping_frame_ = std::make_unique<Frame>();
-          clipping_frame_->onDraw() = [this](Canvas& canvas) {
-            float offset_x = -drawable_->post_bounding_box.x();
-            float offset_y = -drawable_->post_bounding_box.y();
+        if (clip_level == 0)
+          setAlphaTransparency(drawable_->opacity);
 
-            for (int i = 0; i < drawable_->clipping_paths.size(); ++i) {
-              canvas.setBlendMode(BlendMode::Mult);
-              canvas.setColor(0xffffffff);
-              canvas.fill(drawable_->clipping_paths[i], offset_x, offset_y);
-              auto bounding_box = drawable_->clipping_paths[i].boundingBox();
+        const SvgDrawable* mask = drawable_->maskContent();
+        int num_clips = drawable_->clipping_paths.empty() ? 0 : drawable_->clip_intersections.size() + 1;
+        bool clipped = clip_level < num_clips;
+        if (clipped)
+          setClipMask(clip_level);
 
-              canvas.setColor(0x00ffffff);
-              float min_x = bounding_box.x() + offset_x;
-              float max_x = bounding_box.right() + offset_x;
-              canvas.fill(0, 0, min_x, height());
-              canvas.fill(max_x, 0, width() - max_x, height());
-              float min_y = bounding_box.y() + offset_y;
-              float max_y = bounding_box.bottom() + offset_y;
-              canvas.fill(min_x, 0, max_x - min_x, min_y);
-              canvas.fill(min_x, max_y, max_x - min_x, height() - max_y);
-            }
-          };
-          addChild(clipping_frame_.get());
-          clipping_frame_->setOnTop(true);
+        if (clipped && (mask || clip_level + 1 < num_clips)) {
+          content_only_ = true;
+          addSubFrame(std::make_unique<SubFrame>(drawable_, context_, false, clip_level + 1));
+          return;
         }
+
+        addSubFrames(drawable);
+        if (mask)
+          setContentMask(mask);
+      }
+
+      void setClipMask(int clip_level) {
+        onDrawMask() = [this, clip_level](Canvas& canvas) {
+          if (clip_level > drawable_->clip_intersections.size())
+            return;
+
+          const auto& clips = clip_level ? drawable_->clip_intersections[clip_level - 1] :
+                                           drawable_->clipping_paths;
+          canvas.setColor(0xffffffff);
+          for (const auto& clip : clips) {
+            for (const auto& clipping_path : *clip.paths)
+              canvas.fill(clipping_path.transformed(clip.transform), -svgOrigin().x, -svgOrigin().y);
+          }
+        };
+      }
+
+      void setContentMask(const SvgDrawable* mask) {
+        setMaskType(mask->mask_settings->alpha ? MaskType::Alpha : MaskType::Luminance);
+        onDrawMask() = [this, mask](Canvas& canvas) {
+          Point origin = svgOrigin();
+          for (const auto& child : mask->children)
+            child->drawAll(canvas, context_, -origin.x, -origin.y, width(), height());
+
+          canvas.setBlendMode(BlendMode::Alpha);
+          canvas.setColor(0xff000000);
+          for (const auto& region : mask->clipping_paths) {
+            for (const auto& region_path : *region.paths) {
+              Path outside = region_path.transformed(region.transform);
+              outside.setFillRule(Path::FillRule::EvenOdd);
+              outside.addRectangle(origin.x, origin.y, width(), height());
+              canvas.fill(outside, -origin.x, -origin.y);
+            }
+          }
+        };
       }
 
       void addSubFrame(std::unique_ptr<SubFrame> child) {
         addChild(child.get());
-        children_.push_back(std::move(child));
+        sub_frames_.push_back(std::move(child));
       }
 
       void addSubFrames(SvgDrawable* drawable) {
-        bool make_subframes = false;
         for (auto& child : drawable->children) {
-          if ((child->opacity != 0.0f && child->opacity != 1.0f) || !child->clipping_paths.empty())
-            make_subframes = true;
+          if (child->is_defines || child->is_clip_path || child->mask_settings || !child->display ||
+              child->opacity <= 0.0f)
+            continue;
 
-          if (make_subframes)
+          if (child->opacity != 1.0f || !child->clipping_paths.empty() || child->maskContent()) {
             addSubFrame(std::make_unique<SubFrame>(child.get(), context_));
-          else {
-            child_drawables_.push_back(child.get());
-            addSubFrames(child.get());
+            content_ = nullptr;
+            continue;
           }
+
+          if (content_ == nullptr) {
+            addSubFrame(std::make_unique<SubFrame>(drawable_, context_, true));
+            content_ = sub_frames_.back().get();
+          }
+          content_->child_drawables_.push_back(child.get());
+          addSubFrames(child.get());
         }
       }
 
-      void draw(Canvas& canvas) override {
-        float offset_x = -drawable_->post_bounding_box.x();
-        float offset_y = -drawable_->post_bounding_box.y();
+      IBounds nativeBoundingBox() const {
+        const Bounds& box = drawable_->post_bounding_box;
+        int x = std::floor(box.x() * dpiScale());
+        int y = std::floor(box.y() * dpiScale());
+        return { x, y, static_cast<int>(std::ceil(box.right() * dpiScale())) - x,
+                 static_cast<int>(std::ceil(box.bottom() * dpiScale())) - y };
+      }
 
-        drawable_->draw(canvas, context_, offset_x, offset_y, width(), height());
+      Point svgOrigin() const {
+        IBounds box = nativeBoundingBox();
+        return { box.x() / dpiScale(), box.y() / dpiScale() };
+      }
+
+      void draw(Canvas& canvas) override {
+        float offset_x = -svgOrigin().x;
+        float offset_y = -svgOrigin().y;
+
+        if (!content_only_)
+          drawable_->draw(canvas, context_, offset_x, offset_y, width(), height());
         for (auto& child_drawable : child_drawables_)
           child_drawable->draw(canvas, context_, offset_x, offset_y, width(), height());
       }
 
       void resized() override {
-        for (auto& child : children_)
-          child->setBounds(child->drawable_->post_bounding_box +
-                           Point(-drawable_->post_bounding_box.x(), -drawable_->post_bounding_box.y()));
-
-        if (clipping_frame_)
-          clipping_frame_->setBounds(localBounds());
+        IBounds box = nativeBoundingBox();
+        for (auto& child : sub_frames_)
+          child->setNativeBounds(child->nativeBoundingBox() + IPoint(-box.x(), -box.y()));
       }
 
     private:
-      std::unique_ptr<Frame> clipping_frame_;
       SvgDrawable* drawable_ = nullptr;
-      std::vector<std::unique_ptr<SubFrame>> children_;
+      std::vector<std::unique_ptr<SubFrame>> sub_frames_;
       std::vector<SvgDrawable*> child_drawables_;
+      SubFrame* content_ = this;
       SvgDrawable::ColorContext* context_ = nullptr;
+      bool content_only_ = false;
     };
 
     void setDimensions();

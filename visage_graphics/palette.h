@@ -22,9 +22,11 @@
 #pragma once
 
 #include "color.h"
+#include "gradient.h"
 #include "theme.h"
 
 #include <map>
+#include <set>
 #include <vector>
 
 namespace visage {
@@ -50,8 +52,8 @@ namespace visage {
     void initWithDefaults();
     void sortColors();
 
-    std::map<std::string, std::vector<theme::ColorId>> colorIdList(theme::OverrideId override_id);
-    std::map<std::string, std::vector<theme::ValueId>> valueIdList(theme::OverrideId override_id);
+    std::map<std::string, std::vector<theme::ColorId>> colorIdList(theme::OverrideId override_id) const;
+    std::map<std::string, std::vector<theme::ValueId>> valueIdList(theme::OverrideId override_id) const;
 
     void setEditColor(int index, const Brush& color) {
       VISAGE_ASSERT(index >= 0 && index < colors_.size());
@@ -84,56 +86,88 @@ namespace visage {
       }
     }
 
-    bool color(theme::OverrideId override_id, theme::ColorId color_id, Brush& color) {
-      color_map_[override_id].try_emplace(color_id, kNotSetId);
-
-      if (color_map_[override_id][color_id] == kNotSetId)
+    bool color(theme::OverrideId override_id, theme::ColorId color_id, Brush& color) const {
+      int index = colorMap(override_id, color_id);
+      if (index == kNotSetId) {
+        if (known_color_ids_[override_id].insert(color_id).second)
+          color_id_lists_.erase(override_id);
         return false;
+      }
 
-      if (color_map_[override_id][color_id] == kInvalidId)
+      if (index < 0 || index >= colors_.size())
         color = Brush::solid(kInvalidColor);
       else
-        color = colors_[color_map_[override_id][color_id]];
+        color = colors_[index];
       return true;
     }
 
     void setColorMap(theme::OverrideId override_id, theme::ColorId color_id, int index) {
-      color_map_[override_id][color_id] = index;
+      if (index == kNotSetId) {
+        removeColorMap(override_id, color_id);
+        return;
+      }
+
+      if (color_map_[override_id].insert_or_assign(color_id, index).second)
+        color_id_lists_.erase(override_id);
+    }
+
+    void removeColorMap(theme::OverrideId override_id, theme::ColorId color_id) {
+      if (known_color_ids_[override_id].insert(color_id).second)
+        color_id_lists_.erase(override_id);
+
+      auto colors = color_map_.find(override_id);
+      if (colors != color_map_.end() && colors->second.erase(color_id) && colors->second.empty())
+        color_map_.erase(colors);
     }
 
     void setColor(theme::OverrideId override_id, theme::ColorId color_id, const Color& color) {
-      int index = addColor(color);
-      color_map_[override_id][color_id] = index;
+      setColorMap(override_id, color_id, addColor(color));
     }
 
     void setColor(theme::OverrideId override_id, theme::ColorId color_id, const Brush& color) {
-      int index = addBrush(color);
-      color_map_[override_id][color_id] = index;
+      setColorMap(override_id, color_id, addBrush(color));
     }
 
     void setColor(theme::ColorId color_id, const Color& color) { setColor({}, color_id, color); }
     void setColor(theme::ColorId color_id, const Brush& color) { setColor({}, color_id, color); }
 
     void setValue(theme::OverrideId override_id, theme::ValueId value_id, float value) {
-      value_map_[override_id][value_id] = value;
+      if (value_map_[override_id].insert_or_assign(value_id, value).second)
+        value_id_lists_.erase(override_id);
     }
 
     void setValue(theme::ValueId value_id, float value) { setValue({}, value_id, value); }
 
     void removeValue(theme::OverrideId override_id, theme::ValueId value_id) {
-      if (value_map_[override_id].count(value_id))
-        value_map_[override_id].erase(value_id);
+      auto values = value_map_.find(override_id);
+      if (values == value_map_.end() || values->second.erase(value_id) == 0)
+        return;
+
+      known_value_ids_[override_id].insert(value_id);
+      if (values->second.empty())
+        value_map_.erase(values);
     }
 
     void removeValue(theme::ValueId value_id) { removeValue({}, value_id); }
 
-    int colorMap(theme::OverrideId override_id, theme::ColorId color_id) {
-      return color_map_[override_id][color_id];
+    int colorMap(theme::OverrideId override_id, theme::ColorId color_id) const {
+      auto colors = color_map_.find(override_id);
+      if (colors == color_map_.end())
+        return kNotSetId;
+      auto index = colors->second.find(color_id);
+      return index == colors->second.end() ? kNotSetId : index->second;
     }
 
-    bool value(theme::OverrideId override_id, theme::ValueId value_id, float& result) {
-      value_map_[override_id].try_emplace(value_id, kNotSetValue);
-      result = value_map_[override_id][value_id];
+    bool value(theme::OverrideId override_id, theme::ValueId value_id, float& result) const {
+      result = kNotSetValue;
+      auto values = value_map_.find(override_id);
+      if (values != value_map_.end()) {
+        auto value = values->second.find(value_id);
+        if (value != values->second.end())
+          result = value->second;
+      }
+      if (result == kNotSetValue && known_value_ids_[override_id].insert(value_id).second)
+        value_id_lists_.erase(override_id);
       return result != kNotSetValue;
     }
 
@@ -151,6 +185,9 @@ namespace visage {
       color_map_.clear();
       value_map_.clear();
       colors_.clear();
+      known_color_ids_.clear();
+      known_value_ids_.clear();
+      clearIdLists();
     }
 
     void removeColor(int index);
@@ -159,8 +196,17 @@ namespace visage {
     void decode(const std::string& data);
 
   private:
+    void clearIdLists() {
+      color_id_lists_.clear();
+      value_id_lists_.clear();
+    }
+
     std::vector<Brush> colors_;
     std::map<theme::OverrideId, std::map<theme::ColorId, int>> color_map_;
     std::map<theme::OverrideId, std::map<theme::ValueId, float>> value_map_;
+    mutable std::map<theme::OverrideId, std::set<theme::ColorId>> known_color_ids_;
+    mutable std::map<theme::OverrideId, std::set<theme::ValueId>> known_value_ids_;
+    mutable std::map<theme::OverrideId, std::map<std::string, std::vector<theme::ColorId>>> color_id_lists_;
+    mutable std::map<theme::OverrideId, std::map<std::string, std::vector<theme::ValueId>>> value_id_lists_;
   };
 }

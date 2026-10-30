@@ -22,16 +22,26 @@
 #include "layer.h"
 
 #include "canvas.h"
+#include "gpu/gpu.h"
 #include "region.h"
 #include "renderer.h"
 
-#include <bgfx/bgfx.h>
-
 namespace visage {
+  struct TemporaryFrameBuffer {
+    gpu::FrameBufferHandle handle = {};
+    int width = 0;
+    int height = 0;
+    gpu::TextureFormat format = gpu::TextureFormat::RGBA8;
+    bool in_use = false;
+    unsigned int last_used = 0;
+  };
+
   struct FrameBufferData {
-    bgfx::TextureHandle read_back_handle = BGFX_INVALID_HANDLE;
-    bgfx::FrameBufferHandle handle = BGFX_INVALID_HANDLE;
-    bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8;
+    gpu::TextureHandle read_back_handle = {};
+    gpu::FrameBufferHandle handle = {};
+    gpu::TextureFormat format = gpu::TextureFormat::RGBA8;
+    std::vector<TemporaryFrameBuffer> temporaries;
+    unsigned int submits = 0;
   };
 
   struct RegionPosition {
@@ -100,8 +110,11 @@ namespace visage {
       if (invalid_rects.empty())
         continue;
 
-      if (overlaps)
-        new_overlapping.emplace_back(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
+      if (overlaps) {
+        int position = should_draw ? 0 : sub_region->numSubmitBatches();
+        new_overlapping.emplace_back(sub_region, std::move(invalid_rects), position, bounds.x(),
+                                     bounds.y());
+      }
       else if (sub_region->isEmpty() || !should_draw) {
         std::vector<RegionPosition> child_overlap;
         RegionPosition region(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
@@ -159,52 +172,113 @@ namespace visage {
 
   Layer::~Layer() {
     destroyFrameBuffer();
+    for (TemporaryFrameBuffer& temporary : frame_buffer_data_->temporaries)
+      gpu::destroy(temporary.handle);
   }
 
   void Layer::checkFrameBuffer() {
-    static constexpr uint64_t kFrameBufferFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP |
-                                                  BGFX_SAMPLER_V_CLAMP;
+    static constexpr uint32_t kFrameBufferFlags = gpu::kSamplerClamp;
 
-    if (bgfx::isValid(frame_buffer_data_->handle))
+    if (gpu::isValid(frame_buffer_data_->handle))
       return;
 
-    if (hdr_)
-      frame_buffer_data_->format = bgfx::TextureFormat::RGB10A2;
-    else
-      frame_buffer_data_->format = bgfx::TextureFormat::RGBA8;
+    bool hdr = hdr_ && window_handle_ == nullptr && Renderer::instance().floatRenderTargetsSupported();
+    frame_buffer_data_->format = hdr ? gpu::TextureFormat::RGBA16F : gpu::TextureFormat::RGBA8;
 
-    if (window_handle_) {
-      frame_buffer_data_->handle = bgfx::createFrameBuffer(window_handle_, width_, height_,
-                                                           frame_buffer_data_->format);
-    }
+    if (window_handle_)
+      frame_buffer_data_->handle = gpu::createFrameBuffer(window_handle_, width_, height_,
+                                                          frame_buffer_data_->format);
     else {
-      bool read_back = (bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_BLIT) &&
-                       (bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_READ_BACK);
-      if (headless_render_ && read_back) {
-        uint64_t flags = BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK;
-        frame_buffer_data_->read_back_handle = bgfx::createTexture2D(width_, height_, false, 1,
-                                                                     bgfx::TextureFormat::RGBA8, flags);
+      if (headless_render_) {
+        uint32_t flags = gpu::kTextureBlitDst | gpu::kTextureReadBack;
+        frame_buffer_data_->read_back_handle = gpu::createTexture2D(width_, height_,
+                                                                    gpu::TextureFormat::RGBA8, flags);
       }
-      frame_buffer_data_->handle = bgfx::createFrameBuffer(width_, height_, frame_buffer_data_->format,
-                                                           kFrameBufferFlags);
+      frame_buffer_data_->handle = gpu::createFrameBuffer(width_, height_, frame_buffer_data_->format,
+                                                          kFrameBufferFlags);
     }
 
-    bottom_left_origin_ = bgfx::getCaps()->originBottomLeft;
+    needs_full_clear_ = true;
+    bottom_left_origin_ = gpu::getCaps()->origin_bottom_left;
+  }
+
+  void Layer::resizeFrameBuffer() {
+    if (window_handle_ && gpu::isValid(frame_buffer_data_->handle))
+      gpu::resizeFrameBuffer(frame_buffer_data_->handle, width_, height_);
+    else
+      destroyFrameBuffer();
+  }
+
+  bool Layer::removeFromWindow() {
+    bool had_swap_chain = window_handle_ && gpu::isValid(frame_buffer_data_->handle);
+    window_handle_ = nullptr;
+    destroyFrameBuffer();
+    return had_swap_chain;
   }
 
   void Layer::destroyFrameBuffer() {
-    if (bgfx::isValid(frame_buffer_data_->handle)) {
-      bgfx::destroy(frame_buffer_data_->handle);
-      frame_buffer_data_->handle = BGFX_INVALID_HANDLE;
+    if (gpu::isValid(frame_buffer_data_->handle)) {
+      gpu::destroy(frame_buffer_data_->handle);
+      frame_buffer_data_->handle = {};
+    }
+    if (gpu::isValid(frame_buffer_data_->read_back_handle)) {
+      gpu::destroy(frame_buffer_data_->read_back_handle);
+      frame_buffer_data_->read_back_handle = {};
     }
   }
 
-  bgfx::FrameBufferHandle& Layer::frameBuffer() const {
+  gpu::FrameBufferHandle& Layer::frameBuffer() const {
     return frame_buffer_data_->handle;
   }
 
   int Layer::frameBufferFormat() const {
-    return frame_buffer_data_->format;
+    return static_cast<int>(frame_buffer_data_->format);
+  }
+
+  gpu::FrameBufferHandle Layer::temporaryFrameBuffer(int width, int height) {
+    static constexpr uint32_t kFrameBufferFlags = gpu::kSamplerClamp;
+
+    gpu::TextureFormat format = frame_buffer_data_->format;
+    for (TemporaryFrameBuffer& temporary : frame_buffer_data_->temporaries) {
+      if (!temporary.in_use && temporary.width == width && temporary.height == height &&
+          temporary.format == format) {
+        temporary.in_use = true;
+        temporary.last_used = frame_buffer_data_->submits;
+        return temporary.handle;
+      }
+    }
+
+    TemporaryFrameBuffer temporary;
+    temporary.handle = gpu::createFrameBuffer(width, height, format, kFrameBufferFlags);
+    temporary.width = width;
+    temporary.height = height;
+    temporary.format = format;
+    temporary.in_use = true;
+    temporary.last_used = frame_buffer_data_->submits;
+    frame_buffer_data_->temporaries.push_back(temporary);
+    return temporary.handle;
+  }
+
+  void Layer::releaseTemporaryFrameBuffer(gpu::FrameBufferHandle handle) {
+    for (TemporaryFrameBuffer& temporary : frame_buffer_data_->temporaries) {
+      if (temporary.handle.idx == handle.idx)
+        temporary.in_use = false;
+    }
+  }
+
+  void Layer::destroyIdleTemporaryFrameBuffers() {
+    static constexpr unsigned int kMaxIdleSubmits = 8;
+
+    unsigned int current_submit = frame_buffer_data_->submits++;
+    auto& temporaries = frame_buffer_data_->temporaries;
+    auto idle = [current_submit](const TemporaryFrameBuffer& temporary) {
+      if (temporary.in_use || current_submit - temporary.last_used < kMaxIdleSubmits)
+        return false;
+
+      gpu::destroy(temporary.handle);
+      return true;
+    };
+    temporaries.erase(std::remove_if(temporaries.begin(), temporaries.end(), idle), temporaries.end());
   }
 
   void Layer::invalidateRectInRegion(IBounds rect, const Region* region) {
@@ -233,6 +307,17 @@ namespace visage {
     moveToVector(invalid_rects, invalid_rect_pieces_);
   }
 
+  void Layer::invalidateBackdropsIfAllInvalidated() {
+    if (!invalidated_all_)
+      return;
+
+    invalidated_all_ = false;
+    for (Region* region : regions_) {
+      if (region->backdropEffect())
+        region->invalidate();
+    }
+  }
+
   void Layer::checkBackdropInvalidation(const std::vector<IBounds>& top_level_invalid_rects) {
     for (Region* region : regions_) {
       if (region->backdropEffect()) {
@@ -257,17 +342,23 @@ namespace visage {
   }
 
   void Layer::clearInvalidRectAreas(int submit_pass) {
-    ShapeBatch<Fill> clear_batch(BlendMode::Opaque);
     std::vector<IBounds> invalid_rects;
-    for (auto& region_invalid_rects : invalid_rects_) {
-      for (const IBounds& rect : region_invalid_rects.second) {
-        invalid_rects.push_back(rect);
-        float x = rect.x();
-        float y = rect.y();
-        float width = rect.width();
-        float height = rect.height();
-        clear_batch.addShape(Fill({ x, y, x + width, y + height }, clear_brush_.get(), x, y, width, height));
-      }
+    if (needs_full_clear_)
+      invalid_rects.emplace_back(0, 0, width_, height_);
+    else {
+      for (auto& region_invalid_rects : invalid_rects_)
+        invalid_rects.insert(invalid_rects.end(), region_invalid_rects.second.begin(),
+                             region_invalid_rects.second.end());
+    }
+    needs_full_clear_ = false;
+
+    ShapeBatch<Fill> clear_batch(BlendMode::Opaque);
+    for (const IBounds& rect : invalid_rects) {
+      float x = rect.x();
+      float y = rect.y();
+      float width = rect.width();
+      float height = rect.height();
+      clear_batch.addShape(Fill({ x, y, x + width, y + height }, clear_brush_.get(), x, y, width, height));
     }
 
     PositionedBatch positioned_clear = { &clear_batch, &invalid_rects, 0, 0 };
@@ -286,42 +377,47 @@ namespace visage {
       if (region->backdropCount() > backdrop_count || region->backdropCountChildren() < backdrop_count)
         continue;
 
-      if (region->backdropEffect() && region->backdropCount() == backdrop_count) {
-        auto parent = region->parent();
-        auto backdrop_region = parent;
-        while (parent->parent()) {
-          parent = parent->parent();
-          if (parent->needsLayer())
-            backdrop_region = parent;
-        }
+      if (region->backdropEffect() && region->backdropCount() == backdrop_count && hasInvalidRects(region)) {
+        Region* backdrop_root = region->parent();
+        if (backdrop_root && backdrop_root->maskedRegion() == region)
+          backdrop_root = backdrop_root->parent();
+        while (backdrop_root && !backdrop_root->isBackdropRoot())
+          backdrop_root = backdrop_root->parent();
 
-        if (backdrop_region && backdrop_region->needsLayer())
-          submit_pass = region->backdropEffect()->preprocess(backdrop_region, submit_pass);
+        if (backdrop_root) {
+          submit_pass = reserveViews(submit_pass);
+          submit_pass = region->backdropEffect()->preprocessBackdrop(backdrop_root, region, submit_pass);
+        }
       }
 
       IPoint point = coordinatesForRegion(region);
-      if (region->isEmpty() || !region->shouldDraw(backdrop_count)) {
+      if (region->isEmpty() || region->backdropCount() != backdrop_count) {
         addSubRegions(region_positions, overlapping_regions,
                       { region, invalid_rects_[region], 0, point.x, point.y }, backdrop_count);
       }
       else
         region_positions.emplace_back(region, invalid_rects_[region], 0, point.x, point.y);
     }
-    if (region_positions.empty())
-      return submit_pass;
+    bool clear = intermediate_layer_ && backdrop_count == 0;
+    if (region_positions.empty() && !clear)
+      return preprocessPostEffects(submit_pass, backdrop_count);
 
     const SubmitBatch* current_batch = nullptr;
     std::vector<PositionedBatch> batches;
     std::vector<RegionPosition> done_regions;
 
-    bgfx::setViewMode(submit_pass, bgfx::ViewMode::Sequential);
-    bgfx::setViewRect(submit_pass, 0, 0, width_, height_);
-    bgfx::setViewClear(submit_pass, BGFX_CLEAR_NONE);
+    submit_pass = reserveViews(submit_pass);
+    if (screenshot_requested_ && !headless_render_) {
+      screenshot_requested_ = false;
+      gpu::requestScreenShot(frame_buffer_data_->handle);
+    }
 
-    if (bgfx::isValid(frame_buffer_data_->handle))
-      bgfx::setViewFrameBuffer(submit_pass, frame_buffer_data_->handle);
+    gpu::setViewRect(submit_pass, 0, 0, width_, height_);
 
-    if (intermediate_layer_ && backdrop_count == 0)
+    if (gpu::isValid(frame_buffer_data_->handle))
+      gpu::setViewFrameBuffer(submit_pass, frame_buffer_data_->handle);
+
+    if (clear)
       clearInvalidRectAreas(submit_pass);
 
     while (!region_positions.empty()) {
@@ -355,30 +451,69 @@ namespace visage {
       current_batch = next_batch;
     }
 
-    if (screenshot_requested_ && bgfx::isValid(frame_buffer_data_->read_back_handle)) {
+    if (screenshot_requested_ && gpu::isValid(frame_buffer_data_->read_back_handle)) {
       screenshot_requested_ = false;
-      bgfx::blit(submit_pass, frame_buffer_data_->read_back_handle, 0, 0,
-                 bgfx::getTexture(frame_buffer_data_->handle), 0, 0, width_, height_);
+      gpu::blit(submit_pass + 1, frame_buffer_data_->read_back_handle, 0, 0,
+                gpu::getTexture(frame_buffer_data_->handle), 0, 0, width_, height_);
 
       screenshot_.setDimensions(width_, height_);
-      bgfx::readTexture(frame_buffer_data_->read_back_handle, screenshot_.data());
-      bgfx::frame();
+      uint32_t ready_frame = gpu::readTexture(frame_buffer_data_->read_back_handle, screenshot_.data());
+      while (advanceFrame() < ready_frame) {
+      }
+      if (bottom_left_origin_)
+        screenshot_ = Screenshot(screenshot_.data(), width_, height_, width_ * 4, false, true);
     }
 
-    submit_pass = submit_pass + 1;
+    return preprocessPostEffects(submit_pass + 1, backdrop_count);
+  }
+
+  int Layer::view_flushes_ = 0;
+
+  int Layer::reserveViews(int submit_pass) {
+    static constexpr int kMaxViewsPerStep = 64;
+    if (submit_pass + kMaxViewsPerStep <= gpu::kMaxViews)
+      return submit_pass;
+
+    advanceFrame();
+    view_flushes_++;
+    return 0;
+  }
+
+  int Layer::preprocessPostEffects(int submit_pass, int backdrop_count) {
     for (Region* region : regions_) {
-      if (region->postEffect())
+      if (region->postEffect() && region->backdropCountChildren() == backdrop_count &&
+          hasInvalidRects(region)) {
+        VISAGE_ASSERT(window_handle_ == nullptr);
+        submit_pass = reserveViews(submit_pass);
         submit_pass = region->postEffect()->preprocess(region, submit_pass);
+      }
     }
-
     return submit_pass;
   }
 
   void Layer::addRegion(Region* region) {
-    if (!hdr_ && region->postEffect() && region->postEffect()->hdr())
-      setHdr(true);
-
     regions_.push_back(region);
+  }
+
+  void Layer::updateHdr(const Layer& destination) {
+    bool hdr = false;
+    for (const Region* region : regions_) {
+      PostEffect* post_effect = region->postEffect();
+      if (post_effect && post_effect->hdr())
+        hdr = true;
+    }
+
+    if (!hdr && destination.hdr() &&
+        std::any_of(regions_.begin(), regions_.end(),
+                    [](const Region* region) { return region->maskedRegion(); }))
+      hdr = true;
+
+    if (hdr == hdr_)
+      return;
+
+    setHdr(hdr);
+    for (Region* region : regions_)
+      region->invalidate();
   }
 
   void Layer::addPackedRegion(Region* region) {
@@ -388,6 +523,8 @@ namespace visage {
       invalidate();
       setDimensions(atlas_map_.width(), atlas_map_.height());
     }
+    else if (region->width() > 0 && region->height() > 0)
+      invalidateRectInRegion({ 0, 0, region->width(), region->height() }, region);
   }
 
   void Layer::removePackedRegion(const Region* region) {
@@ -412,12 +549,7 @@ namespace visage {
   }
 
   void Layer::requestScreenshot() {
-    if (headless_render_)
-      screenshot_requested_ = true;
-    else {
-      Renderer::resetResolution(width_, height_);
-      bgfx::requestScreenShot(frame_buffer_data_->handle, "screenshot.png");
-    }
+    screenshot_requested_ = true;
     invalidate();
   }
 

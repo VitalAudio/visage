@@ -25,6 +25,7 @@
 #include "visage_utils/string_utils.h"
 #include "visage_utils/time_utils.h"
 
+#include <cstring>
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
 #include <map>
@@ -35,8 +36,9 @@ namespace visage {
 
 extern "C" void pasteCallback(const char* text) {
   visage::clipboard_text_ = text;
-  visage::WindowEmscripten::runningInstance()->handleKeyDown(visage::KeyCode::V,
-                                                             visage::Modifiers::kModifierRegCtrl, 0);
+  visage::WindowEmscripten* window = visage::WindowEmscripten::runningInstance();
+  if (window)
+    window->handleKeyDown(visage::KeyCode::V, visage::Modifiers::kModifierRegCtrl, 0);
 }
 
 namespace visage {
@@ -48,9 +50,8 @@ namespace visage {
     EM_ASM({
       document.addEventListener(
           'paste', function(event) {
-            navigator.clipboard.readText()
-                .then(function(text) { ccall('pasteCallback', null, ['string'], [text]); })
-                .catch(function(err) { console.error("Failed to access clipboard:", err); });
+            var text = event.clipboardData ? event.clipboardData.getData('text/plain') : "";
+            ccall('pasteCallback', null, ['string'], [text]);
           });
     });
   }
@@ -74,7 +75,12 @@ namespace visage {
     case MouseCursor::Pointing: return "pointer";
     case MouseCursor::HorizontalResize: return "ew-resize";
     case MouseCursor::VerticalResize: return "ns-resize";
-    case MouseCursor::Dragging:
+    case MouseCursor::TopLeftResize:
+    case MouseCursor::BottomRightResize: return "nwse-resize";
+    case MouseCursor::TopRightResize:
+    case MouseCursor::BottomLeftResize: return "nesw-resize";
+    case MouseCursor::Drag: return "grab";
+    case MouseCursor::Dragging: return "grabbing";
     case MouseCursor::MultiDirectionalResize: return "move";
     default: return "";
     }
@@ -94,9 +100,12 @@ namespace visage {
     return EM_ASM_DOUBLE({ return window.devicePixelRatio; });
   }
 
+  static bool received_mouse_event = false;
+
   Point cursorPosition() {
     EmscriptenMouseEvent event;
-    emscripten_get_mouse_status(&event);
+    if (!received_mouse_event || emscripten_get_mouse_status(&event) != EMSCRIPTEN_RESULT_SUCCESS)
+      return {};
     float x = event.targetX - EM_ASM_DOUBLE({
                 var canvas = document.getElementById('canvas');
                 var rect = canvas.getBoundingClientRect();
@@ -124,6 +133,10 @@ namespace visage {
     });
   }
 
+  void WindowEmscripten::show() {
+    maximized_ = false;
+  }
+
   void WindowEmscripten::showMaximized() {
     maximized_ = true;
     int width = EM_ASM_INT({ return window.innerWidth; });
@@ -133,14 +146,20 @@ namespace visage {
     handleWindowResize(width, height);
   }
 
-  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
-                                       const Dimension& height, Window::Decoration decoration) {
+  IBounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
+                              const Dimension& height) {
     float scale = defaultDpiScale();
     int display_width = scale * EM_ASM_INT({ return window.innerWidth; });
     int display_height = scale * EM_ASM_INT({ return window.innerHeight; });
+    int result_w = width.compute(scale, display_width, display_height);
+    int result_h = height.compute(scale, display_width, display_height);
+    return { 0, 0, result_w, result_h };
+  }
 
-    return std::make_unique<WindowEmscripten>(width.compute(scale, display_width, display_height),
-                                              height.compute(scale, display_width, display_height));
+  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
+                                       const Dimension& height, Window::Decoration decoration) {
+    IBounds bounds = computeWindowBounds(x, y, width, height);
+    return std::make_unique<WindowEmscripten>(bounds.width(), bounds.height());
   }
 
   void* headlessWindowHandle() {
@@ -156,22 +175,13 @@ namespace visage {
   }
 
   void showMessageBox(std::string title, std::string message) {
-    std::string escaped_message;
-    for (char c : message) {
-      if (c == '"')
-        escaped_message += "\\\"";
-      else if (c == '\\')
-        escaped_message += "\\\\";
-      else
-        escaped_message += c;
-    }
-
-    std::string script = "alert(\"" + escaped_message + "\");";
-    emscripten_run_script(script.c_str());
+    EM_ASM({ alert(UTF8ToString($0)); }, message.c_str());
   }
 
   void runLoop() {
-    WindowEmscripten::runningInstance()->runLoopCallback();
+    WindowEmscripten* window = WindowEmscripten::runningInstance();
+    if (window)
+      window->runLoopCallback();
   }
 
   void WindowEmscripten::runLoopCallback() {
@@ -186,6 +196,11 @@ namespace visage {
     WindowEmscripten::running_instance_ = this;
     setDpiScale(defaultDpiScale());
     start_microseconds_ = time::microseconds();
+  }
+
+  WindowEmscripten::~WindowEmscripten() {
+    if (running_instance_ == this)
+      running_instance_ = nullptr;
   }
 
   static MouseButton mouseButton(const EmscriptenMouseEvent* event) {
@@ -203,15 +218,24 @@ namespace visage {
     if (event->buttons & 1)
       state |= kMouseButtonLeft;
     if (event->buttons & 2)
-      state |= kMouseButtonMiddle;
+      state |= kMouseButtonRight;
     if (event->buttons & 4)
       state |= kMouseButtonMiddle;
     return state;
   }
 
+  static bool isMac() {
+    static const bool mac = EM_ASM_INT({
+      var data = navigator.userAgentData;
+      var platform = data && data.platform ? data.platform : navigator.platform;
+      return new RegExp("mac|iphone|ipad|ipod", "i").test(platform || "") ? 1 : 0;
+    });
+    return mac;
+  }
+
   static int keyboardModifiers(const EmscriptenMouseEvent* event) {
     int state = 0;
-    bool mac = EM_ASM_INT({ return clientInformation.vendor.search("Apple"); }) >= 0;
+    bool mac = isMac();
     if (event->ctrlKey)
       state |= mac ? Modifiers::kModifierMacCtrl : Modifiers::kModifierRegCtrl;
     if (event->altKey)
@@ -225,7 +249,7 @@ namespace visage {
 
   static int keyboardModifiers(const EmscriptenKeyboardEvent* event) {
     int state = 0;
-    bool mac = EM_ASM_INT({ return clientInformation.vendor.search("Apple"); }) >= 0;
+    bool mac = isMac();
     if (event->ctrlKey)
       state |= mac ? Modifiers::kModifierMacCtrl : Modifiers::kModifierRegCtrl;
     if (event->altKey)
@@ -238,7 +262,9 @@ namespace visage {
   }
 
   static EM_BOOL mouseCallback(int event_type, const EmscriptenMouseEvent* event, void* user_data) {
-    WindowEmscripten* window = (WindowEmscripten*)user_data;
+    WindowEmscripten* window = WindowEmscripten::runningInstance();
+    if (event)
+      received_mouse_event = true;
 
     if (event == nullptr || window == nullptr)
       return false;
@@ -276,8 +302,9 @@ namespace visage {
 
   static EM_BOOL wheelCallback(int event_type, const EmscriptenWheelEvent* event, void* user_data) {
     static constexpr float kPreciseScrollingScale = 0.01f;
+    static constexpr float kLineScrollingScale = 1.0f / 3.0f;
 
-    WindowEmscripten* window = (WindowEmscripten*)user_data;
+    WindowEmscripten* window = WindowEmscripten::runningInstance();
     if (event_type != EMSCRIPTEN_EVENT_WHEEL || window == nullptr)
       return true;
 
@@ -286,6 +313,10 @@ namespace visage {
     if (event->deltaMode == DOM_DELTA_PIXEL) {
       delta_x *= kPreciseScrollingScale;
       delta_y *= kPreciseScrollingScale;
+    }
+    else if (event->deltaMode == DOM_DELTA_LINE) {
+      delta_x *= kLineScrollingScale;
+      delta_y *= kLineScrollingScale;
     }
     float x = event->mouse.targetX - EM_ASM_DOUBLE({
                 var canvas = document.getElementById('canvas');
@@ -433,20 +464,18 @@ namespace visage {
       { "VolumeMute", KeyCode::Mute },
       { "VolumeUp", KeyCode::VolumeUp },
       { "VolumeDown", KeyCode::VolumeDown },
+      { "AudioVolumeMute", KeyCode::Mute },
+      { "AudioVolumeUp", KeyCode::VolumeUp },
+      { "AudioVolumeDown", KeyCode::VolumeDown },
       { "LockingCapsLock", KeyCode::LockingCapsLock },
       { "LockingNumLock", KeyCode::LockingNumLock },
       { "LockingScrollLock", KeyCode::LockingScrollLock },
       { "NumpadComma", KeyCode::KPComma },
-      { "NumpadEqual", KeyCode::KPEqualsAS400 },
-      { "Intl1", KeyCode::International1 },
-      { "Intl2", KeyCode::International2 },
-      { "Intl3", KeyCode::International3 },
-      { "Intl4", KeyCode::International4 },
-      { "Intl5", KeyCode::International5 },
-      { "Intl6", KeyCode::International6 },
-      { "Intl7", KeyCode::International7 },
-      { "Intl8", KeyCode::International8 },
-      { "Intl9", KeyCode::International9 },
+      { "IntlRo", KeyCode::International1 },
+      { "KanaMode", KeyCode::International2 },
+      { "IntlYen", KeyCode::International3 },
+      { "Convert", KeyCode::International4 },
+      { "NonConvert", KeyCode::International5 },
       { "Lang1", KeyCode::Lang1 },
       { "Lang2", KeyCode::Lang2 },
       { "Lang3", KeyCode::Lang3 },
@@ -500,19 +529,18 @@ namespace visage {
       { "NumpadSpace", KeyCode::KPSpace },
       { "NumpadAt", KeyCode::KPAt },
       { "NumpadExclam", KeyCode::KPExclam },
-      { "NumpadMemStore", KeyCode::KPMemStore },
-      { "NumpadMemRecall", KeyCode::KPMemRecall },
-      { "NumpadMemClear", KeyCode::KPMemClear },
-      { "NumpadMemAdd", KeyCode::KPMemAdd },
-      { "NumpadMemSubtract", KeyCode::KPMemSubtract },
-      { "NumpadMemMultiply", KeyCode::KPMemMultiply },
-      { "NumpadMemDivide", KeyCode::KPMemDivide },
+      { "NumpadMemoryStore", KeyCode::KPMemStore },
+      { "NumpadMemoryRecall", KeyCode::KPMemRecall },
+      { "NumpadMemoryClear", KeyCode::KPMemClear },
+      { "NumpadMemoryAdd", KeyCode::KPMemAdd },
+      { "NumpadMemorySubtract", KeyCode::KPMemSubtract },
+      { "NumpadMemoryMultiply", KeyCode::KPMemMultiply },
+      { "NumpadMemoryDivide", KeyCode::KPMemDivide },
       { "NumpadPlusMinus", KeyCode::KPPlusMinus },
       { "NumpadClear", KeyCode::KPClear },
       { "NumpadClearEntry", KeyCode::KPClearEntry },
       { "NumpadBinary", KeyCode::KPBinary },
       { "NumpadOctal", KeyCode::KPOctal },
-      { "NumpadDecimal", KeyCode::KPDecimal },
       { "NumpadHexadecimal", KeyCode::KPHexadecimal },
       { "ControlLeft", KeyCode::LCtrl },
       { "ShiftLeft", KeyCode::LShift },
@@ -522,21 +550,26 @@ namespace visage {
       { "ShiftRight", KeyCode::RShift },
       { "AltRight", KeyCode::RAlt },
       { "MetaRight", KeyCode::RGui },
+      { "OSLeft", KeyCode::LGui },
+      { "OSRight", KeyCode::RGui },
       { "ModeChange", KeyCode::Mode },
       { "AudioNext", KeyCode::AudioNext },
       { "AudioPrev", KeyCode::AudioPrev },
       { "AudioStop", KeyCode::AudioStop },
       { "AudioPlay", KeyCode::AudioPlay },
       { "AudioMute", KeyCode::AudioMute },
+      { "MediaTrackNext", KeyCode::AudioNext },
+      { "MediaTrackPrevious", KeyCode::AudioPrev },
+      { "MediaStop", KeyCode::AudioStop },
+      { "MediaPlayPause", KeyCode::AudioPlay },
       { "MediaSelect", KeyCode::MediaSelect },
       { "LaunchMail", KeyCode::Mail },
-      { "LaunchApp2", KeyCode::App2 },
-      { "LaunchApp1", KeyCode::App1 },
-      { "LaunchControlPanel", KeyCode::Computer },
-      { "LaunchCalendar", KeyCode::Calculator },
-      { "SelectMedia", KeyCode::WWW },
-      { "LaunchMediaPlayer", KeyCode::ACSearch },
-      { "LaunchMail", KeyCode::ACHome },
+      { "LaunchApp2", KeyCode::Calculator },
+      { "LaunchApp1", KeyCode::Computer },
+      { "SelectMedia", KeyCode::MediaSelect },
+      { "LaunchMediaPlayer", KeyCode::MediaSelect },
+      { "BrowserSearch", KeyCode::ACSearch },
+      { "BrowserHome", KeyCode::ACHome },
       { "BrowserBack", KeyCode::ACBack },
       { "BrowserForward", KeyCode::ACForward },
       { "BrowserStop", KeyCode::ACStop },
@@ -550,8 +583,8 @@ namespace visage {
       { "KeyboardIlluminationUp", KeyCode::KBDIllumUp },
       { "Eject", KeyCode::Eject },
       { "Sleep", KeyCode::Sleep },
-      { "AudioRewind", KeyCode::AudioRewind },
-      { "AudioFastForward", KeyCode::AudioFastForward }
+      { "MediaRewind", KeyCode::AudioRewind },
+      { "MediaFastForward", KeyCode::AudioFastForward }
     };
 
     std::string code(event->code);
@@ -560,8 +593,17 @@ namespace visage {
     return KeyCode::Unknown;
   }
 
+  static bool isMacOptionText(int modifier_state, KeyCode code, const char* key) {
+    if (code == KeyCode::E || code == KeyCode::N || code == KeyCode::U || code == KeyCode::I ||
+        code == KeyCode::Grave)
+      return false;
+
+    bool option = modifier_state == kModifierAlt || modifier_state == (kModifierAlt | kModifierShift);
+    return option && isMac() && std::strcmp(key, "Dead") != 0 && String(key).length() == 1;
+  }
+
   static EM_BOOL keyCallback(int event_type, const EmscriptenKeyboardEvent* event, void* user_data) {
-    WindowEmscripten* window = (WindowEmscripten*)user_data;
+    WindowEmscripten* window = WindowEmscripten::runningInstance();
     if (event == nullptr || window == nullptr)
       return false;
 
@@ -570,15 +612,17 @@ namespace visage {
 
     switch (event_type) {
     case EMSCRIPTEN_EVENT_KEYPRESS:
-      if (code == KeyCode::Return || code == KeyCode::Backspace || strlen(event->key) == 0)
+      if (code == KeyCode::Return || code == KeyCode::KPEnter || code == KeyCode::Backspace ||
+          strlen(event->key) == 0)
         return true;
       return window->handleTextInput(event->key);
     case EMSCRIPTEN_EVENT_KEYDOWN: {
-      if (modifier_state != 0 && code == KeyCode::V)
+      if ((modifier_state & (kModifierRegCtrl | kModifierCmd)) && code == KeyCode::V)
         return false;
 
       bool down_used = window->handleKeyDown(code, modifier_state, event->repeat);
-      bool text_input = modifier_state == 0 || modifier_state == kModifierShift;
+      bool text_input = modifier_state == 0 || modifier_state == kModifierShift ||
+                        isMacOptionText(modifier_state, code, event->key);
       return (code == KeyCode::Tab || !text_input) && down_used;
     }
     case EMSCRIPTEN_EVENT_KEYUP: {
@@ -590,8 +634,20 @@ namespace visage {
     }
   }
 
+  static EM_BOOL focusCallback(int event_type, const EmscriptenFocusEvent* event, void* user_data) {
+    WindowEmscripten* window = WindowEmscripten::runningInstance();
+    if (window == nullptr)
+      return false;
+
+    if (event_type == EMSCRIPTEN_EVENT_FOCUS)
+      window->handleFocusGained();
+    else if (event_type == EMSCRIPTEN_EVENT_BLUR)
+      window->handleFocusLost();
+    return false;
+  }
+
   static EM_BOOL resizeCallback(int event_type, const EmscriptenUiEvent* event, void* user_data) {
-    WindowEmscripten* window = (WindowEmscripten*)user_data;
+    WindowEmscripten* window = WindowEmscripten::runningInstance();
     if (event == nullptr || window == nullptr)
       return false;
 
@@ -607,18 +663,21 @@ namespace visage {
 
   void WindowEmscripten::runEventLoop() {
     static const char* canvas = "#canvas";
-    emscripten_set_mousedown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, mouseCallback);
-    emscripten_set_mouseup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, mouseCallback);
-    emscripten_set_mousemove_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, mouseCallback);
+    emscripten_set_mousedown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true, mouseCallback);
+    emscripten_set_mouseup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true, mouseCallback);
+    emscripten_set_mousemove_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true, mouseCallback);
 
-    emscripten_set_wheel_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, wheelCallback);
+    emscripten_set_wheel_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true, wheelCallback);
 
-    emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, keyCallback);
-    emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, keyCallback);
-    emscripten_set_keypress_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, this, true, keyCallback);
+    emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, nullptr, true, keyCallback);
+    emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, nullptr, true, keyCallback);
+    emscripten_set_keypress_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, nullptr, true, keyCallback);
     setupPasteCallback();
 
-    emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true, resizeCallback);
+    emscripten_set_focus_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, false, focusCallback);
+    emscripten_set_blur_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, false, focusCallback);
+
+    emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true, resizeCallback);
 
     setDpiScale(defaultDpiScale());
     emscripten_set_element_css_size("canvas", clientWidth() / dpiScale(), clientHeight() / dpiScale());
@@ -627,12 +686,14 @@ namespace visage {
   }
 
   void WindowEmscripten::windowContentsResized(int width, int height) {
+    initial_width_ = width;
+    initial_height_ = height;
     emscripten_set_element_css_size("canvas", width / dpiScale(), height / dpiScale());
     emscripten_set_canvas_element_size("canvas", width, height);
   }
 
   void WindowEmscripten::setWindowTitle(const std::string& title) {
-    emscripten_run_script(("document.title = '" + title + "';").c_str());
+    EM_ASM({ document.title = UTF8ToString($0); }, title.c_str());
   }
 
   IPoint WindowEmscripten::maxWindowDimensions() const {

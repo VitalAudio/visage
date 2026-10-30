@@ -26,13 +26,27 @@
 
 #include <Carbon/Carbon.h>
 #include <Cocoa/Cocoa.h>
+#include <IOKit/hidsystem/IOLLEvent.h>
 #include <MetalKit/MetalKit.h>
 
 namespace visage {
   class WindowMac;
 }
 
-@interface VisageDraggingSource : NSObject <NSDraggingSource>
+@class VisageAppView;
+
+@interface VisageDraggingSource : NSObject <NSDraggingSource, NSFilePromiseProviderDelegate>
+@property(weak) VisageAppView* view;
+@property(strong) NSURL* file_url;
+@property(strong) NSOperationQueue* write_queue;
+@property bool cleanup_pending;
+@property bool session_ended;
+@property bool dropped;
+@property bool file_written;
+@property bool delivered_in_app;
+
+- (void)startWithFile:(NSURL*)file_url;
+- (void)cleanupIfPending;
 @end
 
 @interface VisageAppViewDelegate : NSObject <MTKViewDelegate>
@@ -40,25 +54,31 @@ namespace visage {
 @property long long start_microseconds;
 @end
 
-@interface VisageAppView : MTKView <NSDraggingDestination>
+@interface VisageAppView : MTKView <NSDraggingDestination, NSTextInputClient>
 @property(nonatomic) visage::WindowMac* visage_window;
 @property(strong) VisageDraggingSource* drag_source;
+@property(strong) NSString* marked_text;
+@property(strong) NSMutableString* pending_text;
 @property bool allow_quit;
 @property NSPoint mouse_down_screen_position;
+@property NSPoint text_input_screen_position;
+@property NSUInteger typed_length;
+@property bool command_requested;
+@property bool has_focus;
 
 - (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window;
+- (void)dragEndedAtScreenPoint:(NSPoint)screen_point;
 @end
 
 @interface VisageAppWindowDelegate : NSObject <NSWindowDelegate>
 @property(nonatomic) visage::WindowMac* visage_window;
-@property(nonatomic, retain) NSWindow* window_handle;
+@property(nonatomic, weak) NSWindow* window_handle;
 @property bool resizing_horizontal;
 @property bool resizing_vertical;
 @end
 
 @interface VisageAppDelegate : NSObject <NSApplicationDelegate>
 @property(nonatomic, retain) NSWindow* window_handle;
-@property(nonatomic, strong) VisageAppWindowDelegate* window_delegate;
 @property visage::WindowMac* visage_window;
 @end
 
@@ -76,6 +96,7 @@ namespace visage {
     void resetBackingScale();
 
     void* nativeHandle() const override { return (__bridge void*)view_; }
+    void* graphicsHandle() const override;
     void* initWindow() const override;
 
     void runEventLoop() override;
@@ -85,6 +106,7 @@ namespace visage {
     void hide() final;
     void close() final;
     bool isShowing() const override;
+    bool isClosed() const override;
 
     void setWindowTitle(const std::string& title) override;
     IPoint maxWindowDimensions() const override;
@@ -96,6 +118,7 @@ namespace visage {
   private:
     static bool running_event_loop_;
     NSWindow* window_handle_ = nullptr;
+    VisageAppWindowDelegate* window_delegate_ = nullptr;
     NSView* parent_view_ = nullptr;
     VisageAppView* view_ = nullptr;
     VisageAppViewDelegate* view_delegate_ = nullptr;

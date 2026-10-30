@@ -36,10 +36,15 @@ float noise(vec2 uv) {
   return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
 }
 
+float pow5(float value) {
+  float squared = value * value;
+  return squared * squared * value;
+}
+
 vec3 glitch2(vec2 value, float time) {
-  float r = pow((noise(value * vec2(0.0, 3.0) + time * 0.250100001 + 5.0) - 0.5) * 0.8, 5.0);
-  float g = pow((noise(value * vec2(0.0, 3.0) + time * 0.2509999888 + 4.0) - 0.5) * 0.8, 5.0);
-  float b = pow((noise(value * vec2(0.0, 3.0) + time * 0.25) - 0.5) * 0.8, 5.0);
+  float r = pow5((noise(value * vec2(0.0, 3.0) + time * 0.250100001 + 5.0) - 0.5) * 0.8);
+  float g = pow5((noise(value * vec2(0.0, 3.0) + time * 0.2509999888 + 4.0) - 0.5) * 0.8);
+  float b = pow5((noise(value * vec2(0.0, 3.0) + time * 0.25) - 0.5) * 0.8);
   return vec3(r, g, b);
 }
 

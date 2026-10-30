@@ -29,12 +29,6 @@
 #include <algorithm>
 #include <cfloat>
 
-#define VISAGE_CREATE_BATCH_ID \
-  static void* batchId() {     \
-    static int batch_id = 0;   \
-    return &batch_id;          \
-  }
-
 namespace visage {
   class Font;
   class PostEffect;
@@ -164,14 +158,12 @@ namespace visage {
 
   template<typename VertexType = ShapeVertex>
   struct Primitive : Shape<VertexType> {
-    static void* taggedPointer(void* pointer, int tag) {
-      uintptr_t int_value = reinterpret_cast<uintptr_t>(pointer);
-      return reinterpret_cast<void*>(int_value | uintptr_t(tag) & 3);
-    }
-
     Primitive(const void* batch_id, const ClampBounds& clamp, const PackedBrush* brush, float x,
               float y, float width, float height) :
         Shape<VertexType>(batch_id, clamp, brush, x, y, width, height) { }
+
+    Primitive(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
+              float height) : Shape<VertexType>(nullptr, clamp, brush, x, y, width, height) { }
 
     void setPrimitiveData(VertexType* vertices) const {
       float thick = thickness == kFullThickness ? (this->width + this->height) * pixel_width : thickness;
@@ -188,35 +180,32 @@ namespace visage {
   };
 
   struct Fill : Primitive<> {
-    VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     Fill(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-         float height) : Primitive(batchId(), clamp, brush, x, y, width, height) { }
+         float height) : Primitive(clamp, brush, x, y, width, height) { }
 
     void setVertexData(Vertex* vertices) const { setPrimitiveData(vertices); }
   };
 
   struct Rectangle : Primitive<> {
-    VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     Rectangle(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-              float height) : Primitive(batchId(), clamp, brush, x, y, width, height) { }
+              float height) : Primitive(clamp, brush, x, y, width, height) { }
 
     void setVertexData(Vertex* vertices) const { setPrimitiveData(vertices); }
   };
 
   struct RoundedRectangle : Primitive<> {
-    VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     RoundedRectangle(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
                      float width, float height, float rounding, float pixel_width = 1.0f) :
-        Primitive(batchId(), clamp, brush, x, y, width, height), rounding(rounding) {
+        Primitive(clamp, brush, x, y, width, height), rounding(rounding) {
       this->pixel_width = pixel_width;
     }
 
@@ -230,24 +219,21 @@ namespace visage {
   };
 
   struct Circle : Primitive<> {
-    VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     Circle(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width) :
-        Primitive(batchId(), clamp, brush, x, y, width, width) { }
+        Primitive(clamp, brush, x, y, width, width) { }
 
     void setVertexData(Vertex* vertices) const { setPrimitiveData(vertices); }
   };
 
   struct Squircle : Primitive<> {
-    VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    Squircle(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-             float height, float power) :
-        Primitive(batchId(), clamp, brush, x, y, width, height), power(power) { }
+    Squircle(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width, float height,
+             float power) : Primitive(clamp, brush, x, y, width, height), power(power) { }
 
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
@@ -259,14 +245,12 @@ namespace visage {
   };
 
   struct FlatArc : Primitive<> {
-    VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     FlatArc(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
             float height, float thickness, float center_radians, float radians) :
-        Primitive(batchId(), clamp, brush, x, y, width, height), center_radians(center_radians),
-        radians(radians) {
+        Primitive(clamp, brush, x, y, width, height), center_radians(center_radians), radians(radians) {
       this->thickness = thickness;
     }
 
@@ -283,14 +267,12 @@ namespace visage {
   };
 
   struct RoundedArc : Primitive<> {
-    VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     RoundedArc(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
                float height, float thickness, float center_radians, float radians) :
-        Primitive(batchId(), clamp, brush, x, y, width, height), center_radians(center_radians),
-        radians(radians) {
+        Primitive(clamp, brush, x, y, width, height), center_radians(center_radians), radians(radians) {
       this->thickness = thickness;
     }
 
@@ -307,14 +289,13 @@ namespace visage {
   };
 
   struct FlatSegment : Primitive<ComplexShapeVertex> {
-    VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     FlatSegment(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
                 float height, float a_x, float a_y, float b_x, float b_y, float thickness,
                 float pixel_width) :
-        Primitive(batchId(), clamp, brush, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x), b_y(b_y) {
+        Primitive(clamp, brush, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x), b_y(b_y) {
       this->thickness = thickness;
       this->pixel_width = pixel_width;
     }
@@ -336,14 +317,13 @@ namespace visage {
   };
 
   struct RoundedSegment : Primitive<ComplexShapeVertex> {
-    VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     RoundedSegment(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
                    float width, float height, float a_x, float a_y, float b_x, float b_y,
                    float thickness, float pixel_width) :
-        Primitive(batchId(), clamp, brush, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x), b_y(b_y) {
+        Primitive(clamp, brush, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x), b_y(b_y) {
       this->thickness = thickness;
       this->pixel_width = pixel_width;
     }
@@ -365,15 +345,14 @@ namespace visage {
   };
 
   struct Triangle : Primitive<ComplexShapeVertex> {
-    VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     Triangle(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
              float height, float a_x, float a_y, float b_x, float b_y, float c_x, float c_y,
              float rounding, float thickness) :
-        Primitive(batchId(), clamp, brush, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x),
-        b_y(b_y), c_x(c_x), c_y(c_y) {
+        Primitive(clamp, brush, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x), b_y(b_y),
+        c_x(c_x), c_y(c_y) {
       this->thickness = thickness;
       this->pixel_width = rounding;
     }
@@ -399,15 +378,14 @@ namespace visage {
   };
 
   struct QuadraticBezier : Primitive<ComplexShapeVertex> {
-    VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     QuadraticBezier(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
                     float width, float height, float a_x, float a_y, float b_x, float b_y,
                     float c_x, float c_y, float thickness, float pixel_width) :
-        Primitive(batchId(), clamp, brush, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x),
-        b_y(b_y), c_x(c_x), c_y(c_y) {
+        Primitive(clamp, brush, x, y, width, height), a_x(a_x), a_y(a_y), b_x(b_x), b_y(b_y),
+        c_x(c_x), c_y(c_y) {
       this->thickness = thickness;
       this->pixel_width = pixel_width;
     }
@@ -433,13 +411,11 @@ namespace visage {
   };
 
   struct Diamond : Primitive<> {
-    VISAGE_CREATE_BATCH_ID
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
-    Diamond(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-            float height, float rounding) :
-        Primitive(batchId(), clamp, brush, x, y, width, height), rounding(rounding) { }
+    Diamond(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width, float height,
+            float rounding) : Primitive(clamp, brush, x, y, width, height), rounding(rounding) { }
 
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
@@ -503,9 +479,8 @@ namespace visage {
 
     GraphFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
                      float height, float center, const GraphData& graph_data, ImageAtlas* data_atlas) :
-        Primitive(taggedPointer(data_atlas, 1), clamp, brush, x, y, width, height),
-        data_atlas(data_atlas), data(graph_data),
-        packed_data(data_atlas->addData(data.data(), data.numPoints())) {
+        Primitive(data_atlas, clamp, brush, x, y, width, height), data_atlas(data_atlas),
+        data(graph_data), packed_data(data_atlas->addData(data.data(), data.numPoints())) {
       thickness = center;
       pixel_width = packed_data.w() - 1;
     }
@@ -529,8 +504,8 @@ namespace visage {
 
     HeatMapWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
                    float height, const HeatMapData& heat_map_data, ImageAtlas* data_atlas) :
-        Primitive(taggedPointer(data_atlas, 2), clamp, brush, x, y, width, height),
-        data_atlas(data_atlas), data(heat_map_data),
+        Primitive(data_atlas, clamp, brush, x, y, width, height), data_atlas(data_atlas),
+        data(heat_map_data),
         packed_data(data_atlas->addData(data.data(), data.width(), data.height())) {
       thickness = heat_map_data.height();
       pixel_width = heat_map_data.octaves();
@@ -539,17 +514,14 @@ namespace visage {
     void setVertexData(Vertex* vertices) const {
       setPrimitiveData(vertices);
 
-      vertices[0].value1 = packed_data.x();
-      vertices[0].value2 = packed_data.y();
-
-      vertices[1].value1 = packed_data.x() + packed_data.w();
-      vertices[1].value2 = packed_data.y();
-
-      vertices[2].value1 = packed_data.x();
-      vertices[2].value2 = packed_data.y();
-
-      vertices[3].value1 = packed_data.x() + packed_data.w();
-      vertices[3].value2 = packed_data.y();
+      float left = vertices[0].x - 0.5f;
+      float span = vertices[0].dimension_x + 1.0f;
+      for (int i = 0; i < kVerticesPerQuad; ++i) {
+        float x = vertices[i].x + vertices[i].coordinate_x * 0.5f;
+        x = std::min(std::max(x, vertices[i].clamp_left), vertices[i].clamp_right);
+        vertices[i].value1 = packed_data.x() + packed_data.w() * (x - left) / span;
+        vertices[i].value2 = packed_data.y();
+      }
     }
 
     ImageAtlas* data_atlas = nullptr;
@@ -558,21 +530,29 @@ namespace visage {
   };
 
   struct PathFillWrapper : Shape<TextureVertex> {
-    VISAGE_CREATE_BATCH_ID
     static constexpr int kLineVerticesPerPoint = 6;
     static constexpr float kBuffer = 1.0f;
+    static constexpr float kClampBuffer = 4.0f;
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();
 
     PathFillWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
                     float width, float height, const Path& path, PathAtlas* atlas, float scale) :
-        Shape(batchId(), clamp, brush, x, y, width, height), path_atlas(atlas), scale(scale) {
+        Shape(nullptr, clamp, brush, x, y, width, height), path_atlas(atlas), scale(scale) {
       Path adjusted_path = scale == 1.0f ? path : path.scaled(scale);
       Bounds bounding_box = adjusted_path.boundingBox();
-      float new_x = static_cast<int>(x + bounding_box.x() - kBuffer);
-      float new_y = static_cast<int>(y + bounding_box.y() - kBuffer);
-      float new_width = std::ceil(x + bounding_box.right() + kBuffer) - new_x;
-      float new_height = std::ceil(y + bounding_box.bottom() + kBuffer) - new_y;
+      float left = static_cast<int>(x + bounding_box.x() - kBuffer);
+      float top = static_cast<int>(y + bounding_box.y() - kBuffer);
+      float right = std::ceil(x + bounding_box.right() + kBuffer);
+      float bottom = std::ceil(y + bounding_box.bottom() + kBuffer);
+      float new_x = std::max(left, std::floor(clamp.left) - kClampBuffer);
+      float new_y = std::max(top, std::floor(clamp.top) - kClampBuffer);
+      float new_width = std::max(0.0f, std::min(right, std::ceil(clamp.right) + kClampBuffer) - new_x);
+      float new_height = std::max(0.0f, std::min(bottom, std::ceil(clamp.bottom) + kClampBuffer) - new_y);
+      gradient_left = left;
+      gradient_top = top;
+      gradient_right = right;
+      gradient_bottom = bottom;
 
       float shift_x = new_x - x;
       float shift_y = new_y - y;
@@ -585,24 +565,27 @@ namespace visage {
     }
 
     void setVertexData(Vertex* vertices) const {
+      float offset_x = vertices[0].x - x;
+      float offset_y = vertices[0].y - y;
+      PackedBrush::setVertexGradientPositions(brush, vertices, kVerticesPerQuad, offset_x, offset_y,
+                                              gradient_left + offset_x, gradient_top + offset_y,
+                                              gradient_right + offset_x, gradient_bottom + offset_y);
       path_atlas->setPathAtlasCoordinates(vertices, packed_path);
-      float even_odd = packed_path.path().fillRule() == Path::FillRule::EvenOdd ? 1.0f : 0.0f;
-      for (int i = 0; i < kVerticesPerQuad; ++i)
-        vertices[i].direction_x = even_odd;
     }
 
     PathAtlas* path_atlas = nullptr;
     float scale = 1.0f;
+    float gradient_left = 0.0f;
+    float gradient_top = 0.0f;
+    float gradient_right = 0.0f;
+    float gradient_bottom = 0.0f;
     PathAtlas::PackedPath packed_path;
   };
 
   template<typename T>
   class VectorPool {
   public:
-    static VectorPool& instance() {
-      static VectorPool instance;
-      return instance;
-    }
+    static VectorPool& instance();
 
     std::vector<T> vector(int size) {
       std::vector<T> vector = removeVector(size);
@@ -732,11 +715,14 @@ namespace visage {
     static const EmbeddedFile& fragmentShader();
 
     SampleRegion(const ClampBounds& clamp, const PackedBrush* brush, float x, float y, float width,
-                 float height, const Region* region, PostEffect* post_effect = nullptr);
+                 float height, const Region* region, PostEffect* post_effect = nullptr,
+                 float alpha = 1.0f);
 
     void setVertexData(Vertex* vertices) const;
 
     const Region* region = nullptr;
     PostEffect* post_effect = nullptr;
+    float alpha = 1.0f;
+    bool backdrop = false;
   };
 }

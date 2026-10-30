@@ -34,7 +34,7 @@ namespace visage {
 
     void drawIntoBuffer(char32_t emoji, int font_size, int write_width, unsigned int* dest,
                         int dest_width, int x, int y) {
-      unsigned int* write_location = dest + (x + y * write_width);
+      unsigned int* write_location = dest + (x + y * dest_width);
       CGContextRef context = CGBitmapContextCreate(write_location, write_width, write_width, 8,
                                                    dest_width * 4, color_space_,
                                                    kCGImageAlphaPremultipliedLast);

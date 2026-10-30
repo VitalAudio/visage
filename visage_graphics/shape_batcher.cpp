@@ -24,6 +24,7 @@
 #include "canvas.h"
 #include "embedded/shaders.h"
 #include "font.h"
+#include "gpu/gpu.h"
 #include "graphics_caches.h"
 #include "layer.h"
 #include "path.h"
@@ -32,65 +33,76 @@
 #include "uniforms.h"
 #include "visage_utils/space.h"
 
-#include <bgfx/bgfx.h>
+#include <map>
+#include <memory>
 
 namespace visage {
-  static constexpr uint64_t blendModeValue(BlendMode blend_mode) {
+  static constexpr gpu::RenderState blendModeValue(BlendMode blend_mode) {
+    using gpu::BlendFactor;
+    using gpu::RenderState;
     switch (blend_mode) {
     case BlendMode::Opaque:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_ZERO);
-    case BlendMode::Composite:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+      return RenderState::write(gpu::kWriteRGBA).blendFunc(BlendFactor::One, BlendFactor::Zero);
     case BlendMode::Alpha:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC_SEPARATE(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA,
-                                            BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+      return RenderState::write(gpu::kWriteRGBA).blendFunc(BlendFactor::One, BlendFactor::InvSrcAlpha);
     case BlendMode::Add:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
+      return RenderState::write(gpu::kWriteRGBA).blendFunc(BlendFactor::One, BlendFactor::One);
     case BlendMode::Sub:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE) |
-             BGFX_STATE_BLEND_EQUATION_SEPARATE(BGFX_STATE_BLEND_EQUATION_REVSUB,
-                                                BGFX_STATE_BLEND_EQUATION_ADD);
+      return RenderState::write(gpu::kWriteRGBA)
+          .blendFuncSeparate(BlendFactor::One, BlendFactor::One, BlendFactor::Zero, BlendFactor::One)
+          .blendEquationSeparate(gpu::BlendOp::ReverseSubtract, gpu::BlendOp::Add);
     case BlendMode::Mult:
-      return BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_MULTIPLY;
+      return RenderState::write(gpu::kWriteRGBA)
+          .blendFuncSeparate(BlendFactor::DstColor, BlendFactor::InvSrcAlpha, BlendFactor::Zero,
+                             BlendFactor::One);
     case BlendMode::MaskAdd:
-      return BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_ONE, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+      return RenderState::write(gpu::kWriteA).blendFunc(BlendFactor::One, BlendFactor::InvSrcAlpha);
     case BlendMode::MaskRemove:
-      return BGFX_STATE_WRITE_A |
-             BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE) |
-             BGFX_STATE_BLEND_EQUATION(BGFX_STATE_BLEND_EQUATION_REVSUB);
+      return RenderState::write(gpu::kWriteA)
+          .blendFunc(BlendFactor::One, BlendFactor::One)
+          .blendEquation(gpu::BlendOp::ReverseSubtract);
+    case BlendMode::MaskMult:
+      return RenderState::write(gpu::kWriteRGBA).blendFunc(BlendFactor::Zero, BlendFactor::SrcAlpha);
     }
 
     VISAGE_ASSERT(false);
-    return 0;
+    return {};
   }
 
   void setBlendMode(BlendMode blend_mode) {
-    bgfx::setState(blendModeValue(blend_mode));
+    gpu::setState(blendModeValue(blend_mode));
+  }
+
+  void submitBlended(BlendMode blend_mode, int submit_pass, gpu::ProgramHandle program) {
+    static constexpr gpu::RenderState kMultiplyUncovered = gpu::RenderState::write(gpu::kWriteRGBA)
+                                                               .blendFunc(gpu::BlendFactor::InvDstAlpha,
+                                                                          gpu::BlendFactor::One);
+
+    setBlendMode(blend_mode);
+    if (blend_mode == BlendMode::Mult) {
+      gpu::submit(submit_pass, program, true);
+      gpu::setState(kMultiplyUncovered);
+    }
+    gpu::submit(submit_pass, program);
   }
 
   template<const char* name>
   void setUniform(const void* value) {
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
-    bgfx::setUniform(uniform, value);
+    const gpu::UniformHandle& uniform = UniformCache::uniformHandle(name);
+    gpu::setUniform(uniform, value);
   }
 
   template<const char* name>
   void setUniform(float value0, float value1 = 0.0f, float value2 = 0.0f, float value3 = 0.0f) {
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Vec4, 1);
+    const gpu::UniformHandle& uniform = UniformCache::uniformHandle(name);
     float vec[4] = { value0, value1, value2, value3 };
-    bgfx::setUniform(uniform, vec);
+    gpu::setUniform(uniform, vec);
   }
 
   template<const char* name>
-  void setTexture(int stage, bgfx::TextureHandle handle) {
-    static const bgfx::UniformHandle uniform = bgfx::createUniform(name, bgfx::UniformType::Sampler, 1);
-    bgfx::setTexture(stage, uniform, handle);
+  void setTexture(int stage, gpu::TextureHandle handle) {
+    const gpu::UniformHandle& uniform = UniformCache::uniformHandle(name, UniformCache::Sampler);
+    gpu::setTexture(stage, uniform, handle);
   }
 
   inline void setUniformBounds(int x, int y, int width, int height) {
@@ -110,57 +122,380 @@ namespace visage {
     setUniform<Uniforms::kBounds>(view_bounds);
   }
 
-  inline void setColorMult(bool hdr) {
-    float value = (hdr ? kHdrColorMultiplier : 1.0f) * Color::kGradientNormalization;
+  void setAlphaClamp(const Layer& layer) {
+    bool hdr = layer.frameBufferFormat() == static_cast<int>(gpu::TextureFormat::RGBA16F);
+    setUniform<Uniforms::kAlphaClamp>(hdr ? 0.0f : 1.0f);
+  }
+
+  inline void setColorMult(const Layer& layer) {
+    float value = Color::kGradientNormalization;
     setUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
+    setAlphaClamp(layer);
   }
 
   void setOriginFlipUniform(bool origin_flip) {
     setUniform<Uniforms::kOriginFlip>(origin_flip ? -1.0 : 1.0, origin_flip ? 1.0 : 0.0);
   }
 
-  bool initTransientQuadBuffers(int num_quads, const bgfx::VertexLayout& layout,
-                                bgfx::TransientVertexBuffer* vertex_buffer,
-                                bgfx::TransientIndexBuffer* index_buffer) {
-    int num_vertices = num_quads * kVerticesPerQuad;
-    int num_indices = num_quads * kIndicesPerQuad;
-    if (!bgfx::allocTransientBuffers(vertex_buffer, layout, num_vertices, index_buffer, num_indices)) {
-      VISAGE_LOG("Not enough transient buffer memory for %d quads", num_quads);
-      return false;
-    }
-
-    uint16_t* indices = reinterpret_cast<uint16_t*>(index_buffer->data);
+  static void setQuadIndices(uint32_t* indices, int num_quads) {
     for (int i = 0; i < num_quads; ++i) {
       int vertex_index = i * kVerticesPerQuad;
       int index = i * kIndicesPerQuad;
       for (int v = 0; v < kIndicesPerQuad; ++v)
         indices[index + v] = vertex_index + kQuadTriangles[v];
     }
+  }
 
+  class BufferPool {
+  public:
+    static constexpr uint64_t kMinSize = 1 << 12;
+    static constexpr uint64_t kMaxBytes = 1 << 30;
+    static constexpr int kUsageFrames = 120;
+    static constexpr uint64_t kFrameLatency = 1;
+
+    static void endFrame() { frame_++; }
+
+    explicit BufferPool(const gpu::VertexLayout* layout) :
+        indices_(layout == nullptr), stride_(layout ? layout->stride() : sizeof(uint32_t)) {
+      if (layout)
+        layout_ = *layout;
+    }
+
+    BufferPool(const BufferPool&) = delete;
+
+    uint64_t capacity() const { return capacity_; }
+    uint64_t usedBytes() const { return used_ * stride_; }
+
+    uint64_t stagingBytes() const {
+      uint64_t bytes = 0;
+      for (const auto& staging : staging_blocks_)
+        bytes += staging->size;
+      return bytes;
+    }
+
+    uint8_t* allocate(uint64_t count, uint32_t* start) {
+      if (used_ + count > capacity_) {
+        upload();
+        if (!resize(grownCapacity(frame_used_ + count)))
+          return nullptr;
+      }
+
+      if (staging_ == nullptr)
+        staging_ = idleStaging();
+
+      uint8_t* data = staging_->data.get() + used_ * stride_;
+      staging_->last_frame = frame_;
+
+      *start = used_;
+      used_ += count;
+      frame_used_ += count;
+      return data;
+    }
+
+    void upload() {
+      if (staging_ == nullptr || used_ == uploaded_)
+        return;
+
+      const gpu::Memory* memory = gpu::makeRef(staging_->data.get() + uploaded_ * stride_,
+                                               (used_ - uploaded_) * stride_);
+      if (indices_)
+        gpu::update(index_buffer_, uploaded_, memory);
+      else
+        gpu::update(vertex_buffer_, uploaded_, memory);
+      uploaded_ = used_;
+    }
+
+    void split() {
+      split_peak_ = std::max(split_peak_, frame_used_);
+      uploaded_ = 0;
+      used_ = 0;
+      frame_used_ = 0;
+      staging_ = nullptr;
+    }
+
+    void setVertexBuffer(uint32_t start, uint32_t count) const {
+      gpu::setVertexBuffer(0, vertex_buffer_, start, count);
+    }
+
+    void setIndexBuffer(uint32_t start, uint32_t count) const {
+      gpu::setIndexBuffer(index_buffer_, start, count);
+    }
+
+    bool setQuadIndexBuffer(int num_quads) {
+      if (!gpu::isValid(quad_index_buffer_)) {
+        std::vector<uint32_t> indices(capacity_ / kVerticesPerQuad * kIndicesPerQuad);
+        setQuadIndices(indices.data(), capacity_ / kVerticesPerQuad);
+        quad_index_buffer_ = gpu::createIndexBuffer(gpu::copy(indices.data(),
+                                                              indices.size() * sizeof(uint32_t)),
+                                                    gpu::kBufferIndex32);
+        if (!gpu::isValid(quad_index_buffer_))
+          return false;
+      }
+
+      gpu::setIndexBuffer(quad_index_buffer_, 0, num_quads * kIndicesPerQuad);
+      return true;
+    }
+
+    void beginFrame() {
+      uint64_t frame_peak = std::max(frame_used_, split_peak_);
+      split_peak_ = 0;
+      if (capacity_) {
+        idle_frames_ = frame_peak ? 0 : idle_frames_ + 1;
+        peak_ = std::max(peak_, frame_peak);
+        if (idle_frames_ >= kUsageFrames)
+          destroyBuffers();
+        else if (++usage_frames_ >= kUsageFrames) {
+          if (peak_ * 4 < capacity_ && shrunkCapacity() < capacity_)
+            resize(shrunkCapacity());
+          usage_frames_ = 0;
+          peak_ = 0;
+        }
+      }
+      uploaded_ = 0;
+      used_ = 0;
+      frame_used_ = 0;
+      staging_ = nullptr;
+
+      uint64_t kept_spares = 0;
+      auto unneeded = [&](const std::unique_ptr<Staging>& staging) {
+        if (!isIdle(*staging))
+          return false;
+        if (kept_spares < kFrameLatency && staging->size == capacity_ * stride_) {
+          ++kept_spares;
+          return false;
+        }
+        return true;
+      };
+      staging_blocks_.erase(std::remove_if(staging_blocks_.begin(), staging_blocks_.end(), unneeded),
+                            staging_blocks_.end());
+    }
+
+    void destroyBuffers() {
+      if (gpu::isValid(vertex_buffer_))
+        gpu::destroy(vertex_buffer_);
+      if (gpu::isValid(index_buffer_))
+        gpu::destroy(index_buffer_);
+      if (gpu::isValid(quad_index_buffer_))
+        gpu::destroy(quad_index_buffer_);
+      vertex_buffer_ = {};
+      index_buffer_ = {};
+      quad_index_buffer_ = {};
+      staging_ = nullptr;
+      capacity_ = 0;
+      uploaded_ = 0;
+      used_ = 0;
+    }
+
+    void releaseStaging() {
+      staging_blocks_.clear();
+      staging_ = nullptr;
+    }
+
+  private:
+    struct Staging {
+      explicit Staging(uint64_t size) : data(new uint8_t[size]), size(size) { }
+
+      std::unique_ptr<uint8_t[]> data;
+      uint64_t size = 0;
+      uint64_t last_frame = 0;
+    };
+
+    static bool isIdle(const Staging& staging) {
+      return frame_ >= staging.last_frame + kFrameLatency;
+    }
+
+    Staging* idleStaging() {
+      for (auto& staging : staging_blocks_) {
+        if (isIdle(*staging) && staging->size == capacity_ * stride_)
+          return staging.get();
+      }
+      staging_blocks_.push_back(std::make_unique<Staging>(capacity_ * stride_));
+      return staging_blocks_.back().get();
+    }
+
+    uint64_t maxCapacity() const { return kMaxBytes / stride_; }
+
+    uint64_t grownCapacity(uint64_t needed) const {
+      uint64_t capacity = std::max(kMinSize, 2 * capacity_);
+      while (capacity < needed)
+        capacity *= 2;
+      capacity = std::min(capacity, std::max(needed, kBufferPoolChunkBytes / stride_));
+      capacity = std::min(capacity, maxCapacity());
+      return capacity < needed ? 0 : capacity;
+    }
+
+    uint64_t shrunkCapacity() const {
+      uint64_t capacity = kMinSize;
+      while (capacity < 2 * peak_)
+        capacity *= 2;
+      return std::min(capacity, maxCapacity());
+    }
+
+    bool resize(uint64_t capacity) {
+      destroyBuffers();
+      if (capacity == 0)
+        return false;
+
+      if (indices_)
+        index_buffer_ = gpu::createDynamicIndexBuffer(capacity, gpu::kBufferIndex32);
+      else
+        vertex_buffer_ = gpu::createDynamicVertexBuffer(capacity, layout_);
+      if (indices_ ? !gpu::isValid(index_buffer_) : !gpu::isValid(vertex_buffer_)) {
+        destroyBuffers();
+        return false;
+      }
+
+      capacity_ = capacity;
+      usage_frames_ = 0;
+      idle_frames_ = 0;
+      peak_ = 0;
+      return true;
+    }
+
+    static inline uint64_t frame_ = kFrameLatency;
+
+    bool indices_ = false;
+    gpu::VertexLayout layout_;
+    uint64_t stride_ = 0;
+    gpu::BufferHandle vertex_buffer_ = {};
+    gpu::BufferHandle index_buffer_ = {};
+    gpu::BufferHandle quad_index_buffer_ = {};
+    std::vector<std::unique_ptr<Staging>> staging_blocks_;
+    Staging* staging_ = nullptr;
+    uint64_t capacity_ = 0;
+    uint64_t uploaded_ = 0;
+    uint64_t used_ = 0;
+    uint64_t frame_used_ = 0;
+    uint64_t split_peak_ = 0;
+    uint64_t peak_ = 0;
+    int usage_frames_ = 0;
+    int idle_frames_ = 0;
+  };
+
+  static std::map<uint32_t, std::unique_ptr<BufferPool>>& vertexBufferPools() {
+    static auto* pools = new std::map<uint32_t, std::unique_ptr<BufferPool>>();
+    return *pools;
+  }
+
+  static BufferPool& vertexBufferPool(const gpu::VertexLayout& layout) {
+    std::unique_ptr<BufferPool>& pool = vertexBufferPools()[layout.hash()];
+    if (pool == nullptr)
+      pool = std::make_unique<BufferPool>(&layout);
+    return *pool;
+  }
+
+  static BufferPool& indexBufferPool() {
+    static auto* pool = new BufferPool(nullptr);
+    return *pool;
+  }
+
+  void beginBufferPoolFrame() {
+    for (auto& pool : vertexBufferPools())
+      pool.second->beginFrame();
+    indexBufferPool().beginFrame();
+  }
+
+  void endBufferPoolFrame() {
+    BufferPool::endFrame();
+  }
+
+  uint32_t advanceFrame() {
+    for (auto& pool : vertexBufferPools())
+      pool.second->upload();
+    indexBufferPool().upload();
+    return gpu::frame();
+  }
+
+  void releaseBufferPools() {
+    for (auto& pool : vertexBufferPools())
+      pool.second->destroyBuffers();
+    indexBufferPool().destroyBuffers();
+  }
+
+  void releaseBufferPoolStaging() {
+    for (auto& pool : vertexBufferPools())
+      pool.second->releaseStaging();
+    indexBufferPool().releaseStaging();
+  }
+
+  uint64_t bufferPoolCapacity(const gpu::VertexLayout& layout) {
+    auto pool = vertexBufferPools().find(layout.hash());
+    return pool == vertexBufferPools().end() ? 0 : pool->second->capacity();
+  }
+
+  uint64_t bufferPoolStagingBytes(const gpu::VertexLayout& layout) {
+    auto pool = vertexBufferPools().find(layout.hash());
+    return pool == vertexBufferPools().end() ? 0 : pool->second->stagingBytes();
+  }
+
+  int maxQuadsPerChunk(int vertex_size) {
+    return std::max<uint64_t>(1, kBufferPoolChunkBytes / (vertex_size * kVerticesPerQuad));
+  }
+
+  void flushBufferPoolFrame() {
+    advanceFrame();
+    for (auto& pool : vertexBufferPools())
+      pool.second->split();
+    indexBufferPool().split();
+    BufferPool::endFrame();
+  }
+
+  void reserveBufferPoolBytes(uint64_t bytes) {
+    uint64_t used = indexBufferPool().usedBytes();
+    for (auto& pool : vertexBufferPools())
+      used += pool.second->usedBytes();
+    if (used == 0 || used + bytes <= kBufferPoolChunkBytes)
+      return;
+
+    flushBufferPoolFrame();
+  }
+
+  uint8_t* initQuadVerticesWithLayout(int num_quads, const gpu::VertexLayout& layout) {
+    BufferPool& pool = vertexBufferPool(layout);
+    uint32_t start = 0;
+    uint8_t* vertices = pool.allocate(num_quads * kVerticesPerQuad, &start);
+    if (vertices == nullptr || !pool.setQuadIndexBuffer(num_quads))
+      return nullptr;
+
+    pool.setVertexBuffer(start, num_quads * kVerticesPerQuad);
+    return vertices;
+  }
+
+  uint8_t* initVerticesWithLayout(int num_vertices, const gpu::VertexLayout& layout) {
+    BufferPool& pool = vertexBufferPool(layout);
+    uint32_t start = 0;
+    uint8_t* vertices = pool.allocate(num_vertices, &start);
+    if (vertices)
+      pool.setVertexBuffer(start, num_vertices);
+    return vertices;
+  }
+
+  bool initIndexedVerticesWithLayout(int num_vertices, const gpu::VertexLayout& layout,
+                                     int num_indices, uint8_t** vertices, uint32_t** indices) {
+    BufferPool& vertex_pool = vertexBufferPool(layout);
+    BufferPool& index_pool = indexBufferPool();
+    uint32_t vertex_start = 0;
+    uint32_t index_start = 0;
+    *vertices = vertex_pool.allocate(num_vertices, &vertex_start);
+    *indices = reinterpret_cast<uint32_t*>(index_pool.allocate(num_indices, &index_start));
+    if (*vertices == nullptr || *indices == nullptr)
+      return false;
+
+    vertex_pool.setVertexBuffer(vertex_start, num_vertices);
+    index_pool.setIndexBuffer(index_start, num_indices);
     return true;
   }
 
-  uint8_t* initQuadVerticesWithLayout(int num_quads, const bgfx::VertexLayout& layout) {
-    bgfx::TransientVertexBuffer vertex_buffer {};
-    bgfx::TransientIndexBuffer index_buffer {};
-    if (!initTransientQuadBuffers(num_quads, layout, &vertex_buffer, &index_buffer))
-      return nullptr;
-
-    bgfx::setVertexBuffer(0, &vertex_buffer);
-    bgfx::setIndexBuffer(&index_buffer);
-    return vertex_buffer.data;
-  }
-
-  void submitShapes(const Layer& layer, const EmbeddedFile& vertex_shader,
+  void submitShapes(const Layer& layer, BlendMode blend_mode, const EmbeddedFile& vertex_shader,
                     const EmbeddedFile& fragment_shader, bool radial_gradient, int submit_pass) {
     setTimeUniform(layer.time());
     setUniformDimensions(layer.width(), layer.height());
-    setColorMult(layer.hdr());
+    setColorMult(layer);
     setOriginFlipUniform(layer.bottomLeftOrigin());
     GradientAtlas* gradient_atlas = layer.gradientAtlas();
     setUniform<Uniforms::kRadialGradient>(radial_gradient ? 1.0f : 0.0f);
     setTexture<Uniforms::kGradient>(0, gradient_atlas->colorTextureHandle());
-    bgfx::submit(submit_pass, ProgramCache::programHandle(vertex_shader, fragment_shader));
+    submitBlended(blend_mode, submit_pass, ProgramCache::programHandle(vertex_shader, fragment_shader));
   }
 
   void setImageAtlasUniform(ImageAtlas* atlas) {
@@ -169,7 +504,7 @@ namespace visage {
   }
 
   void setPathAtlasUniform(PathAtlas* atlas) {
-    setTexture<Uniforms::kTexture>(1, bgfx::getTexture(atlas->frameBufferHandle()));
+    setTexture<Uniforms::kTexture>(1, gpu::getTexture(atlas->frameBufferHandle()));
     setUniform<Uniforms::kAtlasScale>(1.0f / atlas->width(), 1.0f / atlas->height());
   }
 
@@ -215,11 +550,15 @@ namespace visage {
     return std::accumulate(invalid_rects.begin(), invalid_rects.end(), 0, count_pieces);
   }
 
-  void submitText(const BatchVector<TextBlock>& batches, const Layer& layer, int submit_pass) {
+  void submitText(const BatchVector<TextBlock>& batches, BlendMode blend_mode, const Layer& layer,
+                  int submit_pass) {
     if (batches.empty() || batches[0].shapes->empty())
       return;
 
     const Font& font = batches[0].shapes->front().font;
+    if (font.packedFont() == nullptr)
+      return;
+
     int total_length = 0;
     for (const auto& batch : batches) {
       auto count_pieces = [&batch](int sum, const TextBlock& text_block) {
@@ -231,11 +570,18 @@ namespace visage {
     if (total_length == 0)
       return;
 
-    TextureVertex* vertices = initQuadVertices<TextureVertex>(total_length);
-    if (vertices == nullptr)
-      return;
+    auto submit = [&] {
+      setUniform<Uniforms::kAtlasScale>(1.0f / font.atlasWidth(), 1.0f / font.atlasHeight());
+      setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
+      setTexture<Uniforms::kTexture>(1, font.textureHandle());
+      setUniformDimensions(layer.width(), layer.height());
+      setColorMult(layer);
+      setUniform<Uniforms::kRadialGradient>(batches[0].shapes->front().radialGradient() ? 1.0f : 0.0f);
+      submitBlended(blend_mode, submit_pass,
+                    ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_text));
+    };
 
-    int vertex_index = 0;
+    QuadChunker<TextureVertex> chunker(total_length);
     for (const auto& batch : batches) {
       for (const TextBlock& text_block : *batch.shapes) {
         int length = text_block.quads.size();
@@ -291,68 +637,66 @@ namespace visage {
             coordinate_index3 = 2;
           }
 
-          PackedBrush::setVertexGradientPositions(text_block.brush, vertices + vertex_index,
-                                                  length * kVerticesPerQuad, x, y, batch.x, batch.y,
-                                                  x + text_block.width, y + text_block.height);
+          bool sideways = text_block.direction == Direction::Left ||
+                          text_block.direction == Direction::Right;
+          float padding_x = sideways ? 0.0f : 0.5f;
+          float padding_y = sideways ? 0.5f : 0.0f;
 
+          TextureVertex gradient;
+          PackedBrush::setVertexGradientPositions(text_block.brush, &gradient, 1, x, y, batch.x,
+                                                  batch.y, x + text_block.width, y + text_block.height);
           for (int i = 0; i < length; ++i) {
             if (!overlaps(text_block.quads[i]))
               continue;
 
-            float left = x + text_block.quads[i].x - 0.5f;
-            float right = left + text_block.quads[i].width + 1.0f;
-            float top = y + text_block.quads[i].y;
-            float bottom = top + text_block.quads[i].height;
+            TextureVertex* vertices = chunker.nextQuad(submit);
+            if (vertices == nullptr)
+              return;
+
+            float left = x + text_block.quads[i].x - padding_x;
+            float right = left + text_block.quads[i].width + 2.0f * padding_x;
+            float top = y + text_block.quads[i].y - padding_y;
+            float bottom = top + text_block.quads[i].height + 2.0f * padding_y;
 
             float texture_x = text_block.quads[i].packed_glyph->atlas_left - 0.5f;
             float texture_y = text_block.quads[i].packed_glyph->atlas_top;
             float texture_width = text_block.quads[i].packed_glyph->width + 1.0f;
             float texture_height = text_block.quads[i].packed_glyph->height;
 
-            vertices[vertex_index].x = left;
-            vertices[vertex_index].y = top;
-            vertices[vertex_index + 1].x = right;
-            vertices[vertex_index + 1].y = top;
-            vertices[vertex_index + 2].x = left;
-            vertices[vertex_index + 2].y = bottom;
-            vertices[vertex_index + 3].x = right;
-            vertices[vertex_index + 3].y = bottom;
+            vertices[0].x = left;
+            vertices[0].y = top;
+            vertices[1].x = right;
+            vertices[1].y = top;
+            vertices[2].x = left;
+            vertices[2].y = bottom;
+            vertices[3].x = right;
+            vertices[3].y = bottom;
 
-            vertices[vertex_index + coordinate_index0].texture_x = texture_x;
-            vertices[vertex_index + coordinate_index0].texture_y = texture_y;
-            vertices[vertex_index + coordinate_index1].texture_x = texture_x + texture_width;
-            vertices[vertex_index + coordinate_index1].texture_y = texture_y;
-            vertices[vertex_index + coordinate_index2].texture_x = texture_x;
-            vertices[vertex_index + coordinate_index2].texture_y = texture_y + texture_height;
-            vertices[vertex_index + coordinate_index3].texture_x = texture_x + texture_width;
-            vertices[vertex_index + coordinate_index3].texture_y = texture_y + texture_height;
+            vertices[coordinate_index0].texture_x = texture_x;
+            vertices[coordinate_index0].texture_y = texture_y;
+            vertices[coordinate_index1].texture_x = texture_x + texture_width;
+            vertices[coordinate_index1].texture_y = texture_y;
+            vertices[coordinate_index2].texture_x = texture_x;
+            vertices[coordinate_index2].texture_y = texture_y + texture_height;
+            vertices[coordinate_index3].texture_x = texture_x + texture_width;
+            vertices[coordinate_index3].texture_y = texture_y + texture_height;
 
             for (int v = 0; v < kVerticesPerQuad; ++v) {
-              int index = vertex_index + v;
-              vertices[index].clamp_left = positioned_clamp.left;
-              vertices[index].clamp_top = positioned_clamp.top;
-              vertices[index].clamp_right = positioned_clamp.right;
-              vertices[index].clamp_bottom = positioned_clamp.bottom;
-              vertices[index].direction_x = direction_x;
-              vertices[index].direction_y = direction_y;
+              vertices[v].clamp_left = positioned_clamp.left;
+              vertices[v].clamp_top = positioned_clamp.top;
+              vertices[v].clamp_right = positioned_clamp.right;
+              vertices[v].clamp_bottom = positioned_clamp.bottom;
+              vertices[v].direction_x = direction_x;
+              vertices[v].direction_y = direction_y;
+              vertices[v].gradient_texture_position = gradient.gradient_texture_position;
+              vertices[v].gradient = gradient.gradient;
             }
-
-            vertex_index += kVerticesPerQuad;
           }
         }
       }
     }
 
-    VISAGE_ASSERT(vertex_index == total_length * kVerticesPerQuad);
-
-    setUniform<Uniforms::kAtlasScale>(1.0f / font.atlasWidth(), 1.0f / font.atlasHeight());
-    setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
-    setTexture<Uniforms::kTexture>(1, font.textureHandle());
-    setUniformDimensions(layer.width(), layer.height());
-    setColorMult(layer.hdr());
-    setUniform<Uniforms::kRadialGradient>(batches[0].shapes->front().radialGradient() ? 1.0f : 0.0f);
-    bgfx::submit(submit_pass,
-                 ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_tinted_texture));
+    chunker.finish(submit);
   }
 
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass) {
@@ -360,36 +704,34 @@ namespace visage {
     if (quads.vertices == nullptr)
       return;
 
+    Shader* shader = batches[0].shapes->front().shader;
     setUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
-    setBlendMode(BlendMode::Alpha);
     setTimeUniform(layer.time());
     setUniformDimensions(layer.width(), layer.height());
     setTexture<Uniforms::kGradient>(0, layer.gradientAtlas()->colorTextureHandle());
-    setColorMult(layer.hdr());
+    setColorMult(layer);
     setOriginFlipUniform(layer.bottomLeftOrigin());
-    Shader* shader = batches[0].shapes->front().shader;
-    bgfx::submit(submit_pass,
-                 ProgramCache::programHandle(shader->vertexShader(), shader->fragmentShader()));
+    submitBlended(shader->state(), submit_pass,
+                  ProgramCache::programHandle(shader->vertexShader(), shader->fragmentShader()));
   }
 
-  void submitSampleRegions(const BatchVector<SampleRegion>& batches, const Layer& layer, int submit_pass) {
+  void submitSampleRegions(const BatchVector<SampleRegion>& batches, BlendMode blend_mode,
+                           const Layer& layer, int submit_pass) {
     auto quads = setupQuads(batches);
     if (quads.vertices == nullptr)
       return;
 
     setUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
 
-    setBlendMode(BlendMode::Alpha);
     setTimeUniform(layer.time());
     Layer* source_layer = batches[0].shapes->front().region->layer();
     setUniform<Uniforms::kAtlasScale>(1.0f / source_layer->width(), 1.0f / source_layer->height());
 
-    setTexture<Uniforms::kTexture>(0, bgfx::getTexture(source_layer->frameBuffer()));
+    setTexture<Uniforms::kTexture>(0, gpu::getTexture(source_layer->frameBuffer()));
     setUniformDimensions(layer.width(), layer.height());
-    float value = layer.hdr() ? kHdrColorMultiplier : 1.0f;
-    setUniform<Uniforms::kColorMult>(value, value, value, 1.0f);
     setOriginFlipUniform(layer.bottomLeftOrigin());
-    bgfx::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
-                                                          SampleRegion::fragmentShader()));
+    submitBlended(blend_mode, submit_pass,
+                  ProgramCache::programHandle(SampleRegion::vertexShader(),
+                                              SampleRegion::fragmentShader()));
   }
 }

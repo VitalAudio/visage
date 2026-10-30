@@ -49,7 +49,6 @@ namespace visage {
 
   class WindowWin32 : public Window {
   public:
-    static constexpr int kTimerId = 1;
     static HCURSOR cursor_;
 
     static void setCursor(HCURSOR cursor);
@@ -68,6 +67,7 @@ namespace visage {
     HWND windowHandle() const { return window_handle_; }
     void* nativeHandle() const override { return window_handle_; }
     HWND parentHandle() const { return parent_handle_; }
+    void clearParentHandle() { parent_handle_ = nullptr; }
 
     void windowContentsResized(int width, int height) override;
     void show() override;
@@ -75,9 +75,13 @@ namespace visage {
     void hide() override;
     void close() override;
     bool isShowing() const override;
+    bool isClosed() const override;
     void setWindowTitle(const std::string& title) override;
     IPoint maxWindowDimensions() const override;
     void setAlwaysOnTop(bool on_top) override;
+    void setFrameWaiter(std::function<bool(int)> waiter) override;
+    void waitForFrame() override;
+    void framePresented() override;
 
     bool isMouseTracked() const { return mouse_tracked_; }
 
@@ -90,7 +94,6 @@ namespace visage {
     void handleDpiChange(HWND hwnd, LPARAM l_param, WPARAM w_param);
     void updateMonitor();
     HMONITOR monitor() const { return monitor_.load(); }
-    WNDPROC parentWindowProc() const { return parent_window_proc_; }
     Window::Decoration decoration() const { return decoration_; }
 
   private:
@@ -103,14 +106,19 @@ namespace visage {
     HWND parent_handle_ = nullptr;
     HMODULE module_handle_ = nullptr;
     std::atomic<HMONITOR> monitor_ = nullptr;
-    WNDPROC parent_window_proc_ = nullptr;
     std::unique_ptr<EventHooks> event_hooks_;
     DragDropTarget* drag_drop_target_ = nullptr;
     std::unique_ptr<VBlankThread> v_blank_thread_;
+    std::function<bool(int)> pending_frame_waiter_;
+    int unmatched_presents_ = 0;
+    bool waits_for_frames_ = false;
+    bool stalled_draw_ = false;
+    long long last_draw_us_ = 0;
 
     Window::Decoration decoration_ = Window::Decoration::Native;
     std::wstring utf16_string_entry_;
     bool initialized_ = false;
+    bool ole_initialized_ = false;
     bool mouse_tracked_ = false;
     int mouse_down_flags_ = 0;
   };

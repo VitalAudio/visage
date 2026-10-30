@@ -56,12 +56,12 @@ namespace visage {
       redraw();
     }
 
-    void setPosition(int position) {
+    void setPosition(float position) {
       position_ = position;
       redraw();
     }
 
-    void setViewPosition(int range, int view_height, int position) {
+    void setViewPosition(float range, float view_height, float position) {
       range_ = range;
       view_height_ = view_height;
       position_ = position;
@@ -71,8 +71,8 @@ namespace visage {
       redraw();
     }
 
-    int viewRange() const { return range_; }
-    int viewHeight() const { return view_height_; }
+    float viewRange() const { return range_; }
+    float viewHeight() const { return view_height_; }
 
     void setLeftSide(bool left) { left_ = left; }
 
@@ -82,12 +82,12 @@ namespace visage {
     Animation<float> color_;
     Animation<float> width_;
 
-    int last_drag_ = 0;
+    float last_drag_ = 0.0f;
 
     bool active_ = false;
     bool left_ = false;
-    int range_ = 0.0f;
-    int view_height_ = 0.0f;
+    float range_ = 0.0f;
+    float view_height_ = 0.0f;
     float position_ = 0.0f;
     float rounding_ = 0.0f;
 
@@ -112,6 +112,7 @@ namespace visage {
           updateScrollableHeight();
       };
 
+      smooth_timer_.onTimerCallback() = [this] { smoothScrollUpdate(); };
       addChild(&scroll_bar_);
       scroll_bar_.addScrollCallback([this](float position) {
         scrollPositionChanged(position);
@@ -127,7 +128,9 @@ namespace visage {
       container_.addChild(frame, make_visible);
     }
 
-    void addScrolledChild(Frame& frame, bool make_visible = true) { addScrolledChild(&frame); }
+    void addScrolledChild(Frame& frame, bool make_visible = true) {
+      addScrolledChild(&frame, make_visible);
+    }
 
     void addScrolledChild(std::unique_ptr<Frame> frame, bool make_visible = true) {
       container_.setVisible(true);
@@ -142,7 +145,7 @@ namespace visage {
     }
 
     bool scrollDown() {
-      setYPosition(y_position_ + height() / 8);
+      setYPosition(std::max(0.0f, std::min(maxScroll(), y_position_ + height() / 8.0f)));
       return true;
     }
 
@@ -231,17 +234,17 @@ namespace visage {
       smooth_position_ = std::max(0.0f, smooth_position_);
 
       smooth_start_time_ = time::milliseconds();
-      runOnEventThread([this] { smoothScrollUpdate(); });
+      smooth_timer_.startTimer(1);
       return true;
     }
 
     void smoothScrollUpdate() {
       float t = (time::milliseconds() - smooth_start_time_) / (smooth_time_ * 1000.0f);
-      int position = smooth_start_position_ + (smooth_position_ - smooth_start_position_) * t;
+      float position = smooth_start_position_ + (smooth_position_ - smooth_start_position_) * t;
       if (t >= 1.0f)
         position = smooth_position_;
-      else if (t >= 0.0f)
-        runOnEventThread([this] { smoothScrollUpdate(); });
+      if (t >= 1.0f || t < 0.0f)
+        smooth_timer_.stopTimer();
 
       scrollPositionChanged(position);
       scroll_bar_.setViewPosition(scroll_bar_.viewRange(), scroll_bar_.viewHeight(), position);
@@ -259,6 +262,7 @@ namespace visage {
 
     float smooth_start_position_ = 0;
     long long smooth_start_time_ = 0;
+    EventTimer smooth_timer_;
 
     VISAGE_LEAK_CHECKER(ScrollableFrame)
   };

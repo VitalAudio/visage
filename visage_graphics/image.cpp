@@ -21,18 +21,31 @@
 
 #include "image.h"
 
-#include <bgfx/bgfx.h>
-#include <bimg/decode.h>
-#include <bx/allocator.h>
+#include "gpu/gpu.h"
+
 #include <cstring>
+
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_STATIC
+#define STBI_NO_STDIO
+#include <stb/stb_image.h>
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include <stb_image_resize2.h>
 
 namespace visage {
-  static bx::DefaultAllocator* allocator() {
-    static bx::DefaultAllocator allocator;
-    return &allocator;
+  struct DecodedImage {
+    ~DecodedImage() { stbi_image_free(data); }
+
+    unsigned char* data = nullptr;
+    int width = 0;
+    int height = 0;
+  };
+
+  static bool decodeImage(const unsigned char* data, int size, DecodedImage& result) {
+    int channels = 0;
+    result.data = stbi_load_from_memory(data, size, &result.width, &result.height, &channels, 4);
+    return result.data != nullptr;
   }
 
   class ImageAtlasTexture {
@@ -43,36 +56,41 @@ namespace visage {
     ~ImageAtlasTexture() { destroyHandle(); }
 
     void destroyHandle() {
-      if (bgfx::isValid(texture_handle_))
-        bgfx::destroy(texture_handle_);
+      if (gpu::isValid(texture_handle_))
+        gpu::destroy(texture_handle_);
 
-      texture_handle_ = BGFX_INVALID_HANDLE;
+      texture_handle_ = {};
     }
 
-    bool hasHandle() const { return bgfx::isValid(texture_handle_); }
+    bool hasHandle() const { return gpu::isValid(texture_handle_); }
 
-    bgfx::TextureHandle& handle() { return texture_handle_; }
+    gpu::TextureHandle& handle() { return texture_handle_; }
 
     void checkHandle() {
-      if (!bgfx::isValid(texture_handle_)) {
+      if (!gpu::isValid(texture_handle_)) {
         if (data_type_ == ImageAtlas::DataType::Float32)
-          texture_handle_ = bgfx::createTexture2D(width_, height_, false, 1, bgfx::TextureFormat::R32F);
+          texture_handle_ = gpu::createTexture2D(width_, height_, gpu::TextureFormat::R32F,
+                                                 gpu::kSamplerPoint);
         else
-          texture_handle_ = bgfx::createTexture2D(width_, height_, false, 1, bgfx::TextureFormat::RGBA8);
+          texture_handle_ = gpu::createTexture2D(width_, height_, gpu::TextureFormat::RGBA8);
       }
     }
 
+    void clear() {
+      std::unique_ptr<unsigned char[]> zeros = std::make_unique<unsigned char[]>(width_ * height_ * 4);
+      updateTexture(zeros.get(), 0, 0, width_, height_);
+    }
+
     void updateTexture(const unsigned char* data, int x, int y, int width, int height) {
-      VISAGE_ASSERT(bgfx::isValid(texture_handle_));
-      bgfx::updateTexture2D(texture_handle_, 0, 0, x, y, width, height,
-                            bgfx::copy(data, width * height * 4));
+      VISAGE_ASSERT(gpu::isValid(texture_handle_));
+      gpu::updateTexture2D(texture_handle_, x, y, width, height, gpu::copy(data, width * height * 4));
     }
 
   private:
     int width_ = 0;
     int height_ = 0;
     ImageAtlas::DataType data_type_ = ImageAtlas::DataType::RGBA8;
-    bgfx::TextureHandle texture_handle_ = BGFX_INVALID_HANDLE;
+    gpu::TextureHandle texture_handle_ = {};
   };
 
   ImageAtlas::PackedImageReference::~PackedImageReference() {
@@ -91,12 +109,11 @@ namespace visage {
     if (images_.count(image) == 0) {
       int width = image.width;
       int height = image.height;
-      if (image.width == 0) {
-        bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image.data, image.data_size);
-        if (image_container) {
-          width = image_container->m_width;
-          height = image_container->m_height;
-          bimg::imageFree(image_container);
+      if (image.width == 0 && image.data && image.data_size > 0) {
+        int channels = 0;
+        if (!stbi_info_from_memory(image.data, image.data_size, &width, &height, &channels)) {
+          width = 0;
+          height = 0;
         }
       }
 
@@ -151,7 +168,7 @@ namespace visage {
   }
 
   void ImageAtlas::updateImage(const PackedImageRect* image) const {
-    if (texture_ == nullptr || !bgfx::isValid(texture_->handle()))
+    if (texture_ == nullptr || !gpu::isValid(texture_->handle()))
       return;
 
     PackedRect packed_rect = atlas_map_.rectForId(image);
@@ -160,32 +177,38 @@ namespace visage {
                               packed_rect.h);
       return;
     }
-    bimg::ImageContainer* image_container = bimg::imageParse(allocator(), image->image.data,
-                                                             image->image.data_size,
-                                                             bimg::TextureFormat::RGBA8);
-    if (image_container) {
-      unsigned char* image_data = static_cast<unsigned char*>(image_container->m_data);
-      if (image_container->m_width == packed_rect.w && image_container->m_height == packed_rect.h)
+    if (image->image.data == nullptr || image->image.data_size <= 0)
+      return;
+
+    DecodedImage decoded;
+    if (decodeImage(image->image.data, image->image.data_size, decoded)) {
+      unsigned char* image_data = decoded.data;
+      if (decoded.width == packed_rect.w && decoded.height == packed_rect.h)
         texture_->updateTexture(image_data, packed_rect.x, packed_rect.y, packed_rect.w, packed_rect.h);
       else {
         int size = packed_rect.w * packed_rect.h * numChannels();
         std::unique_ptr<unsigned char[]> resampled = std::make_unique<unsigned char[]>(size);
-        stbir_resize_uint8_srgb(image_data, image_container->m_width, image_container->m_height,
-                                image_container->m_width * numChannels(), resampled.get(),
-                                packed_rect.w, packed_rect.h, packed_rect.w * numChannels(), STBIR_RGBA);
+        stbir_resize_uint8_srgb(image_data, decoded.width, decoded.height,
+                                decoded.width * numChannels(), resampled.get(), packed_rect.w,
+                                packed_rect.h, packed_rect.w * numChannels(), STBIR_RGBA);
         texture_->updateTexture(resampled.get(), packed_rect.x, packed_rect.y, packed_rect.w,
                                 packed_rect.h);
       }
-      bimg::imageFree(image_container);
     }
     else
       VISAGE_ASSERT(false);
   }
 
-  const bgfx::TextureHandle& ImageAtlas::textureHandle() {
+  void ImageAtlas::destroyTexture() {
+    if (texture_)
+      texture_->destroyHandle();
+  }
+
+  const gpu::TextureHandle& ImageAtlas::textureHandle() {
     VISAGE_ASSERT(texture_.get());
     if (!texture_->hasHandle() || repacked_) {
       texture_->checkHandle();
+      texture_->clear();
       for (auto& image : images_) {
         if (stale_images_.count(image.first) == 0)
           updateImage(image.second.get());

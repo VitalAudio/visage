@@ -49,13 +49,25 @@
 
 namespace visage::theme {
   static std::string nameFromPath(const std::string& file_path) {
-    size_t start = file_path.find_last_of("\\/");
+    size_t separator = file_path.find_last_of("\\/");
+    size_t start = separator == std::string::npos ? 0 : separator + 1;
     size_t end = file_path.find_last_of('.');
-    if (start == std::string::npos)
-      start = 0;
-    if (end == std::string::npos)
+    if (end == std::string::npos || end < start)
       end = file_path.length();
-    return file_path.substr(start + 1, end - start - 1);
+    return file_path.substr(start, end - start);
+  }
+
+  template<typename InfoMap>
+  bool hasNameConflict(const InfoMap& info_map, const std::string& name, const std::string& file_path) {
+    std::string group = nameFromPath(file_path);
+    for (const auto& assignment : info_map) {
+      if (assignment.second.name == name && assignment.second.group != group) {
+        VISAGE_LOG("Duplicate theme name %s in %s and %s", name.c_str(), file_path.c_str(),
+                   assignment.second.group.c_str());
+        return true;
+      }
+    }
+    return false;
   }
 
   class ColorId {
@@ -81,24 +93,21 @@ namespace visage::theme {
 
     static ColorId nextId(std::string name, const std::string& file_path, unsigned int default_color) {
       Map* id = Map::instance();
+      VISAGE_ASSERT(!hasNameConflict(id->info_map_, name, file_path));
       id->info_map_[ColorId(id->next_id_)] = { std::move(name), nameFromPath(file_path), default_color };
       return ColorId(id->next_id_++);
     }
 
-    static unsigned int defaultColor(ColorId color_id) {
-      VISAGE_ASSERT(Map::instance()->info_map_.count(color_id));
-      return Map::instance()->info_map_[color_id].default_color;
+    static const ColorIdInfo& info(ColorId color_id) {
+      const Map* map = Map::instance();
+      auto info = map->info_map_.find(color_id);
+      VISAGE_ASSERT(info != map->info_map_.end());
+      return info == map->info_map_.end() ? map->no_info_ : info->second;
     }
 
-    static const std::string& groupName(ColorId color_id) {
-      VISAGE_ASSERT(Map::instance()->info_map_.count(color_id));
-      return Map::instance()->info_map_[color_id].group;
-    }
-
-    static const std::string& name(ColorId color_id) {
-      VISAGE_ASSERT(Map::instance()->info_map_.count(color_id));
-      return Map::instance()->info_map_[color_id].name;
-    }
+    static unsigned int defaultColor(ColorId color_id) { return info(color_id).default_color; }
+    static const std::string& groupName(ColorId color_id) { return info(color_id).group; }
+    static const std::string& name(ColorId color_id) { return info(color_id).name; }
 
     static std::map<std::string, ColorId> nameIdMap() {
       std::map<std::string, ColorId> result;
@@ -112,13 +121,11 @@ namespace visage::theme {
 
   private:
     struct Map {
-      static Map* instance() {
-        static Map instance;
-        return &instance;
-      }
+      static Map* instance();
 
       unsigned int next_id_ = 0;
       std::map<ColorId, ColorIdInfo> info_map_;
+      ColorIdInfo no_info_;
     };
   };
 
@@ -143,23 +150,20 @@ namespace visage::theme {
 
     static ValueId nextId(std::string name, const std::string& file_path, float default_value) noexcept {
       Map* id = Map::instance();
+      VISAGE_ASSERT(!hasNameConflict(id->info_map_, name, file_path));
       id->info_map_[ValueId(id->next_id_)] = { std::move(name), nameFromPath(file_path), default_value };
       return ValueId(id->next_id_++);
     }
 
-    static float defaultValue(ValueId value_id) {
-      return Map::instance()->info_map_[value_id].default_value;
+    static const ValueIdInfo& info(ValueId value_id) {
+      const Map* map = Map::instance();
+      auto info = map->info_map_.find(value_id);
+      return info == map->info_map_.end() ? map->no_info_ : info->second;
     }
 
-    static ValueIdInfo info(ValueId value_id) { return Map::instance()->info_map_[value_id]; }
-
-    static const std::string& groupName(ValueId value_id) {
-      return Map::instance()->info_map_[value_id].group;
-    }
-
-    static const std::string& name(ValueId value_id) {
-      return Map::instance()->info_map_[value_id].name;
-    }
+    static float defaultValue(ValueId value_id) { return info(value_id).default_value; }
+    static const std::string& groupName(ValueId value_id) { return info(value_id).group; }
+    static const std::string& name(ValueId value_id) { return info(value_id).name; }
 
     static std::map<std::string, ValueId> nameIdMap() {
       std::map<std::string, ValueId> result;
@@ -173,13 +177,11 @@ namespace visage::theme {
 
   private:
     struct Map {
-      static Map* instance() {
-        static Map instance;
-        return &instance;
-      }
+      static Map* instance();
 
       unsigned int next_id_ = 0;
       std::map<ValueId, ValueIdInfo> info_map_;
+      ValueIdInfo no_info_;
     };
   };
 
@@ -205,8 +207,10 @@ namespace visage::theme {
       return OverrideId(id->next_id_++);
     }
 
-    static const std::string& name(OverrideId value_id) {
-      return Map::instance()->name_map_[value_id];
+    static const std::string& name(OverrideId override_id) {
+      const Map* map = Map::instance();
+      auto name = map->name_map_.find(override_id);
+      return name == map->name_map_.end() ? map->no_name_ : name->second;
     }
 
     static OverrideId idFromName(const std::string& name) {
@@ -231,13 +235,11 @@ namespace visage::theme {
 
   private:
     struct Map {
-      static Map* instance() {
-        static Map instance;
-        return &instance;
-      }
+      static Map* instance();
 
-      unsigned int next_id_ = 0;
-      std::map<OverrideId, std::string> name_map_ = { { OverrideId(0), "Global" } };
+      unsigned int next_id_ = kDefaultId + 1;
+      std::map<OverrideId, std::string> name_map_ = { { OverrideId(kDefaultId), "Global" } };
+      std::string no_name_;
     };
   };
 }

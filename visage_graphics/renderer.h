@@ -22,43 +22,54 @@
 #pragma once
 
 #include "screenshot.h"
-#include "visage_utils/thread_utils.h"
-#include "windowless_context.h"
+
+#include <atomic>
+#include <memory>
 
 namespace visage {
-  class GraphicsCallbackHandler;
-
-  class Renderer : public Thread {
+  class Renderer {
   public:
+    class Reference {
+    public:
+      Reference() { Renderer::instance().references_++; }
+      Reference(const Reference&) = delete;
+      Reference& operator=(const Reference&) = delete;
+      ~Reference() { Renderer::instance().removeReference(); }
+    };
+
     static Renderer& instance();
 
-    Renderer();
-    ~Renderer() override;
-
-    static void resetResolution(int width, int height);
-
-    void initializeWindowless() { initialize(windowlessContext(), nullptr); }
+    void initializeWindowless() { initialize(nullptr, nullptr); }
     void initialize(void* model_window, void* display);
-    void setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool blue_red);
+    void checkInitialization();
+    void watchForLeaks();
+    void setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool bgra, bool y_flip);
     const Screenshot& screenshot() const { return screenshot_; }
 
     const std::string& errorMessage() const { return error_message_; }
     bool supported() const { return supported_; }
     bool swapChainSupported() const { return swap_chain_supported_; }
+    bool floatRenderTargetsSupported() const { return float_render_targets_supported_; }
+    void setColorManaged(bool color_managed) { color_managed_ = color_managed; }
+    bool colorManaged() const { return color_managed_; }
     bool initialized() const { return initialized_; }
+    void* display() const { return display_; }
 
   private:
-    void startRenderThread();
-    void render();
-    void run() override;
+    void removeReference();
+    void shutdown();
 
     bool initialized_ = false;
+    bool shut_down_ = false;
+    std::atomic<int> references_ = 0;
+    void* model_window_ = nullptr;
+    void* display_ = nullptr;
     bool supported_ = false;
     bool swap_chain_supported_ = false;
+    bool float_render_targets_supported_ = false;
+    bool color_managed_ = true;
 
     Screenshot screenshot_;
     std::string error_message_;
-    std::atomic<bool> render_thread_started_ = false;
-    std::unique_ptr<GraphicsCallbackHandler> callback_handler_;
   };
 }
