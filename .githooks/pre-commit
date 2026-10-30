@@ -2,6 +2,13 @@
 
 required_major=18
 
+files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.cpp' '*.h' \
+  ':!visage_graphics/third_party/' ':!visage_windowing/macos/')
+
+if [ -z "$files" ]; then
+  exit 0
+fi
+
 if [ -n "$CLANG_FORMAT" ]; then
   set -- $CLANG_FORMAT
 elif command -v clang-format-$required_major >/dev/null 2>&1; then
@@ -11,7 +18,7 @@ elif command -v uvx >/dev/null 2>&1; then
 elif command -v clang-format >/dev/null 2>&1; then
   set -- clang-format
 else
-  echo "pre-commit: clang-format not found, install clang-format $required_major or uv" >&2
+  echo "pre-commit: clang-format $required_major not found, install it (or uv) to commit C++ changes" >&2
   exit 1
 fi
 
@@ -21,9 +28,6 @@ if [ "$version" != "$required_major" ]; then
 fi
 
 failed=
-files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.cpp' '*.h' \
-  ':!visage_graphics/third_party/' ':!visage_windowing/macos/')
-
 for file in $files; do
   if ! git show ":$file" | "$@" --style=file --assume-filename="$file" --dry-run --Werror >/dev/null 2>&1; then
     failed="$failed $file"
