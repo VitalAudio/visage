@@ -1665,6 +1665,8 @@ namespace visage {
       wl_surface_commit(surface_);
       return;
     }
+    if (waiting_for_frame_)
+      return;
 
     tick();
     if (!frame_presented_)
