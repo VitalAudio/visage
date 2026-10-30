@@ -125,8 +125,7 @@ just the one on the machine at hand. Device-loss recovery can be exercised with
   Linux build by including X11 before the Vulkan Xlib header".
 - PRs are merged with "Rebase and merge", so branches must be linear: no merge commits. Rebase onto
   `main` instead of merging it in.
-- Keep PRs under 8k changed lines; split larger work. Stack PRs only when needed, and rebase the
-  stacked branch once its base merges.
+- Stack PRs only when needed, and rebase the stacked branch once its base merges.
 - CI (format, Linux, macOS, Windows, MinGW tests) runs on the upstream repository, VitalAudio/visage.
   On a fork without Actions, run the format check and tests locally before opening a PR.
 
