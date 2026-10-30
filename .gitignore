@@ -36,7 +36,9 @@ Profile
 Release
 CLAUDE.md
 AGENTS.md
-.claude
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
 cmake_build
 CMakeLists.txt.user
 CMakeCache.txt
