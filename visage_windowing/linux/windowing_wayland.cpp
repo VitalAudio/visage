@@ -66,6 +66,8 @@ namespace visage {
   static constexpr int kMaxPollMs = 100;
   static constexpr int kDefaultCursorSize = 24;
   static constexpr double kScrollPixelsPerNotch = 10.0;
+  static constexpr unsigned char kFirstPrintable = 0x20;
+  static constexpr unsigned char kDelete = 0x7f;
   static constexpr const char* kUriListType = "text/uri-list";
   static constexpr const char* kTextTypes[] = { "text/plain;charset=utf-8", "UTF8_STRING",
                                                 "text/plain", "TEXT", "STRING" };
@@ -802,7 +804,8 @@ namespace visage {
         window->handleKeyDown(key_code, modifier_state | modifierForKeyCode(key_code), repeat);
 
       bool shortcut = modifier_state & (kModifierRegCtrl | kModifierAlt | kModifierMeta);
-      if (!shortcut && !text.empty() && text[0] < 127 && keyboard_focus_ == window)
+      unsigned char first = text.empty() ? 0 : text[0];
+      if (!shortcut && first >= kFirstPrintable && first != kDelete && keyboard_focus_ == window)
         window->handleTextInput(text);
     }
 
@@ -1668,6 +1671,26 @@ namespace visage {
       wl_surface_commit(surface_);
   }
 
+  void WindowWayland::unmapSurface() {
+    static constexpr int kWaitStepMs = 5;
+    static const wl_callback_listener kUnmappedListener = {
+      [](void* data, wl_callback*, uint32_t) { *static_cast<bool*>(data) = true; },
+    };
+
+    bool unmapped = false;
+    wl_callback* callback = wl_surface_frame(surface_);
+    wl_callback_add_listener(callback, &kUnmappedListener, &unmapped);
+    wl_surface_attach(surface_, nullptr, 0, 0);
+    wl_surface_commit(surface_);
+
+    long long deadline = time::microseconds() + kStalledFrameUs;
+    while (!unmapped && time::microseconds() < deadline) {
+      if (!wayland_->dispatch(kWaitStepMs))
+        break;
+    }
+    wl_callback_destroy(callback);
+  }
+
   void WindowWayland::waitForConfigure() {
     static constexpr int kMaxConfigureRoundtrips = 10;
 
@@ -1766,9 +1789,7 @@ namespace visage {
       unlockPointer();
       destroyRole();
       setVisible(false);
-      wl_surface_attach(surface_, nullptr, 0, 0);
-      wl_surface_commit(surface_);
-      wl_display_flush(wayland_->display());
+      unmapSurface();
     }
     handleWindowHidden();
   }

@@ -39,8 +39,8 @@ namespace visage {
 
     static Renderer& instance();
 
-    void initializeWindowless() { initialize(nullptr, nullptr); }
-    void initialize(void* model_window, void* display, bool wayland_display = false);
+    void initializeWindowless() { initialize(nullptr, nullptr, false); }
+    void initialize(void* model_window, void* display, bool wayland_display);
     void checkInitialization();
     void watchForLeaks();
     void setScreenshotData(const uint8_t* data, int width, int height, int pitch, bool bgra, bool y_flip);

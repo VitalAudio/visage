@@ -114,6 +114,7 @@ namespace visage {
     int resizeOperationForPosition(int x, int y) const;
     void createRole(bool maximized);
     void waitForConfigure();
+    void unmapSurface();
     void drawConfigured();
     void destroyRole();
     void setMinimumSize();

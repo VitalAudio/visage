@@ -25,11 +25,43 @@
 #if VISAGE_WAYLAND
 #include "windowing_wayland.h"
 
+#include <link.h>
 #include <strings.h>
 #endif
 
 namespace visage {
   static bool _plugin_windows = false;
+
+#if VISAGE_WAYLAND
+  static bool loadedInMainProgram() {
+    struct Search {
+      uintptr_t address = 0;
+      bool first = true;
+      bool main_program = false;
+    };
+
+    Search search;
+    search.address = reinterpret_cast<uintptr_t>(&loadedInMainProgram);
+    dl_iterate_phdr(
+        [](dl_phdr_info* info, size_t, void* data) {
+          auto search = static_cast<Search*>(data);
+          bool first = search->first;
+          search->first = false;
+          for (int i = 0; i < info->dlpi_phnum; ++i) {
+            const ElfW(Phdr)& header = info->dlpi_phdr[i];
+            uintptr_t start = info->dlpi_addr + header.p_vaddr;
+            if (header.p_type == PT_LOAD && search->address >= start &&
+                search->address < start + header.p_memsz) {
+              search->main_program = first;
+              return 1;
+            }
+          }
+          return 0;
+        },
+        &search);
+    return search.main_program;
+  }
+#endif
 
   static bool useWayland() {
 #if VISAGE_WAYLAND
@@ -40,7 +72,7 @@ namespace visage {
         return false;
 
       const char* wayland_display = std::getenv("WAYLAND_DISPLAY");
-      if (!forced && (wayland_display == nullptr || wayland_display[0] == '\0'))
+      if (!forced && (wayland_display == nullptr || wayland_display[0] == '\0' || !loadedInMainProgram()))
         return false;
       return waylandAvailable();
     }();

@@ -977,7 +977,8 @@ namespace visage::gpu {
       std::vector<const char*> enabled;
       xlib_ = has_extension(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
       wayland_ = has_extension(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
-      if (!has_extension(VK_KHR_SURFACE_EXTENSION_NAME) || !(init_.wayland ? wayland_ : xlib_))
+      if (!has_extension(VK_KHR_SURFACE_EXTENSION_NAME) ||
+          !(init_.display == nullptr ? (xlib_ || wayland_) : (init_.wayland ? wayland_ : xlib_)))
         return false;
       enabled.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
       if (xlib_)

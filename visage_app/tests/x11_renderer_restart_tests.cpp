@@ -97,7 +97,7 @@ TEST_CASE("Canvases paired after the renderer shuts down initialize it again", "
   std::unique_ptr<visage::Window> window = createPluginWindow(Dimension::nativePixels(100),
                                                               Dimension::nativePixels(80), (void*)parent);
   REQUIRE(window);
-  Renderer::instance().initialize(window->initWindow(), window->globalDisplay());
+  Renderer::instance().initialize(window->initWindow(), window->globalDisplay(), window->waylandDisplay());
   window->show();
 
   auto draw = [&window]() {
