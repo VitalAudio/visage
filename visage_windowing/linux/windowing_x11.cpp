@@ -31,8 +31,12 @@
 #include <clocale>
 #include <cstring>
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <poll.h>
+#include <spawn.h>
 #include <sstream>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <X11/cursorfont.h>
 #include <X11/extensions/Xrandr.h>
 #include <X11/Xutil.h>
@@ -529,33 +533,6 @@ namespace visage {
     return monitorInfoForPosition(nativeCursorScreenPosition());
   }
 
-  static void drawMessageBox(int width, int height, Display* display, ::Window window, GC gc,
-                             const std::string& message) {
-    XClearWindow(display, window);
-
-    XFontStruct* font = XLoadQueryFont(display, "-misc-fixed-medium-r-*-*-24-*-*-*-*-*-*-*");
-    if (!font) {
-      VISAGE_LOG("Unable to load font");
-      return;
-    }
-
-    int button_width = width / 2;
-    int button_height = height / 8;
-    int button_x = (width - button_width) / 2;
-    int button_y = height - 2 * button_height;
-
-    XSetFont(display, gc, font->fid);
-    int text_width = XTextWidth(font, message.c_str(), message.length());
-    XDrawString(display, window, gc, (width - text_width) / 2, button_y / 2 + 12, message.c_str(),
-                message.size());
-
-    XDrawRectangle(display, window, gc, button_x, button_y, button_width, button_height);
-    int ok_width = XTextWidth(font, "OK", 2);
-    XDrawString(display, window, gc, (width - ok_width) / 2, button_y + (button_height + 24) / 2, "OK", 2);
-
-    XFreeFont(display, font);
-  }
-
   static void setWindowName(X11Connection* x11, ::Window window, const std::string& name) {
     Atom net_wm_name = XInternAtom(x11->display(), "_NET_WM_NAME", False);
     Xutf8SetWMProperties(x11->display(), window, name.c_str(), nullptr, nullptr, 0, nullptr,
@@ -586,74 +563,342 @@ namespace visage {
     XFlush(display);
   }
 
+  static bool showDesktopMessageBox(const std::string& title, const std::string& message) {
+    std::string title_arg = "--title=" + title;
+    std::string text_arg = "--text=" + message;
+    char zenity[] = "zenity";
+    char info[] = "--info";
+    char no_markup[] = "--no-markup";
+    char* args[] = { zenity, info, no_markup, title_arg.data(), text_arg.data(), nullptr };
+
+    posix_spawn_file_actions_t file_actions;
+    posix_spawn_file_actions_init(&file_actions);
+    posix_spawn_file_actions_addopen(&file_actions, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
+    posix_spawn_file_actions_addopen(&file_actions, STDERR_FILENO, "/dev/null", O_WRONLY, 0);
+    pid_t pid = 0;
+    int result = posix_spawnp(&pid, zenity, &file_actions, nullptr, args, environ);
+    posix_spawn_file_actions_destroy(&file_actions);
+    if (result != 0)
+      return false;
+
+    int status = 0;
+    while (waitpid(pid, &status, 0) < 0) {
+      if (errno != EINTR)
+        return true;
+    }
+    return WIFEXITED(status) && WEXITSTATUS(status) <= 1;
+  }
+
+  class X11MessageBox {
+  public:
+    static constexpr int kFontSize = 14;
+    static constexpr int kTitleFontSize = 16;
+    static constexpr int kPadding = 24;
+    static constexpr int kSpacing = 12;
+    static constexpr int kMinTextWidth = 280;
+    static constexpr int kMaxTextWidth = 420;
+    static constexpr int kMinButtonWidth = 96;
+    static constexpr int kButtonHeight = 34;
+    static constexpr int kButtonPadding = 24;
+
+    X11MessageBox(X11Connection* x11, std::string title, const std::string& message) :
+        x11_(x11), display_(x11->display()), title_(std::move(title)) {
+      if (std::strcmp(setlocale(LC_CTYPE, nullptr), "C") == 0)
+        setlocale(LC_CTYPE, "");
+
+      MonitorInfo monitor = activeMonitorInfo();
+      scale_ = std::max(1.0f, monitor.dpi / Window::kDefaultDpi);
+      title_font_ = createFontSet("bold", scaled(kTitleFontSize));
+      text_font_ = createFontSet("medium", scaled(kFontSize));
+      if (title_font_ == nullptr || text_font_ == nullptr)
+        return;
+
+      title_lines_ = wrapText(title_font_, title_, scaled(kMaxTextWidth));
+      lines_ = wrapText(text_font_, message, scaled(kMaxTextWidth));
+      layout(monitor.bounds);
+      createWindow();
+    }
+
+    ~X11MessageBox() {
+      if (window_) {
+        XFreeGC(display_, gc_);
+        XDestroyWindow(display_, window_);
+        XFlush(display_);
+      }
+      if (title_font_)
+        XFreeFontSet(display_, title_font_);
+      if (text_font_)
+        XFreeFontSet(display_, text_font_);
+    }
+
+    void run() {
+      if (window_ == 0)
+        return;
+
+      static constexpr int kSleepWait = 10;
+      Atom wm_delete_window = XInternAtom(display_, "WM_DELETE_WINDOW", False);
+      XEvent event;
+      while (true) {
+        if (!XCheckIfEvent(display_, &event, isWindowEvent, reinterpret_cast<XPointer>(&window_))) {
+          Thread::sleep(kSleepWait);
+          continue;
+        }
+
+        if (event.type == Expose && event.xexpose.count == 0)
+          draw();
+        else if (event.type == MotionNotify)
+          setHovered(button_.contains(event.xmotion.x, event.xmotion.y));
+        else if (event.type == LeaveNotify)
+          setHovered(false);
+        else if (event.type == ButtonPress && event.xbutton.button == Button1) {
+          pressed_ = button_.contains(event.xbutton.x, event.xbutton.y);
+          draw();
+        }
+        else if (event.type == ButtonRelease && event.xbutton.button == Button1) {
+          bool clicked = pressed_ && button_.contains(event.xbutton.x, event.xbutton.y);
+          pressed_ = false;
+          if (clicked)
+            return;
+          draw();
+        }
+        else if (event.type == KeyPress) {
+          KeySym keysym = XLookupKeysym(&event.xkey, 0);
+          if (keysym == XK_Return || keysym == XK_KP_Enter || keysym == XK_Escape || keysym == XK_space)
+            return;
+        }
+        else if (event.type == ClientMessage && static_cast<Atom>(event.xclient.data.l[0]) == wm_delete_window)
+          return;
+        else if (event.type == DestroyNotify)
+          return;
+      }
+    }
+
+  private:
+    int scaled(int value) const { return std::round(value * scale_); }
+
+    XFontSet createFontSet(const std::string& weight, int pixel_size) {
+      std::string size = std::to_string(pixel_size);
+      std::string pattern = "-*-helvetica-" + weight + "-r-normal--" + size + "-*-*-*-p-*-*-*," +
+                            "-*-*-" + weight + "-r-normal--" + size + "-*-*-*-p-*-*-*," + "-*-*-" +
+                            weight + "-r-normal--" + size + "-*-*-*-*-*-*-*," +
+                            "-*-*-*-r-normal--" + size + "-*-*-*-*-*-*-*,fixed";
+      char** missing = nullptr;
+      int num_missing = 0;
+      char* default_string = nullptr;
+      XFontSet font_set = XCreateFontSet(display_, pattern.c_str(), &missing, &num_missing, &default_string);
+      if (missing)
+        XFreeStringList(missing);
+      return font_set;
+    }
+
+    int textWidth(XFontSet font, const std::string& text) const {
+      return Xutf8TextEscapement(font, text.c_str(), text.size());
+    }
+
+    static int lineHeight(XFontSet font) {
+      XFontSetExtents* extents = XExtentsOfFontSet(font);
+      return extents->max_logical_extent.height;
+    }
+
+    static int ascent(XFontSet font) {
+      XFontSetExtents* extents = XExtentsOfFontSet(font);
+      return -extents->max_logical_extent.y;
+    }
+
+    std::vector<std::string> wrapText(XFontSet font, const std::string& text, int max_width) const {
+      std::vector<std::string> lines;
+      std::stringstream paragraphs(text);
+      std::string paragraph;
+      while (std::getline(paragraphs, paragraph)) {
+        std::string line;
+        size_t position = 0;
+        while (position <= paragraph.size()) {
+          size_t end = paragraph.find(' ', position);
+          if (end == std::string::npos)
+            end = paragraph.size();
+          std::string word = paragraph.substr(position, end - position);
+          std::string candidate = line.empty() ? word : line + " " + word;
+          if (!line.empty() && textWidth(font, candidate) > max_width) {
+            lines.push_back(line);
+            line = word;
+          }
+          else
+            line = candidate;
+          position = end + 1;
+        }
+        lines.push_back(line);
+      }
+      return lines;
+    }
+
+    void layout(const IBounds& monitor_bounds) {
+      int padding = scaled(kPadding);
+      int content_width = 0;
+      for (const std::string& line : title_lines_)
+        content_width = std::max(content_width, textWidth(title_font_, line));
+      for (const std::string& line : lines_)
+        content_width = std::max(content_width, textWidth(text_font_, line));
+
+      int button_width = std::max(scaled(kMinButtonWidth),
+                                  textWidth(text_font_, kButtonText) + 2 * scaled(kButtonPadding));
+      int button_height = scaled(kButtonHeight);
+      content_width = std::max(content_width, std::max(button_width, scaled(kMinTextWidth)));
+
+      int title_height = title_lines_.size() * lineHeight(title_font_);
+      int text_height = lines_.size() * lineHeight(text_font_);
+      width_ = content_width + 2 * padding;
+      height_ = padding + title_height + scaled(kSpacing) + text_height + padding + button_height + padding;
+      button_ = { width_ - padding - button_width, height_ - padding - button_height, button_width,
+                  button_height };
+
+      x_ = monitor_bounds.x() + (monitor_bounds.width() - width_) / 2;
+      y_ = monitor_bounds.y() + (monitor_bounds.height() - height_) / 2;
+    }
+
+    unsigned long color(unsigned int rgb) {
+      XColor color = {};
+      color.red = ((rgb >> 16) & 0xff) * 0x101;
+      color.green = ((rgb >> 8) & 0xff) * 0x101;
+      color.blue = (rgb & 0xff) * 0x101;
+      color.flags = DoRed | DoGreen | DoBlue;
+      Colormap colormap = DefaultColormap(display_, DefaultScreen(display_));
+      if (!XAllocColor(display_, colormap, &color))
+        return (rgb & 0xffffff) > 0x808080 ? WhitePixel(display_, DefaultScreen(display_)) :
+                                             BlackPixel(display_, DefaultScreen(display_));
+      return color.pixel;
+    }
+
+    void createWindow() {
+      background_ = color(kBackgroundColor);
+      text_color_ = color(kTextColor);
+      button_color_ = color(kButtonColor);
+      button_hover_color_ = color(kButtonHoverColor);
+      button_pressed_color_ = color(kButtonPressedColor);
+      button_text_color_ = color(kButtonTextColor);
+
+      XSetWindowAttributes attributes = {};
+      attributes.background_pixel = background_;
+      attributes.event_mask = ExposureMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask |
+                              LeaveWindowMask | KeyPressMask | StructureNotifyMask;
+      window_ = XCreateWindow(display_, x11_->rootWindow(), x_, y_, width_, height_, 0, CopyFromParent,
+                              InputOutput, CopyFromParent, CWBackPixel | CWEventMask, &attributes);
+      setWindowName(x11_, window_, title_);
+
+      Atom window_type = XInternAtom(display_, "_NET_WM_WINDOW_TYPE", False);
+      Atom dialog_type = XInternAtom(display_, "_NET_WM_WINDOW_TYPE_DIALOG", False);
+      XChangeProperty(display_, window_, window_type, XA_ATOM, 32, PropModeReplace,
+                      reinterpret_cast<unsigned char*>(&dialog_type), 1);
+      Atom wm_state = XInternAtom(display_, "_NET_WM_STATE", False);
+      Atom wm_state_above = XInternAtom(display_, "_NET_WM_STATE_ABOVE", False);
+      XChangeProperty(display_, window_, wm_state, XA_ATOM, 32, PropModeReplace,
+                      reinterpret_cast<unsigned char*>(&wm_state_above), 1);
+
+      XSizeHints* size_hints = XAllocSizeHints();
+      size_hints->flags = PMinSize | PMaxSize | PPosition | PSize | PWinGravity;
+      size_hints->min_width = size_hints->max_width = width_;
+      size_hints->min_height = size_hints->max_height = height_;
+      size_hints->x = x_;
+      size_hints->y = y_;
+      size_hints->win_gravity = CenterGravity;
+      XSetWMNormalHints(display_, window_, size_hints);
+      XFree(size_hints);
+
+      XWMHints* wm_hints = XAllocWMHints();
+      wm_hints->flags = InputHint;
+      wm_hints->input = True;
+      XSetWMHints(display_, window_, wm_hints);
+      XFree(wm_hints);
+
+      Atom wm_delete_window = XInternAtom(display_, "WM_DELETE_WINDOW", False);
+      XSetWMProtocols(display_, window_, &wm_delete_window, 1);
+
+      gc_ = XCreateGC(display_, window_, 0, nullptr);
+      XMapRaised(display_, window_);
+      XFlush(display_);
+    }
+
+    void setHovered(bool hovered) {
+      if (hovered_ == hovered)
+        return;
+      hovered_ = hovered;
+      draw();
+    }
+
+    void drawText(XFontSet font, const std::vector<std::string>& lines, int y) {
+      int line_height = lineHeight(font);
+      for (const std::string& line : lines) {
+        Xutf8DrawString(display_, window_, font, gc_, scaled(kPadding), y + ascent(font),
+                        line.c_str(), line.size());
+        y += line_height;
+      }
+    }
+
+    void draw() {
+      XSetForeground(display_, gc_, background_);
+      XFillRectangle(display_, window_, gc_, 0, 0, width_, height_);
+
+      int y = scaled(kPadding);
+      XSetForeground(display_, gc_, text_color_);
+      drawText(title_font_, title_lines_, y);
+      y += title_lines_.size() * lineHeight(title_font_) + scaled(kSpacing);
+      drawText(text_font_, lines_, y);
+
+      unsigned long fill = pressed_ ? button_pressed_color_ :
+                                      (hovered_ ? button_hover_color_ : button_color_);
+      XSetForeground(display_, gc_, fill);
+      XFillRectangle(display_, window_, gc_, button_.x(), button_.y(), button_.width(), button_.height());
+
+      XSetForeground(display_, gc_, button_text_color_);
+      int text_x = button_.x() + (button_.width() - textWidth(text_font_, kButtonText)) / 2;
+      int text_y = button_.y() + (button_.height() - lineHeight(text_font_)) / 2 + ascent(text_font_);
+      Xutf8DrawString(display_, window_, text_font_, gc_, text_x, text_y, kButtonText,
+                      std::strlen(kButtonText));
+      XFlush(display_);
+    }
+
+    static constexpr const char* kButtonText = "OK";
+    static constexpr unsigned int kBackgroundColor = 0xfafafa;
+    static constexpr unsigned int kTextColor = 0x242424;
+    static constexpr unsigned int kButtonColor = 0x3584e4;
+    static constexpr unsigned int kButtonHoverColor = 0x4a90e8;
+    static constexpr unsigned int kButtonPressedColor = 0x1c71d8;
+    static constexpr unsigned int kButtonTextColor = 0xffffff;
+
+    X11Connection* x11_ = nullptr;
+    Display* display_ = nullptr;
+    std::string title_;
+    float scale_ = 1.0f;
+    XFontSet title_font_ = nullptr;
+    XFontSet text_font_ = nullptr;
+    std::vector<std::string> title_lines_;
+    std::vector<std::string> lines_;
+    int x_ = 0;
+    int y_ = 0;
+    int width_ = 0;
+    int height_ = 0;
+    IBounds button_;
+    ::Window window_ = 0;
+    GC gc_ = nullptr;
+    unsigned long background_ = 0;
+    unsigned long text_color_ = 0;
+    unsigned long button_color_ = 0;
+    unsigned long button_hover_color_ = 0;
+    unsigned long button_pressed_color_ = 0;
+    unsigned long button_text_color_ = 0;
+    bool hovered_ = false;
+    bool pressed_ = false;
+  };
+
   void showMessageBox(std::string title, std::string message) {
-    IBounds bounds = computeWindowBounds(Dimension::viewMinPercent(30.0f),
-                                         Dimension::viewMinPercent(20.0f));
+    if (showDesktopMessageBox(title, message))
+      return;
+
     X11Connection* x11 = X11Connection::globalInstance();
     if (x11->display() == nullptr)
       return;
 
-    Display* display = x11->display();
-    int screen = DefaultScreen(display);
-
-    ::Window message_window = XCreateSimpleWindow(display, x11->rootWindow(), bounds.x(),
-                                                  bounds.y(), bounds.width(), bounds.height(), 0,
-                                                  BlackPixel(display, screen),
-                                                  WhitePixel(display, screen));
-    setWindowName(x11, message_window, title);
-    Atom wm_state = XInternAtom(display, "_NET_WM_STATE", False);
-    Atom wm_state_above = XInternAtom(display, "_NET_WM_STATE_ABOVE", False);
-    XChangeProperty(display, message_window, wm_state, XA_ATOM, 32, PropModeReplace,
-                    (unsigned char*)&wm_state_above, 1);
-
-    XSizeHints* size_hints = XAllocSizeHints();
-    size_hints->flags = PMinSize | PMaxSize | USPosition | USSize | PPosition;
-    size_hints->min_width = size_hints->max_width = bounds.width();
-    size_hints->min_height = size_hints->max_height = bounds.height();
-    size_hints->x = bounds.x();
-    size_hints->y = bounds.y();
-    XSetWMNormalHints(display, message_window, size_hints);
-    XFree(size_hints);
-
-    XSelectInput(display, message_window, ExposureMask | ButtonPressMask | KeyPressMask);
-    GC gc = XCreateGC(display, message_window, 0, nullptr);
-    Atom wm_delete_message = XInternAtom(display, "WM_DELETE_WINDOW", False);
-    XSetWMProtocols(display, message_window, &wm_delete_message, 1);
-
-    XMapWindow(display, message_window);
-    XFlush(display);
-    static constexpr int kSleepWait = 10;
-    XEvent event;
-    while (true) {
-      if (!XCheckIfEvent(display, &event, isWindowEvent, reinterpret_cast<XPointer>(&message_window))) {
-        Thread::sleep(kSleepWait);
-        continue;
-      }
-
-      if (event.type == Expose)
-        drawMessageBox(bounds.width(), bounds.height(), display, message_window, gc, message);
-
-      else if (event.type == ButtonPress) {
-        int button_width = bounds.width() / 2;
-        int button_height = bounds.height() / 8;
-        int button_x = (bounds.width() - button_width) / 2;
-        int button_y = bounds.height() - 2 * button_height;
-
-        if (event.xbutton.x >= button_x && event.xbutton.x <= button_x + button_width &&
-            event.xbutton.y >= button_y && event.xbutton.y <= button_y + button_height) {
-          break;
-        }
-      }
-      else if (event.type == KeyPress || event.type == DestroyNotify)
-        break;
-      else if (event.type == ClientMessage) {
-        if (event.xclient.data.l[0] == wm_delete_message)
-          break;
-      }
-    }
-
-    XFreeGC(display, gc);
-    XDestroyWindow(display, message_window);
+    X11MessageBox message_box(x11, std::move(title), message);
+    message_box.run();
   }
 
   float defaultDpiScale() {

@@ -33,6 +33,7 @@
 #include <vector>
 
 #if VISAGE_LINUX
+#include <X11/keysym.h>
 #include <X11/Xlib.h>
 
 using namespace visage;
@@ -326,12 +327,17 @@ TEST_CASE("X11 clipboard reads and message boxes release the display lock while 
       XEvent event = {};
       event.xkey.type = KeyPress;
       event.xkey.window = box;
+      event.xkey.keycode = XKeysymToKeycode(user_display, XK_Return);
       event.xkey.same_screen = True;
       XSendEvent(user_display, box, False, KeyPressMask, &event);
       XCloseDisplay(user_display);
     });
 
+    const char* path = std::getenv("PATH");
+    std::string original_path = path ? path : "";
+    setenv("PATH", "/nonexistent", 1);
     showMessageBox("visage lock test", "Press a key");
+    setenv("PATH", original_path.c_str(), 1);
     user.join();
   }
 
