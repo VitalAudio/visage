@@ -234,6 +234,7 @@ namespace visage::gpu {
       bool submitting = false;
       std::vector<ReadRequest> pending_reads;
       std::vector<uint16_t> pending_screenshots;
+      std::vector<Damage> pending_damage;
       std::vector<PendingUpdate> updates;
       std::vector<PendingDestroy> destroys;
     };
@@ -749,6 +750,20 @@ namespace visage::gpu {
       context->pending_screenshots.push_back(handle.idx);
   }
 
+  void addDamage(FrameBufferHandle handle, int x, int y, int width, int height) {
+    if (context == nullptr || !context->frame_buffers.valid(handle.idx) || width <= 0 || height <= 0)
+      return;
+
+    Damage damage = { handle.idx, x, y, width, height };
+    for (Damage& pending : context->pending_damage) {
+      if (pending.frame_buffer == handle.idx) {
+        pending = combineDamage(pending, damage);
+        return;
+      }
+    }
+    context->pending_damage.push_back(damage);
+  }
+
   void destroy(FrameBufferHandle handle) {
     if (context && context->frame_buffers.valid(handle.idx))
       context->destroys.push_back({ PendingDestroy::FrameBuffer, handle.idx });
@@ -1245,6 +1260,8 @@ namespace visage::gpu {
     frame.screenshots = std::move(context->pending_screenshots);
     context->pending_reads.clear();
     context->pending_screenshots.clear();
+    frame.damage = std::move(context->pending_damage);
+    context->pending_damage.clear();
     context->submitting = true;
     backend->submitFrame(frame, stats);
     context->submitting = false;
@@ -1256,6 +1273,7 @@ namespace visage::gpu {
     frame.uniform_data.clear();
     frame.reads.clear();
     frame.screenshots.clear();
+    frame.damage.clear();
     context->view_items.clear();
 
     std::vector<PendingDestroy> destroys = std::move(context->destroys);

@@ -169,6 +169,8 @@ namespace visage::gpu {
       std::unordered_map<uint32_t, ID3D11InputLayout*> input_layouts;
     };
 
+    static constexpr int kSwapChainBuffers = 2;
+
     struct FrameBuffer {
       uint16_t texture = kInvalidHandle;
       ID3D11RenderTargetView* rtv = nullptr;
@@ -181,6 +183,10 @@ namespace visage::gpu {
       int width = 0;
       int height = 0;
       bool needs_present = false;
+      int presents = 0;
+      DamageHistory history;
+      Damage frame_damage;
+      Damage buffer_damage;
     };
   }
 
@@ -242,6 +248,7 @@ namespace visage::gpu {
       raster_desc.FillMode = D3D11_FILL_SOLID;
       raster_desc.CullMode = D3D11_CULL_NONE;
       raster_desc.DepthClipEnable = TRUE;
+      raster_desc.ScissorEnable = TRUE;
       device_->CreateRasterizerState(&raster_desc, &rasterizer_state_);
 
       D3D11_DEPTH_STENCIL_DESC depth_desc = {};
@@ -573,9 +580,9 @@ namespace visage::gpu {
       desc.Format = formatInfo(format).format;
       desc.SampleDesc.Count = 1;
       desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-      desc.BufferCount = 2;
+      desc.BufferCount = kSwapChainBuffers;
       desc.Scaling = DXGI_SCALING_NONE;
-      desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+      desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
       desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
       desc.Flags = frame_buffer.swap_chain_flags;
 
@@ -635,6 +642,8 @@ namespace visage::gpu {
       }
       else if (!checkDeviceLost(hr))
         log("D3D11: failed to resize swap chain");
+      frame_buffer.presents = 0;
+      frame_buffer.history.reset();
       createSwapChainViews(frame_buffer);
     }
 
@@ -705,11 +714,22 @@ namespace visage::gpu {
       for (const ViewData& view : frame.views) {
         auto found = frame_buffers_.find(view.frame_buffer);
         FrameBuffer* frame_buffer = found == frame_buffers_.end() ? nullptr : &found->second;
-        if (frame_buffer && frame_buffer->swap_chain)
+        if (frame_buffer && frame_buffer->swap_chain && !frame_buffer->needs_present) {
           frame_buffer->needs_present = true;
+          prepareDamage(frame, view.frame_buffer, *frame_buffer);
+        }
 
         D3D11_VIEWPORT viewport = { float(view.x),      float(view.y), float(view.width),
                                     float(view.height), 0.0f,          1.0f };
+        D3D11_RECT scissor = { std::max(0, view.x), std::max(0, view.y),
+                               std::max(0, view.x + view.width), std::max(0, view.y + view.height) };
+        if (frame_buffer && frame_buffer->swap_chain) {
+          const Damage& damage = frame_buffer->buffer_damage;
+          scissor.left = std::max<LONG>(scissor.left, damage.x);
+          scissor.top = std::max<LONG>(scissor.top, damage.y);
+          scissor.right = std::max(scissor.left, std::min<LONG>(scissor.right, damage.x + damage.width));
+          scissor.bottom = std::max(scissor.top, std::min<LONG>(scissor.bottom, damage.y + damage.height));
+        }
         bool targets_bound = false;
 
         for (const ViewItem& item : view.items) {
@@ -719,6 +739,7 @@ namespace visage::gpu {
             if (!targets_bound) {
               bindRenderTarget(frame_buffer->rtv);
               context_->RSSetViewports(1, &viewport);
+              context_->RSSetScissorRects(1, &scissor);
               targets_bound = true;
             }
             draw(frame.draws[item.index], frame.uniform_data);
@@ -749,7 +770,24 @@ namespace visage::gpu {
         if (!frame_buffer.second.needs_present)
           continue;
         frame_buffer.second.needs_present = false;
-        if (checkDeviceLost(frame_buffer.second.swap_chain->Present(sync_interval, present_flags)))
+
+        const Damage& damage = frame_buffer.second.frame_damage;
+        RECT dirty = { damage.x, damage.y, damage.x + damage.width, damage.y + damage.height };
+        DXGI_PRESENT_PARAMETERS parameters = {};
+        if (!damage.empty()) {
+          parameters.DirtyRectsCount = 1;
+          parameters.pDirtyRects = &dirty;
+        }
+        HRESULT hr = frame_buffer.second.swap_chain->Present1(sync_interval, present_flags, &parameters);
+        if (hr == S_OK) {
+          frame_buffer.second.presents = std::min(frame_buffer.second.presents + 1, kSwapChainBuffers);
+          frame_buffer.second.history.push(damage);
+        }
+        else {
+          frame_buffer.second.presents = 0;
+          frame_buffer.second.history.reset();
+        }
+        if (checkDeviceLost(hr))
           break;
       }
 
@@ -862,6 +900,15 @@ namespace visage::gpu {
       for (auto& layout : program.input_layouts)
         release(layout.second);
       program.input_layouts.clear();
+    }
+
+    static void prepareDamage(const FrameData& frame, uint16_t idx, FrameBuffer& frame_buffer) {
+      int age = frame_buffer.presents == kSwapChainBuffers ? kSwapChainBuffers : 0;
+      frame_buffer.frame_damage = DamageHistory::frameDamage(frame, idx, frame_buffer.width,
+                                                             frame_buffer.height);
+      frame_buffer.buffer_damage = frame_buffer.history.bufferDamage(frame_buffer.frame_damage, age,
+                                                                     frame_buffer.width,
+                                                                     frame_buffer.height);
     }
 
     static void releaseFrameBuffer(FrameBuffer& frame_buffer) {

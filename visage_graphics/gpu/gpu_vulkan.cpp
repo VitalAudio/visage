@@ -277,6 +277,11 @@ namespace visage::gpu {
       std::vector<VkFramebuffer> framebuffers;
       std::vector<VkSemaphore> render_finished;
       std::vector<VkImageLayout> layouts;
+      std::vector<uint32_t> presented;
+      uint32_t presents = 0;
+      DamageHistory history;
+      Damage frame_damage;
+      Damage buffer_damage;
       uint32_t current_image = UINT32_MAX;
       bool acquired = false;
     };
@@ -818,6 +823,7 @@ namespace visage::gpu {
           if (frame_buffer->swap_chain && !frame_buffer->chain->acquired) {
             VkSemaphore semaphore = acquireSemaphore();
             if (acquire(*frame_buffer->chain, semaphore)) {
+              prepareDamage(frame, view.frame_buffer, *frame_buffer->chain);
               wait_semaphores.push_back(semaphore);
               presented.push_back(frame_buffer);
             }
@@ -879,7 +885,27 @@ namespace visage::gpu {
         present.swapchainCount = 1;
         present.pSwapchains = &chain.swap_chain;
         present.pImageIndices = &chain.current_image;
+
+        const Damage& damage = chain.frame_damage;
+        VkRectLayerKHR rect { { damage.x, damage.y },
+                              { static_cast<uint32_t>(damage.width), static_cast<uint32_t>(damage.height) },
+                              0 };
+        VkPresentRegionKHR region { 1, &rect };
+        VkPresentRegionsKHR regions { VK_STRUCTURE_TYPE_PRESENT_REGIONS_KHR };
+        regions.swapchainCount = 1;
+        regions.pRegions = &region;
+        if (incremental_present_ && !damage.empty())
+          present.pNext = &regions;
+
         VkResult result = checkResult(vkQueuePresentKHR(queue_, &present));
+        if (result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR) {
+          chain.presented[chain.current_image] = ++chain.presents;
+          chain.history.push(damage);
+        }
+        else {
+          std::fill(chain.presented.begin(), chain.presented.end(), 0);
+          chain.history.reset();
+        }
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
           chain.needs_recreate = true;
         else if (result == VK_ERROR_SURFACE_LOST_KHR)
@@ -1135,12 +1161,22 @@ namespace visage::gpu {
       queue_info.queueCount = 1;
       queue_info.pQueuePriorities = &priority;
 
-      const char* extensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+      uint32_t extension_count = 0;
+      vkEnumerateDeviceExtensionProperties(physical_device_, nullptr, &extension_count, nullptr);
+      std::vector<VkExtensionProperties> available(extension_count);
+      vkEnumerateDeviceExtensionProperties(physical_device_, nullptr, &extension_count, available.data());
+      incremental_present_ = std::any_of(available.begin(), available.end(), [](const VkExtensionProperties& e) {
+        return std::strcmp(e.extensionName, VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME) == 0;
+      });
+
+      std::vector<const char*> extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+      if (incremental_present_)
+        extensions.push_back(VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME);
       VkDeviceCreateInfo info { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
       info.queueCreateInfoCount = 1;
       info.pQueueCreateInfos = &queue_info;
-      info.enabledExtensionCount = 1;
-      info.ppEnabledExtensionNames = extensions;
+      info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+      info.ppEnabledExtensionNames = extensions.data();
       if (vkCreateDevice(physical_device_, &info, nullptr, &device_) != VK_SUCCESS)
         return false;
 
@@ -1502,7 +1538,7 @@ namespace visage::gpu {
                               capabilities.currentTransform;
       info.compositeAlpha = composite;
       info.presentMode = present_mode;
-      info.clipped = VK_TRUE;
+      info.clipped = VK_FALSE;
       info.oldSwapchain = chain.swap_chain;
 
       VkSwapchainKHR swap_chain = VK_NULL_HANDLE;
@@ -1523,6 +1559,9 @@ namespace visage::gpu {
       chain.images.resize(count);
       vkGetSwapchainImagesKHR(device_, swap_chain, &count, chain.images.data());
       chain.layouts.assign(count, VK_IMAGE_LAYOUT_UNDEFINED);
+      chain.presented.assign(count, 0);
+      chain.presents = 0;
+      chain.history.reset();
 
       VkRenderPass render_pass = renderPass(chain.format);
       for (VkImage image : chain.images) {
@@ -1623,6 +1662,15 @@ namespace visage::gpu {
       return slot.acquire_semaphores[slot.acquire_semaphores_used++];
     }
 
+    void prepareDamage(const FrameData& frame, uint16_t idx, SwapChain& chain) {
+      int width = static_cast<int>(chain.extent.width);
+      int height = static_cast<int>(chain.extent.height);
+      uint32_t presented = chain.presented[chain.current_image];
+      int age = presented ? static_cast<int>(chain.presents - presented + 1) : 0;
+      chain.frame_damage = DamageHistory::frameDamage(frame, idx, width, height);
+      chain.buffer_damage = chain.history.bufferDamage(chain.frame_damage, age, width, height);
+    }
+
     bool acquire(SwapChain& chain, VkSemaphore semaphore) {
       for (int attempt = 0; attempt < 2; ++attempt) {
         if (chain.surface_lost && !recreateSurface(chain))
@@ -1637,7 +1685,8 @@ namespace visage::gpu {
           if (result == VK_SUBOPTIMAL_KHR)
             chain.needs_recreate = true;
           chain.acquired = true;
-          chain.layouts[chain.current_image] = VK_IMAGE_LAYOUT_UNDEFINED;
+          if (chain.presented[chain.current_image] == 0)
+            chain.layouts[chain.current_image] = VK_IMAGE_LAYOUT_UNDEFINED;
           return true;
         }
         if (result == VK_ERROR_SURFACE_LOST_KHR)
@@ -2068,6 +2117,15 @@ namespace visage::gpu {
       int y = std::clamp(view.y, 0, static_cast<int>(extent.height));
       int width = std::clamp(view.width, 0, static_cast<int>(extent.width) - x);
       int height = std::clamp(view.height, 0, static_cast<int>(extent.height) - y);
+      if (frame_buffer.swap_chain) {
+        const Damage& damage = frame_buffer.chain->buffer_damage;
+        int right = std::min(x + width, damage.x + damage.width);
+        int bottom = std::min(y + height, damage.y + damage.height);
+        x = std::max(x, damage.x);
+        y = std::max(y, damage.y);
+        width = std::max(0, right - x);
+        height = std::max(0, bottom - y);
+      }
       if (width > 0 && height > 0) {
         VkViewport viewport { static_cast<float>(view.x),
                               static_cast<float>(view.y + view.height),
@@ -2313,6 +2371,7 @@ namespace visage::gpu {
     uint32_t queue_family_ = 0;
     uint32_t num_allocations_ = 0;
     bool device_lost_ = false;
+    bool incremental_present_ = false;
     VkDevice device_ = VK_NULL_HANDLE;
     VkQueue queue_ = VK_NULL_HANDLE;
     VkDescriptorSetLayout graphics_set_layout_ = VK_NULL_HANDLE;

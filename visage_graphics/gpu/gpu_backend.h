@@ -23,6 +23,7 @@
 
 #include "gpu.h"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
@@ -167,6 +168,37 @@ namespace visage::gpu {
     void* data = nullptr;
   };
 
+  struct Damage {
+    uint16_t frame_buffer = kInvalidHandle;
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+
+    bool empty() const { return width <= 0 || height <= 0; }
+  };
+
+  inline Damage combineDamage(const Damage& a, const Damage& b) {
+    if (b.empty())
+      return a;
+    if (a.empty())
+      return { a.frame_buffer, b.x, b.y, b.width, b.height };
+
+    int left = std::min(a.x, b.x);
+    int top = std::min(a.y, b.y);
+    int right = std::max(a.x + a.width, b.x + b.width);
+    int bottom = std::max(a.y + a.height, b.y + b.height);
+    return { a.frame_buffer, left, top, right - left, bottom - top };
+  }
+
+  inline Damage clipDamage(const Damage& damage, int width, int height) {
+    int left = std::clamp(damage.x, 0, width);
+    int top = std::clamp(damage.y, 0, height);
+    int right = std::clamp(damage.x + damage.width, left, width);
+    int bottom = std::clamp(damage.y + damage.height, top, height);
+    return { damage.frame_buffer, left, top, right - left, bottom - top };
+  }
+
   struct FrameData {
     uint32_t frame_number = 0;
     std::vector<ViewData> views;
@@ -176,6 +208,43 @@ namespace visage::gpu {
     std::vector<uint8_t> uniform_data;
     std::vector<ReadRequest> reads;
     std::vector<uint16_t> screenshots;
+    std::vector<Damage> damage;
+  };
+
+  class DamageHistory {
+  public:
+    static constexpr int kMaxAge = 4;
+
+    static Damage frameDamage(const FrameData& frame, uint16_t frame_buffer, int width, int height) {
+      for (const Damage& damage : frame.damage) {
+        if (damage.frame_buffer == frame_buffer)
+          return clipDamage(damage, width, height);
+      }
+      return { frame_buffer, 0, 0, width, height };
+    }
+
+    void reset() { size_ = 0; }
+
+    Damage bufferDamage(const Damage& damage, int age, int width, int height) const {
+      if (age < 1 || age - 1 > size_)
+        return { damage.frame_buffer, 0, 0, width, height };
+
+      Damage result = damage;
+      for (int i = 0; i < age - 1; ++i)
+        result = combineDamage(result, history_[i]);
+      return clipDamage(result, width, height);
+    }
+
+    void push(const Damage& damage) {
+      for (int i = kMaxAge - 1; i > 0; --i)
+        history_[i] = history_[i - 1];
+      history_[0] = damage;
+      size_ = std::min(size_ + 1, kMaxAge);
+    }
+
+  private:
+    Damage history_[kMaxAge];
+    int size_ = 0;
   };
 
   class Backend {

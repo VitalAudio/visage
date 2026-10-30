@@ -299,6 +299,7 @@ namespace visage::gpu {
   TextureHandle getTexture(FrameBufferHandle handle);
   bool waitForFrame(FrameBufferHandle handle, int timeout_ms);
   void requestScreenShot(FrameBufferHandle handle);
+  void addDamage(FrameBufferHandle handle, int x, int y, int width, int height);
   void destroy(FrameBufferHandle handle);
 
   BufferHandle createVertexBuffer(const Memory* memory, const VertexLayout& layout, uint16_t flags = 0);

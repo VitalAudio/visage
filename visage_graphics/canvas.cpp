@@ -131,8 +131,14 @@ namespace visage {
     }
 
     if (submission > submit_pass || Layer::viewFlushes() != start_flushes) {
+      auto damage = composite_layer_.invalidRects().find(&window_region_);
+      if (damage != composite_layer_.invalidRects().end()) {
+        for (const IBounds& rect : damage->second)
+          gpu::addDamage(composite_layer_.frameBuffer(), rect.x(), rect.y(), rect.width(), rect.height());
+      }
       composite_layer_.invalidate();
       submission = composite_layer_.submit(submission, backdrop_count);
+      composite_layer_.clearInvalidRects();
       advanceFrame();
       endBufferPoolFrame();
 
