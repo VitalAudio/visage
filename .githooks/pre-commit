@@ -1,0 +1,40 @@
+#!/bin/sh
+
+required_major=18
+
+if [ -n "$CLANG_FORMAT" ]; then
+  set -- $CLANG_FORMAT
+elif command -v clang-format-$required_major >/dev/null 2>&1; then
+  set -- clang-format-$required_major
+elif command -v uvx >/dev/null 2>&1; then
+  set -- uvx clang-format==18.1.8
+elif command -v clang-format >/dev/null 2>&1; then
+  set -- clang-format
+else
+  echo "pre-commit: clang-format not found, install clang-format $required_major or uv" >&2
+  exit 1
+fi
+
+version=$("$@" --version 2>/dev/null | sed -n 's/.*clang-format version \([0-9]*\).*/\1/p')
+if [ "$version" != "$required_major" ]; then
+  echo "pre-commit: warning: using clang-format ${version:-unknown}, CI uses $required_major" >&2
+fi
+
+failed=
+files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.cpp' '*.h' \
+  ':!visage_graphics/third_party/' ':!visage_windowing/macos/')
+
+for file in $files; do
+  if ! git show ":$file" | "$@" --style=file --assume-filename="$file" --dry-run --Werror >/dev/null 2>&1; then
+    failed="$failed $file"
+  fi
+done
+
+if [ -n "$failed" ]; then
+  echo "pre-commit: staged files are not clang-formatted:" >&2
+  for file in $failed; do
+    echo "  $file" >&2
+  done
+  echo "Run: $* -i$failed" >&2
+  exit 1
+fi
