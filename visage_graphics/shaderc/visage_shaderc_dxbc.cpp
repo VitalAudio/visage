@@ -26,7 +26,8 @@
 
 using namespace visage::gpu;
 
-bool compileDxbc(const std::string& hlsl, ShaderStage stage, std::vector<uint8_t>& result, std::string& error) {
+bool compileDxbc(const std::string& hlsl, ShaderStage stage, std::vector<uint8_t>& result,
+                 std::string& error) {
   const char* profile = "ps_5_0";
   if (stage == ShaderStage::Vertex)
     profile = "vs_5_0";

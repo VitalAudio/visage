@@ -21,11 +21,10 @@
 
 #include "canvas.h"
 
+#include "gpu/gpu.h"
 #include "palette.h"
 #include "renderer.h"
 #include "theme.h"
-
-#include "gpu/gpu.h"
 
 namespace visage {
   bool Canvas::swapChainSupported() {
@@ -252,8 +251,10 @@ namespace visage {
     result.push_back("Frame submit: " + std::to_string(stats->cpu_frame_ms) + " ms");
     result.push_back("Draw number: " + std::to_string(stats->num_draws));
     result.push_back("Num views: " + std::to_string(stats->num_views));
-    result.push_back(std::string(caps->compute ? "YES" : "    ") + " - Compute shaders are supported.");
-    result.push_back(std::string(caps->swap_chain ? "YES" : "    ") + " - Multiple windows are supported.");
+    result.push_back(std::string(caps->compute ? "YES" : "    ") +
+                     " - Compute shaders are supported.");
+    result.push_back(std::string(caps->swap_chain ? "YES" : "    ") +
+                     " - Multiple windows are supported.");
     return result;
   }
 

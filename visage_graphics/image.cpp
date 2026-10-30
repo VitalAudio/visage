@@ -22,6 +22,7 @@
 #include "image.h"
 
 #include "gpu/gpu.h"
+
 #include <cstring>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -69,7 +70,7 @@ namespace visage {
       if (!gpu::isValid(texture_handle_)) {
         if (data_type_ == ImageAtlas::DataType::Float32)
           texture_handle_ = gpu::createTexture2D(width_, height_, gpu::TextureFormat::R32F,
-                                                  gpu::kSamplerPoint);
+                                                 gpu::kSamplerPoint);
         else
           texture_handle_ = gpu::createTexture2D(width_, height_, gpu::TextureFormat::RGBA8);
       }
@@ -82,8 +83,7 @@ namespace visage {
 
     void updateTexture(const unsigned char* data, int x, int y, int width, int height) {
       VISAGE_ASSERT(gpu::isValid(texture_handle_));
-      gpu::updateTexture2D(texture_handle_, x, y, width, height,
-                            gpu::copy(data, width * height * 4));
+      gpu::updateTexture2D(texture_handle_, x, y, width, height, gpu::copy(data, width * height * 4));
     }
 
   private:
@@ -189,8 +189,8 @@ namespace visage {
         int size = packed_rect.w * packed_rect.h * numChannels();
         std::unique_ptr<unsigned char[]> resampled = std::make_unique<unsigned char[]>(size);
         stbir_resize_uint8_srgb(image_data, decoded.width, decoded.height,
-                                decoded.width * numChannels(), resampled.get(),
-                                packed_rect.w, packed_rect.h, packed_rect.w * numChannels(), STBIR_RGBA);
+                                decoded.width * numChannels(), resampled.get(), packed_rect.w,
+                                packed_rect.h, packed_rect.w * numChannels(), STBIR_RGBA);
         texture_->updateTexture(resampled.get(), packed_rect.x, packed_rect.y, packed_rect.w,
                                 packed_rect.h);
       }

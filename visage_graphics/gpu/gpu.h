@@ -169,9 +169,9 @@ namespace visage::gpu {
     }
 
     constexpr uint32_t key() const {
-      return write_mask | (blend ? 1u << 4 : 0u) | (uint32_t(src_rgb) << 5) | (uint32_t(dst_rgb) << 9) |
-             (uint32_t(src_alpha) << 13) | (uint32_t(dst_alpha) << 17) | (uint32_t(op_rgb) << 21) |
-             (uint32_t(op_alpha) << 24);
+      return write_mask | (blend ? 1u << 4 : 0u) | (uint32_t(src_rgb) << 5) |
+             (uint32_t(dst_rgb) << 9) | (uint32_t(src_alpha) << 13) | (uint32_t(dst_alpha) << 17) |
+             (uint32_t(op_rgb) << 21) | (uint32_t(op_alpha) << 24);
     }
   };
 

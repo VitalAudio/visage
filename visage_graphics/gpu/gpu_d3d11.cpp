@@ -30,7 +30,6 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#include <windows.h>
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -42,6 +41,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <windows.h>
 
 namespace visage::gpu {
   namespace {
@@ -596,7 +596,8 @@ namespace visage::gpu {
         release(swap_chain2);
       }
 
-      factory_->MakeWindowAssociation(frame_buffer.window, DXGI_MWA_NO_WINDOW_CHANGES | DXGI_MWA_NO_ALT_ENTER);
+      factory_->MakeWindowAssociation(frame_buffer.window,
+                                      DXGI_MWA_NO_WINDOW_CHANGES | DXGI_MWA_NO_ALT_ENTER);
 
       if (!createSwapChainViews(frame_buffer)) {
         releaseFrameBuffer(frame_buffer);
@@ -707,8 +708,8 @@ namespace visage::gpu {
         if (frame_buffer && frame_buffer->swap_chain)
           frame_buffer->needs_present = true;
 
-        D3D11_VIEWPORT viewport = { float(view.x), float(view.y), float(view.width), float(view.height),
-                                    0.0f, 1.0f };
+        D3D11_VIEWPORT viewport = { float(view.x),      float(view.y), float(view.width),
+                                    float(view.height), 0.0f,          1.0f };
         bool targets_bound = false;
 
         for (const ViewItem& item : view.items) {
@@ -760,8 +761,7 @@ namespace visage::gpu {
       stats.num_draws = int(frame.draws.size());
       stats.num_computes = int(frame.computes.size());
       stats.num_views = int(frame.views.size());
-      stats.cpu_frame_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() -
-                                                                     cpu_start_)
+      stats.cpu_frame_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - cpu_start_)
                                .count();
     }
 
@@ -769,14 +769,14 @@ namespace visage::gpu {
     HRESULT createDevice(D3D_DRIVER_TYPE type, UINT flags, const D3D_FEATURE_LEVEL* levels, UINT num_levels) {
       release(context_);
       release(device_);
-      HRESULT hr = D3D11CreateDevice(nullptr, type, nullptr, flags, levels, num_levels, D3D11_SDK_VERSION,
-                                     &device_, &feature_level_, &context_);
+      HRESULT hr = D3D11CreateDevice(nullptr, type, nullptr, flags, levels, num_levels,
+                                     D3D11_SDK_VERSION, &device_, &feature_level_, &context_);
       return hr;
     }
 
     bool checkDeviceLost(HRESULT hr) {
-      if (hr != DXGI_ERROR_DEVICE_REMOVED && hr != DXGI_ERROR_DEVICE_RESET && hr != DXGI_ERROR_DEVICE_HUNG &&
-          hr != DXGI_ERROR_DRIVER_INTERNAL_ERROR)
+      if (hr != DXGI_ERROR_DEVICE_REMOVED && hr != DXGI_ERROR_DEVICE_RESET &&
+          hr != DXGI_ERROR_DEVICE_HUNG && hr != DXGI_ERROR_DRIVER_INTERNAL_ERROR)
         return false;
 
       if (!device_lost_.exchange(true)) {
@@ -811,8 +811,8 @@ namespace visage::gpu {
                                                                  "cs_5_0";
       ID3DBlob* code = nullptr;
       ID3DBlob* errors = nullptr;
-      HRESULT hr = compile_(info.code.data(), info.code.size(), nullptr, nullptr, nullptr, "main", target,
-                            D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &code, &errors);
+      HRESULT hr = compile_(info.code.data(), info.code.size(), nullptr, nullptr, nullptr, "main",
+                            target, D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &code, &errors);
       if (errors) {
         log(static_cast<const char*>(errors->GetBufferPointer()));
         release(errors);
@@ -877,7 +877,8 @@ namespace visage::gpu {
       if (FAILED(frame_buffer.swap_chain->GetBuffer(0, __uuidof(ID3D11Texture2D),
                                                     (void**)&frame_buffer.back_buffer)))
         return false;
-      return SUCCEEDED(device_->CreateRenderTargetView(frame_buffer.back_buffer, nullptr, &frame_buffer.rtv));
+      return SUCCEEDED(device_->CreateRenderTargetView(frame_buffer.back_buffer, nullptr,
+                                                       &frame_buffer.rtv));
     }
 
     ID3D11BlendState* blendState(const RenderState& state) {
@@ -949,8 +950,8 @@ namespace visage::gpu {
 
       ID3D11InputLayout* input_layout = nullptr;
       if (num_elements)
-        device_->CreateInputLayout(elements, num_elements, vertex.bytecode.data(), vertex.bytecode.size(),
-                                   &input_layout);
+        device_->CreateInputLayout(elements, num_elements, vertex.bytecode.data(),
+                                   vertex.bytecode.size(), &input_layout);
       program.input_layouts[key] = input_layout;
       return input_layout;
     }
@@ -1145,7 +1146,8 @@ namespace visage::gpu {
           uavs[i] = uav;
       }
 
-      ID3D11Buffer* constants = updateConstants(*shader, uniform_data, item.uniform_offset, item.uniform_size);
+      ID3D11Buffer* constants = updateConstants(*shader, uniform_data, item.uniform_offset,
+                                                item.uniform_size);
       context_->CSSetShader(shader->compute, nullptr, 0);
       context_->CSSetConstantBuffers(0, 1, &constants);
       context_->CSSetShaderResources(0, kMaxComputeBindings, srvs);
@@ -1166,10 +1168,14 @@ namespace visage::gpu {
       if (destination == nullptr || source == nullptr || item.width <= 0 || item.height <= 0)
         return;
 
-      D3D11_BOX box = { UINT(item.source_x), UINT(item.source_y), 0, UINT(item.source_x + item.width),
-                        UINT(item.source_y + item.height), 1 };
-      context_->CopySubresourceRegion(destination->texture, 0, item.dest_x, item.dest_y, 0, source->texture,
-                                      0, &box);
+      D3D11_BOX box = { UINT(item.source_x),
+                        UINT(item.source_y),
+                        0,
+                        UINT(item.source_x + item.width),
+                        UINT(item.source_y + item.height),
+                        1 };
+      context_->CopySubresourceRegion(destination->texture, 0, item.dest_x, item.dest_y, 0,
+                                      source->texture, 0, &box);
     }
 
     bool copyToStaging(ID3D11Texture2D* source, ID3D11Texture2D*& staging) {

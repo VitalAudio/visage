@@ -22,12 +22,12 @@
 #include "path.h"
 
 #include "embedded/shaders.h"
+#include "gpu/gpu.h"
 #include "graphics_caches.h"
 #include "path_tiles.h"
 #include "shape_batcher.h"
 #include "uniforms.h"
 
-#include "gpu/gpu.h"
 #include <complex>
 #include <memory>
 
@@ -964,7 +964,7 @@ namespace visage {
 
     if (!gpu::isValid(frame_buffer_->handle) && atlas_map_.width() && atlas_map_.height()) {
       frame_buffer_->handle = gpu::createFrameBuffer(atlas_map_.width(), atlas_map_.height(),
-                                                      gpu::TextureFormat::R8, kFlags);
+                                                     gpu::TextureFormat::R8, kFlags);
       width_ = atlas_map_.width();
       height_ = atlas_map_.height();
       needs_full_clear_ = true;

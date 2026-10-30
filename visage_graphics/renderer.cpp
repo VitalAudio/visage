@@ -22,12 +22,11 @@
 #include "renderer.h"
 
 #include "font.h"
+#include "gpu/gpu.h"
 #include "graphics_caches.h"
 #include "post_effects.h"
 #include "shape_batcher.h"
 #include "visage_utils/string_utils.h"
-
-#include "gpu/gpu.h"
 
 #if VISAGE_EMSCRIPTEN
 #include <emscripten/html5_webgl.h>
@@ -77,8 +76,8 @@ namespace visage {
     init.debug = true;
     init.log_callback = [](const char* message) { VISAGE_LOG(message); };
 #endif
-    init.screenshot_callback = [](gpu::FrameBufferHandle, const uint8_t* data, int width, int height,
-                                  int pitch, bool bgra) {
+    init.screenshot_callback = [](gpu::FrameBufferHandle, const uint8_t* data, int width,
+                                  int height, int pitch, bool bgra) {
       Renderer::instance().setScreenshotData(data, width, height, pitch, bgra,
                                              gpu::getCaps()->origin_bottom_left);
     };
@@ -110,9 +109,7 @@ namespace visage {
 
   void Renderer::watchForLeaks() {
     struct LeakCheck {
-      ~LeakCheck() {
-        VISAGE_ASSERT(Renderer::instance().references_ == 0);
-      }
+      ~LeakCheck() { VISAGE_ASSERT(Renderer::instance().references_ == 0); }
     };
     static LeakCheck check;
   }

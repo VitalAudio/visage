@@ -177,7 +177,7 @@ namespace visage {
       return cache_->cache[vertex_data][fragment_data];
 
     gpu::ProgramHandle program = gpu::createProgram(ShaderCache::shaderHandle(vertex),
-                                                      ShaderCache::shaderHandle(fragment), false);
+                                                    ShaderCache::shaderHandle(fragment), false);
     cache_->cache[vertex_data][fragment_data] = program;
     cache_->shader_lookup[vertex_data][fragment_data] = { vertex, fragment };
 
@@ -188,7 +188,7 @@ namespace visage {
   void ProgramCache::reload(const EmbeddedFile& vertex, const EmbeddedFile& fragment) const {
     gpu::ProgramHandle& current = handle(vertex, fragment);
     gpu::ProgramHandle program = gpu::createProgram(ShaderCache::shaderHandle(vertex),
-                                                      ShaderCache::shaderHandle(fragment), false);
+                                                    ShaderCache::shaderHandle(fragment), false);
     auto vertex_data = reinterpret_cast<const char*>(vertex.data);
     auto fragment_data = reinterpret_cast<const char*>(fragment.data);
 
@@ -201,8 +201,7 @@ namespace visage {
       for (auto& fragment : vertex.second) {
         if (shader_data == vertex.first || shader_data == fragment.first) {
           gpu::ProgramHandle handle = gpu::createProgram(ShaderCache::shaderHandle(vertex.first),
-                                                           ShaderCache::shaderHandle(fragment.first),
-                                                           false);
+                                                         ShaderCache::shaderHandle(fragment.first), false);
           if (gpu::isValid(handle))
             replaceHandle(fragment.second, cache_->originals[vertex.first][fragment.first], handle);
         }

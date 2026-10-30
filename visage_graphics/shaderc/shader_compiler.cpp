@@ -27,10 +27,10 @@
 #include <fstream>
 #include <glslang/Public/ResourceLimits.h>
 #include <glslang/Public/ShaderLang.h>
-#include <SPIRV/GlslangToSpv.h>
 #include <iostream>
 #include <map>
 #include <set>
+#include <SPIRV/GlslangToSpv.h>
 #include <spirv_glsl.hpp>
 #include <spirv_hlsl.hpp>
 #include <spirv_msl.hpp>
@@ -39,7 +39,8 @@
 using namespace visage::gpu;
 
 #if _WIN32
-bool compileDxbc(const std::string& hlsl, ShaderStage stage, std::vector<uint8_t>& result, std::string& error);
+bool compileDxbc(const std::string& hlsl, ShaderStage stage, std::vector<uint8_t>& result,
+                 std::string& error);
 #endif
 
 namespace {
@@ -140,10 +141,12 @@ namespace {
 
   int attributeLocation(const std::string& semantic) {
     static const std::map<std::string, Attrib> kSemantics = {
-      { "POSITION", Attrib::Position },   { "COLOR0", Attrib::Color0 },       { "COLOR1", Attrib::Color1 },
-      { "COLOR2", Attrib::Color2 },       { "COLOR3", Attrib::Color3 },       { "TEXCOORD0", Attrib::TexCoord0 },
-      { "TEXCOORD1", Attrib::TexCoord1 }, { "TEXCOORD2", Attrib::TexCoord2 }, { "TEXCOORD3", Attrib::TexCoord3 },
-      { "TEXCOORD4", Attrib::TexCoord4 }, { "TEXCOORD5", Attrib::TexCoord5 }, { "TEXCOORD6", Attrib::TexCoord6 },
+      { "POSITION", Attrib::Position },   { "COLOR0", Attrib::Color0 },
+      { "COLOR1", Attrib::Color1 },       { "COLOR2", Attrib::Color2 },
+      { "COLOR3", Attrib::Color3 },       { "TEXCOORD0", Attrib::TexCoord0 },
+      { "TEXCOORD1", Attrib::TexCoord1 }, { "TEXCOORD2", Attrib::TexCoord2 },
+      { "TEXCOORD3", Attrib::TexCoord3 }, { "TEXCOORD4", Attrib::TexCoord4 },
+      { "TEXCOORD5", Attrib::TexCoord5 }, { "TEXCOORD6", Attrib::TexCoord6 },
       { "TEXCOORD7", Attrib::TexCoord7 },
     };
     auto found = kSemantics.find(semantic);
@@ -217,8 +220,10 @@ namespace {
            << " + _reg) uniform highp image2D _name\n";
     stream << "#define IMAGE2D_WO(_name, _format, _reg) layout(_format, binding = " << kResourceBindingOffset
            << " + _reg) writeonly uniform highp image2D _name\n";
-    stream << "#define NUM_THREADS(_x, _y, _z) layout(local_size_x = _x, local_size_y = _y, local_size_z = _z) in;\n";
-    stream << "#define atomicFetchAndAdd(_mem, _data, _original) _original = atomicAdd(_mem, _data)\n";
+    stream << "#define NUM_THREADS(_x, _y, _z) layout(local_size_x = _x, local_size_y = _y, "
+              "local_size_z = _z) in;\n";
+    stream
+        << "#define atomicFetchAndAdd(_mem, _data, _original) _original = atomicAdd(_mem, _data)\n";
     stream << "#define gl_VertexID gl_VertexIndex\n";
     stream << "#define gl_InstanceID gl_InstanceIndex\n";
 
@@ -242,8 +247,8 @@ namespace {
           error = "Unknown vertex output " + name;
           return false;
         }
-        stream << "layout(location = " << varying->location << ") " << varying->interpolation << "out "
-               << varying->type << " " << name << ";\n";
+        stream << "layout(location = " << varying->location << ") " << varying->interpolation
+               << "out " << varying->type << " " << name << ";\n";
       }
     }
     else if (options.stage == ShaderStage::Fragment) {
@@ -253,8 +258,8 @@ namespace {
           error = "Unknown fragment input " + name;
           return false;
         }
-        stream << "layout(location = " << varying->location << ") " << varying->interpolation << "in "
-               << varying->type << " " << name << ";\n";
+        stream << "layout(location = " << varying->location << ") " << varying->interpolation
+               << "in " << varying->type << " " << name << ";\n";
       }
       stream << "layout(location = 0) out vec4 bgfx_FragColor;\n";
       stream << "#define gl_FragColor bgfx_FragColor\n";
@@ -287,9 +292,10 @@ namespace {
   private:
     IncludeResult* find(const char* header_name, const char* includer_name, bool local) {
       static constexpr char kComputeInclude[] = "bgfx_compute.sh";
-      static constexpr char kComputeSource[] = "vec2 vec2_splat(float _x) { return vec2(_x, _x); }\n"
-                                               "vec3 vec3_splat(float _x) { return vec3(_x, _x, _x); }\n"
-                                               "vec4 vec4_splat(float _x) { return vec4(_x, _x, _x, _x); }\n";
+      static constexpr char kComputeSource[] =
+          "vec2 vec2_splat(float _x) { return vec2(_x, _x); }\n"
+          "vec3 vec3_splat(float _x) { return vec3(_x, _x, _x); }\n"
+          "vec4 vec4_splat(float _x) { return vec4(_x, _x, _x, _x); }\n";
       if (std::strcmp(header_name, kComputeInclude) == 0) {
         auto contents = new std::string(kComputeSource);
         return new IncludeResult(kComputeInclude, contents->data(), contents->size(), contents);
@@ -423,7 +429,8 @@ namespace {
       spirv_cross::Bitset flags = compiler.get_buffer_block_flags(buffer.id);
       bool readable = !flags.get(spv::DecorationNonReadable);
       bool writable = !flags.get(spv::DecorationNonWritable);
-      storage.access = readable && writable ? Access::ReadWrite : (writable ? Access::Write : Access::Read);
+      storage.access = readable && writable ? Access::ReadWrite :
+                                              (writable ? Access::Write : Access::Read);
       info.storage.push_back(storage);
     }
 
@@ -435,7 +442,8 @@ namespace {
         return false;
       bool readable = !compiler.has_decoration(image.id, spv::DecorationNonReadable);
       bool writable = !compiler.has_decoration(image.id, spv::DecorationNonWritable);
-      storage.access = readable && writable ? Access::ReadWrite : (writable ? Access::Write : Access::Read);
+      storage.access = readable && writable ? Access::ReadWrite :
+                                              (writable ? Access::Write : Access::Read);
       info.storage.push_back(storage);
     }
 
@@ -455,8 +463,8 @@ namespace {
 
     if (info.stage == ShaderStage::Compute) {
       for (int i = 0; i < 3; ++i)
-        info.workgroup_size[i] = static_cast<uint16_t>(
-            compiler.get_execution_mode_argument(spv::ExecutionModeLocalSize, i));
+        info.workgroup_size[i] = static_cast<uint16_t>(compiler.get_execution_mode_argument(spv::ExecutionModeLocalSize,
+                                                                                            i));
     }
     return true;
   }

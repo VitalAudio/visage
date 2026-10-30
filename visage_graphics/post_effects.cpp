@@ -23,10 +23,10 @@
 
 #include "canvas.h"
 #include "embedded/shaders.h"
+#include "gpu/gpu.h"
 #include "graphics_caches.h"
 #include "uniforms.h"
 
-#include "gpu/gpu.h"
 #include <optional>
 
 namespace visage {
@@ -64,10 +64,9 @@ namespace visage {
     if (!gpu::isValid(screen_buffers.index_buffer)) {
       screen_buffers = {
         gpu::createIndexBuffer(gpu::makeRef(kQuadTriangles, sizeof(kQuadTriangles))),
-        gpu::createVertexBuffer(gpu::makeRef(kScreenVertices, sizeof(kScreenVertices)),
-                                 UvVertex::layout()),
+        gpu::createVertexBuffer(gpu::makeRef(kScreenVertices, sizeof(kScreenVertices)), UvVertex::layout()),
         gpu::createVertexBuffer(gpu::makeRef(kInvScreenVertices, sizeof(kInvScreenVertices)),
-                                 UvVertex::layout()),
+                                UvVertex::layout()),
       };
     }
     return screen_buffers;
@@ -121,7 +120,7 @@ namespace visage {
     setUniformDimensions(destination.width(), destination.height());
     setOriginFlipUniform(destination.bottomLeftOrigin());
     gpu::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
-                                                          SampleRegion::fragmentShader()));
+                                                         SampleRegion::fragmentShader()));
   }
 
   DownsamplePostEffect::~DownsamplePostEffect() = default;
@@ -148,7 +147,8 @@ namespace visage {
 
     if (!gpu::isValid(handles_->result)) {
       handles_->renderer_reference.emplace();
-      handles_->result = gpu::createFrameBuffer(widths_[1], heights_[1], static_cast<gpu::TextureFormat>(format),
+      handles_->result = gpu::createFrameBuffer(widths_[1], heights_[1],
+                                                static_cast<gpu::TextureFormat>(format),
                                                 kFrameBufferFlags);
     }
   }
@@ -290,7 +290,7 @@ namespace visage {
 
       gpu::setViewFrameBuffer(submit_pass, destination);
       gpu::setViewRect(submit_pass, 0, 0, target.width(), target.height());
-            gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
+      gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample));
       submit_pass++;
     }
     return submit_pass;
@@ -365,7 +365,7 @@ namespace visage {
     IBounds bounds = layer->boundsForRegion(region);
     gpu::setViewFrameBuffer(submit_pass, layer->frameBuffer());
     gpu::setViewRect(submit_pass, bounds.x(), bounds.y(), bounds.width(), bounds.height());
-      }
+  }
 
   int BlurPostEffect::preprocess(Region* region, int submit_pass) {
     return blur(region, submit_pass);
@@ -430,7 +430,8 @@ namespace visage {
 
       levels[i] = layer->temporaryFrameBuffer(downsample_width, downsample_height);
       setBlendMode(BlendMode::Opaque);
-      setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(source), i ? sampler : gpu::kSamplerUseTexture);
+      setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(source),
+                                               i ? sampler : gpu::kSamplerUseTexture);
       setPostEffectUniform<Uniforms::kPixelSize>(1.0f / last_width, 1.0f / last_height);
       gpu::setIndexBuffer(screenBuffers().index_buffer);
 
@@ -463,7 +464,7 @@ namespace visage {
       gpu::setViewRect(submit_pass, 0, 0, last_width, last_height);
       setPostEffectUniform<Uniforms::kPixelSize>(transition / last_width, 0.0f);
       gpu::submit(submit_pass,
-                   ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
+                  ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
       submit_pass++;
 
       setBlendMode(BlendMode::Opaque);
@@ -479,7 +480,7 @@ namespace visage {
       }
       setPostEffectUniform<Uniforms::kPixelSize>(0.0f, transition / last_height);
       gpu::submit(submit_pass,
-                   ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
+                  ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur));
       submit_pass++;
       layer->releaseTemporaryFrameBuffer(scratch);
 
@@ -528,7 +529,7 @@ namespace visage {
     backdrop_.setUniforms(batches, quads.vertices, handles_->backdrop);
     setUniformDimensions(destination.width(), destination.height());
     gpu::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
-                                                          SampleRegion::fragmentShader()));
+                                                         SampleRegion::fragmentShader()));
   }
 
   BloomPostEffect::BloomPostEffect() : DownsamplePostEffect(true) {
@@ -595,8 +596,8 @@ namespace visage {
       gpu::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
       setPostEffectUniform<Uniforms::kPixelSize>(1.0f / downsample_width);
 
-      gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_full_screen_texture,
-                                                            shaders::fs_small_blur));
+      gpu::submit(submit_pass,
+                  ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_small_blur));
       submit_pass++;
 
       setBlendMode(BlendMode::Opaque);
@@ -606,8 +607,8 @@ namespace visage {
       gpu::setViewFrameBuffer(submit_pass, destination);
       gpu::setViewRect(submit_pass, 0, 0, downsample_width, downsample_height);
       setPostEffectUniform<Uniforms::kPixelSize>(0.0f, 1.0f / downsample_height);
-      gpu::submit(submit_pass, ProgramCache::programHandle(shaders::vs_full_screen_texture,
-                                                            shaders::fs_small_blur));
+      gpu::submit(submit_pass,
+                  ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_small_blur));
       submit_pass++;
 
       source = destination;
@@ -669,7 +670,7 @@ namespace visage {
     setPostEffectTexture<Uniforms::kTexture>(1, gpu::getTexture(handles_->result));
     setUniformDimensions(destination.width(), destination.height());
     gpu::submit(submit_pass,
-                 ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_tinted_texture));
+                ProgramCache::programHandle(shaders::vs_tinted_texture, shaders::fs_tinted_texture));
   }
 
   int ShaderPostEffect::preprocessBackdrop(Region* source, const Region* region, int submit_pass) {

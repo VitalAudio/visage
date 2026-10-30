@@ -215,7 +215,8 @@ namespace visage {
     options.varying_source.assign(reinterpret_cast<const char*>(shaders::varying_def_sc.data),
                                   shaders::varying_def_sc.size);
     options.include_dirs.push_back(utf8Path(include_path));
-    options.stage = shader_type == ShaderType::Vertex ? gpu::ShaderStage::Vertex : gpu::ShaderStage::Fragment;
+    options.stage = shader_type == ShaderType::Vertex ? gpu::ShaderStage::Vertex :
+                                                        gpu::ShaderStage::Fragment;
 #if VISAGE_WINDOWS
     options.target = gpu::ShaderCode::Dxbc;
 #elif VISAGE_MAC

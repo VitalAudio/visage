@@ -22,12 +22,12 @@
 #include "path_tiles.h"
 
 #include "embedded/shaders.h"
+#include "gpu/gpu.h"
 #include "graphics_caches.h"
 #include "shape_batcher.h"
 #include "uniforms.h"
 
 #include <algorithm>
-#include "gpu/gpu.h"
 #include <cfloat>
 #include <cmath>
 #include <cstring>
@@ -275,8 +275,8 @@ namespace visage {
     return capacity;
   }
 
-  static bool ensureTileBuffer(gpu::BufferHandle& handle, uint32_t& capacity,
-                               uint32_t needed, uint16_t flags) {
+  static bool ensureTileBuffer(gpu::BufferHandle& handle, uint32_t& capacity, uint32_t needed,
+                               uint16_t flags) {
     if (gpu::isValid(handle) && capacity >= needed)
       return true;
 
@@ -286,8 +286,8 @@ namespace visage {
     return gpu::isValid(handle);
   }
 
-  static bool ensureTileIndexBuffer(gpu::BufferHandle& handle, uint32_t& capacity,
-                                    uint32_t needed, uint16_t flags) {
+  static bool ensureTileIndexBuffer(gpu::BufferHandle& handle, uint32_t& capacity, uint32_t needed,
+                                    uint16_t flags) {
     if (gpu::isValid(handle) && capacity >= needed)
       return true;
 
@@ -297,8 +297,8 @@ namespace visage {
     return gpu::isValid(handle);
   }
 
-  static bool ensureTileTexture(gpu::TextureHandle& handle, int& rows, int width,
-                                int needed_texels, uint32_t flags) {
+  static bool ensureTileTexture(gpu::TextureHandle& handle, int& rows, int width, int needed_texels,
+                                uint32_t flags) {
     int max_size = gpu::getCaps()->max_texture_size;
     int needed_rows = std::max(1, (needed_texels + width - 1) / width);
     if (needed_rows > max_size)
@@ -372,7 +372,8 @@ namespace visage {
     return false;
 #else
     const gpu::Caps* caps = gpu::getCaps();
-    return caps->compute && (caps->formats[static_cast<int>(gpu::TextureFormat::RGBA32F)] & gpu::kFormatStorage);
+    return caps->compute &&
+           (caps->formats[static_cast<int>(gpu::TextureFormat::RGBA32F)] & gpu::kFormatStorage);
 #endif
   }
 
@@ -604,11 +605,10 @@ namespace visage {
 
     if (!gpu::isValid(resources.clear_program)) {
       resources.clear_program = gpu::createProgram(ShaderCache::shaderHandle(shaders::cs_path_tile_clear),
-                                                    false);
-      resources.bin_program = gpu::createProgram(ShaderCache::shaderHandle(shaders::cs_path_tile_bin),
-                                                  false);
+                                                   false);
+      resources.bin_program = gpu::createProgram(ShaderCache::shaderHandle(shaders::cs_path_tile_bin), false);
       resources.columns_program = gpu::createProgram(ShaderCache::shaderHandle(shaders::cs_path_tile_columns),
-                                                      false);
+                                                     false);
     }
 
     int texture_width = tileTextureWidth();
@@ -618,12 +618,13 @@ namespace visage {
     bool allocated = ensureTileBuffer(resources.edges, resources.edge_capacity,
                                       std::max(1u, num_edges), read) &&
                      ensureTileIndexBuffer(resources.edge_paths, resources.edge_path_capacity,
-                                      std::max(1u, num_edges), read) &&
+                                           std::max(1u, num_edges), read) &&
                      ensureTileBuffer(resources.paths, resources.path_capacity, 3 * num_paths, read) &&
-                     ensureTileIndexBuffer(resources.tiles, resources.tile_capacity, 4 * num_tiles, read_write) &&
+                     ensureTileIndexBuffer(resources.tiles, resources.tile_capacity, 4 * num_tiles,
+                                           read_write) &&
                      ensureTileIndexBuffer(resources.counter, resources.counter_capacity, 4, read_write) &&
-                     ensureTileIndexBuffer(resources.covers, resources.cover_capacity, 16 * num_tiles,
-                                      read_write) &&
+                     ensureTileIndexBuffer(resources.covers, resources.cover_capacity,
+                                           16 * num_tiles, read_write) &&
                      ensureTileTexture(resources.gpu_segment_texture,
                                        resources.gpu_segment_texture_rows, texture_width,
                                        segment_capacity + 4 * num_tiles, gpu::kTextureStorage) &&
@@ -636,12 +637,12 @@ namespace visage {
 
     if (num_edges) {
       gpu::update(resources.edges, 0,
-                   gpu::copy(resources.edge_data.data(), resources.edge_data.size() * sizeof(float)));
+                  gpu::copy(resources.edge_data.data(), resources.edge_data.size() * sizeof(float)));
       gpu::update(resources.edge_paths, 0,
-                   gpu::copy(resources.edge_path_data.data(), num_edges * sizeof(uint32_t)));
+                  gpu::copy(resources.edge_path_data.data(), num_edges * sizeof(uint32_t)));
     }
     gpu::update(resources.paths, 0,
-                 gpu::copy(resources.path_data.data(), resources.path_data.size() * sizeof(float)));
+                gpu::copy(resources.path_data.data(), resources.path_data.size() * sizeof(float)));
 
     auto dispatch = [&](gpu::ProgramHandle program, uint32_t count, float value) {
       uint32_t groups = (count + kThreadGroupSize - 1) / kThreadGroupSize;
@@ -690,8 +691,7 @@ namespace visage {
     setTileUniform<Uniforms::kDimensions>(texture_width);
     setTileTexture<Uniforms::kTexture>(0, resources.gpu_segment_texture);
     setTileTexture<Uniforms::kTexture2>(1, resources.gpu_tile_texture);
-    gpu::submit(raster_pass,
-                 ProgramCache::programHandle(shaders::vs_path_tile_gpu, shaders::fs_path_tile));
+    gpu::submit(raster_pass, ProgramCache::programHandle(shaders::vs_path_tile_gpu, shaders::fs_path_tile));
     return true;
 #endif
   }
