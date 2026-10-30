@@ -70,5 +70,5 @@ int main() {
 ## Supported Platforms
 - **Windows**: Direct3D11
 - **MacOS**: Metal  
-- **Linux**: Vulkan
+- **Linux**: Vulkan on Wayland or X11 (Wayland when available; set `VISAGE_WINDOWING=x11` or `wayland` to choose)
 - **Web/Emscripten**: WebGL

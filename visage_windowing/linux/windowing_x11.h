@@ -241,6 +241,32 @@ namespace visage {
     float dpi = Window::kDefaultDpi;
   };
 
+  std::string latin1ToUtf8(const std::string& text);
+  std::string utf8ToLatin1(const std::string& text);
+  KeyCode translateKeyCode(KeySym keysym);
+  int modifierForKeyCode(KeyCode key_code);
+  MouseCursor windowResizeCursor(int operation);
+  std::string fileUri(const std::string& path);
+  std::string filePath(const std::string& uri);
+
+  std::string readClipboardTextX11();
+  void setClipboardTextX11(const std::string& text);
+  void setCursorStyleX11(MouseCursor style);
+  void setCursorVisibleX11(bool visible);
+  Point cursorPositionX11();
+  void setCursorPositionX11(Point window_position);
+  void setCursorScreenPositionX11(Point window_position);
+  void showMessageBoxX11(std::string title, std::string message);
+  float defaultDpiScaleX11();
+  IBounds computeWindowBoundsX11(const Dimension& x, const Dimension& y, const Dimension& width,
+                                 const Dimension& height);
+  std::unique_ptr<Window> createWindowX11(const Dimension& x, const Dimension& y, const Dimension& width,
+                                          const Dimension& height, Window::Decoration decoration);
+  std::unique_ptr<Window> createPluginWindowX11(const Dimension& width, const Dimension& height,
+                                                void* parent_handle);
+  void closeApplicationX11();
+  int displayFpsX11();
+
   const MonitorInfo& nearestMonitor(const std::vector<MonitorInfo>& monitors, IPoint point);
   MonitorInfo monitorForWindow(const std::vector<MonitorInfo>& monitors, const MonitorInfo& current,
                                IBounds window_bounds);

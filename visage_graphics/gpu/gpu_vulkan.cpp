@@ -20,6 +20,7 @@
  */
 
 #include "gpu_backend.h"
+#include "visage_utils/native_display.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -32,6 +33,7 @@
 
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
+#include <vulkan/vulkan_wayland.h>
 #include <vulkan/vulkan_xlib.h>
 
 namespace visage::gpu {
@@ -41,23 +43,29 @@ namespace visage::gpu {
   X(vkEnumerateInstanceExtensionProperties) \
   X(vkEnumerateInstanceLayerProperties)
 
-#define VISAGE_VK_INSTANCE_FUNCTIONS(X)            \
-  X(vkDestroyInstance)                             \
-  X(vkEnumeratePhysicalDevices)                    \
-  X(vkGetPhysicalDeviceProperties)                 \
-  X(vkGetPhysicalDeviceQueueFamilyProperties)      \
-  X(vkGetPhysicalDeviceMemoryProperties)           \
-  X(vkGetPhysicalDeviceFormatProperties)           \
-  X(vkCreateDevice)                                \
-  X(vkGetDeviceProcAddr)                           \
-  X(vkEnumerateDeviceExtensionProperties)          \
-  X(vkDestroySurfaceKHR)                           \
-  X(vkGetPhysicalDeviceSurfaceSupportKHR)          \
-  X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR)     \
-  X(vkGetPhysicalDeviceSurfaceFormatsKHR)          \
-  X(vkGetPhysicalDeviceSurfacePresentModesKHR)     \
+#define VISAGE_VK_INSTANCE_FUNCTIONS(X)        \
+  X(vkDestroyInstance)                         \
+  X(vkEnumeratePhysicalDevices)                \
+  X(vkGetPhysicalDeviceProperties)             \
+  X(vkGetPhysicalDeviceQueueFamilyProperties)  \
+  X(vkGetPhysicalDeviceMemoryProperties)       \
+  X(vkGetPhysicalDeviceFormatProperties)       \
+  X(vkCreateDevice)                            \
+  X(vkGetDeviceProcAddr)                       \
+  X(vkEnumerateDeviceExtensionProperties)      \
+  X(vkDestroySurfaceKHR)                       \
+  X(vkGetPhysicalDeviceSurfaceSupportKHR)      \
+  X(vkGetPhysicalDeviceSurfaceCapabilitiesKHR) \
+  X(vkGetPhysicalDeviceSurfaceFormatsKHR)      \
+  X(vkGetPhysicalDeviceSurfacePresentModesKHR)
+
+#define VISAGE_VK_XLIB_FUNCTIONS(X)                \
   X(vkGetPhysicalDeviceXlibPresentationSupportKHR) \
   X(vkCreateXlibSurfaceKHR)
+
+#define VISAGE_VK_WAYLAND_FUNCTIONS(X)                \
+  X(vkGetPhysicalDeviceWaylandPresentationSupportKHR) \
+  X(vkCreateWaylandSurfaceKHR)
 
 #define VISAGE_VK_DEBUG_FUNCTIONS(X) \
   X(vkCreateDebugUtilsMessengerEXT)  \
@@ -141,6 +149,8 @@ namespace visage::gpu {
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
     VISAGE_VK_GLOBAL_FUNCTIONS(VISAGE_VK_DECLARE)
     VISAGE_VK_INSTANCE_FUNCTIONS(VISAGE_VK_DECLARE)
+    VISAGE_VK_XLIB_FUNCTIONS(VISAGE_VK_DECLARE)
+    VISAGE_VK_WAYLAND_FUNCTIONS(VISAGE_VK_DECLARE)
     VISAGE_VK_DEBUG_FUNCTIONS(VISAGE_VK_DECLARE)
     VISAGE_VK_DEVICE_FUNCTIONS(VISAGE_VK_DECLARE)
 #undef VISAGE_VK_DECLARE
@@ -961,10 +971,16 @@ namespace visage::gpu {
       };
 
       std::vector<const char*> enabled;
-      if (!has_extension(VK_KHR_SURFACE_EXTENSION_NAME) || !has_extension(VK_KHR_XLIB_SURFACE_EXTENSION_NAME))
+      bool wayland = isWaylandDisplay(init_.display);
+      xlib_ = has_extension(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+      wayland_ = has_extension(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+      if (!has_extension(VK_KHR_SURFACE_EXTENSION_NAME) || !(wayland ? wayland_ : xlib_))
         return false;
       enabled.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
-      enabled.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+      if (xlib_)
+        enabled.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+      if (wayland_)
+        enabled.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
 
       const char* validation_env = std::getenv("VISAGE_VULKAN_VALIDATION");
       bool validation = init_.debug || (validation_env && validation_env[0] == '1');
@@ -1004,6 +1020,12 @@ namespace visage::gpu {
   if (name == nullptr)                                                          \
     return false;
       VISAGE_VK_INSTANCE_FUNCTIONS(VISAGE_VK_LOAD)
+      if (xlib_) {
+        VISAGE_VK_XLIB_FUNCTIONS(VISAGE_VK_LOAD)
+      }
+      if (wayland_) {
+        VISAGE_VK_WAYLAND_FUNCTIONS(VISAGE_VK_LOAD)
+      }
 #undef VISAGE_VK_LOAD
 
       if (validation) {
@@ -1086,9 +1108,15 @@ namespace visage::gpu {
     }
 
     bool canPresent(VkPhysicalDevice device, uint32_t family) const {
-      ::Display* display = static_cast<::Display*>(init_.display);
-      if (display == nullptr)
+      if (init_.display == nullptr)
         return true;
+
+      if (isWaylandDisplay(init_.display)) {
+        auto display = static_cast<wl_display*>(init_.display);
+        return vkGetPhysicalDeviceWaylandPresentationSupportKHR(device, family, display);
+      }
+
+      ::Display* display = static_cast<::Display*>(init_.display);
 
       VisualID visual = DefaultVisual(display, DefaultScreen(display))->visualid;
       return vkGetPhysicalDeviceXlibPresentationSupportKHR(device, family, display, visual);
@@ -1521,11 +1549,26 @@ namespace visage::gpu {
       return true;
     }
 
-    bool createSurface(SwapChain& chain) {
+    bool createPlatformSurface(SwapChain& chain) {
+      if (isWaylandDisplay(chain.display)) {
+        if (!wayland_)
+          return false;
+        VkWaylandSurfaceCreateInfoKHR surface_info { VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR };
+        surface_info.display = static_cast<wl_display*>(chain.display);
+        surface_info.surface = static_cast<wl_surface*>(chain.window_handle);
+        return vkCreateWaylandSurfaceKHR(instance_, &surface_info, nullptr, &chain.surface) == VK_SUCCESS;
+      }
+
+      if (!xlib_)
+        return false;
       VkXlibSurfaceCreateInfoKHR surface_info { VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR };
       surface_info.dpy = static_cast<::Display*>(chain.display);
       surface_info.window = static_cast<::Window>(reinterpret_cast<uintptr_t>(chain.window_handle));
-      if (vkCreateXlibSurfaceKHR(instance_, &surface_info, nullptr, &chain.surface) != VK_SUCCESS)
+      return vkCreateXlibSurfaceKHR(instance_, &surface_info, nullptr, &chain.surface) == VK_SUCCESS;
+    }
+
+    bool createSurface(SwapChain& chain) {
+      if (!createPlatformSurface(chain))
         return false;
 
       VkBool32 supported = VK_FALSE;
@@ -2255,6 +2298,8 @@ namespace visage::gpu {
     Caps caps_;
     void* library_ = nullptr;
     VkInstance instance_ = VK_NULL_HANDLE;
+    bool xlib_ = false;
+    bool wayland_ = false;
     VkDebugUtilsMessengerEXT debug_messenger_ = VK_NULL_HANDLE;
     VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
     VkPhysicalDeviceProperties properties_ {};

@@ -121,7 +121,7 @@ namespace visage {
     ::Window window_handle_ = 0;
   };
 
-  static std::string latin1ToUtf8(const std::string& text) {
+  std::string latin1ToUtf8(const std::string& text) {
     std::string result;
     for (unsigned char c : text) {
       if (c < 0x80)
@@ -134,7 +134,7 @@ namespace visage {
     return result;
   }
 
-  static std::string utf8ToLatin1(const std::string& text) {
+  std::string utf8ToLatin1(const std::string& text) {
     std::string result;
     for (char32_t c : String::convertToUtf32(text))
       result += c < 0x100 ? static_cast<char>(c) : '?';
@@ -187,7 +187,7 @@ namespace visage {
     return false;
   }
 
-  std::string readClipboardText() {
+  std::string readClipboardTextX11() {
     X11Connection* x11 = X11Connection::globalInstance();
     if (x11->display() == nullptr)
       return {};
@@ -234,7 +234,7 @@ namespace visage {
     return type == XA_STRING ? latin1ToUtf8(result) : result;
   }
 
-  void setClipboardText(const std::string& text) {
+  void setClipboardTextX11(const std::string& text) {
     _clipboard_text = text;
 
     WindowX11* plugin_window = NativeWindowLookup::instance().pluginWindow();
@@ -250,7 +250,7 @@ namespace visage {
     XSync(x11->display(), False);
   }
 
-  void setCursorStyle(MouseCursor style) {
+  void setCursorStyleX11(MouseCursor style) {
     WindowX11* window = WindowX11::lastActiveWindow();
     if (window == nullptr)
       return;
@@ -283,7 +283,7 @@ namespace visage {
     XFlush(x11->display());
   }
 
-  static MouseCursor windowResizeCursor(int operation) {
+  MouseCursor windowResizeCursor(int operation) {
     switch (operation) {
     case kResizeLeft | kResizeTop: return MouseCursor::TopLeftResize;
     case kResizeRight | kResizeTop: return MouseCursor::TopRightResize;
@@ -297,14 +297,14 @@ namespace visage {
     }
   }
 
-  void setCursorVisible(bool visible) {
+  void setCursorVisibleX11(bool visible) {
     if (visible)
-      setCursorStyle(MouseCursor::Arrow);
+      setCursorStyleX11(MouseCursor::Arrow);
     else
-      setCursorStyle(MouseCursor::Invisible);
+      setCursorStyleX11(MouseCursor::Invisible);
   }
 
-  Point cursorPosition() {
+  Point cursorPositionX11() {
     WindowX11* window = WindowX11::lastActiveWindow();
     if (window == nullptr)
       return { 0, 0 };
@@ -333,7 +333,7 @@ namespace visage {
     XFlush(x11->display());
   }
 
-  void setCursorPosition(Point window_position) {
+  void setCursorPositionX11(Point window_position) {
     WindowX11* window = WindowX11::lastActiveWindow();
     if (window == nullptr)
       return;
@@ -341,7 +341,7 @@ namespace visage {
     setNativeCursorPosition(window->convertToNative(window_position));
   }
 
-  void setCursorScreenPosition(Point window_position) {
+  void setCursorScreenPositionX11(Point window_position) {
     WindowX11* window = WindowX11::lastActiveWindow();
     if (window == nullptr)
       return;
@@ -369,10 +369,6 @@ namespace visage {
     XQueryPointer(x11->display(), x11->rootWindow(), &root_return, &child_return, &root_x, &root_y,
                   &win_x, &win_y, &mask_return);
     return { root_x, root_y };
-  }
-
-  bool isMobileDevice() {
-    return false;
   }
 
   static double refreshRate(XRRScreenResources* screen_resources, XRRCrtcInfo* info) {
@@ -889,7 +885,7 @@ namespace visage {
     bool pressed_ = false;
   };
 
-  void showMessageBox(std::string title, std::string message) {
+  void showMessageBoxX11(std::string title, std::string message) {
     if (showDesktopMessageBox(title, message))
       return;
 
@@ -901,13 +897,13 @@ namespace visage {
     message_box.run();
   }
 
-  float defaultDpiScale() {
+  float defaultDpiScaleX11() {
     MonitorInfo monitor_info = activeMonitorInfo();
     return monitor_info.dpi / Window::kDefaultDpi;
   }
 
-  IBounds computeWindowBounds(const Dimension& x, const Dimension& y, const Dimension& width,
-                              const Dimension& height) {
+  IBounds computeWindowBoundsX11(const Dimension& x, const Dimension& y, const Dimension& width,
+                                 const Dimension& height) {
     MonitorInfo monitor_info = activeMonitorInfo();
     int monitor_width = monitor_info.bounds.width();
     int monitor_height = monitor_info.bounds.height();
@@ -922,12 +918,12 @@ namespace visage {
     return { monitor_info.bounds.x() + result_x, monitor_info.bounds.y() + result_y, result_w, result_h };
   }
 
-  std::unique_ptr<Window> createWindow(const Dimension& x, const Dimension& y, const Dimension& width,
-                                       const Dimension& height, Window::Decoration decoration) {
+  std::unique_ptr<Window> createWindowX11(const Dimension& x, const Dimension& y, const Dimension& width,
+                                          const Dimension& height, Window::Decoration decoration) {
     if (X11Connection::globalInstance()->display() == nullptr)
       return nullptr;
 
-    IBounds bounds = computeWindowBounds(width, height);
+    IBounds bounds = computeWindowBoundsX11({}, {}, width, height);
     MonitorInfo monitor_info = activeMonitorInfo();
     int window_x = x.computeInt(monitor_info.dpi / Window::kDefaultDpi, monitor_info.bounds.width(),
                                 monitor_info.bounds.height(), bounds.x());
@@ -936,20 +932,16 @@ namespace visage {
     return std::make_unique<WindowX11>(window_x, window_y, bounds.width(), bounds.height(), decoration);
   }
 
-  void* headlessWindowHandle() {
-    return nullptr;
-  }
-
-  void closeApplication() {
+  void closeApplicationX11() {
     NativeWindowLookup::instance().closeAll();
   }
 
-  std::unique_ptr<Window> createPluginWindow(const Dimension& width, const Dimension& height,
-                                             void* parent_handle) {
+  std::unique_ptr<Window> createPluginWindowX11(const Dimension& width, const Dimension& height,
+                                                void* parent_handle) {
     if (X11Connection::globalInstance()->display() == nullptr)
       return nullptr;
 
-    IBounds bounds = computeWindowBounds(width, height);
+    IBounds bounds = computeWindowBoundsX11({}, {}, width, height);
     auto window = std::make_unique<WindowX11>(bounds.width(), bounds.height(), parent_handle);
     if (window->x11Connection()->display() == nullptr)
       return nullptr;
@@ -1053,7 +1045,7 @@ namespace visage {
     XUnlockDisplay(display);
   }
 
-  int displayFps() {
+  int displayFpsX11() {
     WindowX11* window = WindowX11::lastActiveWindow();
     if (window)
       return std::round(window->monitorInfo().refresh_rate);
@@ -1541,7 +1533,7 @@ namespace visage {
     return kMouseButtonNone;
   }
 
-  static KeyCode translateKeyCode(KeySym keysym) {
+  KeyCode translateKeyCode(KeySym keysym) {
     switch (keysym) {
     case XK_a: return KeyCode::A;
     case XK_b: return KeyCode::B;
@@ -1676,7 +1668,7 @@ namespace visage {
     }
   }
 
-  static int modifierForKeyCode(KeyCode key_code) {
+  int modifierForKeyCode(KeyCode key_code) {
     switch (key_code) {
     case KeyCode::LShift:
     case KeyCode::RShift: return kModifierShift;
@@ -1715,7 +1707,7 @@ namespace visage {
     return keysym;
   }
 
-  static std::string fileUri(const std::string& path) {
+  std::string fileUri(const std::string& path) {
     static constexpr char kHex[] = "0123456789ABCDEF";
 
     std::string result = "file://";
@@ -1731,7 +1723,7 @@ namespace visage {
     return result;
   }
 
-  static std::string filePath(const std::string& uri) {
+  std::string filePath(const std::string& uri) {
     static const std::string kFilePrefix = "file://";
 
     if (uri.compare(0, kFilePrefix.size(), kFilePrefix))
@@ -2060,7 +2052,7 @@ namespace visage {
       else if (event.xclient.message_type == x11_->dndFinished()) {
         cleanupDragDropSource();
         drag_drop_out_state_ = {};
-        setCursorStyle(MouseCursor::Arrow);
+        setCursorStyleX11(MouseCursor::Arrow);
       }
       break;
     }
@@ -2144,9 +2136,9 @@ namespace visage {
       int last_hover_operation = hover_window_operation_;
       hover_window_operation_ = resizeOperationForPosition(event.xmotion.x, event.xmotion.y);
       if (hover_window_operation_)
-        setCursorStyle(windowResizeCursor(hover_window_operation_));
+        setCursorStyleX11(windowResizeCursor(hover_window_operation_));
       else if (last_hover_operation)
-        setCursorStyle(MouseCursor::Arrow);
+        setCursorStyleX11(MouseCursor::Arrow);
 
       if (drag_drop_out_state_.dragging) {
         ::Window last_target = drag_drop_out_state_.target;
@@ -2219,7 +2211,7 @@ namespace visage {
         if (drag_drop_out_state_.dragging) {
           XSetSelectionOwner(x11_->display(), x11_->dndSelection(), window_handle_, event.xmotion.time);
 
-          setCursorStyle(MouseCursor::MultiDirectionalResize);
+          setCursorStyleX11(MouseCursor::MultiDirectionalResize);
           drag_drop_files_.clear();
           drag_drop_files_.push_back(startDragDropSource());
         }
@@ -2244,7 +2236,7 @@ namespace visage {
             handleFileDrop(event.xbutton.x, event.xbutton.y, drag_drop_files_);
           cleanupDragDropSource();
           drag_drop_out_state_ = {};
-          setCursorStyle(MouseCursor::Arrow);
+          setCursorStyleX11(MouseCursor::Arrow);
         }
       }
       if (button == kMouseButtonNone)

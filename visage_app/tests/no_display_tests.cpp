@@ -33,6 +33,11 @@ TEST_CASE("Windowing without an X display fails without crashing", "[integration
     SUCCEED("An X display is available");
     return;
   }
+  const char* wayland_display = std::getenv("WAYLAND_DISPLAY");
+  if (wayland_display && wayland_display[0]) {
+    SUCCEED("A Wayland display is available");
+    return;
+  }
 
   REQUIRE(defaultDpiScale() > 0.0f);
   computeWindowBounds({}, {}, Dimension::logicalPixels(100), Dimension::logicalPixels(100));

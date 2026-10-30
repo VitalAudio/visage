@@ -50,6 +50,10 @@ namespace {
 CATCH_REGISTER_LISTENER(TotalsListener)
 
 int main(int argc, char* argv[]) {
+#if VISAGE_LINUX
+  setenv("VISAGE_WINDOWING", "x11", 0);
+#endif
+
 #if VISAGE_TEST_ASAN
   std::atexit([] {
     if (__asan_report_present())
