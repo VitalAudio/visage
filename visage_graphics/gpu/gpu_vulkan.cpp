@@ -21,7 +21,6 @@
 
 #include "gpu_backend.h"
 
-#define VK_NO_PROTOTYPES
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -29,9 +28,11 @@
 #include <dlfcn.h>
 #include <functional>
 #include <unordered_map>
+#include <X11/Xlib.h>
+
+#define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_xlib.h>
-#include <X11/Xlib.h>
 
 namespace visage::gpu {
   namespace {
