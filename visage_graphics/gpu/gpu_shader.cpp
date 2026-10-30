@@ -156,7 +156,8 @@ namespace visage::gpu {
         !reader.u8(reserved)) {
       return false;
     }
-    if (stage > static_cast<uint8_t>(ShaderStage::Compute) || code_type > static_cast<uint8_t>(ShaderCode::Essl))
+    if (stage > static_cast<uint8_t>(ShaderStage::Compute) ||
+        code_type > static_cast<uint8_t>(ShaderCode::Essl))
       return false;
 
     info = {};
@@ -177,7 +178,9 @@ namespace visage::gpu {
     if (!reader.u32(info.uniform_block_size))
       return false;
     for (const ShaderUniform& uniform : info.uniforms) {
-      uint32_t element_bytes = uniform.type == UniformType::Mat4 ? 64 : (uniform.type == UniformType::Mat3 ? 48 : 16);
+      uint32_t element_bytes = uniform.type == UniformType::Mat4 ?
+                                   64 :
+                                   (uniform.type == UniformType::Mat3 ? 48 : 16);
       if (uniform.num == 0 || uniform.offset + element_bytes * uniform.num > info.uniform_block_size)
         return false;
     }

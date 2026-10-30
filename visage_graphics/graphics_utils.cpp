@@ -139,7 +139,8 @@ namespace visage {
 
   static void parseSamplers(const std::string& input, gpu::ShaderInfo& info) {
     std::regex sampler_regex(R"(\bSAMPLER2D\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*,\s*([0-9]+)\s*\))");
-    for (auto it = std::sregex_iterator(input.begin(), input.end(), sampler_regex); it != std::sregex_iterator(); ++it) {
+    for (auto it = std::sregex_iterator(input.begin(), input.end(), sampler_regex);
+         it != std::sregex_iterator(); ++it) {
       gpu::ShaderSampler sampler;
       sampler.name = (*it)[1].str();
       sampler.stage = static_cast<uint8_t>(std::stoi((*it)[2].str()));

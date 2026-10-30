@@ -22,10 +22,9 @@
 #include "layer.h"
 
 #include "canvas.h"
+#include "gpu/gpu.h"
 #include "region.h"
 #include "renderer.h"
-
-#include "gpu/gpu.h"
 
 namespace visage {
   struct TemporaryFrameBuffer {

@@ -22,8 +22,8 @@
 #include "lato_regular.h"
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/color.h"
-#include "visage_graphics/gradient.h"
 #include "visage_graphics/gpu/gpu.h"
+#include "visage_graphics/gradient.h"
 #include "visage_graphics/graphics_caches.h"
 #include "visage_graphics/post_effects.h"
 #include "visage_graphics/renderer.h"
@@ -625,7 +625,8 @@ TEST_CASE("Canvas gradient atlas growth", "[graphics]") {
   }
 }
 
-TEST_CASE("Solid colors that change every frame draw correctly from recycled atlas slots", "[graphics]") {
+TEST_CASE("Solid colors that change every frame draw correctly from recycled atlas slots",
+          "[graphics]") {
   static constexpr int kColumns = 30;
   static constexpr int kRows = 20;
   static constexpr int kCellWidth = 6;
@@ -2916,7 +2917,8 @@ TEST_CASE("Renderer reads captured screenshots in their format and row order", "
 
   static const uint8_t kBgraBottomUp[] = { 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0xff };
   static const uint8_t kRgbaTopDown[] = { 0xff, 0x00, 0x00, 0xff, 0x00, 0x00, 0xff, 0xff };
-  for (const Capture& capture : { Capture { kBgraBottomUp, true, true }, Capture { kRgbaTopDown, false, false } }) {
+  for (const Capture& capture :
+       { Capture { kBgraBottomUp, true, true }, Capture { kRgbaTopDown, false, false } }) {
     INFO("bgra " << capture.bgra);
     Renderer::instance().setScreenshotData(static_cast<const uint8_t*>(capture.data), 1, 2, 4,
                                            capture.bgra, capture.y_flip);

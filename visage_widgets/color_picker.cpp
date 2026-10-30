@@ -29,8 +29,8 @@ namespace visage {
     int w = width();
     int h = height();
 
-    canvas.setColor(Brush::vertical(Gradient(0xffff0000, 0xffffff00, 0xff00ff00, 0xff00ffff, 0xff0000ff,
-                                             0xffff00ff, 0xffff0000)));
+    canvas.setColor(Brush::vertical(Gradient(0xffff0000, 0xffffff00, 0xff00ff00, 0xff00ffff,
+                                             0xff0000ff, 0xffff00ff, 0xffff0000)));
     canvas.rectangle(0, 0, w, h);
 
     float y = h * hue_ / Color::kHueRange;

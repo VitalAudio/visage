@@ -179,7 +179,9 @@ namespace visage::gpu {
         return true;
       }
       void shutdown() override { }
-      bool createTexture(uint16_t, const TextureDesc&, const uint8_t*, int) override { return true; }
+      bool createTexture(uint16_t, const TextureDesc&, const uint8_t*, int) override {
+        return true;
+      }
       void updateTexture(uint16_t, int, int, int, int, const uint8_t*, int) override { }
       void destroyTexture(uint16_t) override { }
       bool createBuffer(uint16_t, const BufferDesc&, const uint8_t*) override { return true; }
@@ -191,7 +193,9 @@ namespace visage::gpu {
       bool createComputeProgram(uint16_t, uint16_t) override { return true; }
       void destroyProgram(uint16_t) override { }
       bool createFrameBuffer(uint16_t, uint16_t) override { return true; }
-      bool createSwapChain(uint16_t, void*, void*, int, int, TextureFormat) override { return true; }
+      bool createSwapChain(uint16_t, void*, void*, int, int, TextureFormat) override {
+        return true;
+      }
       void resizeSwapChain(uint16_t, int, int) override { }
       void destroyFrameBuffer(uint16_t) override { }
       bool waitForFrame(uint16_t, int) override { return true; }
@@ -542,12 +546,16 @@ namespace visage::gpu {
         destroyNow(destroy);
     }
     std::vector<PendingDestroy> remaining;
-    context->programs.forEach([&](uint16_t idx) { remaining.push_back({ PendingDestroy::Program, idx }); });
+    context->programs.forEach([&](uint16_t idx) {
+      remaining.push_back({ PendingDestroy::Program, idx });
+    });
     for (const PendingDestroy& destroy : remaining)
       destroyNow(destroy);
     remaining.clear();
 
-    context->shaders.forEach([&](uint16_t idx) { remaining.push_back({ PendingDestroy::Shader, idx }); });
+    context->shaders.forEach([&](uint16_t idx) {
+      remaining.push_back({ PendingDestroy::Shader, idx });
+    });
     context->frame_buffers.forEach([&](uint16_t idx) {
       remaining.push_back({ PendingDestroy::FrameBuffer, idx });
     });
@@ -555,8 +563,12 @@ namespace visage::gpu {
       destroyNow(destroy);
     remaining.clear();
 
-    context->textures.forEach([&](uint16_t idx) { remaining.push_back({ PendingDestroy::Texture, idx }); });
-    context->buffers.forEach([&](uint16_t idx) { remaining.push_back({ PendingDestroy::Buffer, idx }); });
+    context->textures.forEach([&](uint16_t idx) {
+      remaining.push_back({ PendingDestroy::Texture, idx });
+    });
+    context->buffers.forEach([&](uint16_t idx) {
+      remaining.push_back({ PendingDestroy::Buffer, idx });
+    });
     for (const PendingDestroy& destroy : remaining)
       destroyNow(destroy);
 
@@ -621,8 +633,8 @@ namespace visage::gpu {
     const TextureDesc& desc = context->textures[handle.idx].desc;
     uint64_t row_bytes = static_cast<uint64_t>(width) * formatBytes(desc.format);
     uint64_t source_pitch = pitch ? static_cast<uint64_t>(pitch) : row_bytes;
-    if (x < 0 || y < 0 || x + width > desc.width || y + height > desc.height || source_pitch < row_bytes ||
-        memory->size < source_pitch * (height - 1) + row_bytes) {
+    if (x < 0 || y < 0 || x + width > desc.width || y + height > desc.height ||
+        source_pitch < row_bytes || memory->size < source_pitch * (height - 1) + row_bytes) {
       release(memory);
       return;
     }
@@ -835,7 +847,8 @@ namespace visage::gpu {
   }
 
   ProgramHandle createProgram(ShaderHandle vertex, ShaderHandle fragment, bool destroy_shaders) {
-    if (context == nullptr || !context->shaders.valid(vertex.idx) || !context->shaders.valid(fragment.idx))
+    if (context == nullptr || !context->shaders.valid(vertex.idx) ||
+        !context->shaders.valid(fragment.idx))
       return {};
     if (context->shaders[vertex.idx].info.stage != ShaderStage::Vertex ||
         context->shaders[fragment.idx].info.stage != ShaderStage::Fragment)
@@ -1034,8 +1047,9 @@ namespace visage::gpu {
     if (context == nullptr)
       return;
 
-    if (context->programs.valid(program.idx) && context->programs[program.idx].compute && groups_x &&
-        groups_y && groups_z && computeBindingsMatch(context->shaders[context->programs[program.idx].vertex])) {
+    if (context->programs.valid(program.idx) && context->programs[program.idx].compute &&
+        groups_x && groups_y && groups_z &&
+        computeBindingsMatch(context->shaders[context->programs[program.idx].vertex])) {
       ComputeItem item;
       item.program = program.idx;
       std::copy(std::begin(context->compute_bindings), std::end(context->compute_bindings),
@@ -1096,9 +1110,12 @@ namespace visage::gpu {
     });
     context->buffers.forEach([&](uint16_t idx) {
       const BufferEntry& entry = context->buffers[idx];
-      backend->createBuffer(idx, entry.desc, entry.initial_data.empty() ? nullptr : entry.initial_data.data());
+      backend->createBuffer(idx, entry.desc,
+                            entry.initial_data.empty() ? nullptr : entry.initial_data.data());
     });
-    context->shaders.forEach([&](uint16_t idx) { backend->createShader(idx, context->shaders[idx].info); });
+    context->shaders.forEach([&](uint16_t idx) {
+      backend->createShader(idx, context->shaders[idx].info);
+    });
     context->programs.forEach([&](uint16_t idx) {
       const ProgramEntry& entry = context->programs[idx];
       if (entry.compute)
@@ -1109,8 +1126,8 @@ namespace visage::gpu {
     context->frame_buffers.forEach([&](uint16_t idx) {
       const FrameBufferEntry& entry = context->frame_buffers[idx];
       if (entry.swap_chain) {
-        backend->createSwapChain(idx, entry.window_handle, context->init.display, entry.width, entry.height,
-                                 entry.format);
+        backend->createSwapChain(idx, entry.window_handle, context->init.display, entry.width,
+                                 entry.height, entry.format);
       }
       else if (context->textures.valid(entry.texture)) {
         backend->createTexture(entry.texture, context->textures[entry.texture].desc, nullptr, 0);

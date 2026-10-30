@@ -96,7 +96,8 @@ namespace {
     }
 
     if (options.input.empty() || options.output.empty()) {
-      std::cerr << "Usage: shader_compiler -f input.sc -o output --type v|f|c --target spirv|msl|hlsl|dxbc|essl"
+      std::cerr << "Usage: shader_compiler -f input.sc -o output --type v|f|c --target "
+                   "spirv|msl|hlsl|dxbc|essl"
                    " [-i include_dir] [--varyingdef varying.def.sc] [--define NAME=VALUE]"
                 << std::endl;
       return false;

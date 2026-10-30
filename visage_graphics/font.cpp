@@ -22,10 +22,10 @@
 #include "font.h"
 
 #include "emoji.h"
+#include "gpu/gpu.h"
 #include "visage_utils/file_system.h"
 #include "visage_utils/thread_utils.h"
 
-#include "gpu/gpu.h"
 #include <freetype/freetype.h>
 #include <set>
 #include <vector>
@@ -187,9 +187,9 @@ namespace visage {
                                                    texture.get(), packed_glyph->width, 0, 0);
       }
 
-      gpu::updateTexture2D(texture_handle_, packed_glyph->atlas_left,
-                            packed_glyph->atlas_top, packed_glyph->width, packed_glyph->height,
-                            gpu::copy(texture.get(), size * kChannels));
+      gpu::updateTexture2D(texture_handle_, packed_glyph->atlas_left, packed_glyph->atlas_top,
+                           packed_glyph->width, packed_glyph->height,
+                           gpu::copy(texture.get(), size * kChannels));
     }
 
     PackedGlyph* packCharacterGlyph(PackedGlyph* packed_glyph, const TypeFace* type_face, char32_t character) {
@@ -232,12 +232,13 @@ namespace visage {
 
     void checkInit() {
       if (!gpu::isValid(texture_handle_)) {
-        texture_handle_ = gpu::createTexture2D(atlas_map_.width(), atlas_map_.height(), gpu::TextureFormat::BGRA8);
+        texture_handle_ = gpu::createTexture2D(atlas_map_.width(), atlas_map_.height(),
+                                               gpu::TextureFormat::BGRA8);
         int width = atlas_map_.width();
         int height = atlas_map_.height();
         std::unique_ptr<unsigned int[]> clear = std::make_unique<unsigned int[]>(width * height);
         gpu::updateTexture2D(texture_handle_, 0, 0, width, height,
-                              gpu::copy(clear.get(), width * height * kChannels));
+                             gpu::copy(clear.get(), width * height * kChannels));
 
         for (auto& glyph : packed_glyphs_)
           rasterizeGlyph(glyph.first, &glyph.second);

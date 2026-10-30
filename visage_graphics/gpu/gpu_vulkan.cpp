@@ -22,10 +22,6 @@
 #include "gpu_backend.h"
 
 #define VK_NO_PROTOTYPES
-#include <X11/Xlib.h>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_xlib.h>
-
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -33,11 +29,14 @@
 #include <dlfcn.h>
 #include <functional>
 #include <unordered_map>
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_xlib.h>
+#include <X11/Xlib.h>
 
 namespace visage::gpu {
   namespace {
-#define VISAGE_VK_GLOBAL_FUNCTIONS(X)        \
-  X(vkCreateInstance)                        \
+#define VISAGE_VK_GLOBAL_FUNCTIONS(X)       \
+  X(vkCreateInstance)                       \
   X(vkEnumerateInstanceExtensionProperties) \
   X(vkEnumerateInstanceLayerProperties)
 
@@ -59,82 +58,82 @@ namespace visage::gpu {
   X(vkGetPhysicalDeviceXlibPresentationSupportKHR) \
   X(vkCreateXlibSurfaceKHR)
 
-#define VISAGE_VK_DEBUG_FUNCTIONS(X)  \
-  X(vkCreateDebugUtilsMessengerEXT) \
+#define VISAGE_VK_DEBUG_FUNCTIONS(X) \
+  X(vkCreateDebugUtilsMessengerEXT)  \
   X(vkDestroyDebugUtilsMessengerEXT)
 
-#define VISAGE_VK_DEVICE_FUNCTIONS(X)  \
-  X(vkDestroyDevice)                   \
-  X(vkGetDeviceQueue)                  \
-  X(vkDeviceWaitIdle)                  \
-  X(vkQueueSubmit)                     \
-  X(vkQueuePresentKHR)                 \
-  X(vkCreateSwapchainKHR)              \
-  X(vkDestroySwapchainKHR)             \
-  X(vkGetSwapchainImagesKHR)           \
-  X(vkAcquireNextImageKHR)             \
-  X(vkCreateCommandPool)               \
-  X(vkDestroyCommandPool)              \
-  X(vkResetCommandPool)                \
-  X(vkAllocateCommandBuffers)          \
-  X(vkBeginCommandBuffer)              \
-  X(vkEndCommandBuffer)                \
-  X(vkCreateFence)                     \
-  X(vkDestroyFence)                    \
-  X(vkWaitForFences)                   \
-  X(vkResetFences)                     \
-  X(vkCreateSemaphore)                 \
-  X(vkDestroySemaphore)                \
-  X(vkAllocateMemory)                  \
-  X(vkFreeMemory)                      \
-  X(vkMapMemory)                       \
-  X(vkCreateBuffer)                    \
-  X(vkDestroyBuffer)                   \
-  X(vkGetBufferMemoryRequirements)     \
-  X(vkBindBufferMemory)                \
-  X(vkCreateImage)                     \
-  X(vkDestroyImage)                    \
-  X(vkGetImageMemoryRequirements)      \
-  X(vkBindImageMemory)                 \
-  X(vkCreateImageView)                 \
-  X(vkDestroyImageView)                \
-  X(vkCreateSampler)                   \
-  X(vkDestroySampler)                  \
-  X(vkCreateShaderModule)              \
-  X(vkDestroyShaderModule)             \
-  X(vkCreateDescriptorSetLayout)       \
-  X(vkDestroyDescriptorSetLayout)      \
-  X(vkCreatePipelineLayout)            \
-  X(vkDestroyPipelineLayout)           \
-  X(vkCreateGraphicsPipelines)         \
-  X(vkCreateComputePipelines)          \
-  X(vkDestroyPipeline)                 \
-  X(vkCreateDescriptorPool)            \
-  X(vkDestroyDescriptorPool)           \
-  X(vkResetDescriptorPool)             \
-  X(vkAllocateDescriptorSets)          \
-  X(vkUpdateDescriptorSets)            \
-  X(vkCreateRenderPass)                \
-  X(vkDestroyRenderPass)               \
-  X(vkCreateFramebuffer)               \
-  X(vkDestroyFramebuffer)              \
-  X(vkCmdBeginRenderPass)              \
-  X(vkCmdEndRenderPass)                \
-  X(vkCmdBindPipeline)                 \
-  X(vkCmdBindDescriptorSets)           \
-  X(vkCmdBindVertexBuffers)            \
-  X(vkCmdBindIndexBuffer)              \
-  X(vkCmdDraw)                         \
-  X(vkCmdDrawIndexed)                  \
-  X(vkCmdDispatch)                     \
-  X(vkCmdSetViewport)                  \
-  X(vkCmdSetScissor)                   \
-  X(vkCmdPipelineBarrier)              \
-  X(vkCmdCopyBuffer)                   \
-  X(vkCmdCopyBufferToImage)            \
-  X(vkCmdCopyImageToBuffer)            \
-  X(vkCmdCopyImage)                    \
-  X(vkCmdFillBuffer)                   \
+#define VISAGE_VK_DEVICE_FUNCTIONS(X) \
+  X(vkDestroyDevice)                  \
+  X(vkGetDeviceQueue)                 \
+  X(vkDeviceWaitIdle)                 \
+  X(vkQueueSubmit)                    \
+  X(vkQueuePresentKHR)                \
+  X(vkCreateSwapchainKHR)             \
+  X(vkDestroySwapchainKHR)            \
+  X(vkGetSwapchainImagesKHR)          \
+  X(vkAcquireNextImageKHR)            \
+  X(vkCreateCommandPool)              \
+  X(vkDestroyCommandPool)             \
+  X(vkResetCommandPool)               \
+  X(vkAllocateCommandBuffers)         \
+  X(vkBeginCommandBuffer)             \
+  X(vkEndCommandBuffer)               \
+  X(vkCreateFence)                    \
+  X(vkDestroyFence)                   \
+  X(vkWaitForFences)                  \
+  X(vkResetFences)                    \
+  X(vkCreateSemaphore)                \
+  X(vkDestroySemaphore)               \
+  X(vkAllocateMemory)                 \
+  X(vkFreeMemory)                     \
+  X(vkMapMemory)                      \
+  X(vkCreateBuffer)                   \
+  X(vkDestroyBuffer)                  \
+  X(vkGetBufferMemoryRequirements)    \
+  X(vkBindBufferMemory)               \
+  X(vkCreateImage)                    \
+  X(vkDestroyImage)                   \
+  X(vkGetImageMemoryRequirements)     \
+  X(vkBindImageMemory)                \
+  X(vkCreateImageView)                \
+  X(vkDestroyImageView)               \
+  X(vkCreateSampler)                  \
+  X(vkDestroySampler)                 \
+  X(vkCreateShaderModule)             \
+  X(vkDestroyShaderModule)            \
+  X(vkCreateDescriptorSetLayout)      \
+  X(vkDestroyDescriptorSetLayout)     \
+  X(vkCreatePipelineLayout)           \
+  X(vkDestroyPipelineLayout)          \
+  X(vkCreateGraphicsPipelines)        \
+  X(vkCreateComputePipelines)         \
+  X(vkDestroyPipeline)                \
+  X(vkCreateDescriptorPool)           \
+  X(vkDestroyDescriptorPool)          \
+  X(vkResetDescriptorPool)            \
+  X(vkAllocateDescriptorSets)         \
+  X(vkUpdateDescriptorSets)           \
+  X(vkCreateRenderPass)               \
+  X(vkDestroyRenderPass)              \
+  X(vkCreateFramebuffer)              \
+  X(vkDestroyFramebuffer)             \
+  X(vkCmdBeginRenderPass)             \
+  X(vkCmdEndRenderPass)               \
+  X(vkCmdBindPipeline)                \
+  X(vkCmdBindDescriptorSets)          \
+  X(vkCmdBindVertexBuffers)           \
+  X(vkCmdBindIndexBuffer)             \
+  X(vkCmdDraw)                        \
+  X(vkCmdDrawIndexed)                 \
+  X(vkCmdDispatch)                    \
+  X(vkCmdSetViewport)                 \
+  X(vkCmdSetScissor)                  \
+  X(vkCmdPipelineBarrier)             \
+  X(vkCmdCopyBuffer)                  \
+  X(vkCmdCopyBufferToImage)           \
+  X(vkCmdCopyImageToBuffer)           \
+  X(vkCmdCopyImage)                   \
+  X(vkCmdFillBuffer)                  \
   X(vkCmdClearColorImage)
 
 #define VISAGE_VK_DECLARE(name) PFN_##name name = nullptr;
@@ -303,7 +302,9 @@ namespace visage::gpu {
     struct DescriptorKeyHash {
       size_t operator()(const DescriptorKey& key) const {
         size_t hash = std::hash<uint64_t>()(reinterpret_cast<uint64_t>(key.vertex_buffer));
-        auto mix = [&hash](uint64_t value) { hash ^= value + 0x9e3779b97f4a7c15ull + (hash << 6) + (hash >> 2); };
+        auto mix = [&hash](uint64_t value) {
+          hash ^= value + 0x9e3779b97f4a7c15ull + (hash << 6) + (hash >> 2);
+        };
         mix(reinterpret_cast<uint64_t>(key.fragment_buffer));
         mix(key.vertex_size | (static_cast<uint64_t>(key.fragment_size) << 32));
         for (const TextureBinding& binding : key.textures)
@@ -612,17 +613,20 @@ namespace visage::gpu {
 
       std::vector<VkDescriptorSetLayoutBinding> bindings;
       if (info.uniform_block_size) {
-        bindings.push_back({ 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr });
+        bindings.push_back({ 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1,
+                             VK_SHADER_STAGE_COMPUTE_BIT, nullptr });
         program.compute_uniforms = true;
       }
       for (const ShaderStorage& storage : info.storage) {
-        VkDescriptorType type = storage.image ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        VkDescriptorType type = storage.image ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE :
+                                                VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         bindings.push_back({ static_cast<uint32_t>(kResourceBindingOffset + storage.stage), type, 1,
                              VK_SHADER_STAGE_COMPUTE_BIT, nullptr });
       }
       for (const ShaderSampler& sampler : info.samplers) {
         bindings.push_back({ static_cast<uint32_t>(kResourceBindingOffset + sampler.stage),
-                             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr });
+                             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
+                             VK_SHADER_STAGE_COMPUTE_BIT, nullptr });
       }
 
       VkDescriptorSetLayoutCreateInfo set_info { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
@@ -834,7 +838,8 @@ namespace visage::gpu {
       }
 
       vkEndCommandBuffer(command_buffer_);
-      std::vector<VkPipelineStageFlags> wait_stages(wait_semaphores.size(), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+      std::vector<VkPipelineStageFlags> wait_stages(wait_semaphores.size(),
+                                                    VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
       VkSubmitInfo submit { VK_STRUCTURE_TYPE_SUBMIT_INFO };
       submit.waitSemaphoreCount = static_cast<uint32_t>(wait_semaphores.size());
       submit.pWaitSemaphores = wait_semaphores.data();
@@ -866,7 +871,8 @@ namespace visage::gpu {
       }
 
       if (!reads.empty()) {
-        if (slot.submitted && checkResult(vkWaitForFences(device_, 1, &slot.fence, VK_TRUE, UINT64_MAX)) == VK_SUCCESS) {
+        if (slot.submitted &&
+            checkResult(vkWaitForFences(device_, 1, &slot.fence, VK_TRUE, UINT64_MAX)) == VK_SUCCESS) {
           for (ReadBack& read : reads)
             finishRead(read);
         }
@@ -884,8 +890,8 @@ namespace visage::gpu {
       VkFormat format = VK_FORMAT_UNDEFINED;
 
       bool operator==(const PipelineKey& other) const {
-        return program == other.program && layout_hash == other.layout_hash && state == other.state &&
-               format == other.format;
+        return program == other.program && layout_hash == other.layout_hash &&
+               state == other.state && format == other.format;
       }
     };
 
@@ -928,13 +934,14 @@ namespace visage::gpu {
       if (library_ == nullptr)
         return false;
 
-      vkGetInstanceProcAddr = reinterpret_cast<PFN_vkGetInstanceProcAddr>(dlsym(library_, "vkGetInstanceProcAddr"));
+      vkGetInstanceProcAddr =
+          reinterpret_cast<PFN_vkGetInstanceProcAddr>(dlsym(library_, "vkGetInstanceProcAddr"));
       if (vkGetInstanceProcAddr == nullptr)
         return false;
 
-#define VISAGE_VK_LOAD(name)                                                                  \
+#define VISAGE_VK_LOAD(name)                                                         \
   name = reinterpret_cast<PFN_##name>(vkGetInstanceProcAddr(VK_NULL_HANDLE, #name)); \
-  if (name == nullptr)                                                                        \
+  if (name == nullptr)                                                               \
     return false;
       VISAGE_VK_GLOBAL_FUNCTIONS(VISAGE_VK_LOAD)
 #undef VISAGE_VK_LOAD
@@ -947,8 +954,9 @@ namespace visage::gpu {
       std::vector<VkExtensionProperties> extensions(count);
       vkEnumerateInstanceExtensionProperties(nullptr, &count, extensions.data());
       auto has_extension = [&](const char* name) {
-        return std::any_of(extensions.begin(), extensions.end(),
-                           [name](const VkExtensionProperties& e) { return std::strcmp(e.extensionName, name) == 0; });
+        return std::any_of(extensions.begin(), extensions.end(), [name](const VkExtensionProperties& e) {
+          return std::strcmp(e.extensionName, name) == 0;
+        });
       };
 
       std::vector<const char*> enabled;
@@ -990,15 +998,16 @@ namespace visage::gpu {
       if (vkCreateInstance(&info, nullptr, &instance_) != VK_SUCCESS)
         return false;
 
-#define VISAGE_VK_LOAD(name)                                                             \
+#define VISAGE_VK_LOAD(name)                                                    \
   name = reinterpret_cast<PFN_##name>(vkGetInstanceProcAddr(instance_, #name)); \
-  if (name == nullptr)                                                                   \
+  if (name == nullptr)                                                          \
     return false;
       VISAGE_VK_INSTANCE_FUNCTIONS(VISAGE_VK_LOAD)
 #undef VISAGE_VK_LOAD
 
       if (validation) {
-#define VISAGE_VK_LOAD(name) name = reinterpret_cast<PFN_##name>(vkGetInstanceProcAddr(instance_, #name));
+#define VISAGE_VK_LOAD(name) \
+  name = reinterpret_cast<PFN_##name>(vkGetInstanceProcAddr(instance_, #name));
         VISAGE_VK_DEBUG_FUNCTIONS(VISAGE_VK_LOAD)
 #undef VISAGE_VK_LOAD
         if (vkCreateDebugUtilsMessengerEXT) {
@@ -1033,9 +1042,11 @@ namespace visage::gpu {
         vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr);
         std::vector<VkExtensionProperties> extensions(extension_count);
         vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, extensions.data());
-        bool has_swap_chain = std::any_of(extensions.begin(), extensions.end(), [](const VkExtensionProperties& e) {
-          return std::strcmp(e.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0;
-        });
+        bool has_swap_chain = std::any_of(extensions.begin(), extensions.end(),
+                                          [](const VkExtensionProperties& e) {
+                                            return std::strcmp(e.extensionName,
+                                                               VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0;
+                                          });
         if (!has_swap_chain)
           continue;
 
@@ -1098,9 +1109,9 @@ namespace visage::gpu {
       if (vkCreateDevice(physical_device_, &info, nullptr, &device_) != VK_SUCCESS)
         return false;
 
-#define VISAGE_VK_LOAD(name)                                                         \
+#define VISAGE_VK_LOAD(name)                                                \
   name = reinterpret_cast<PFN_##name>(vkGetDeviceProcAddr(device_, #name)); \
-  if (name == nullptr)                                                               \
+  if (name == nullptr)                                                      \
     return false;
       VISAGE_VK_DEVICE_FUNCTIONS(VISAGE_VK_LOAD)
 #undef VISAGE_VK_LOAD
@@ -1111,8 +1122,10 @@ namespace visage::gpu {
 
     void createCommonObjects() {
       std::vector<VkDescriptorSetLayoutBinding> bindings;
-      bindings.push_back({ 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr });
-      bindings.push_back({ 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr });
+      bindings.push_back({ 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1,
+                           VK_SHADER_STAGE_VERTEX_BIT, nullptr });
+      bindings.push_back({ 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1,
+                           VK_SHADER_STAGE_FRAGMENT_BIT, nullptr });
       for (int i = 0; i < kMaxTextureStages; ++i) {
         bindings.push_back({ static_cast<uint32_t>(kResourceBindingOffset + i),
                              VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
@@ -1153,8 +1166,8 @@ namespace visage::gpu {
       caps.max_texture_size = static_cast<int>(properties_.limits.maxImageDimension2D);
       for (int i = 0; i < static_cast<int>(TextureFormat::Count); ++i) {
         VkFormatProperties properties;
-        vkGetPhysicalDeviceFormatProperties(physical_device_, formatInfo(static_cast<TextureFormat>(i)).format,
-                                            &properties);
+        vkGetPhysicalDeviceFormatProperties(physical_device_,
+                                            formatInfo(static_cast<TextureFormat>(i)).format, &properties);
         VkFormatFeatureFlags features = properties.optimalTilingFeatures;
         uint32_t flags = 0;
         if (features & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)
@@ -1223,7 +1236,8 @@ namespace visage::gpu {
 
       VkMemoryRequirements requirements;
       vkGetBufferMemoryRequirements(device_, result.buffer, &requirements);
-      VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+      VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
       if (!allocate(requirements, flags, result.allocation) ||
           vkBindBufferMemory(device_, result.buffer, result.allocation.memory, 0) != VK_SUCCESS) {
         destroyHostBuffer(result);
@@ -1409,7 +1423,8 @@ namespace visage::gpu {
       uint32_t mode_count = 0;
       vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device_, chain.surface, &mode_count, nullptr);
       std::vector<VkPresentModeKHR> modes(mode_count);
-      vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device_, chain.surface, &mode_count, modes.data());
+      vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device_, chain.surface, &mode_count,
+                                                modes.data());
       VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
       if (!init_.vsync) {
         for (VkPresentModeKHR mode : { VK_PRESENT_MODE_MAILBOX_KHR, VK_PRESENT_MODE_IMMEDIATE_KHR }) {
@@ -1426,9 +1441,9 @@ namespace visage::gpu {
 
       VkCompositeAlphaFlagBitsKHR composite = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
       if (!(capabilities.supportedCompositeAlpha & composite)) {
-        for (VkCompositeAlphaFlagBitsKHR flag : { VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
-                                                  VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
-                                                  VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR }) {
+        for (VkCompositeAlphaFlagBitsKHR flag :
+             { VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+               VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR }) {
           if (capabilities.supportedCompositeAlpha & flag) {
             composite = flag;
             break;
@@ -1565,7 +1580,8 @@ namespace visage::gpu {
         if ((chain.needs_recreate || chain.swap_chain == VK_NULL_HANDLE) && !recreateSwapChain(chain))
           return false;
 
-        VkResult result = checkResult(vkAcquireNextImageKHR(device_, chain.swap_chain, kAcquireTimeoutNs, semaphore,
+        VkResult result = checkResult(vkAcquireNextImageKHR(device_, chain.swap_chain,
+                                                            kAcquireTimeoutNs, semaphore,
                                                             VK_NULL_HANDLE, &chain.current_image));
         if (result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR) {
           if (result == VK_SUBOPTIMAL_KHR)
@@ -1667,7 +1683,8 @@ namespace visage::gpu {
       image_barrier.image = image;
       image_barrier.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
       vkCmdPipelineBarrier(command_buffer_, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
+                           VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 1,
+                           &image_barrier);
       current = layout;
     }
 
@@ -1712,7 +1729,8 @@ namespace visage::gpu {
           transition(texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
         else
-          updateTexture(init.idx, 0, 0, texture.desc.width, texture.desc.height, init.data.data(), init.pitch);
+          updateTexture(init.idx, 0, 0, texture.desc.width, texture.desc.height, init.data.data(),
+                        init.pitch);
         return;
       }
 
@@ -1734,8 +1752,8 @@ namespace visage::gpu {
 
     bool textureValid(uint16_t idx) const { return idx < textures_.size() && textures_[idx].used; }
 
-    VkPipeline graphicsPipeline(uint16_t program_idx, const Buffer* vertex_buffer, const RenderState& state,
-                                VkFormat format) {
+    VkPipeline graphicsPipeline(uint16_t program_idx, const Buffer* vertex_buffer,
+                                const RenderState& state, VkFormat format) {
       PipelineKey key;
       key.program = program_idx;
       key.layout_hash = vertex_buffer ? vertex_buffer->desc.layout.hash() : 0;
@@ -1770,7 +1788,8 @@ namespace visage::gpu {
                                                    VK_FORMAT_R32G32B32A32_SFLOAT };
           int count = layout.has(attribute.attrib) ? layout.count(attribute.attrib) : 1;
           uint32_t offset = layout.has(attribute.attrib) ? layout.offset(attribute.attrib) : 0;
-          attributes.push_back({ static_cast<uint32_t>(attribute.attrib), 0, kFormats[std::clamp(count, 1, 4)], offset });
+          attributes.push_back({ static_cast<uint32_t>(attribute.attrib), 0,
+                                 kFormats[std::clamp(count, 1, 4)], offset });
         }
         vertex_input.vertexBindingDescriptionCount = 1;
         vertex_input.pVertexBindingDescriptions = &binding;
@@ -1895,13 +1914,15 @@ namespace visage::gpu {
     }
 
     bool bindDrawDescriptors(const FrameData& frame, const DrawItem& draw) {
-      RingAllocation vertex_uniforms = uploadUniforms(frame, draw.vertex_uniform_offset, draw.vertex_uniform_size);
+      RingAllocation vertex_uniforms = uploadUniforms(frame, draw.vertex_uniform_offset,
+                                                      draw.vertex_uniform_size);
       RingAllocation fragment_uniforms = uploadUniforms(frame, draw.fragment_uniform_offset,
                                                         draw.fragment_uniform_size);
 
       DescriptorKey key;
       key.vertex_buffer = vertex_uniforms.buffer ? vertex_uniforms.buffer : placeholderUniformBuffer();
-      key.fragment_buffer = fragment_uniforms.buffer ? fragment_uniforms.buffer : placeholderUniformBuffer();
+      key.fragment_buffer = fragment_uniforms.buffer ? fragment_uniforms.buffer :
+                                                       placeholderUniformBuffer();
       key.vertex_size = std::max<uint32_t>(16, draw.vertex_uniform_size);
       key.fragment_size = std::max<uint32_t>(16, draw.fragment_uniform_size);
       for (int i = 0; i < kMaxTextureStages; ++i) {
@@ -1952,8 +1973,8 @@ namespace visage::gpu {
 
       uint32_t offsets[2] = { static_cast<uint32_t>(vertex_uniforms.offset),
                               static_cast<uint32_t>(fragment_uniforms.offset) };
-      vkCmdBindDescriptorSets(command_buffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_layout_, 0, 1,
-                              &set, 2, offsets);
+      vkCmdBindDescriptorSets(command_buffer_, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                              graphics_pipeline_layout_, 0, 1, &set, 2, offsets);
       return true;
     }
 
@@ -1998,8 +2019,12 @@ namespace visage::gpu {
       int width = std::clamp(view.width, 0, static_cast<int>(extent.width) - x);
       int height = std::clamp(view.height, 0, static_cast<int>(extent.height) - y);
       if (width > 0 && height > 0) {
-        VkViewport viewport { static_cast<float>(view.x), static_cast<float>(view.y + view.height),
-                              static_cast<float>(view.width), -static_cast<float>(view.height), 0.0f, 1.0f };
+        VkViewport viewport { static_cast<float>(view.x),
+                              static_cast<float>(view.y + view.height),
+                              static_cast<float>(view.width),
+                              -static_cast<float>(view.height),
+                              0.0f,
+                              1.0f };
         VkRect2D scissor { { x, y }, { static_cast<uint32_t>(width), static_cast<uint32_t>(height) } };
         vkCmdSetViewport(command_buffer_, 0, 1, &viewport);
         vkCmdSetScissor(command_buffer_, 0, 1, &scissor);
@@ -2049,7 +2074,8 @@ namespace visage::gpu {
     }
 
     void executeCompute(const FrameData& frame, const ComputeItem& item) {
-      if (item.program >= programs_.size() || !programs_[item.program].used || !programs_[item.program].compute)
+      if (item.program >= programs_.size() || !programs_[item.program].used ||
+          !programs_[item.program].compute)
         return;
       Program& program = programs_[item.program];
 
@@ -2114,8 +2140,8 @@ namespace visage::gpu {
         const ComputeBinding& binding = item.bindings[shader_sampler.stage];
         if (!textureValid(binding.handle))
           return;
-        image_infos.push_back({ sampler(textures_[binding.handle].desc.flags), textures_[binding.handle].view,
-                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+        image_infos.push_back({ sampler(textures_[binding.handle].desc.flags),
+                                textures_[binding.handle].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
         VkWriteDescriptorSet write { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
         write.dstSet = set;
         write.dstBinding = kResourceBindingOffset + shader_sampler.stage;
@@ -2128,8 +2154,8 @@ namespace visage::gpu {
       vkUpdateDescriptorSets(device_, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
       vkCmdBindPipeline(command_buffer_, VK_PIPELINE_BIND_POINT_COMPUTE, program.compute_pipeline);
       uint32_t offset = static_cast<uint32_t>(uniforms.offset);
-      vkCmdBindDescriptorSets(command_buffer_, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout, 0, 1, &set,
-                              program.compute_uniforms ? 1 : 0, &offset);
+      vkCmdBindDescriptorSets(command_buffer_, VK_PIPELINE_BIND_POINT_COMPUTE, program.pipeline_layout,
+                              0, 1, &set, program.compute_uniforms ? 1 : 0, &offset);
       vkCmdDispatch(command_buffer_, item.groups[0], item.groups[1], item.groups[2]);
       barrier();
     }
@@ -2147,8 +2173,8 @@ namespace visage::gpu {
       region.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
       region.dstOffset = { item.dest_x, item.dest_y, 0 };
       region.extent = { static_cast<uint32_t>(item.width), static_cast<uint32_t>(item.height), 1 };
-      vkCmdCopyImage(command_buffer_, source.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, destination.image,
-                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+      vkCmdCopyImage(command_buffer_, source.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                     destination.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
       transition(destination, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
@@ -2180,23 +2206,23 @@ namespace visage::gpu {
       read.rows = height;
       read.width = width;
       read.height = height;
-      if (!createHostBuffer(static_cast<VkDeviceSize>(read.row_bytes) * height, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                            read.buffer))
+      if (!createHostBuffer(static_cast<VkDeviceSize>(read.row_bytes) * height,
+                            VK_BUFFER_USAGE_TRANSFER_DST_BIT, read.buffer))
         return read;
 
       transitionImage(image, layout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
       VkBufferImageCopy region {};
       region.imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
       region.imageExtent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1 };
-      vkCmdCopyImageToBuffer(command_buffer_, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, read.buffer.buffer, 1,
-                             &region);
+      vkCmdCopyImageToBuffer(command_buffer_, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                             read.buffer.buffer, 1, &region);
       barrier();
       return read;
     }
 
     ReadBack readTexture(Texture& texture, void* destination) {
-      ReadBack read = readImage(texture.image, texture.layout, texture.desc.width, texture.desc.height,
-                                texture.bytes);
+      ReadBack read = readImage(texture.image, texture.layout, texture.desc.width,
+                                texture.desc.height, texture.bytes);
       read.destination = destination;
       read.bgra = texture.desc.format == TextureFormat::BGRA8;
       transition(texture, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -2205,7 +2231,8 @@ namespace visage::gpu {
 
     ReadBack readSwapChain(uint16_t idx, SwapChain& chain) {
       ReadBack read = readImage(chain.images[chain.current_image], chain.layouts[chain.current_image],
-                                static_cast<int>(chain.extent.width), static_cast<int>(chain.extent.height), 4);
+                                static_cast<int>(chain.extent.width),
+                                static_cast<int>(chain.extent.height), 4);
       read.screenshot = true;
       read.frame_buffer = idx;
       read.bgra = chain.format == VK_FORMAT_B8G8R8A8_UNORM;
@@ -2219,7 +2246,8 @@ namespace visage::gpu {
       if (read.destination)
         std::memcpy(read.destination, data, static_cast<size_t>(read.row_bytes) * read.rows);
       if (read.screenshot && init_.screenshot_callback)
-        init_.screenshot_callback({ read.frame_buffer }, data, read.width, read.height, read.row_bytes, read.bgra);
+        init_.screenshot_callback({ read.frame_buffer }, data, read.width, read.height,
+                                  read.row_bytes, read.bgra);
     }
 
     Init init_;

@@ -164,8 +164,10 @@ namespace visage::gpu {
         return false;
       emscripten_set_webglcontextlost_callback(kCanvas, this, true, contextLost);
 
-      bool color_buffer_float = emscripten_webgl_enable_extension(context_, "EXT_color_buffer_float");
-      bool color_buffer_half_float = emscripten_webgl_enable_extension(context_, "EXT_color_buffer_half_float");
+      bool color_buffer_float = emscripten_webgl_enable_extension(context_,
+                                                                  "EXT_color_buffer_float");
+      bool color_buffer_half_float =
+          emscripten_webgl_enable_extension(context_, "EXT_color_buffer_half_float");
       emscripten_webgl_enable_extension(context_, "OES_texture_float_linear");
 
       GLint max_texture_size = 0;
@@ -182,8 +184,10 @@ namespace visage::gpu {
       caps.formats[static_cast<int>(TextureFormat::R8)] = all;
       caps.formats[static_cast<int>(TextureFormat::R32F)] = kFormatTexture |
                                                             (color_buffer_float ? kFormatRenderTarget : 0);
-      caps.formats[static_cast<int>(TextureFormat::RGBA16F)] =
-          kFormatTexture | (color_buffer_float || color_buffer_half_float ? kFormatRenderTarget | kFormatBlend : 0);
+      caps.formats[static_cast<int>(TextureFormat::RGBA16F)] = kFormatTexture |
+                                                               (color_buffer_float || color_buffer_half_float ?
+                                                                    kFormatRenderTarget | kFormatBlend :
+                                                                    0);
       caps.formats[static_cast<int>(TextureFormat::RGBA32F)] = kFormatTexture |
                                                                (color_buffer_float ? kFormatRenderTarget : 0);
 
@@ -286,7 +290,8 @@ namespace visage::gpu {
 
       glBindTexture(GL_TEXTURE_2D, texture.texture);
       glPixelStorei(GL_UNPACK_ROW_LENGTH, source_pitch / texture.format.bytes);
-      glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, width, height, texture.format.format, texture.format.type, data);
+      glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, width, height, texture.format.format,
+                      texture.format.type, data);
       glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
     }
 
@@ -461,7 +466,8 @@ namespace visage::gpu {
         FrameBuffer& frame_buffer = frame_buffers_[idx];
         std::vector<uint8_t> data(static_cast<size_t>(frame_buffer.width) * frame_buffer.height * 4);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, frame_buffer.framebuffer);
-        glReadPixels(0, 0, frame_buffer.width, frame_buffer.height, GL_RGBA, GL_UNSIGNED_BYTE, data.data());
+        glReadPixels(0, 0, frame_buffer.width, frame_buffer.height, GL_RGBA, GL_UNSIGNED_BYTE,
+                     data.data());
         glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
         if (init_.screenshot_callback)
           init_.screenshot_callback({ idx }, data.data(), frame_buffer.width, frame_buffer.height,
@@ -492,11 +498,13 @@ namespace visage::gpu {
       if (base.size() <= name.size())
         return false;
       char separator = base[base.size() - name.size() - 1];
-      return (separator == '.' || separator == '_') && base.compare(base.size() - name.size(), name.size(), name) == 0;
+      return (separator == '.' || separator == '_') &&
+             base.compare(base.size() - name.size(), name.size(), name) == 0;
     }
 
     void bindUniforms(Program& program, const ShaderInfo& info, bool fragment) {
-      GLint block = glGetUniformLocation(program.program, fragment ? "visage_fragment_uniforms" : "visage_vertex_uniforms");
+      GLint block = glGetUniformLocation(program.program, fragment ? "visage_fragment_uniforms" :
+                                                                     "visage_vertex_uniforms");
       (fragment ? program.fragment_block : program.vertex_block) = block;
       GLint count = 0;
       glGetProgramiv(program.program, GL_ACTIVE_UNIFORMS, &count);
@@ -589,9 +597,12 @@ namespace visage::gpu {
         uint32_t size = uniform.fragment ? draw.fragment_uniform_size : draw.vertex_uniform_size;
         if (uniform.offset >= size)
           continue;
-        const float* values = reinterpret_cast<const float*>(frame.uniform_data.data() + base + uniform.offset);
+        const float* values = reinterpret_cast<const float*>(frame.uniform_data.data() + base +
+                                                             uniform.offset);
         switch (uniform.type) {
-        case UniformType::Mat4: glUniformMatrix4fv(uniform.location, uniform.num, GL_FALSE, values); break;
+        case UniformType::Mat4:
+          glUniformMatrix4fv(uniform.location, uniform.num, GL_FALSE, values);
+          break;
         case UniformType::Mat3: {
           std::vector<float> packed(9 * uniform.num);
           for (int n = 0; n < uniform.num; ++n) {
@@ -652,7 +663,8 @@ namespace visage::gpu {
             continue;
           GLuint location = static_cast<GLuint>(attribute.attrib);
           glEnableVertexAttribArray(location);
-          glVertexAttribPointer(location, layout.count(attribute.attrib), GL_FLOAT, GL_FALSE, layout.stride(),
+          glVertexAttribPointer(location, layout.count(attribute.attrib), GL_FLOAT, GL_FALSE,
+                                layout.stride(),
                                 reinterpret_cast<const void*>(base + layout.offset(attribute.attrib)));
         }
       }
@@ -683,15 +695,16 @@ namespace visage::gpu {
       glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                              textures_[item.destination].texture, 0);
       glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-      glBlitFramebuffer(item.source_x, item.source_y, item.source_x + item.width, item.source_y + item.height,
-                        item.dest_x, item.dest_y, item.dest_x + item.width, item.dest_y + item.height,
-                        GL_COLOR_BUFFER_BIT, GL_NEAREST);
+      glBlitFramebuffer(item.source_x, item.source_y, item.source_x + item.width,
+                        item.source_y + item.height, item.dest_x, item.dest_y, item.dest_x + item.width,
+                        item.dest_y + item.height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
       glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
       glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     }
 
     void executeView(const FrameData& frame, const ViewData& view) {
-      bool has_target = view.frame_buffer < frame_buffers_.size() && frame_buffers_[view.frame_buffer].used;
+      bool has_target = view.frame_buffer < frame_buffers_.size() &&
+                        frame_buffers_[view.frame_buffer].used;
       bool bound = false;
       for (const ViewItem& item : view.items) {
         if (item.type == ViewItem::Draw) {

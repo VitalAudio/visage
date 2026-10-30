@@ -186,8 +186,8 @@ namespace visage::gpu {
     virtual void shutdown() = 0;
 
     virtual bool createTexture(uint16_t idx, const TextureDesc& desc, const uint8_t* data, int pitch) = 0;
-    virtual void updateTexture(uint16_t idx, int x, int y, int width, int height, const uint8_t* data,
-                               int pitch) = 0;
+    virtual void updateTexture(uint16_t idx, int x, int y, int width, int height,
+                               const uint8_t* data, int pitch) = 0;
     virtual void destroyTexture(uint16_t idx) = 0;
 
     virtual bool createBuffer(uint16_t idx, const BufferDesc& desc, const uint8_t* data) = 0;

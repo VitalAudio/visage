@@ -24,6 +24,7 @@
 #include "canvas.h"
 #include "embedded/shaders.h"
 #include "font.h"
+#include "gpu/gpu.h"
 #include "graphics_caches.h"
 #include "layer.h"
 #include "path.h"
@@ -31,8 +32,6 @@
 #include "shader.h"
 #include "uniforms.h"
 #include "visage_utils/space.h"
-
-#include "gpu/gpu.h"
 
 #include <map>
 #include <memory>
@@ -46,14 +45,16 @@ namespace visage {
       return RenderState::write(gpu::kWriteRGBA).blendFunc(BlendFactor::One, BlendFactor::Zero);
     case BlendMode::Alpha:
       return RenderState::write(gpu::kWriteRGBA).blendFunc(BlendFactor::One, BlendFactor::InvSrcAlpha);
-    case BlendMode::Add: return RenderState::write(gpu::kWriteRGBA).blendFunc(BlendFactor::One, BlendFactor::One);
+    case BlendMode::Add:
+      return RenderState::write(gpu::kWriteRGBA).blendFunc(BlendFactor::One, BlendFactor::One);
     case BlendMode::Sub:
       return RenderState::write(gpu::kWriteRGBA)
           .blendFuncSeparate(BlendFactor::One, BlendFactor::One, BlendFactor::Zero, BlendFactor::One)
           .blendEquationSeparate(gpu::BlendOp::ReverseSubtract, gpu::BlendOp::Add);
     case BlendMode::Mult:
       return RenderState::write(gpu::kWriteRGBA)
-          .blendFuncSeparate(BlendFactor::DstColor, BlendFactor::InvSrcAlpha, BlendFactor::Zero, BlendFactor::One);
+          .blendFuncSeparate(BlendFactor::DstColor, BlendFactor::InvSrcAlpha, BlendFactor::Zero,
+                             BlendFactor::One);
     case BlendMode::MaskAdd:
       return RenderState::write(gpu::kWriteA).blendFunc(BlendFactor::One, BlendFactor::InvSrcAlpha);
     case BlendMode::MaskRemove:
@@ -196,7 +197,7 @@ namespace visage {
         return;
 
       const gpu::Memory* memory = gpu::makeRef(staging_->data.get() + uploaded_ * stride_,
-                                                 (used_ - uploaded_) * stride_);
+                                               (used_ - uploaded_) * stride_);
       if (indices_)
         gpu::update(index_buffer_, uploaded_, memory);
       else
@@ -225,8 +226,8 @@ namespace visage {
         std::vector<uint32_t> indices(capacity_ / kVerticesPerQuad * kIndicesPerQuad);
         setQuadIndices(indices.data(), capacity_ / kVerticesPerQuad);
         quad_index_buffer_ = gpu::createIndexBuffer(gpu::copy(indices.data(),
-                                                                indices.size() * sizeof(uint32_t)),
-                                                     gpu::kBufferIndex32);
+                                                              indices.size() * sizeof(uint32_t)),
+                                                    gpu::kBufferIndex32);
         if (!gpu::isValid(quad_index_buffer_))
           return false;
       }

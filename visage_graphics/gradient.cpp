@@ -22,6 +22,7 @@
 #include "gradient.h"
 
 #include "gpu/gpu.h"
+
 #include <sstream>
 
 namespace visage {
@@ -146,8 +147,8 @@ namespace visage {
     int width = atlas_map_.width();
     int rows = dirty_bottom_ - dirty_top_;
     gpu::updateTexture2D(texture_->handle, 0, dirty_top_, width, rows,
-                          gpu::copy(color_data_.data() + dirty_top_ * width,
-                                     width * rows * sizeof(uint64_t)));
+                         gpu::copy(color_data_.data() + dirty_top_ * width,
+                                   width * rows * sizeof(uint64_t)));
     dirty_top_ = 0;
     dirty_bottom_ = 0;
   }
