@@ -53,6 +53,10 @@ elseif (UNIX)
       unstable/pointer-constraints/pointer-constraints-unstable-v1.xml
       unstable/relative-pointer/relative-pointer-unstable-v1.xml
     )
+    if (EXISTS ${VISAGE_WAYLAND_PROTOCOLS_DIR}/staging/pointer-warp/pointer-warp-v1.xml)
+      list(APPEND VISAGE_WAYLAND_PROTOCOL_FILES staging/pointer-warp/pointer-warp-v1.xml)
+      set(VISAGE_WAYLAND_POINTER_WARP ON)
+    endif ()
     foreach (PROTOCOL_FILE ${VISAGE_WAYLAND_PROTOCOL_FILES})
       get_filename_component(PROTOCOL_NAME ${PROTOCOL_FILE} NAME_WE)
       set(PROTOCOL_XML ${VISAGE_WAYLAND_PROTOCOLS_DIR}/${PROTOCOL_FILE})
@@ -97,6 +101,9 @@ endif ()
 
 if (VISAGE_WAYLAND)
   target_compile_definitions(VisageWindowing PRIVATE VISAGE_WAYLAND=1)
+  if (VISAGE_WAYLAND_POINTER_WARP)
+    target_compile_definitions(VisageWindowing PRIVATE VISAGE_WAYLAND_POINTER_WARP=1)
+  endif ()
 endif ()
 
 set_target_properties(VisageWindowing PROPERTIES FOLDER "visage")

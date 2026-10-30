@@ -96,6 +96,7 @@ namespace visage {
     void surfaceConfigure(uint32_t serial);
     void decorationConfigure(libdecor_frame* frame, libdecor_configuration* configuration);
     void requestClose() { close_requested_ = true; }
+    void requestParentCommit() { parent_commit_pending_ = true; }
 
     void pointerEnter(double x, double y);
     void pointerLeave();
@@ -104,6 +105,7 @@ namespace visage {
     void pointerButton(uint32_t serial, MouseButton button, bool pressed);
     void pointerWheel(float delta_x, float delta_y);
     void setPointerHint(IPoint native_position);
+    void setPointerPosition(IPoint native_position);
     void unlockPointer();
 
     bool dragDropSourceActive() const { return drag_drop_source_active_; }
@@ -135,6 +137,7 @@ namespace visage {
     wp_viewport* content_viewport_ = nullptr;
     wl_subsurface* subsurface_ = nullptr;
     bool parent_buffer_attached_ = false;
+    bool parent_commit_pending_ = false;
     wp_fractional_scale_v1* fractional_scale_ = nullptr;
     xdg_surface* xdg_surface_ = nullptr;
     xdg_toplevel* xdg_toplevel_ = nullptr;

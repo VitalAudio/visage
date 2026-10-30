@@ -55,6 +55,10 @@
 #include <xkbcommon/xkbcommon-compose.h>
 #include <xkbcommon/xkbcommon.h>
 
+#if VISAGE_WAYLAND_POINTER_WARP
+#include <pointer-warp-v1-client-protocol.h>
+#endif
+
 struct libdecor;
 struct libdecor_state;
 
@@ -435,6 +439,20 @@ namespace visage {
                                                      ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
     }
 
+    bool warpPointer(WindowWayland* window, double x, double y) {
+#if VISAGE_WAYLAND_POINTER_WARP
+      if (pointer_warp_ == nullptr || pointer_ == nullptr || pointer_focus_ != window)
+        return false;
+
+      wp_pointer_warp_v1_warp_pointer(pointer_warp_, window->surface(), pointer_,
+                                      wl_fixed_from_double(x), wl_fixed_from_double(y), enter_serial_);
+      wl_display_flush(display_);
+      return true;
+#else
+      return false;
+#endif
+    }
+
     zwp_relative_pointer_v1* relativePointer(WindowWayland* window) {
       zwp_relative_pointer_v1* relative_pointer =
           zwp_relative_pointer_manager_v1_get_relative_pointer(relative_pointer_manager_, pointer_);
@@ -538,6 +556,10 @@ namespace visage {
       else if (std::strcmp(interface, zwp_pointer_constraints_v1_interface.name) == 0)
         pointer_constraints_ = static_cast<zwp_pointer_constraints_v1*>(bind(&zwp_pointer_constraints_v1_interface,
                                                                              1));
+#if VISAGE_WAYLAND_POINTER_WARP
+      else if (std::strcmp(interface, wp_pointer_warp_v1_interface.name) == 0)
+        pointer_warp_ = static_cast<wp_pointer_warp_v1*>(bind(&wp_pointer_warp_v1_interface, 1));
+#endif
       else if (std::strcmp(interface, zwp_relative_pointer_manager_v1_interface.name) == 0)
         relative_pointer_manager_ = static_cast<zwp_relative_pointer_manager_v1*>(bind(&zwp_relative_pointer_manager_v1_interface,
                                                                                        1));
@@ -1065,6 +1087,9 @@ namespace visage {
     wp_cursor_shape_manager_v1* cursor_shape_manager_ = nullptr;
     zwp_pointer_constraints_v1* pointer_constraints_ = nullptr;
     zwp_relative_pointer_manager_v1* relative_pointer_manager_ = nullptr;
+#if VISAGE_WAYLAND_POINTER_WARP
+    wp_pointer_warp_v1* pointer_warp_ = nullptr;
+#endif
     wl_data_device_manager* data_device_manager_ = nullptr;
     uint32_t data_device_manager_version_ = 0;
     wl_seat* seat_ = nullptr;
@@ -1343,9 +1368,7 @@ namespace visage {
       static_cast<WindowWayland*>(data)->decorationConfigure(frame, configuration);
     },
     [](libdecor_frame*, void* data) { static_cast<WindowWayland*>(data)->requestClose(); },
-    [](libdecor_frame*, void* data) {
-      wl_surface_commit(static_cast<WindowWayland*>(data)->surface());
-    },
+    [](libdecor_frame*, void* data) { static_cast<WindowWayland*>(data)->requestParentCommit(); },
     [](libdecor_frame*, const char*, void*) {},
   };
 
@@ -1387,7 +1410,7 @@ namespace visage {
   void setCursorPositionWayland(Point window_position) {
     WindowWayland* window = WindowWayland::lastActiveWindow();
     if (window)
-      window->setPointerHint(window->convertToNative(window_position));
+      window->setPointerPosition(window->convertToNative(window_position));
   }
 
   void setCursorScreenPositionWayland(Point) { }
@@ -1541,6 +1564,8 @@ namespace visage {
 
     frame_presented_ = false;
     drawCallback((now - start_draw_microseconds_) / 1000000.0);
+    if (parent_commit_pending_)
+      commitParent();
     if (frame_presented_ && frame_callback_) {
       frame_in_flight_ = true;
       waiting_for_frame_ = true;
@@ -1629,12 +1654,12 @@ namespace visage {
       parent_buffer_attached_ = true;
     }
     wl_surface_commit(surface_);
+    parent_commit_pending_ = false;
   }
 
   void WindowWayland::windowContentsResized(int, int) {
     applyLogicalSize();
-    if (configured_ && shown_)
-      commitParent();
+    requestParentCommit();
   }
 
   void WindowWayland::setMinimumSize() {
@@ -1705,7 +1730,7 @@ namespace visage {
   }
 
   void WindowWayland::drawConfigured() {
-    commitParent();
+    requestParentCommit();
     if (waiting_for_configure_)
       next_tick_us_ = time::microseconds();
     else if (!waiting_for_frame_)
@@ -1930,6 +1955,16 @@ namespace visage {
       relative_remainder_x_ = relative_remainder_y_ = 0.0f;
       relative_pointer_ = wayland_->relativePointer(this);
     }
+  }
+
+  void WindowWayland::setPointerPosition(IPoint native_position) {
+    if (locked_pointer_) {
+      setPointerHint(native_position);
+      return;
+    }
+
+    if (wayland_->warpPointer(this, native_position.x / dpiScale(), native_position.y / dpiScale()))
+      last_pointer_position_ = native_position;
   }
 
   void WindowWayland::setPointerHint(IPoint native_position) {
