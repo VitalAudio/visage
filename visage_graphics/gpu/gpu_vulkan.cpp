@@ -263,6 +263,7 @@ namespace visage::gpu {
     struct SwapChain {
       void* window_handle = nullptr;
       void* display = nullptr;
+      bool transparent = false;
       bool surface_lost = false;
       VkSurfaceKHR surface = VK_NULL_HANDLE;
       VkSwapchainKHR swap_chain = VK_NULL_HANDLE;
@@ -719,7 +720,7 @@ namespace visage::gpu {
     }
 
     bool createSwapChain(uint16_t idx, void* window_handle, void* display, int width, int height,
-                         TextureFormat) override {
+                         TextureFormat, bool transparent) override {
       FrameBuffer& frame_buffer = entry(frame_buffers_, idx);
       frame_buffer = FrameBuffer();
       if (display == nullptr)
@@ -728,6 +729,7 @@ namespace visage::gpu {
       auto chain = std::make_unique<SwapChain>();
       chain->window_handle = window_handle;
       chain->display = display;
+      chain->transparent = transparent;
       if (!createSurface(*chain))
         return false;
 
@@ -1473,10 +1475,10 @@ namespace visage::gpu {
         image_count = std::min(image_count, capabilities.maxImageCount);
 
       VkCompositeAlphaFlagBitsKHR composite = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-      if (!(capabilities.supportedCompositeAlpha & composite)) {
+      if (chain.transparent || !(capabilities.supportedCompositeAlpha & composite)) {
         for (VkCompositeAlphaFlagBitsKHR flag :
-             { VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR, VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
-               VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR }) {
+             { VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR, VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+               VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR, VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR }) {
           if (capabilities.supportedCompositeAlpha & flag) {
             composite = flag;
             break;

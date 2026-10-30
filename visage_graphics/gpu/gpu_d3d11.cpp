@@ -556,7 +556,7 @@ namespace visage::gpu {
     }
 
     bool createSwapChain(uint16_t idx, void* window_handle, void*, int width, int height,
-                         TextureFormat format) override {
+                         TextureFormat format, bool) override {
       FrameBuffer frame_buffer;
       frame_buffer.window = static_cast<HWND>(window_handle);
       frame_buffer.format = format;

@@ -293,7 +293,8 @@ namespace visage::gpu {
 
   FrameBufferHandle createFrameBuffer(int width, int height, TextureFormat format, uint32_t flags = 0);
   FrameBufferHandle createFrameBuffer(void* window_handle, int width, int height,
-                                      TextureFormat format = TextureFormat::RGBA8);
+                                      TextureFormat format = TextureFormat::RGBA8,
+                                      bool transparent = false);
   void resizeFrameBuffer(FrameBufferHandle handle, int width, int height);
   TextureHandle getTexture(FrameBufferHandle handle);
   bool waitForFrame(FrameBufferHandle handle, int timeout_ms);

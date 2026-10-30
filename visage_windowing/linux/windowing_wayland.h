@@ -39,8 +39,6 @@ struct xdg_toplevel;
 struct zwp_locked_pointer_v1;
 struct zwp_relative_pointer_v1;
 struct zxdg_toplevel_decoration_v1;
-struct libdecor_frame;
-struct libdecor_configuration;
 
 namespace visage {
   class WaylandConnection;
@@ -51,6 +49,23 @@ namespace visage {
     static constexpr int kMinHeight = 80;
     static constexpr int kClientResizeBorder = 8;
     static constexpr long long kStalledFrameUs = 100000;
+    static constexpr int kShadowLeft = 26;
+    static constexpr int kShadowTop = 23;
+    static constexpr int kShadowRight = 26;
+    static constexpr int kShadowBottom = 29;
+    static constexpr int kTitleBarHeight = 46;
+    static constexpr int kTitleButtonSize = 24;
+    static constexpr int kTitleButtonMargin = 11;
+    static constexpr int kTitleButtonSpacing = 10;
+    static constexpr int kFrameResizeBorder = 10;
+
+    enum class FrameArea {
+      Outside,
+      Content,
+      TitleBar,
+      Button,
+      Resize
+    };
 
     static WindowWayland* lastActiveWindow() { return last_active_window_; }
     static void setLastActiveWindow(WindowWayland* window) { last_active_window_ = window; }
@@ -63,6 +78,8 @@ namespace visage {
     void* graphicsHandle() const override { return content_surface_; }
     void* globalDisplay() const override;
     bool waylandDisplay() const override { return true; }
+    void* frameDecorationHandle() const override { return frame_surface_; }
+    void frameDecorationChanged() override { frame_dirty_ = true; }
     int posixFd() const override;
 
     void windowContentsResized(int width, int height) override;
@@ -87,14 +104,15 @@ namespace visage {
     long long nextTickMicroseconds() const;
     void tick();
     void frameDone();
+    void frameSurfaceDone();
     void outputEntered(wl_output* output);
     void outputLeft(wl_output* output);
     void outputChanged(wl_output* output);
     void setIntegerScale(int scale);
     void setFractionalScale(float scale);
-    void toplevelConfigure(int width, int height, bool maximized, bool constrained, bool suspended);
+    void toplevelConfigure(int width, int height, bool maximized, bool constrained, bool suspended,
+                           bool activated);
     void surfaceConfigure(uint32_t serial);
-    void decorationConfigure(libdecor_frame* frame, libdecor_configuration* configuration);
     void requestClose() { close_requested_ = true; }
     void requestParentCommit() { parent_commit_pending_ = true; }
 
@@ -104,6 +122,7 @@ namespace visage {
     void pointerRelativeMotion(double dx, double dy);
     void pointerButton(uint32_t serial, MouseButton button, bool pressed);
     void pointerWheel(float delta_x, float delta_y);
+    IPoint contentPoint(IPoint point) const;
     void setPointerHint(IPoint native_position);
     void setPointerPosition(IPoint native_position);
     void unlockPointer();
@@ -116,6 +135,19 @@ namespace visage {
     static WindowWayland* last_active_window_;
 
     int resizeOperationForPosition(int x, int y) const;
+    bool framed() const { return frame_surface_ != nullptr; }
+    int shadowLeft() const { return framed() && !constrained_ ? kShadowLeft : 0; }
+    int shadowTop() const { return framed() && !constrained_ ? kShadowTop : 0; }
+    int shadowRight() const { return framed() && !constrained_ ? kShadowRight : 0; }
+    int shadowBottom() const { return framed() && !constrained_ ? kShadowBottom : 0; }
+    int titleBarHeight() const { return framed() ? kTitleBarHeight : 0; }
+    int contentOffsetX() const;
+    int contentOffsetY() const;
+    FrameArea frameArea(IPoint point, int* resize_operation, FrameButton* button = nullptr) const;
+    IBounds frameButtonBounds(FrameButton button) const;
+    void updateFrameHover(IPoint point);
+    void framePointerButton(MouseButton button, bool pressed);
+    void drawFrameDecoration();
     void createRole(bool maximized);
     void waitForConfigure();
     void commitParent();
@@ -136,13 +168,25 @@ namespace visage {
     wl_surface* content_surface_ = nullptr;
     wp_viewport* content_viewport_ = nullptr;
     wl_subsurface* subsurface_ = nullptr;
+    wl_surface* frame_surface_ = nullptr;
+    wp_viewport* frame_viewport_ = nullptr;
+    wl_subsurface* frame_subsurface_ = nullptr;
+    wl_callback* frame_surface_callback_ = nullptr;
+    bool frame_dirty_ = false;
+    bool active_ = false;
+    bool constrained_ = false;
+    FrameButton hovered_button_ = FrameButton::NoButton;
+    FrameButton pressed_button_ = FrameButton::NoButton;
+    bool pointer_in_content_ = false;
+    bool content_grab_ = false;
+    IPoint frame_pointer_;
+    long long last_title_click_ms_ = 0;
     bool parent_buffer_attached_ = false;
     bool parent_commit_pending_ = false;
     wp_fractional_scale_v1* fractional_scale_ = nullptr;
     xdg_surface* xdg_surface_ = nullptr;
     xdg_toplevel* xdg_toplevel_ = nullptr;
     zxdg_toplevel_decoration_v1* decoration_object_ = nullptr;
-    libdecor_frame* libdecor_frame_ = nullptr;
     wl_callback* frame_callback_ = nullptr;
     zwp_locked_pointer_v1* locked_pointer_ = nullptr;
     zwp_relative_pointer_v1* relative_pointer_ = nullptr;
@@ -157,6 +201,7 @@ namespace visage {
     bool pending_maximized_ = false;
     bool pending_constrained_ = false;
     bool pending_suspended_ = false;
+    bool pending_activated_ = false;
     bool maximized_ = false;
     bool configured_ = false;
     bool waiting_for_configure_ = false;

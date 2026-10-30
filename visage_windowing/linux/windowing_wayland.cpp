@@ -27,15 +27,16 @@
 #include "windowing_x11.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <climits>
 #include <clocale>
 #include <cmath>
 #include <csignal>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <cursor-shape-v1-client-protocol.h>
-#include <dlfcn.h>
 #include <fcntl.h>
 #include <fractional-scale-v1-client-protocol.h>
 #include <linux/input-event-codes.h>
@@ -59,9 +60,6 @@
 #include <pointer-warp-v1-client-protocol.h>
 #endif
 
-struct libdecor;
-struct libdecor_state;
-
 namespace visage {
   static std::string _wayland_clipboard_text;
 
@@ -76,68 +74,52 @@ namespace visage {
   static constexpr const char* kTextTypes[] = { "text/plain;charset=utf-8", "UTF8_STRING",
                                                 "text/plain", "TEXT", "STRING" };
 
-  struct LibDecorInterface {
-    void (*error)(libdecor* context, int error, const char* message);
-    void (*reserved[10])();
-  };
-
-  struct LibDecorFrameInterface {
-    void (*configure)(libdecor_frame* frame, libdecor_configuration* configuration, void* user_data);
-    void (*close)(libdecor_frame* frame, void* user_data);
-    void (*commit)(libdecor_frame* frame, void* user_data);
-    void (*dismiss_popup)(libdecor_frame* frame, const char* seat_name, void* user_data);
-    void (*reserved[10])();
-  };
-
-  struct LibDecor {
-    static constexpr int kStateMaximized = 1 << 1;
-    static constexpr int kStateFullscreen = 1 << 2;
-    static constexpr int kStateTiled = (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6);
-    static constexpr int kStateSuspended = 1 << 7;
-
-    template<typename T>
-    bool load(T& function, const char* name) {
-      function = reinterpret_cast<T>(dlsym(library, name));
-      return function != nullptr;
+  static std::string commandOutput(const char* command) {
+    std::string result;
+    if (FILE* pipe = popen(command, "r")) {
+      char buffer[256];
+      while (fgets(buffer, sizeof(buffer), pipe))
+        result += buffer;
+      pclose(pipe);
     }
+    return result;
+  }
 
-    bool load() {
-      library = dlopen("libdecor-0.so.0", RTLD_NOW | RTLD_LOCAL);
-      if (library == nullptr)
-        return false;
-
-      return load(create, "libdecor_new") && load(unref, "libdecor_unref") &&
-             load(dispatch, "libdecor_dispatch") && load(decorate, "libdecor_decorate") &&
-             load(frame_unref, "libdecor_frame_unref") && load(set_title, "libdecor_frame_set_title") &&
-             load(set_app_id, "libdecor_frame_set_app_id") &&
-             load(set_min_content_size, "libdecor_frame_set_min_content_size") &&
-             load(set_maximized, "libdecor_frame_set_maximized") &&
-             load(commit, "libdecor_frame_commit") && load(map, "libdecor_frame_map") &&
-             load(state_new, "libdecor_state_new") && load(state_free, "libdecor_state_free") &&
-             load(content_size, "libdecor_configuration_get_content_size") &&
-             load(window_state, "libdecor_configuration_get_window_state");
-    }
-
-    void* library = nullptr;
-    libdecor* context = nullptr;
-    libdecor* (*create)(wl_display*, LibDecorInterface*) = nullptr;
-    void (*unref)(libdecor*) = nullptr;
-    int (*dispatch)(libdecor*, int) = nullptr;
-    libdecor_frame* (*decorate)(libdecor*, wl_surface*, LibDecorFrameInterface*, void*) = nullptr;
-    void (*frame_unref)(libdecor_frame*) = nullptr;
-    void (*set_title)(libdecor_frame*, const char*) = nullptr;
-    void (*set_app_id)(libdecor_frame*, const char*) = nullptr;
-    void (*set_min_content_size)(libdecor_frame*, int, int) = nullptr;
-    void (*set_maximized)(libdecor_frame*) = nullptr;
-    void (*commit)(libdecor_frame*, libdecor_state*, libdecor_configuration*) = nullptr;
-    void (*map)(libdecor_frame*) = nullptr;
-    libdecor_state* (*state_new)(int, int) = nullptr;
-    void (*state_free)(libdecor_state*) = nullptr;
-    bool (*content_size)(libdecor_configuration*, libdecor_frame*, int*, int*) = nullptr;
-    bool (*window_state)(libdecor_configuration*, int*) = nullptr;
+  struct DesktopSettings {
+    bool dark = false;
+    std::vector<Window::FrameButton> buttons = { Window::FrameButton::Close };
   };
 
-  class WaylandConnection;
+  static const DesktopSettings& desktopSettings() {
+    static const DesktopSettings settings = [] {
+      DesktopSettings result;
+      std::string scheme =
+          commandOutput("gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null");
+      result.dark = scheme.find("prefer-dark") != std::string::npos;
+
+      std::string layout =
+          commandOutput("gsettings get org.gnome.desktop.wm.preferences button-layout 2>/dev/null");
+      if (layout.empty())
+        return result;
+
+      result.buttons.clear();
+      std::stringstream stream(layout.substr(layout.find(':') == std::string::npos ? 0 : layout.find(':') + 1));
+      std::string name;
+      while (std::getline(stream, name, ',')) {
+        name.erase(std::remove_if(name.begin(), name.end(),
+                                  [](char c) { return c == '\'' || std::isspace(c); }),
+                   name.end());
+        if (name == "minimize")
+          result.buttons.push_back(Window::FrameButton::Minimize);
+        else if (name == "maximize")
+          result.buttons.push_back(Window::FrameButton::Maximize);
+        else if (name == "close")
+          result.buttons.push_back(Window::FrameButton::Close);
+      }
+      return result;
+    }();
+    return settings;
+  }
 
   struct WaylandOutput {
     WaylandConnection* connection = nullptr;
@@ -217,7 +199,7 @@ namespace visage {
     wl_subcompositor* subcompositor() const { return subcompositor_; }
 
     wl_buffer* fillBuffer() {
-      static constexpr uint32_t kBlack = 0xff000000;
+      static constexpr uint32_t kClear = 0;
 
       if (fill_buffer_)
         return fill_buffer_;
@@ -225,9 +207,9 @@ namespace visage {
       int fd = memfd_create("visage-fill", MFD_CLOEXEC);
       if (fd < 0)
         return nullptr;
-      if (ftruncate(fd, sizeof(kBlack)) == 0 && pwrite(fd, &kBlack, sizeof(kBlack), 0) == sizeof(kBlack)) {
-        wl_shm_pool* pool = wl_shm_create_pool(shm_, fd, sizeof(kBlack));
-        fill_buffer_ = wl_shm_pool_create_buffer(pool, 0, 1, 1, sizeof(kBlack), WL_SHM_FORMAT_XRGB8888);
+      if (ftruncate(fd, sizeof(kClear)) == 0 && pwrite(fd, &kClear, sizeof(kClear), 0) == sizeof(kClear)) {
+        wl_shm_pool* pool = wl_shm_create_pool(shm_, fd, sizeof(kClear));
+        fill_buffer_ = wl_shm_pool_create_buffer(pool, 0, 1, 1, sizeof(kClear), WL_SHM_FORMAT_ARGB8888);
         wl_shm_pool_destroy(pool);
       }
       close(fd);
@@ -321,17 +303,6 @@ namespace visage {
 
     void setLastScale(float scale) { last_scale_ = scale; }
 
-    LibDecor* libDecor() {
-      if (libdecor_tried_)
-        return libdecor_.context ? &libdecor_ : nullptr;
-
-      libdecor_tried_ = true;
-      if (!libdecor_.load())
-        return nullptr;
-      libdecor_.context = libdecor_.create(display_, &kLibDecorInterface);
-      return libdecor_.context ? &libdecor_ : nullptr;
-    }
-
     bool dispatch(int timeout_ms) {
       while (wl_display_prepare_read(display_) != 0)
         wl_display_dispatch_pending(display_);
@@ -351,8 +322,6 @@ namespace visage {
         wl_display_cancel_read(display_);
 
       wl_display_dispatch_pending(display_);
-      if (libdecor_.context)
-        libdecor_.dispatch(libdecor_.context, 0);
       return wl_display_get_error(display_) == 0;
     }
 
@@ -425,6 +394,11 @@ namespace visage {
     void startMove(xdg_toplevel* toplevel) {
       if (seat_ && toplevel)
         xdg_toplevel_move(toplevel, seat_, button_serial_);
+    }
+
+    void showWindowMenu(xdg_toplevel* toplevel, int x, int y) {
+      if (seat_ && toplevel)
+        xdg_toplevel_show_window_menu(toplevel, seat_, button_serial_, x, y);
     }
 
     void startResize(xdg_toplevel* toplevel, uint32_t edges) {
@@ -523,7 +497,6 @@ namespace visage {
     static const wl_data_source_listener kSelectionSourceListener;
     static const wl_data_source_listener kDragSourceListener;
     static const zwp_relative_pointer_v1_listener kRelativePointerListener;
-    static LibDecorInterface kLibDecorInterface;
 
     void addGlobal(wl_registry* registry, uint32_t name, const char* interface, uint32_t version) {
       auto bind = [&](const wl_interface* wayland_interface, uint32_t max_version) {
@@ -1037,7 +1010,7 @@ namespace visage {
       if (drag_drop_window_ == nullptr || drag_drop_offer_ == nullptr)
         return;
 
-      drag_drop_position_ = nativePoint(drag_drop_window_, x, y);
+      drag_drop_position_ = drag_drop_window_->contentPoint(nativePoint(drag_drop_window_, x, y));
       bool accepted = drag_drop_window_->handleFileDrag(drag_drop_position_.x,
                                                         drag_drop_position_.y, drag_drop_files_);
       if (drag_drop_offer_)
@@ -1101,9 +1074,6 @@ namespace visage {
     std::vector<WindowWayland*> windows_;
     std::vector<WindowWayland*> open_windows_;
     float last_scale_ = 0.0f;
-
-    LibDecor libdecor_;
-    bool libdecor_tried_ = false;
 
     WindowWayland* pointer_focus_ = nullptr;
     WindowWayland* keyboard_focus_ = nullptr;
@@ -1299,12 +1269,6 @@ namespace visage {
     },
   };
 
-  LibDecorInterface WaylandConnection::kLibDecorInterface = {
-    [](libdecor*, int, const char* message) {
-      VISAGE_LOG(std::string("libdecor error: ") + message);
-    },
-  };
-
   static const wl_surface_listener kSurfaceListener = {
     [](void* data, wl_surface*, wl_output* output) {
       static_cast<WindowWayland*>(data)->outputEntered(output);
@@ -1328,6 +1292,10 @@ namespace visage {
     [](void* data, wl_callback*, uint32_t) { static_cast<WindowWayland*>(data)->frameDone(); },
   };
 
+  static const wl_callback_listener kFrameSurfaceListener = {
+    [](void* data, wl_callback*, uint32_t) { static_cast<WindowWayland*>(data)->frameSurfaceDone(); },
+  };
+
   static const xdg_surface_listener kXdgSurfaceListener = {
     [](void* data, xdg_surface*, uint32_t serial) {
       static_cast<WindowWayland*>(data)->surfaceConfigure(serial);
@@ -1339,6 +1307,7 @@ namespace visage {
       bool maximized = false;
       bool constrained = false;
       bool suspended = false;
+      bool activated = false;
       auto* state = static_cast<uint32_t*>(states->data);
       for (size_t i = 0; i < states->size / sizeof(uint32_t); ++i) {
         switch (state[i]) {
@@ -1349,10 +1318,12 @@ namespace visage {
         case XDG_TOPLEVEL_STATE_TILED_TOP:
         case XDG_TOPLEVEL_STATE_TILED_BOTTOM: constrained = true; break;
         case XDG_TOPLEVEL_STATE_SUSPENDED: suspended = true; break;
+        case XDG_TOPLEVEL_STATE_ACTIVATED: activated = true; break;
         default: break;
         }
       }
-      static_cast<WindowWayland*>(data)->toplevelConfigure(width, height, maximized, constrained, suspended);
+      static_cast<WindowWayland*>(data)->toplevelConfigure(width, height, maximized, constrained,
+                                                           suspended, activated);
     },
     [](void* data, xdg_toplevel*) { static_cast<WindowWayland*>(data)->requestClose(); },
     [](void*, xdg_toplevel*, int32_t, int32_t) {},
@@ -1361,15 +1332,6 @@ namespace visage {
 
   static const zxdg_toplevel_decoration_v1_listener kDecorationListener = {
     [](void*, zxdg_toplevel_decoration_v1*, uint32_t) {},
-  };
-
-  static LibDecorFrameInterface _libdecor_frame_interface = {
-    [](libdecor_frame* frame, libdecor_configuration* configuration, void* data) {
-      static_cast<WindowWayland*>(data)->decorationConfigure(frame, configuration);
-    },
-    [](libdecor_frame*, void* data) { static_cast<WindowWayland*>(data)->requestClose(); },
-    [](libdecor_frame*, void* data) { static_cast<WindowWayland*>(data)->requestParentCommit(); },
-    [](libdecor_frame*, const char*, void*) {},
   };
 
   bool waylandAvailable() {
@@ -1490,13 +1452,19 @@ namespace visage {
     wl_surface_add_listener(surface_, &kSurfaceListener, this);
     viewport_ = wp_viewporter_get_viewport(wayland_->viewporter(), surface_);
 
-    content_surface_ = wl_compositor_create_surface(wayland_->compositor());
-    content_viewport_ = wp_viewporter_get_viewport(wayland_->viewporter(), content_surface_);
-    subsurface_ = wl_subcompositor_get_subsurface(wayland_->subcompositor(), content_surface_, surface_);
-    wl_subsurface_set_desync(subsurface_);
-    wl_region* input_region = wl_compositor_create_region(wayland_->compositor());
-    wl_surface_set_input_region(content_surface_, input_region);
-    wl_region_destroy(input_region);
+    auto create_subsurface = [this](wl_surface*& child, wp_viewport*& viewport, wl_subsurface*& subsurface) {
+      child = wl_compositor_create_surface(wayland_->compositor());
+      viewport = wp_viewporter_get_viewport(wayland_->viewporter(), child);
+      subsurface = wl_subcompositor_get_subsurface(wayland_->subcompositor(), child, surface_);
+      wl_subsurface_set_desync(subsurface);
+      wl_region* input_region = wl_compositor_create_region(wayland_->compositor());
+      wl_surface_set_input_region(child, input_region);
+      wl_region_destroy(input_region);
+    };
+
+    if (decoration_ == Decoration::Native && wayland_->decorationManager() == nullptr)
+      create_subsurface(frame_surface_, frame_viewport_, frame_subsurface_);
+    create_subsurface(content_surface_, content_viewport_, subsurface_);
 
     if (wayland_->fractionalScaleManager()) {
       fractional_scale_ = wp_fractional_scale_manager_v1_get_fractional_scale(wayland_->fractionalScaleManager(),
@@ -1520,6 +1488,14 @@ namespace visage {
     destroyRole();
     if (frame_callback_)
       wl_callback_destroy(frame_callback_);
+    if (frame_surface_callback_)
+      wl_callback_destroy(frame_surface_callback_);
+    if (frame_subsurface_)
+      wl_subsurface_destroy(frame_subsurface_);
+    if (frame_viewport_)
+      wp_viewport_destroy(frame_viewport_);
+    if (frame_surface_)
+      wl_surface_destroy(frame_surface_);
     if (subsurface_)
       wl_subsurface_destroy(subsurface_);
     if (content_viewport_)
@@ -1562,6 +1538,9 @@ namespace visage {
       wl_callback_add_listener(frame_callback_, &kFrameListener, this);
     }
 
+    if (drawable && frame_dirty_ && framed())
+      drawFrameDecoration();
+
     frame_presented_ = false;
     drawCallback((now - start_draw_microseconds_) / 1000000.0);
     if (parent_commit_pending_)
@@ -1580,6 +1559,200 @@ namespace visage {
     frame_in_flight_ = false;
     waiting_for_frame_ = false;
     next_tick_us_ = time::microseconds();
+  }
+
+  void WindowWayland::frameSurfaceDone() {
+    if (frame_surface_callback_)
+      wl_callback_destroy(frame_surface_callback_);
+    frame_surface_callback_ = nullptr;
+  }
+
+  void WindowWayland::drawFrameDecoration() {
+    frame_dirty_ = false;
+    if (!hasFrameDecorationCallback())
+      return;
+
+    if (frame_surface_callback_ == nullptr) {
+      frame_surface_callback_ = wl_surface_frame(frame_surface_);
+      wl_callback_add_listener(frame_surface_callback_, &kFrameSurfaceListener, this);
+    }
+
+    float scale = dpiScale();
+    auto native = [scale](int value) { return static_cast<int>(std::round(value * scale)); };
+    auto native_bounds = [&native](int x, int y, int width, int height) {
+      return IBounds(native(x), native(y), native(x + width) - native(x), native(y + height) - native(y));
+    };
+
+    int window_width = logical_width_;
+    int window_height = logical_height_ + titleBarHeight();
+    FrameDecoration decoration;
+    decoration.width = native(window_width + shadowLeft() + shadowRight());
+    decoration.height = native(window_height + shadowTop() + shadowBottom());
+    decoration.window = native_bounds(shadowLeft(), shadowTop(), window_width, window_height);
+    decoration.title_bar = native_bounds(shadowLeft(), shadowTop(), window_width, titleBarHeight());
+    auto native_button = [&](FrameButton button) {
+      IBounds bounds = frameButtonBounds(button);
+      return bounds.width() ? native_bounds(bounds.x(), bounds.y(), bounds.width(), bounds.height()) :
+                              IBounds();
+    };
+    decoration.minimize_button = native_button(FrameButton::Minimize);
+    decoration.maximize_button = native_button(FrameButton::Maximize);
+    decoration.close_button = native_button(FrameButton::Close);
+    decoration.dpi_scale = scale;
+    decoration.title = title_;
+    decoration.active = active_;
+    decoration.maximized = constrained_;
+    decoration.dark = desktopSettings().dark;
+    decoration.hovered_button = hovered_button_;
+    decoration.pressed_button = pressed_button_;
+    frameDecorationCallback(decoration);
+  }
+
+  int WindowWayland::contentOffsetX() const {
+    return std::round(shadowLeft() * dpiScale());
+  }
+
+  int WindowWayland::contentOffsetY() const {
+    return std::round((shadowTop() + titleBarHeight()) * dpiScale());
+  }
+
+  IPoint WindowWayland::contentPoint(IPoint point) const {
+    return { point.x - contentOffsetX(), point.y - contentOffsetY() };
+  }
+
+  IBounds WindowWayland::frameButtonBounds(FrameButton button) const {
+    const std::vector<FrameButton>& buttons = desktopSettings().buttons;
+    auto found = std::find(buttons.begin(), buttons.end(), button);
+    if (found == buttons.end())
+      return {};
+
+    int index_from_right = buttons.end() - found - 1;
+    int x = shadowLeft() + logical_width_ - kTitleButtonMargin - kTitleButtonSize -
+            index_from_right * (kTitleButtonSize + kTitleButtonSpacing);
+    int y = shadowTop() + (titleBarHeight() - kTitleButtonSize) / 2;
+    return { x, y, kTitleButtonSize, kTitleButtonSize };
+  }
+
+  WindowWayland::FrameArea WindowWayland::frameArea(IPoint point, int* resize_operation,
+                                                    FrameButton* button) const {
+    *resize_operation = 0;
+    if (button)
+      *button = FrameButton::NoButton;
+    if (!framed())
+      return FrameArea::Content;
+
+    float x = point.x / dpiScale();
+    float y = point.y / dpiScale();
+    int left = shadowLeft();
+    int top = shadowTop();
+    int right = left + logical_width_;
+    int bottom = top + logical_height_ + titleBarHeight();
+    if (x >= left && x < right && y >= top && y < bottom) {
+      if (y >= top + titleBarHeight())
+        return FrameArea::Content;
+
+      for (FrameButton frame_button : desktopSettings().buttons) {
+        IBounds bounds = frameButtonBounds(frame_button);
+        if (x >= bounds.x() && x < bounds.right() && y >= bounds.y() && y < bounds.bottom()) {
+          if (button)
+            *button = frame_button;
+          return FrameArea::Button;
+        }
+      }
+      return FrameArea::TitleBar;
+    }
+
+    if (constrained_)
+      return FrameArea::Outside;
+
+    int operation = 0;
+    if (x < left && x >= left - kFrameResizeBorder)
+      operation |= kResizeLeft;
+    else if (x >= right && x < right + kFrameResizeBorder)
+      operation |= kResizeRight;
+    if (y < top && y >= top - kFrameResizeBorder)
+      operation |= kResizeTop;
+    else if (y >= bottom && y < bottom + kFrameResizeBorder)
+      operation |= kResizeBottom;
+    *resize_operation = operation;
+    return operation ? FrameArea::Resize : FrameArea::Outside;
+  }
+
+  void WindowWayland::updateFrameHover(IPoint point) {
+    int operation = 0;
+    FrameButton button = FrameButton::NoButton;
+    frameArea(point, &operation, &button);
+    if (button != hovered_button_) {
+      hovered_button_ = button;
+      frame_dirty_ = true;
+    }
+    if (operation != hover_window_operation_ || !pointer_in_content_) {
+      hover_window_operation_ = operation;
+      setCursorStyleWayland(operation ? windowResizeCursor(operation) : MouseCursor::Arrow);
+    }
+  }
+
+  static uint32_t resizeEdges(int operation) {
+    return ((operation & kResizeTop) ? XDG_TOPLEVEL_RESIZE_EDGE_TOP : 0) |
+           ((operation & kResizeBottom) ? XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM : 0) |
+           ((operation & kResizeLeft) ? XDG_TOPLEVEL_RESIZE_EDGE_LEFT : 0) |
+           ((operation & kResizeRight) ? XDG_TOPLEVEL_RESIZE_EDGE_RIGHT : 0);
+  }
+
+  void WindowWayland::framePointerButton(MouseButton button, bool pressed) {
+    int operation = 0;
+    FrameButton frame_button = FrameButton::NoButton;
+    FrameArea area = frameArea(frame_pointer_, &operation, &frame_button);
+    if (!pressed) {
+      if (button == kMouseButtonLeft && pressed_button_ != FrameButton::NoButton) {
+        FrameButton released = pressed_button_;
+        pressed_button_ = FrameButton::NoButton;
+        frame_dirty_ = true;
+        if (released != frame_button)
+          return;
+
+        if (released == FrameButton::Close)
+          requestClose();
+        else if (released == FrameButton::Minimize && xdg_toplevel_)
+          xdg_toplevel_set_minimized(xdg_toplevel_);
+        else if (released == FrameButton::Maximize && xdg_toplevel_) {
+          if (maximized_)
+            xdg_toplevel_unset_maximized(xdg_toplevel_);
+          else
+            xdg_toplevel_set_maximized(xdg_toplevel_);
+        }
+      }
+      return;
+    }
+
+    if (button == kMouseButtonRight && area == FrameArea::TitleBar) {
+      float scale = dpiScale();
+      wayland_->showWindowMenu(xdg_toplevel_, frame_pointer_.x / scale - shadowLeft(),
+                               frame_pointer_.y / scale - shadowTop());
+    }
+    if (button != kMouseButtonLeft)
+      return;
+
+    if (area == FrameArea::Button) {
+      pressed_button_ = frame_button;
+      frame_dirty_ = true;
+    }
+    else if (area == FrameArea::Resize)
+      wayland_->startResize(xdg_toplevel_, resizeEdges(operation));
+    else if (area == FrameArea::TitleBar) {
+      long long now = time::milliseconds();
+      if (now - last_title_click_ms_ < doubleClickSpeed() && xdg_toplevel_) {
+        last_title_click_ms_ = 0;
+        if (maximized_)
+          xdg_toplevel_unset_maximized(xdg_toplevel_);
+        else
+          xdg_toplevel_set_maximized(xdg_toplevel_);
+      }
+      else {
+        last_title_click_ms_ = now;
+        wayland_->startMove(xdg_toplevel_);
+      }
+    }
   }
 
   void WindowWayland::outputEntered(wl_output* output) {
@@ -1643,8 +1816,26 @@ namespace visage {
     float scale = dpiScale();
     logical_width_ = std::max(1, static_cast<int>(std::round(clientWidth() / scale)));
     logical_height_ = std::max(1, static_cast<int>(std::round(clientHeight() / scale)));
-    wp_viewport_set_destination(viewport_, logical_width_, logical_height_);
+    int window_width = logical_width_;
+    int window_height = logical_height_ + titleBarHeight();
+    int total_width = window_width + shadowLeft() + shadowRight();
+    int total_height = window_height + shadowTop() + shadowBottom();
+    wp_viewport_set_destination(viewport_, total_width, total_height);
     wp_viewport_set_destination(content_viewport_, logical_width_, logical_height_);
+    if (!framed())
+      return;
+
+    wp_viewport_set_destination(frame_viewport_, total_width, total_height);
+    wl_subsurface_set_position(subsurface_, shadowLeft(), shadowTop() + titleBarHeight());
+    int border = constrained_ ? 0 : kFrameResizeBorder;
+    wl_region* input_region = wl_compositor_create_region(wayland_->compositor());
+    wl_region_add(input_region, shadowLeft() - border, shadowTop() - border,
+                  window_width + 2 * border, window_height + 2 * border);
+    wl_surface_set_input_region(surface_, input_region);
+    wl_region_destroy(input_region);
+    if (xdg_surface_)
+      xdg_surface_set_window_geometry(xdg_surface_, shadowLeft(), shadowTop(), window_width, window_height);
+    frame_dirty_ = true;
   }
 
   void WindowWayland::commitParent() {
@@ -1667,15 +1858,14 @@ namespace visage {
     int min_height = kMinHeight;
     handleAdjustResize(&min_width, &min_height, true, true);
     int logical_min_width = std::ceil(min_width / dpiScale());
-    int logical_min_height = std::ceil(min_height / dpiScale());
-    if (libdecor_frame_)
-      wayland_->libDecor()->set_min_content_size(libdecor_frame_, logical_min_width, logical_min_height);
-    else if (xdg_toplevel_)
+    int logical_min_height = std::ceil(min_height / dpiScale()) + titleBarHeight();
+    if (xdg_toplevel_)
       xdg_toplevel_set_min_size(xdg_toplevel_, logical_min_width, logical_min_height);
   }
 
   void WindowWayland::applySize(int width, int height, bool constrained) {
     if (width > 0 && height > 0) {
+      height = std::max(1, height - titleBarHeight());
       int native_width = std::round(width * dpiScale());
       int native_height = std::round(height * dpiScale());
       if (!constrained)
@@ -1688,44 +1878,26 @@ namespace visage {
   }
 
   void WindowWayland::toplevelConfigure(int width, int height, bool maximized, bool constrained,
-                                        bool suspended) {
+                                        bool suspended, bool activated) {
     pending_width_ = width;
     pending_height_ = height;
     pending_maximized_ = maximized;
     pending_constrained_ = constrained;
     pending_suspended_ = suspended;
+    pending_activated_ = activated;
   }
 
   void WindowWayland::surfaceConfigure(uint32_t serial) {
     xdg_surface_ack_configure(xdg_surface_, serial);
     maximized_ = pending_maximized_;
+    if (active_ != pending_activated_ || constrained_ != pending_constrained_)
+      frame_dirty_ = true;
+    active_ = pending_activated_;
+    constrained_ = pending_constrained_;
     applySize(pending_width_, pending_height_, pending_constrained_);
 
     configured_ = true;
     setVisible(!pending_suspended_);
-    drawConfigured();
-  }
-
-  void WindowWayland::decorationConfigure(libdecor_frame* frame, libdecor_configuration* configuration) {
-    LibDecor* libdecor = wayland_->libDecor();
-    int width = 0;
-    int height = 0;
-    if (!libdecor->content_size(configuration, frame, &width, &height))
-      width = height = 0;
-
-    int state = 0;
-    libdecor->window_state(configuration, &state);
-    maximized_ = state & LibDecor::kStateMaximized;
-    bool constrained = state &
-                       (LibDecor::kStateMaximized | LibDecor::kStateFullscreen | LibDecor::kStateTiled);
-    applySize(width, height, constrained);
-
-    libdecor_state* decoration_state = libdecor->state_new(logical_width_, logical_height_);
-    libdecor->commit(frame, decoration_state, configuration);
-    libdecor->state_free(decoration_state);
-
-    configured_ = true;
-    setVisible((state & LibDecor::kStateSuspended) == 0);
     drawConfigured();
   }
 
@@ -1741,7 +1913,7 @@ namespace visage {
     static constexpr int kWaitStepMs = 5;
 
     long long deadline = time::microseconds() + kStalledFrameUs;
-    while (frame_in_flight_ && time::microseconds() < deadline) {
+    while ((frame_in_flight_ || frame_surface_callback_) && time::microseconds() < deadline) {
       if (!wayland_->dispatch(kWaitStepMs))
         return;
     }
@@ -1760,21 +1932,6 @@ namespace visage {
 
   void WindowWayland::createRole(bool maximized) {
     configured_ = false;
-    LibDecor* libdecor = nullptr;
-    if (decoration_ == Decoration::Native && wayland_->decorationManager() == nullptr)
-      libdecor = wayland_->libDecor();
-
-    if (libdecor) {
-      libdecor_frame_ = libdecor->decorate(libdecor->context, surface_, &_libdecor_frame_interface, this);
-      libdecor->set_title(libdecor_frame_, title_.c_str());
-      libdecor->set_app_id(libdecor_frame_, VISAGE_APPLICATION_NAME);
-      setMinimumSize();
-      if (maximized)
-        libdecor->set_maximized(libdecor_frame_);
-      libdecor->map(libdecor_frame_);
-      return;
-    }
-
     xdg_surface_ = xdg_wm_base_get_xdg_surface(wayland_->wmBase(), surface_);
     xdg_surface_add_listener(xdg_surface_, &kXdgSurfaceListener, this);
     xdg_toplevel_ = xdg_surface_get_toplevel(xdg_surface_);
@@ -1782,6 +1939,7 @@ namespace visage {
     xdg_toplevel_set_title(xdg_toplevel_, title_.c_str());
     xdg_toplevel_set_app_id(xdg_toplevel_, VISAGE_APPLICATION_NAME);
     setMinimumSize();
+    applyLogicalSize();
     if (maximized)
       xdg_toplevel_set_maximized(xdg_toplevel_);
 
@@ -1798,10 +1956,6 @@ namespace visage {
   }
 
   void WindowWayland::destroyRole() {
-    if (libdecor_frame_) {
-      wayland_->libDecor()->frame_unref(libdecor_frame_);
-      libdecor_frame_ = nullptr;
-    }
     if (decoration_object_)
       zxdg_toplevel_decoration_v1_destroy(decoration_object_);
     if (xdg_toplevel_)
@@ -1831,8 +1985,6 @@ namespace visage {
       createRole(true);
       waitForConfigure();
     }
-    else if (libdecor_frame_)
-      wayland_->libDecor()->set_maximized(libdecor_frame_);
     else if (xdg_toplevel_)
       xdg_toplevel_set_maximized(xdg_toplevel_);
     wl_display_flush(wayland_->display());
@@ -1864,9 +2016,8 @@ namespace visage {
 
   void WindowWayland::setWindowTitle(const std::string& title) {
     title_ = title;
-    if (libdecor_frame_)
-      wayland_->libDecor()->set_title(libdecor_frame_, title.c_str());
-    else if (xdg_toplevel_)
+    frame_dirty_ = true;
+    if (xdg_toplevel_)
       xdg_toplevel_set_title(xdg_toplevel_, title.c_str());
   }
 
@@ -1901,8 +2052,16 @@ namespace visage {
   }
 
   void WindowWayland::pointerEnter(double x, double y) {
-    last_pointer_position_ = { static_cast<int>(x), static_cast<int>(y) };
-    handleMouseEnter(x, y);
+    frame_pointer_ = { static_cast<int>(x), static_cast<int>(y) };
+    int operation = 0;
+    pointer_in_content_ = frameArea(frame_pointer_, &operation) == FrameArea::Content;
+    if (!pointer_in_content_) {
+      updateFrameHover(frame_pointer_);
+      return;
+    }
+
+    last_pointer_position_ = contentPoint(frame_pointer_);
+    handleMouseEnter(last_pointer_position_.x, last_pointer_position_.y);
   }
 
   void WindowWayland::pointerLeave() {
@@ -1910,11 +2069,44 @@ namespace visage {
       hover_window_operation_ = 0;
       setCursorStyleWayland(MouseCursor::Arrow);
     }
-    handleMouseLeave(wayland_->buttonState(), wayland_->modifierState());
+    if (hovered_button_ != FrameButton::NoButton || pressed_button_ != FrameButton::NoButton) {
+      hovered_button_ = pressed_button_ = FrameButton::NoButton;
+      frame_dirty_ = true;
+    }
+    if (pointer_in_content_)
+      handleMouseLeave(wayland_->buttonState(), wayland_->modifierState());
+    pointer_in_content_ = false;
+    content_grab_ = false;
   }
 
   void WindowWayland::pointerMotion(double x, double y) {
-    last_pointer_position_ = { static_cast<int>(x), static_cast<int>(y) };
+    frame_pointer_ = { static_cast<int>(x), static_cast<int>(y) };
+    int operation = 0;
+    bool in_content = content_grab_ || frameArea(frame_pointer_, &operation) == FrameArea::Content;
+    if (!in_content) {
+      if (pointer_in_content_)
+        handleMouseLeave(wayland_->buttonState(), wayland_->modifierState());
+      updateFrameHover(frame_pointer_);
+      pointer_in_content_ = false;
+      return;
+    }
+
+    last_pointer_position_ = contentPoint(frame_pointer_);
+    x = last_pointer_position_.x;
+    y = last_pointer_position_.y;
+    if (!pointer_in_content_) {
+      pointer_in_content_ = true;
+      if (hovered_button_ != FrameButton::NoButton) {
+        hovered_button_ = FrameButton::NoButton;
+        frame_dirty_ = true;
+      }
+      if (framed()) {
+        hover_window_operation_ = 0;
+        setCursorStyleWayland(MouseCursor::Arrow);
+      }
+      handleMouseEnter(x, y);
+    }
+
     if (mouseRelativeMode()) {
       lockPointer();
       if (locked_pointer_)
@@ -1963,7 +2155,8 @@ namespace visage {
       return;
     }
 
-    if (wayland_->warpPointer(this, native_position.x / dpiScale(), native_position.y / dpiScale()))
+    if (wayland_->warpPointer(this, (native_position.x + contentOffsetX()) / dpiScale(),
+                              (native_position.y + contentOffsetY()) / dpiScale()))
       last_pointer_position_ = native_position;
   }
 
@@ -1972,8 +2165,10 @@ namespace visage {
       return;
 
     zwp_locked_pointer_v1_set_cursor_position_hint(locked_pointer_,
-                                                   wl_fixed_from_double(native_position.x / dpiScale()),
-                                                   wl_fixed_from_double(native_position.y / dpiScale()));
+                                                   wl_fixed_from_double((native_position.x + contentOffsetX()) /
+                                                                        dpiScale()),
+                                                   wl_fixed_from_double((native_position.y + contentOffsetY()) /
+                                                                        dpiScale()));
     wl_surface_commit(surface_);
   }
 
@@ -1991,6 +2186,12 @@ namespace visage {
 
   void WindowWayland::pointerButton(uint32_t serial, MouseButton button, bool pressed) {
     last_active_window_ = this;
+    if (!pointer_in_content_ && !content_grab_) {
+      framePointerButton(button, pressed);
+      return;
+    }
+
+    content_grab_ = framed() && wayland_->buttonState() != 0;
     int x = last_pointer_position_.x;
     int y = last_pointer_position_.y;
     int modifiers = wayland_->modifierState();
@@ -2053,6 +2254,9 @@ namespace visage {
   }
 
   void WindowWayland::pointerWheel(float delta_x, float delta_y) {
+    if (!pointer_in_content_)
+      return;
+
     handleMouseWheel(delta_x, delta_y, last_pointer_position_.x, last_pointer_position_.y,
                      wayland_->buttonState(), wayland_->modifierState());
   }

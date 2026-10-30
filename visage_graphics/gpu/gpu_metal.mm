@@ -497,7 +497,7 @@ namespace visage::gpu {
     }
 
     bool createSwapChain(uint16_t idx, void* window_handle, void*, int width, int height,
-                         TextureFormat) override {
+                         TextureFormat, bool) override {
       NSObject* handle = (__bridge NSObject*)window_handle;
       CAMetalLayer* layer = metalLayer(handle);
       if (layer == nil)

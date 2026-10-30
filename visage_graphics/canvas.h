@@ -82,10 +82,10 @@ namespace visage {
     void removeFromPackedLayer(const Region* region, int layer_index);
     void changePackedLayer(Region* region, int from, int to);
 
-    void pairToWindow(void* window_handle, int width, int height) {
+    void pairToWindow(void* window_handle, int width, int height, bool transparent = false) {
       Renderer::instance().checkInitialization();
       VISAGE_ASSERT(swapChainSupported());
-      composite_layer_.pairToWindow(window_handle, width, height);
+      composite_layer_.pairToWindow(window_handle, width, height, transparent);
       setDimensions(width, height);
     }
 

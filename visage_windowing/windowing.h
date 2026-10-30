@@ -44,6 +44,30 @@ namespace visage {
       Popup
     };
 
+    enum class FrameButton {
+      NoButton,
+      Minimize,
+      Maximize,
+      Close
+    };
+
+    struct FrameDecoration {
+      int width = 0;
+      int height = 0;
+      IBounds window;
+      IBounds title_bar;
+      IBounds minimize_button;
+      IBounds maximize_button;
+      IBounds close_button;
+      float dpi_scale = 1.0f;
+      std::string title;
+      bool active = false;
+      bool maximized = false;
+      bool dark = false;
+      FrameButton hovered_button = FrameButton::NoButton;
+      FrameButton pressed_button = FrameButton::NoButton;
+    };
+
     static void setDoubleClickSpeed(int ms) { double_click_speed_ = ms; }
     static int doubleClickSpeed() { return double_click_speed_; }
 
@@ -103,6 +127,7 @@ namespace visage {
     virtual void* initWindow() const { return nullptr; }
     virtual void* globalDisplay() const { return nullptr; }
     virtual bool waylandDisplay() const { return false; }
+    virtual void* frameDecorationHandle() const { return nullptr; }
     virtual void processPluginFdEvents() { }
     virtual int posixFd() const { return -1; }
 
@@ -130,6 +155,21 @@ namespace visage {
         callback(time);
       }
     }
+
+    void setFrameDecorationCallback(std::function<void(const FrameDecoration&)> callback) {
+      frame_decoration_callback_ = std::move(callback);
+      frameDecorationChanged();
+    }
+
+    void frameDecorationCallback(const FrameDecoration& decoration) const {
+      if (frame_decoration_callback_) {
+        std::function<void(const FrameDecoration&)> callback = frame_decoration_callback_;
+        callback(decoration);
+      }
+    }
+
+    virtual void frameDecorationChanged() { }
+    bool hasFrameDecorationCallback() const { return frame_decoration_callback_ != nullptr; }
 
     bool isVisible() const { return visible_; }
 
@@ -210,6 +250,7 @@ namespace visage {
     RepeatClick mouse_repeat_clicks_;
 
     std::function<void(double)> draw_callback_ = nullptr;
+    std::function<void(const FrameDecoration&)> frame_decoration_callback_ = nullptr;
     float dpi_scale_ = 1.0f;
     bool visible_ = true;
     bool mouse_relative_mode_ = false;

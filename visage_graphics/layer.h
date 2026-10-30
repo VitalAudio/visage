@@ -135,10 +135,11 @@ namespace visage {
 
     void requestScreenshot();
     const Screenshot& screenshot() const;
-    void pairToWindow(void* window_handle, int width, int height) {
-      if (window_handle != window_handle_)
+    void pairToWindow(void* window_handle, int width, int height, bool transparent = false) {
+      if (window_handle != window_handle_ || transparent != transparent_window_)
         destroyFrameBuffer();
       window_handle_ = window_handle;
+      transparent_window_ = transparent;
       setDimensions(width, height);
     }
 
@@ -168,6 +169,7 @@ namespace visage {
     bool intermediate_layer_ = false;
 
     void* window_handle_ = nullptr;
+    bool transparent_window_ = false;
     bool headless_render_ = false;
     bool screenshot_requested_ = false;
     Screenshot screenshot_;

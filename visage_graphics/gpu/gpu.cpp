@@ -102,6 +102,7 @@ namespace visage::gpu {
       bool swap_chain = false;
       void* window_handle = nullptr;
       TextureFormat format = TextureFormat::RGBA8;
+      bool transparent = false;
       uint16_t texture = kInvalidHandle;
       int width = 0;
       int height = 0;
@@ -193,7 +194,7 @@ namespace visage::gpu {
       bool createComputeProgram(uint16_t, uint16_t) override { return true; }
       void destroyProgram(uint16_t) override { }
       bool createFrameBuffer(uint16_t, uint16_t) override { return true; }
-      bool createSwapChain(uint16_t, void*, void*, int, int, TextureFormat) override {
+      bool createSwapChain(uint16_t, void*, void*, int, int, TextureFormat, bool) override {
         return true;
       }
       void resizeSwapChain(uint16_t, int, int) override { }
@@ -691,7 +692,8 @@ namespace visage::gpu {
     return { idx };
   }
 
-  FrameBufferHandle createFrameBuffer(void* window_handle, int width, int height, TextureFormat format) {
+  FrameBufferHandle createFrameBuffer(void* window_handle, int width, int height,
+                                      TextureFormat format, bool transparent) {
     if (context == nullptr || window_handle == nullptr)
       return {};
 
@@ -699,7 +701,8 @@ namespace visage::gpu {
     if (idx == kInvalidHandle)
       return {};
 
-    if (!context->backend->createSwapChain(idx, window_handle, context->init.display, width, height, format)) {
+    if (!context->backend->createSwapChain(idx, window_handle, context->init.display, width, height,
+                                           format, transparent)) {
       context->frame_buffers.free(idx);
       return {};
     }
@@ -708,6 +711,7 @@ namespace visage::gpu {
     entry.swap_chain = true;
     entry.window_handle = window_handle;
     entry.format = format;
+    entry.transparent = transparent;
     entry.width = width;
     entry.height = height;
     return { idx };
@@ -1130,7 +1134,7 @@ namespace visage::gpu {
       const FrameBufferEntry& entry = context->frame_buffers[idx];
       if (entry.swap_chain) {
         backend->createSwapChain(idx, entry.window_handle, context->init.display, entry.width,
-                                 entry.height, entry.format);
+                                 entry.height, entry.format, entry.transparent);
       }
       else if (context->textures.valid(entry.texture)) {
         backend->createTexture(entry.texture, context->textures[entry.texture].desc, nullptr, 0);

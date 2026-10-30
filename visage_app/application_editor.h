@@ -112,6 +112,7 @@ namespace visage {
     Window* window_ = nullptr;
     FrameEventHandler event_handler_;
     std::unique_ptr<Canvas> canvas_;
+    std::unique_ptr<Canvas> frame_canvas_;
     int waited_frame_buffer_id_ = -1;
     std::unique_ptr<TopLevelFrame> top_level_;
 

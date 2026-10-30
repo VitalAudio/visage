@@ -424,7 +424,7 @@ namespace visage::gpu {
       return true;
     }
 
-    bool createSwapChain(uint16_t idx, void*, void*, int width, int height, TextureFormat) override {
+    bool createSwapChain(uint16_t idx, void*, void*, int width, int height, TextureFormat, bool) override {
       FrameBuffer& frame_buffer = entry(frame_buffers_, idx);
       frame_buffer = FrameBuffer();
       frame_buffer.used = true;

@@ -187,7 +187,7 @@ namespace visage {
 
     if (window_handle_)
       frame_buffer_data_->handle = gpu::createFrameBuffer(window_handle_, width_, height_,
-                                                          frame_buffer_data_->format);
+                                                          frame_buffer_data_->format, transparent_window_);
     else {
       if (headless_render_) {
         uint32_t flags = gpu::kTextureBlitDst | gpu::kTextureReadBack;

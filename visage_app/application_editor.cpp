@@ -22,12 +22,140 @@
 #include "application_editor.h"
 
 #include "client_window_decoration.h"
+#include "embedded/fonts.h"
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/renderer.h"
 #include "visage_windowing/windowing.h"
 #include "window_event_handler.h"
 
+#include <cstdio>
+
 namespace visage {
+  static constexpr float kTitleFontPoints = 11.0f;
+  static constexpr float kPointsToPixels = 96.0f / 72.0f;
+
+  static std::string commandOutput(const char* command) {
+    std::string result;
+#if VISAGE_LINUX
+    if (FILE* pipe = popen(command, "r")) {
+      char buffer[256];
+      while (fgets(buffer, sizeof(buffer), pipe))
+        result += buffer;
+      pclose(pipe);
+    }
+#endif
+    while (!result.empty() && (result.back() == '\n' || result.back() == '\''))
+      result.pop_back();
+    if (!result.empty() && result.front() == '\'')
+      result.erase(0, 1);
+    return result;
+  }
+
+  static Font titleFont(float dpi_scale) {
+    static const std::string font_path = [] {
+      std::string family =
+          commandOutput("gsettings get org.gnome.desktop.interface font-name 2>/dev/null");
+      size_t size_start = family.find_last_of(' ');
+      if (size_start != std::string::npos)
+        family = family.substr(0, size_start);
+      if (family.empty())
+        family = "sans-serif";
+      std::string command = "fc-match -f '%{file}' '" + family + ":bold' 2>/dev/null";
+      return commandOutput(command.c_str());
+    }();
+
+    float size = kTitleFontPoints * kPointsToPixels * dpi_scale;
+    if (font_path.empty())
+      return Font(size, fonts::Lato_Regular_ttf);
+    return Font(size, font_path);
+  }
+
+  static void drawFrameButton(Canvas& canvas, const Window::FrameDecoration& decoration,
+                              Window::FrameButton button, IBounds bounds, unsigned int icon_color) {
+    if (bounds.width() == 0)
+      return;
+
+    float scale = decoration.dpi_scale;
+    float alpha = 0.1f;
+    if (decoration.pressed_button == button)
+      alpha = 0.3f;
+    else if (decoration.hovered_button == button)
+      alpha = 0.15f;
+    unsigned int shade = decoration.dark ? 0xffffff : 0x000000;
+    canvas.setColor(Color((static_cast<unsigned int>(alpha * 255.0f) << 24) | shade));
+    canvas.circle(bounds.x(), bounds.y(), bounds.width());
+
+    float icon = 8.0f * scale;
+    float thickness = 1.5f * scale;
+    float x = bounds.x() + (bounds.width() - icon) * 0.5f;
+    float y = bounds.y() + (bounds.height() - icon) * 0.5f;
+    canvas.setColor(icon_color);
+    if (button == Window::FrameButton::Close) {
+      canvas.segment(x, y, x + icon, y + icon, thickness, true);
+      canvas.segment(x, y + icon, x + icon, y, thickness, true);
+    }
+    else if (button == Window::FrameButton::Minimize)
+      canvas.rectangle(x, y + icon - thickness, icon, thickness);
+    else if (decoration.maximized) {
+      float inset = 2.0f * scale;
+      canvas.roundedRectangleBorder(x, y + inset, icon - inset, icon - inset, scale, thickness);
+      canvas.roundedRectangleBorder(x + inset, y, icon - inset, icon - inset, scale, thickness);
+    }
+    else
+      canvas.roundedRectangleBorder(x, y, icon, icon, scale, thickness);
+  }
+
+  static void drawFrameDecoration(Canvas& canvas, const Window::FrameDecoration& decoration) {
+    static constexpr float kCornerRadius = 12.0f;
+
+    canvas.clearDrawnShapes();
+    canvas.setDimensions(decoration.width, decoration.height);
+    canvas.setDpiScale(1.0f);
+
+    float scale = decoration.dpi_scale;
+    IBounds window = decoration.window;
+    float radius = decoration.maximized ? 0.0f : kCornerRadius * scale;
+    if (!decoration.maximized) {
+      float spread = (decoration.active ? 26.0f : 14.0f) * scale;
+      float offset = (decoration.active ? 4.0f : 2.0f) * scale;
+      canvas.setColor(decoration.active ? 0x38000000 : 0x2a000000);
+      canvas.roundedRectangleShadow(window.x(), window.y() + offset, window.width(),
+                                    window.height(), radius, 2.0f * spread);
+      canvas.setColor(decoration.active ? 0x24000000 : 0x18000000);
+      canvas.roundedRectangleShadow(window.x(), window.y() + 0.5f * offset, window.width(),
+                                    window.height(), radius, spread);
+      canvas.setColor(decoration.dark ? 0x80000000 : 0x24000000);
+      canvas.roundedRectangle(window.x() - scale, window.y() - scale, window.width() + 2.0f * scale,
+                              window.height() + 2.0f * scale, radius + scale);
+    }
+
+    unsigned int header = decoration.dark ? (decoration.active ? 0xff303030 : 0xff242424) :
+                                            (decoration.active ? 0xffebebeb : 0xfffafafa);
+    unsigned int window_color = decoration.dark ? 0xff242424 : 0xfffafafa;
+    canvas.setColor(window_color);
+    canvas.roundedRectangle(window.x(), window.y(), window.width(), window.height(), radius);
+    canvas.setColor(header);
+    IBounds title_bar = decoration.title_bar;
+    canvas.roundedRectangle(title_bar.x(), title_bar.y(), title_bar.width(),
+                            title_bar.height() + radius, radius);
+    canvas.setColor(decoration.dark ? 0xff1f1f1f : 0xffd9d9d9);
+    canvas.rectangle(title_bar.x(), title_bar.bottom() - scale, title_bar.width(), scale);
+
+    unsigned int foreground = decoration.dark ? 0xffffffff : 0xff000000;
+    unsigned int title_color = (decoration.active ? 0xcc000000 : 0x80000000) | (foreground & 0xffffff);
+    canvas.setColor(title_color);
+    canvas.text(decoration.title, titleFont(scale), Font::kCenter, title_bar.x(), title_bar.y(),
+                title_bar.width(), title_bar.height());
+
+    unsigned int icon_color = (decoration.active ? 0xff000000 : 0x80000000) | (foreground & 0xffffff);
+    drawFrameButton(canvas, decoration, Window::FrameButton::Minimize, decoration.minimize_button,
+                    icon_color);
+    drawFrameButton(canvas, decoration, Window::FrameButton::Maximize, decoration.maximize_button,
+                    icon_color);
+    drawFrameButton(canvas, decoration, Window::FrameButton::Close, decoration.close_button, icon_color);
+    canvas.submit();
+  }
+
   TopLevelFrame::TopLevelFrame(ApplicationEditor* editor) : editor_(editor) { }
 
   TopLevelFrame::~TopLevelFrame() = default;
@@ -125,6 +253,14 @@ namespace visage {
     Renderer::instance().initialize(window_->initWindow(), window->globalDisplay(),
                                     window->waylandDisplay());
     canvas_->pairToWindow(window_->graphicsHandle(), window->clientWidth(), window->clientHeight());
+    if (void* frame_handle = window_->frameDecorationHandle()) {
+      frame_canvas_ = std::make_unique<Canvas>();
+      frame_canvas_->pairToWindow(frame_handle, 1, 1, true);
+      window_->setFrameDecorationCallback([this](const Window::FrameDecoration& decoration) {
+        if (frame_canvas_)
+          drawFrameDecoration(*frame_canvas_, decoration);
+      });
+    }
     top_level_->setDpiScale(window_->dpiScale());
     top_level_->setNativeBounds(0, 0, window->clientWidth(), window->clientHeight());
     window_->setFixedAspectRatio(fixed_aspect_ratio_ != 0.0f);
@@ -157,6 +293,11 @@ namespace visage {
     if (window_) {
       window_->setFrameWaiter(nullptr);
       window_->setDrawCallback(nullptr);
+      window_->setFrameDecorationCallback(nullptr);
+    }
+    if (frame_canvas_) {
+      frame_canvas_->removeFromWindow();
+      frame_canvas_ = nullptr;
     }
     window_ = nullptr;
     waited_frame_buffer_id_ = -1;

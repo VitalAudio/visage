@@ -202,7 +202,7 @@ namespace visage::gpu {
 
     virtual bool createFrameBuffer(uint16_t idx, uint16_t texture) = 0;
     virtual bool createSwapChain(uint16_t idx, void* window_handle, void* display, int width,
-                                 int height, TextureFormat format) = 0;
+                                 int height, TextureFormat format, bool transparent) = 0;
     virtual void resizeSwapChain(uint16_t idx, int width, int height) = 0;
     virtual void setDisplay(void* display, bool wayland) { }
     virtual void destroyFrameBuffer(uint16_t idx) = 0;
