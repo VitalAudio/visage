@@ -1629,8 +1629,7 @@ namespace visage {
     int index_from_right = buttons.end() - found - 1;
     int x = shadowLeft() + logical_width_ - kTitleButtonMargin - kTitleButtonSize -
             index_from_right * (kTitleButtonSize + kTitleButtonSpacing);
-    int y = shadowTop() + (titleBarHeight() - kTitleButtonSize) / 2;
-    return { x, y, kTitleButtonSize, kTitleButtonSize };
+    return { x, shadowTop() + kTitleButtonTop, kTitleButtonSize, kTitleButtonSize };
   }
 
   WindowWayland::FrameArea WindowWayland::frameArea(IPoint point, int* resize_operation,

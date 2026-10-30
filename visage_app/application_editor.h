@@ -31,6 +31,7 @@ namespace visage {
   class Window;
   class WindowEventHandler;
   class ClientWindowDecoration;
+  class WindowCornerMask;
 
   class TopLevelFrame : public Frame {
   public:
@@ -40,10 +41,12 @@ namespace visage {
     void resized() override;
     void addClientDecoration();
     bool hasClientDecoration() const { return client_decoration_ != nullptr; }
+    void setCornerRadius(float radius);
 
   private:
     ApplicationEditor* editor_ = nullptr;
     std::unique_ptr<ClientWindowDecoration> client_decoration_;
+    std::unique_ptr<WindowCornerMask> corner_mask_;
   };
 
   class ApplicationEditor : public Frame {

@@ -49,14 +49,15 @@ namespace visage {
     static constexpr int kMinHeight = 80;
     static constexpr int kClientResizeBorder = 8;
     static constexpr long long kStalledFrameUs = 100000;
-    static constexpr int kShadowLeft = 26;
-    static constexpr int kShadowTop = 23;
-    static constexpr int kShadowRight = 26;
-    static constexpr int kShadowBottom = 29;
-    static constexpr int kTitleBarHeight = 46;
+    static constexpr int kShadowLeft = 20;
+    static constexpr int kShadowTop = 20;
+    static constexpr int kShadowRight = 20;
+    static constexpr int kShadowBottom = 20;
+    static constexpr int kTitleBarHeight = 47;
     static constexpr int kTitleButtonSize = 24;
-    static constexpr int kTitleButtonMargin = 11;
-    static constexpr int kTitleButtonSpacing = 10;
+    static constexpr int kTitleButtonMargin = 12;
+    static constexpr int kTitleButtonSpacing = 13;
+    static constexpr int kTitleButtonTop = 11;
     static constexpr int kFrameResizeBorder = 10;
 
     enum class FrameArea {
