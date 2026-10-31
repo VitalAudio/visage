@@ -28,6 +28,7 @@
 #include "visage_windowing/windowing.h"
 #include "window_event_handler.h"
 
+#include <algorithm>
 #include <cstdio>
 
 namespace visage {
@@ -95,8 +96,8 @@ namespace visage {
 
     float size = kTitleFontPoints * kPointsToPixels * dpi_scale;
     if (font_path.empty())
-      return Font(size, fonts::Lato_Regular_ttf);
-    return Font(size, font_path);
+      return Font(size, fonts::Lato_Regular_ttf, 1.0f);
+    return Font(size, font_path, 1.0f);
   }
 
   static void drawFrameButton(Canvas& canvas, const Window::FrameDecoration& decoration,
@@ -193,10 +194,26 @@ namespace visage {
     canvas.setColor(palette.shade);
     canvas.rectangle(title_bar.x(), title_bar.bottom() - scale, title_bar.width(), scale);
 
+    canvas.setClampBounds(window.x(), window.y(), window.width(), window.height());
     float opacity = decoration.active ? 1.0f : 0.5f;
+    int title_right = title_bar.right();
+    for (IBounds button :
+         { decoration.minimize_button, decoration.maximize_button, decoration.close_button }) {
+      if (button.width())
+        title_right = std::min(title_right, button.x());
+    }
+    float padding = 12.0f * scale;
+    float title_left = title_bar.x() + padding;
+    float available = std::max(0.0f, title_right - padding - title_left);
+    Font font = titleFont(scale);
+    float text_width = std::min(available, font.stringWidth(String(decoration.title).toUtf32()));
+    float text_x = std::clamp(title_bar.x() + 0.5f * (title_bar.width() - text_width), title_left,
+                              title_left + available - text_width);
+    canvas.setClampBounds(title_left, title_bar.y(), available, title_bar.height());
     canvas.setColor(withAlpha(palette.foreground, opacity));
-    canvas.text(decoration.title, titleFont(scale), Font::kCenter, title_bar.x(), title_bar.y(),
-                title_bar.width(), title_bar.height());
+    canvas.text(decoration.title, font, text_width < available ? Font::kCenter : Font::kLeft,
+                text_x, title_bar.y(), text_width, title_bar.height());
+    canvas.setClampBounds(window.x(), window.y(), window.width(), window.height());
 
     drawFrameButton(canvas, decoration, Window::FrameButton::Minimize, decoration.minimize_button,
                     palette.foreground, opacity);

@@ -1858,6 +1858,12 @@ namespace visage {
     handleAdjustResize(&min_width, &min_height, true, true);
     int logical_min_width = std::ceil(min_width / dpiScale());
     int logical_min_height = std::ceil(min_height / dpiScale()) + titleBarHeight();
+    if (framed()) {
+      int buttons = desktopSettings().buttons.size();
+      int buttons_width = 2 * kTitleButtonMargin + buttons * kTitleButtonSize +
+                          std::max(0, buttons - 1) * kTitleButtonSpacing;
+      logical_min_width = std::max(logical_min_width, buttons_width);
+    }
     if (xdg_toplevel_)
       xdg_toplevel_set_min_size(xdg_toplevel_, logical_min_width, logical_min_height);
   }
