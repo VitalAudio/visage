@@ -22,8 +22,9 @@
 #include "gpu_backend.h"
 
 #import <AppKit/AppKit.h>
+#import <IOSurface/IOSurface.h>
 #import <Metal/Metal.h>
-#import <QuartzCore/CAMetalLayer.h>
+#import <QuartzCore/QuartzCore.h>
 
 #include <algorithm>
 #include <atomic>
@@ -32,11 +33,13 @@
 #include <memory>
 #include <string>
 #include <tuple>
+#include <vector>
 
 namespace visage::gpu {
   namespace {
     constexpr int kMaxFramesInFlight = 3;
-    constexpr int kMaxDrawables = 3;
+    constexpr int kMaxSurfaces = 4;
+    NSString* const kContentLayerName = @"VisageContent";
     constexpr int64_t kLostFrameWaitMs = 100;
     constexpr int kVertexBufferIndex = 30;
     constexpr uint32_t kMaxSetBytes = 4096;
@@ -163,12 +166,40 @@ namespace visage::gpu {
       std::map<PipelineKey, id<MTLRenderPipelineState>> pipelines;
     };
 
+    struct Surface {
+      IOSurfaceRef surface = nullptr;
+      id<MTLTexture> texture = nil;
+      uint32_t presented = 0;
+      std::atomic<bool> busy = false;
+      std::atomic<bool> displayed = false;
+
+      ~Surface() {
+        if (surface)
+          CFRelease(surface);
+      }
+    };
+
+    struct SurfacePool {
+      CAMetalLayer* host = nil;
+      CALayer* layer = nil;
+      int width = 0;
+      int height = 0;
+      std::vector<std::shared_ptr<Surface>> surfaces;
+      std::shared_ptr<Surface> current;
+      std::shared_ptr<Surface> displayed;
+      uint32_t presents = 0;
+      uint64_t submitted = 0;
+      uint64_t shown = 0;
+      DamageHistory history;
+      DamageRegion frame_damage;
+      DamageRegion buffer_damage;
+    };
+
     struct FrameBuffer {
       bool valid = false;
       uint16_t texture = kInvalidHandle;
-      CAMetalLayer* layer = nil;
       NSView* __weak view = nil;
-      id<CAMetalDrawable> drawable = nil;
+      std::shared_ptr<SurfacePool> pool;
       id<MTLTexture> current = nil;
       id<MTLTexture> fallback = nil;
       int width = 0;
@@ -503,39 +534,33 @@ namespace visage::gpu {
       if (layer == nil)
         return false;
 
-      layer.device = device_;
-      layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-      layer.magnificationFilter = kCAFilterNearest;
-      layer.displaySyncEnabled = init_.vsync;
-      layer.maximumDrawableCount = kMaxDrawables;
-      if (init_.color_managed)
-        layer.colorspace = srgbColorSpace();
-      if (width > 0 && height > 0)
-        layer.drawableSize = CGSizeMake(width, height);
-
       FrameBuffer& frame_buffer = slot(frame_buffers_, idx);
       frame_buffer = {};
       frame_buffer.valid = true;
-      frame_buffer.layer = layer;
       frame_buffer.view = handleView(handle);
       frame_buffer.width = width;
       frame_buffer.height = height;
+      frame_buffer.pool = std::make_shared<SurfacePool>();
+      frame_buffer.pool->host = layer;
+      frame_buffer.pool->layer = contentLayer(layer);
       return true;
     }
 
     void resizeSwapChain(uint16_t idx, int width, int height) override {
-      if (idx >= frame_buffers_.size() || frame_buffers_[idx].layer == nil || width <= 0 || height <= 0)
+      if (idx >= frame_buffers_.size() || frame_buffers_[idx].pool == nullptr || width <= 0 || height <= 0)
         return;
 
-      FrameBuffer& frame_buffer = frame_buffers_[idx];
-      frame_buffer.width = width;
-      frame_buffer.height = height;
-      frame_buffer.layer.drawableSize = CGSizeMake(width, height);
+      frame_buffers_[idx].width = width;
+      frame_buffers_[idx].height = height;
     }
 
     void destroyFrameBuffer(uint16_t idx) override {
-      if (idx < frame_buffers_.size() && frame_buffers_[idx].valid)
-        frame_buffers_[idx] = {};
+      if (idx >= frame_buffers_.size() || !frame_buffers_[idx].valid)
+        return;
+
+      if (frame_buffers_[idx].pool)
+        removeContentLayer(frame_buffers_[idx].pool->layer);
+      frame_buffers_[idx] = {};
     }
 
     bool waitForFrame(uint16_t, int) override { return true; }
@@ -598,18 +623,16 @@ namespace visage::gpu {
       encodeReads(frame, reads);
       encodeScreenshots(frame, screenshots);
 
-      for (uint16_t idx : presented) {
-        if (frame_buffers_[idx].drawable)
-          [command_buffer_ presentDrawable:frame_buffers_[idx].drawable];
-      }
+      for (uint16_t idx : presented)
+        presentSurface(frame_buffers_[idx].pool);
 
       id<MTLCommandBuffer> command_buffer = command_buffer_;
       command_buffer_ = nil;
       [command_buffer commit];
 
       for (uint16_t idx : presented) {
-        frame_buffers_[idx].drawable = nil;
         frame_buffers_[idx].current = nil;
+        frame_buffers_[idx].pool->current = nullptr;
       }
 
       if (!reads.empty() || !screenshots.empty()) {
@@ -752,12 +775,217 @@ namespace visage::gpu {
       return samplers_[flags];
     }
 
-    id<MTLTexture> target(uint16_t frame_buffer_idx, std::vector<uint16_t>& presented) {
+    static CALayer* contentLayer(CAMetalLayer* host) {
+      __block CALayer* result = nil;
+      void (^find_layer)(void) = ^{
+        for (CALayer* sublayer in host.sublayers) {
+          if ([sublayer.name isEqualToString:kContentLayerName])
+            result = sublayer;
+        }
+        if (result)
+          return;
+
+        NSNull* none = [NSNull null];
+        result = [CALayer layer];
+        result.name = kContentLayerName;
+        result.actions = @ {
+          @"contents": none,
+          @"bounds": none,
+          @"position": none,
+          @"frame": none,
+          @"contentsScale": none
+        };
+        result.contentsGravity = kCAGravityTopLeft;
+        result.magnificationFilter = kCAFilterNearest;
+        result.opaque = host.opaque;
+        result.frame = host.bounds;
+        result.contentsScale = host.contentsScale;
+        result.autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        [host addSublayer:result];
+        [CATransaction commit];
+      };
+
+      if ([NSThread isMainThread])
+        find_layer();
+      else
+        dispatch_sync(dispatch_get_main_queue(), find_layer);
+      return result;
+    }
+
+    static void removeContentLayer(CALayer* layer) {
+      if ([NSThread isMainThread])
+        [layer removeFromSuperlayer];
+      else {
+        dispatch_async(dispatch_get_main_queue(), ^{
+          [layer removeFromSuperlayer];
+        });
+      }
+    }
+
+    std::shared_ptr<Surface> createSurface(const SurfacePool& pool) {
+      NSDictionary* properties = @{
+        (id)kIOSurfaceWidth: @(pool.width),
+        (id)kIOSurfaceHeight: @(pool.height),
+        (id)kIOSurfaceBytesPerElement: @4,
+        (id)kIOSurfacePixelFormat: @(static_cast<uint32_t>('BGRA')),
+        (id)kIOSurfaceBytesPerRow: @(IOSurfaceAlignProperty(kIOSurfaceBytesPerRow, pool.width * 4)),
+      };
+      auto surface = std::make_shared<Surface>();
+      surface->surface = IOSurfaceCreate((__bridge CFDictionaryRef)properties);
+      if (surface->surface == nullptr)
+        return nullptr;
+
+      CGColorSpaceRef color_space = init_.color_managed ? srgbColorSpace() : pool.host.colorspace;
+      if (color_space) {
+        CFPropertyListRef color_space_data = CGColorSpaceCopyPropertyList(color_space);
+        if (color_space_data) {
+          IOSurfaceSetValue(surface->surface, kIOSurfaceColorSpace, color_space_data);
+          CFRelease(color_space_data);
+        }
+      }
+
+      MTLTextureDescriptor* descriptor = [MTLTextureDescriptor
+          texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                       width:pool.width
+                                      height:pool.height
+                                   mipmapped:NO];
+      descriptor.storageMode = MTLStorageModeShared;
+      descriptor.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+      surface->texture = [device_ newTextureWithDescriptor:descriptor
+                                                 iosurface:surface->surface
+                                                     plane:0];
+      if (surface->texture == nil)
+        return nullptr;
+      return surface;
+    }
+
+    std::shared_ptr<Surface> freeSurface(SurfacePool& pool) {
+      std::shared_ptr<Surface> result;
+      for (const auto& surface : pool.surfaces) {
+        if (surface->busy || surface->displayed || IOSurfaceIsInUse(surface->surface))
+          continue;
+        if (result == nullptr || surface->presented > result->presented)
+          result = surface;
+      }
+      if (result)
+        return result;
+
+      if (pool.surfaces.size() < kMaxSurfaces) {
+        result = createSurface(pool);
+        if (result)
+          pool.surfaces.push_back(result);
+        return result;
+      }
+
+      for (const auto& surface : pool.surfaces) {
+        if (surface->busy || surface->displayed)
+          continue;
+        if (result == nullptr || surface->presented < result->presented)
+          result = surface;
+      }
+      return result;
+    }
+
+    id<MTLTexture> acquireSurface(uint16_t idx, FrameBuffer& frame_buffer, const FrameData& frame) {
+      SurfacePool& pool = *frame_buffer.pool;
+      int width = frame_buffer.width;
+      int height = frame_buffer.height;
+      if (width <= 0 || height <= 0)
+        return nil;
+
+      if (pool.width != width || pool.height != height) {
+        pool.surfaces.clear();
+        pool.width = width;
+        pool.height = height;
+        pool.history.reset();
+      }
+
+      std::shared_ptr<Surface> surface = occluded(frame_buffer) ? nullptr : freeSurface(pool);
+      if (surface == nullptr) {
+        for (const auto& pooled : pool.surfaces)
+          pooled->presented = 0;
+        pool.history.reset();
+        return fallbackTexture(frame_buffer);
+      }
+
+      int age = surface->presented ? static_cast<int>(pool.presents - surface->presented + 1) : 0;
+      pool.frame_damage = DamageHistory::frameDamage(frame, idx, width, height);
+      pool.buffer_damage = pool.history.bufferDamage(pool.frame_damage, idx, age, width, height);
+      surface->busy = true;
+      pool.current = surface;
+      return surface->texture;
+    }
+
+    void presentSurface(const std::shared_ptr<SurfacePool>& pool) {
+      std::shared_ptr<Surface> surface = pool->current;
+      if (surface == nullptr)
+        return;
+
+      surface->presented = ++pool->presents;
+      pool->history.push(pool->frame_damage);
+      uint64_t sequence = ++pool->submitted;
+      std::weak_ptr<SurfacePool> weak_pool = pool;
+      [command_buffer_ addCompletedHandler:^(id<MTLCommandBuffer>) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+          std::shared_ptr<SurfacePool> shown_pool = weak_pool.lock();
+          if (shown_pool && sequence > shown_pool->shown) {
+            shown_pool->shown = sequence;
+            showSurface(*shown_pool, surface);
+          }
+          surface->busy = false;
+        });
+      }];
+    }
+
+    static void showSurface(SurfacePool& pool, const std::shared_ptr<Surface>& surface) {
+      [CATransaction begin];
+      [CATransaction setDisableActions:YES];
+      CALayer* parent = pool.layer.superlayer;
+      if (parent) {
+        pool.layer.frame = parent.bounds;
+        pool.layer.contentsScale = parent.contentsScale;
+      }
+      pool.layer.contents = (__bridge id)surface->surface;
+      [CATransaction commit];
+
+      if (pool.displayed)
+        pool.displayed->displayed = false;
+      surface->displayed = true;
+      pool.displayed = surface;
+    }
+
+    bool damageScissors(const ViewData& view, id<MTLTexture> texture,
+                        std::vector<MTLScissorRect>& scissors) const {
+      const std::shared_ptr<SurfacePool>& pool = frame_buffers_[view.frame_buffer].pool;
+      if (pool == nullptr || pool->current == nullptr || pool->current->texture != texture)
+        return false;
+
+      int texture_width = static_cast<int>(texture.width);
+      int texture_height = static_cast<int>(texture.height);
+      for (const Damage& damage : pool->buffer_damage.rects()) {
+        int left = std::clamp(std::max(view.x, damage.x), 0, texture_width);
+        int top = std::clamp(std::max(view.y, damage.y), 0, texture_height);
+        int right = std::clamp(std::min(view.x + view.width, damage.x + damage.width), left, texture_width);
+        int bottom = std::clamp(std::min(view.y + view.height, damage.y + damage.height), top,
+                                texture_height);
+        if (right > left && bottom > top) {
+          scissors.push_back({ static_cast<NSUInteger>(left), static_cast<NSUInteger>(top),
+                               static_cast<NSUInteger>(right - left),
+                               static_cast<NSUInteger>(bottom - top) });
+        }
+      }
+      return true;
+    }
+
+    id<MTLTexture> target(uint16_t frame_buffer_idx, const FrameData& frame,
+                          std::vector<uint16_t>& presented) {
       if (frame_buffer_idx >= frame_buffers_.size() || !frame_buffers_[frame_buffer_idx].valid)
         return nil;
 
       FrameBuffer& frame_buffer = frame_buffers_[frame_buffer_idx];
-      if (frame_buffer.layer == nil) {
+      if (frame_buffer.pool == nullptr) {
         if (frame_buffer.texture >= textures_.size())
           return nil;
         return textures_[frame_buffer.texture].texture;
@@ -766,33 +994,24 @@ namespace visage::gpu {
       if (frame_buffer.current)
         return frame_buffer.current;
 
-      if (!occluded(frame_buffer))
-        frame_buffer.drawable = [frame_buffer.layer nextDrawable];
-
-      if (frame_buffer.drawable)
-        frame_buffer.current = frame_buffer.drawable.texture;
-      else
-        frame_buffer.current = fallbackTexture(frame_buffer);
+      frame_buffer.current = acquireSurface(frame_buffer_idx, frame_buffer, frame);
       if (frame_buffer.current)
         presented.push_back(frame_buffer_idx);
       return frame_buffer.current;
     }
 
     id<MTLTexture> fallbackTexture(FrameBuffer& frame_buffer) {
-      CGSize size = frame_buffer.layer.drawableSize;
-      if (size.width < 1 || size.height < 1)
-        return nil;
-
+      int width = frame_buffer.width;
+      int height = frame_buffer.height;
       id<MTLTexture> fallback = frame_buffer.fallback;
-      if (fallback && fallback.width == size.width && fallback.height == size.height &&
-          fallback.pixelFormat == frame_buffer.layer.pixelFormat)
+      if (fallback && fallback.width == width && fallback.height == height)
         return fallback;
 
-      MTLTextureDescriptor* descriptor =
-          [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:frame_buffer.layer.pixelFormat
-                                                             width:size.width
-                                                            height:size.height
-                                                         mipmapped:NO];
+      MTLTextureDescriptor* descriptor = [MTLTextureDescriptor
+          texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                       width:width
+                                      height:height
+                                   mipmapped:NO];
       descriptor.storageMode = MTLStorageModePrivate;
       descriptor.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
       frame_buffer.fallback = [device_ newTextureWithDescriptor:descriptor];
@@ -994,42 +1213,53 @@ namespace visage::gpu {
       [encoder endEncoding];
     }
 
-    void submitView(const FrameData& frame, const ViewData& view, std::vector<uint16_t>& presented) {
-      bool wants_screenshot = std::find(frame.screenshots.begin(), frame.screenshots.end(),
-                                        view.frame_buffer) != frame.screenshots.end();
-      if (wants_screenshot && view.frame_buffer < frame_buffers_.size() &&
-          frame_buffers_[view.frame_buffer].layer && frame_buffers_[view.frame_buffer].current == nil)
-        frame_buffers_[view.frame_buffer].layer.framebufferOnly = NO;
+    void encodeDraws(id<MTLRenderCommandEncoder> encoder, const FrameData& frame,
+                     const ViewData& view, size_t start, size_t end, MTLPixelFormat format) {
+      for (size_t i = start; i < end; ++i)
+        encodeDraw(encoder, frame, frame.draws[view.items[i].index], format);
+    }
 
+    void submitView(const FrameData& frame, const ViewData& view, std::vector<uint16_t>& presented) {
       id<MTLTexture> texture = nil;
       bool target_resolved = false;
-      id<MTLRenderCommandEncoder> render = nil;
-      for (const ViewItem& item : view.items) {
-        if (item.type == ViewItem::Draw) {
-          if (!target_resolved) {
-            texture = target(view.frame_buffer, presented);
-            target_resolved = true;
-          }
-          if (texture == nil)
-            continue;
-          if (render == nil)
-            render = beginRenderPass(texture, view);
-          encodeDraw(render, frame, frame.draws[item.index], texture.pixelFormat);
+      bool scissored = false;
+      std::vector<MTLScissorRect> scissors;
+      size_t start = 0;
+      while (start < view.items.size()) {
+        const ViewItem& item = view.items[start];
+        if (item.type != ViewItem::Draw) {
+          if (item.type == ViewItem::Compute)
+            encodeCompute(frame, frame.computes[item.index]);
+          else
+            encodeBlit(frame.blits[item.index]);
+          start++;
           continue;
         }
 
-        if (render) {
-          [render endEncoding];
-          render = nil;
-        }
-        if (item.type == ViewItem::Compute)
-          encodeCompute(frame, frame.computes[item.index]);
-        else
-          encodeBlit(frame.blits[item.index]);
-      }
+        size_t end = start;
+        while (end < view.items.size() && view.items[end].type == ViewItem::Draw)
+          end++;
 
-      if (render)
-        [render endEncoding];
+        if (!target_resolved) {
+          texture = target(view.frame_buffer, frame, presented);
+          target_resolved = true;
+          scissored = texture && damageScissors(view, texture, scissors);
+        }
+
+        if (texture && (!scissored || !scissors.empty())) {
+          id<MTLRenderCommandEncoder> render = beginRenderPass(texture, view);
+          if (scissored) {
+            for (const MTLScissorRect& scissor : scissors) {
+              [render setScissorRect:scissor];
+              encodeDraws(render, frame, view, start, end, texture.pixelFormat);
+            }
+          }
+          else
+            encodeDraws(render, frame, view, start, end, texture.pixelFormat);
+          [render endEncoding];
+        }
+        start = end;
+      }
     }
 
     void encodeReads(const FrameData& frame, std::vector<PendingRead>& reads) {
@@ -1063,13 +1293,11 @@ namespace visage::gpu {
     void encodeScreenshots(const FrameData& frame, std::vector<PendingScreenshot>& screenshots) {
       id<MTLBlitCommandEncoder> encoder = nil;
       for (uint16_t idx : frame.screenshots) {
-        if (idx >= frame_buffers_.size() || frame_buffers_[idx].layer == nil)
+        if (idx >= frame_buffers_.size() || frame_buffers_[idx].pool == nullptr)
           continue;
 
-        FrameBuffer& frame_buffer = frame_buffers_[idx];
-        frame_buffer.layer.framebufferOnly = YES;
-        id<MTLTexture> texture = frame_buffer.current;
-        if (texture == nil || texture.framebufferOnly) {
+        id<MTLTexture> texture = frame_buffers_[idx].current;
+        if (texture == nil) {
           log("Metal screenshot skipped: swap chain was not drawn this frame", nil);
           continue;
         }
