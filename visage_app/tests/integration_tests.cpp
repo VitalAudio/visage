@@ -154,6 +154,31 @@ TEST_CASE("Windowless editors draw at their DPI scale", "[integration]") {
   }
 }
 
+TEST_CASE("Parents draw before the children they update when added at a new DPI scale",
+          "[integration]") {
+  ApplicationEditor editor;
+  editor.setDpiScale(2.0f);
+  editor.setWindowless(100, 100);
+
+  int generation = 0;
+  int drawn_generation = -1;
+  Frame parent;
+  Frame child;
+  parent.onDraw() = [&](Canvas&) {
+    ++generation;
+    child.redraw();
+  };
+  child.onDraw() = [&](Canvas&) { drawn_generation = generation; };
+  parent.onResize() += [&] { child.setBounds(parent.localBounds()); };
+  parent.addChild(child);
+
+  editor.addChild(parent);
+  parent.setBounds(editor.localBounds());
+  editor.drawWindow();
+  REQUIRE(generation == 1);
+  REQUIRE(drawn_generation == generation);
+}
+
 TEST_CASE("Animated graph lines", "[integration]") {
   Color source = 0xff123456;
   Color destination = 0xff88aacc;
