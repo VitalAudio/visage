@@ -280,8 +280,8 @@ namespace visage::gpu {
       std::vector<uint32_t> presented;
       uint32_t presents = 0;
       DamageHistory history;
-      Damage frame_damage;
-      Damage buffer_damage;
+      DamageRegion frame_damage;
+      DamageRegion buffer_damage;
       uint32_t current_image = UINT32_MAX;
       bool acquired = false;
     };
@@ -886,15 +886,18 @@ namespace visage::gpu {
         present.pSwapchains = &chain.swap_chain;
         present.pImageIndices = &chain.current_image;
 
-        const Damage& damage = chain.frame_damage;
-        VkRectLayerKHR rect { { damage.x, damage.y },
-                              { static_cast<uint32_t>(damage.width), static_cast<uint32_t>(damage.height) },
-                              0 };
-        VkPresentRegionKHR region { 1, &rect };
+        const DamageRegion& damage = chain.frame_damage;
+        std::vector<VkRectLayerKHR> rects;
+        for (const Damage& rect : damage.rects()) {
+          rects.push_back({ { rect.x, rect.y },
+                            { static_cast<uint32_t>(rect.width), static_cast<uint32_t>(rect.height) },
+                            0 });
+        }
+        VkPresentRegionKHR region { static_cast<uint32_t>(rects.size()), rects.data() };
         VkPresentRegionsKHR regions { VK_STRUCTURE_TYPE_PRESENT_REGIONS_KHR };
         regions.swapchainCount = 1;
         regions.pRegions = &region;
-        if (incremental_present_ && !damage.empty())
+        if (incremental_present_ && !rects.empty())
           present.pNext = &regions;
 
         VkResult result = checkResult(vkQueuePresentKHR(queue_, &present));
@@ -1668,7 +1671,7 @@ namespace visage::gpu {
       uint32_t presented = chain.presented[chain.current_image];
       int age = presented ? static_cast<int>(chain.presents - presented + 1) : 0;
       chain.frame_damage = DamageHistory::frameDamage(frame, idx, width, height);
-      chain.buffer_damage = chain.history.bufferDamage(chain.frame_damage, age, width, height);
+      chain.buffer_damage = chain.history.bufferDamage(chain.frame_damage, idx, age, width, height);
     }
 
     bool acquire(SwapChain& chain, VkSemaphore semaphore) {
@@ -2117,68 +2120,80 @@ namespace visage::gpu {
       int y = std::clamp(view.y, 0, static_cast<int>(extent.height));
       int width = std::clamp(view.width, 0, static_cast<int>(extent.width) - x);
       int height = std::clamp(view.height, 0, static_cast<int>(extent.height) - y);
-      if (frame_buffer.swap_chain) {
-        const Damage& damage = frame_buffer.chain->buffer_damage;
-        int right = std::min(x + width, damage.x + damage.width);
-        int bottom = std::min(y + height, damage.y + damage.height);
-        x = std::max(x, damage.x);
-        y = std::max(y, damage.y);
-        width = std::max(0, right - x);
-        height = std::max(0, bottom - y);
+      std::vector<VkRect2D> scissors;
+      if (width > 0 && height > 0 && frame_buffer.swap_chain) {
+        for (const Damage& damage : frame_buffer.chain->buffer_damage.rects()) {
+          int left = std::max(x, damage.x);
+          int top = std::max(y, damage.y);
+          int right = std::min(x + width, damage.x + damage.width);
+          int bottom = std::min(y + height, damage.y + damage.height);
+          if (right > left && bottom > top)
+            scissors.push_back({ { left, top },
+                                 { static_cast<uint32_t>(right - left),
+                                   static_cast<uint32_t>(bottom - top) } });
+        }
       }
-      if (width > 0 && height > 0) {
+      else if (width > 0 && height > 0)
+        scissors.push_back({ { x, y }, { static_cast<uint32_t>(width), static_cast<uint32_t>(height) } });
+
+      if (!scissors.empty()) {
         VkViewport viewport { static_cast<float>(view.x),
                               static_cast<float>(view.y + view.height),
                               static_cast<float>(view.width),
                               -static_cast<float>(view.height),
                               0.0f,
                               1.0f };
-        VkRect2D scissor { { x, y }, { static_cast<uint32_t>(width), static_cast<uint32_t>(height) } };
         vkCmdSetViewport(command_buffer_, 0, 1, &viewport);
-        vkCmdSetScissor(command_buffer_, 0, 1, &scissor);
-
-        VkPipeline bound_pipeline = VK_NULL_HANDLE;
-        for (size_t i = start; i < end; ++i) {
-          const DrawItem& draw = frame.draws[view.items[i].index];
-          if (draw.program >= programs_.size() || !programs_[draw.program].used)
-            continue;
-
-          const Buffer* vertex_buffer = nullptr;
-          if (draw.vertex_buffer != kInvalidHandle) {
-            if (draw.vertex_buffer >= buffers_.size() || !buffers_[draw.vertex_buffer].used)
-              continue;
-            vertex_buffer = &buffers_[draw.vertex_buffer];
-          }
-
-          VkPipeline pipeline = graphicsPipeline(draw.program, vertex_buffer, draw.state, format);
-          if (pipeline == VK_NULL_HANDLE)
-            continue;
-          if (pipeline != bound_pipeline) {
-            vkCmdBindPipeline(command_buffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-            bound_pipeline = pipeline;
-          }
-          if (!bindDrawDescriptors(frame, draw))
-            continue;
-
-          if (vertex_buffer) {
-            VkDeviceSize offset = 0;
-            vkCmdBindVertexBuffers(command_buffer_, 0, 1, &vertex_buffer->buffer, &offset);
-          }
-
-          if (draw.index_buffer != kInvalidHandle && draw.index_buffer < buffers_.size() &&
-              buffers_[draw.index_buffer].used) {
-            const Buffer& index_buffer = buffers_[draw.index_buffer];
-            VkIndexType type = (index_buffer.desc.flags & kBufferIndex32) ? VK_INDEX_TYPE_UINT32 :
-                                                                            VK_INDEX_TYPE_UINT16;
-            vkCmdBindIndexBuffer(command_buffer_, index_buffer.buffer, 0, type);
-            vkCmdDrawIndexed(command_buffer_, draw.index_count, 1, draw.index_start,
-                             static_cast<int32_t>(draw.vertex_start), 0);
-          }
-          else
-            vkCmdDraw(command_buffer_, draw.vertex_count, 1, draw.vertex_start, 0);
+        for (const VkRect2D& scissor : scissors) {
+          vkCmdSetScissor(command_buffer_, 0, 1, &scissor);
+          recordDraws(frame, view, start, end, format);
         }
       }
       vkCmdEndRenderPass(command_buffer_);
+    }
+
+    void recordDraws(const FrameData& frame, const ViewData& view, size_t start, size_t end,
+                     VkFormat format) {
+      VkPipeline bound_pipeline = VK_NULL_HANDLE;
+      for (size_t i = start; i < end; ++i) {
+        const DrawItem& draw = frame.draws[view.items[i].index];
+        if (draw.program >= programs_.size() || !programs_[draw.program].used)
+          continue;
+
+        const Buffer* vertex_buffer = nullptr;
+        if (draw.vertex_buffer != kInvalidHandle) {
+          if (draw.vertex_buffer >= buffers_.size() || !buffers_[draw.vertex_buffer].used)
+            continue;
+          vertex_buffer = &buffers_[draw.vertex_buffer];
+        }
+
+        VkPipeline pipeline = graphicsPipeline(draw.program, vertex_buffer, draw.state, format);
+        if (pipeline == VK_NULL_HANDLE)
+          continue;
+        if (pipeline != bound_pipeline) {
+          vkCmdBindPipeline(command_buffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+          bound_pipeline = pipeline;
+        }
+        if (!bindDrawDescriptors(frame, draw))
+          continue;
+
+        if (vertex_buffer) {
+          VkDeviceSize offset = 0;
+          vkCmdBindVertexBuffers(command_buffer_, 0, 1, &vertex_buffer->buffer, &offset);
+        }
+
+        if (draw.index_buffer != kInvalidHandle && draw.index_buffer < buffers_.size() &&
+            buffers_[draw.index_buffer].used) {
+          const Buffer& index_buffer = buffers_[draw.index_buffer];
+          VkIndexType type = (index_buffer.desc.flags & kBufferIndex32) ? VK_INDEX_TYPE_UINT32 :
+                                                                          VK_INDEX_TYPE_UINT16;
+          vkCmdBindIndexBuffer(command_buffer_, index_buffer.buffer, 0, type);
+          vkCmdDrawIndexed(command_buffer_, draw.index_count, 1, draw.index_start,
+                           static_cast<int32_t>(draw.vertex_start), 0);
+        }
+        else
+          vkCmdDraw(command_buffer_, draw.vertex_count, 1, draw.vertex_start, 0);
+      }
     }
 
     void executeCompute(const FrameData& frame, const ComputeItem& item) {

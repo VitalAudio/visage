@@ -185,8 +185,8 @@ namespace visage::gpu {
       bool needs_present = false;
       int presents = 0;
       DamageHistory history;
-      Damage frame_damage;
-      Damage buffer_damage;
+      DamageRegion frame_damage;
+      DamageRegion buffer_damage;
     };
   }
 
@@ -721,36 +721,46 @@ namespace visage::gpu {
 
         D3D11_VIEWPORT viewport = { float(view.x),      float(view.y), float(view.width),
                                     float(view.height), 0.0f,          1.0f };
-        D3D11_RECT scissor = { std::max(0, view.x), std::max(0, view.y),
-                               std::max(0, view.x + view.width), std::max(0, view.y + view.height) };
+        D3D11_RECT view_rect = { std::max(0, view.x), std::max(0, view.y),
+                                 std::max(0, view.x + view.width), std::max(0, view.y + view.height) };
+        std::vector<D3D11_RECT> scissors;
         if (frame_buffer && frame_buffer->swap_chain) {
-          const Damage& damage = frame_buffer->buffer_damage;
-          scissor.left = std::max<LONG>(scissor.left, damage.x);
-          scissor.top = std::max<LONG>(scissor.top, damage.y);
-          scissor.right = std::max(scissor.left, std::min<LONG>(scissor.right, damage.x + damage.width));
-          scissor.bottom = std::max(scissor.top, std::min<LONG>(scissor.bottom, damage.y + damage.height));
+          for (const Damage& damage : frame_buffer->buffer_damage.rects()) {
+            D3D11_RECT scissor = { std::max<LONG>(view_rect.left, damage.x),
+                                   std::max<LONG>(view_rect.top, damage.y),
+                                   std::min<LONG>(view_rect.right, damage.x + damage.width),
+                                   std::min<LONG>(view_rect.bottom, damage.y + damage.height) };
+            if (scissor.right > scissor.left && scissor.bottom > scissor.top)
+              scissors.push_back(scissor);
+          }
         }
-        bool targets_bound = false;
+        else
+          scissors.push_back(view_rect);
 
-        for (const ViewItem& item : view.items) {
-          if (item.type == ViewItem::Draw) {
-            if (frame_buffer == nullptr || frame_buffer->rtv == nullptr)
-              continue;
-            if (!targets_bound) {
-              bindRenderTarget(frame_buffer->rtv);
-              context_->RSSetViewports(1, &viewport);
-              context_->RSSetScissorRects(1, &scissor);
-              targets_bound = true;
+        for (size_t pass = 0; pass < std::max<size_t>(scissors.size(), 1); ++pass) {
+          bool targets_bound = false;
+          for (const ViewItem& item : view.items) {
+            if (item.type == ViewItem::Draw) {
+              if (frame_buffer == nullptr || frame_buffer->rtv == nullptr || scissors.empty())
+                continue;
+              if (!targets_bound) {
+                bindRenderTarget(frame_buffer->rtv);
+                context_->RSSetViewports(1, &viewport);
+                context_->RSSetScissorRects(1, &scissors[pass]);
+                targets_bound = true;
+              }
+              draw(frame.draws[item.index], frame.uniform_data);
             }
-            draw(frame.draws[item.index], frame.uniform_data);
-          }
-          else if (item.type == ViewItem::Compute) {
-            unbindRenderTarget();
-            targets_bound = false;
-            dispatch(frame.computes[item.index], frame.uniform_data);
-          }
-          else if (item.type == ViewItem::Blit) {
-            blit(frame.blits[item.index]);
+            else if (pass > 0)
+              continue;
+            else if (item.type == ViewItem::Compute) {
+              unbindRenderTarget();
+              targets_bound = false;
+              dispatch(frame.computes[item.index], frame.uniform_data);
+            }
+            else if (item.type == ViewItem::Blit) {
+              blit(frame.blits[item.index]);
+            }
           }
         }
       }
@@ -771,13 +781,13 @@ namespace visage::gpu {
           continue;
         frame_buffer.second.needs_present = false;
 
-        const Damage& damage = frame_buffer.second.frame_damage;
-        RECT dirty = { damage.x, damage.y, damage.x + damage.width, damage.y + damage.height };
+        const DamageRegion& damage = frame_buffer.second.frame_damage;
+        std::vector<RECT> dirty;
+        for (const Damage& rect : damage.rects())
+          dirty.push_back({ rect.x, rect.y, rect.x + rect.width, rect.y + rect.height });
         DXGI_PRESENT_PARAMETERS parameters = {};
-        if (!damage.empty()) {
-          parameters.DirtyRectsCount = 1;
-          parameters.pDirtyRects = &dirty;
-        }
+        parameters.DirtyRectsCount = static_cast<UINT>(dirty.size());
+        parameters.pDirtyRects = dirty.empty() ? nullptr : dirty.data();
         HRESULT hr = frame_buffer.second.swap_chain->Present1(sync_interval, present_flags, &parameters);
         if (hr == S_OK) {
           frame_buffer.second.presents = std::min(frame_buffer.second.presents + 1, kSwapChainBuffers);
@@ -906,8 +916,8 @@ namespace visage::gpu {
       int age = frame_buffer.presents == kSwapChainBuffers ? kSwapChainBuffers : 0;
       frame_buffer.frame_damage = DamageHistory::frameDamage(frame, idx, frame_buffer.width,
                                                              frame_buffer.height);
-      frame_buffer.buffer_damage = frame_buffer.history.bufferDamage(frame_buffer.frame_damage, age,
-                                                                     frame_buffer.width,
+      frame_buffer.buffer_damage = frame_buffer.history.bufferDamage(frame_buffer.frame_damage, idx,
+                                                                     age, frame_buffer.width,
                                                                      frame_buffer.height);
     }
 

@@ -754,14 +754,7 @@ namespace visage::gpu {
     if (context == nullptr || !context->frame_buffers.valid(handle.idx) || width <= 0 || height <= 0)
       return;
 
-    Damage damage = { handle.idx, x, y, width, height };
-    for (Damage& pending : context->pending_damage) {
-      if (pending.frame_buffer == handle.idx) {
-        pending = combineDamage(pending, damage);
-        return;
-      }
-    }
-    context->pending_damage.push_back(damage);
+    context->pending_damage.push_back({ handle.idx, x, y, width, height });
   }
 
   void destroy(FrameBufferHandle handle) {

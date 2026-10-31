@@ -24,6 +24,7 @@
 #include "gpu.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -211,31 +212,120 @@ namespace visage::gpu {
     std::vector<Damage> damage;
   };
 
+  class DamageRegion {
+  public:
+    static constexpr int kMaxRects = 8;
+
+    static DamageRegion full(uint16_t frame_buffer, int width, int height) {
+      DamageRegion region;
+      region.add({ frame_buffer, 0, 0, width, height });
+      return region;
+    }
+
+    void add(Damage rect) {
+      if (rect.empty())
+        return;
+
+      bool merged = true;
+      while (merged) {
+        merged = false;
+        for (auto it = rects_.begin(); it != rects_.end(); ++it) {
+          if (overlaps(*it, rect)) {
+            rect = combineDamage(*it, rect);
+            rects_.erase(it);
+            merged = true;
+            break;
+          }
+        }
+      }
+      rects_.push_back(rect);
+
+      if (rects_.size() > kMaxRects)
+        mergeClosest();
+    }
+
+    void add(const DamageRegion& other) {
+      for (const Damage& rect : other.rects_)
+        add(rect);
+    }
+
+    void clip(int width, int height) {
+      for (Damage& rect : rects_)
+        rect = clipDamage(rect, width, height);
+      rects_.erase(std::remove_if(rects_.begin(), rects_.end(),
+                                  [](const Damage& rect) { return rect.empty(); }),
+                   rects_.end());
+    }
+
+    bool empty() const { return rects_.empty(); }
+    const std::vector<Damage>& rects() const { return rects_; }
+
+  private:
+    static bool overlaps(const Damage& a, const Damage& b) {
+      return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+    }
+
+    static int64_t area(const Damage& rect) { return int64_t(rect.width) * rect.height; }
+
+    void mergeClosest() {
+      size_t best_a = 0;
+      size_t best_b = 1;
+      int64_t best_growth = INT64_MAX;
+      for (size_t a = 0; a < rects_.size(); ++a) {
+        for (size_t b = a + 1; b < rects_.size(); ++b) {
+          int64_t growth = area(combineDamage(rects_[a], rects_[b])) - area(rects_[a]) - area(rects_[b]);
+          if (growth < best_growth) {
+            best_growth = growth;
+            best_a = a;
+            best_b = b;
+          }
+        }
+      }
+
+      Damage combined = combineDamage(rects_[best_a], rects_[best_b]);
+      rects_.erase(rects_.begin() + best_b);
+      rects_.erase(rects_.begin() + best_a);
+      add(combined);
+    }
+
+    std::vector<Damage> rects_;
+  };
+
   class DamageHistory {
   public:
     static constexpr int kMaxAge = 4;
 
-    static Damage frameDamage(const FrameData& frame, uint16_t frame_buffer, int width, int height) {
+    static DamageRegion frameDamage(const FrameData& frame, uint16_t frame_buffer, int width, int height) {
+      DamageRegion region;
+      bool found = false;
       for (const Damage& damage : frame.damage) {
-        if (damage.frame_buffer == frame_buffer)
-          return clipDamage(damage, width, height);
+        if (damage.frame_buffer == frame_buffer) {
+          found = true;
+          region.add(damage);
+        }
       }
-      return { frame_buffer, 0, 0, width, height };
+      if (!found)
+        return DamageRegion::full(frame_buffer, width, height);
+
+      region.clip(width, height);
+      return region;
     }
 
     void reset() { size_ = 0; }
 
-    Damage bufferDamage(const Damage& damage, int age, int width, int height) const {
+    DamageRegion bufferDamage(const DamageRegion& damage, uint16_t frame_buffer, int age, int width,
+                              int height) const {
       if (age < 1 || age - 1 > size_)
-        return { damage.frame_buffer, 0, 0, width, height };
+        return DamageRegion::full(frame_buffer, width, height);
 
-      Damage result = damage;
+      DamageRegion result = damage;
       for (int i = 0; i < age - 1; ++i)
-        result = combineDamage(result, history_[i]);
-      return clipDamage(result, width, height);
+        result.add(history_[i]);
+      result.clip(width, height);
+      return result;
     }
 
-    void push(const Damage& damage) {
+    void push(const DamageRegion& damage) {
       for (int i = kMaxAge - 1; i > 0; --i)
         history_[i] = history_[i - 1];
       history_[0] = damage;
@@ -243,7 +333,7 @@ namespace visage::gpu {
     }
 
   private:
-    Damage history_[kMaxAge];
+    DamageRegion history_[kMaxAge];
     int size_ = 0;
   };
 

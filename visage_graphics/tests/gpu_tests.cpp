@@ -155,4 +155,45 @@ TEST_CASE("Vulkan textures round trip uploads, partial updates and blits", "[gra
   gpu::shutdown();
 }
 
+TEST_CASE("Swap chain damage keeps separate areas apart and merges overlaps", "[graphics]") {
+  gpu::DamageRegion region;
+  region.add({ 0, 0, 0, 10, 10 });
+  region.add({ 0, 90, 90, 10, 10 });
+  REQUIRE(region.rects().size() == 2);
+
+  region.add({ 0, 5, 5, 10, 10 });
+  REQUIRE(region.rects().size() == 2);
+  REQUIRE(region.rects()[1].x == 0);
+  REQUIRE(region.rects()[1].width == 15);
+
+  for (int i = 0; i < 20; ++i)
+    region.add({ 0, i * 20, 50, 5, 5 });
+  REQUIRE(region.rects().size() <= gpu::DamageRegion::kMaxRects);
+
+  int64_t covered = 0;
+  for (const gpu::Damage& rect : region.rects())
+    covered += int64_t(rect.width) * rect.height;
+  REQUIRE(covered < 100 * 100);
+}
+
+TEST_CASE("Swap chain buffers redraw the damage of every frame they missed", "[graphics]") {
+  gpu::DamageRegion left;
+  left.add({ 0, 0, 0, 10, 100 });
+  gpu::DamageRegion right;
+  right.add({ 0, 90, 0, 10, 100 });
+
+  gpu::DamageHistory history;
+  REQUIRE(history.bufferDamage(left, 0, 2, 100, 100).rects()[0].width == 100);
+
+  history.push(left);
+  history.push(right);
+  gpu::DamageRegion current;
+  current.add({ 0, 50, 50, 5, 5 });
+  REQUIRE(history.bufferDamage(current, 0, 1, 100, 100).rects().size() == 1);
+  REQUIRE(history.bufferDamage(current, 0, 2, 100, 100).rects().size() == 2);
+  REQUIRE(history.bufferDamage(current, 0, 3, 100, 100).rects().size() == 3);
+  REQUIRE(history.bufferDamage(current, 0, 4, 100, 100).rects()[0].width == 100);
+  REQUIRE(history.bufferDamage(current, 0, 0, 100, 100).rects()[0].width == 100);
+}
+
 #endif
