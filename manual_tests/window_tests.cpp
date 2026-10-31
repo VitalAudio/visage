@@ -310,6 +310,7 @@ namespace manual {
         addChild(&strip_);
 
         flex_strip_.setFlexLayout(true);
+        flex_strip_.layout().setFlexRows(false);
         flex_strip_.onDraw() = [this](visage::Canvas& canvas) {
           canvas.setColor(0xff00ff00);
           canvas.fill(0, 0, flex_strip_.width(), flex_strip_.height());
