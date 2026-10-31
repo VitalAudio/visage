@@ -24,8 +24,10 @@
 #include "visage_ui/popup_menu.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <cmath>
 #include <functional>
 #include <thread>
+#include <vector>
 
 using namespace visage;
 
@@ -696,4 +698,34 @@ TEST_CASE("Host sizes set before a window exists don't report the contents as re
   CHECK(app.nativeWidth() == 120);
   CHECK(app.nativeHeight() == 90);
   CHECK(reports == 0);
+}
+
+TEST_CASE("Mouse drags report their movement in logical pixels without rounding", "[integration]") {
+  for (bool relative_mode : { false, true }) {
+    for (float scale : { 1.25f, 2.0f, 3.0f }) {
+      INFO("relative mode " << relative_mode << " scale " << scale);
+      ApplicationEditor app;
+      Frame frame;
+      std::vector<Point> drags;
+      frame.onMouseDrag() = [&drags](const MouseEvent& e) { drags.push_back(e.relativePosition()); };
+      app.addChild(frame);
+      TestWindow window(120, 120);
+      window.setDpiScale(scale);
+      app.addToWindow(&window);
+      frame.setBounds(0, 0, app.width(), app.height());
+
+      window.handleMouseMove(10, 10, 0, 0);
+      window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+      window.setMouseRelativeMode(relative_mode);
+      for (int i = 1; i <= 6; ++i)
+        window.handleMouseMove(relative_mode ? 11 : 10 + i, 10, kMouseButtonLeft, 0);
+
+      REQUIRE(drags.size() == 6);
+      for (const Point& drag : drags) {
+        REQUIRE(std::abs(drag.x - 1.0f / scale) < 0.0001f);
+        REQUIRE(drag.y == 0.0f);
+      }
+      app.removeFromWindow();
+    }
+  }
 }

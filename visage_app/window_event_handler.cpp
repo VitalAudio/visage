@@ -255,10 +255,8 @@ namespace visage {
     MouseEvent mouse_event;
     IPoint original_window_position = { x, y };
     mouse_event.window_position = convertToLogical(original_window_position);
-    mouse_event.relative_position = mouse_event.window_position -
-                                    convertToLogical(window_->lastWindowMousePosition());
-    mouse_event.relative_position.x = std::round(mouse_event.relative_position.x);
-    mouse_event.relative_position.y = std::round(mouse_event.relative_position.y);
+    mouse_event.relative_position = convertToLogical(original_window_position -
+                                                     window_->lastWindowMousePosition());
     if (!window_->mouseRelativeMode())
       last_mouse_position_ = mouse_event.window_position;
 
