@@ -155,7 +155,7 @@ namespace visage {
     void destroyRole();
     void setMinimumSize();
     void applyLogicalSize();
-    void applySize(int width, int height, bool constrained);
+    void applySize(int width, int height, bool constrained, bool was_constrained);
     void changeScale(float scale);
     void lockPointer();
     void updateCursorForPosition(int x, int y);
@@ -197,6 +197,8 @@ namespace visage {
     std::string title_ = VISAGE_APPLICATION_NAME;
     int logical_width_ = 0;
     int logical_height_ = 0;
+    int floating_width_ = 0;
+    int floating_height_ = 0;
     int pending_width_ = 0;
     int pending_height_ = 0;
     bool pending_maximized_ = false;

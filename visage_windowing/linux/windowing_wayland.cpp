@@ -1512,6 +1512,8 @@ namespace visage {
     setVisible(false);
     logical_width_ = std::max(1, static_cast<int>(std::round(width / scale)));
     logical_height_ = std::max(1, static_cast<int>(std::round(height / scale)));
+    floating_width_ = logical_width_;
+    floating_height_ = logical_height_;
 
     surface_ = wl_compositor_create_surface(wayland_->compositor());
     wl_surface_add_listener(surface_, &kSurfaceListener, this);
@@ -1970,18 +1972,28 @@ namespace visage {
       xdg_toplevel_set_min_size(xdg_toplevel_, logical_min_width, logical_min_height);
   }
 
-  void WindowWayland::applySize(int width, int height, bool constrained) {
-    if (width > 0 && height > 0) {
+  void WindowWayland::applySize(int width, int height, bool constrained, bool was_constrained) {
+    if (width > 0 && height > 0)
       height = std::max(1, height - titleBarHeight());
-      int native_width = std::round(width * dpiScale());
-      int native_height = std::round(height * dpiScale());
-      if (!constrained)
-        handleAdjustResize(&native_width, &native_height, width != logical_width_, height != logical_height_);
-      handleResized(native_width, native_height);
+    else if (!constrained && was_constrained) {
+      width = floating_width_;
+      height = floating_height_;
     }
-    else
-      handleResized(clientWidth(), clientHeight());
+    else {
+      width = logical_width_;
+      height = logical_height_;
+    }
+
+    int native_width = std::round(width * dpiScale());
+    int native_height = std::round(height * dpiScale());
+    if (!constrained)
+      handleAdjustResize(&native_width, &native_height, width != logical_width_, height != logical_height_);
+    handleResized(native_width, native_height);
     applyLogicalSize();
+    if (!constrained) {
+      floating_width_ = logical_width_;
+      floating_height_ = logical_height_;
+    }
   }
 
   void WindowWayland::toplevelConfigure(int width, int height, bool maximized, bool constrained,
@@ -2000,8 +2012,9 @@ namespace visage {
     if (active_ != pending_activated_ || constrained_ != pending_constrained_)
       frame_dirty_ = true;
     active_ = pending_activated_;
+    bool was_constrained = constrained_;
     constrained_ = pending_constrained_;
-    applySize(pending_width_, pending_height_, pending_constrained_);
+    applySize(pending_width_, pending_height_, constrained_, was_constrained);
 
     configured_ = true;
     setVisible(!pending_suspended_);
