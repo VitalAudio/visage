@@ -21,6 +21,11 @@
 
 #include "test_helpers.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <utility>
+
 using namespace visage::dimension;
 
 namespace manual {
@@ -273,8 +278,15 @@ namespace manual {
     class DpiPage : public visage::Frame {
     public:
       static constexpr int kStripFrames = 37;
+      static constexpr int kMinEntrySize = 100;
+      static constexpr int kMaxEntrySize = 4096;
+      static constexpr int kSweepIntervalMs = 16;
+      static constexpr int kSweepMs = 3000;
+      static constexpr int kSweepCycleMs = 1500;
 
-      DpiPage() : editor_box_("Text editor (font must keep its size after DPI changes)") {
+      DpiPage() :
+          editor_box_("Text editor (font must keep its size after DPI changes)"),
+          resize_box_("Resize the app window (logical pixels)") {
         for (int i = 0; i < kStripFrames; ++i) {
           auto frame = std::make_unique<visage::Frame>();
           unsigned int color = (i % 2) ? 0xffffffff : 0xffff3366;
@@ -341,32 +353,110 @@ namespace manual {
         addChild(&flex_label_);
         addChild(&hairline_label_);
         onDpiChange() += [this] { ++dpi_changes_; };
+
+        const std::pair<int, int> presets[] = { { 900, 600 }, { 1280, 800 }, { 1500, 940 }, { 1920, 1080 } };
+        for (const auto& preset : presets) {
+          int w = preset.first;
+          int h = preset.second;
+          preset_buttons_.push_back(makeButton(std::to_string(w) + " x " + std::to_string(h),
+                                               [this, w, h] { resizeWindow(w, h); }));
+          resize_box_.addChild(preset_buttons_.back().get());
+        }
+        for (visage::TextEditor* entry : { &width_entry_, &height_entry_ }) {
+          entry->setFont(font(14));
+          entry->setNumberEntry();
+          entry->setMaxCharacters(4);
+          entry->onEnterKey() = [this] { resizeToEntries(); };
+          resize_box_.addChild(entry);
+        }
+        width_entry_.setDefaultText("Width");
+        height_entry_.setDefaultText("Height");
+        resize_button_ = makeButton("Resize", [this] { resizeToEntries(); });
+        resize_box_.addChild(resize_button_.get());
+        sweep_button_ = makeButton("Sweep sizes", [this] { startSweep(); });
+        resize_box_.addChild(sweep_button_.get());
+        resize_box_.onResize() += [this] {
+          auto rows = evenRows(resize_box_.contentBounds(), 2, 6);
+          std::vector<visage::Frame*> frames;
+          for (auto& button : preset_buttons_)
+            frames.push_back(button.get());
+          layoutButtonRow(rows[0], frames, 6);
+          layoutButtonRow(rows[1],
+                          { &width_entry_, &height_entry_, resize_button_.get(), sweep_button_.get() }, 6);
+        };
+        addChild(&resize_box_);
+        sweep_timer_.onTimerCallback() = [this] { sweepStep(); };
       }
 
       void draw(visage::Canvas& canvas) override {
+        std::string window_size;
+        if (visage::ApplicationWindow* window = findParent<visage::ApplicationWindow>()) {
+          window_size = "\nWindow logical: " + visage::String(window->width(), 1).toUtf8() + " x " +
+                        visage::String(window->height(), 1).toUtf8() +
+                        "   native: " + std::to_string(window->nativeWidth()) + " x " +
+                        std::to_string(window->nativeHeight());
+        }
         readout_.setText("DPI scale: " + visage::String(dpiScale(), 3).toUtf8() +
                          "   DPI changes seen: " + std::to_string(dpi_changes_) +
                          "\nPage logical: " + visage::String(width(), 1).toUtf8() + " x " +
                          visage::String(height(), 1).toUtf8() +
                          "   native: " + std::to_string(nativeWidth()) + " x " +
                          std::to_string(nativeHeight()) + "\nStrip frame width: " +
-                         visage::String(strip_.width() / kStripFrames, 3).toUtf8() + " logical px");
+                         visage::String(strip_.width() / kStripFrames, 3).toUtf8() + " logical px" +
+                         window_size);
         redraw();
       }
 
       void resized() override {
         visage::Bounds bounds = localBounds().reduced(12);
-        readout_.setBounds(takeTop(bounds, 64));
+        readout_.setBounds(takeTop(bounds, 72));
+        resize_box_.setBounds(takeTop(bounds, 100));
         strip_label_.setBounds(takeTop(bounds, 20, 4));
         strip_.setBounds(takeTop(bounds, 60));
         flex_label_.setBounds(takeTop(bounds, 20, 4));
         flex_strip_.setBounds(takeTop(bounds, 60));
         hairline_label_.setBounds(takeTop(bounds, 20, 4));
-        hairlines_.setBounds(takeTop(bounds, 120));
+        hairlines_.setBounds(takeTop(bounds, std::clamp(bounds.height() - 88.0f, 40.0f, 120.0f)));
         editor_box_.setBounds(takeTop(bounds, 80));
       }
 
     private:
+      void resizeWindow(float w, float h) {
+        if (visage::ApplicationWindow* window = findParent<visage::ApplicationWindow>())
+          window->setWindowDimensions(visage::Dimension::logicalPixels(w),
+                                      visage::Dimension::logicalPixels(h));
+      }
+
+      void resizeToEntries() {
+        int w = std::atoi(width_entry_.text().toUtf8().c_str());
+        int h = std::atoi(height_entry_.text().toUtf8().c_str());
+        if (w <= 0 || h <= 0)
+          return;
+        resizeWindow(std::clamp(w, kMinEntrySize, kMaxEntrySize),
+                     std::clamp(h, kMinEntrySize, kMaxEntrySize));
+      }
+
+      void startSweep() {
+        visage::ApplicationWindow* window = findParent<visage::ApplicationWindow>();
+        if (window == nullptr || sweep_timer_.isRunning())
+          return;
+        sweep_start_width_ = window->width();
+        sweep_start_height_ = window->height();
+        sweep_start_ms_ = visage::time::milliseconds();
+        sweep_timer_.startTimer(kSweepIntervalMs);
+      }
+
+      void sweepStep() {
+        long long elapsed = visage::time::milliseconds() - sweep_start_ms_;
+        if (elapsed >= kSweepMs) {
+          sweep_timer_.stopTimer();
+          resizeWindow(sweep_start_width_, sweep_start_height_);
+          return;
+        }
+        float t = 0.5f - 0.5f * std::cos(2.0f * visage::kPi * elapsed / kSweepCycleMs);
+        resizeWindow(1500.0f - 600.0f * t, 940.0f - 340.0f * t);
+      }
+
       visage::Frame strip_;
       visage::Frame flex_strip_;
       visage::Frame hairlines_;
@@ -381,6 +471,16 @@ namespace manual {
       Label flex_label_ { "The same with flex layout", 13, kDimText };
       Label hairline_label_ { "1 native pixel lines every 4 pixels: even and sharp", 13, kDimText };
       int dpi_changes_ = 0;
+      Box resize_box_;
+      std::vector<std::unique_ptr<visage::UiButton>> preset_buttons_;
+      visage::TextEditor width_entry_;
+      visage::TextEditor height_entry_;
+      std::unique_ptr<visage::UiButton> resize_button_;
+      std::unique_ptr<visage::UiButton> sweep_button_;
+      visage::EventTimer sweep_timer_;
+      float sweep_start_width_ = 0.0f;
+      float sweep_start_height_ = 0.0f;
+      long long sweep_start_ms_ = 0;
     };
 
     class LifecyclePage : public visage::Frame {
@@ -608,6 +708,10 @@ namespace manual {
               "Resizing quickly for several seconds causes no black margins, stretching, flicker "
               "or crash.",
               "Maximizing and restoring the window draws correctly at both sizes.",
+              "Each size button and Width/Height with Enter or Resize resizes the window to that "
+              "logical size, shown in the window readout, and the top-left corner stays put.",
+              "\"Sweep sizes\" resizes the window between 1500 x 940 and 900 x 600 for 3 seconds, "
+              "then restores the starting size, with no flicker, black margins or hang.",
           },
           [] { return std::make_unique<DpiPage>(); } });
 
