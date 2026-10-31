@@ -187,6 +187,7 @@ namespace visage {
                              native_bounds_.height());
     if (group_)
       region_.setBounds(0, 0, native_bounds_.width(), native_bounds_.height());
+    redraw();
     computeLayout();
     if (layout_ == nullptr || !layout_->flex()) {
       for (Frame* child : children_)
@@ -199,7 +200,6 @@ namespace visage {
     on_resize_.callback();
     if (parent_)
       parent_->on_child_bounds_changed_.callback(this);
-    redraw();
   }
 
   void Frame::setNativeBounds(IBounds native_bounds) {

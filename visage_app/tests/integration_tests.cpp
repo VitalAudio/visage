@@ -154,8 +154,7 @@ TEST_CASE("Windowless editors draw at their DPI scale", "[integration]") {
   }
 }
 
-TEST_CASE("Parents draw before the children they update when added at a new DPI scale",
-          "[integration]") {
+TEST_CASE("Parents draw before the children they update", "[integration]") {
   ApplicationEditor editor;
   editor.setDpiScale(2.0f);
   editor.setWindowless(100, 100);
@@ -172,10 +171,21 @@ TEST_CASE("Parents draw before the children they update when added at a new DPI 
   parent.onResize() += [&] { child.setBounds(parent.localBounds()); };
   parent.addChild(child);
 
-  editor.addChild(parent);
-  parent.setBounds(editor.localBounds());
+  SECTION("Added at a new DPI scale") {
+    editor.addChild(parent);
+    parent.setBounds(editor.localBounds());
+  }
+
+  SECTION("Resized") {
+    editor.setDpiScale(1.0f);
+    editor.addChild(parent);
+    parent.setBounds(0, 0, 50, 50);
+    editor.drawWindow();
+    editor.drawWindow();
+    parent.setBounds(editor.localBounds());
+  }
+
   editor.drawWindow();
-  REQUIRE(generation == 1);
   REQUIRE(drawn_generation == generation);
 }
 

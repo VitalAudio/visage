@@ -27,8 +27,6 @@
 #include "visage_windowing/windowing.h"
 #include "window_event_handler.h"
 
-#include <algorithm>
-
 namespace visage {
   TopLevelFrame::TopLevelFrame(ApplicationEditor* editor) : editor_(editor) { }
 
@@ -201,20 +199,11 @@ namespace visage {
       window_->setFixedAspectRatio(fixed);
   }
 
-  static int frameDepth(const Frame* frame) {
-    int depth = 0;
-    for (const Frame* parent = frame->parent(); parent; parent = parent->parent())
-      ++depth;
-    return depth;
-  }
-
   void ApplicationEditor::drawStaleChildren() {
     drawing_children_.clear();
     drawing_set_.clear();
     std::swap(stale_children_, drawing_children_);
     std::swap(stale_set_, drawing_set_);
-    std::stable_sort(drawing_children_.begin(), drawing_children_.end(),
-                     [](const Frame* a, const Frame* b) { return frameDepth(a) < frameDepth(b); });
     for (Frame* child : drawing_children_) {
       if (child->isDrawing())
         child->drawToRegion(*canvas_);

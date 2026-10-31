@@ -338,6 +338,8 @@ namespace visage {
     void setDpiScale(float dpi_scale) {
       bool changed = dpi_scale_ != dpi_scale;
       dpi_scale_ = dpi_scale;
+      if (changed)
+        redraw();
 
       for (Frame* child : children_)
         child->setDpiScale(dpi_scale);
@@ -346,7 +348,6 @@ namespace visage {
         on_dpi_change_.callback();
         if (parent_)
           setBounds(bounds_);
-        redraw();
       }
     }
 
