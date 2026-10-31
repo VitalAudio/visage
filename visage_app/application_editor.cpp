@@ -114,26 +114,35 @@ namespace visage {
     canvas.setColor(withAlpha(foreground, alpha * opacity));
     canvas.circle(bounds.x(), bounds.y(), bounds.width());
 
-    float thickness = 1.5f * scale;
-    float x = bounds.x() + 8.0f * scale;
-    float y = bounds.y() + 8.0f * scale;
-    float icon = 8.0f * scale;
+    float unit = scale;
+    float x = bounds.x() + (bounds.width() - 16.0f * unit) * 0.5f;
+    float y = bounds.y() + (bounds.height() - 16.0f * unit) * 0.5f;
+    auto frame = [&](float left, float top, float right, float bottom) {
+      canvas.rectangle(x + left * unit, y + top * unit, (right - left) * unit, unit);
+      canvas.rectangle(x + left * unit, y + (bottom - 1.0f) * unit, (right - left) * unit, unit);
+      canvas.rectangle(x + left * unit, y + (top + 1.0f) * unit, unit, (bottom - top - 2.0f) * unit);
+      canvas.rectangle(x + (right - 1.0f) * unit, y + (top + 1.0f) * unit, unit,
+                       (bottom - top - 2.0f) * unit);
+    };
+
     canvas.setColor(withAlpha(foreground, opacity));
     if (button == Window::FrameButton::Close) {
-      float inset = 0.5f * scale;
-      canvas.segment(x + inset, y + inset, x + icon - inset, y + icon - inset, thickness, true);
-      canvas.segment(x + inset, y + icon - inset, x + icon - inset, y + inset, thickness, true);
+      float thickness = 1.25f * unit;
+      canvas.segment(x + 4.35f * unit, y + 4.35f * unit, x + 11.65f * unit, y + 11.65f * unit,
+                     thickness, false);
+      canvas.segment(x + 4.35f * unit, y + 11.65f * unit, x + 11.65f * unit, y + 4.35f * unit,
+                     thickness, false);
     }
     else if (button == Window::FrameButton::Minimize)
-      canvas.roundedRectangle(x, y + icon - 2.0f * scale, icon, thickness, 0.5f * thickness);
+      canvas.rectangle(x + 4.0f * unit, y + 10.0f * unit, 8.0f * unit, unit);
     else if (decoration.maximized) {
-      float offset = 2.0f * scale;
-      canvas.roundedRectangleBorder(x, y + offset, icon - offset, icon - offset, scale, thickness);
-      canvas.roundedRectangleBorder(x + offset, y, icon - offset, icon - offset, scale, thickness);
+      frame(4.0f, 6.0f, 10.0f, 12.0f);
+      canvas.setColor(withAlpha(foreground, 0.5f * opacity));
+      canvas.rectangle(x + 6.0f * unit, y + 4.0f * unit, 6.0f * unit, unit);
+      canvas.rectangle(x + 11.0f * unit, y + 5.0f * unit, unit, 5.0f * unit);
     }
     else
-      canvas.roundedRectangleBorder(x + 0.5f * scale, y + 0.5f * scale, icon - scale, icon - scale,
-                                    1.5f * scale, thickness);
+      frame(4.0f, 4.0f, 12.0f, 12.0f);
   }
 
   static void drawWindowShadow(Canvas& canvas, IBounds window, float radius, float scale,
