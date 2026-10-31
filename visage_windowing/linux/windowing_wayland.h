@@ -60,6 +60,7 @@ namespace visage {
     static constexpr int kTitleButtonTop = 7;
     static constexpr int kFrameResizeBorder = 10;
     static constexpr int kFrameCornerRadius = 15;
+    static constexpr int kTitleDragThreshold = 8;
 
     enum class FrameArea {
       Outside,
@@ -179,6 +180,8 @@ namespace visage {
     bool content_grab_ = false;
     IPoint frame_pointer_;
     long long last_title_click_ms_ = 0;
+    bool title_pressed_ = false;
+    IPoint title_press_position_;
     bool parent_buffer_attached_ = false;
     bool parent_commit_pending_ = false;
     wp_fractional_scale_v1* fractional_scale_ = nullptr;

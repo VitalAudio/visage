@@ -679,6 +679,7 @@ namespace visage {
 
     void pointerEnter(uint32_t serial, wl_surface* surface, wl_fixed_t x, wl_fixed_t y) {
       enter_serial_ = serial;
+      button_state_ = 0;
       pointer_focus_ = findWindow(surface);
       if (pointer_focus_ == nullptr)
         return;
@@ -693,6 +694,7 @@ namespace visage {
       WindowWayland* window = pointer_focus_;
       pointer_focus_ = nullptr;
       frame_cursor_active_ = false;
+      button_state_ = 0;
       if (window && window->surface() == surface)
         window->pointerLeave();
     }
@@ -1798,6 +1800,8 @@ namespace visage {
       return;
 
     if (!pressed) {
+      if (button == kMouseButtonLeft)
+        title_pressed_ = false;
       if (button == kMouseButtonLeft && pressed_button_ != FrameButton::NoButton) {
         FrameButton released = pressed_button_;
         pressed_button_ = FrameButton::NoButton;
@@ -1844,7 +1848,8 @@ namespace visage {
       }
       else {
         last_title_click_ms_ = now;
-        wayland_->startMove(xdg_toplevel_);
+        title_pressed_ = true;
+        title_press_position_ = frame_pointer_;
       }
     }
   }
@@ -2179,10 +2184,21 @@ namespace visage {
       handleMouseLeave(wayland_->buttonState(), wayland_->modifierState());
     pointer_in_content_ = false;
     content_grab_ = false;
+    title_pressed_ = false;
   }
 
   void WindowWayland::pointerMotion(double x, double y) {
     frame_pointer_ = { static_cast<int>(x), static_cast<int>(y) };
+    if (title_pressed_) {
+      float threshold = kTitleDragThreshold * dpiScale();
+      if (std::abs(frame_pointer_.x - title_press_position_.x) >= threshold ||
+          std::abs(frame_pointer_.y - title_press_position_.y) >= threshold) {
+        title_pressed_ = false;
+        wayland_->startMove(xdg_toplevel_);
+      }
+      return;
+    }
+
     int operation = 0;
     bool frame_grab = pressed_button_ != FrameButton::NoButton;
     bool in_content = !frame_grab &&
@@ -2287,7 +2303,8 @@ namespace visage {
 
   void WindowWayland::pointerButton(MouseButton button, bool pressed) {
     last_active_window_ = this;
-    if (pressed_button_ != FrameButton::NoButton || (!pointer_in_content_ && !content_grab_)) {
+    if (pressed_button_ != FrameButton::NoButton || title_pressed_ ||
+        (!pointer_in_content_ && !content_grab_)) {
       framePointerButton(button, pressed);
       return;
     }
