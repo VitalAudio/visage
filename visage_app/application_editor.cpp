@@ -128,10 +128,13 @@ namespace visage {
     canvas.setColor(withAlpha(foreground, opacity));
     if (button == Window::FrameButton::Close) {
       float thickness = 1.25f * unit;
-      canvas.segment(x + 4.35f * unit, y + 4.35f * unit, x + 11.65f * unit, y + 11.65f * unit,
-                     thickness, false);
-      canvas.segment(x + 4.35f * unit, y + 11.65f * unit, x + 11.65f * unit, y + 4.35f * unit,
-                     thickness, false);
+      float center_x = x + 8.0f * unit;
+      float center_y = y + 8.0f * unit;
+      float arm = 3.65f * unit;
+      float gap = 0.3536f * thickness;
+      canvas.segment(center_x - arm, center_y - arm, center_x + arm, center_y + arm, thickness, false);
+      canvas.segment(center_x - arm, center_y + arm, center_x - gap, center_y + gap, thickness, false);
+      canvas.segment(center_x + gap, center_y - gap, center_x + arm, center_y - arm, thickness, false);
     }
     else if (button == Window::FrameButton::Minimize)
       canvas.rectangle(x + 4.0f * unit, y + 10.0f * unit, 8.0f * unit, unit);
