@@ -29,7 +29,7 @@ elseif (UNIX)
     find_package(PkgConfig)
     if (PKG_CONFIG_FOUND)
       pkg_check_modules(VISAGE_WAYLAND_DEPS IMPORTED_TARGET wayland-client>=1.22 wayland-cursor xkbcommon)
-      pkg_check_modules(VISAGE_WAYLAND_PROTOCOLS wayland-protocols>=1.35)
+      pkg_check_modules(VISAGE_WAYLAND_PROTOCOLS wayland-protocols>=1.32)
       pkg_get_variable(VISAGE_WAYLAND_PROTOCOLS_DIR wayland-protocols pkgdatadir)
       pkg_get_variable(VISAGE_WAYLAND_SCANNER wayland-scanner wayland_scanner)
     endif ()
@@ -46,13 +46,17 @@ elseif (UNIX)
     set(VISAGE_WAYLAND_PROTOCOL_FILES
       stable/xdg-shell/xdg-shell.xml
       stable/viewporter/viewporter.xml
-      stable/tablet/tablet-v2.xml
       staging/fractional-scale/fractional-scale-v1.xml
       staging/cursor-shape/cursor-shape-v1.xml
       unstable/xdg-decoration/xdg-decoration-unstable-v1.xml
       unstable/pointer-constraints/pointer-constraints-unstable-v1.xml
       unstable/relative-pointer/relative-pointer-unstable-v1.xml
     )
+    if (EXISTS ${VISAGE_WAYLAND_PROTOCOLS_DIR}/stable/tablet/tablet-v2.xml)
+      list(APPEND VISAGE_WAYLAND_PROTOCOL_FILES stable/tablet/tablet-v2.xml)
+    else ()
+      list(APPEND VISAGE_WAYLAND_PROTOCOL_FILES unstable/tablet/tablet-unstable-v2.xml)
+    endif ()
     if (EXISTS ${VISAGE_WAYLAND_PROTOCOLS_DIR}/staging/pointer-warp/pointer-warp-v1.xml)
       list(APPEND VISAGE_WAYLAND_PROTOCOL_FILES staging/pointer-warp/pointer-warp-v1.xml)
       set(VISAGE_WAYLAND_POINTER_WARP ON)

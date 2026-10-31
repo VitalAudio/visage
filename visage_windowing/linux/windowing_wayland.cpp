@@ -34,6 +34,7 @@
 #include <cmath>
 #include <csignal>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <cursor-shape-v1-client-protocol.h>
@@ -68,46 +69,99 @@ namespace visage {
   static constexpr int kMaxPollMs = 100;
   static constexpr int kDefaultCursorSize = 24;
   static constexpr double kScrollPixelsPerNotch = 10.0;
+  static constexpr float kPointsToPixels = 96.0f / 72.0f;
   static constexpr unsigned char kFirstPrintable = 0x20;
   static constexpr unsigned char kDelete = 0x7f;
   static constexpr const char* kUriListType = "text/uri-list";
   static constexpr const char* kTextTypes[] = { "text/plain;charset=utf-8", "UTF8_STRING",
                                                 "text/plain", "TEXT", "STRING" };
 
-  static std::string commandOutput(const char* command) {
+  static std::string commandOutput(const std::string& command) {
     std::string result;
-    if (FILE* pipe = popen(command, "r")) {
+    if (FILE* pipe = popen(command.c_str(), "r")) {
       char buffer[256];
       while (fgets(buffer, sizeof(buffer), pipe))
         result += buffer;
       pclose(pipe);
     }
+    while (!result.empty() && (result.back() == '\n' || result.back() == '\''))
+      result.pop_back();
+    if (!result.empty() && result.front() == '\'')
+      result.erase(0, 1);
     return result;
   }
 
+  static std::string desktopSetting(const char* schema, const char* key) {
+    return commandOutput(std::string("gsettings get ") + schema + " " + key + " 2>/dev/null");
+  }
+
+  static std::string boldFontPath(const std::string& family) {
+    std::string match = commandOutput("fc-match -f '%{file}|%{index}' '" + family + ":bold' 2>/dev/null");
+    size_t separator = match.find('|');
+    if (separator != std::string::npos && match.substr(separator + 1) == "0")
+      return match.substr(0, separator);
+    return commandOutput("fc-match -f '%{file}' 'sans-serif:bold:variable=false' 2>/dev/null");
+  }
+
+  struct FramePalette {
+    unsigned int header = 0;
+    unsigned int header_backdrop = 0;
+    unsigned int window = 0;
+    unsigned int foreground = 0;
+    unsigned int shade = 0;
+  };
+
   struct DesktopSettings {
-    bool dark = false;
+    static constexpr float kDefaultFontPoints = 11.0f;
+
+    FramePalette palette;
     std::vector<Window::FrameButton> buttons = { Window::FrameButton::Close };
+    std::string title_font;
+    float title_font_points = kDefaultFontPoints;
   };
 
   static const DesktopSettings& desktopSettings() {
+    static constexpr FramePalette kAdwaitaLight = { 0xffffffff, 0xfffafafb, 0xfffafafb, 0xcc000006,
+                                                    0x1f000006 };
+    static constexpr FramePalette kAdwaitaDark = { 0xff2e2e32, 0xff222226, 0xff222226, 0xffffffff,
+                                                   0x5c000006 };
+    static constexpr FramePalette kYaruLight = { 0xfffafafa, 0xfffafafa, 0xfffafafa, 0xff3d3d3d, 0x1f000006 };
+    static constexpr FramePalette kYaruDark = { 0xff393939, 0xff2c2c2c, 0xff2c2c2c, 0xfff7f7f7, 0x5c000006 };
+
     static const DesktopSettings settings = [] {
       DesktopSettings result;
-      std::string scheme =
-          commandOutput("gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null");
-      result.dark = scheme.find("prefer-dark") != std::string::npos;
+      bool dark = desktopSetting("org.gnome.desktop.interface", "color-scheme") == "prefer-dark";
+      bool yaru = desktopSetting("org.gnome.desktop.interface", "gtk-theme").rfind("Yaru", 0) == 0;
+      if (yaru)
+        result.palette = dark ? kYaruDark : kYaruLight;
+      else
+        result.palette = dark ? kAdwaitaDark : kAdwaitaLight;
 
-      std::string layout =
-          commandOutput("gsettings get org.gnome.desktop.wm.preferences button-layout 2>/dev/null");
+      std::string font = desktopSetting("org.gnome.desktop.interface", "font-name");
+      size_t size_start = font.find_last_of(' ');
+      if (size_start != std::string::npos) {
+        float points = std::strtof(font.c_str() + size_start + 1, nullptr);
+        if (points > 0.0f) {
+          result.title_font_points = points;
+          font = font.substr(0, size_start);
+        }
+      }
+      result.title_font = boldFontPath(font.empty() ? "sans-serif" : font);
+      float text_scale =
+          std::strtof(desktopSetting("org.gnome.desktop.interface", "text-scaling-factor").c_str(), nullptr);
+      if (text_scale > 0.0f)
+        result.title_font_points *= text_scale;
+
+      std::string layout = desktopSetting("org.gnome.desktop.wm.preferences", "button-layout");
       if (layout.empty())
         return result;
 
       result.buttons.clear();
-      std::stringstream stream(layout.substr(layout.find(':') == std::string::npos ? 0 : layout.find(':') + 1));
+      std::replace(layout.begin(), layout.end(), ':', ',');
+      std::stringstream stream(layout);
       std::string name;
       while (std::getline(stream, name, ',')) {
-        name.erase(std::remove_if(name.begin(), name.end(),
-                                  [](char c) { return c == '\'' || std::isspace(c); }),
+        name.erase(std::remove_if(name.begin(), name.end(), [](char c) { return std::isspace(c); }),
                    name.end());
         if (name == "minimize")
           result.buttons.push_back(Window::FrameButton::Minimize);
@@ -129,6 +183,7 @@ namespace visage {
     int height = 0;
     int refresh_mhz = 0;
     int scale = 1;
+    int transform = 0;
   };
 
   static bool writeAll(int fd, const std::string& data) {
@@ -221,8 +276,6 @@ namespace visage {
     }
     xdg_wm_base* wmBase() const { return wm_base_; }
     zxdg_decoration_manager_v1* decorationManager() const { return decoration_manager_; }
-    wl_seat* seat() const { return seat_; }
-    uint32_t compositorVersion() const { return compositor_version_; }
 
     void addWindow(WindowWayland* window) { windows_.push_back(window); }
 
@@ -314,7 +367,7 @@ namespace visage {
 
       pollfd fd = { wl_display_get_fd(display_), POLLIN, 0 };
       int result = poll(&fd, 1, timeout_ms);
-      if (result > 0 && (fd.revents & POLLIN)) {
+      if (result > 0 && (fd.revents & (POLLIN | POLLERR | POLLHUP))) {
         if (wl_display_read_events(display_) < 0)
           return false;
       }
@@ -384,10 +437,18 @@ namespace visage {
     }
 
     int buttonState() const { return button_state_; }
-    uint32_t inputSerial() const { return input_serial_; }
 
     void setCursor(MouseCursor style) {
       cursor_style_ = style;
+      applyCursor();
+    }
+
+    void setFrameCursor(bool active, MouseCursor style) {
+      if (active == frame_cursor_active_ && (!active || style == frame_cursor_style_))
+        return;
+
+      frame_cursor_active_ = active;
+      frame_cursor_style_ = style;
       applyCursor();
     }
 
@@ -503,10 +564,8 @@ namespace visage {
         return wl_registry_bind(registry, name, wayland_interface, std::min(version, max_version));
       };
 
-      if (std::strcmp(interface, wl_compositor_interface.name) == 0) {
-        compositor_version_ = std::min(version, 6u);
+      if (std::strcmp(interface, wl_compositor_interface.name) == 0)
         compositor_ = static_cast<wl_compositor*>(bind(&wl_compositor_interface, 6));
-      }
       else if (std::strcmp(interface, wl_subcompositor_interface.name) == 0)
         subcompositor_ = static_cast<wl_subcompositor*>(bind(&wl_subcompositor_interface, 1));
       else if (std::strcmp(interface, wl_shm_interface.name) == 0)
@@ -633,6 +692,7 @@ namespace visage {
     void pointerLeave(wl_surface* surface) {
       WindowWayland* window = pointer_focus_;
       pointer_focus_ = nullptr;
+      frame_cursor_active_ = false;
       if (window && window->surface() == surface)
         window->pointerLeave();
     }
@@ -665,7 +725,7 @@ namespace visage {
         button_state_ &= ~mouse_button;
 
       if (pointer_focus_)
-        pointer_focus_->pointerButton(serial, mouse_button, pressed);
+        pointer_focus_->pointerButton(mouse_button, pressed);
     }
 
     void pointerAxis(uint32_t axis, wl_fixed_t value) {
@@ -878,14 +938,14 @@ namespace visage {
       if (pointer_ == nullptr || pointer_focus_ == nullptr)
         return;
 
-      if (cursor_style_ == MouseCursor::Invisible) {
+      MouseCursor style = frame_cursor_active_ ? frame_cursor_style_ : cursor_style_;
+      if (style == MouseCursor::Invisible) {
         wl_pointer_set_cursor(pointer_, enter_serial_, nullptr, 0, 0);
         return;
       }
 
       if (cursor_shape_device_) {
-        wp_cursor_shape_device_v1_set_shape(cursor_shape_device_, enter_serial_,
-                                            cursorShape(cursor_style_));
+        wp_cursor_shape_device_v1_set_shape(cursor_shape_device_, enter_serial_, cursorShape(style));
         return;
       }
 
@@ -903,7 +963,7 @@ namespace visage {
         return;
 
       wl_cursor* cursor = nullptr;
-      for (const char* name : cursorNames(cursor_style_)) {
+      for (const char* name : cursorNames(style)) {
         cursor = wl_cursor_theme_get_cursor(cursor_theme_, name);
         if (cursor)
           break;
@@ -1049,7 +1109,6 @@ namespace visage {
     wl_display* display_ = nullptr;
     wl_registry* registry_ = nullptr;
     wl_compositor* compositor_ = nullptr;
-    uint32_t compositor_version_ = 0;
     wl_subcompositor* subcompositor_ = nullptr;
     wl_shm* shm_ = nullptr;
     wl_buffer* fill_buffer_ = nullptr;
@@ -1088,6 +1147,8 @@ namespace visage {
     bool has_discrete_ = false;
 
     MouseCursor cursor_style_ = MouseCursor::Arrow;
+    MouseCursor frame_cursor_style_ = MouseCursor::Arrow;
+    bool frame_cursor_active_ = false;
     wl_cursor_theme* cursor_theme_ = nullptr;
     int cursor_theme_scale_ = 0;
     wl_surface* cursor_surface_ = nullptr;
@@ -1123,7 +1184,8 @@ namespace visage {
   };
 
   const wl_output_listener WaylandConnection::kOutputListener = {
-    [](void*, wl_output*, int32_t, int32_t, int32_t, int32_t, int32_t, const char*, const char*, int32_t) {},
+    [](void* data, wl_output*, int32_t, int32_t, int32_t, int32_t, int32_t, const char*,
+       const char*, int32_t transform) { static_cast<WaylandOutput*>(data)->transform = transform; },
     [](void* data, wl_output*, uint32_t flags, int32_t width, int32_t height, int32_t refresh) {
       if ((flags & WL_OUTPUT_MODE_CURRENT) == 0)
         return;
@@ -1394,8 +1456,9 @@ namespace visage {
     if (output == nullptr || output->width <= 0 || output->height <= 0)
       return { static_cast<int>(std::round(kDefaultWidth * scale)),
                static_cast<int>(std::round(kDefaultHeight * scale)) };
-    return { static_cast<int>(std::round(output->width * scale / output->scale)),
-             static_cast<int>(std::round(output->height * scale / output->scale)) };
+    if (output->transform & WL_OUTPUT_TRANSFORM_90)
+      return { output->height, output->width };
+    return { output->width, output->height };
   }
 
   IBounds computeWindowBoundsWayland(const Dimension& x, const Dimension& y, const Dimension& width,
@@ -1452,19 +1515,20 @@ namespace visage {
     wl_surface_add_listener(surface_, &kSurfaceListener, this);
     viewport_ = wp_viewporter_get_viewport(wayland_->viewporter(), surface_);
 
-    auto create_subsurface = [this](wl_surface*& child, wp_viewport*& viewport, wl_subsurface*& subsurface) {
+    auto create_child = [this](wl_surface*& child, wp_viewport*& viewport) {
       child = wl_compositor_create_surface(wayland_->compositor());
       viewport = wp_viewporter_get_viewport(wayland_->viewporter(), child);
-      subsurface = wl_subcompositor_get_subsurface(wayland_->subcompositor(), child, surface_);
-      wl_subsurface_set_desync(subsurface);
       wl_region* input_region = wl_compositor_create_region(wayland_->compositor());
       wl_surface_set_input_region(child, input_region);
       wl_region_destroy(input_region);
+      wl_surface_commit(child);
     };
 
     if (decoration_ == Decoration::Native && wayland_->decorationManager() == nullptr)
-      create_subsurface(frame_surface_, frame_viewport_, frame_subsurface_);
-    create_subsurface(content_surface_, content_viewport_, subsurface_);
+      create_child(frame_surface_, frame_viewport_);
+    create_child(content_surface_, content_viewport_);
+    subsurface_ = wl_subcompositor_get_subsurface(wayland_->subcompositor(), content_surface_, surface_);
+    wl_subsurface_set_desync(subsurface_);
 
     if (wayland_->fractionalScaleManager()) {
       fractional_scale_ = wp_fractional_scale_manager_v1_get_fractional_scale(wayland_->fractionalScaleManager(),
@@ -1473,7 +1537,6 @@ namespace visage {
       fractional_ = true;
     }
     applyLogicalSize();
-    wl_surface_commit(content_surface_);
 
     start_draw_microseconds_ = time::microseconds();
     next_tick_us_ = start_draw_microseconds_;
@@ -1567,6 +1630,30 @@ namespace visage {
     frame_surface_callback_ = nullptr;
   }
 
+  void WindowWayland::frameDecorationChanged() {
+    frame_dirty_ = true;
+    if (frame_surface_ == nullptr)
+      return;
+
+    bool frame = hasFrameDecorationCallback();
+    if (frame && frame_subsurface_ == nullptr) {
+      frame_subsurface_ = wl_subcompositor_get_subsurface(wayland_->subcompositor(), frame_surface_,
+                                                          surface_);
+      wl_subsurface_set_desync(frame_subsurface_);
+      wl_subsurface_place_below(frame_subsurface_, content_surface_);
+    }
+    else if (!frame && frame_subsurface_) {
+      wl_subsurface_destroy(frame_subsurface_);
+      frame_subsurface_ = nullptr;
+    }
+    else
+      return;
+
+    setMinimumSize();
+    applyLogicalSize();
+    requestParentCommit();
+  }
+
   void WindowWayland::drawFrameDecoration() {
     frame_dirty_ = false;
     if (!hasFrameDecorationCallback())
@@ -1598,11 +1685,19 @@ namespace visage {
     decoration.minimize_button = native_button(FrameButton::Minimize);
     decoration.maximize_button = native_button(FrameButton::Maximize);
     decoration.close_button = native_button(FrameButton::Close);
+    const DesktopSettings& settings = desktopSettings();
     decoration.dpi_scale = scale;
+    decoration.corner_radius = constrained_ ? 0.0f : kFrameCornerRadius * scale;
+    decoration.shadow = !constrained_;
     decoration.title = title_;
+    decoration.title_font = settings.title_font;
+    decoration.title_font_size = settings.title_font_points * kPointsToPixels * scale;
+    decoration.header_color = active_ ? settings.palette.header : settings.palette.header_backdrop;
+    decoration.window_color = settings.palette.window;
+    decoration.foreground_color = settings.palette.foreground;
+    decoration.shade_color = settings.palette.shade;
     decoration.active = active_;
-    decoration.maximized = constrained_;
-    decoration.dark = desktopSettings().dark;
+    decoration.maximized = maximized_;
     decoration.hovered_button = hovered_button_;
     decoration.pressed_button = pressed_button_;
     frameDecorationCallback(decoration);
@@ -1685,10 +1780,7 @@ namespace visage {
       hovered_button_ = button;
       frame_dirty_ = true;
     }
-    if (operation != hover_window_operation_ || !pointer_in_content_) {
-      hover_window_operation_ = operation;
-      setCursorStyleWayland(operation ? windowResizeCursor(operation) : MouseCursor::Arrow);
-    }
+    wayland_->setFrameCursor(true, operation ? windowResizeCursor(operation) : MouseCursor::Arrow);
   }
 
   static uint32_t resizeEdges(int operation) {
@@ -1702,6 +1794,9 @@ namespace visage {
     int operation = 0;
     FrameButton frame_button = FrameButton::NoButton;
     FrameArea area = frameArea(frame_pointer_, &operation, &frame_button);
+    if (pressed && pressed_button_ != FrameButton::NoButton)
+      return;
+
     if (!pressed) {
       if (button == kMouseButtonLeft && pressed_button_ != FrameButton::NoButton) {
         FrameButton released = pressed_button_;
@@ -1821,19 +1916,21 @@ namespace visage {
     int total_height = window_height + shadowTop() + shadowBottom();
     wp_viewport_set_destination(viewport_, total_width, total_height);
     wp_viewport_set_destination(content_viewport_, logical_width_, logical_height_);
-    if (!framed())
+    wl_subsurface_set_position(subsurface_, shadowLeft(), shadowTop() + titleBarHeight());
+    if (xdg_surface_)
+      xdg_surface_set_window_geometry(xdg_surface_, shadowLeft(), shadowTop(), window_width, window_height);
+    if (!framed()) {
+      wl_surface_set_input_region(surface_, nullptr);
       return;
+    }
 
     wp_viewport_set_destination(frame_viewport_, total_width, total_height);
-    wl_subsurface_set_position(subsurface_, shadowLeft(), shadowTop() + titleBarHeight());
     int border = constrained_ ? 0 : kFrameResizeBorder;
     wl_region* input_region = wl_compositor_create_region(wayland_->compositor());
     wl_region_add(input_region, shadowLeft() - border, shadowTop() - border,
                   window_width + 2 * border, window_height + 2 * border);
     wl_surface_set_input_region(surface_, input_region);
     wl_region_destroy(input_region);
-    if (xdg_surface_)
-      xdg_surface_set_window_geometry(xdg_surface_, shadowLeft(), shadowTop(), window_width, window_height);
     frame_dirty_ = true;
   }
 
@@ -2087,7 +2184,9 @@ namespace visage {
   void WindowWayland::pointerMotion(double x, double y) {
     frame_pointer_ = { static_cast<int>(x), static_cast<int>(y) };
     int operation = 0;
-    bool in_content = content_grab_ || frameArea(frame_pointer_, &operation) == FrameArea::Content;
+    bool frame_grab = pressed_button_ != FrameButton::NoButton;
+    bool in_content = !frame_grab &&
+                      (content_grab_ || frameArea(frame_pointer_, &operation) == FrameArea::Content);
     if (!in_content) {
       if (pointer_in_content_)
         handleMouseLeave(wayland_->buttonState(), wayland_->modifierState());
@@ -2105,10 +2204,7 @@ namespace visage {
         hovered_button_ = FrameButton::NoButton;
         frame_dirty_ = true;
       }
-      if (framed()) {
-        hover_window_operation_ = 0;
-        setCursorStyleWayland(MouseCursor::Arrow);
-      }
+      wayland_->setFrameCursor(false, MouseCursor::Arrow);
       handleMouseEnter(x, y);
     }
 
@@ -2189,9 +2285,9 @@ namespace visage {
     relative_pointer_ = nullptr;
   }
 
-  void WindowWayland::pointerButton(uint32_t serial, MouseButton button, bool pressed) {
+  void WindowWayland::pointerButton(MouseButton button, bool pressed) {
     last_active_window_ = this;
-    if (!pointer_in_content_ && !content_grab_) {
+    if (pressed_button_ != FrameButton::NoButton || (!pointer_in_content_ && !content_grab_)) {
       framePointerButton(button, pressed);
       return;
     }
@@ -2228,13 +2324,8 @@ namespace visage {
     HitTestResult hit_test = handleHitTest(x, y);
     int operation = resizeOperationForPosition(x, y);
     if (button == kMouseButtonLeft && xdg_toplevel_ && (operation || hit_test == HitTestResult::TitleBar)) {
-      if (operation) {
-        uint32_t edges = ((operation & kResizeTop) ? XDG_TOPLEVEL_RESIZE_EDGE_TOP : 0) |
-                         ((operation & kResizeBottom) ? XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM : 0) |
-                         ((operation & kResizeLeft) ? XDG_TOPLEVEL_RESIZE_EDGE_LEFT : 0) |
-                         ((operation & kResizeRight) ? XDG_TOPLEVEL_RESIZE_EDGE_RIGHT : 0);
-        wayland_->startResize(xdg_toplevel_, edges);
-      }
+      if (operation)
+        wayland_->startResize(xdg_toplevel_, resizeEdges(operation));
       else
         wayland_->startMove(xdg_toplevel_);
       handleMouseUp(button, x, y, wayland_->buttonState() & ~button, modifiers);

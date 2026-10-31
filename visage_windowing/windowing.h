@@ -60,10 +60,17 @@ namespace visage {
       IBounds maximize_button;
       IBounds close_button;
       float dpi_scale = 1.0f;
+      float corner_radius = 0.0f;
+      bool shadow = false;
       std::string title;
+      std::string title_font;
+      float title_font_size = 0.0f;
+      unsigned int header_color = 0;
+      unsigned int window_color = 0;
+      unsigned int foreground_color = 0;
+      unsigned int shade_color = 0;
       bool active = false;
       bool maximized = false;
-      bool dark = false;
       FrameButton hovered_button = FrameButton::NoButton;
       FrameButton pressed_button = FrameButton::NoButton;
     };

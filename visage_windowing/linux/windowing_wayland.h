@@ -59,6 +59,7 @@ namespace visage {
     static constexpr int kTitleButtonSpacing = 11;
     static constexpr int kTitleButtonTop = 7;
     static constexpr int kFrameResizeBorder = 10;
+    static constexpr int kFrameCornerRadius = 15;
 
     enum class FrameArea {
       Outside,
@@ -80,7 +81,7 @@ namespace visage {
     void* globalDisplay() const override;
     bool waylandDisplay() const override { return true; }
     void* frameDecorationHandle() const override { return frame_surface_; }
-    void frameDecorationChanged() override { frame_dirty_ = true; }
+    void frameDecorationChanged() override;
     int posixFd() const override;
 
     void windowContentsResized(int width, int height) override;
@@ -98,8 +99,6 @@ namespace visage {
     wl_output* output() const { return output_; }
     bool closeRequested() const { return close_requested_; }
     void clearCloseRequest() { close_requested_ = false; }
-    bool pointerLocked() const { return locked_pointer_ != nullptr; }
-    IPoint mouseDownPosition() const { return mouse_down_position_; }
     IPoint lastPointerPosition() const { return last_pointer_position_; }
 
     long long nextTickMicroseconds() const;
@@ -121,22 +120,20 @@ namespace visage {
     void pointerLeave();
     void pointerMotion(double x, double y);
     void pointerRelativeMotion(double dx, double dy);
-    void pointerButton(uint32_t serial, MouseButton button, bool pressed);
+    void pointerButton(MouseButton button, bool pressed);
     void pointerWheel(float delta_x, float delta_y);
     IPoint contentPoint(IPoint point) const;
     void setPointerHint(IPoint native_position);
     void setPointerPosition(IPoint native_position);
     void unlockPointer();
 
-    bool dragDropSourceActive() const { return drag_drop_source_active_; }
-    const std::vector<std::string>& dragDropFiles() const { return drag_drop_files_; }
     void finishDragDropSource();
 
   private:
     static WindowWayland* last_active_window_;
 
     int resizeOperationForPosition(int x, int y) const;
-    bool framed() const { return frame_surface_ != nullptr; }
+    bool framed() const { return frame_subsurface_ != nullptr; }
     int shadowLeft() const { return framed() && !constrained_ ? kShadowLeft : 0; }
     int shadowTop() const { return framed() && !constrained_ ? kShadowTop : 0; }
     int shadowRight() const { return framed() && !constrained_ ? kShadowRight : 0; }

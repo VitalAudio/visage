@@ -24,6 +24,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
 #include <cstdlib>
+#include <vector>
 
 #if VISAGE_LINUX
 using namespace visage;
@@ -64,6 +65,47 @@ TEST_CASE("Wayland windows map, present frames and close", "[integration]") {
   REQUIRE(frames >= 10);
   REQUIRE(window->isClosed());
   REQUIRE_FALSE(window->isShowing());
+}
+
+TEST_CASE("Wayland windows describe the frame they need drawn around the client area",
+          "[integration]") {
+  if (!useWaylandWindowing())
+    SKIP("No Wayland compositor");
+
+  std::unique_ptr<Window> window = createWindow(Dimension::logicalPixels(300),
+                                                Dimension::logicalPixels(200));
+  REQUIRE(window);
+  if (window->frameDecorationHandle() == nullptr)
+    SKIP("The compositor draws window decorations");
+
+  std::vector<Window::FrameDecoration> decorations;
+  window->setFrameDecorationCallback([&](const Window::FrameDecoration& decoration) {
+    decorations.push_back(decoration);
+  });
+  window->setWindowTitle("Frame");
+  int ticks = 0;
+  window->setDrawCallback([&](double) {
+    if (++ticks == 5)
+      window->close();
+  });
+  window->show();
+  window->runEventLoop();
+
+  REQUIRE_FALSE(decorations.empty());
+  const Window::FrameDecoration& decoration = decorations.back();
+  REQUIRE(decoration.title == "Frame");
+  REQUIRE(decoration.dpi_scale == window->dpiScale());
+  REQUIRE(std::abs(decoration.window.width() - window->clientWidth()) <= 1);
+  REQUIRE(decoration.title_bar.height() > 0);
+  REQUIRE(std::abs(decoration.window.height() - decoration.title_bar.height() - window->clientHeight()) <= 1);
+  REQUIRE(decoration.window.x() >= 0);
+  REQUIRE(decoration.window.right() <= decoration.width);
+  REQUIRE(decoration.window.bottom() <= decoration.height);
+  REQUIRE(decoration.close_button.width() > 0);
+  REQUIRE(decoration.close_button.right() <= decoration.window.right());
+  REQUIRE(decoration.close_button.bottom() <= decoration.title_bar.bottom());
+  REQUIRE(decoration.title_font_size > 0.0f);
+  REQUIRE((decoration.header_color >> 24) == 0xff);
 }
 
 TEST_CASE("Wayland windows can be shown again after hiding", "[integration]") {

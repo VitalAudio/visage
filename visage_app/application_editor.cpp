@@ -29,75 +29,16 @@
 #include "window_event_handler.h"
 
 #include <algorithm>
-#include <cstdio>
 
 namespace visage {
-  static constexpr float kTitleFontPoints = 11.0f;
-  static constexpr float kPointsToPixels = 96.0f / 72.0f;
-  static constexpr float kWindowCornerRadius = 15.0f;
-
-  struct FramePalette {
-    unsigned int header = 0;
-    unsigned int header_backdrop = 0;
-    unsigned int window = 0;
-    unsigned int foreground = 0;
-    unsigned int shade = 0;
-  };
-
-  static std::string commandOutput(const std::string& command) {
-    std::string result;
-#if VISAGE_LINUX
-    if (FILE* pipe = popen(command.c_str(), "r")) {
-      char buffer[256];
-      while (fgets(buffer, sizeof(buffer), pipe))
-        result += buffer;
-      pclose(pipe);
-    }
-#endif
-    while (!result.empty() && (result.back() == '\n' || result.back() == '\''))
-      result.pop_back();
-    if (!result.empty() && result.front() == '\'')
-      result.erase(0, 1);
-    return result;
-  }
-
-  static const FramePalette& framePalette(bool dark) {
-    static const bool yaru =
-        commandOutput("gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null").rfind("Yaru", 0) == 0;
-    static const FramePalette kAdwaitaLight = { 0xffffffff, 0xfffafafb, 0xfffafafb, 0xcc000006, 0x1f000006 };
-    static const FramePalette kAdwaitaDark = { 0xff2e2e32, 0xff222226, 0xff222226, 0xffffffff, 0x5c000006 };
-    static const FramePalette kYaruLight = { 0xfffafafa, 0xfffafafa, 0xfffafafa, 0xff3d3d3d, 0x1f000006 };
-    static const FramePalette kYaruDark = { 0xff393939, 0xff2c2c2c, 0xff2c2c2c, 0xfff7f7f7, 0x5c000006 };
-    if (yaru)
-      return dark ? kYaruDark : kYaruLight;
-    return dark ? kAdwaitaDark : kAdwaitaLight;
-  }
-
   static Color withAlpha(unsigned int color, float alpha) {
     return Color(color).withAlpha(Color(color).alpha() * alpha);
   }
 
-  static Font titleFont(float dpi_scale) {
-    static const std::string font_path = [] {
-      std::string family =
-          commandOutput("gsettings get org.gnome.desktop.interface font-name 2>/dev/null");
-      size_t size_start = family.find_last_of(' ');
-      if (size_start != std::string::npos)
-        family = family.substr(0, size_start);
-      if (family.empty())
-        family = "sans-serif";
-
-      std::string match = commandOutput("fc-match -f '%{file}|%{index}' '" + family + ":bold' 2>/dev/null");
-      size_t separator = match.find('|');
-      if (separator != std::string::npos && match.substr(separator + 1) == "0")
-        return match.substr(0, separator);
-      return commandOutput("fc-match -f '%{file}' 'sans-serif:bold:variable=false' 2>/dev/null");
-    }();
-
-    float size = kTitleFontPoints * kPointsToPixels * dpi_scale;
-    if (font_path.empty())
-      return Font(size, fonts::Lato_Regular_ttf, 1.0f);
-    return Font(size, font_path, 1.0f);
+  static Font titleFont(const Window::FrameDecoration& decoration) {
+    if (decoration.title_font.empty())
+      return Font(decoration.title_font_size, fonts::Lato_Regular_ttf, 1.0f);
+    return Font(decoration.title_font_size, decoration.title_font, 1.0f);
   }
 
   static void drawFrameButton(Canvas& canvas, const Window::FrameDecoration& decoration,
@@ -163,11 +104,10 @@ namespace visage {
     canvas.setDimensions(decoration.width, decoration.height);
     canvas.setDpiScale(1.0f);
 
-    const FramePalette& palette = framePalette(decoration.dark);
     float scale = decoration.dpi_scale;
+    float radius = decoration.corner_radius;
     IBounds window = decoration.window;
-    float radius = decoration.maximized ? 0.0f : kWindowCornerRadius * scale;
-    if (!decoration.maximized) {
+    if (decoration.shadow) {
       if (decoration.active) {
         drawWindowShadow(canvas, window, radius, scale, 14.0f, 5.0f, 0.15f);
         drawWindowShadow(canvas, window, radius, scale, 5.0f, 2.0f, 0.1f);
@@ -179,19 +119,19 @@ namespace visage {
                               window.height() + 2.0f * scale, radius + scale);
     }
 
-    canvas.setColor(palette.window);
+    canvas.setColor(decoration.window_color);
     canvas.roundedRectangle(window.x(), window.y(), window.width(), window.height(), radius);
 
     IBounds title_bar = decoration.title_bar;
-    canvas.setColor(decoration.active ? palette.header : palette.header_backdrop);
+    canvas.setColor(decoration.header_color);
     canvas.roundedRectangle(title_bar.x(), title_bar.y(), title_bar.width(),
                             title_bar.height() + radius, radius);
-    if (!decoration.maximized) {
-      canvas.setColor(withAlpha(palette.foreground, 0.15f));
+    if (decoration.shadow) {
+      canvas.setColor(withAlpha(decoration.foreground_color, 0.15f));
       canvas.roundedRectangleBorder(title_bar.x(), title_bar.y(), title_bar.width(),
                                     title_bar.height() + radius, radius, scale);
     }
-    canvas.setColor(palette.shade);
+    canvas.setColor(decoration.shade_color);
     canvas.rectangle(title_bar.x(), title_bar.bottom() - scale, title_bar.width(), scale);
 
     canvas.setClampBounds(window.x(), window.y(), window.width(), window.height());
@@ -205,22 +145,22 @@ namespace visage {
     float padding = 12.0f * scale;
     float title_left = title_bar.x() + padding;
     float available = std::max(0.0f, title_right - padding - title_left);
-    Font font = titleFont(scale);
+    Font font = titleFont(decoration);
     float text_width = std::min(available, font.stringWidth(String(decoration.title).toUtf32()));
     float text_x = std::clamp(title_bar.x() + 0.5f * (title_bar.width() - text_width), title_left,
                               title_left + available - text_width);
     canvas.setClampBounds(title_left, title_bar.y(), available, title_bar.height());
-    canvas.setColor(withAlpha(palette.foreground, opacity));
+    canvas.setColor(withAlpha(decoration.foreground_color, opacity));
     canvas.text(decoration.title, font, text_width < available ? Font::kCenter : Font::kLeft,
                 text_x, title_bar.y(), text_width, title_bar.height());
     canvas.setClampBounds(window.x(), window.y(), window.width(), window.height());
 
     drawFrameButton(canvas, decoration, Window::FrameButton::Minimize, decoration.minimize_button,
-                    palette.foreground, opacity);
+                    decoration.foreground_color, opacity);
     drawFrameButton(canvas, decoration, Window::FrameButton::Maximize, decoration.maximize_button,
-                    palette.foreground, opacity);
+                    decoration.foreground_color, opacity);
     drawFrameButton(canvas, decoration, Window::FrameButton::Close, decoration.close_button,
-                    palette.foreground, opacity);
+                    decoration.foreground_color, opacity);
     canvas.submit();
   }
 
@@ -365,7 +305,7 @@ namespace visage {
       frame_canvas_ = std::make_unique<Canvas>();
       frame_canvas_->pairToWindow(frame_handle, 1, 1, true);
       window_->setFrameDecorationCallback([this](const Window::FrameDecoration& decoration) {
-        top_level_->setCornerRadius(decoration.maximized ? 0.0f : kWindowCornerRadius);
+        top_level_->setCornerRadius(decoration.corner_radius / decoration.dpi_scale);
         if (frame_canvas_)
           drawFrameDecoration(*frame_canvas_, decoration);
       });
