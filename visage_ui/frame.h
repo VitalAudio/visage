@@ -59,8 +59,6 @@ namespace visage {
     explicit Frame(std::string name) : name_(std::move(name)) { }
     virtual ~Frame() {
       listeners_.clear();
-      post_effect_destroyed_.disconnect();
-      backdrop_effect_destroyed_.disconnect();
       notifyRemoveFromHierarchy();
       if (parent_)
         parent_->eraseChild(this);
@@ -160,16 +158,16 @@ namespace visage {
     Region* outerRegion() { return group_ ? group_.get() : &region_; }
 
     void setPostEffect(PostEffect* post_effect);
-    PostEffect* postEffect() const { return post_effect_; }
+    PostEffect* postEffect() const { return region_.postEffect(); }
     void removePostEffect();
 
     void setBackdropEffect(PostEffect* backdrop_effect);
-    PostEffect* backdropEffect() const { return backdrop_effect_; }
+    PostEffect* backdropEffect() const { return region_.backdropEffect(); }
     void removeBackdropEffect();
 
     void setBlurRadius(float blur_radius) {
       if (blur_radius <= 0.0f) {
-        if (blur_effect_ && post_effect_ == blur_effect_.get())
+        if (blur_effect_ && postEffect() == blur_effect_.get())
           removePostEffect();
 
         blur_effect_ = nullptr;
@@ -462,8 +460,9 @@ namespace visage {
     void updateGroup();
 
     bool groupsPostEffect() const {
-      return post_effect_ && !post_effect_->appliedInPlace() && !post_effect_->hdr() &&
-             post_effect_->state() == BlendMode::Alpha;
+      PostEffect* post_effect = postEffect();
+      return post_effect && !post_effect->appliedInPlace() && !post_effect->hdr() &&
+             post_effect->state() == BlendMode::Alpha;
     }
 
     bool needsGroup() const {
@@ -472,7 +471,7 @@ namespace visage {
     }
 
     bool requiresLayer() const {
-      return post_effect_ || backdrop_effect_ || cached_ ||
+      return postEffect() || backdropEffect() || cached_ ||
              (!grouped_ && (alpha_transparency_ != 1.0f || layer_blend_mode_ != BlendMode::Alpha));
     }
 
@@ -523,11 +522,7 @@ namespace visage {
     const ResolvedPalette* resolved_palette_ = nullptr;
     bool initialized_ = false;
 
-    PostEffect* post_effect_ = nullptr;
-    CallbackConnection post_effect_destroyed_;
     std::unique_ptr<BlurPostEffect> blur_effect_;
-    PostEffect* backdrop_effect_ = nullptr;
-    CallbackConnection backdrop_effect_destroyed_;
     bool cached_ = false;
     MaskType mask_type_ = MaskType::Alpha;
     std::unique_ptr<LuminanceMaskPostEffect> luminance_mask_effect_;

@@ -31,8 +31,10 @@ namespace visage {
   class Region {
   public:
     friend class Canvas;
+    friend class PostEffect;
 
     Region() = default;
+    ~Region();
 
     SubmitBatch* submitBatchAtPosition(int position) const {
       return shape_batcher_.batchAtIndex(position);
@@ -114,10 +116,7 @@ namespace visage {
     void setupIntermediateRegion();
     void setNeedsLayer(bool needs_layer);
 
-    void setPostEffect(PostEffect* post_effect) {
-      post_effect_ = post_effect;
-      setupIntermediateRegion();
-    }
+    void setPostEffect(PostEffect* post_effect);
     PostEffect* postEffect() const { return post_effect_; }
 
     void setAlpha(float alpha) {
@@ -159,6 +158,9 @@ namespace visage {
     void setLayerIndex(int layer_index);
     void incrementLayer() { setLayerIndex(layer_index_ + 1); }
     void decrementLayer() { setLayerIndex(layer_index_ - 1); }
+    void attachEffect(PostEffect* effect);
+    void detachEffect(PostEffect* effect);
+    void removeEffect(PostEffect* effect);
 
     Text* addText(const String& string, const Font& font, Font::Justification justification) {
       text_store_.push_back(std::make_unique<Text>(string, font, justification));

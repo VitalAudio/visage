@@ -452,10 +452,6 @@ namespace visage {
   }
 
   void Frame::setPostEffect(PostEffect* post_effect) {
-    post_effect_ = post_effect;
-    post_effect_destroyed_.disconnect();
-    if (post_effect)
-      post_effect_destroyed_ = post_effect->onDestroy().connect([this] { removePostEffect(); });
     region_.setPostEffect(post_effect);
     updateGroup();
     if (parent_)
@@ -464,21 +460,13 @@ namespace visage {
   }
 
   void Frame::removePostEffect() {
-    VISAGE_ASSERT(post_effect_);
-    post_effect_ = nullptr;
-    post_effect_destroyed_.disconnect();
+    VISAGE_ASSERT(postEffect());
     region_.setPostEffect(nullptr);
     updateGroup();
     redrawAll();
   }
 
   void Frame::setBackdropEffect(PostEffect* backdrop_effect) {
-    backdrop_effect_ = backdrop_effect;
-    backdrop_effect_destroyed_.disconnect();
-    if (backdrop_effect)
-      backdrop_effect_destroyed_ = backdrop_effect->onDestroy().connect([this] {
-        removeBackdropEffect();
-      });
     region_.setBackdropEffect(backdrop_effect);
     if (parent_)
       parent_->redraw();
@@ -486,9 +474,7 @@ namespace visage {
   }
 
   void Frame::removeBackdropEffect() {
-    VISAGE_ASSERT(backdrop_effect_);
-    backdrop_effect_ = nullptr;
-    backdrop_effect_destroyed_.disconnect();
+    VISAGE_ASSERT(backdropEffect());
     region_.setBackdropEffect(nullptr);
     redrawAll();
   }

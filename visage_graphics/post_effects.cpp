@@ -72,6 +72,12 @@ namespace visage {
     return screen_buffers;
   }
 
+  PostEffect::~PostEffect() {
+    std::vector<Region*> regions = std::move(attached_regions_);
+    for (Region* region : regions)
+      region->removeEffect(this);
+  }
+
   void PostEffect::releaseScreenBuffers() {
     if (!gpu::isValid(screen_buffers.index_buffer))
       return;

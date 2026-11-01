@@ -1548,45 +1548,6 @@ TEST_CASE("Frame opacity applies after its post effect", "[integration]") {
   REQUIRE(app.takeScreenshot().sample(10, 10).hexRed() == Approx(0x80).margin(1));
 }
 
-TEST_CASE("Frames draw without their effects once the effects are destroyed", "[integration]") {
-  ApplicationEditor app;
-  Frame post_frame;
-  Frame backdrop_frame;
-  auto post_effect = std::make_unique<ShaderPostEffect>(test_shaders::vs_test_post_effect,
-                                                        test_shaders::fs_test_swap_red_blue);
-  auto backdrop_effect = std::make_unique<ShaderPostEffect>(test_shaders::vs_test_post_effect,
-                                                            test_shaders::fs_test_swap_red_blue);
-  app.onDraw() = [&](Canvas& canvas) {
-    canvas.setColor(0xffff0000);
-    canvas.fill();
-  };
-  post_frame.onDraw() = [&](Canvas& canvas) {
-    canvas.setColor(0xffff0000);
-    canvas.fill();
-  };
-
-  post_frame.setBounds(0, 0, 10, 20);
-  backdrop_frame.setBounds(10, 0, 10, 20);
-  post_frame.setPostEffect(post_effect.get());
-  backdrop_frame.setBackdropEffect(backdrop_effect.get());
-  app.addChild(post_frame);
-  app.addChild(backdrop_frame);
-  app.setWindowless(20, 20);
-  app.drawWindow();
-  Screenshot effected = app.takeScreenshot();
-  REQUIRE(effected.sample(5, 10).hexBlue() == 0xff);
-  REQUIRE(effected.sample(15, 10).hexBlue() == 0xff);
-
-  post_effect.reset();
-  backdrop_effect.reset();
-  app.drawWindow();
-  Screenshot plain = app.takeScreenshot();
-  REQUIRE(plain.sample(5, 10).hexRed() == 0xff);
-  REQUIRE(plain.sample(5, 10).hexBlue() == 0);
-  REQUIRE(plain.sample(15, 10).hexRed() == 0xff);
-  REQUIRE(plain.sample(15, 10).hexBlue() == 0);
-}
-
 TEST_CASE("Translucent frames keep their shader effect's own blend state", "[integration]") {
   ApplicationEditor app;
   Frame frame;

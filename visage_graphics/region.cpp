@@ -24,6 +24,11 @@
 #include "canvas.h"
 
 namespace visage {
+  Region::~Region() {
+    detachEffect(post_effect_);
+    detachEffect(backdrop_effect_);
+  }
+
   void Region::removeRegion(Region* region) {
     region->invalidate();
     region->clear();
@@ -157,8 +162,41 @@ namespace visage {
     invalidate();
   }
 
+  void Region::setPostEffect(PostEffect* post_effect) {
+    detachEffect(post_effect_);
+    post_effect_ = post_effect;
+    attachEffect(post_effect);
+    setupIntermediateRegion();
+  }
+
   void Region::setBackdropEffect(PostEffect* backdrop_effect) {
+    detachEffect(backdrop_effect_);
     backdrop_effect_ = backdrop_effect;
+    attachEffect(backdrop_effect);
+  }
+
+  void Region::attachEffect(PostEffect* effect) {
+    if (effect == nullptr)
+      return;
+
+    std::vector<Region*>& regions = effect->attached_regions_;
+    if (std::find(regions.begin(), regions.end(), this) == regions.end())
+      regions.push_back(this);
+  }
+
+  void Region::detachEffect(PostEffect* effect) {
+    if (effect == nullptr)
+      return;
+
+    std::vector<Region*>& regions = effect->attached_regions_;
+    regions.erase(std::remove(regions.begin(), regions.end(), this), regions.end());
+  }
+
+  void Region::removeEffect(PostEffect* effect) {
+    if (post_effect_ == effect)
+      setPostEffect(nullptr);
+    if (backdrop_effect_ == effect)
+      setBackdropEffect(nullptr);
   }
 
   void Region::setLayerIndex(int layer_index) {
