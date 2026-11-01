@@ -29,7 +29,7 @@
 using namespace visage::gpu;
 
 namespace {
-  struct Options : visage::shaderc::CompileOptions {
+  struct Options : visage::shader_compiler::CompileOptions {
     std::string output;
     std::string varying_path;
     bool stage_set = false;
@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
 
   std::vector<uint8_t> blob;
   std::string error;
-  if (!visage::shaderc::compile(options, blob, error)) {
+  if (!visage::shader_compiler::compile(options, blob, error)) {
     std::cerr << options.input << ":\n" << error << std::endl;
     return 1;
   }

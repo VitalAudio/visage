@@ -54,7 +54,7 @@ namespace {
   constexpr const char* kEsslVertexUniforms = "visage_vertex_uniforms";
   constexpr const char* kEsslFragmentUniforms = "visage_fragment_uniforms";
 
-  using Options = visage::shaderc::CompileOptions;
+  using Options = visage::shader_compiler::CompileOptions;
 
   struct Varying {
     std::string interpolation;
@@ -615,7 +615,7 @@ namespace {
   }
 }
 
-namespace visage::shaderc {
+namespace visage::shader_compiler {
   bool compile(const CompileOptions& options, std::vector<uint8_t>& blob, std::string& error) {
     std::vector<Varying> varyings = parseVaryings(options.varying_source);
     std::vector<std::string> inputs, outputs;

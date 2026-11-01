@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 
-namespace visage::shaderc {
+namespace visage::shader_compiler {
   struct CompileOptions {
     std::string input;
     std::string source;

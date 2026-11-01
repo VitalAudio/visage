@@ -10,7 +10,7 @@ the single source of truth for coding agents; `CLAUDE.md` imports it.
   backend interface, `gpu.cpp` the shared frame and resource logic, `gpu_shader.cpp` shader loading.
   Backends: `gpu_metal.mm` (macOS), `gpu_vulkan.cpp` (Linux), `gpu_d3d11.cpp` (Windows) and
   `gpu_gles.cpp` (WebGL2 on Emscripten). There is no bgfx.
-- `visage_graphics/shaderc/` the in-tree shader compiler (glslang and SPIRV-Cross through
+- `visage_graphics/shader_compiler/` the in-tree shader compiler (glslang and SPIRV-Cross through
   FetchContent). It builds the `shader_compiler` executable, which emits SPIR-V, MSL, Metal
   libraries and DXBC.
 - `visage_graphics/shaders/` shader sources. Embedded shaders are always compiled at build time.
@@ -55,7 +55,7 @@ Visage is a library, so public headers are its API. Read the headers for signatu
 - `visage_utils/events.h` `CallbackList` is the callback type behind `onDraw()` and similar members.
 - Threading: frames, canvases and windows belong to the main event thread. From another thread, hand
   work over with `runOnEventThread()` (`visage_ui/events.h`).
-- Internal, not public API: `visage_graphics/gpu/` backends, `visage_graphics/shaderc/`,
+- Internal, not public API: `visage_graphics/gpu/` backends, `visage_graphics/shader_compiler/`,
   and `visage_windowing/<platform>/`. Changes there must not leak
   platform types into public headers.
 - `examples/` shows idiomatic usage for each feature (Basic, Layout, Paths, Gradients, PostEffects,

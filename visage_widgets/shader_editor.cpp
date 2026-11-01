@@ -209,7 +209,7 @@ namespace visage {
     File temporary_shader = compile_path / shader_name;
 
 #if VISAGE_LIVE_SHADERS
-    shaderc::CompileOptions options;
+    shader_compiler::CompileOptions options;
     options.input = utf8Path(temporary_shader);
     options.source = code;
     options.varying_source.assign(reinterpret_cast<const char*>(shaders::varying_def_sc.data),
@@ -227,7 +227,7 @@ namespace visage {
 
     std::vector<uint8_t> blob;
     std::string error;
-    bool compiled = shaderc::compile(options, blob, error);
+    bool compiled = shader_compiler::compile(options, blob, error);
     std::filesystem::remove_all(compile_path);
     if (!compiled) {
       runOnEventThread([callback, error]() { callback(error); });
