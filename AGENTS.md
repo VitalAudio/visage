@@ -11,7 +11,8 @@ the single source of truth for coding agents; `CLAUDE.md` imports it.
   Backends: `gpu_metal.mm` (macOS), `gpu_vulkan.cpp` (Linux), `gpu_d3d11.cpp` (Windows) and
   `gpu_gles.cpp` (WebGL2 on Emscripten). There is no bgfx.
 - `visage_graphics/shaderc/` the in-tree shader compiler (glslang and SPIRV-Cross through
-  FetchContent). It builds the `shader_compiler` executable, which emits SPIR-V, MSL and DXBC.
+  FetchContent). It builds the `shader_compiler` executable, which emits SPIR-V, MSL, Metal
+  libraries and DXBC.
 - `visage_graphics/shaders/` shader sources. Embedded shaders are always compiled at build time.
 - `visage_windowing/` native windows and events per platform (`macos/`, `win32/`, `linux/` for X11 and Wayland,
   `emscripten/`).
@@ -72,6 +73,11 @@ Useful options: `VISAGE_BUILD_TESTS`, `VISAGE_BUILD_EXAMPLES` (both on for a top
 `VISAGE_ADDRESS_SANITIZER`, `VISAGE_ENABLE_GRAPHICS_DEBUG_LOGGING`, and `VISAGE_LIVE_SHADERS` (off by
 default, links the shader compiler into apps for live shader editing). `VISAGE_SHADER_COMPILER`
 points at a prebuilt `shader_compiler` instead of building one.
+
+On macOS, embedded shaders are compiled into Metal libraries with Xcode's Metal Toolchain (since Xcode
+26 a separate download: `xcodebuild -downloadComponent MetalToolchain`). Without it, or with
+`VISAGE_LIVE_SHADERS` on, they are embedded as MSL source that compiles at runtime, and configure
+prints a warning when the toolchain is missing.
 
 Linux needs the X11, Wayland and Vulkan development packages listed in `.github/workflows/linux-test.yaml`.
 Set `VISAGE_VULKAN_VALIDATION=1` to enable Vulkan validation layers at runtime.

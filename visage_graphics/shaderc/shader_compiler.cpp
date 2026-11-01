@@ -43,6 +43,11 @@ bool compileDxbc(const std::string& hlsl, ShaderStage stage, std::vector<uint8_t
                  std::string& error);
 #endif
 
+#if __APPLE__
+bool compileMetallib(const std::string& msl, const std::string& macos_version_min,
+                     std::vector<uint8_t>& result, std::string& error);
+#endif
+
 namespace {
   constexpr int kResourceBindingOffset = 16;
   constexpr int kMslVertexBufferIndex = 30;
@@ -656,6 +661,15 @@ namespace visage::shaderc {
         break;
 #else
         error = "DXBC output needs a Windows host";
+        return false;
+#endif
+      case ShaderCode::Metallib:
+#if __APPLE__
+        if (!compileMetallib(compileMsl(spirv, options.stage), options.macos_version_min, info.code, error))
+          return false;
+        break;
+#else
+        error = "Metal library output needs a macOS host";
         return false;
 #endif
       }

@@ -76,6 +76,8 @@ namespace {
           options.target = ShaderCode::Spirv;
         else if (target == "msl" || target == "metal")
           options.target = ShaderCode::Msl;
+        else if (target == "metallib")
+          options.target = ShaderCode::Metallib;
         else if (target == "hlsl" || target.rfind("s_", 0) == 0)
           options.target = ShaderCode::Hlsl;
         else if (target == "dxbc")
@@ -87,6 +89,8 @@ namespace {
           return false;
         }
       }
+      else if (arg == "--macos-version-min")
+        options.macos_version_min = next();
       else if (arg == "--platform" || arg == "-O")
         next();
       else {
@@ -97,8 +101,9 @@ namespace {
 
     if (options.input.empty() || options.output.empty()) {
       std::cerr << "Usage: shader_compiler -f input.sc -o output --type v|f|c --target "
-                   "spirv|msl|hlsl|dxbc|essl"
+                   "spirv|msl|metallib|hlsl|dxbc|essl"
                    " [-i include_dir] [--varyingdef varying.def.sc] [--define NAME=VALUE]"
+                   " [--macos-version-min version]"
                 << std::endl;
       return false;
     }

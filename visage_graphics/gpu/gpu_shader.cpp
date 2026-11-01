@@ -157,7 +157,7 @@ namespace visage::gpu {
       return false;
     }
     if (stage > static_cast<uint8_t>(ShaderStage::Compute) ||
-        code_type > static_cast<uint8_t>(ShaderCode::Essl))
+        code_type > static_cast<uint8_t>(ShaderCode::Metallib))
       return false;
 
     info = {};

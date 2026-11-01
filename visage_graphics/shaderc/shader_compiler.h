@@ -35,6 +35,7 @@ namespace visage::shaderc {
     std::vector<std::string> defines;
     gpu::ShaderStage stage = gpu::ShaderStage::Fragment;
     gpu::ShaderCode target = gpu::ShaderCode::Spirv;
+    std::string macos_version_min;
   };
 
   bool compile(const CompileOptions& options, std::vector<uint8_t>& blob, std::string& error);

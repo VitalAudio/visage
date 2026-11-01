@@ -39,6 +39,34 @@ elseif (NOT TARGET VisageShaderCompilerHost)
   set(VISAGE_SHADER_COMPILER_TARGET VisageShaderCompilerHost CACHE INTERNAL "")
 endif ()
 
+set(VISAGE_METAL_SHADER_TARGET msl CACHE INTERNAL "")
+set(VISAGE_METAL_SHADER_ARGS "" CACHE INTERNAL "")
+if (APPLE AND NOT VISAGE_LIVE_SHADERS)
+  set(METAL_VERSION_MIN 10.15)
+  if (CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(METAL_VERSION_MIN ${CMAKE_OSX_DEPLOYMENT_TARGET})
+  endif ()
+
+  set(METAL_CHECK_DIR ${CMAKE_BINARY_DIR}/visage_metal_check)
+  file(WRITE ${METAL_CHECK_DIR}/check.metal "kernel void main0() {}\n")
+  execute_process(
+    COMMAND xcrun -sdk macosx metal -mmacosx-version-min=${METAL_VERSION_MIN} -o ${METAL_CHECK_DIR}/check.metallib
+            ${METAL_CHECK_DIR}/check.metal
+    RESULT_VARIABLE METAL_CHECK_RESULT
+    OUTPUT_QUIET
+    ERROR_QUIET
+  )
+
+  if (METAL_CHECK_RESULT EQUAL 0)
+    set(VISAGE_METAL_SHADER_TARGET metallib CACHE INTERNAL "")
+    set(VISAGE_METAL_SHADER_ARGS --macos-version-min ${METAL_VERSION_MIN} CACHE INTERNAL "")
+  else ()
+    message(WARNING "VISAGE: The Metal Toolchain is missing, so Metal shaders are embedded as source and "
+            "compile at runtime, which stalls the first frame that uses each one. Install it with "
+            "'xcodebuild -downloadComponent MetalToolchain' and reconfigure.")
+  endif ()
+endif ()
+
 function(visage_embed_shaders project include_filename namespace original_shaders)
   file(GLOB_RECURSE SHADER_INCLUDES shaders/*.sh shaders/varying.def.sc)
   file(GLOB LIBRARY_SHADER_INCLUDES ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders/*.sh)
@@ -51,7 +79,8 @@ function(visage_embed_shaders project include_filename namespace original_shader
   elseif (WIN32)
     set(SHADER_TARGET dxbc)
   elseif (APPLE)
-    set(SHADER_TARGET msl)
+    set(SHADER_TARGET ${VISAGE_METAL_SHADER_TARGET})
+    set(SHADER_TARGET_ARGS ${VISAGE_METAL_SHADER_ARGS})
   else ()
     set(SHADER_TARGET spirv)
   endif ()
@@ -78,7 +107,7 @@ function(visage_embed_shaders project include_filename namespace original_shader
     add_custom_command(
       OUTPUT ${SHADER_PATH}
       COMMAND ${VISAGE_SHADER_COMPILER_EXECUTABLE} -i ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/shaders -f ${SHADER}
-              -o ${SHADER_PATH} --type ${SHADER_TYPE} --target ${SHADER_TARGET}
+              -o ${SHADER_PATH} --type ${SHADER_TYPE} --target ${SHADER_TARGET} ${SHADER_TARGET_ARGS}
       DEPENDS ${SHADER} ${SHADER_DEPENDENCIES}
     )
   endforeach()

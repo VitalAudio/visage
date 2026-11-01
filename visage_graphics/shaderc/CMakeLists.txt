@@ -43,6 +43,8 @@ set(CMAKE_MESSAGE_LOG_LEVEL "NOTICE")
 set(SHADER_COMPILER_SOURCES shader_compiler.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../gpu/gpu_shader.cpp)
 if (WIN32)
   list(APPEND SHADER_COMPILER_SOURCES visage_shaderc_dxbc.cpp)
+elseif (APPLE)
+  list(APPEND SHADER_COMPILER_SOURCES visage_shaderc_metallib.cpp)
 endif ()
 
 add_library(VisageShaderCompiler STATIC ${SHADER_COMPILER_SOURCES} shader_compiler.h)

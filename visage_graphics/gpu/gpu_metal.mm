@@ -414,16 +414,27 @@ namespace visage::gpu {
     }
 
     bool createShader(uint16_t idx, const ShaderInfo& info) override {
-      if (info.code_type != ShaderCode::Msl || info.code.empty())
+      if (info.code.empty())
         return false;
 
-      NSString* source = [[NSString alloc] initWithBytes:info.code.data()
-                                                  length:info.code.size()
-                                                encoding:NSUTF8StringEncoding];
       NSError* error = nil;
-      id<MTLLibrary> library = [device_ newLibraryWithSource:source options:nil error:&error];
+      id<MTLLibrary> library = nil;
+      if (info.code_type == ShaderCode::Metallib) {
+        dispatch_data_t data = dispatch_data_create(info.code.data(), info.code.size(), nullptr,
+                                                    DISPATCH_DATA_DESTRUCTOR_DEFAULT);
+        library = [device_ newLibraryWithData:data error:&error];
+      }
+      else if (info.code_type == ShaderCode::Msl) {
+        NSString* source = [[NSString alloc] initWithBytes:info.code.data()
+                                                    length:info.code.size()
+                                                  encoding:NSUTF8StringEncoding];
+        library = [device_ newLibraryWithSource:source options:nil error:&error];
+      }
+      else
+        return false;
+
       if (library == nil) {
-        log("Metal shader compile failed", error);
+        log("Metal shader load failed", error);
         return false;
       }
 

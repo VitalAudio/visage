@@ -42,6 +42,7 @@ namespace visage::gpu {
     Hlsl,
     Dxbc,
     Essl,
+    Metallib,
   };
 
   struct ShaderUniform {
