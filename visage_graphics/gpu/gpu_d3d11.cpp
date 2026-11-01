@@ -737,30 +737,37 @@ namespace visage::gpu {
         else
           scissors.push_back(view_rect);
 
-        for (size_t pass = 0; pass < std::max<size_t>(scissors.size(), 1); ++pass) {
-          bool targets_bound = false;
-          for (const ViewItem& item : view.items) {
-            if (item.type == ViewItem::Draw) {
-              if (frame_buffer == nullptr || frame_buffer->rtv == nullptr || scissors.empty())
-                continue;
-              if (!targets_bound) {
-                bindRenderTarget(frame_buffer->rtv);
-                context_->RSSetViewports(1, &viewport);
-                context_->RSSetScissorRects(1, &scissors[pass]);
-                targets_bound = true;
+        bool targets_bound = false;
+        size_t i = 0;
+        while (i < view.items.size()) {
+          const ViewItem& item = view.items[i];
+          if (item.type == ViewItem::Draw) {
+            size_t end = i;
+            while (end < view.items.size() && view.items[end].type == ViewItem::Draw)
+              ++end;
+            if (frame_buffer && frame_buffer->rtv) {
+              for (const D3D11_RECT& scissor : scissors) {
+                if (!targets_bound) {
+                  bindRenderTarget(frame_buffer->rtv);
+                  context_->RSSetViewports(1, &viewport);
+                  targets_bound = true;
+                }
+                context_->RSSetScissorRects(1, &scissor);
+                for (size_t d = i; d < end; ++d)
+                  draw(frame.draws[view.items[d].index], frame.uniform_data);
               }
-              draw(frame.draws[item.index], frame.uniform_data);
             }
-            else if (pass > 0)
-              continue;
-            else if (item.type == ViewItem::Compute) {
+            i = end;
+          }
+          else {
+            if (item.type == ViewItem::Compute) {
               unbindRenderTarget();
               targets_bound = false;
               dispatch(frame.computes[item.index], frame.uniform_data);
             }
-            else if (item.type == ViewItem::Blit) {
+            else if (item.type == ViewItem::Blit)
               blit(frame.blits[item.index]);
-            }
+            ++i;
           }
         }
       }
@@ -776,15 +783,20 @@ namespace visage::gpu {
 
       UINT sync_interval = init_.vsync ? 1 : 0;
       UINT present_flags = !init_.vsync && tearing_supported_ ? DXGI_PRESENT_ALLOW_TEARING : 0;
+      bool lost = false;
       for (auto& frame_buffer : frame_buffers_) {
         if (!frame_buffer.second.needs_present)
           continue;
         frame_buffer.second.needs_present = false;
+        if (lost)
+          continue;
 
         const DamageRegion& damage = frame_buffer.second.frame_damage;
         std::vector<RECT> dirty;
-        for (const Damage& rect : damage.rects())
-          dirty.push_back({ rect.x, rect.y, rect.x + rect.width, rect.y + rect.height });
+        if (!frame_buffer.second.history.empty()) {
+          for (const Damage& rect : damage.rects())
+            dirty.push_back({ rect.x, rect.y, rect.x + rect.width, rect.y + rect.height });
+        }
         DXGI_PRESENT_PARAMETERS parameters = {};
         parameters.DirtyRectsCount = static_cast<UINT>(dirty.size());
         parameters.pDirtyRects = dirty.empty() ? nullptr : dirty.data();
@@ -797,8 +809,7 @@ namespace visage::gpu {
           frame_buffer.second.presents = 0;
           frame_buffer.second.history.reset();
         }
-        if (checkDeviceLost(hr))
-          break;
+        lost = checkDeviceLost(hr);
       }
 
       stats.num_textures = int(textures_.size());

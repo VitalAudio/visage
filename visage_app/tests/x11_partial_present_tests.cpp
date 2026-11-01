@@ -88,10 +88,8 @@ namespace {
 }
 
 TEST_CASE("X11 windows show every change when only part of the window redraws", "[integration]") {
-  if (!hasDisplay()) {
-    SUCCEED("No X display");
-    return;
-  }
+  if (!hasDisplay())
+    SKIP("No X display");
 
   ScopedErrorHandler ignore_errors(ignoreXErrors);
   Display* display = XOpenDisplay(nullptr);

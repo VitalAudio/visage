@@ -827,8 +827,11 @@ namespace visage::gpu {
               wait_semaphores.push_back(semaphore);
               presented.push_back(frame_buffer);
             }
-            else
+            else {
+              std::fill(frame_buffer->chain->presented.begin(), frame_buffer->chain->presented.end(), 0);
+              frame_buffer->chain->history.reset();
               frame_buffer = nullptr;
+            }
           }
         }
         executeView(frame, view, frame_buffer);
@@ -897,11 +900,11 @@ namespace visage::gpu {
         VkPresentRegionsKHR regions { VK_STRUCTURE_TYPE_PRESENT_REGIONS_KHR };
         regions.swapchainCount = 1;
         regions.pRegions = &region;
-        if (incremental_present_ && !rects.empty())
+        if (incremental_present_ && !rects.empty() && !chain.history.empty())
           present.pNext = &regions;
 
         VkResult result = checkResult(vkQueuePresentKHR(queue_, &present));
-        if (result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR) {
+        if (slot.submitted && (result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR)) {
           chain.presented[chain.current_image] = ++chain.presents;
           chain.history.push(damage);
         }

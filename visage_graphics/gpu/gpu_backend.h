@@ -312,6 +312,7 @@ namespace visage::gpu {
     }
 
     void reset() { size_ = 0; }
+    bool empty() const { return size_ == 0; }
 
     DamageRegion bufferDamage(const DamageRegion& damage, uint16_t frame_buffer, int age, int width,
                               int height) const {
