@@ -195,15 +195,15 @@ public:
   }
 
 private:
-  Frame blur_glass_;
   visage::BlurPostEffect blur_backdrop_;
-
-  PostEffectSelector selector_;
-  Frame shapes_;
   std::unique_ptr<visage::ShaderPostEffect> gray_scale_;
   std::unique_ptr<visage::ShaderPostEffect> sepia_;
   std::unique_ptr<visage::ShaderPostEffect> glitch_;
   std::unique_ptr<visage::BlurPostEffect> blur_;
+
+  Frame blur_glass_;
+  PostEffectSelector selector_;
+  Frame shapes_;
 };
 
 int runExample() {

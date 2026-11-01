@@ -88,8 +88,8 @@ public:
   }
 
 private:
-  Frame shapes_;
   std::unique_ptr<visage::ShaderPostEffect> post_effect_;
+  Frame shapes_;
   visage::ShaderEditor shader_editor_;
 };
 
