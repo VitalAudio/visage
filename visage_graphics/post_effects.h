@@ -22,6 +22,7 @@
 #pragma once
 
 #include "shapes.h"
+#include "visage_utils/events.h"
 
 namespace visage {
   class Layer;
@@ -31,8 +32,11 @@ namespace visage {
     static void releaseScreenBuffers();
 
     explicit PostEffect(bool hdr = false) : hdr_(hdr) { }
+    PostEffect(const PostEffect&) = delete;
+    PostEffect& operator=(const PostEffect&) = delete;
 
-    virtual ~PostEffect() = default;
+    virtual ~PostEffect() { on_destroy_.callback(); }
+    auto& onDestroy() { return on_destroy_; }
     virtual int preprocess(Region* region, int submit_pass) { return submit_pass; }
     virtual int preprocessBackdrop(Region* source, const Region* region, int submit_pass) {
       return preprocess(source, submit_pass);
@@ -50,6 +54,7 @@ namespace visage {
 
   private:
     bool hdr_ = false;
+    CallbackList<void()> on_destroy_;
   };
 
   struct BackdropHandles;

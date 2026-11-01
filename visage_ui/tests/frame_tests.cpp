@@ -760,6 +760,66 @@ TEST_CASE("Deleting or removing a child frame invalidates the area it covered", 
   REQUIRE(covered.contains(IBounds(10, 20, 30, 40)));
 }
 
+TEST_CASE("Frames stop using post effects destroyed before them", "[ui]") {
+  Canvas canvas;
+  canvas.setWindowless(100, 100);
+  Frame parent;
+  canvas.addRegion(parent.region());
+  parent.setBounds(0, 0, 100, 100);
+
+  Frame child;
+  auto post_effect = std::make_unique<BlurPostEffect>();
+  auto backdrop_effect = std::make_unique<BlurPostEffect>();
+  child.setPostEffect(post_effect.get());
+  child.setBackdropEffect(backdrop_effect.get());
+  parent.addChild(&child);
+  child.setBounds(10, 20, 30, 40);
+  child.region()->setNeedsLayer(true);
+  canvas.takeScreenshot();
+
+  post_effect.reset();
+  backdrop_effect.reset();
+  REQUIRE(child.postEffect() == nullptr);
+  REQUIRE(child.backdropEffect() == nullptr);
+  REQUIRE(child.region()->postEffect() == nullptr);
+  REQUIRE(child.region()->backdropEffect() == nullptr);
+  canvas.takeScreenshot();
+
+  parent.removeChild(&child);
+  REQUIRE(parent.children().empty());
+}
+
+TEST_CASE("Frames owning their post effects are destroyed cleanly while attached to a parent",
+          "[ui]") {
+  class EffectFrame : public Frame {
+  public:
+    EffectFrame() {
+      setPostEffect(post_effect_.get());
+      setBackdropEffect(backdrop_effect_.get());
+    }
+
+  private:
+    std::unique_ptr<BlurPostEffect> post_effect_ = std::make_unique<BlurPostEffect>();
+    std::unique_ptr<BlurPostEffect> backdrop_effect_ = std::make_unique<BlurPostEffect>();
+  };
+
+  Canvas canvas;
+  canvas.setWindowless(100, 100);
+  Frame parent;
+  canvas.addRegion(parent.region());
+  parent.setBounds(0, 0, 100, 100);
+
+  auto child = std::make_unique<EffectFrame>();
+  parent.addChild(child.get());
+  child->setBounds(10, 20, 30, 40);
+  child->region()->setNeedsLayer(true);
+  canvas.takeScreenshot();
+
+  child.reset();
+  REQUIRE(parent.children().empty());
+  canvas.takeScreenshot();
+}
+
 VISAGE_THEME_COLOR(FrameOverrideTestColor, 0xff000000);
 VISAGE_THEME_VALUE(FrameOverrideTestValue, 1.0f);
 VISAGE_THEME_PALETTE_OVERRIDE(FrameOverrideTestOuter);

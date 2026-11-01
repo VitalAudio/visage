@@ -127,8 +127,6 @@ public:
     setEffect(effect);
   }
 
-  ~GlassLayer() override { setBackdropEffect(nullptr); }
-
   int effect() const { return effect_; }
   const EffectSpec& spec() const { return effectSpecs()[effect_]; }
   float amount() const {

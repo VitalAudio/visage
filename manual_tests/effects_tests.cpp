@@ -298,8 +298,6 @@ namespace manual {
         };
       }
 
-      ~Glass() override { setBackdropEffect(nullptr); }
-
       void draw(visage::Canvas& canvas) override {
         canvas.setColor(0x22ffffff);
         canvas.fill(0, 0, width(), height());

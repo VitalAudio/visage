@@ -59,6 +59,8 @@ namespace visage {
     explicit Frame(std::string name) : name_(std::move(name)) { }
     virtual ~Frame() {
       listeners_.clear();
+      post_effect_destroyed_.disconnect();
+      backdrop_effect_destroyed_.disconnect();
       notifyRemoveFromHierarchy();
       if (parent_)
         parent_->eraseChild(this);
@@ -522,8 +524,10 @@ namespace visage {
     bool initialized_ = false;
 
     PostEffect* post_effect_ = nullptr;
+    CallbackConnection post_effect_destroyed_;
     std::unique_ptr<BlurPostEffect> blur_effect_;
     PostEffect* backdrop_effect_ = nullptr;
+    CallbackConnection backdrop_effect_destroyed_;
     bool cached_ = false;
     MaskType mask_type_ = MaskType::Alpha;
     std::unique_ptr<LuminanceMaskPostEffect> luminance_mask_effect_;
