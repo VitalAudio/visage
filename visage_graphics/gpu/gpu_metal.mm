@@ -38,7 +38,7 @@
 namespace visage::gpu {
   namespace {
     constexpr int kMaxFramesInFlight = 3;
-    constexpr int kMaxSurfaces = 4;
+    constexpr int kMaxSurfaces = kMaxFramesInFlight + 2;
     NSString* const kContentLayerName = @"VisageContent";
     constexpr int64_t kLostFrameWaitMs = 100;
     constexpr int kVertexBufferIndex = 30;
@@ -558,9 +558,17 @@ namespace visage::gpu {
       if (idx >= frame_buffers_.size() || !frame_buffers_[idx].valid)
         return;
 
-      if (frame_buffers_[idx].pool)
-        removeContentLayer(frame_buffers_[idx].pool->layer);
+      std::shared_ptr<SurfacePool> pool = frame_buffers_[idx].pool;
       frame_buffers_[idx] = {};
+      if (pool && !layerInUse(pool->layer))
+        removeContentLayer(pool->layer);
+    }
+
+    bool layerInUse(CALayer* layer) const {
+      return std::any_of(frame_buffers_.begin(), frame_buffers_.end(),
+                         [layer](const FrameBuffer& frame_buffer) {
+                           return frame_buffer.pool && frame_buffer.pool->layer == layer;
+                         });
     }
 
     bool waitForFrame(uint16_t, int) override { return true; }
@@ -851,7 +859,6 @@ namespace visage::gpu {
                                        width:pool.width
                                       height:pool.height
                                    mipmapped:NO];
-      descriptor.storageMode = MTLStorageModeShared;
       descriptor.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
       surface->texture = [device_ newTextureWithDescriptor:descriptor
                                                  iosurface:surface->surface
@@ -902,7 +909,8 @@ namespace visage::gpu {
         pool.history.reset();
       }
 
-      std::shared_ptr<Surface> surface = occluded(frame_buffer) ? nullptr : freeSurface(pool);
+      bool can_draw = command_buffer_ != nil && !occluded(frame_buffer);
+      std::shared_ptr<Surface> surface = can_draw ? freeSurface(pool) : nullptr;
       if (surface == nullptr) {
         for (const auto& pooled : pool.surfaces)
           pooled->presented = 0;
@@ -927,10 +935,11 @@ namespace visage::gpu {
       pool->history.push(pool->frame_damage);
       uint64_t sequence = ++pool->submitted;
       std::weak_ptr<SurfacePool> weak_pool = pool;
-      [command_buffer_ addCompletedHandler:^(id<MTLCommandBuffer>) {
+      [command_buffer_ addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
+        bool delivered = buffer.status == MTLCommandBufferStatusCompleted;
         dispatch_async(dispatch_get_main_queue(), ^{
           std::shared_ptr<SurfacePool> shown_pool = weak_pool.lock();
-          if (shown_pool && sequence > shown_pool->shown) {
+          if (delivered && shown_pool && sequence > shown_pool->shown) {
             shown_pool->shown = sequence;
             showSurface(*shown_pool, surface);
           }
