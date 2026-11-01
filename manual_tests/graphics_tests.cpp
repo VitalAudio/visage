@@ -180,17 +180,17 @@ namespace manual {
           canvas.setColor(kShapeColor);
           canvas.quadratic(w * 0.1f, h * 0.8f, w * 0.5f, -h * 0.4f, w * 0.9f, h * 0.8f, s->thickness);
         });
-        addCell("arc rounded / flat", "Animated arcs: rounded ends on the left, flat ends on the right.",
-                [s](visage::Canvas& canvas, float w, float h) {
-                  float size = std::min(w * 0.45f, h * 0.8f);
-                  float t = s->animate ? canvas.time() : 0.0f;
-                  float radians = kPi * (0.5f + 0.45f * std::sin(t));
-                  canvas.setColor(kShapeColor);
-                  canvas.arc(w * 0.25f - size * 0.5f, (h - size) * 0.5f, size, s->thickness, t,
-                             radians, true);
-                  canvas.arc(w * 0.75f - size * 0.5f, (h - size) * 0.5f, size, s->thickness, -t,
-                             radians, false);
-                });
+        addCell(
+            "arc rounded / flat", "Animated arcs: rounded ends on the left, flat ends on the right.",
+            [s](visage::Canvas& canvas, float w, float h) {
+              float size = std::min(w * 0.45f, h * 0.8f);
+              float t = s->animate ? canvas.time() : 0.0f;
+              float radians = kPi * (0.5f + 0.45f * std::sin(t));
+              canvas.setColor(kShapeColor);
+              canvas.arc(w * 0.25f - size * 0.5f, (h - size) * 0.5f, size, s->thickness, t, radians, true);
+              canvas.arc(w * 0.75f - size * 0.5f, (h - size) * 0.5f, size, s->thickness, -t, radians, false);
+            },
+            true);
         addCell("roundedArcShadow / flatArcShadow", "Soft glows following the arcs.",
                 [s](visage::Canvas& canvas, float w, float h) {
                   float size = std::min(w * 0.45f, h * 0.7f);
