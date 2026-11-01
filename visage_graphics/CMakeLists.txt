@@ -81,6 +81,9 @@ else ()
 endif ()
 
 target_compile_options(freetype PRIVATE ${DISABLE_WARNINGS})
+if (FONTCONFIG_LIBRARIES)
+  set_target_properties(freetype PROPERTIES INTERPROCEDURAL_OPTIMIZATION OFF)
+endif ()
 
 target_link_libraries(
   VisageGraphics
