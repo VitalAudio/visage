@@ -31,7 +31,7 @@ namespace visage {
   class Window;
   class WindowEventHandler;
   class ClientWindowDecoration;
-  class WindowCornerMask;
+  class WindowFrameDecoration;
 
   class TopLevelFrame : public Frame {
   public:
@@ -41,12 +41,13 @@ namespace visage {
     void resized() override;
     void addClientDecoration();
     bool hasClientDecoration() const { return client_decoration_ != nullptr; }
-    void setCornerRadius(float radius);
+    void addWindowFrameDecoration(Window* window);
+    void removeWindowFrameDecoration();
 
   private:
     ApplicationEditor* editor_ = nullptr;
     std::unique_ptr<ClientWindowDecoration> client_decoration_;
-    std::unique_ptr<WindowCornerMask> corner_mask_;
+    std::unique_ptr<WindowFrameDecoration> frame_decoration_;
   };
 
   class ApplicationEditor : public Frame {
@@ -115,7 +116,6 @@ namespace visage {
     Window* window_ = nullptr;
     FrameEventHandler event_handler_;
     std::unique_ptr<Canvas> canvas_;
-    std::unique_ptr<Canvas> frame_canvas_;
     int waited_frame_buffer_id_ = -1;
     std::unique_ptr<TopLevelFrame> top_level_;
 
