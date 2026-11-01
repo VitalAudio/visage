@@ -44,6 +44,15 @@ int main() {
 - **✨ Emojis ✨**  
 &nbsp;&nbsp;&nbsp;If you're into that kind of thing 🤷
 
+- **Flexbox Layout**  
+&nbsp;&nbsp;&nbsp;Flex-style layout for positioning and sizing frames
+
+- **Widgets**  
+&nbsp;&nbsp;&nbsp;Buttons, text editors, popup menus, scroll views, a color picker and more
+
+- **Plugin Embedding**  
+&nbsp;&nbsp;&nbsp;Attach the UI to a window owned by a host, like an audio plugin
+
 - **Partial Rendering**  
 &nbsp;&nbsp;&nbsp;Redraws only the dirty regions for optimal performance.
 
@@ -55,6 +64,15 @@ int main() {
 - **Automatic Shape Batching**  
 &nbsp;&nbsp;&nbsp;Automatically groups shapes for efficient GPU rendering.
 
+- **SVG**  
+&nbsp;&nbsp;&nbsp;Draw SVG files with gradients, clip paths and masks
+
+- **Paths**  
+&nbsp;&nbsp;&nbsp;Fill and stroke Bézier paths with dashes, joins and caps
+
+- **Gradients**  
+&nbsp;&nbsp;&nbsp;Linear and radial gradients for shapes, paths and text
+
 - **Blend Modes**  
 &nbsp;&nbsp;&nbsp;Supports blending layers with additive, subtractive or by drawing a custom mask for the UI to pass through
 
@@ -63,6 +81,9 @@ int main() {
 
 - **Included Effects**  
 &nbsp;&nbsp;&nbsp;Real-time effects such as large blur and bloom
+
+- **Backdrop Effects**  
+&nbsp;&nbsp;&nbsp;Blur or run a shader on whatever is behind a frame, like frosted glass
 
 - **Pixel Accuracy**  
 &nbsp;&nbsp;&nbsp;Access to device pixel size ensures precise rendering without blurring.
