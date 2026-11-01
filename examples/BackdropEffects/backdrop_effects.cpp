@@ -355,11 +355,6 @@ public:
     }
   }
 
-  void draw(visage::Canvas& canvas) override {
-    canvas.setColor(0xff000000);
-    canvas.fill(0, 0, width(), height());
-  }
-
 private:
   static constexpr float kHudHeight = 96.0f;
 
