@@ -776,7 +776,7 @@ namespace {
 
   void drawFrame(Frame& frame) {
     FrameEventHandler handler;
-    handler.request_redraw = [](Frame*) { };
+    handler.request_redraw = [](Frame*) {};
     frame.setEventHandler(&handler);
     frame.redraw();
     Canvas canvas;
