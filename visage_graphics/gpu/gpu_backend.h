@@ -144,11 +144,20 @@ namespace visage::gpu {
     int height = 0;
   };
 
+  struct ClearItem {
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    float color[4] = {};
+  };
+
   struct ViewItem {
     enum Type : uint8_t {
       Draw,
       Compute,
       Blit,
+      Clear,
     };
     Type type = Draw;
     uint32_t index = 0;
@@ -206,6 +215,7 @@ namespace visage::gpu {
     std::vector<DrawItem> draws;
     std::vector<ComputeItem> computes;
     std::vector<BlitItem> blits;
+    std::vector<ClearItem> clears;
     std::vector<uint8_t> uniform_data;
     std::vector<ReadRequest> reads;
     std::vector<uint16_t> screenshots;

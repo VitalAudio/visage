@@ -211,6 +211,7 @@ namespace visage::gpu {
     bool origin_bottom_left = false;
     bool compute = false;
     bool swap_chain = false;
+    bool clear_rects = false;
     int max_texture_size = 0;
     uint32_t formats[static_cast<int>(TextureFormat::Count)] {};
   };
@@ -339,6 +340,7 @@ namespace visage::gpu {
 
   void blit(uint16_t view, TextureHandle destination, int dest_x, int dest_y, TextureHandle source,
             int source_x = 0, int source_y = 0, int width = -1, int height = -1);
+  void clear(uint16_t view, int x, int y, int width, int height, uint32_t argb = 0);
 
   uint32_t frame();
   uint32_t frameNumber();

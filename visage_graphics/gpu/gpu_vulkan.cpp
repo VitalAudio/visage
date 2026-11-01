@@ -142,7 +142,8 @@ namespace visage::gpu {
   X(vkCmdCopyImageToBuffer)           \
   X(vkCmdCopyImage)                   \
   X(vkCmdFillBuffer)                  \
-  X(vkCmdClearColorImage)
+  X(vkCmdClearColorImage)             \
+  X(vkCmdClearAttachments)
 
 #define VISAGE_VK_DECLARE(name) PFN_##name name = nullptr;
     PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr = nullptr;
@@ -1238,6 +1239,7 @@ namespace visage::gpu {
     void fillCaps(Caps& caps) {
       caps.renderer = RendererType::Vulkan;
       caps.origin_bottom_left = false;
+      caps.clear_rects = true;
       caps.compute = true;
       caps.swap_chain = true;
       caps.max_texture_size = static_cast<int>(properties_.limits.maxImageDimension2D);
@@ -2085,6 +2087,8 @@ namespace visage::gpu {
 
     void prepareDrawTextures(const FrameData& frame, const ViewData& view, size_t start, size_t end) {
       for (size_t i = start; i < end; ++i) {
+        if (view.items[i].type != ViewItem::Draw)
+          continue;
         const DrawItem& draw = frame.draws[view.items[i].index];
         for (const TextureBinding& binding : draw.textures) {
           if (textureValid(binding.texture))
@@ -2149,16 +2153,41 @@ namespace visage::gpu {
         vkCmdSetViewport(command_buffer_, 0, 1, &viewport);
         for (const VkRect2D& scissor : scissors) {
           vkCmdSetScissor(command_buffer_, 0, 1, &scissor);
-          recordDraws(frame, view, start, end, format);
+          recordDraws(frame, view, start, end, format, scissor);
         }
       }
       vkCmdEndRenderPass(command_buffer_);
     }
 
+    void recordClear(const ClearItem& item, const VkRect2D& scissor) {
+      int left = std::max(scissor.offset.x, item.x);
+      int top = std::max(scissor.offset.y, item.y);
+      int right = std::min(scissor.offset.x + static_cast<int>(scissor.extent.width), item.x + item.width);
+      int bottom = std::min(scissor.offset.y + static_cast<int>(scissor.extent.height),
+                            item.y + item.height);
+      if (right <= left || bottom <= top)
+        return;
+
+      VkClearAttachment attachment {};
+      attachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      attachment.colorAttachment = 0;
+      std::memcpy(attachment.clearValue.color.float32, item.color, sizeof(item.color));
+      VkClearRect rect {};
+      rect.rect = { { left, top },
+                    { static_cast<uint32_t>(right - left), static_cast<uint32_t>(bottom - top) } };
+      rect.layerCount = 1;
+      vkCmdClearAttachments(command_buffer_, 1, &attachment, 1, &rect);
+    }
+
     void recordDraws(const FrameData& frame, const ViewData& view, size_t start, size_t end,
-                     VkFormat format) {
+                     VkFormat format, const VkRect2D& scissor) {
       VkPipeline bound_pipeline = VK_NULL_HANDLE;
       for (size_t i = start; i < end; ++i) {
+        if (view.items[i].type == ViewItem::Clear) {
+          recordClear(frame.clears[view.items[i].index], scissor);
+          continue;
+        }
+
         const DrawItem& draw = frame.draws[view.items[i].index];
         if (draw.program >= programs_.size() || !programs_[draw.program].used)
           continue;
@@ -2308,9 +2337,10 @@ namespace visage::gpu {
       size_t i = 0;
       while (i < view.items.size()) {
         const ViewItem& item = view.items[i];
-        if (item.type == ViewItem::Draw) {
+        if (item.type == ViewItem::Draw || item.type == ViewItem::Clear) {
           size_t end = i;
-          while (end < view.items.size() && view.items[end].type == ViewItem::Draw)
+          while (end < view.items.size() &&
+                 (view.items[end].type == ViewItem::Draw || view.items[end].type == ViewItem::Clear))
             ++end;
           if (frame_buffer)
             executeDraws(frame, view, i, end, *frame_buffer);

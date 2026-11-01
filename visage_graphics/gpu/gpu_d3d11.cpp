@@ -36,6 +36,7 @@
 #include <cstdio>
 #include <cstring>
 #include <d3d11.h>
+#include <d3d11_1.h>
 #include <d3dcompiler.h>
 #include <dxgi1_5.h>
 #include <mutex>
@@ -256,11 +257,13 @@ namespace visage::gpu {
       depth_desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
       depth_desc.DepthFunc = D3D11_COMPARISON_ALWAYS;
       device_->CreateDepthStencilState(&depth_desc, &depth_state_);
+      context_->QueryInterface(__uuidof(ID3D11DeviceContext1), (void**)&context1_);
 
       caps.renderer = RendererType::Direct3D11;
       caps.origin_bottom_left = false;
       caps.compute = feature_level_ >= D3D_FEATURE_LEVEL_11_0;
       caps.swap_chain = true;
+      caps.clear_rects = context1_ != nullptr;
       caps.max_texture_size = D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION;
       for (int i = 0; i < static_cast<int>(TextureFormat::Count); ++i) {
         DXGI_FORMAT format = formatInfo(static_cast<TextureFormat>(i)).format;
@@ -318,6 +321,7 @@ namespace visage::gpu {
       if (context_)
         context_->Flush();
       release(factory_);
+      release(context1_);
       release(context_);
       release(device_);
       if (compiler_)
@@ -767,6 +771,10 @@ namespace visage::gpu {
             }
             else if (item.type == ViewItem::Blit)
               blit(frame.blits[item.index]);
+            else if (item.type == ViewItem::Clear && frame_buffer && frame_buffer->rtv) {
+              for (const D3D11_RECT& scissor : scissors)
+                clear(frame.clears[item.index], *frame_buffer, scissor);
+            }
             ++i;
           }
         }
@@ -1246,6 +1254,20 @@ namespace visage::gpu {
                                       source->texture, 0, &box);
     }
 
+    void clear(const ClearItem& item, const FrameBuffer& frame_buffer, const D3D11_RECT& scissor) {
+      D3D11_RECT rect = { std::max<LONG>(scissor.left, item.x), std::max<LONG>(scissor.top, item.y),
+                          std::min<LONG>(scissor.right, item.x + item.width),
+                          std::min<LONG>(scissor.bottom, item.y + item.height) };
+      if (rect.right <= rect.left || rect.bottom <= rect.top)
+        return;
+
+      if (rect.left <= 0 && rect.top <= 0 && rect.right >= frame_buffer.width &&
+          rect.bottom >= frame_buffer.height)
+        context_->ClearRenderTargetView(frame_buffer.rtv, item.color);
+      else
+        context1_->ClearView(frame_buffer.rtv, item.color, &rect, 1);
+    }
+
     bool copyToStaging(ID3D11Texture2D* source, ID3D11Texture2D*& staging) {
       D3D11_TEXTURE2D_DESC desc;
       source->GetDesc(&desc);
@@ -1319,6 +1341,7 @@ namespace visage::gpu {
     Init init_;
     ID3D11Device* device_ = nullptr;
     ID3D11DeviceContext* context_ = nullptr;
+    ID3D11DeviceContext1* context1_ = nullptr;
     IDXGIFactory2* factory_ = nullptr;
     D3D_FEATURE_LEVEL feature_level_ = D3D_FEATURE_LEVEL_11_0;
     bool tearing_supported_ = false;

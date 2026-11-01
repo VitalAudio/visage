@@ -352,6 +352,12 @@ namespace visage {
     }
     needs_full_clear_ = false;
 
+    if (gpu::getCaps()->clear_rects) {
+      for (const IBounds& rect : invalid_rects)
+        gpu::clear(submit_pass, rect.x(), rect.y(), rect.width(), rect.height());
+      return;
+    }
+
     ShapeBatch<Fill> clear_batch(BlendMode::Opaque);
     for (const IBounds& rect : invalid_rects) {
       float x = rect.x();

@@ -19,14 +19,14 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-#if VISAGE_LINUX
-
 #include "visage_graphics/gpu/gpu_backend.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <cstring>
 
 using namespace visage;
+
+#if VISAGE_LINUX
 
 TEST_CASE("Shader blobs keep their reflection and code through a round trip", "[graphics]") {
   gpu::ShaderInfo info;
@@ -197,3 +197,48 @@ TEST_CASE("Swap chain buffers redraw the damage of every frame they missed", "[g
 }
 
 #endif
+
+TEST_CASE("Clears fill only the requested area of a frame buffer", "[graphics]") {
+  gpu::Init init;
+  init.type = gpu::defaultRendererType();
+  if (!gpu::init(init))
+    SKIP("No GPU device");
+  if (!gpu::getCaps()->clear_rects) {
+    gpu::shutdown();
+    SKIP("Renderer has no rectangle clears");
+  }
+
+  static constexpr int kSize = 8;
+  gpu::FrameBufferHandle frame_buffer = gpu::createFrameBuffer(kSize, kSize, gpu::TextureFormat::RGBA8);
+  gpu::TextureHandle read_back = gpu::createTexture2D(kSize, kSize, gpu::TextureFormat::RGBA8,
+                                                      gpu::kTextureBlitDst | gpu::kTextureReadBack);
+  REQUIRE(gpu::isValid(frame_buffer));
+  REQUIRE(gpu::isValid(read_back));
+
+  gpu::setViewFrameBuffer(0, frame_buffer);
+  gpu::setViewRect(0, 0, 0, kSize, kSize);
+  gpu::clear(0, 0, 0, kSize, kSize, 0xff0000ff);
+  gpu::clear(0, 2, 3, 4, 2, 0x8000ff00);
+  gpu::blit(1, read_back, 0, 0, gpu::getTexture(frame_buffer));
+
+  std::vector<uint8_t> pixels(kSize * kSize * 4);
+  uint32_t ready = gpu::readTexture(read_back, pixels.data());
+  while (gpu::frame() < ready) {
+  }
+
+  for (int y = 0; y < kSize; ++y) {
+    for (int x = 0; x < kSize; ++x) {
+      const uint8_t* pixel = pixels.data() + (y * kSize + x) * 4;
+      bool inside = x >= 2 && x < 6 && y >= 3 && y < 5;
+      REQUIRE(pixel[0] == 0);
+      REQUIRE(pixel[1] == (inside ? 255 : 0));
+      REQUIRE(pixel[2] == (inside ? 0 : 255));
+      REQUIRE(pixel[3] == (inside ? 128 : 255));
+    }
+  }
+
+  gpu::destroy(read_back);
+  gpu::destroy(frame_buffer);
+  gpu::frame();
+  gpu::shutdown();
+}

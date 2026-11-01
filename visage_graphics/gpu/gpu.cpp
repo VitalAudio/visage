@@ -1108,6 +1108,20 @@ namespace visage::gpu {
     context->view_items[view].push_back({ ViewItem::Blit, index });
   }
 
+  void clear(uint16_t view, int x, int y, int width, int height, uint32_t argb) {
+    if (context == nullptr || !context->caps.clear_rects || width <= 0 || height <= 0)
+      return;
+
+    ClearItem item { x, y, width, height };
+    item.color[0] = ((argb >> 16) & 0xff) / 255.0f;
+    item.color[1] = ((argb >> 8) & 0xff) / 255.0f;
+    item.color[2] = (argb & 0xff) / 255.0f;
+    item.color[3] = ((argb >> 24) & 0xff) / 255.0f;
+    uint32_t index = static_cast<uint32_t>(context->frame.clears.size());
+    context->frame.clears.push_back(item);
+    context->view_items[view].push_back({ ViewItem::Clear, index });
+  }
+
   static std::unique_ptr<Backend> createInitializedBackend(Caps& caps) {
     std::unique_ptr<Backend> backend = createBackend(context->init.type);
     if (backend && backend->init(context->init, caps))
@@ -1263,6 +1277,7 @@ namespace visage::gpu {
     frame.draws.clear();
     frame.computes.clear();
     frame.blits.clear();
+    frame.clears.clear();
     frame.uniform_data.clear();
     frame.reads.clear();
     frame.screenshots.clear();

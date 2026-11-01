@@ -175,6 +175,7 @@ namespace visage::gpu {
 
       caps.renderer = RendererType::OpenGLES;
       caps.origin_bottom_left = true;
+      caps.clear_rects = true;
       caps.compute = false;
       caps.swap_chain = true;
       caps.max_texture_size = max_texture_size;
@@ -617,15 +618,37 @@ namespace visage::gpu {
       }
     }
 
-    void bindFrameBuffer(const ViewData& view) {
-      FrameBuffer& frame_buffer = frame_buffers_[view.frame_buffer];
-      glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer.framebuffer);
+    int targetHeight(const FrameBuffer& frame_buffer) {
       int height = frame_buffer.height;
       if (frame_buffer.swap_chain) {
         int width = 0;
         emscripten_webgl_get_drawing_buffer_size(context_, &width, &height);
       }
+      return height;
+    }
+
+    void bindFrameBuffer(const ViewData& view) {
+      FrameBuffer& frame_buffer = frame_buffers_[view.frame_buffer];
+      glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer.framebuffer);
+      int height = targetHeight(frame_buffer);
       glViewport(view.x, height - view.height - view.y, view.width, view.height);
+    }
+
+    void executeClear(const ClearItem& item, const ViewData& view) {
+      int left = std::max(item.x, view.x);
+      int top = std::max(item.y, view.y);
+      int right = std::min(item.x + item.width, view.x + view.width);
+      int bottom = std::min(item.y + item.height, view.y + view.height);
+      if (right <= left || bottom <= top)
+        return;
+
+      int height = targetHeight(frame_buffers_[view.frame_buffer]);
+      glEnable(GL_SCISSOR_TEST);
+      glScissor(left, height - bottom, right - left, bottom - top);
+      glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+      glClearColor(item.color[0], item.color[1], item.color[2], item.color[3]);
+      glClear(GL_COLOR_BUFFER_BIT);
+      glDisable(GL_SCISSOR_TEST);
     }
 
     void executeDraw(const FrameData& frame, const DrawItem& draw) {
@@ -707,14 +730,17 @@ namespace visage::gpu {
                         frame_buffers_[view.frame_buffer].used;
       bool bound = false;
       for (const ViewItem& item : view.items) {
-        if (item.type == ViewItem::Draw) {
+        if (item.type == ViewItem::Draw || item.type == ViewItem::Clear) {
           if (!has_target)
             continue;
           if (!bound) {
             bindFrameBuffer(view);
             bound = true;
           }
-          executeDraw(frame, frame.draws[item.index]);
+          if (item.type == ViewItem::Clear)
+            executeClear(frame.clears[item.index], view);
+          else
+            executeDraw(frame, frame.draws[item.index]);
         }
         else if (item.type == ViewItem::Blit) {
           executeBlit(frame.blits[item.index]);
