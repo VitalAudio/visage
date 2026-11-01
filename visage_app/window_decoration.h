@@ -23,8 +23,19 @@
 
 #include "visage_graphics/animation.h"
 #include "visage_ui/frame.h"
+#include "visage_windowing/windowing.h"
+
+#include <memory>
 
 namespace visage {
+  class WindowDecoration : public Frame {
+  public:
+    virtual Bounds decorationBounds(const Bounds& window_bounds) const = 0;
+    virtual HitTestResult windowHitTest(const Point& position) const {
+      return HitTestResult::Client;
+    }
+  };
+
   class ClientDecoratorButton : public Frame {
   public:
     static constexpr int kDefaultHoverColor = 0x88888888;
@@ -63,8 +74,9 @@ namespace visage {
     Color color_;
   };
 
-  class ClientWindowDecoration : public Frame {
+  class ClientWindowDecoration : public WindowDecoration {
   public:
+    static constexpr int kTitleBarHeight = 30;
     static constexpr int kButtonWidth = 46;
     static constexpr int kButtonHeight = 28;
     static constexpr int kCloseButtonColor = 0xffc42b1c;
@@ -73,6 +85,15 @@ namespace visage {
     static int requiredHeight() { return kButtonHeight; }
 
     ClientWindowDecoration();
+
+    Bounds decorationBounds(const Bounds& window_bounds) const override {
+      return { window_bounds.width() - requiredWidth(), 0.0f, static_cast<float>(requiredWidth()),
+               static_cast<float>(requiredHeight()) };
+    }
+
+    HitTestResult windowHitTest(const Point& position) const override {
+      return position.y < kTitleBarHeight ? HitTestResult::TitleBar : HitTestResult::Client;
+    }
 
     void resized() override {
       close_button_.setBounds(width() - kButtonWidth, 0, kButtonWidth, height());
@@ -86,5 +107,23 @@ namespace visage {
     ClientDecoratorButton minimize_button_;
 
     VISAGE_LEAK_CHECKER(ClientWindowDecoration)
+  };
+
+  class WindowFrameDecoration : public WindowDecoration {
+  public:
+    explicit WindowFrameDecoration(Window* window);
+    ~WindowFrameDecoration() override;
+
+    Bounds decorationBounds(const Bounds& window_bounds) const override { return window_bounds; }
+    void draw(Canvas& canvas) override;
+
+  private:
+    void drawDecoration(const Window::FrameDecoration& decoration);
+
+    Window* window_ = nullptr;
+    std::unique_ptr<Canvas> canvas_;
+    float corner_radius_ = 0.0f;
+
+    VISAGE_LEAK_CHECKER(WindowFrameDecoration)
   };
 }

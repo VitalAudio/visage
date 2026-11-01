@@ -21,12 +21,11 @@
 
 #include "application_editor.h"
 
-#include "client_window_decoration.h"
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/renderer.h"
 #include "visage_windowing/windowing.h"
+#include "window_decoration.h"
 #include "window_event_handler.h"
-#include "window_frame_decoration.h"
 
 namespace visage {
   TopLevelFrame::TopLevelFrame(ApplicationEditor* editor) : editor_(editor) { }
@@ -41,20 +40,34 @@ namespace visage {
     editor_->setCanvasDetails();
     editor_->notifyContentsResized();
 
-    if (client_decoration_) {
-      int decoration_width = client_decoration_->requiredWidth();
-      client_decoration_->setBounds(width() - decoration_width, 0, decoration_width,
-                                    client_decoration_->requiredHeight());
+    for (WindowDecoration* decoration : decorations()) {
+      if (decoration)
+        decoration->setBounds(decoration->decorationBounds(localBounds()));
     }
-    if (frame_decoration_)
-      frame_decoration_->setBounds(localBounds());
+  }
+
+  std::array<WindowDecoration*, 2> TopLevelFrame::decorations() const {
+    return { client_decoration_.get(), frame_decoration_.get() };
+  }
+
+  void TopLevelFrame::addDecoration(WindowDecoration* decoration) {
+    addChild(decoration);
+    decoration->setOnTop(true);
+    decoration->setBounds(decoration->decorationBounds(localBounds()));
+  }
+
+  HitTestResult TopLevelFrame::decorationHitTest(const Point& position) const {
+    for (const WindowDecoration* decoration : decorations()) {
+      HitTestResult result = decoration ? decoration->windowHitTest(position) : HitTestResult::Client;
+      if (result != HitTestResult::Client)
+        return result;
+    }
+    return HitTestResult::Client;
   }
 
   void TopLevelFrame::addWindowFrameDecoration(Window* window) {
     frame_decoration_ = std::make_unique<WindowFrameDecoration>(window);
-    addChild(frame_decoration_.get());
-    frame_decoration_->setOnTop(true);
-    frame_decoration_->setBounds(localBounds());
+    addDecoration(frame_decoration_.get());
   }
 
   void TopLevelFrame::removeWindowFrameDecoration() {
@@ -64,8 +77,7 @@ namespace visage {
   void TopLevelFrame::addClientDecoration() {
 #if !VISAGE_MAC && !VISAGE_EMSCRIPTEN
     client_decoration_ = std::make_unique<ClientWindowDecoration>();
-    addChild(client_decoration_.get());
-    client_decoration_->setOnTop(true);
+    addDecoration(client_decoration_.get());
 #endif
   }
 

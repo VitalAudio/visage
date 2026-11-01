@@ -23,6 +23,7 @@
 
 #include "visage_ui/frame.h"
 
+#include <array>
 #include <unordered_set>
 
 namespace visage {
@@ -30,6 +31,7 @@ namespace visage {
   class Canvas;
   class Window;
   class WindowEventHandler;
+  class WindowDecoration;
   class ClientWindowDecoration;
   class WindowFrameDecoration;
 
@@ -40,11 +42,14 @@ namespace visage {
 
     void resized() override;
     void addClientDecoration();
-    bool hasClientDecoration() const { return client_decoration_ != nullptr; }
     void addWindowFrameDecoration(Window* window);
     void removeWindowFrameDecoration();
+    HitTestResult decorationHitTest(const Point& position) const;
 
   private:
+    void addDecoration(WindowDecoration* decoration);
+    std::array<WindowDecoration*, 2> decorations() const;
+
     ApplicationEditor* editor_ = nullptr;
     std::unique_ptr<ClientWindowDecoration> client_decoration_;
     std::unique_ptr<WindowFrameDecoration> frame_decoration_;
@@ -52,8 +57,6 @@ namespace visage {
 
   class ApplicationEditor : public Frame {
   public:
-    static constexpr int kDefaultClientTitleBarHeight = 30;
-
     ApplicationEditor();
     ~ApplicationEditor() override;
 
@@ -106,10 +109,7 @@ namespace visage {
 
     void addClientDecoration() { top_level_->addClientDecoration(); }
     HitTestResult hitTest(const Point& position) const override {
-      if (position.y < kDefaultClientTitleBarHeight && top_level_->hasClientDecoration())
-        return HitTestResult::TitleBar;
-
-      return HitTestResult::Client;
+      return top_level_->decorationHitTest(position);
     }
 
   private:
