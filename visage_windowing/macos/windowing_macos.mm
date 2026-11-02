@@ -25,6 +25,7 @@
 #include "visage_utils/file_system.h"
 #include "visage_utils/time_utils.h"
 
+#include <QuartzCore/QuartzCore.h>
 #include <algorithm>
 #include <map>
 
@@ -541,6 +542,32 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
 }
 @end
 
+static constexpr double kDisplayLinkDrawPhase = 0.3;
+
+@interface VisageAppView ()
+@property(strong) id display_link;
+@property(strong) dispatch_source_t draw_timer;
+#if defined(__MAC_14_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_14_0
+- (void)displayLinkFired:(CADisplayLink*)link API_AVAILABLE(macos(14.0));
+#endif
+@end
+
+#if defined(__MAC_14_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_14_0
+@interface VisageDisplayLinkTarget : NSObject
+@property(weak) VisageAppView* view;
+@end
+
+@implementation VisageDisplayLinkTarget
+- (void)displayLinkFired:(CADisplayLink*)link API_AVAILABLE(macos(14.0)) {
+  VisageAppView* view = self.view;
+  if (view)
+    [view displayLinkFired:link];
+  else
+    [link invalidate];
+}
+@end
+#endif
+
 @implementation VisageAppView
 - (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window {
   self = [super initWithFrame:frame_rect];
@@ -551,6 +578,10 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
   self.framebufferOnly = YES;
   self.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
   self.preferredFramesPerSecond = 120;
+#if defined(__MAC_14_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_14_0
+  if (@available(macOS 14.0, *))
+    self.paused = YES;
+#endif
 
   [self registerForDraggedTypes:@[NSPasteboardTypeFileURL, kVisageDragFileType]];
   self.drag_source = [[VisageDraggingSource alloc] init];
@@ -1097,6 +1128,54 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
   }
   else if (self.visage_window)
     self.visage_window->closeWindow();
+}
+
+- (void)viewDidMoveToWindow {
+  [super viewDidMoveToWindow];
+#if defined(__MAC_14_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_14_0
+  if (@available(macOS 14.0, *)) {
+    if (self.window == nil) {
+      [self.display_link invalidate];
+      self.display_link = nil;
+    }
+    else if (self.display_link == nil) {
+      VisageDisplayLinkTarget* target = [[VisageDisplayLinkTarget alloc] init];
+      target.view = self;
+      CADisplayLink* link = [self displayLinkWithTarget:target selector:@selector(displayLinkFired:)];
+      [link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+      self.display_link = link;
+    }
+  }
+#endif
+}
+
+#if defined(__MAC_14_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_14_0
+- (void)displayLinkFired:(CADisplayLink*)link API_AVAILABLE(macos(14.0)) {
+  CFTimeInterval period = link.targetTimestamp - link.timestamp;
+  CFTimeInterval delay = link.timestamp + kDisplayLinkDrawPhase * period - CACurrentMediaTime();
+  if (delay <= 0.0) {
+    [self draw];
+    return;
+  }
+
+  if (self.draw_timer == nil) {
+    VisageAppView* __weak weak_self = self;
+    self.draw_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, DISPATCH_TIMER_STRICT,
+                                             dispatch_get_main_queue());
+    dispatch_source_set_event_handler(self.draw_timer, ^{
+      [weak_self draw];
+    });
+    dispatch_resume(self.draw_timer);
+  }
+  dispatch_source_set_timer(self.draw_timer, dispatch_time(DISPATCH_TIME_NOW, delay * NSEC_PER_SEC),
+                            DISPATCH_TIME_FOREVER, 0);
+}
+#endif
+
+- (void)dealloc {
+  [_display_link invalidate];
+  if (_draw_timer)
+    dispatch_source_cancel(_draw_timer);
 }
 
 - (void)windowOcclusionChanged:(NSNotification*)notification {
