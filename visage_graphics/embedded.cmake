@@ -29,6 +29,7 @@ elseif (NOT TARGET VisageShaderCompilerHost)
   ExternalProject_Add(VisageShaderCompilerHost
     SOURCE_DIR ${VISAGE_SHADER_COMPILER_DIR}
     BINARY_DIR ${VISAGE_SHADER_COMPILER_BINARY_DIR}
+    CMAKE_COMMAND ${CMAKE_COMMAND} -E env --unset=CC --unset=CXX ${CMAKE_COMMAND}
     CMAKE_ARGS ${VISAGE_SHADER_COMPILER_ARGS}
     BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config Release --target shader_compiler
     INSTALL_COMMAND ""
