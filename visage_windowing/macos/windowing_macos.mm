@@ -25,9 +25,9 @@
 #include "visage_utils/file_system.h"
 #include "visage_utils/time_utils.h"
 
-#include <QuartzCore/QuartzCore.h>
 #include <algorithm>
 #include <map>
+#include <QuartzCore/QuartzCore.h>
 
 namespace visage {
 
@@ -1141,7 +1141,8 @@ static constexpr double kDisplayLinkDrawPhase = 0.3;
     else if (self.display_link == nil) {
       VisageDisplayLinkTarget* target = [[VisageDisplayLinkTarget alloc] init];
       target.view = self;
-      CADisplayLink* link = [self displayLinkWithTarget:target selector:@selector(displayLinkFired:)];
+      CADisplayLink* link = [self displayLinkWithTarget:target
+                                               selector:@selector(displayLinkFired:)];
       [link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
       self.display_link = link;
     }
