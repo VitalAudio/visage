@@ -58,6 +58,7 @@ namespace visage {
   void setOriginFlipUniform(bool origin_flip);
   void setBlendMode(BlendMode draw_state);
   void submitBlended(BlendMode blend_mode, int submit_pass, gpu::ProgramHandle program);
+  void prepareBlended(BlendMode blend_mode, gpu::ProgramHandle program, const gpu::VertexLayout& layout);
   void setAlphaClamp(const Layer& layer);
 
   static constexpr uint64_t kBufferPoolChunkBytes = 4 << 20;

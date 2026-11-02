@@ -887,6 +887,12 @@ namespace visage::gpu {
     return { idx };
   }
 
+  void preparePipeline(ProgramHandle program, const RenderState& state, TextureFormat format,
+                       const VertexLayout& layout) {
+    if (context && context->programs.valid(program.idx) && !context->programs[program.idx].compute)
+      context->backend->preparePipeline(program.idx, state, format, layout);
+  }
+
   ProgramHandle createProgram(ShaderHandle compute, bool destroy_shader) {
     if (context == nullptr || !context->caps.compute || !context->shaders.valid(compute.idx) ||
         context->shaders[compute.idx].info.stage != ShaderStage::Compute)

@@ -27,6 +27,7 @@
 #include "graphics_caches.h"
 #include "uniforms.h"
 
+#include <algorithm>
 #include <optional>
 
 namespace visage {
@@ -72,10 +73,29 @@ namespace visage {
     return screen_buffers;
   }
 
+  static std::vector<PostEffect*>& unpreparedEffects() {
+    static std::vector<PostEffect*> effects;
+    return effects;
+  }
+
+  PostEffect::PostEffect(bool hdr) : hdr_(hdr) {
+    unpreparedEffects().push_back(this);
+  }
+
   PostEffect::~PostEffect() {
+    std::vector<PostEffect*>& unprepared = unpreparedEffects();
+    unprepared.erase(std::remove(unprepared.begin(), unprepared.end(), this), unprepared.end());
+
     std::vector<Region*> regions = std::move(attached_regions_);
     for (Region* region : regions)
       region->removeEffect(this);
+  }
+
+  void PostEffect::preparePipelines() {
+    std::vector<PostEffect*> effects;
+    effects.swap(unpreparedEffects());
+    for (PostEffect* effect : effects)
+      effect->prepare();
   }
 
   void PostEffect::releaseScreenBuffers() {
@@ -388,6 +408,16 @@ namespace visage {
     return submit_pass;
   }
 
+  void BlurPostEffect::prepare() {
+    const gpu::VertexLayout& layout = UvVertex::layout();
+    prepareBlended(BlendMode::Opaque,
+                   ProgramCache::programHandle(shaders::vs_sample, shaders::fs_sample), layout);
+    prepareBlended(BlendMode::Opaque,
+                   ProgramCache::programHandle(shaders::vs_sample, shaders::fs_blur_sample), layout);
+    prepareBlended(BlendMode::Opaque,
+                   ProgramCache::programHandle(shaders::vs_full_screen_texture, shaders::fs_blur), layout);
+  }
+
   int BlurPostEffect::blur(Region* region, int submit_pass) {
     static constexpr float kKernelSigma = 3.3f;
     static constexpr uint32_t kMirror = gpu::kSamplerMirror;
@@ -694,6 +724,11 @@ namespace visage {
                                         Layer& destination, int submit_pass) {
     if (backdrop_.hasCopy())
       submitShader(batches, destination, submit_pass, true);
+  }
+
+  void ShaderPostEffect::prepare() {
+    prepareBlended(state_, ProgramCache::programHandle(vertexShader(), fragmentShader()),
+                   PostEffectVertex::layout());
   }
 
   void ShaderPostEffect::submitShader(const BatchVector<SampleRegion>& batches, Layer& destination,

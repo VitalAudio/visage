@@ -73,17 +73,23 @@ namespace visage {
     gpu::setState(blendModeValue(blend_mode));
   }
 
-  void submitBlended(BlendMode blend_mode, int submit_pass, gpu::ProgramHandle program) {
-    static constexpr gpu::RenderState kMultiplyUncovered = gpu::RenderState::write(gpu::kWriteRGBA)
-                                                               .blendFunc(gpu::BlendFactor::InvDstAlpha,
-                                                                          gpu::BlendFactor::One);
+  static constexpr gpu::RenderState kMultiplyUncovered = gpu::RenderState::write(gpu::kWriteRGBA)
+                                                             .blendFunc(gpu::BlendFactor::InvDstAlpha,
+                                                                        gpu::BlendFactor::One);
 
+  void submitBlended(BlendMode blend_mode, int submit_pass, gpu::ProgramHandle program) {
     setBlendMode(blend_mode);
     if (blend_mode == BlendMode::Mult) {
       gpu::submit(submit_pass, program, true);
       gpu::setState(kMultiplyUncovered);
     }
     gpu::submit(submit_pass, program);
+  }
+
+  void prepareBlended(BlendMode blend_mode, gpu::ProgramHandle program, const gpu::VertexLayout& layout) {
+    gpu::preparePipeline(program, blendModeValue(blend_mode), gpu::TextureFormat::RGBA8, layout);
+    if (blend_mode == BlendMode::Mult)
+      gpu::preparePipeline(program, kMultiplyUncovered, gpu::TextureFormat::RGBA8, layout);
   }
 
   template<const char* name>

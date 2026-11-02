@@ -29,8 +29,9 @@ namespace visage {
   class PostEffect {
   public:
     static void releaseScreenBuffers();
+    static void preparePipelines();
 
-    explicit PostEffect(bool hdr = false) : hdr_(hdr) { }
+    explicit PostEffect(bool hdr = false);
     PostEffect(const PostEffect&) = delete;
     PostEffect& operator=(const PostEffect&) = delete;
 
@@ -49,6 +50,9 @@ namespace visage {
     void submitPassthrough(const BatchVector<SampleRegion>& batches, const Layer& destination,
                            int submit_pass) const;
     bool hdr() const { return hdr_; }
+
+  protected:
+    virtual void prepare() { }
 
   private:
     friend class Region;
@@ -122,6 +126,7 @@ namespace visage {
     void setBlurRadius(float size) { blur_radius_ = std::max(0.0f, size); }
 
   private:
+    void prepare() override;
     int blur(Region* region, int submit_pass);
 
     float blur_radius_ = 0.0f;
@@ -180,6 +185,7 @@ namespace visage {
     void removeUniform(const std::string& name) { uniforms_.erase(name); }
 
   private:
+    void prepare() override;
     void submitShader(const BatchVector<SampleRegion>& batches, Layer& destination, int submit_pass,
                       bool backdrop);
 

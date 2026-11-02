@@ -23,6 +23,7 @@
 
 #include "gpu/gpu.h"
 #include "palette.h"
+#include "post_effects.h"
 #include "renderer.h"
 #include "theme.h"
 
@@ -102,6 +103,7 @@ namespace visage {
       restoreLostContents();
     }
 
+    PostEffect::preparePipelines();
     beginBufferPoolFrame();
     for (int i = 1; i < layers_.size(); ++i)
       layers_[i]->updateHdr(*layers_[i - 1]);

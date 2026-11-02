@@ -489,6 +489,25 @@ namespace visage::gpu {
       return true;
     }
 
+    void preparePipeline(uint16_t idx, const RenderState& state, TextureFormat format,
+                         const VertexLayout& layout) override {
+      if (idx >= programs_.size() || programs_[idx].vertex == nil)
+        return;
+
+      Program& program = programs_[idx];
+      MTLPixelFormat pixel_format = pixelFormat(format);
+      PipelineKey key = { state.key(), static_cast<uint32_t>(pixel_format), layout.hash(), true };
+      if (program.pipelines.count(key))
+        return;
+
+      @autoreleasepool {
+        MTLRenderPipelineDescriptor* descriptor = pipelineDescriptor(program, state, pixel_format, &layout);
+        [device_ newRenderPipelineStateWithDescriptor:descriptor
+                                    completionHandler:^(id<MTLRenderPipelineState>, NSError*) {
+                                    }];
+      }
+    }
+
     void destroyProgram(uint16_t idx) override {
       if (idx < programs_.size() && (programs_[idx].vertex || programs_[idx].compute))
         programs_[idx] = {};
@@ -810,14 +829,8 @@ namespace visage::gpu {
       return frame_buffer.fallback;
     }
 
-    id<MTLRenderPipelineState> renderPipeline(Program& program, const RenderState& state,
-                                              MTLPixelFormat format, const Buffer* vertex_buffer) {
-      uint32_t layout_hash = vertex_buffer ? vertex_buffer->desc.layout.hash() : 0;
-      PipelineKey key = { state.key(), static_cast<uint32_t>(format), layout_hash, vertex_buffer != nullptr };
-      auto found = program.pipelines.find(key);
-      if (found != program.pipelines.end())
-        return found->second;
-
+    MTLRenderPipelineDescriptor* pipelineDescriptor(const Program& program, const RenderState& state,
+                                                    MTLPixelFormat format, const VertexLayout* layout) {
       MTLRenderPipelineDescriptor* descriptor = [[MTLRenderPipelineDescriptor alloc] init];
       descriptor.vertexFunction = program.vertex;
       descriptor.fragmentFunction = program.fragment;
@@ -833,27 +846,38 @@ namespace visage::gpu {
       color.rgbBlendOperation = blendOperation(state.op_rgb);
       color.alphaBlendOperation = blendOperation(state.op_alpha);
 
-      if (vertex_buffer && !program.attributes.empty()) {
-        const VertexLayout& layout = vertex_buffer->desc.layout;
+      if (layout && !program.attributes.empty()) {
         MTLVertexDescriptor* vertex_descriptor = [MTLVertexDescriptor vertexDescriptor];
         for (const ShaderAttribute& attribute : program.attributes) {
           int location = static_cast<int>(attribute.attrib);
           MTLVertexAttributeDescriptor* attribute_descriptor = vertex_descriptor.attributes[location];
           attribute_descriptor.bufferIndex = kVertexBufferIndex;
-          if (layout.has(attribute.attrib)) {
-            attribute_descriptor.format = vertexFormat(layout.count(attribute.attrib));
-            attribute_descriptor.offset = layout.offset(attribute.attrib);
+          if (layout->has(attribute.attrib)) {
+            attribute_descriptor.format = vertexFormat(layout->count(attribute.attrib));
+            attribute_descriptor.offset = layout->offset(attribute.attrib);
           }
           else {
             attribute_descriptor.format = MTLVertexFormatFloat;
             attribute_descriptor.offset = 0;
           }
         }
-        vertex_descriptor.layouts[kVertexBufferIndex].stride = layout.stride();
+        vertex_descriptor.layouts[kVertexBufferIndex].stride = layout->stride();
         vertex_descriptor.layouts[kVertexBufferIndex].stepFunction = MTLVertexStepFunctionPerVertex;
         descriptor.vertexDescriptor = vertex_descriptor;
       }
+      return descriptor;
+    }
 
+    id<MTLRenderPipelineState> renderPipeline(Program& program, const RenderState& state,
+                                              MTLPixelFormat format, const Buffer* vertex_buffer) {
+      uint32_t layout_hash = vertex_buffer ? vertex_buffer->desc.layout.hash() : 0;
+      PipelineKey key = { state.key(), static_cast<uint32_t>(format), layout_hash, vertex_buffer != nullptr };
+      auto found = program.pipelines.find(key);
+      if (found != program.pipelines.end())
+        return found->second;
+
+      const VertexLayout* layout = vertex_buffer ? &vertex_buffer->desc.layout : nullptr;
+      MTLRenderPipelineDescriptor* descriptor = pipelineDescriptor(program, state, format, layout);
       NSError* error = nil;
       id<MTLRenderPipelineState> pipeline = [device_ newRenderPipelineStateWithDescriptor:descriptor
                                                                                     error:&error];

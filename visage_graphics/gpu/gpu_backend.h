@@ -369,6 +369,8 @@ namespace visage::gpu {
     virtual void destroyShader(uint16_t idx) = 0;
     virtual bool createProgram(uint16_t idx, uint16_t vertex, uint16_t fragment) = 0;
     virtual bool createComputeProgram(uint16_t idx, uint16_t compute) = 0;
+    virtual void preparePipeline(uint16_t idx, const RenderState& state, TextureFormat format,
+                                 const VertexLayout& layout) { }
     virtual void destroyProgram(uint16_t idx) = 0;
 
     virtual bool createFrameBuffer(uint16_t idx, uint16_t texture) = 0;

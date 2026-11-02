@@ -315,6 +315,8 @@ namespace visage::gpu {
   void destroy(ShaderHandle handle);
   ProgramHandle createProgram(ShaderHandle vertex, ShaderHandle fragment, bool destroy_shaders = false);
   ProgramHandle createProgram(ShaderHandle compute, bool destroy_shader = false);
+  void preparePipeline(ProgramHandle program, const RenderState& state, TextureFormat format,
+                       const VertexLayout& layout);
   void destroy(ProgramHandle handle);
 
   UniformHandle createUniform(const char* name, UniformType type, int num = 1);
