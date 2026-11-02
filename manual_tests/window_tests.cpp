@@ -484,6 +484,136 @@ namespace manual {
       long long sweep_start_ms_ = 0;
     };
 
+    class TearView : public visage::Frame {
+    public:
+      static constexpr float kBarWidth = 16.0f;
+      static constexpr float kBarSpeed = 360.0f;
+      static constexpr int kFrameSamples = 240;
+
+      void draw(visage::Canvas& canvas) override {
+        float t = canvas.time();
+        float w = width();
+        float h = height();
+
+        canvas.setColor(0xff12121a);
+        canvas.fill(0, 0, w, h);
+
+        float spacing = kBarWidth * 2.0f;
+        float offset = std::fmod(t * kBarSpeed, spacing);
+        canvas.setColor(0xff383d52);
+        for (float x = offset - spacing; x < w; x += spacing)
+          canvas.fill(x, 0, kBarWidth, h);
+
+        float cx = w * 0.5f;
+        float cy = h * 0.5f;
+        float radius = std::min(w, h) * 0.3f;
+        for (int i = 0; i < 12; ++i) {
+          float angle = t * 2.0f + i * visage::kPi / 6.0f;
+          float r = radius * (0.6f + 0.4f * std::sin(t * 3.0f + i));
+          canvas.setColor(visage::Color(1.0f, 0.3f + 0.05f * i, 0.6f, 0.95f - 0.05f * i));
+          canvas.circle(cx + std::cos(angle) * r - 6.0f, cy + std::sin(angle) * r - 6.0f, 12.0f);
+        }
+
+        float sweep = t * 1.5f;
+        canvas.setColor(0x99e6e6f2);
+        canvas.segment(cx, cy, cx + std::cos(sweep) * radius * 1.2f,
+                       cy + std::sin(sweep) * radius * 1.2f, 2.0f, true);
+
+        if (hovering_) {
+          canvas.setColor(0xff888899);
+          canvas.ring(event_position_.x - 14.0f, event_position_.y - 14.0f, 28.0f, 2.0f);
+
+          visage::Point cursor = event_position_ + visage::cursorPosition() - cursor_at_event_;
+          canvas.setColor(0xffff594d);
+          canvas.ring(cursor.x - 20.0f, cursor.y - 20.0f, 40.0f, 2.5f);
+          canvas.circle(cursor.x - 2.0f, cursor.y - 2.0f, 4.0f);
+          canvas.segment(cursor.x - 34.0f, cursor.y, cursor.x - 24.0f, cursor.y, 2.0f, false);
+          canvas.segment(cursor.x + 24.0f, cursor.y, cursor.x + 34.0f, cursor.y, 2.0f, false);
+          canvas.segment(cursor.x, cursor.y - 34.0f, cursor.x, cursor.y - 24.0f, 2.0f, false);
+          canvas.segment(cursor.x, cursor.y + 24.0f, cursor.x, cursor.y + 34.0f, 2.0f, false);
+        }
+
+        frame_times_.push_back(canvas.deltaTime() * 1000.0);
+        while (frame_times_.size() > kFrameSamples)
+          frame_times_.pop_front();
+        std::vector<double> sorted(frame_times_.begin(), frame_times_.end());
+        std::nth_element(sorted.begin(), sorted.begin() + sorted.size() / 2, sorted.end());
+        double frame_ms = sorted[sorted.size() / 2];
+
+        canvas.setColor(0xa6000000);
+        canvas.roundedRectangle(8, 8, 500, 80, 4);
+        visage::Font text_font = font(15);
+        canvas.setColor(0xffffd94d);
+        canvas.text("frame " + visage::String(frame_ms, 2).toUtf8() + " ms (" +
+                        visage::String(frame_ms > 0.0 ? 1000.0 / frame_ms : 0.0, 0).toUtf8() + " Hz)",
+                    text_font, visage::Font::kLeft, 16, 12, 484, 24);
+        canvas.setColor(0xffe6e6e6);
+        canvas.text("Bars move 360 px/s. A tear shows as a horizontal break in the bars.",
+                    text_font, visage::Font::kLeft, 16, 36, 484, 24);
+        canvas.setColor(0xffa0a0b0);
+        canvas.text("Red: pointer sampled at draw    Gray: last mouse event", text_font,
+                    visage::Font::kLeft, 16, 60, 484, 24);
+
+        redraw();
+      }
+
+      void mouseEnter(const visage::MouseEvent& e) override { track(e); }
+      void mouseMove(const visage::MouseEvent& e) override { track(e); }
+      void mouseDrag(const visage::MouseEvent& e) override { track(e); }
+      void mouseExit(const visage::MouseEvent& e) override { hovering_ = false; }
+
+    private:
+      void track(const visage::MouseEvent& e) {
+        hovering_ = true;
+        event_position_ = e.position;
+        cursor_at_event_ = visage::cursorPosition();
+      }
+
+      bool hovering_ = false;
+      visage::Point event_position_;
+      visage::Point cursor_at_event_;
+      std::deque<double> frame_times_;
+    };
+
+    class TearWindow : public visage::ApplicationWindow {
+    public:
+      TearWindow() {
+        setTitle("Tearing test: second window");
+        addChild(&view_);
+      }
+
+      void resized() override { view_.setBounds(localBounds()); }
+
+    private:
+      TearView view_;
+    };
+
+    class TearPage : public visage::Frame {
+    public:
+      TearPage() {
+        second_button_ = makeButton("Show / hide second window", [this] {
+          if (second_window_.isShowing())
+            second_window_.hide();
+          else
+            second_window_.show(800_px, 500_px);
+        });
+        addChild(second_button_.get());
+        addChild(&view_);
+      }
+
+      void resized() override {
+        visage::Bounds bounds = localBounds().reduced(12);
+        visage::Bounds row = takeTop(bounds, 34);
+        second_button_->setBounds(takeLeft(row, 260));
+        view_.setBounds(bounds);
+      }
+
+    private:
+      TearView view_;
+      TearWindow second_window_;
+      std::unique_ptr<visage::UiButton> second_button_;
+    };
+
     class LifecyclePage : public visage::Frame {
     public:
       LifecyclePage() {
@@ -715,6 +845,30 @@ namespace manual {
               "then restores the starting size, with no flicker, black margins or hang.",
           },
           [] { return std::make_unique<DpiPage>(); } });
+
+    tests.push_back(
+        { "tearing",
+          "Windows",
+          "Tearing and Pacing",
+          "Vertical bars sweep across at 360 pixels a second with a target under the mouse "
+          "pointer. A tear shows up as a horizontal break in the bars. The button opens a second "
+          "window that animates the same way, so both windows run at once.",
+          {
+              "The bars move smoothly at a steady speed with no tears, stutters or jumps.",
+              "The frame readout matches the display's refresh rate, for example 60 Hz or 120 Hz.",
+              "The red target stays on the mouse pointer when you move it quickly, and the gray "
+              "ring trails just behind it.",
+              "Open the second window. Both windows animate smoothly at the same time with no "
+              "tears, and both readouts stay at the refresh rate.",
+              "Click back and forth between the two windows. Both keep animating smoothly and the "
+              "target follows the pointer in each one.",
+              "Make the main window fullscreen, then the second window. The bars still don't tear "
+              "or stutter.",
+              "If you have a second monitor, move the second window there. It animates at that "
+              "monitor's refresh rate with no tears.",
+          },
+          [] { return std::make_unique<TearPage>(); },
+          false });
 
     tests.push_back(
         { "lifecycle",

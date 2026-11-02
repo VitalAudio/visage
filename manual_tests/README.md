@@ -24,10 +24,10 @@ python3 -m http.server 8000 --directory build-web/manual_tests/web
 ```
 
 Then open `http://localhost:8000`. The browser build leaves out the pages that need extra windows
-or file drag and drop (Secondary Windows, Palette Editing and File Drag and Drop). Pages that only
-partly apply say so under their setup text. Results are kept in the site's IndexedDB storage, so
-they survive reloads, and Export Report copies them to the clipboard. The automation environment
-variables below don't apply.
+or file drag and drop (Secondary Windows, Tearing and Pacing, Palette Editing and File Drag and
+Drop). Pages that only partly apply say so under their setup text. Results are kept in the
+site's IndexedDB storage, so they survive reloads, and Export Report copies them to the clipboard.
+The automation environment variables below don't apply.
 
 ## Using it
 
