@@ -25,18 +25,25 @@
 #include "visage_graphics/theme.h"
 
 namespace visage {
-  VISAGE_THEME_COLOR(PopupMenuBackground, 0xff262a2e);
-  VISAGE_THEME_COLOR(PopupMenuBorder, 0xff606265);
-  VISAGE_THEME_COLOR(PopupMenuText, 0xffeeeeee);
-  VISAGE_THEME_COLOR(PopupMenuDisabledText, 0xff888888);
-  VISAGE_THEME_COLOR(PopupMenuSelection, 0xffaa88ff);
-  VISAGE_THEME_COLOR(PopupMenuSelectionText, 0xffffffff);
+  VISAGE_THEME_IMPLEMENT_COLOR(PopupMenu, PopupMenuBackground, 0xff262a2e);
+  VISAGE_THEME_IMPLEMENT_COLOR(PopupMenu, PopupMenuBorder, 0xff606265);
+  VISAGE_THEME_IMPLEMENT_COLOR(PopupMenu, PopupMenuText, 0xffeeeeee);
+  VISAGE_THEME_IMPLEMENT_COLOR(PopupMenu, PopupMenuDisabledText, 0xff888888);
+  VISAGE_THEME_IMPLEMENT_COLOR(PopupMenu, PopupMenuSelection, 0xffaa88ff);
+  VISAGE_THEME_IMPLEMENT_COLOR(PopupMenu, PopupMenuSelectionText, 0xffffffff);
+  VISAGE_THEME_IMPLEMENT_COLOR(PopupMenu, PopupMenuSeparator, 0xffeeeeee);
 
-  VISAGE_THEME_VALUE(PopupOptionHeight, 22.0f);
-  VISAGE_THEME_VALUE(PopupMinWidth, 175.0f);
-  VISAGE_THEME_VALUE(PopupTextPadding, 9.0f);
-  VISAGE_THEME_VALUE(PopupFontSize, 14.0f);
-  VISAGE_THEME_VALUE(PopupSelectionPadding, 4.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(PopupMenu, PopupOptionHeight, 22.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(PopupMenu, PopupMinWidth, 175.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(PopupMenu, PopupTextPadding, 9.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(PopupMenu, PopupFontSize, 14.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(PopupMenu, PopupSelectionPadding, 4.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(PopupMenu, PopupRounding, 8.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(PopupMenu, PopupSelectionRounding, 4.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(PopupMenu, PopupBorderWidth, 1.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(PopupMenu, PopupSeparatorHeight, 22.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(PopupMenu, PopupSeparatorThickness, 1.0f);
+  VISAGE_THEME_IMPLEMENT_VALUE(PopupMenu, PopupSubMenuArrowSize, 3.0f);
 
   void PopupMenu::show(Frame* source, Point position) {
     std::unique_ptr<PopupMenuFrame> frame = std::make_unique<PopupMenuFrame>(*this);
@@ -44,15 +51,23 @@ namespace visage {
     frame_ptr->show(std::move(frame), source, position);
   }
 
+  int PopupList::optionHeight(int index) const {
+    if (options_[index].isBreak())
+      return paletteValue(PopupMenu::PopupSeparatorHeight);
+    return paletteValue(PopupMenu::PopupOptionHeight);
+  }
+
   float PopupList::renderHeight() const {
-    float popup_height = paletteValue(PopupOptionHeight);
-    float selection_padding = paletteValue(PopupSelectionPadding);
-    return options_.size() * popup_height + 2.0f * selection_padding;
+    float render_height = 2.0f * paletteValue(PopupMenu::PopupSelectionPadding);
+    for (int i = 0; i < options_.size(); ++i)
+      render_height += optionHeight(i);
+    return render_height;
   }
 
   float PopupList::renderWidth() const {
-    float width = paletteValue(PopupMinWidth);
-    float x_padding = paletteValue(PopupSelectionPadding) + paletteValue(PopupTextPadding);
+    float width = paletteValue(PopupMenu::PopupMinWidth);
+    float x_padding = paletteValue(PopupMenu::PopupSelectionPadding) +
+                      paletteValue(PopupMenu::PopupTextPadding);
     for (const PopupMenu& option : options_) {
       float string_width = font_.stringWidth(option.name().c_str(), option.name().size()) + 2 * x_padding;
       width = std::max(width, string_width);
@@ -62,7 +77,10 @@ namespace visage {
   }
 
   int PopupList::yForIndex(int index) const {
-    return paletteValue(PopupSelectionPadding) + index * paletteValue(PopupOptionHeight);
+    int y = paletteValue(PopupMenu::PopupSelectionPadding);
+    for (int i = 0; i < index && i < options_.size(); ++i)
+      y += optionHeight(i);
+    return y;
   }
 
   void PopupList::selectHoveredIndex() {
@@ -80,10 +98,9 @@ namespace visage {
   }
 
   void PopupList::setHoverFromPosition(Point position) {
-    int y = paletteValue(PopupSelectionPadding);
-
-    int option_height = paletteValue(PopupOptionHeight);
+    int y = paletteValue(PopupMenu::PopupSelectionPadding);
     for (int i = 0; i < options_.size(); ++i) {
+      int option_height = optionHeight(i);
       if (!options_[i].isBreak() && options_[i].enabled() && position.y >= y &&
           position.y < y + option_height) {
         hover_index_ = i;
@@ -102,36 +119,44 @@ namespace visage {
   }
 
   void PopupList::draw(Canvas& canvas) {
-    static constexpr float kTriangleWidthRatio = 0.25f;
-
-    Brush background = canvas.color(PopupMenuBackground).withMultipliedAlpha(opacity_);
-    Brush border = canvas.color(PopupMenuBorder).withMultipliedAlpha(opacity_);
+    float rounding = paletteValue(PopupMenu::PopupRounding);
+    float border_width = paletteValue(PopupMenu::PopupBorderWidth);
+    Brush background = canvas.color(PopupMenu::PopupMenuBackground).withMultipliedAlpha(opacity_);
+    Brush border = canvas.color(PopupMenu::PopupMenuBorder).withMultipliedAlpha(opacity_);
     canvas.setColor(background);
-    canvas.roundedRectangle(0, 0, width(), height(), 8.0f);
+    canvas.roundedRectangle(0, 0, width(), height(), rounding);
 
-    canvas.setColor(border);
-    canvas.roundedRectangleBorder(0, 0, width(), height(), 8.0f, 1);
+    if (border_width > 0.0f) {
+      canvas.setColor(border);
+      canvas.roundedRectangleBorder(0, 0, width(), height(), rounding, border_width);
+    }
 
-    int selection_padding = paletteValue(PopupSelectionPadding);
-    int x_padding = selection_padding + paletteValue(PopupTextPadding);
-    int option_height = paletteValue(PopupOptionHeight);
+    int selection_padding = paletteValue(PopupMenu::PopupSelectionPadding);
+    int x_padding = selection_padding + paletteValue(PopupMenu::PopupTextPadding);
     int y = selection_padding - yPosition();
-    float popup_font_size = paletteValue(PopupFontSize);
-    Font font = font_.withSize(popup_font_size);
+    float selection_rounding = paletteValue(PopupMenu::PopupSelectionRounding);
+    float separator_thickness = paletteValue(PopupMenu::PopupSeparatorThickness);
+    int arrow_size = paletteValue(PopupMenu::PopupSubMenuArrowSize);
+    Font font = font_.withSize(paletteValue(PopupMenu::PopupFontSize));
 
-    Brush text = canvas.color(PopupMenuText).withMultipliedAlpha(opacity_);
-    Brush disabled_text = canvas.color(PopupMenuDisabledText).withMultipliedAlpha(opacity_);
-    Brush selected_text = canvas.color(PopupMenuSelectionText).withMultipliedAlpha(opacity_);
+    Brush text = canvas.color(PopupMenu::PopupMenuText).withMultipliedAlpha(opacity_);
+    Brush disabled_text = canvas.color(PopupMenu::PopupMenuDisabledText).withMultipliedAlpha(opacity_);
+    Brush selected_text = canvas.color(PopupMenu::PopupMenuSelectionText).withMultipliedAlpha(opacity_);
+    Brush separator = canvas.color(PopupMenu::PopupMenuSeparator).withMultipliedAlpha(opacity_);
     for (int i = 0; i < options_.size(); ++i) {
+      int option_height = optionHeight(i);
       if (y + option_height > 0 && y < height()) {
-        if (options_[i].isBreak())
-          canvas.rectangle(x_padding, y + option_height / 2, width() - 2 * x_padding, 1);
+        if (options_[i].isBreak()) {
+          int separator_y = y + option_height / 2 - static_cast<int>(separator_thickness / 2.0f);
+          canvas.setColor(separator);
+          canvas.rectangle(x_padding, separator_y, width() - 2 * x_padding, separator_thickness);
+        }
         else {
           if (i == hover_index_) {
-            Brush selected = canvas.color(PopupMenuSelection).withMultipliedAlpha(opacity_);
+            Brush selected = canvas.color(PopupMenu::PopupMenuSelection).withMultipliedAlpha(opacity_);
             canvas.setColor(selected);
             canvas.roundedRectangle(selection_padding, y, width() - 2 * selection_padding,
-                                    option_height, 4.0f);
+                                    option_height, selection_rounding);
             canvas.setColor(selected_text);
           }
           else if (options_[i].enabled())
@@ -142,10 +167,9 @@ namespace visage {
           canvas.text(options_[i].name(), font, Font::kLeft, x_padding, y, width(), option_height);
 
           if (options_[i].hasOptions()) {
-            int triangle_width = popup_font_size * kTriangleWidthRatio;
-            int triangle_x = width() - x_padding - triangle_width;
-            int triangle_y = y + option_height / 2 - triangle_width;
-            canvas.triangleRight(triangle_x, triangle_y, triangle_width);
+            int arrow_x = width() - x_padding - arrow_size;
+            int arrow_y = y + option_height / 2 - arrow_size;
+            canvas.triangleRight(arrow_x, arrow_y, arrow_size);
           }
         }
       }
@@ -221,7 +245,8 @@ namespace visage {
   }
 
   PopupMenuFrame::PopupMenuFrame(PopupMenu menu) :
-      menu_(std::move(menu)), font_(10, fonts::Lato_Regular_ttf) {
+      menu_(std::move(menu)),
+      font_(menu_.font().packedFont() ? menu_.font() : Font(10, fonts::Lato_Regular_ttf)) {
     opacity_animation_.setTargetValue(1.0f);
     setAcceptsKeystrokes(true);
     setIgnoresMouseEvents(true, true);
@@ -279,7 +304,7 @@ namespace visage {
     for (int i = 1; i < lists_.size(); ++i)
       lists_[i]->setVisible(false);
 
-    font_ = font_.withSize(paletteValue(PopupFontSize));
+    font_ = font_.withSize(paletteValue(PopupMenu::PopupFontSize));
     setListFonts(font_);
 
     PopupList& main_list = popupList(0);
@@ -423,6 +448,10 @@ namespace visage {
     bool reopening = source.openMenuIndex() == source.hoverIndex() && sub_list.isVisible();
     source.setOpenMenu(source.hoverIndex());
     sub_list.setOptions(option.options());
+    if (option.font().packedFont())
+      sub_list.setFont(option.font().withSize(paletteValue(PopupMenu::PopupFontSize)));
+    else
+      sub_list.setFont(source.font());
     int h = std::min(height(), sub_list.renderHeight());
     int w = sub_list.renderWidth();
     int y = list->y() + selection_y - list->yPosition();
@@ -490,10 +519,11 @@ namespace visage {
     setVisible(true);
     text_ = text;
 
-    Font font = font_.withSize(paletteValue(PopupFontSize));
-    int x_padding = paletteValue(PopupSelectionPadding) + paletteValue(PopupTextPadding);
+    Font font = font_.withSize(paletteValue(PopupMenu::PopupFontSize));
+    int x_padding = paletteValue(PopupMenu::PopupSelectionPadding) +
+                    paletteValue(PopupMenu::PopupTextPadding);
     int width = font.stringWidth(text.c_str(), text.length()) + 2 * x_padding;
-    int height = paletteValue(PopupOptionHeight);
+    int height = paletteValue(PopupMenu::PopupOptionHeight);
     int x = bounds.xCenter() - width / 2;
     int y = bounds.yCenter() - height / 2;
     if (justification & Font::kLeft)
@@ -510,15 +540,18 @@ namespace visage {
   }
 
   void ValueDisplay::draw(Canvas& canvas) {
-    Font font = font_.withSize(paletteValue(PopupFontSize));
-    canvas.setColor(PopupMenuBackground);
-    canvas.roundedRectangle(0, 0, width(), height(), 8.0f);
+    Font font = font_.withSize(paletteValue(PopupMenu::PopupFontSize));
+    float rounding = paletteValue(PopupMenu::PopupRounding);
+    float border_width = paletteValue(PopupMenu::PopupBorderWidth);
+    canvas.setColor(PopupMenu::PopupMenuBackground);
+    canvas.roundedRectangle(0, 0, width(), height(), rounding);
 
-    canvas.setColor(PopupMenuBorder);
-    canvas.roundedRectangleBorder(0, 0, width(), height(), 8.0f, 1.0f);
+    if (border_width > 0.0f) {
+      canvas.setColor(PopupMenu::PopupMenuBorder);
+      canvas.roundedRectangleBorder(0, 0, width(), height(), rounding, border_width);
+    }
 
-    canvas.setColor(PopupMenuText);
-    canvas.setColor(canvas.color(PopupMenuText));
+    canvas.setColor(PopupMenu::PopupMenuText);
     canvas.text(text_, font, Font::kCenter, 0, 0, width(), height());
   }
 }

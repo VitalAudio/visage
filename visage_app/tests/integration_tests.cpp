@@ -189,6 +189,55 @@ TEST_CASE("Parents draw before the children they update", "[integration]") {
   REQUIRE(drawn_generation == generation);
 }
 
+TEST_CASE("Popup menus draw with their palette's colors and sizes", "[integration]") {
+  static constexpr unsigned int kBackground = 0xff102030;
+  static constexpr unsigned int kBorder = 0xffa0b0c0;
+  static constexpr unsigned int kSelection = 0xff40c060;
+  static constexpr unsigned int kSeparator = 0xffe04080;
+
+  Palette palette;
+  palette.setColor(PopupMenu::PopupMenuBackground, kBackground);
+  palette.setColor(PopupMenu::PopupMenuBorder, kBorder);
+  palette.setColor(PopupMenu::PopupMenuSelection, kSelection);
+  palette.setColor(PopupMenu::PopupMenuSeparator, kSeparator);
+  palette.setValue(PopupMenu::PopupOptionHeight, 30.0f);
+  palette.setValue(PopupMenu::PopupSelectionPadding, 8.0f);
+  palette.setValue(PopupMenu::PopupBorderWidth, 3.0f);
+  palette.setValue(PopupMenu::PopupSeparatorHeight, 12.0f);
+  palette.setValue(PopupMenu::PopupSeparatorThickness, 4.0f);
+
+  ApplicationEditor editor;
+  editor.setPalette(&palette);
+  editor.setWindowless(240, 140);
+
+  PopupMenu menu;
+  menu.addOption(1, "One");
+  menu.addBreak();
+  menu.addOption(2, "Two");
+  menu.show(&editor, { 20, 20 });
+
+  auto* popup = dynamic_cast<PopupMenuFrame*>(editor.topParentFrame()->children().back());
+  REQUIRE(popup);
+  auto* list = dynamic_cast<PopupList*>(popup->children().front());
+  REQUIRE(list);
+  REQUIRE(list->bounds() == Bounds(20, 20, 175, 88));
+  list->setHoverFromPosition(Point(10, list->yForIndex(2) + 5));
+  REQUIRE(list->hoverIndex() == 2);
+
+  editor.drawWindow();
+  editor.drawWindow();
+  const Screenshot& screenshot = editor.takeScreenshot();
+  auto argb = [&screenshot](int x, int y) { return screenshot.sample(x, y).toARGB(); };
+  REQUIRE(argb(100, 21) == kBorder);
+  REQUIRE(argb(100, 25) == kBackground);
+  REQUIRE(argb(150, 43) == kBackground);
+  REQUIRE(argb(100, 60) == kBackground);
+  REQUIRE(argb(100, 64) == kSeparator);
+  REQUIRE(argb(100, 67) == kBackground);
+  REQUIRE(argb(150, 85) == kSelection);
+  REQUIRE(argb(100, 104) == kBackground);
+}
+
 TEST_CASE("Animated graph lines", "[integration]") {
   Color source = 0xff123456;
   Color destination = 0xff88aacc;

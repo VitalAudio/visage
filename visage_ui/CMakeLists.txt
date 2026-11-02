@@ -24,3 +24,7 @@ visage_add_test_target(
   TARGET VisageUiTests
   TEST_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
 )
+
+if (TARGET VisageUiTests)
+  target_link_libraries(VisageUiTests PRIVATE VisageEmbeddedFonts)
+endif ()

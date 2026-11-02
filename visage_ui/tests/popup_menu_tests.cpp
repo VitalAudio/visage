@@ -19,6 +19,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include "embedded/fonts.h"
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/font.h"
 #include "visage_ui/popup_menu.h"
@@ -480,6 +481,112 @@ TEST_CASE("PopupMenu takes the palette of the frame it's shown from", "[ui]") {
   auto* sub_list = popupList(popup, 1);
   REQUIRE(sub_list);
   REQUIRE(sub_list->palette() == &palette);
+}
+
+TEST_CASE("PopupList lays out options and separators with its palette's heights", "[ui]") {
+  Palette palette;
+  palette.setValue(PopupMenu::PopupOptionHeight, 30.0f);
+  palette.setValue(PopupMenu::PopupSeparatorHeight, 10.0f);
+  palette.setValue(PopupMenu::PopupSelectionPadding, 6.0f);
+
+  PopupMenu menu;
+  menu.addOption(1, "One");
+  menu.addBreak();
+  menu.addOption(2, "Two");
+
+  PopupList list;
+  list.setPalette(&palette);
+  list.setOptions(menu.options());
+
+  REQUIRE(list.renderHeight() == 82.0f);
+  REQUIRE(list.yForIndex(0) == 6);
+  REQUIRE(list.yForIndex(1) == 36);
+  REQUIRE(list.yForIndex(2) == 46);
+
+  list.setHoverFromPosition(Point(10, 35));
+  REQUIRE(list.hoverIndex() == 0);
+  list.setHoverFromPosition(Point(10, 40));
+  REQUIRE(list.hoverIndex() == -1);
+  list.setHoverFromPosition(Point(10, 46));
+  REQUIRE(list.hoverIndex() == 2);
+  list.setHoverFromPosition(Point(10, 76));
+  REQUIRE(list.hoverIndex() == -1);
+}
+
+static bool usesTypeFace(const PopupList* list, const Font& type_face) {
+  const Font& font = list->font();
+  return font.packedFont() == type_face.withDpiScale(font.dpiScale()).withSize(font.size()).packedFont();
+}
+
+TEST_CASE("PopupMenu lists use the menu's font at the palette's font size", "[ui]") {
+  Font lato(10, fonts::Lato_Regular_ttf);
+  Font mono(24, fonts::DroidSansMono_ttf);
+  PopupMenu menu;
+  PopupMenu sub_menu = subMenu(2);
+  Font menu_font = lato;
+  Font sub_menu_font = lato;
+
+  SECTION("Default font") { }
+
+  SECTION("Menu font") {
+    menu.withFont(mono);
+    menu_font = mono;
+    sub_menu_font = mono;
+  }
+
+  SECTION("Sub menu font") {
+    sub_menu.withFont(mono);
+    sub_menu_font = mono;
+  }
+
+  menu.addSubMenu(sub_menu);
+  Frame root, source;
+  PopupMenuFrame* popup = showMenu(menu, root, source);
+  REQUIRE(popup);
+  auto* list = popupList(popup, 0);
+  REQUIRE(list);
+  REQUIRE(list->font().size() == 14.0f);
+  REQUIRE(usesTypeFace(list, menu_font));
+
+  list->setHoverFromPosition(Point(10, list->yForIndex(0) + 5));
+  list->selectHoveredIndex();
+  auto* sub_list = popupList(popup, 1);
+  REQUIRE(sub_list);
+  REQUIRE(sub_list->font().size() == 14.0f);
+  REQUIRE(usesTypeFace(sub_list, sub_menu_font));
+}
+
+TEST_CASE("PopupMenu sub menus without a font use the font of the menu they open from", "[ui]") {
+  Font lato(10, fonts::Lato_Regular_ttf);
+  Font mono(10, fonts::DroidSansMono_ttf);
+  PopupMenu mono_sub_menu = subMenu(2);
+  mono_sub_menu.withFont(mono);
+  mono_sub_menu.addSubMenu(subMenu(2));
+
+  PopupMenu menu;
+  menu.addSubMenu(mono_sub_menu);
+  menu.addSubMenu(subMenu(2));
+
+  Frame root, source;
+  PopupMenuFrame* popup = showMenu(menu, root, source);
+  REQUIRE(popup);
+  auto* list = popupList(popup, 0);
+  REQUIRE(list);
+  list->setHoverFromPosition(Point(10, list->yForIndex(0) + 5));
+  list->selectHoveredIndex();
+  auto* sub_list = popupList(popup, 1);
+  REQUIRE(sub_list);
+  REQUIRE(usesTypeFace(sub_list, mono));
+
+  sub_list->setHoverFromPosition(Point(10, sub_list->yForIndex(2) + 5));
+  sub_list->selectHoveredIndex();
+  auto* sub_sub_list = popupList(popup, 2);
+  REQUIRE(sub_sub_list);
+  REQUIRE(usesTypeFace(sub_sub_list, mono));
+
+  list->setHoverFromPosition(Point(10, list->yForIndex(1) + 5));
+  list->selectHoveredIndex();
+  REQUIRE(usesTypeFace(sub_list, lato));
 }
 
 TEST_CASE("PopupMenu sub menu opens next to its scrolled option", "[ui]") {

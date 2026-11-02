@@ -25,6 +25,7 @@
 #include "frame.h"
 #include "scroll_bar.h"
 #include "visage_graphics/font.h"
+#include "visage_graphics/theme.h"
 
 #include <climits>
 #include <memory>
@@ -40,6 +41,26 @@ namespace visage {
 
   class PopupMenu {
   public:
+    VISAGE_THEME_DEFINE_COLOR(PopupMenuBackground);
+    VISAGE_THEME_DEFINE_COLOR(PopupMenuBorder);
+    VISAGE_THEME_DEFINE_COLOR(PopupMenuText);
+    VISAGE_THEME_DEFINE_COLOR(PopupMenuDisabledText);
+    VISAGE_THEME_DEFINE_COLOR(PopupMenuSelection);
+    VISAGE_THEME_DEFINE_COLOR(PopupMenuSelectionText);
+    VISAGE_THEME_DEFINE_COLOR(PopupMenuSeparator);
+
+    VISAGE_THEME_DEFINE_VALUE(PopupOptionHeight);
+    VISAGE_THEME_DEFINE_VALUE(PopupMinWidth);
+    VISAGE_THEME_DEFINE_VALUE(PopupTextPadding);
+    VISAGE_THEME_DEFINE_VALUE(PopupFontSize);
+    VISAGE_THEME_DEFINE_VALUE(PopupSelectionPadding);
+    VISAGE_THEME_DEFINE_VALUE(PopupRounding);
+    VISAGE_THEME_DEFINE_VALUE(PopupSelectionRounding);
+    VISAGE_THEME_DEFINE_VALUE(PopupBorderWidth);
+    VISAGE_THEME_DEFINE_VALUE(PopupSeparatorHeight);
+    VISAGE_THEME_DEFINE_VALUE(PopupSeparatorThickness);
+    VISAGE_THEME_DEFINE_VALUE(PopupSubMenuArrowSize);
+
     static constexpr int kNotSet = INT_MIN;
 
     PopupMenu() = default;
@@ -71,6 +92,13 @@ namespace visage {
       shortcut_character_ = character;
       return *this;
     }
+
+    PopupMenu& withFont(const Font& font) {
+      font_ = font;
+      return *this;
+    }
+
+    const Font& font() const { return font_; }
 
     const int nativeShortcutModifiers() const { return shortcut_modifiers_; }
     const std::string& nativeShortcutCharacter() const { return shortcut_character_; }
@@ -105,6 +133,7 @@ namespace visage {
 
     int shortcut_modifiers_ = 0;
     std::string shortcut_character_;
+    Font font_;
     std::vector<PopupMenu> options_;
   };
 
@@ -124,6 +153,7 @@ namespace visage {
 
     void setOptions(std::vector<PopupMenu> options) { options_ = std::move(options); }
     void setFont(const Font& font) { font_ = font.withDpiScale(dpiScale()); }
+    const Font& font() const { return font_; }
 
     float renderHeight() const;
     float renderWidth() const;
@@ -167,6 +197,8 @@ namespace visage {
     }
 
   private:
+    int optionHeight(int index) const;
+
     std::vector<Listener*> listeners_;
     std::vector<PopupMenu> options_;
     float opacity_ = 0.0f;
