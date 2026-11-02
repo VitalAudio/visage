@@ -65,6 +65,7 @@ namespace visage {
 @property NSUInteger typed_length;
 @property bool command_requested;
 @property bool has_focus;
+@property CFTimeInterval frame_target_time;
 
 - (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window;
 - (void)dragEndedAtScreenPoint:(NSPoint)screen_point;

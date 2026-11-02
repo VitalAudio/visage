@@ -524,9 +524,10 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
   return self;
 }
 
-- (void)drawWindow {
+- (void)drawWindow:(CFTimeInterval)target_time {
   long long ms = visage::time::microseconds();
-  self.visage_window->drawCallback((ms - self.start_microseconds) / 1000000.0);
+  double lead = target_time > 0.0 ? target_time - CACurrentMediaTime() : 0.0;
+  self.visage_window->drawCallback((ms - self.start_microseconds) / 1000000.0 + lead);
 }
 
 - (void)mtkView:(MTKView*)view drawableSizeWillChange:(CGSize)size {
@@ -538,11 +539,14 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
     return;
 
   view.layer.contentsScale = self.visage_window->dpiScale();
-  [self drawWindow];
+  CFTimeInterval target_time = 0.0;
+  if ([view isKindOfClass:[VisageAppView class]])
+    target_time = ((VisageAppView*)view).frame_target_time;
+  [self drawWindow:target_time];
 }
 @end
 
-static constexpr double kDisplayLinkDrawPhase = 0.3;
+static constexpr double kFrameDrawLead = 0.7;
 
 @interface VisageAppView ()
 @property(strong) id display_link;
@@ -550,6 +554,7 @@ static constexpr double kDisplayLinkDrawPhase = 0.3;
 #if defined(__MAC_14_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_14_0
 - (void)displayLinkFired:(CADisplayLink*)link API_AVAILABLE(macos(14.0));
 #endif
+- (void)drawFrame;
 @end
 
 #if defined(__MAC_14_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_14_0
@@ -1153,9 +1158,10 @@ static constexpr double kDisplayLinkDrawPhase = 0.3;
 #if defined(__MAC_14_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_14_0
 - (void)displayLinkFired:(CADisplayLink*)link API_AVAILABLE(macos(14.0)) {
   CFTimeInterval period = link.targetTimestamp - link.timestamp;
-  CFTimeInterval delay = link.timestamp + kDisplayLinkDrawPhase * period - CACurrentMediaTime();
+  CFTimeInterval delay = link.targetTimestamp - kFrameDrawLead * period - CACurrentMediaTime();
+  self.frame_target_time = link.targetTimestamp;
   if (delay <= 0.0) {
-    [self draw];
+    [self drawFrame];
     return;
   }
 
@@ -1164,7 +1170,7 @@ static constexpr double kDisplayLinkDrawPhase = 0.3;
     self.draw_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, DISPATCH_TIMER_STRICT,
                                              dispatch_get_main_queue());
     dispatch_source_set_event_handler(self.draw_timer, ^{
-      [weak_self draw];
+      [weak_self drawFrame];
     });
     dispatch_resume(self.draw_timer);
   }
@@ -1172,6 +1178,11 @@ static constexpr double kDisplayLinkDrawPhase = 0.3;
                             DISPATCH_TIME_FOREVER, 0);
 }
 #endif
+
+- (void)drawFrame {
+  [self draw];
+  self.frame_target_time = 0.0;
+}
 
 - (void)dealloc {
   [_display_link invalidate];
