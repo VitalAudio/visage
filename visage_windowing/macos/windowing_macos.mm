@@ -593,9 +593,7 @@ static constexpr double kMaxDrawLead = 0.6;
   self = [super initWithFrame:frame_rect];
   self.visage_window = window;
   self.device = MTLCreateSystemDefaultDevice();
-  self.clearColor = MTLClearColorMake(0.1, 0.1, 0.1, 1.0);
   self.enableSetNeedsDisplay = NO;
-  self.framebufferOnly = YES;
   self.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
   self.preferredFramesPerSecond = 120;
   for (CFTimeInterval& render_time : render_times_)

@@ -33,8 +33,6 @@
 #endif
 
 namespace visage {
-  static constexpr bool kVsync = true;
-
 #if VISAGE_EMSCRIPTEN
   static bool enableWebGlExtension(const char* name) {
     return emscripten_webgl_enable_extension(emscripten_webgl_get_current_context(), name);
@@ -68,7 +66,6 @@ namespace visage {
     init.type = gpu::defaultRendererType();
     init.display = display_;
     init.wayland = wayland_display_;
-    init.vsync = kVsync;
     init.color_managed = color_managed_;
 #if VISAGE_GRAPHICS_DEBUG_LOGGING
     init.debug = true;
