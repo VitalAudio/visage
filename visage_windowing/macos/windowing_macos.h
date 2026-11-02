@@ -52,6 +52,7 @@ namespace visage {
 @interface VisageAppViewDelegate : NSObject <MTKViewDelegate>
 @property(nonatomic) visage::WindowMac* visage_window;
 @property long long start_microseconds;
+@property int skipped_frames;
 @end
 
 @interface VisageAppView : MTKView <NSDraggingDestination, NSTextInputClient>
@@ -66,6 +67,7 @@ namespace visage {
 @property bool command_requested;
 @property bool has_focus;
 @property CFTimeInterval frame_target_time;
+@property CFTimeInterval render_time;
 
 - (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window;
 - (void)dragEndedAtScreenPoint:(NSPoint)screen_point;
@@ -114,6 +116,11 @@ namespace visage {
     void setAlwaysOnTop(bool on_top) override;
 
     void handleNativeResize(int width, int height);
+    void setFrameWaiter(std::function<bool(int)> waiter) override {
+      frame_waiter_ = std::move(waiter);
+    }
+    void setFrameRenderTime(double seconds) override;
+    bool frameQueueReady() const { return frame_waiter_ == nullptr || frame_waiter_(0); }
     bool isPopup() const { return decoration_ == Decoration::Popup; }
 
   private:
@@ -125,6 +132,7 @@ namespace visage {
     VisageAppViewDelegate* view_delegate_ = nullptr;
     NSRect last_content_rect_ {};
     Decoration decoration_ = Decoration::Native;
+    std::function<bool(int)> frame_waiter_;
   };
 }
 

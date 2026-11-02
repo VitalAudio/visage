@@ -516,6 +516,12 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
 }
 @end
 
+static constexpr int kMaxSkippedFrames = 2;
+static constexpr double kInitialRenderTime = 0.004;
+static constexpr int kRenderTimeSamples = 16;
+static constexpr double kDrawDeadlineMargin = 0.0015;
+static constexpr double kMaxDrawLead = 0.6;
+
 @implementation VisageAppViewDelegate
 - (instancetype)initWithWindow:(visage::WindowMac*)window {
   self = [super init];
@@ -538,6 +544,12 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
   if (view.drawableSize.width <= 0 || view.drawableSize.height <= 0)
     return;
 
+  if (!self.visage_window->frameQueueReady() && self.skipped_frames < kMaxSkippedFrames) {
+    self.skipped_frames++;
+    return;
+  }
+  self.skipped_frames = 0;
+
   view.layer.contentsScale = self.visage_window->dpiScale();
   CFTimeInterval target_time = 0.0;
   if ([view isKindOfClass:[VisageAppView class]])
@@ -546,8 +558,6 @@ static NSPasteboardType const kVisageDragFileType = @"audio.vital.visage.drag-fi
 }
 @end
 
-static constexpr double kFrameDrawLead = 0.7;
-
 @interface VisageAppView ()
 @property(strong) id display_link;
 @property(strong) dispatch_source_t draw_timer;
@@ -555,6 +565,7 @@ static constexpr double kFrameDrawLead = 0.7;
 - (void)displayLinkFired:(CADisplayLink*)link API_AVAILABLE(macos(14.0));
 #endif
 - (void)drawFrame;
+- (void)updateRenderTime:(CFTimeInterval)seconds;
 @end
 
 #if defined(__MAC_14_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_14_0
@@ -573,7 +584,11 @@ static constexpr double kFrameDrawLead = 0.7;
 @end
 #endif
 
-@implementation VisageAppView
+@implementation VisageAppView {
+  CFTimeInterval render_times_[kRenderTimeSamples];
+  int render_time_index_;
+}
+
 - (instancetype)initWithFrame:(NSRect)frame_rect inWindow:(visage::WindowMac*)window {
   self = [super initWithFrame:frame_rect];
   self.visage_window = window;
@@ -583,6 +598,9 @@ static constexpr double kFrameDrawLead = 0.7;
   self.framebufferOnly = YES;
   self.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
   self.preferredFramesPerSecond = 120;
+  for (CFTimeInterval& render_time : render_times_)
+    render_time = kInitialRenderTime;
+  self.render_time = kInitialRenderTime;
 #if defined(__MAC_14_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_14_0
   if (@available(macOS 14.0, *))
     self.paused = YES;
@@ -1158,7 +1176,8 @@ static constexpr double kFrameDrawLead = 0.7;
 #if defined(__MAC_14_0) && __MAC_OS_X_VERSION_MAX_ALLOWED >= __MAC_14_0
 - (void)displayLinkFired:(CADisplayLink*)link API_AVAILABLE(macos(14.0)) {
   CFTimeInterval period = link.targetTimestamp - link.timestamp;
-  CFTimeInterval delay = link.targetTimestamp - kFrameDrawLead * period - CACurrentMediaTime();
+  CFTimeInterval lead = std::min(self.render_time + kDrawDeadlineMargin, kMaxDrawLead * period);
+  CFTimeInterval delay = link.targetTimestamp - lead - CACurrentMediaTime();
   self.frame_target_time = link.targetTimestamp;
   if (delay <= 0.0) {
     [self drawFrame];
@@ -1182,6 +1201,12 @@ static constexpr double kFrameDrawLead = 0.7;
 - (void)drawFrame {
   [self draw];
   self.frame_target_time = 0.0;
+}
+
+- (void)updateRenderTime:(CFTimeInterval)seconds {
+  render_times_[render_time_index_] = seconds;
+  render_time_index_ = (render_time_index_ + 1) % kRenderTimeSamples;
+  self.render_time = *std::max_element(render_times_, render_times_ + kRenderTimeSamples);
 }
 
 - (void)dealloc {
@@ -1655,6 +1680,10 @@ namespace visage {
 
   void WindowMac::handleNativeResize(int width, int height) {
     handleResized(width, height);
+  }
+
+  void WindowMac::setFrameRenderTime(double seconds) {
+    [view_ updateRenderTime:seconds];
   }
 }
 

@@ -33,11 +33,7 @@
 #endif
 
 namespace visage {
-#if VISAGE_MAC
-  static constexpr bool kVsync = false;
-#else
   static constexpr bool kVsync = true;
-#endif
 
 #if VISAGE_EMSCRIPTEN
   static bool enableWebGlExtension(const char* name) {

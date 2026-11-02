@@ -582,6 +582,7 @@ namespace visage {
 
     float value(theme::ValueId value_id);
     std::vector<std::string> debugInfo() const;
+    static double gpuFrameTime();
 
     PathAtlas* pathAtlas() { return &path_atlas_; }
     ImageAtlas* imageAtlas() { return &image_atlas_; }

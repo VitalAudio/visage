@@ -248,6 +248,11 @@ namespace visage {
     return result;
   }
 
+  double Canvas::gpuFrameTime() {
+    const gpu::Stats* stats = gpu::getStats();
+    return stats ? stats->gpu_frame_ms / 1000.0 : 0.0;
+  }
+
   void Canvas::updateTime(double time) {
     static constexpr float kRefreshRateSlew = 0.3f;
     delta_time_ = std::max(0.0, time - render_time_);

@@ -21,15 +21,15 @@
 
 #include "gpu_backend.h"
 
-#import <AppKit/AppKit.h>
-#import <Metal/Metal.h>
-#import <QuartzCore/CAMetalLayer.h>
-
 #include <algorithm>
+#import <AppKit/AppKit.h>
 #include <atomic>
 #include <cstring>
+#include <limits>
 #include <map>
 #include <memory>
+#import <Metal/Metal.h>
+#import <QuartzCore/CAMetalLayer.h>
 #include <string>
 #include <tuple>
 
@@ -37,6 +37,8 @@ namespace visage::gpu {
   namespace {
     constexpr int kMaxFramesInFlight = 3;
     constexpr int kMaxDrawables = 3;
+    constexpr double kQueuedPresentThreshold = 0.9;
+    constexpr double kDefaultRefreshPeriod = 1.0 / 60.0;
     constexpr int64_t kLostFrameWaitMs = 100;
     constexpr int kVertexBufferIndex = 30;
     constexpr uint32_t kMaxSetBytes = 4096;
@@ -163,6 +165,14 @@ namespace visage::gpu {
       std::map<PipelineKey, id<MTLRenderPipelineState>> pipelines;
     };
 
+    struct PresentPacing {
+      std::atomic<uint64_t> reported_sequence = 0;
+      std::atomic<int> reported_queued = 0;
+      uint64_t sequence = 0;
+      uint64_t skipped_sequence = 0;
+      int skipped_queued = std::numeric_limits<int>::max();
+    };
+
     struct FrameBuffer {
       bool valid = false;
       uint16_t texture = kInvalidHandle;
@@ -171,6 +181,7 @@ namespace visage::gpu {
       id<CAMetalDrawable> drawable = nil;
       id<MTLTexture> current = nil;
       id<MTLTexture> fallback = nil;
+      std::shared_ptr<PresentPacing> pacing;
       int width = 0;
       int height = 0;
     };
@@ -548,6 +559,7 @@ namespace visage::gpu {
       frame_buffer.valid = true;
       frame_buffer.layer = layer;
       frame_buffer.view = handleView(handle);
+      frame_buffer.pacing = std::make_shared<PresentPacing>();
       frame_buffer.width = width;
       frame_buffer.height = height;
       return true;
@@ -568,7 +580,24 @@ namespace visage::gpu {
         frame_buffers_[idx] = {};
     }
 
-    bool waitForFrame(uint16_t, int) override { return true; }
+    bool waitForFrame(uint16_t idx, int) override {
+      if (idx >= frame_buffers_.size() || frame_buffers_[idx].pacing == nullptr)
+        return true;
+
+      PresentPacing& pacing = *frame_buffers_[idx].pacing;
+      if (pacing.reported_sequence.load() <= pacing.skipped_sequence)
+        return true;
+
+      int queued = pacing.reported_queued.load();
+      if (queued == 0)
+        pacing.skipped_queued = std::numeric_limits<int>::max();
+      if (queued == 0 || queued >= pacing.skipped_queued)
+        return true;
+
+      pacing.skipped_sequence = pacing.sequence;
+      pacing.skipped_queued = queued;
+      return false;
+    }
 
     bool deviceLost() override { return state_ && state_->device_lost; }
 
@@ -629,8 +658,24 @@ namespace visage::gpu {
       encodeScreenshots(frame, screenshots);
 
       for (uint16_t idx : presented) {
-        if (frame_buffers_[idx].drawable)
-          [command_buffer_ presentDrawable:frame_buffers_[idx].drawable];
+        id<CAMetalDrawable> drawable = frame_buffers_[idx].drawable;
+        if (drawable == nil)
+          continue;
+
+        std::shared_ptr<PresentPacing> pacing = frame_buffers_[idx].pacing;
+        if (pacing) {
+          uint64_t sequence = ++pacing->sequence;
+          CFTimeInterval commit_time = CACurrentMediaTime();
+          CFTimeInterval period = refreshPeriod(frame_buffers_[idx]);
+          [drawable addPresentedHandler:^(id<MTLDrawable> presented) {
+            if (presented.presentedTime <= 0.0)
+              return;
+            double periods = (presented.presentedTime - commit_time) / period - 1.0;
+            pacing->reported_queued = std::max(0, static_cast<int>(periods + 1.0 - kQueuedPresentThreshold));
+            pacing->reported_sequence = sequence;
+          }];
+        }
+        [command_buffer_ presentDrawable:drawable];
       }
 
       id<MTLCommandBuffer> command_buffer = command_buffer_;
@@ -698,6 +743,15 @@ namespace visage::gpu {
       if ([handle isKindOfClass:[NSWindow class]])
         return ((NSWindow*)handle).contentView;
       return nil;
+    }
+
+    static double refreshPeriod(const FrameBuffer& frame_buffer) {
+      if (@available(macOS 12.0, *)) {
+        NSInteger rate = frame_buffer.view.window.screen.maximumFramesPerSecond;
+        if (rate > 0)
+          return 1.0 / rate;
+      }
+      return kDefaultRefreshPeriod;
     }
 
     static bool occluded(const FrameBuffer& frame_buffer) {

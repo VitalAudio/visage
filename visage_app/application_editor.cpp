@@ -23,6 +23,7 @@
 
 #include "visage_graphics/canvas.h"
 #include "visage_graphics/renderer.h"
+#include "visage_utils/time_utils.h"
 #include "visage_windowing/windowing.h"
 #include "window_decoration.h"
 #include "window_event_handler.h"
@@ -207,14 +208,18 @@ namespace visage {
     if (window_)
       window_->waitForFrame();
 
+    long long start_microseconds = time::microseconds();
     int frame = canvas_->frameCount();
     drawStaleChildren();
     canvas_->submit();
     if (window_ == nullptr)
       return;
 
-    if (canvas_->frameCount() != frame)
+    if (canvas_->frameCount() != frame) {
       window_->framePresented();
+      double cpu_time = (time::microseconds() - start_microseconds) / 1000000.0;
+      window_->setFrameRenderTime(cpu_time + Canvas::gpuFrameTime());
+    }
 
     int frame_buffer_id = canvas_->frameBufferId();
     if (frame_buffer_id != waited_frame_buffer_id_) {

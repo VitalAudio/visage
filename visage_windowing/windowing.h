@@ -149,6 +149,7 @@ namespace visage {
     virtual IPoint maxWindowDimensions() const = 0;
     virtual void setAlwaysOnTop(bool on_top) { }
     virtual void framePresented() { }
+    virtual void setFrameRenderTime(double seconds) { }
     virtual void waitForFrame() { }
     virtual void setFrameWaiter(std::function<bool(int)> waiter) { }
 
