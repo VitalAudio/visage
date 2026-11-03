@@ -26,5 +26,5 @@ visage_add_test_target(
 )
 
 if (TARGET VisageUiTests)
-  target_link_libraries(VisageUiTests PRIVATE VisageEmbeddedFonts)
+  target_include_directories(VisageUiTests PRIVATE $<TARGET_PROPERTY:VisageEmbeddedFonts,INTERFACE_INCLUDE_DIRECTORIES>)
 endif ()
