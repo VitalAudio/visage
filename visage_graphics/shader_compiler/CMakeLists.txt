@@ -9,6 +9,10 @@ foreach (CONFIG Debug Release RelWithDebInfo MinSizeRel)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} ${CMAKE_CURRENT_BINARY_DIR}/bin)
 endforeach ()
 
+if (NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif ()
+
 include(FetchContent)
 set(CMAKE_MESSAGE_LOG_LEVEL "ERROR")
 set(ENABLE_OPT OFF CACHE INTERNAL "" FORCE)
