@@ -38,6 +38,18 @@ FetchContent_Declare(spirv_cross GIT_REPOSITORY https://github.com/KhronosGroup/
   EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(glslang spirv_cross)
+
+# This is a workaround for debug builds with MSYS2/MinGW. Without it `VisageShaderCompiler` tries to link against `libSPIRV.a`,
+# but the SPIRV and glslang builds produce artifacts with debug postfixes, e.g., `libSPIRVd.a`.
+if(MINGW)
+  set_target_properties(
+    SPIRV
+    glslang
+    glslang-default-resource-limits
+    PROPERTIES DEBUG_POSTFIX ""
+  )
+endif()
+
 set(CMAKE_MESSAGE_LOG_LEVEL "NOTICE")
 
 set(SHADER_COMPILER_SOURCES shader_compiler.cpp ${CMAKE_CURRENT_SOURCE_DIR}/../gpu/gpu_shader.cpp)
