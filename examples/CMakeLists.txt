@@ -62,6 +62,7 @@ foreach (EXAMPLE ${EXAMPLES})
         SUFFIX ".html"
         OUTPUT_NAME "index"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/builds/${EXAMPLE}"
+        LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/emscripten_template.html
       )
     endif ()
 
