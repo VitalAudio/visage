@@ -128,7 +128,7 @@ file(GLOB LIBRARY_SHADERS shaders/[vfc]s_*.sc)
 file(GLOB FONT_TTF_FILES fonts/*.ttf)
 file(GLOB ICON_FILES icons/*.svg)
 
-if (UNIX AND NOT APPLE)
+if (UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
   file(GLOB LINUX_TTF_FILES fonts/linux/*.ttf)
   list(APPEND FONT_TTF_FILES ${LINUX_TTF_FILES})
 endif ()

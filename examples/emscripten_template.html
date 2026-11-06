@@ -2,199 +2,230 @@
 <html lang="en-us">
 <head>
     <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Emscripten-Generated Code</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+    <meta name="theme-color" content="#13181c">
+    <title>Visage</title>
     <style>
         html {
             height: 100%;
+            color-scheme: dark;
+            background-color: #13181c;
+            overscroll-behavior: none;
         }
 
         body {
             margin: 0;
             height: 100%;
-            background-color: #13191c;
-            background-image: radial-gradient(#68747b 0.5px, #13191c 0.5px);
-            background-size: 18px 18px;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image:
+                radial-gradient(ellipse at center, rgb(19 24 28 / 0) 25%, #13181c 85%),
+                radial-gradient(circle, rgb(190 205 215 / 0.24) 1px, rgb(190 205 215 / 0) 1.5px);
+            background-size: auto, 24px 24px;
+            background-position: center;
         }
 
         .container {
+            position: relative;
+            z-index: 1;
             display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-
-        .emscripten {
-            padding-right: 0;
-            margin-left: auto;
-            margin-right: auto;
-            display: block;
-            border-radius: 1%;
-            box-shadow: 0 0 20px rgb(0, 0, 0, 0.5);
-        }
-
-        textarea.emscripten {
-            font-family: monospace;
-            width: 80%;
-        }
-
-        div.emscripten {
-            text-align: center;
+            min-height: 100vh;
+            min-height: 100dvh;
         }
 
         /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
         canvas.emscripten {
-            width: 60%;
-            height: 60%;
+            display: block;
+            flex: none;
+            margin: auto;
             border: 0 none;
+            border-radius: 10px;
+            outline: none;
             background-color: black;
+            box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08), 0 20px 60px rgb(0 0 0 / 0.55);
             opacity: 0;
-            transition: opacity 0.3s ease;
+            touch-action: none;
+            transition: opacity 0.35s ease;
         }
 
-        .center-div {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+        canvas.emscripten.running {
+            opacity: 1;
+        }
+
+        canvas.emscripten.fills-window {
+            border-radius: 0;
+            box-shadow: none;
         }
 
         .loader {
-            position: relative;
+            position: fixed;
+            inset: 0;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            width: 100px;
-            height: 100px;
-            max-width: 6rem;
-            margin-top: 3rem;
-            margin-bottom: 3rem;
+            gap: 16px;
+            color: #8d9aa3;
+            font: 13px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            letter-spacing: 0.02em;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
         }
 
-        .loader:before,
-        .loader:after {
-            content: "";
-            position: absolute;
+        .loader[hidden] {
+            display: none;
+        }
+
+        .loader.finished {
+            opacity: 0;
+        }
+
+        .loader.failed {
+            z-index: 2;
+        }
+
+        #status {
+            animation: appear 0.3s ease 0.15s backwards;
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
-            animation: pulsOut 1.8s ease-in-out infinite;
-            filter: drop-shadow(0 0 1rem rgba(166, 105, 255, 0.75));
+            background: conic-gradient(rgb(160 124 240 / 0), #a07cf0);
+            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), black calc(100% - 2.5px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 3px), black calc(100% - 2.5px));
+            animation: spin 0.9s linear infinite, appear 0.3s ease 0.15s backwards;
         }
 
-        .loader:before {
-            width: 100%;
-            padding-bottom: 100%;
-            box-shadow: inset 0 0 0 1rem #fff;
-            animation-name: pulsIn;
+        .loader.failed .spinner {
+            display: none;
         }
 
-        .loader:after {
-            width: calc(100% - 2rem);
-            padding-bottom: calc(100% - 2rem);
-            box-shadow: 0 0 0 0 #fff;
+        .loader.failed #status {
+            margin: 0 16px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            color: #ffb4ab;
+            background-color: rgb(19 24 28 / 0.92);
+            text-align: center;
         }
 
-        @keyframes pulsIn {
-            0% {
-                box-shadow: inset 0 0 0 1rem #fff;
-                opacity: 1;
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
             }
-            50%, 100% {
-                box-shadow: inset 0 0 0 0 #fff;
+        }
+
+        @keyframes appear {
+            from {
                 opacity: 0;
             }
         }
-
-        @keyframes pulsOut {
-            0%, 50% {
-                box-shadow: 0 0 0 0 #fff;
-                opacity: 0;
-            }
-            100% {
-                box-shadow: 0 0 0 1rem #fff;
-                opacity: 1;
-            }
-        }
-
     </style>
 </head>
 <body>
-<figure style="overflow:visible;" id="spinner" class="center-div">
-    <div class="loader"></div>
-</figure>
-<div class="emscripten" id="status" class="hidden">Downloading...</div>
-<div class="emscripten">
-    <progress value="0" max="100" id="progress" hidden="hidden"></progress>
+<div class="loader" id="loader" role="status">
+    <div class="spinner"></div>
+    <div id="status">Loading</div>
 </div>
 <div class="container">
     <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
 </div>
 <script type='text/javascript'>
+    var loaderElement = document.getElementById('loader');
     var statusElement = document.getElementById('status');
-    var progressElement = document.getElementById('progress');
-    var spinnerElement = document.getElementById('spinner');
     var canvas = document.getElementById('canvas');
+    var running = false;
+    var failed = false;
+
+    function showError(text) {
+        failed = true;
+        statusElement.textContent = text;
+        loaderElement.hidden = false;
+        loaderElement.classList.add('failed');
+        loaderElement.classList.remove('finished');
+    }
+
+    function startRunning() {
+        if (running || failed) return;
+        running = true;
+        window.dispatchEvent(new Event('resize'));
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (failed) return;
+            canvas.classList.add('running');
+            loaderElement.classList.add('finished');
+            setTimeout(() => loaderElement.hidden = !failed, 200);
+        }));
+    }
+
+    function updateFillsWindow() {
+        var fills = canvas.offsetWidth >= window.innerWidth && canvas.offsetHeight >= window.innerHeight;
+        canvas.classList.toggle('fills-window', fills);
+    }
+
+    new ResizeObserver(updateFillsWindow).observe(canvas);
+    window.addEventListener('resize', updateFillsWindow);
+
+    var activeTouch = null;
+
+    function sendMouseEvent(type, touch, buttons) {
+        canvas.dispatchEvent(new MouseEvent(type, {
+            bubbles: true,
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            buttons: buttons
+        }));
+    }
+
+    function findActiveTouch(event) {
+        return Array.from(event.changedTouches).find((touch) => touch.identifier === activeTouch);
+    }
+
+    function endTouch(event) {
+        var touch = findActiveTouch(event);
+        if (!touch) return;
+        activeTouch = null;
+        sendMouseEvent('mouseup', touch, 0);
+    }
+
+    canvas.addEventListener('touchstart', (event) => {
+        event.preventDefault();
+        if (activeTouch !== null) return;
+        var touch = event.changedTouches[0];
+        activeTouch = touch.identifier;
+        sendMouseEvent('mousemove', touch, 0);
+        sendMouseEvent('mousedown', touch, 1);
+    }, {passive: false});
+
+    canvas.addEventListener('touchmove', (event) => {
+        event.preventDefault();
+        var touch = findActiveTouch(event);
+        if (touch) sendMouseEvent('mousemove', touch, 1);
+    }, {passive: false});
+
+    canvas.addEventListener('touchend', endTouch);
+    canvas.addEventListener('touchcancel', endTouch);
+
+    function reportFailure() {
+        showError(running ? 'Exception thrown, see JavaScript console' : 'Failed to start, see JavaScript console');
+    }
 
     var Module = {
-        print: (function () {
-            var element = document.getElementById('output');
-            if (element) element.value = ''; // clear browser cache
-            return (...args) => {
-                var text = args.join(' ');
-                console.log(text);
-                if (element) {
-                    element.value += text + "\n";
-                    element.scrollTop = element.scrollHeight; // focus on bottom
-                }
-            };
-        })(),
-        canvas: (() => {
-            // As a default initial behavior, pop up an alert when webgl context is lost. To make your
-            // application robust, you may want to override this behavior before shipping!
-            // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
-            canvas.addEventListener("webglcontextlost", (e) => {
-                alert('WebGL context lost. You will need to reload the page.');
-                e.preventDefault();
-            }, false);
-            return canvas;
-        })(),
+        canvas: canvas,
         setStatus: (text) => {
-            if (!Module.setStatus.last) Module.setStatus.last = {time: Date.now(), text: ''};
-            if (text === Module.setStatus.last.text) return;
-            var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
-            var now = Date.now();
-            if (m && now - Module.setStatus.last.time < 30) return;
-            Module.setStatus.last.time = now;
-            Module.setStatus.last.text = text;
-            if (m) {
-                text = m[1];
-                progressElement.value = parseInt(m[2]) * 100;
-                progressElement.max = parseInt(m[4]) * 100;
-                progressElement.hidden = false;
-                spinnerElement.hidden = false;
-            } else {
-                progressElement.value = null;
-                progressElement.max = null;
-                progressElement.hidden = true;
-                if (!text) {
-                    spinnerElement.hidden = true;
-                    canvas.style.opacity = 1;
-                }
-            }
-            statusElement.innerHTML = text;
+            if (!text) startRunning();
         },
-        totalDependencies: 0,
-        monitorRunDependencies: (left) => {
-            this.totalDependencies = Math.max(this.totalDependencies, left);
-        }
+        onAbort: reportFailure
     };
 
-    window.onerror = () => {
-        Module.setStatus('Exception thrown, see JavaScript console');
-        spinnerElement.style.display = 'none';
-        Module.setStatus = (text) => {
-            if (text) console.error('[post-exception status] ' + text);
-        };
-    };
+    window.addEventListener('error', reportFailure, true);
+    window.addEventListener('unhandledrejection', reportFailure);
 </script>
 {{{ SCRIPT }}}
 </body>

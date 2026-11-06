@@ -34,6 +34,7 @@ elseif (EMSCRIPTEN)
     SUFFIX ".html"
     OUTPUT_NAME "index"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/web"
+    LINK_DEPENDS ${EXAMPLES_DIRECTORY}/emscripten_template.html
   )
 elseif (APPLE)
   set(EXAMPLE_NAME VisageManualTests)
