@@ -53,6 +53,7 @@ namespace visage {
         region->setCanvas(canvas_);
 
       region->setLayerIndex(region->needsLayer() ? layer_index_ + 1 : layer_index_);
+      invalidateBackdropCounts();
     }
 
     void removeRegion(Region* region);
@@ -80,6 +81,7 @@ namespace visage {
     bool isVisible() const { return visible_; }
     void setOnTop(bool on_top) {
       on_top_ = on_top;
+      invalidateBackdropCounts();
       invalidate();
     }
     bool isOnTop() const { return on_top_; }
@@ -155,6 +157,7 @@ namespace visage {
     Region* parent() const { return parent_; }
 
   private:
+    void invalidateBackdropCounts();
     void setLayerIndex(int layer_index);
     void incrementLayer() { setLayerIndex(layer_index_ + 1); }
     void decrementLayer() { setLayerIndex(layer_index_ - 1); }

@@ -76,6 +76,7 @@ namespace visage {
     ~EventManager() = default;
 
     std::vector<EventTimer*> timers_ {};
+    long long timers_removed_ = 0;
     std::vector<std::function<void()>> callbacks_ {};
     std::mutex callback_mutex_;
   };

@@ -1238,6 +1238,106 @@ TEST_CASE("Backdrop only blurs the content under it", "[graphics]") {
   REQUIRE(canvas.takeScreenshot().sample(125, 16).hexRed() > 0x30);
 }
 
+TEST_CASE("Backdrop counts follow region changes after a frame was submitted", "[graphics]") {
+  auto fill = [](Canvas& canvas, Region& region, unsigned int color) {
+    canvas.beginRegion(&region);
+    canvas.setColor(color);
+    canvas.fill(0, 0, region.width(), region.height());
+    canvas.endRegion();
+  };
+
+  auto setBounds = [](Region& glass, Region& above) {
+    glass.setNeedsLayer(true);
+    glass.setBounds(100, 0, 60, 32);
+    above.setBounds(100, 0, 18, 32);
+  };
+
+  auto redrawGlass = [](Canvas& canvas, Region& glass) {
+    canvas.beginRegion(&glass);
+    canvas.endRegion();
+  };
+
+  auto settle = [](Canvas& canvas) {
+    canvas.takeScreenshot();
+    return canvas.takeScreenshot().sample(125, 16).hexRed();
+  };
+
+  Canvas canvas;
+  canvas.setWindowless(160, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(20.0f);
+  Region background;
+  Region glass;
+  Region above;
+  canvas.addRegion(&background);
+  background.setBounds(0, 0, 160, 32);
+  fill(canvas, background, 0xff000000);
+
+  SECTION("Adding a backdrop effect keeps later regions out of the blur") {
+    canvas.addRegion(&glass);
+    canvas.addRegion(&above);
+    setBounds(glass, above);
+    fill(canvas, above, 0xffffffff);
+    redrawGlass(canvas, glass);
+    REQUIRE(settle(canvas) < 0x10);
+
+    glass.setBackdropEffect(&blur);
+    redrawGlass(canvas, glass);
+    REQUIRE(settle(canvas) < 0x10);
+    REQUIRE(canvas.screenshot().sample(109, 16).hexRed() == 0xff);
+  }
+
+  SECTION("Adding a region with a backdrop effect keeps later regions out of the blur") {
+    Region group;
+    canvas.addRegion(&group);
+    group.setBounds(0, 0, 160, 32);
+    group.addRegion(&above);
+    above.setBounds(100, 0, 18, 32);
+    fill(canvas, above, 0xffffffff);
+    REQUIRE(settle(canvas) < 0x10);
+
+    group.removeRegion(&above);
+    glass.setBackdropEffect(&blur);
+    group.addRegion(&glass);
+    group.addRegion(&above);
+    setBounds(glass, above);
+    fill(canvas, above, 0xffffffff);
+    redrawGlass(canvas, glass);
+    REQUIRE(settle(canvas) < 0x10);
+    REQUIRE(canvas.screenshot().sample(109, 16).hexRed() == 0xff);
+  }
+
+  SECTION("Moving a region on top of a backdrop takes it out of the blur") {
+    canvas.addRegion(&above);
+    canvas.addRegion(&glass);
+    setBounds(glass, above);
+    fill(canvas, above, 0xffffffff);
+    glass.setBackdropEffect(&blur);
+    redrawGlass(canvas, glass);
+    REQUIRE(settle(canvas) > 0x30);
+    REQUIRE(canvas.screenshot().sample(109, 16).hexRed() < 0xff);
+
+    above.setOnTop(true);
+    REQUIRE(settle(canvas) < 0x10);
+    REQUIRE(canvas.screenshot().sample(109, 16).hexRed() == 0xff);
+  }
+
+  SECTION("Removing a backdrop effect leaves the regions after it drawn") {
+    canvas.addRegion(&glass);
+    canvas.addRegion(&above);
+    setBounds(glass, above);
+    fill(canvas, above, 0xffffffff);
+    glass.setBackdropEffect(&blur);
+    redrawGlass(canvas, glass);
+    REQUIRE(settle(canvas) < 0x10);
+
+    glass.setBackdropEffect(nullptr);
+    redrawGlass(canvas, glass);
+    settle(canvas);
+    REQUIRE(canvas.screenshot().sample(109, 16).hexRed() == 0xff);
+  }
+}
+
 TEST_CASE("Layered region with a backdrop child draws translucent content once", "[graphics]") {
   for (bool with_background : { false, true }) {
     Canvas canvas;

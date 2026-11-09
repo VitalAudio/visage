@@ -108,7 +108,10 @@ namespace visage {
     for (int i = 1; i < layers_.size(); ++i)
       layers_[i]->updateHdr(*layers_[i - 1]);
 
-    int backdrop_count = window_region_.computeBackdropCount();
+    if (backdrop_count_ < 0)
+      backdrop_count_ = window_region_.computeBackdropCount();
+
+    int backdrop_count = backdrop_count_;
     int submission = path_atlas_.updatePaths(submit_pass);
 
     for (int i = 2; i < layers_.size(); ++i)

@@ -208,6 +208,39 @@ TEST_CASE("PopupMenu flips above point when it overflows the bottom", "[ui]") {
   REQUIRE(list->y() + list->height() == 800);
 }
 
+TEST_CASE("PopupMenu takes a selection while it's open", "[ui]") {
+  Frame root;
+  root.setBounds(0, 0, 400, 400);
+
+  int selections = 0;
+  PopupMenu menu;
+  menu.addOption(1, "Option");
+  menu.onSelection() += [&selections](int) { ++selections; };
+  menu.show(&root);
+
+  auto frame = dynamic_cast<PopupMenuFrame*>(root.children().back());
+  REQUIRE(frame != nullptr);
+  frame->optionSelected(menu.options()[0], nullptr);
+  REQUIRE(selections == 1);
+}
+
+TEST_CASE("PopupMenu ignores selections once it has lost focus and is closing", "[ui]") {
+  Frame root;
+  root.setBounds(0, 0, 400, 400);
+
+  int selections = 0;
+  PopupMenu menu;
+  menu.addOption(1, "Option");
+  menu.onSelection() += [&selections](int) { ++selections; };
+  menu.show(&root);
+
+  auto frame = dynamic_cast<PopupMenuFrame*>(root.children().back());
+  REQUIRE(frame != nullptr);
+  frame->focusChanged(false, false);
+  frame->optionSelected(menu.options()[0], nullptr);
+  REQUIRE(selections == 0);
+}
+
 TEST_CASE("PopupMenu native menu bar", "[ui]") {
   PopupMenu menu("File");
   menu.addOption(1, "New");
@@ -487,7 +520,8 @@ TEST_CASE("PopupList lays out options and separators with its palette's heights"
   Palette palette;
   palette.setValue(PopupMenu::PopupOptionHeight, 30.0f);
   palette.setValue(PopupMenu::PopupSeparatorHeight, 10.0f);
-  palette.setValue(PopupMenu::PopupSelectionPadding, 6.0f);
+  palette.setValue(PopupMenu::PopupVerticalPadding, 6.0f);
+  palette.setValue(PopupMenu::PopupSelectionPadding, 20.0f);
 
   PopupMenu menu;
   menu.addOption(1, "One");
@@ -603,7 +637,7 @@ TEST_CASE("PopupMenu sub menu opens next to its scrolled option", "[ui]") {
   REQUIRE(popup);
   auto* list = dynamic_cast<PopupList*>(popup->children()[0]);
 
-  list->setYPosition(200);
+  list->setYPosition(300);
   list->setHoverFromPosition(Point(10, list->yForIndex(15) + 5));
   REQUIRE(list->hoverIndex() == 15);
   list->selectHoveredIndex();
@@ -611,7 +645,7 @@ TEST_CASE("PopupMenu sub menu opens next to its scrolled option", "[ui]") {
   REQUIRE(sub_list);
 
   REQUIRE(sub_list->isVisible());
-  REQUIRE(sub_list->y() == list->y() + list->yForIndex(15) - 200);
+  REQUIRE(sub_list->y() + sub_list->yForIndex(0) == list->y() + list->yForIndex(15) - 300);
 }
 
 TEST_CASE("PopupMenu long sub menu fits in the window", "[ui]") {

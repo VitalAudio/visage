@@ -67,6 +67,7 @@ namespace visage {
 
     void clearDrawnShapes();
     int submit(int submit_pass = 0);
+    void invalidateBackdropCounts() { backdrop_count_ = -1; }
 
     const Screenshot& takeScreenshot();
     const Screenshot& screenshot() const;
@@ -833,6 +834,7 @@ namespace visage {
     int render_frame_ = 0;
     int last_skipped_frame_ = 0;
     uint32_t contents_generation_ = 0;
+    int backdrop_count_ = -1;
 
     std::vector<State> state_memory_;
     State state_;

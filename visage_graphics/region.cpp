@@ -35,6 +35,7 @@ namespace visage {
     region->parent_ = nullptr;
     region->setCanvas(nullptr);
     sub_regions_.erase(std::find(sub_regions_.begin(), sub_regions_.end(), region));
+    invalidateBackdropCounts();
   }
 
   void Region::replaceRegion(Region* region, Region* replacement) {
@@ -44,6 +45,12 @@ namespace visage {
     replacement->parent_ = this;
     replacement->setCanvas(canvas_);
     replacement->setLayerIndex(replacement->needsLayer() ? layer_index_ + 1 : layer_index_);
+    invalidateBackdropCounts();
+  }
+
+  void Region::invalidateBackdropCounts() {
+    if (canvas_)
+      canvas_->invalidateBackdropCounts();
   }
 
   void Region::setCanvas(Canvas* canvas) {
@@ -159,6 +166,7 @@ namespace visage {
       decrementLayer();
     }
 
+    invalidateBackdropCounts();
     invalidate();
   }
 
@@ -173,6 +181,7 @@ namespace visage {
     detachEffect(backdrop_effect_);
     backdrop_effect_ = backdrop_effect;
     attachEffect(backdrop_effect);
+    invalidateBackdropCounts();
   }
 
   void Region::attachEffect(PostEffect* effect) {
