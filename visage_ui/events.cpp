@@ -72,8 +72,10 @@ namespace visage {
 
   void EventManager::removeTimer(const EventTimer* timer) {
     auto it = std::find(timers_.begin(), timers_.end(), timer);
-    if (it != timers_.end())
+    if (it != timers_.end()) {
       timers_.erase(it);
+      timers_removed_++;
+    }
   }
 
   void EventManager::addCallback(std::function<void()> callback) {
@@ -90,8 +92,10 @@ namespace visage {
       callbacks.swap(callbacks_);
     }
 
+    long long timers_removed = timers_removed_;
     for (auto timer : timers) {
-      if (std::find(timers_.begin(), timers_.end(), timer) != timers_.end())
+      if (timers_removed == timers_removed_ ||
+          std::find(timers_.begin(), timers_.end(), timer) != timers_.end())
         timer->checkTimer(current_time);
     }
 

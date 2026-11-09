@@ -48,18 +48,22 @@ namespace visage {
     VISAGE_THEME_DEFINE_COLOR(PopupMenuSelection);
     VISAGE_THEME_DEFINE_COLOR(PopupMenuSelectionText);
     VISAGE_THEME_DEFINE_COLOR(PopupMenuSeparator);
+    VISAGE_THEME_DEFINE_COLOR(PopupMenuShadow);
 
     VISAGE_THEME_DEFINE_VALUE(PopupOptionHeight);
     VISAGE_THEME_DEFINE_VALUE(PopupMinWidth);
     VISAGE_THEME_DEFINE_VALUE(PopupTextPadding);
     VISAGE_THEME_DEFINE_VALUE(PopupFontSize);
     VISAGE_THEME_DEFINE_VALUE(PopupSelectionPadding);
+    VISAGE_THEME_DEFINE_VALUE(PopupVerticalPadding);
     VISAGE_THEME_DEFINE_VALUE(PopupRounding);
     VISAGE_THEME_DEFINE_VALUE(PopupSelectionRounding);
     VISAGE_THEME_DEFINE_VALUE(PopupBorderWidth);
     VISAGE_THEME_DEFINE_VALUE(PopupSeparatorHeight);
     VISAGE_THEME_DEFINE_VALUE(PopupSeparatorThickness);
     VISAGE_THEME_DEFINE_VALUE(PopupSubMenuArrowSize);
+    VISAGE_THEME_DEFINE_VALUE(PopupShadowWidth);
+    VISAGE_THEME_DEFINE_VALUE(PopupShadowOffset);
 
     static constexpr int kNotSet = INT_MIN;
 
