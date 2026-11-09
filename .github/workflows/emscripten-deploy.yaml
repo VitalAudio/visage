@@ -21,8 +21,8 @@ jobs:
       - name: Build and Package
         run: |
           git clone https://github.com/emscripten-core/emsdk.git
-          ./emsdk/emsdk install latest
-          ./emsdk/emsdk activate latest
+          ./emsdk/emsdk install 6.0.13
+          ./emsdk/emsdk activate 6.0.13
           source emsdk/emsdk_env.sh
           mkdir cmake_build
           cd cmake_build
