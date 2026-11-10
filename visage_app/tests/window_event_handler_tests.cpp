@@ -369,6 +369,45 @@ TEST_CASE("Hiding or removing the focused frame takes its keyboard focus away", 
   app.removeFromWindow();
 }
 
+TEST_CASE("Clicking the focused frame doesn't send it another focus change", "[integration]") {
+  ApplicationEditor app;
+  FocusFrame field;
+  app.addChild(field);
+  app.setBounds(0, 0, 40, 40);
+  field.setBounds(0, 0, 40, 40);
+
+  TestWindow window(40, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+  window.handleMouseDown(kMouseButtonLeft, 30, 30, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 30, 30, 0, 0);
+  REQUIRE(field.focus_changes == std::vector<bool> { true });
+  app.removeFromWindow();
+}
+
+TEST_CASE("Clicking a focused select on focus editor places the caret", "[integration]") {
+  ApplicationEditor app;
+  TextEditor editor;
+  editor.setTextFieldEntry();
+  editor.setText("hello world");
+  app.addChild(editor);
+  app.setBounds(0, 0, 300, 40);
+  editor.setBounds(0, 0, 300, 40);
+
+  TestWindow window(300, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 20, 20, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 20, 20, 0, 0);
+  REQUIRE(editor.selection() == "hello world");
+
+  window.handleMouseDown(kMouseButtonLeft, 290, 20, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 290, 20, 0, 0);
+  REQUIRE(editor.selectionStart() == 11);
+  REQUIRE(editor.selectionEnd() == 11);
+  app.removeFromWindow();
+}
+
 TEST_CASE("A blur handler can remove the frame losing focus", "[integration]") {
   ApplicationEditor app;
   Frame panel;

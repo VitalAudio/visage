@@ -41,7 +41,7 @@ namespace visage {
     if (previous && previous != frame && (previous->hasKeyboardFocus() || !previous->acceptsKeystrokes()))
       previous->processFocusChanged(false, was_clicked);
 
-    if (keyboard_focused_frame_)
+    if (keyboard_focused_frame_ && (previous != frame || !frame->hasKeyboardFocus()))
       keyboard_focused_frame_->processFocusChanged(true, was_clicked);
   }
 
