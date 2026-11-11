@@ -710,6 +710,30 @@ namespace visage {
     Shader* shader = nullptr;
   };
 
+  struct ShaderDataWrapper : ShaderWrapper {
+    ShaderDataWrapper(const ClampBounds& clamp, const PackedBrush* brush, float x, float y,
+                      float width, float height, Shader* shader, const float* shader_data,
+                      int data_width, int data_height, ImageAtlas* data_atlas) :
+        ShaderWrapper(clamp, brush, x, y, width, height, shader), data_atlas(data_atlas),
+        data(shader_data, shader_data + data_width * data_height),
+        packed_data(data_atlas->addData(reinterpret_cast<const unsigned char*>(data.data()),
+                                        data_width, data_height)) { }
+
+    void setVertexData(Vertex* vertices) const {
+      setCornerCoordinates(vertices);
+      for (int i = 0; i < kVerticesPerQuad; ++i) {
+        vertices[i].thickness = packed_data.x() + 0.5f;
+        vertices[i].fade = packed_data.y() + 0.5f;
+        vertices[i].value1 = packed_data.w();
+        vertices[i].value2 = packed_data.h();
+      }
+    }
+
+    ImageAtlas* data_atlas = nullptr;
+    std::vector<float> data;
+    ImageAtlas::PackedImage packed_data;
+  };
+
   struct SampleRegion : Shape<PostEffectVertex> {
     static const EmbeddedFile& vertexShader();
     static const EmbeddedFile& fragmentShader();

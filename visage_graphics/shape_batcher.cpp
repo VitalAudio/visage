@@ -705,11 +705,15 @@ namespace visage {
     chunker.finish(submit);
   }
 
-  void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass) {
+  template<typename T>
+  static void submitShaderQuads(const BatchVector<T>& batches, const Layer& layer, int submit_pass,
+                                ImageAtlas* data_atlas) {
     auto quads = setupQuads(batches);
     if (quads.vertices == nullptr)
       return;
 
+    if (data_atlas)
+      setImageAtlasUniform(data_atlas);
     Shader* shader = batches[0].shapes->front().shader;
     setUniform<Uniforms::kRadialGradient>(quads.radial_gradient ? 1.0f : 0.0f);
     setTimeUniform(layer.time());
@@ -719,6 +723,15 @@ namespace visage {
     setOriginFlipUniform(layer.bottomLeftOrigin());
     submitBlended(shader->state(), submit_pass,
                   ProgramCache::programHandle(shader->vertexShader(), shader->fragmentShader()));
+  }
+
+  void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass) {
+    submitShaderQuads(batches, layer, submit_pass, nullptr);
+  }
+
+  void submitShader(const BatchVector<ShaderDataWrapper>& batches, const Layer& layer, int submit_pass) {
+    if (!batches.empty() && !batches[0].shapes->empty())
+      submitShaderQuads(batches, layer, submit_pass, batches[0].shapes->front().data_atlas);
   }
 
   void submitSampleRegions(const BatchVector<SampleRegion>& batches, BlendMode blend_mode,

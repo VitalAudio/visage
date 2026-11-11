@@ -133,9 +133,24 @@ namespace visage {
       }
       else if (!packed_rects_.empty()) {
         int max_dimension = maxTextureDimension();
-        width_ = fixed_width_ ? fixed_width_ :
-                                std::min(max_dimension, std::max(kDefaultWidth, start_width));
-        height_ = std::min(max_dimension, std::max(kDefaultWidth, start_height));
+        int widest = 0;
+        int tallest = 0;
+        for (const PackedRect& rect : packed_rects_) {
+          widest = std::max(widest, rect.w + packer_.padding());
+          tallest = std::max(tallest, rect.h + packer_.padding());
+        }
+
+        width_ = fixed_width_;
+        if (!fixed_width_) {
+          width_ = std::max(kDefaultWidth, start_width);
+          while (width_ < widest && width_ < max_dimension)
+            width_ *= 2;
+          width_ = std::min(max_dimension, width_);
+        }
+        height_ = std::max(kDefaultWidth, start_height);
+        while (height_ < tallest && height_ < max_dimension)
+          height_ *= 2;
+        height_ = std::min(max_dimension, height_);
 
         while (!packer_.pack(packed_rects_, width_, height_)) {
           if (!fixed_width_ && width_ <= height_ && width_ < max_dimension)

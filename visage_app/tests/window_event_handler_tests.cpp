@@ -22,6 +22,7 @@
 #include "visage/app.h"
 #include "visage/widgets.h"
 #include "visage_ui/popup_menu.h"
+#include "visage_utils/time_utils.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <cmath>
@@ -47,6 +48,12 @@ namespace {
     void setWindowTitle(const std::string& title) override { }
     IPoint maxWindowDimensions() const override { return { 1000, 1000 }; }
   };
+
+  void waitForNextMillisecond() {
+    long long start = time::milliseconds();
+    while (time::milliseconds() <= start)
+      std::this_thread::yield();
+  }
 }
 
 TEST_CASE("Mouse up over another frame sends it an enter relative to itself", "[integration]") {
@@ -89,7 +96,7 @@ TEST_CASE("Repeat clicks count only the same button near the last click", "[inte
   TestWindow window(100, 100);
   app.addToWindow(&window);
   auto click = [&](MouseButton button, int x, int y, bool move) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    waitForNextMillisecond();
     if (move)
       window.handleMouseMove(x, y, 0, 0);
     window.handleMouseDown(button, x, y, button, 0);
@@ -554,7 +561,7 @@ TEST_CASE("Closing a popup menu gives keyboard focus back to the frame that had 
       window.handleMouseUp(kMouseButtonLeft, 10, 30, 0, 0);
     }
     REQUIRE(selections == 1);
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    waitForNextMillisecond();
     EventManager::instance().checkEventTimers();
   };
 

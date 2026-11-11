@@ -2768,3 +2768,28 @@ TEST_CASE("Shader backdrop effects sample what's behind the frame", "[integratio
     }
   }
 }
+
+TEST_CASE("Custom shaders read the data drawn with them", "[integration]") {
+  Canvas canvas;
+  canvas.setWindowless(80, 40);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 80, 40);
+
+  Shader shader(Rectangle::vertexShader(), test_shaders::fs_test_shader_data, BlendMode::Alpha);
+  float row[] = { 0.0f, 1.0f, 0.0f, 1.0f };
+  float grid[] = { 1.0f, 0.0f, 0.0f, 1.0f };
+  canvas.shader(&shader, 0, 0, 40, 40, row, 4);
+  canvas.shader(&shader, 40, 0, 40, 40, grid, 2, 2);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  for (int i = 0; i < 4; ++i) {
+    INFO("column " << i);
+    int expected = i % 2 ? 0xff : 0x00;
+    REQUIRE(screenshot.sample(i * 10 + 5, 20).hexRed() == expected);
+    REQUIRE(screenshot.sample(i * 10 + 5, 20).hexBlue() == 0xff - expected);
+  }
+  REQUIRE(screenshot.sample(50, 10).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(70, 10).hexRed() == 0x00);
+  REQUIRE(screenshot.sample(50, 30).hexRed() == 0x00);
+  REQUIRE(screenshot.sample(70, 30).hexRed() == 0xff);
+}
