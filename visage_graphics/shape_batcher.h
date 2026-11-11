@@ -150,6 +150,7 @@ namespace visage {
   void submitText(const BatchVector<TextBlock>& batches, BlendMode blend_mode, const Layer& layer,
                   int submit_pass);
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass);
+  void submitShader(const BatchVector<ShaderDataWrapper>& batches, const Layer& layer, int submit_pass);
   void submitSampleRegions(const BatchVector<SampleRegion>& batches, BlendMode blend_mode,
                            const Layer& layer, int submit_pass);
 
@@ -264,6 +265,12 @@ namespace visage {
   template<>
   inline void submitShapes<ShaderWrapper>(const BatchVector<ShaderWrapper>& batches,
                                           BlendMode state, Layer& layer, int submit_pass) {
+    submitShader(batches, layer, submit_pass);
+  }
+
+  template<>
+  inline void submitShapes<ShaderDataWrapper>(const BatchVector<ShaderDataWrapper>& batches,
+                                              BlendMode state, Layer& layer, int submit_pass) {
     submitShader(batches, layer, submit_pass);
   }
 

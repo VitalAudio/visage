@@ -21,6 +21,7 @@
 
 #include "visage_ui/events.h"
 #include "visage_ui/frame.h"
+#include "visage_utils/time_utils.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <thread>
@@ -33,6 +34,12 @@ public:
 
   int callback_count = 0;
 };
+
+static void waitForNextMillisecond() {
+  long long start = time::milliseconds();
+  while (time::milliseconds() <= start)
+    std::this_thread::yield();
+}
 
 TEST_CASE("EventTimer basic functionality", "[ui]") {
   TestEventTimer timer;
@@ -91,7 +98,7 @@ TEST_CASE("EventTimer deleted or stopped by another timer", "[ui]") {
     first.startTimer(1);
     second->startTimer(1);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    waitForNextMillisecond();
     manager.checkEventTimers();
     REQUIRE(second == nullptr);
   }
@@ -103,7 +110,7 @@ TEST_CASE("EventTimer deleted or stopped by another timer", "[ui]") {
     first.startTimer(1);
     second.startTimer(1);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    waitForNextMillisecond();
     manager.checkEventTimers();
     REQUIRE(second.callback_count == 0);
   }

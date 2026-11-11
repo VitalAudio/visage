@@ -55,6 +55,18 @@ static void requireTransparentEdges(const Screenshot& screenshot, int x, int y, 
   }
 }
 
+TEST_CASE("Data atlas grows only as tall as its data needs for wide rows", "[graphics]") {
+  ImageAtlas atlas(ImageAtlas::DataType::Float32);
+  std::vector<float> wide(2048 * 3, 0.5f);
+  std::vector<float> small(16, 0.25f);
+  ImageAtlas::PackedImage wide_data = atlas.addData((const unsigned char*)wide.data(), 2048, 3);
+  ImageAtlas::PackedImage small_data1 = atlas.addData((const unsigned char*)small.data(), 16);
+  ImageAtlas::PackedImage small_data2 = atlas.addData((const unsigned char*)small.data() + 4, 12);
+
+  REQUIRE(atlas.width() == 4096);
+  REQUIRE(atlas.height() == 64);
+}
+
 TEST_CASE("Image atlas repack leaves no old pixels around images", "[graphics]") {
   std::vector<unsigned char> red = solidTga(40, 40, 0xffff0000);
   std::vector<unsigned char> blue = solidTga(10, 10, 0xff0000ff);
