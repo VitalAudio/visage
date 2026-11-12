@@ -186,11 +186,34 @@ TEST_CASE("Color to 16-bit formats", "[graphics]") {
 }
 
 TEST_CASE("Color converts dim channels to subnormal half floats", "[graphics]") {
-  auto red_half = [](float red) { return Color(1.0f, red, 0.0f, 0.0f).toABGR16F() & 0xffff; };
-  REQUIRE(red_half(0.002f) == 524);
-  REQUIRE(red_half(0.0005f) == 131);
-  REQUIRE(red_half(64.0f / (1 << 24)) == 1);
+  auto red_half = [](float stored) {
+    return Color(1.0f, stored * Color::kGradientNormalization, 0.0f, 0.0f).toABGR16F() & 0xffff;
+  };
+  REQUIRE(red_half(0.002f / 64.0f) == 524);
+  REQUIRE(red_half(0.0005f / 64.0f) == 131);
+  REQUIRE(red_half(1.0f / (1 << 24)) == 1);
   REQUIRE((Color(1.0f / (1 << 24), 0.0f, 0.0f, 0.0f).toABGR16F() >> 48) == 1);
+}
+
+TEST_CASE("Color rounds to the nearest half float", "[graphics]") {
+  auto alpha_half = [](float alpha) { return Color(alpha, 0.0f, 0.0f, 0.0f).toABGR16F() >> 48; };
+  REQUIRE(alpha_half(1.0f + 1.4f / 1024.0f) == 0x3c01);
+  REQUIRE(alpha_half(1.0f + 1.6f / 1024.0f) == 0x3c02);
+  REQUIRE(alpha_half(1.0f + 1.5f / 1024.0f) == 0x3c02);
+  REQUIRE(alpha_half(1.0f + 2.5f / 1024.0f) == 0x3c02);
+  REQUIRE(alpha_half(2.0f - 0.4f / 1024.0f) == 0x4000);
+  REQUIRE(alpha_half(1.0e6f) == 0x7bff);
+}
+
+TEST_CASE("Gradient colors store every 8-bit value exactly", "[graphics]") {
+  for (unsigned int value = 1; value <= 0xff; ++value) {
+    unsigned int exponent = 0;
+    while (value >> (exponent + 1))
+      ++exponent;
+    uint64_t expected = ((exponent + 15) << 10) | ((value << (10 - exponent)) & 0x3ff);
+    INFO("value " << value);
+    REQUIRE((Color(0xff000000 | (value << 16)).toABGR16F() & 0xffff) == expected);
+  }
 }
 
 TEST_CASE("Color arithmetic operations work correctly", "[graphics]") {

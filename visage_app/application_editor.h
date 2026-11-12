@@ -68,6 +68,8 @@ namespace visage {
     void notifyContentsResized();
     const Screenshot& takeScreenshot();
     void setCanvasDetails();
+    void setDithering(bool dithering);
+    bool dithering() const;
 
     void addToWindow(Window* window);
     void setWindowless(int width, int height);

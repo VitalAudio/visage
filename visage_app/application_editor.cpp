@@ -146,6 +146,14 @@ namespace visage {
     canvas_->setDpiScale(window_ ? window_->dpiScale() : dpiScale());
   }
 
+  void ApplicationEditor::setDithering(bool dithering) {
+    canvas_->setDithering(dithering);
+  }
+
+  bool ApplicationEditor::dithering() const {
+    return canvas_->dithering();
+  }
+
   void ApplicationEditor::addToWindow(Window* window) {
     window_ = window;
 

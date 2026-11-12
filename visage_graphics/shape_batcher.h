@@ -60,6 +60,7 @@ namespace visage {
   void submitBlended(BlendMode blend_mode, int submit_pass, gpu::ProgramHandle program);
   void prepareBlended(BlendMode blend_mode, gpu::ProgramHandle program, const gpu::VertexLayout& layout);
   void setAlphaClamp(const Layer& layer);
+  void setDither(const Layer& layer);
 
   static constexpr uint64_t kBufferPoolChunkBytes = 4 << 20;
 

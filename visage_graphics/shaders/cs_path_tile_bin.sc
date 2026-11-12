@@ -1,4 +1,4 @@
-#include <bgfx_compute.sh>
+#include <compute_include.sh>
 
 BUFFER_RO(b_edges, vec4, 0);
 BUFFER_RO(b_edge_paths, uint, 1);

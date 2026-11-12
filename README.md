@@ -71,7 +71,7 @@ int main() {
 &nbsp;&nbsp;&nbsp;Fill and stroke Bézier paths with dashes, joins and caps
 
 - **Gradients**  
-&nbsp;&nbsp;&nbsp;Linear and radial gradients for shapes, paths and text
+&nbsp;&nbsp;&nbsp;Linear and radial gradients for shapes, paths and text, with optional dithering to hide banding
 
 - **Blend Modes**  
 &nbsp;&nbsp;&nbsp;Supports blending layers with additive, subtractive or by drawing a custom mask for the UI to pass through

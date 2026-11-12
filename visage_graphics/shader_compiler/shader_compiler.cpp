@@ -194,14 +194,13 @@ namespace {
                     std::string& prelude, std::string& error) {
     std::stringstream stream;
     stream << "#extension GL_GOOGLE_include_directive : require\n";
-    stream << "#define BGFX_SHADER_LANGUAGE_GLSL 450\n";
     stream << "#define VISAGE_SHADER_LANGUAGE_GLSL 450\n";
     if (options.stage == ShaderStage::Vertex)
-      stream << "#define BGFX_SHADER_TYPE_VERTEX 1\n";
+      stream << "#define VISAGE_SHADER_TYPE_VERTEX 1\n";
     else if (options.stage == ShaderStage::Fragment)
-      stream << "#define BGFX_SHADER_TYPE_FRAGMENT 1\n";
+      stream << "#define VISAGE_SHADER_TYPE_FRAGMENT 1\n";
     else
-      stream << "#define BGFX_SHADER_TYPE_COMPUTE 1\n";
+      stream << "#define VISAGE_SHADER_TYPE_COMPUTE 1\n";
 
     for (const std::string& define : options.defines) {
       size_t equals = define.find('=');
@@ -266,8 +265,8 @@ namespace {
         stream << "layout(location = " << varying->location << ") " << varying->interpolation
                << "in " << varying->type << " " << name << ";\n";
       }
-      stream << "layout(location = 0) out vec4 bgfx_FragColor;\n";
-      stream << "#define gl_FragColor bgfx_FragColor\n";
+      stream << "layout(location = 0) out vec4 visage_FragColor;\n";
+      stream << "#define gl_FragColor visage_FragColor\n";
     }
 
     prelude = stream.str();
@@ -296,7 +295,7 @@ namespace {
 
   private:
     IncludeResult* find(const char* header_name, const char* includer_name, bool local) {
-      static constexpr char kComputeInclude[] = "bgfx_compute.sh";
+      static constexpr char kComputeInclude[] = "compute_include.sh";
       static constexpr char kComputeSource[] =
           "vec2 vec2_splat(float _x) { return vec2(_x, _x); }\n"
           "vec3 vec3_splat(float _x) { return vec3(_x, _x, _x); }\n"

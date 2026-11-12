@@ -78,6 +78,12 @@ namespace visage {
     setClampBounds(0, 0, width, height);
   }
 
+  void Canvas::setDithering(bool dithering) {
+    dithering_ = dithering;
+    for (Layer* layer : layers_)
+      layer->setDithering(dithering);
+  }
+
   void Canvas::restoreLostContents() {
     static uint32_t font_generation = 0;
     uint32_t generation = gpu::contentsGeneration();
@@ -187,6 +193,7 @@ namespace visage {
     for (int i = 0; i < layers_to_add; ++i) {
       intermediate_layers_.push_back(std::make_unique<Layer>(&gradient_atlas_));
       intermediate_layers_.back()->setIntermediateLayer(true);
+      intermediate_layers_.back()->setDithering(dithering_);
       layers_.push_back(intermediate_layers_.back().get());
     }
   }
