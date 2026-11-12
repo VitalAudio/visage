@@ -272,7 +272,7 @@ namespace visage {
     int max_characters_ = 0;
 
     bool select_on_focus_ = false;
-    bool mouse_focus_ = false;
+    bool select_all_on_mouse_up_ = false;
     bool active_ = true;
     std::set<KeyCode> consumed_keys_;
 

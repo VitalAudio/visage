@@ -133,6 +133,15 @@ namespace visage {
     }
     bool hdr() const { return hdr_; }
 
+    void setDithering(bool dithering) {
+      if (dithering == dithering_)
+        return;
+
+      dithering_ = dithering;
+      invalidate();
+    }
+    bool dithering() const { return dithering_; }
+
     void requestScreenshot();
     const Screenshot& screenshot() const;
     void pairToWindow(void* window_handle, int width, int height, bool transparent = false) {
@@ -162,6 +171,7 @@ namespace visage {
 
     bool bottom_left_origin_ = false;
     bool hdr_ = false;
+    bool dithering_ = false;
     bool needs_full_clear_ = false;
     int width_ = 0;
     int height_ = 0;

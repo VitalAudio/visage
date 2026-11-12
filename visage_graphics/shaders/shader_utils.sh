@@ -59,13 +59,31 @@ vec2 radialGradient(vec2 position, vec2 focal_point, vec4 coefficient) {
 uniform vec4 u_radial_gradient;
 uniform vec4 u_color_mult;
 uniform vec4 u_alpha_clamp;
+uniform vec4 u_dither;
 
 vec4 sampleGradient(sampler2D gradient_texture, vec2 texture_pos1, vec2 texture_pos2, float t) {
   vec4 color = u_color_mult * texture2D(gradient_texture, mix(texture_pos1, texture_pos2, t));
   return vec4(color.rgb * color.a, color.a);
 }
 
+float bayer2(vec2 position) {
+  vec2 cell = mod(floor(position), 2.0);
+  return fract(cell.x * 0.5 + cell.y * 0.75);
+}
+
+float bayer8(vec2 position) {
+  return bayer2(position) + 0.25 * bayer2(0.5 * position) + 0.0625 * bayer2(0.25 * position);
+}
+
+vec4 dither(vec4 color) {
+#ifdef VISAGE_SHADER_TYPE_FRAGMENT
+  color.rgb += u_dither.x * (bayer8(gl_FragCoord.xy) - 63.0 / 128.0);
+#endif
+  return color;
+}
+
 vec4 clampToAlpha(vec4 color) {
+  color = dither(color);
   return vec4(mix(color.rgb, min(color.rgb, color.aaa), u_alpha_clamp.x), color.a);
 }
 

@@ -56,8 +56,8 @@ namespace visage {
       "#define shadow2DProj(_sampler, _coord) (textureProj(_sampler, _coord) )\n"
       "#define texture3D   texture\n"
       "#define textureCube texture\n"
-      "out vec4 bgfx_FragColor;\n"
-      "#define gl_FragColor bgfx_FragColor\n"
+      "out vec4 visage_FragColor;\n"
+      "#define gl_FragColor visage_FragColor\n"
       "vec2 vec2_splat(float _x) { return vec2(_x, _x); }\n"
       "vec3 vec3_splat(float _x) { return vec3(_x, _x, _x); }\n"
       "vec4 vec4_splat(float _x) { return vec4(_x, _x, _x, _x); }\n";

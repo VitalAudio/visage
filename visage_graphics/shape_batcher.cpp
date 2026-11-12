@@ -131,6 +131,13 @@ namespace visage {
   void setAlphaClamp(const Layer& layer) {
     bool hdr = layer.frameBufferFormat() == static_cast<int>(gpu::TextureFormat::RGBA16F);
     setUniform<Uniforms::kAlphaClamp>(hdr ? 0.0f : 1.0f);
+    setDither(layer);
+  }
+
+  void setDither(const Layer& layer) {
+    static constexpr float kDitherAmplitude = 1.0f / 255.0f;
+    bool hdr = layer.frameBufferFormat() == static_cast<int>(gpu::TextureFormat::RGBA16F);
+    setUniform<Uniforms::kDither>(layer.dithering() && !hdr ? kDitherAmplitude : 0.0f);
   }
 
   inline void setColorMult(const Layer& layer) {
@@ -749,6 +756,7 @@ namespace visage {
     setTexture<Uniforms::kTexture>(0, gpu::getTexture(source_layer->frameBuffer()));
     setUniformDimensions(layer.width(), layer.height());
     setOriginFlipUniform(layer.bottomLeftOrigin());
+    setDither(layer);
     submitBlended(blend_mode, submit_pass,
                   ProgramCache::programHandle(SampleRegion::vertexShader(),
                                               SampleRegion::fragmentShader()));

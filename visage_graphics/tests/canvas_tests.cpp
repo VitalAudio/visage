@@ -3435,3 +3435,119 @@ TEST_CASE("Horizontal and vertical brushes keep their range on paths cut by a cl
     }
   }
 }
+
+static float tileAverageRed(const Screenshot& screenshot, int x, int y) {
+  int sum = 0;
+  for (int j = y; j < y + 8; ++j) {
+    for (int i = x; i < x + 8; ++i)
+      sum += screenshot.sample(i, j).hexRed();
+  }
+  return sum / 64.0f;
+}
+
+TEST_CASE("Dithering keeps the average of colors between 8-bit steps", "[graphics]") {
+  static constexpr float kValue = 10.25f;
+  static constexpr int kSize = 32;
+  Color color(1.0f, kValue / 255.0f, kValue / 255.0f, kValue / 255.0f);
+
+  auto render = [&](bool dithering, bool layered, bool hdr) {
+    Canvas canvas;
+    canvas.setWindowless(kSize, kSize);
+    canvas.setDithering(dithering);
+    BloomPostEffect bloom;
+    bloom.setBloomIntensity(0.0f);
+    Region region;
+    region.setBounds(0, 0, kSize, kSize);
+    canvas.addRegion(&region);
+    region.setNeedsLayer(layered);
+    if (hdr)
+      region.setPostEffect(&bloom);
+
+    canvas.beginRegion(&region);
+    canvas.setColor(color);
+    canvas.fill(0, 0, kSize, kSize);
+    canvas.endRegion();
+    return canvas.takeScreenshot();
+  };
+
+  auto check = [&](bool layered, bool hdr) {
+    Screenshot flat = render(false, layered, hdr);
+    Screenshot dithered = render(true, layered, hdr);
+    for (int y = 0; y < kSize; y += 8) {
+      for (int x = 0; x < kSize; x += 8) {
+        REQUIRE(tileAverageRed(flat, x, y) == 10.0f);
+        REQUIRE(tileAverageRed(dithered, x, y) == Approx(kValue).margin(1.0f / 32.0f));
+      }
+    }
+  };
+
+  SECTION("Drawn on the canvas") {
+    check(false, false);
+  }
+
+  SECTION("Drawn in a layer added after dithering was turned on") {
+    check(true, false);
+  }
+
+  SECTION("Drawn in an HDR layer") {
+    check(true, true);
+  }
+}
+
+TEST_CASE("Dithering leaves 8-bit colors unchanged", "[graphics]") {
+  static constexpr int kStripes = 64;
+  static constexpr int kStripeWidth = 4;
+  auto stripeColor = [](int i) {
+    unsigned int red = i * 4;
+    unsigned int green = 255 - i * 4;
+    unsigned int blue = (i * 37 + 3) % 256;
+    return 0xff000000 | (red << 16) | (green << 8) | blue;
+  };
+
+  Canvas canvas;
+  canvas.setWindowless(kStripes * kStripeWidth, 16);
+  canvas.setDithering(true);
+  for (int i = 0; i < kStripes; ++i) {
+    canvas.setColor(stripeColor(i));
+    canvas.fill(i * kStripeWidth, 0, kStripeWidth, canvas.height());
+  }
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  for (int y = 0; y < screenshot.height(); ++y) {
+    for (int x = 0; x < screenshot.width(); ++x) {
+      INFO("pixel " << x << ", " << y);
+      REQUIRE(screenshot.sample(x, y).toARGB() == stripeColor(x / kStripeWidth));
+    }
+  }
+}
+
+TEST_CASE("Dithering leaves no flat patches in a gentle gradient", "[graphics]") {
+  static constexpr int kWidth = 256;
+  static constexpr int kHeight = 16;
+
+  auto flatTiles = [](bool dithering) {
+    Canvas canvas;
+    canvas.setWindowless(kWidth, kHeight);
+    canvas.setDithering(dithering);
+    canvas.setColor(Brush::horizontal(0xff000000, 0xff040404));
+    canvas.fill(0, 0, kWidth, kHeight);
+    const Screenshot& screenshot = canvas.takeScreenshot();
+
+    int flat = 0;
+    for (int y = 0; y < kHeight; y += 8) {
+      for (int x = 0; x < kWidth; x += 8) {
+        int value = screenshot.sample(x, y).hexRed();
+        bool same = true;
+        for (int j = y; j < y + 8; ++j) {
+          for (int i = x; i < x + 8; ++i)
+            same = same && screenshot.sample(i, j).hexRed() == value;
+        }
+        flat += same;
+      }
+    }
+    return flat;
+  };
+
+  REQUIRE(flatTiles(false) > 0);
+  REQUIRE(flatTiles(true) == 0);
+}

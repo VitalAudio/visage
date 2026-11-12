@@ -166,6 +166,12 @@ public:
   }
 
 protected:
+  unsigned int labelColor() const {
+    visage::Color average = gradient_.average();
+    float brightness = 0.299f * average.red() + 0.587f * average.green() + 0.114f * average.blue();
+    return brightness < 0.25f ? 0xffffffff : 0xff000000;
+  }
+
   ActivePoint active_point_ = kNone;
   bool mouse_down_ = false;
   visage::Point point1_;
@@ -180,7 +186,7 @@ public:
     canvas.setColor(points);
     canvas.roundedRectangle(0, 0, width(), height(), 18.0f);
 
-    canvas.setColor(0xff000000);
+    canvas.setColor(labelColor());
     visage::Font font(20, resources::fonts::Lato_Regular_ttf);
     canvas.text("Linear Gradient", font, visage::Font::kCenter, 0, 0, width(), height());
 
@@ -191,7 +197,7 @@ public:
     else if (active_point_ == kTo)
       canvas.circle(point2_.x - kDragRadius, point2_.y - kDragRadius, 2.0f * kDragRadius);
 
-    canvas.setColor(0xff000000);
+    canvas.setColor(labelColor());
     canvas.circle(point1_.x - kDotRadius, point1_.y - kDotRadius, 2.0f * kDotRadius);
     canvas.circle(point2_.x - kDotRadius, point2_.y - kDotRadius, 2.0f * kDotRadius);
   }
@@ -205,7 +211,7 @@ public:
     canvas.setColor(radial);
     canvas.roundedRectangle(0, 0, width(), height(), 18.0f);
 
-    canvas.setColor(0xff000000);
+    canvas.setColor(labelColor());
     visage::Font font(20, resources::fonts::Lato_Regular_ttf);
     canvas.text("Radial Gradient", font, visage::Font::kCenter, 0, 0, width(), height());
 
@@ -216,7 +222,7 @@ public:
     else if (active_point_ == kTo)
       canvas.circle(point2_.x - kDragRadius, point2_.y - kDragRadius, 2.0f * kDragRadius);
 
-    canvas.setColor(0xff000000);
+    canvas.setColor(labelColor());
     canvas.circle(point1_.x - kDotRadius, point1_.y - kDotRadius, 2.0f * kDotRadius);
     canvas.circle(point2_.x - kDotRadius, point2_.y - kDotRadius, 2.0f * kDotRadius);
   }
@@ -285,13 +291,24 @@ int runExample() {
     { "Rainbow", visage::Gradient(0xffff0000, 0xffffff00, 0xff00ff00, 0xff00ffff, 0xff0000ff,
                                   0xffff00ff, 0xffff0000) },
     { "Rainbow (OkLab)", visage::Gradient::fromSampleFunction(100, sampleOkLab) },
-    { "Viridis", visage::Gradient::kViridis }
+    { "Viridis", visage::Gradient::kViridis },
+    { "Dark", visage::Gradient(0xff0a0c10, 0xff1c2230) }
   };
 
   visage::UiButton color_button("Gradient: Two Color");
   color_button.setFont(font);
   color_button.layout().setFlexGrow(1.0f);
   controls.addChild(color_button);
+
+  visage::UiButton dither_button("Dithering: Off");
+  dither_button.setFont(font);
+  dither_button.layout().setFlexGrow(1.0f);
+  controls.addChild(dither_button);
+
+  dither_button.onToggle() = [&](visage::Button* button, bool on) {
+    app.setDithering(!app.dithering());
+    dither_button.setText(app.dithering() ? "Dithering: On" : "Dithering: Off");
+  };
 
   app.addChild(controls);
   auto gradient_it = gradients_map.find("Two Color");

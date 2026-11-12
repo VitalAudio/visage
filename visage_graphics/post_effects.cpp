@@ -145,6 +145,7 @@ namespace visage {
     setPostEffectTexture<Uniforms::kTexture>(0, gpu::getTexture(source_layer->frameBuffer()));
     setUniformDimensions(destination.width(), destination.height());
     setOriginFlipUniform(destination.bottomLeftOrigin());
+    setDither(destination);
     gpu::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                          SampleRegion::fragmentShader()));
   }
@@ -564,6 +565,7 @@ namespace visage {
     setPostEffectUniform<Uniforms::kAtlasScale>(1.0f / backdrop_.width(), 1.0f / backdrop_.height());
     backdrop_.setUniforms(batches, quads.vertices, handles_->backdrop);
     setUniformDimensions(destination.width(), destination.height());
+    setDither(destination);
     gpu::submit(submit_pass, ProgramCache::programHandle(SampleRegion::vertexShader(),
                                                          SampleRegion::fragmentShader()));
   }

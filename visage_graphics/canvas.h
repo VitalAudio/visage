@@ -101,6 +101,8 @@ namespace visage {
     void setLogicalPixelScale() { state_.scale = dpi_scale_; }
 
     float dpiScale() const { return dpi_scale_; }
+    void setDithering(bool dithering);
+    bool dithering() const { return dithering_; }
     void updateTime(double time);
     double time() const { return render_time_; }
     double deltaTime() const { return delta_time_; }
@@ -842,6 +844,7 @@ namespace visage {
     Renderer::Reference renderer_reference_;
     Palette* palette_ = nullptr;
     float dpi_scale_ = 1.0f;
+    bool dithering_ = false;
     double render_time_ = 0.0;
     double delta_time_ = 0.0;
     int render_frame_ = 0;

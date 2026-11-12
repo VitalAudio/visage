@@ -415,6 +415,69 @@ TEST_CASE("Clicking a focused select on focus editor places the caret", "[integr
   app.removeFromWindow();
 }
 
+TEST_CASE("Clicking into a select on focus editor selects all on mouse up", "[integration]") {
+  ApplicationEditor app;
+  TextEditor editor;
+  editor.setTextFieldEntry();
+  editor.setText("hello world");
+  app.addChild(editor);
+  app.setBounds(0, 0, 300, 40);
+  editor.setBounds(0, 0, 300, 40);
+
+  TestWindow window(300, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 290, 20, kMouseButtonLeft, 0);
+  REQUIRE(editor.selectionStart() == 11);
+  REQUIRE(editor.selectionEnd() == 11);
+
+  window.handleMouseMove(292, 20, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 292, 20, 0, 0);
+  REQUIRE(editor.selection() == "hello world");
+  app.removeFromWindow();
+}
+
+TEST_CASE("Dragging into a select on focus editor keeps the dragged selection", "[integration]") {
+  ApplicationEditor app;
+  TextEditor editor;
+  editor.setTextFieldEntry();
+  editor.setText("hello world");
+  app.addChild(editor);
+  app.setBounds(0, 0, 300, 40);
+  editor.setBounds(0, 0, 300, 40);
+
+  TestWindow window(300, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 290, 20, kMouseButtonLeft, 0);
+  window.handleMouseMove(35, 20, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 35, 20, 0, 0);
+  REQUIRE(editor.selectionStart() > 0);
+  REQUIRE(editor.selectionEnd() == 11);
+  app.removeFromWindow();
+}
+
+TEST_CASE("Tabbing into a select on focus editor selects all right away", "[integration]") {
+  ApplicationEditor app;
+  TextEditor first;
+  TextEditor second;
+  first.setTextFieldEntry();
+  second.setTextFieldEntry();
+  second.setText("hello world");
+  app.addChild(first);
+  app.addChild(second);
+  app.setBounds(0, 0, 300, 40);
+  first.setBounds(0, 0, 300, 20);
+  second.setBounds(0, 20, 300, 20);
+
+  TestWindow window(300, 40);
+  app.addToWindow(&window);
+  window.handleMouseDown(kMouseButtonLeft, 10, 10, kMouseButtonLeft, 0);
+  window.handleMouseUp(kMouseButtonLeft, 10, 10, 0, 0);
+  window.handleKeyDown(KeyCode::Tab, 0, false);
+  REQUIRE(second.hasKeyboardFocus());
+  REQUIRE(second.selection() == "hello world");
+  app.removeFromWindow();
+}
+
 TEST_CASE("A blur handler can remove the frame losing focus", "[integration]") {
   ApplicationEditor app;
   Frame panel;

@@ -47,7 +47,7 @@ namespace visage {
     static constexpr float kFloatScale = 1.0f / 0xff;
     static constexpr float kFloatScale16 = 1.0f / 0xffff;
     static constexpr float kHueRange = 360.0f;
-    static constexpr float kGradientNormalization = 64.0f;
+    static constexpr float kGradientNormalization = kFloatScale;
 
     static int compare(const Color& a, const Color& b) {
       for (int i = 0; i < kNumChannels; ++i) {
@@ -368,7 +368,17 @@ namespace visage {
       return std::round(std::max(0.0f, std::min(1.0f, value)) * 0xffff);
     }
 
+    static uint32_t roundedShift(uint32_t value, int shift) {
+      uint32_t result = value >> shift;
+      uint32_t remainder = value & ((1u << shift) - 1);
+      uint32_t halfway = 1u << (shift - 1);
+      if (remainder > halfway || (remainder == halfway && (result & 1)))
+        ++result;
+      return result;
+    }
+
     static uint64_t floatToHalf(float value) {
+      static constexpr uint32_t kMaxHalf = 0x7BFF;
       uint32_t f;
       std::memcpy(&f, &value, sizeof(f));
       uint32_t sign = (f >> 16) & 0x8000;  // Sign bit
@@ -383,14 +393,14 @@ namespace visage {
 
       if (exponent > 112) {  // Normalized case
         exponent -= 112;  // Adjust bias from 127 (float) to 15 (half-float)
-        if (exponent > 30)  // Overflow (set to Infinity)
-          return sign | 0x7C00;
-        return sign | (exponent << 10) | (mantissa >> 13);
+        if (exponent > 30)
+          return sign | kMaxHalf;
+        return sign | std::min(kMaxHalf, (exponent << 10) + roundedShift(mantissa, 13));
       }
 
       if (exponent > 102) {  // Subnormal case
         mantissa |= 0x00800000;  // Add implicit leading 1 bit
-        return sign | ((mantissa >> (126 - exponent)) & 0x3FF);
+        return sign | roundedShift(mantissa, 126 - exponent);
       }
 
       return sign;  // Underflow to zero

@@ -425,7 +425,7 @@ namespace visage {
       tripleClick(e);
     else if (click == 2)
       doubleClick(e);
-    else if (!mouse_focus_) {
+    else {
       caret_position_ = positionToIndex({ e.position.x + x_position_, e.position.y + yPosition() });
       if (!e.isShiftDown())
         selection_position_ = caret_position_;
@@ -436,20 +436,22 @@ namespace visage {
   }
 
   void TextEditor::mouseUp(const MouseEvent& e) {
-    mouse_focus_ = false;
+    if (select_all_on_mouse_up_) {
+      selectAll();
+      redraw();
+    }
+    select_all_on_mouse_up_ = false;
   }
 
   void TextEditor::mouseDrag(const MouseEvent& e) {
-    if (!mouse_focus_)
-      caret_position_ = positionToIndex({ e.position.x + x_position_, e.position.y + yPosition() });
+    caret_position_ = positionToIndex({ e.position.x + x_position_, e.position.y + yPosition() });
+    if (caret_position_ != selection_position_)
+      select_all_on_mouse_up_ = false;
     makeCaretVisible();
     redraw();
   }
 
   void TextEditor::doubleClick(const MouseEvent& e) {
-    if (mouse_focus_)
-      return;
-
     if (text_.characterOverride()) {
       selectAll();
       return;
@@ -662,6 +664,7 @@ namespace visage {
   void TextEditor::focusChanged(bool is_focused, bool was_clicked) {
     redraw();
     if (!is_focused) {
+      select_all_on_mouse_up_ = false;
       consumed_keys_.clear();
       if (dead_key_entry_ != DeadKey::None) {
         dead_key_entry_ = DeadKey::None;
@@ -674,8 +677,9 @@ namespace visage {
       makeCaretVisible();
 
     if (select_on_focus_) {
-      mouse_focus_ = was_clicked;
-      selectAll();
+      select_all_on_mouse_up_ = was_clicked;
+      if (!was_clicked)
+        selectAll();
     }
   }
 
