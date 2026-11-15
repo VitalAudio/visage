@@ -682,10 +682,15 @@ static constexpr double kMaxDrawLead = 0.6;
   }
 
   int modifiers = [self keyboardModifiers:event];
+  bool text_entry = self.visage_window->hasActiveTextEntry();
+  if (!text_entry && [self hasMarkedText]) {
+    [self.inputContext discardMarkedText];
+    [self unmarkText];
+  }
   bool composing = [self hasMarkedText];
   self.command_requested = false;
   self.pending_text = [NSMutableString string];
-  if ((modifiers & visage::kModifierCmd) == 0)
+  if (text_entry && (modifiers & visage::kModifierCmd) == 0)
     [self interpretKeyEvents:[NSArray arrayWithObject:event]];
   else
     self.typed_length = 0;
