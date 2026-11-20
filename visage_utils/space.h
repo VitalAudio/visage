@@ -357,6 +357,10 @@ namespace visage {
       return { x_ + left, y_ + top, newWidth, newHeight };
     }
 
+    IBounds expanded(int amount) const {
+      return { x_ - amount, y_ - amount, width_ + 2 * amount, height_ + 2 * amount };
+    }
+
     bool operator==(const IBounds& other) const {
       return x_ == other.x_ && y_ == other.y_ && width_ == other.width_ && height_ == other.height_;
     }
