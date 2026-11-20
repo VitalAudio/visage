@@ -105,8 +105,11 @@ namespace visage {
         canvas_->invalidateRectInRegion(rect, region, layer_index);
         --layer_index;
 
-        if (region->post_effect_)
-          rect = { 0, 0, region->width_, region->height_ };
+        if (region->post_effect_) {
+          int radius = region->post_effect_->dirtyRadius();
+          IBounds bounds(0, 0, region->width_, region->height_);
+          rect = radius < 0 ? bounds : rect.expanded(radius).intersection(bounds);
+        }
       }
 
       rect = rect + IPoint(region->x_, region->y_);

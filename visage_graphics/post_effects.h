@@ -46,6 +46,7 @@ namespace visage {
       submit(batches, destination, submit_pass);
     }
     virtual bool appliedInPlace() const { return false; }
+    virtual int dirtyRadius() const { return -1; }
     virtual BlendMode state() const { return BlendMode::Alpha; }
     void submitPassthrough(const BatchVector<SampleRegion>& batches, const Layer& destination,
                            int submit_pass) const;

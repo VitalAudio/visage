@@ -430,6 +430,15 @@ TEST_CASE("IBounds reduced asymmetric", "[utils]") {
   }
 }
 
+TEST_CASE("IBounds expanded", "[utils]") {
+  IBounds expanded = IBounds(10, 20, 100, 200).expanded(5);
+
+  REQUIRE(expanded.x() == 5);
+  REQUIRE(expanded.y() == 15);
+  REQUIRE(expanded.width() == 110);
+  REQUIRE(expanded.height() == 210);
+}
+
 TEST_CASE("Matrix equality compares every entry", "[utils]") {
   Matrix matrix(1.0f, 2.0f, 3.0f, 4.0f);
   REQUIRE(matrix == Matrix(1.0f, 2.0f, 3.0f, 4.0f));

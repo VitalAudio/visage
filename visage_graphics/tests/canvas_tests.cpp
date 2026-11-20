@@ -2759,6 +2759,45 @@ TEST_CASE("Removing a region invalidates the area it covered in its parent", "[g
   REQUIRE(covered.contains(IBounds(10, 20, 30, 40)));
 }
 
+TEST_CASE("A post effect's dirty radius limits what's redrawn beneath a change", "[graphics]") {
+  class RadiusEffect : public PostEffect {
+  public:
+    int dirtyRadius() const override { return radius; }
+    int radius = 10;
+  };
+
+  Canvas canvas;
+  canvas.setWindowless(300, 200);
+  RadiusEffect effect;
+  Region parent;
+  Region child;
+  canvas.addRegion(&parent);
+  parent.setNeedsLayer(true);
+  parent.setPostEffect(&effect);
+  parent.setBounds(20, 10, 260, 180);
+  parent.addRegion(&child);
+  child.setBounds(100, 50, 20, 20);
+
+  auto invalidated_beneath = [&] {
+    canvas.takeScreenshot();
+    child.invalidate();
+    IBounds covered;
+    for (const auto& region_rects : canvas.layer(1)->invalidRects()) {
+      for (const IBounds& rect : region_rects.second)
+        covered = covered.width() ? covered.unioned(rect) : rect;
+    }
+    return covered;
+  };
+
+  REQUIRE(invalidated_beneath() == IBounds(110, 50, 40, 40));
+
+  child.setBounds(0, 0, 20, 20);
+  REQUIRE(invalidated_beneath() == IBounds(20, 10, 30, 30));
+
+  effect.radius = -1;
+  REQUIRE(invalidated_beneath() == IBounds(20, 10, 260, 180));
+}
+
 TEST_CASE("Rounded triangle with nearly collinear points draws nothing", "[graphics]") {
   Canvas canvas;
   canvas.setWindowless(80, 80);
