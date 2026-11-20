@@ -53,6 +53,7 @@ namespace visage {
         region->setCanvas(canvas_);
 
       region->setLayerIndex(region->needsLayer() ? layer_index_ + 1 : layer_index_);
+      addOpaqueCount(region->opaque_count_);
       invalidateBackdropCounts();
     }
 
@@ -85,6 +86,14 @@ namespace visage {
       invalidate();
     }
     bool isOnTop() const { return on_top_; }
+    void setOpaque(bool opaque) {
+      if (opaque != opaque_)
+        addOpaqueCount(opaque ? 1 : -1);
+      opaque_ = opaque;
+      invalidate();
+    }
+    bool isOpaque() const { return opaque_; }
+    bool containsOpaque() const { return opaque_count_ > 0; }
     bool overlaps(const Region* other) const {
       return x_ < other->x_ + other->width_ && x_ + width_ > other->x_ &&
              y_ < other->y_ + other->height_ && y_ + height_ > other->y_;
@@ -158,6 +167,10 @@ namespace visage {
 
   private:
     void invalidateBackdropCounts();
+    void addOpaqueCount(int count) {
+      for (Region* region = this; region; region = region->parent_)
+        region->opaque_count_ += count;
+    }
     void setLayerIndex(int layer_index);
     void incrementLayer() { setLayerIndex(layer_index_ + 1); }
     void decrementLayer() { setLayerIndex(layer_index_ - 1); }
@@ -184,6 +197,8 @@ namespace visage {
     int palette_override_ = 0;
     bool visible_ = true;
     bool on_top_ = false;
+    bool opaque_ = false;
+    int opaque_count_ = 0;
     int layer_index_ = 0;
     int backdrop_count_ = 0;
     int backdrop_count_children_ = 0;

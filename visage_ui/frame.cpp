@@ -70,6 +70,12 @@ namespace visage {
     redraw();
   }
 
+  void Frame::setOpaque(bool opaque) {
+    opaque_ = opaque;
+    region_.setOpaque(opaque);
+    redraw();
+  }
+
   void Frame::addChild(Frame* child, bool make_visible) {
     VISAGE_ASSERT(child && child != this);
     if (child == nullptr)
