@@ -214,6 +214,8 @@ namespace visage {
     bool isDrawing() const { return drawing_; }
     void setOnTop(bool on_top);
     bool isOnTop() const { return on_top_; }
+    void setOpaque(bool opaque);
+    bool isOpaque() const { return opaque_; }
 
     void addChild(Frame* child, bool make_visible = true);
     void addChild(Frame& child, bool make_visible = true) { addChild(&child, make_visible); }
@@ -503,6 +505,7 @@ namespace visage {
     std::vector<CallbackConnection> listeners_;
 
     bool on_top_ = false;
+    bool opaque_ = false;
     bool visible_ = true;
     bool keyboard_focus_ = false;
     bool accepts_keystrokes_ = false;

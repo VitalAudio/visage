@@ -934,3 +934,185 @@ TEST_CASE("Palette overrides set in draw code apply on top of the frame's", "[ui
   REQUIRE(value == 4.0f);
   REQUIRE(restored_value == 3.0f);
 }
+
+namespace {
+  class OpaqueTestScene {
+  public:
+    static constexpr unsigned int kRed = 0xffff0000;
+    static constexpr unsigned int kGreen = 0xff00ff00;
+    static constexpr unsigned int kBlue = 0xff0000ff;
+    static constexpr unsigned int kWhite = 0xffffffff;
+
+    OpaqueTestScene() {
+      handler_.request_redraw = [this](Frame* frame) { stale_.push_back(frame); };
+      canvas_.setWindowless(100, 100);
+      canvas_.addRegion(parent_.region());
+      parent_.setEventHandler(&handler_);
+      parent_.setBounds(0, 0, 100, 100);
+      parent_.setCached(true);
+      parent_.onDraw() = [this](Canvas& canvas) {
+        canvas.setColor(parent_color_);
+        canvas.fill(0, 0, 100, 100);
+      };
+
+      child_.onDraw() = [this](Canvas& canvas) {
+        if (!child_draws_)
+          return;
+        canvas.setColor(kBlue);
+        canvas.fill(0, 0, child_.width(), child_.height());
+      };
+      parent_.addChild(&child_);
+      child_.setBounds(20, 20, 40, 40);
+    }
+
+    ~OpaqueTestScene() { parent_.setEventHandler(nullptr); }
+
+    const Screenshot& draw() {
+      std::vector<Frame*> frames;
+      std::swap(frames, stale_);
+      for (Frame* frame : frames)
+        frame->drawToRegion(canvas_);
+      return canvas_.takeScreenshot();
+    }
+
+    unsigned int sample(int x, int y) { return canvas_.screenshot().sample(x, y).toARGB(); }
+
+    Frame& parent() { return parent_; }
+    Frame& child() { return child_; }
+    void setParentColor(unsigned int color) { parent_color_ = color; }
+    void setChildDraws(bool draws) { child_draws_ = draws; }
+
+  private:
+    Canvas canvas_;
+    FrameEventHandler handler_;
+    std::vector<Frame*> stale_;
+    Frame parent_;
+    Frame child_;
+    unsigned int parent_color_ = kRed;
+    bool child_draws_ = true;
+  };
+}
+
+TEST_CASE("Opaque frames keep frames beneath them from redrawing the area they cover", "[ui]") {
+  OpaqueTestScene scene;
+  scene.child().setOpaque(true);
+  REQUIRE(scene.child().isOpaque());
+  scene.draw();
+  REQUIRE(scene.sample(40, 40) == OpaqueTestScene::kBlue);
+  REQUIRE(scene.sample(10, 10) == OpaqueTestScene::kRed);
+
+  scene.setChildDraws(false);
+  scene.child().redraw();
+  scene.draw();
+  REQUIRE(scene.sample(40, 40) == OpaqueTestScene::kBlue);
+}
+
+TEST_CASE("Frames that aren't opaque redraw the frames beneath them", "[ui]") {
+  OpaqueTestScene scene;
+  scene.draw();
+  REQUIRE(scene.sample(40, 40) == OpaqueTestScene::kBlue);
+
+  scene.setChildDraws(false);
+  scene.child().redraw();
+  scene.draw();
+  REQUIRE(scene.sample(40, 40) == OpaqueTestScene::kRed);
+}
+
+TEST_CASE("Frames beneath an opaque frame still redraw around it", "[ui]") {
+  OpaqueTestScene scene;
+  scene.child().setOpaque(true);
+  scene.draw();
+
+  scene.setParentColor(OpaqueTestScene::kGreen);
+  scene.parent().redraw();
+  scene.draw();
+  REQUIRE(scene.sample(10, 10) == OpaqueTestScene::kGreen);
+  REQUIRE(scene.sample(70, 70) == OpaqueTestScene::kGreen);
+  REQUIRE(scene.sample(40, 40) == OpaqueTestScene::kBlue);
+}
+
+TEST_CASE("Frames above an opaque frame still draw over it", "[ui]") {
+  OpaqueTestScene scene;
+  scene.child().setOpaque(true);
+  Frame above;
+  above.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(OpaqueTestScene::kGreen);
+    canvas.fill(0, 0, 20, 20);
+  };
+  scene.parent().addChild(&above);
+  above.setBounds(30, 30, 20, 20);
+  scene.draw();
+  REQUIRE(scene.sample(40, 40) == OpaqueTestScene::kGreen);
+
+  scene.child().redraw();
+  scene.draw();
+  REQUIRE(scene.sample(40, 40) == OpaqueTestScene::kGreen);
+  REQUIRE(scene.sample(25, 25) == OpaqueTestScene::kBlue);
+  scene.parent().removeChild(&above);
+}
+
+TEST_CASE("Opaque frames covering a whole side of a redrawn area keep it from redrawing there",
+          "[ui]") {
+  OpaqueTestScene scene;
+  scene.child().setBounds(0, 0, 50, 100);
+  scene.child().setOpaque(true);
+  scene.draw();
+  REQUIRE(scene.sample(25, 50) == OpaqueTestScene::kBlue);
+  REQUIRE(scene.sample(75, 50) == OpaqueTestScene::kRed);
+
+  scene.setChildDraws(false);
+  scene.setParentColor(OpaqueTestScene::kGreen);
+  scene.child().redraw();
+  scene.parent().redraw();
+  scene.draw();
+  REQUIRE(scene.sample(25, 50) == OpaqueTestScene::kBlue);
+  REQUIRE(scene.sample(75, 50) == OpaqueTestScene::kGreen);
+}
+
+TEST_CASE("Opaque frames only hide what's beneath them inside their parent", "[ui]") {
+  OpaqueTestScene scene;
+  unsigned int behind_color = OpaqueTestScene::kGreen;
+  Frame behind;
+  behind.onDraw() = [&behind_color](Canvas& canvas) {
+    canvas.setColor(behind_color);
+    canvas.fill(0, 0, 20, 20);
+  };
+  scene.parent().addChild(&behind);
+  behind.setBounds(70, 70, 20, 20);
+
+  Frame inner;
+  inner.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(OpaqueTestScene::kBlue);
+    canvas.fill(0, 0, 60, 60);
+  };
+  scene.child().setOnTop(true);
+  scene.child().addChild(&inner);
+  inner.setBounds(20, 20, 60, 60);
+  inner.setOpaque(true);
+  scene.draw();
+  REQUIRE(scene.sample(50, 50) == OpaqueTestScene::kBlue);
+  REQUIRE(scene.sample(80, 80) == OpaqueTestScene::kGreen);
+
+  behind_color = OpaqueTestScene::kWhite;
+  behind.redraw();
+  scene.draw();
+  REQUIRE(scene.sample(80, 80) == OpaqueTestScene::kWhite);
+}
+
+TEST_CASE("Regions know when an opaque frame is inside them", "[ui]") {
+  Frame parent;
+  Frame child;
+  Frame grandchild;
+  parent.addChild(&child);
+  grandchild.setOpaque(true);
+  child.addChild(&grandchild);
+  REQUIRE(parent.region()->containsOpaque());
+
+  grandchild.setOpaque(false);
+  REQUIRE_FALSE(parent.region()->containsOpaque());
+
+  grandchild.setOpaque(true);
+  child.removeChild(&grandchild);
+  REQUIRE_FALSE(parent.region()->containsOpaque());
+  REQUIRE(grandchild.region()->containsOpaque());
+}
