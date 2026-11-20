@@ -30,6 +30,8 @@ namespace visage {
   class Region;
   struct FrameBufferData;
 
+  class Occlusion;
+
   class Layer {
   public:
     static constexpr int kInvalidRectMemory = 2;
@@ -52,7 +54,8 @@ namespace visage {
     void invalidateBackdropsIfAllInvalidated();
     void checkBackdropInvalidation(const std::vector<IBounds>& top_level_invalid_rects);
     bool hasBackdropEffect() const;
-    void clearInvalidRectAreas(int submit_pass);
+    bool containsOpaque() const;
+    void clearInvalidRectAreas(int submit_pass, const Occlusion& occlusion);
     int submit(int submit_pass, int backdrop_count);
 
     void setIntermediateLayer(bool intermediate_layer) { intermediate_layer_ = intermediate_layer; }

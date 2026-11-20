@@ -26,6 +26,8 @@
 #include "region.h"
 #include "renderer.h"
 
+#include <unordered_map>
+
 namespace visage {
   struct TemporaryFrameBuffer {
     gpu::FrameBufferHandle handle = {};
@@ -45,18 +47,112 @@ namespace visage {
   };
 
   struct RegionPosition {
-    RegionPosition(Region* region, std::vector<IBounds> invalid_rects, int position, int x = 0, int y = 0) :
-        region(region), invalid_rects(std::move(invalid_rects)), position(position), x(x), y(y) { }
+    RegionPosition(Region* region, std::vector<IBounds> invalid_rects,
+                   std::vector<IBounds> trimmed_rects, int position, int x = 0, int y = 0) :
+        region(region), invalid_rects(std::move(invalid_rects)),
+        trimmed_rects(std::move(trimmed_rects)), position(position), x(x), y(y) { }
     RegionPosition() = default;
 
     Region* region = nullptr;
     std::vector<IBounds> invalid_rects;
+    std::vector<IBounds> trimmed_rects;
     int position = 0;
     int x = 0;
     int y = 0;
 
     SubmitBatch* currentBatch() const { return region->submitBatchAtPosition(position); }
     bool isDone() const { return position >= region->numSubmitBatches(); }
+    std::vector<IBounds>* drawRects() {
+      return trimmed_rects.empty() ? &invalid_rects : &trimmed_rects;
+    }
+  };
+
+  static bool overlapsAny(const IBounds& bounds, const std::vector<IBounds>& rects) {
+    return std::any_of(rects.begin(), rects.end(),
+                       [&bounds](const IBounds& rect) { return rect.overlaps(bounds); });
+  }
+
+  class Occlusion {
+  public:
+    void collect(const Region* region, int x, int y, const std::vector<IBounds>& invalid_rects) {
+      collect(region, x, y, { x, y, region->width(), region->height() }, invalid_rects);
+    }
+
+    void finish() {
+      if (occluders_.empty())
+        return;
+
+      order_.reserve(regions_.size());
+      for (int i = 0; i < static_cast<int>(regions_.size()); ++i)
+        order_[regions_[i]] = i;
+    }
+
+    bool trim(const Region* region, const std::vector<IBounds>& rects, std::vector<IBounds>& trimmed) const {
+      auto found = order_.find(region);
+      return found != order_.end() && trimBeneath(found->second, rects, trimmed);
+    }
+
+    bool trimAll(const std::vector<IBounds>& rects, std::vector<IBounds>& trimmed) const {
+      return trimBeneath(-1, rects, trimmed);
+    }
+
+  private:
+    struct Occluder {
+      IBounds bounds;
+      int order = 0;
+    };
+
+    void collect(const Region* region, int x, int y, const IBounds& clip,
+                 const std::vector<IBounds>& invalid_rects) {
+      IBounds bounds = clip.intersection({ x, y, region->width(), region->height() });
+      int order = static_cast<int>(regions_.size());
+      regions_.push_back(region);
+      if (region->isOpaque() && overlapsAny(bounds, invalid_rects))
+        occluders_.push_back({ bounds, order });
+
+      for (bool on_top : { false, true }) {
+        for (const Region* sub_region : region->subRegions()) {
+          if (!sub_region->isVisible() || sub_region->isOnTop() != on_top)
+            continue;
+
+          int sub_x = x + sub_region->x();
+          int sub_y = y + sub_region->y();
+          IBounds sub_bounds = bounds.intersection({ sub_x, sub_y, sub_region->width(),
+                                                     sub_region->height() });
+          if (!overlapsAny(sub_bounds, invalid_rects))
+            continue;
+
+          if (sub_region->needsLayer())
+            regions_.push_back(sub_region->intermediateRegion());
+          else
+            collect(sub_region, sub_x, sub_y, bounds, invalid_rects);
+        }
+      }
+    }
+
+    bool trimBeneath(int order, const std::vector<IBounds>& rects, std::vector<IBounds>& trimmed) const {
+      auto above = [order, &rects](const Occluder& occluder) {
+        return occluder.order > order && overlapsAny(occluder.bounds, rects);
+      };
+      if (std::none_of(occluders_.begin(), occluders_.end(), above))
+        return false;
+
+      trimmed.clear();
+      for (IBounds rect : rects) {
+        for (const Occluder& occluder : occluders_) {
+          IBounds remaining;
+          if (occluder.order > order && rect.subtract(occluder.bounds, remaining))
+            rect = remaining;
+        }
+        if (rect.hasArea())
+          trimmed.push_back(rect);
+      }
+      return true;
+    }
+
+    std::vector<const Region*> regions_;
+    std::unordered_map<const Region*, int> order_;
+    std::vector<Occluder> occluders_;
   };
 
   inline void moveToVector(std::vector<IBounds>& rects, std::vector<IBounds>& pieces) {
@@ -64,8 +160,9 @@ namespace visage {
     pieces.clear();
   }
 
-  static void addSubRegions(std::vector<RegionPosition>& positions, std::vector<RegionPosition>& overlapping,
-                            const RegionPosition& done_position, int backdrop_count) {
+  static void addSubRegions(std::vector<RegionPosition>& positions,
+                            std::vector<RegionPosition>& overlapping, const RegionPosition& done_position,
+                            int backdrop_count, const Occlusion& occlusion) {
     auto begin = done_position.region->subRegions().cbegin();
     auto end = done_position.region->subRegions().cend();
     if (begin == end)
@@ -110,25 +207,32 @@ namespace visage {
       if (invalid_rects.empty())
         continue;
 
+      std::vector<IBounds> trimmed_rects;
+      if (occlusion.trim(sub_region, invalid_rects, trimmed_rects) && trimmed_rects.empty())
+        should_draw = false;
+
       if (overlaps) {
         int position = should_draw ? 0 : sub_region->numSubmitBatches();
-        new_overlapping.emplace_back(sub_region, std::move(invalid_rects), position, bounds.x(),
-                                     bounds.y());
+        new_overlapping.emplace_back(sub_region, std::move(invalid_rects), std::move(trimmed_rects),
+                                     position, bounds.x(), bounds.y());
       }
       else if (sub_region->isEmpty() || !should_draw) {
         std::vector<RegionPosition> child_overlap;
-        RegionPosition region(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
-        addSubRegions(positions, child_overlap, region, backdrop_count);
+        RegionPosition region(sub_region, std::move(invalid_rects), std::move(trimmed_rects), 0,
+                              bounds.x(), bounds.y());
+        addSubRegions(positions, child_overlap, region, backdrop_count, occlusion);
         new_overlapping.insert(new_overlapping.end(), child_overlap.rbegin(), child_overlap.rend());
       }
       else
-        positions.emplace_back(sub_region, std::move(invalid_rects), 0, bounds.x(), bounds.y());
+        positions.emplace_back(sub_region, std::move(invalid_rects), std::move(trimmed_rects), 0,
+                               bounds.x(), bounds.y());
     }
     overlapping.insert(overlapping.end(), new_overlapping.rbegin(), new_overlapping.rend());
   }
 
   static void checkOverlappingRegions(std::vector<RegionPosition>& positions,
-                                      std::vector<RegionPosition>& overlapping, int backdrop_count) {
+                                      std::vector<RegionPosition>& overlapping, int backdrop_count,
+                                      const Occlusion& occlusion) {
     for (int i = overlapping.size() - 1; i >= 0; --i) {
       auto it = overlapping.begin() + i;
       auto overlap_check = [it](const RegionPosition& other) {
@@ -142,7 +246,7 @@ namespace visage {
         auto position = *it;
         overlapping.erase(it);
         if (position.isDone())
-          addSubRegions(positions, overlapping, position, backdrop_count);
+          addSubRegions(positions, overlapping, position, backdrop_count, occlusion);
         else
           positions.push_back(position);
       }
@@ -336,12 +440,17 @@ namespace visage {
     }
   }
 
+  bool Layer::containsOpaque() const {
+    return std::any_of(regions_.begin(), regions_.end(),
+                       [](const auto& region) { return region->containsOpaque(); });
+  }
+
   bool Layer::hasBackdropEffect() const {
     return std::any_of(regions_.begin(), regions_.end(),
                        [](const auto& region) { return region->backdropEffect(); });
   }
 
-  void Layer::clearInvalidRectAreas(int submit_pass) {
+  void Layer::clearInvalidRectAreas(int submit_pass, const Occlusion& occlusion) {
     std::vector<IBounds> invalid_rects;
     if (needs_full_clear_)
       invalid_rects.emplace_back(0, 0, width_, height_);
@@ -349,6 +458,9 @@ namespace visage {
       for (auto& region_invalid_rects : invalid_rects_)
         invalid_rects.insert(invalid_rects.end(), region_invalid_rects.second.begin(),
                              region_invalid_rects.second.end());
+      std::vector<IBounds> trimmed_rects;
+      if (occlusion.trimAll(invalid_rects, trimmed_rects))
+        invalid_rects = std::move(trimmed_rects);
     }
     needs_full_clear_ = false;
 
@@ -377,6 +489,15 @@ namespace visage {
 
     checkFrameBuffer();
 
+    Occlusion occlusion;
+    if (backdrop_count == 0 && !hasBackdropEffect() && containsOpaque()) {
+      for (Region* region : regions_) {
+        IPoint point = coordinatesForRegion(region);
+        occlusion.collect(region, point.x, point.y, invalid_rects_[region]);
+      }
+      occlusion.finish();
+    }
+
     std::vector<RegionPosition> region_positions;
     std::vector<RegionPosition> overlapping_regions;
     for (Region* region : regions_) {
@@ -397,12 +518,17 @@ namespace visage {
       }
 
       IPoint point = coordinatesForRegion(region);
-      if (region->isEmpty() || region->backdropCount() != backdrop_count) {
+      std::vector<IBounds> trimmed_rects;
+      bool hidden = occlusion.trim(region, invalid_rects_[region], trimmed_rects) &&
+                    trimmed_rects.empty();
+      if (region->isEmpty() || region->backdropCount() != backdrop_count || hidden) {
         addSubRegions(region_positions, overlapping_regions,
-                      { region, invalid_rects_[region], 0, point.x, point.y }, backdrop_count);
+                      { region, invalid_rects_[region], std::move(trimmed_rects), 0, point.x, point.y },
+                      backdrop_count, occlusion);
       }
       else
-        region_positions.emplace_back(region, invalid_rects_[region], 0, point.x, point.y);
+        region_positions.emplace_back(region, invalid_rects_[region], std::move(trimmed_rects), 0,
+                                      point.x, point.y);
     }
     bool clear = intermediate_layer_ && backdrop_count == 0;
     if (region_positions.empty() && !clear)
@@ -424,7 +550,7 @@ namespace visage {
       gpu::setViewFrameBuffer(submit_pass, frame_buffer_data_->handle);
 
     if (clear)
-      clearInvalidRectAreas(submit_pass);
+      clearInvalidRectAreas(submit_pass, occlusion);
 
     while (!region_positions.empty()) {
       const SubmitBatch* next_batch = nextBatch(region_positions, current_batch);
@@ -433,8 +559,7 @@ namespace visage {
         if (!batch->match(next_batch))
           continue;
 
-        batches.push_back({ batch, &region_position.invalid_rects, region_position.x,
-                            region_position.y });
+        batches.push_back({ batch, region_position.drawRects(), region_position.x, region_position.y });
         region_position.position++;
       }
 
@@ -448,10 +573,10 @@ namespace visage {
       region_positions.erase(region_positions.begin(), done_it);
 
       for (auto& region_position : done_regions)
-        addSubRegions(region_positions, overlapping_regions, region_position, backdrop_count);
+        addSubRegions(region_positions, overlapping_regions, region_position, backdrop_count, occlusion);
 
       if (!done_regions.empty())
-        checkOverlappingRegions(region_positions, overlapping_regions, backdrop_count);
+        checkOverlappingRegions(region_positions, overlapping_regions, backdrop_count, occlusion);
 
       done_regions.clear();
       current_batch = next_batch;

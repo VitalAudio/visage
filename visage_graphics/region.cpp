@@ -35,6 +35,7 @@ namespace visage {
     region->parent_ = nullptr;
     region->setCanvas(nullptr);
     sub_regions_.erase(std::find(sub_regions_.begin(), sub_regions_.end(), region));
+    addOpaqueCount(-region->opaque_count_);
     invalidateBackdropCounts();
   }
 
@@ -45,6 +46,7 @@ namespace visage {
     replacement->parent_ = this;
     replacement->setCanvas(canvas_);
     replacement->setLayerIndex(replacement->needsLayer() ? layer_index_ + 1 : layer_index_);
+    addOpaqueCount(replacement->opaque_count_ - region->opaque_count_);
     invalidateBackdropCounts();
   }
 
