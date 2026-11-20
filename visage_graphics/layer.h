@@ -56,6 +56,7 @@ namespace visage {
     int submit(int submit_pass, int backdrop_count);
 
     void setIntermediateLayer(bool intermediate_layer) { intermediate_layer_ = intermediate_layer; }
+    void setClearsInvalidRects(bool clears) { clears_invalid_rects_ = clears; }
     static int reserveViews(int submit_pass);
     static int viewFlushes() { return view_flushes_; }
     void addRegion(Region* region);
@@ -177,6 +178,7 @@ namespace visage {
     int height_ = 0;
     double render_time_ = 0.0;
     bool intermediate_layer_ = false;
+    bool clears_invalid_rects_ = true;
 
     void* window_handle_ = nullptr;
     bool transparent_window_ = false;

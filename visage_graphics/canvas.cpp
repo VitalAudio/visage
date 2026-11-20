@@ -48,6 +48,7 @@ namespace visage {
     default_region_.setLayerBlendMode(BlendMode::Opaque);
     default_region_.setCanvas(this);
     default_region_.setNeedsLayer(true);
+    layers_[1]->setClearsInvalidRects(false);
   }
 
   void Canvas::clearDrawnShapes() {

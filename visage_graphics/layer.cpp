@@ -404,7 +404,8 @@ namespace visage {
       else
         region_positions.emplace_back(region, invalid_rects_[region], 0, point.x, point.y);
     }
-    bool clear = intermediate_layer_ && backdrop_count == 0;
+    bool clear = intermediate_layer_ && backdrop_count == 0 &&
+                 (clears_invalid_rects_ || needs_full_clear_);
     if (region_positions.empty() && !clear)
       return preprocessPostEffects(submit_pass, backdrop_count);
 

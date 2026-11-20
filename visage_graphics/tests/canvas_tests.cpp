@@ -810,22 +810,24 @@ TEST_CASE("Resizing a post effect region doesn't render extra frames", "[graphic
   REQUIRE(canvas.takeScreenshot().sample(24, 24).hexRed() == 0xff);
 }
 
-TEST_CASE("Translucent frames don't accumulate on the composite", "[graphics]") {
+TEST_CASE("Translucent frames over a background don't accumulate on the composite", "[graphics]") {
   Canvas canvas;
   canvas.setWindowless(16, 16);
 
-  auto alpha = [&canvas] {
+  auto red = [&canvas] {
     canvas.clearDrawnShapes();
+    canvas.setColor(0xff000000);
+    canvas.fill(0, 0, 16, 16);
     canvas.setColor(0x80ffffff);
     canvas.fill(0, 0, 16, 16);
-    return canvas.takeScreenshot().sample(8, 8).hexAlpha();
+    return canvas.takeScreenshot().sample(8, 8).hexRed();
   };
 
-  unsigned int first = alpha();
+  unsigned int first = red();
   REQUIRE(first > 0x70);
   REQUIRE(first < 0x90);
   for (int i = 0; i < 3; ++i)
-    REQUIRE(alpha() == first);
+    REQUIRE(red() == first);
 }
 
 TEST_CASE("Blur radius matches the blurred spread", "[graphics]") {
@@ -2125,6 +2127,7 @@ TEST_CASE("Buffer pools fail cleanly when the GPU runs out of buffer handles", "
   REQUIRE(initQuadVertices<UvVertex>(1) == nullptr);
   for (gpu::BufferHandle handle : handles)
     gpu::destroy(handle);
+  gpu::frame();
   canvas.takeScreenshot();
 
   canvas.setColor(0xffffffff);
