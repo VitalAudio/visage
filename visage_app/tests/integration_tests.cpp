@@ -1259,14 +1259,17 @@ TEST_CASE("Masked frames blend their effect's masked output with their layer ble
     bloom.setBloomSize(8.0f);
     bloom.setBloomIntensity(0.3f);
     ShaderPostEffect opaque(test_shaders::vs_test_post_effect, test_shaders::fs_test_opaque);
-    if (backdrop) {
-      app.onDraw() = [](Canvas& canvas) {
-        canvas.setColor(0xff304050);
-        canvas.fill(0, 0, kWidth / 2, kHeight);
-        canvas.setColor(0xffa0c0e0);
-        canvas.fill(kWidth / 2, 0, kWidth / 2, kHeight);
-      };
-    }
+    Canvas* canvas = nullptr;
+    app.onDraw() = [&canvas, backdrop](Canvas& app_canvas) {
+      canvas = &app_canvas;
+      app_canvas.layer(0)->requestScreenshot();
+      if (backdrop) {
+        app_canvas.setColor(0xff304050);
+        app_canvas.fill(0, 0, kWidth / 2, kHeight);
+        app_canvas.setColor(0xffa0c0e0);
+        app_canvas.fill(kWidth / 2, 0, kWidth / 2, kHeight);
+      }
+    };
     frame.onDraw() = [](Canvas& canvas) {
       canvas.setColor(0x80c06040);
       canvas.fill(0, 0, kWidth * 3 / 4, kHeight);
@@ -1290,7 +1293,7 @@ TEST_CASE("Masked frames blend their effect's masked output with their layer ble
       app.addChild(frame);
     app.setWindowless(kWidth, kHeight);
     app.drawWindow();
-    return app.takeScreenshot();
+    return canvas->layer(0)->screenshot();
   };
 
   auto blend = [](BlendMode blend_mode, float backdrop, float source, float source_alpha) {
@@ -2588,6 +2591,10 @@ TEST_CASE("Backdrop frames redraw what's under them when their layer repacks", "
         canvas.setColor(color);
         canvas.fill(0, 0, frame.width(), frame.height());
       };
+    };
+    app.onDraw() = [](Canvas& canvas) {
+      canvas.setColor(0xff204060);
+      canvas.fill(0, 0, canvas.width(), canvas.height());
     };
     fill(glass, glass_color);
     fill(overlapping_glass, 0x20000000);
