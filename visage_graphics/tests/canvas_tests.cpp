@@ -2705,6 +2705,26 @@ TEST_CASE("Custom shaders draw with their own blend mode", "[graphics]") {
   REQUIRE(screenshot.sample(15, 5).hexBlue() == 0xff);
 }
 
+TEST_CASE("Custom shaders with areas only draw inside them", "[graphics]") {
+  Canvas canvas;
+  canvas.setWindowless(40, 10);
+  canvas.setColor(0xff0000ff);
+  canvas.fill(0, 0, 40, 10);
+
+  Shader shader(Fill::vertexShader(), Fill::fragmentShader(), BlendMode::Alpha);
+  float data[] = { 1.0f, 2.0f };
+  canvas.setColor(0xffff0000);
+  canvas.shader(&shader, 0, 0, 40, 10, data, 2, 1, { Bounds(0, 0, 10, 10), Bounds(20, 2, 10, 6) });
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  REQUIRE(screenshot.sample(5, 5).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(15, 5).hexRed() == 0x00);
+  REQUIRE(screenshot.sample(25, 5).hexRed() == 0xff);
+  REQUIRE(screenshot.sample(25, 1).hexRed() == 0x00);
+  REQUIRE(screenshot.sample(25, 8).hexRed() == 0x00);
+  REQUIRE(screenshot.sample(35, 5).hexRed() == 0x00);
+}
+
 TEST_CASE("Moving a layered region keeps its atlas slot", "[graphics]") {
   Canvas canvas;
   canvas.setWindowless(200, 50);

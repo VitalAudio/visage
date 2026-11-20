@@ -708,6 +708,7 @@ namespace visage {
     static void setVertexData(Vertex* vertices) { setCornerCoordinates(vertices); }
 
     Shader* shader = nullptr;
+    std::vector<ClampBounds> areas;
   };
 
   struct ShaderDataWrapper : ShaderWrapper {
