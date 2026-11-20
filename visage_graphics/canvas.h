@@ -87,6 +87,7 @@ namespace visage {
       Renderer::instance().checkInitialization();
       VISAGE_ASSERT(swapChainSupported());
       composite_layer_.pairToWindow(window_handle, width, height, transparent);
+      layers_[1]->setClearsInvalidRects(transparent);
       setDimensions(width, height);
     }
 
