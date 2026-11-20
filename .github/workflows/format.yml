@@ -14,10 +14,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install clang-tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-format
+      - name: Install clang-format
+        run: pipx install clang-format==18.1.8
 
       - name: Check clang-format
         run: |
