@@ -2800,3 +2800,23 @@ TEST_CASE("Custom shaders read the data drawn with them", "[integration]") {
   REQUIRE(screenshot.sample(50, 30).hexRed() == 0x00);
   REQUIRE(screenshot.sample(70, 30).hexRed() == 0xff);
 }
+
+TEST_CASE("Custom shaders drawn as several quads place each quad by its index", "[integration]") {
+  Canvas canvas;
+  canvas.setWindowless(80, 40);
+  canvas.setColor(0xff000000);
+  canvas.fill(0, 0, 80, 40);
+
+  Shader shader(test_shaders::vs_test_shader_quads, test_shaders::fs_test_shader_data, BlendMode::Alpha);
+  float data[] = { 1.0f };
+  canvas.shaderQuads(&shader, 0, 0, 80, 40, 4, data, 1);
+
+  const Screenshot& screenshot = canvas.takeScreenshot();
+  for (int quad = 0; quad < 4; ++quad) {
+    INFO("quad " << quad);
+    int top = 30 - quad * 10;
+    REQUIRE(screenshot.sample(quad * 20 + 10, top + 5).hexRed() == 0xff);
+    if (top > 0)
+      REQUIRE(screenshot.sample(quad * 20 + 10, top - 5).hexRed() == 0x00);
+  }
+}
