@@ -33,13 +33,34 @@
 namespace visage {
   class Shader;
 
-  inline int numShapePieces(const BaseShape& shape, int x, int y, const std::vector<IBounds>& invalid_rects) {
-    auto check_overlap = [x, y, &shape](IBounds invalid_rect) {
+  template<typename T, typename Callback>
+  bool forEachShapeArea(const T& shape, const ClampBounds& clamp, Callback&& callback) {
+    if constexpr (std::is_base_of_v<ShaderWrapper, T>) {
+      if (!shape.areas.empty()) {
+        for (const ClampBounds& area : shape.areas) {
+          ClampBounds area_clamp = clamp.clamp(area.left, area.top, area.right - area.left,
+                                               area.bottom - area.top);
+          if (!shape.totallyClamped(area_clamp) && !callback(area_clamp))
+            return false;
+        }
+        return true;
+      }
+    }
+    return shape.totallyClamped(clamp) || callback(clamp);
+  }
+
+  template<typename T>
+  int numShapePieces(const T& shape, int x, int y, const std::vector<IBounds>& invalid_rects) {
+    int pieces = 0;
+    for (const IBounds& invalid_rect : invalid_rects) {
       ClampBounds clamp = shape.clamp.clamp(invalid_rect.x() - x, invalid_rect.y() - y,
                                             invalid_rect.width(), invalid_rect.height());
-      return !shape.totallyClamped(clamp);
-    };
-    return std::count_if(invalid_rects.begin(), invalid_rects.end(), check_overlap);
+      forEachShapeArea(shape, clamp, [&pieces](const ClampBounds&) {
+        ++pieces;
+        return true;
+      });
+    }
+    return pieces;
   }
 
   template<typename T>
@@ -169,8 +190,10 @@ namespace visage {
         for (const IBounds& invalid_rect : *batch.invalid_rects) {
           ClampBounds clamp = shape.clamp.clamp(invalid_rect.x() - batch.x, invalid_rect.y() - batch.y,
                                                 invalid_rect.width(), invalid_rect.height());
-          if (!shape.totallyClamped(clamp) &&
-              !callback(batch, shape, clamp.withOffset(batch.x, batch.y)))
+          auto piece = [&](const ClampBounds& piece_clamp) {
+            return callback(batch, shape, piece_clamp.withOffset(batch.x, batch.y));
+          };
+          if (!forEachShapeArea(shape, clamp, piece))
             return false;
         }
       }

@@ -494,6 +494,24 @@ namespace visage {
     }
 
     template<typename T1, typename T2, typename T3, typename T4>
+    void shader(Shader* shader, const T1& x, const T2& y, const T3& width, const T4& height,
+                const float* data, int data_width, int data_height, const std::vector<Bounds>& areas) {
+      if (areas.empty() || data == nullptr || data_width <= 0 || data_height <= 0)
+        return;
+
+      ShaderDataWrapper wrapper(state_.clamp, state_.brush, state_.x + pixels(x),
+                                state_.y + pixels(y), pixels(width), pixels(height), shader, data,
+                                data_width, data_height, dataAtlas());
+      wrapper.areas.reserve(areas.size());
+      for (const Bounds& area : areas) {
+        float left = state_.x + pixels(area.x());
+        float top = state_.y + pixels(area.y());
+        wrapper.areas.push_back({ left, top, left + pixels(area.width()), top + pixels(area.height()) });
+      }
+      addShape(std::move(wrapper));
+    }
+
+    template<typename T1, typename T2, typename T3, typename T4>
     void fill(const Path& path, const T1& x, const T2& y, const T3& width, const T4& height) {
       if (path.numPoints() == 0)
         return;
