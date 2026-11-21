@@ -43,11 +43,19 @@ namespace visage {
   }
 
   template<typename T>
+  int numShapeQuads(const T& shape) {
+    if constexpr (std::is_base_of_v<ShaderWrapper, T>)
+      return shape.num_quads;
+    else
+      return 1;
+  }
+
+  template<typename T>
   int numShapes(const BatchVector<T>& batches) {
     int total_size = 0;
     for (const auto& batch : batches) {
       auto count_pieces = [&batch](int sum, const T& shape) {
-        return sum + numShapePieces(shape, batch.x, batch.y, *batch.invalid_rects);
+        return sum + numShapePieces(shape, batch.x, batch.y, *batch.invalid_rects) * numShapeQuads(shape);
       };
       total_size += std::accumulate(batch.shapes->begin(), batch.shapes->end(), 0, count_pieces);
     }
@@ -191,10 +199,20 @@ namespace visage {
 
     int vertex_index = 0;
     forEachShapePiece(batches, [&](const auto& batch, const T& shape, const ClampBounds& clamp) {
-      setQuadPositions(results.vertices + vertex_index, shape, clamp, batch.x, batch.y);
-      shape.setVertexData(results.vertices + vertex_index);
+      typename T::Vertex* first = results.vertices + vertex_index;
+      setQuadPositions(first, shape, clamp, batch.x, batch.y);
+      shape.setVertexData(first);
+      for (int quad = 0; quad < numShapeQuads(shape); ++quad) {
+        typename T::Vertex* vertices = results.vertices + vertex_index;
+        if (quad)
+          std::copy_n(first, kVerticesPerQuad, vertices);
+        if constexpr (std::is_base_of_v<ShaderWrapper, T>) {
+          for (int i = 0; i < kVerticesPerQuad; ++i)
+            vertices[i].quad = quad;
+        }
+        vertex_index += kVerticesPerQuad;
+      }
       results.radial_gradient = shape.radialGradient();
-      vertex_index += kVerticesPerQuad;
       return true;
     });
 

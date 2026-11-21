@@ -262,8 +262,8 @@ namespace visage {
   struct ShapeVertex {
     float x;
     float y;
-    float garbage1;
-    float garbage2;
+    float quad;
+    float garbage;
     GradientTexturePosition gradient_texture_position;
     GradientVertexPosition gradient;
     float coordinate_x;
