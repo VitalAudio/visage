@@ -732,6 +732,7 @@ namespace visage {
     ImageAtlas* data_atlas = nullptr;
     std::vector<float> data;
     ImageAtlas::PackedImage packed_data;
+    int num_quads = 0;
   };
 
   struct SampleRegion : Shape<PostEffectVertex> {

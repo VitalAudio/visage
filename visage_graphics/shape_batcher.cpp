@@ -712,10 +712,50 @@ namespace visage {
     chunker.finish(submit);
   }
 
+  static QuadVertices<ShapeVertex> setupShaderQuads(const BatchVector<ShaderDataWrapper>& batches) {
+    QuadVertices<ShapeVertex> results;
+    for (const auto& batch : batches) {
+      for (const ShaderDataWrapper& shape : *batch.shapes)
+        results.num_shapes += numShapePieces(shape, batch.x, batch.y, *batch.invalid_rects) *
+                              std::max(shape.num_quads, 1);
+    }
+    if (results.num_shapes == 0)
+      return results;
+
+    results.vertices = initQuadVertices<ShapeVertex>(results.num_shapes);
+    if (results.vertices == nullptr)
+      return results;
+
+    ShapeVertex* vertices = results.vertices;
+    forEachShapePiece(batches, [&](const auto& batch, const ShaderDataWrapper& shape,
+                                   const ClampBounds& clamp) {
+      ShapeVertex* first = vertices;
+      setQuadPositions(first, shape, clamp, batch.x, batch.y);
+      shape.setVertexData(first);
+      if (shape.num_quads) {
+        for (int i = 1; i < kVerticesPerQuad; ++i) {
+          first[i].x = first[0].x;
+          first[i].y = first[0].y;
+        }
+      }
+
+      for (int quad = 0; quad < std::max(shape.num_quads, 1); ++quad, vertices += kVerticesPerQuad) {
+        if (quad)
+          std::copy_n(first, kVerticesPerQuad, vertices);
+        for (int i = 0; i < kVerticesPerQuad; ++i)
+          vertices[i].quad = quad;
+      }
+      results.radial_gradient = shape.radialGradient();
+      return true;
+    });
+
+    VISAGE_ASSERT(vertices == results.vertices + results.num_shapes * kVerticesPerQuad);
+    return results;
+  }
+
   template<typename T>
-  static void submitShaderQuads(const BatchVector<T>& batches, const Layer& layer, int submit_pass,
-                                ImageAtlas* data_atlas) {
-    auto quads = setupQuads(batches);
+  static void submitShaderQuads(const BatchVector<T>& batches, const QuadVertices<ShapeVertex>& quads,
+                                const Layer& layer, int submit_pass, ImageAtlas* data_atlas) {
     if (quads.vertices == nullptr)
       return;
 
@@ -733,12 +773,13 @@ namespace visage {
   }
 
   void submitShader(const BatchVector<ShaderWrapper>& batches, const Layer& layer, int submit_pass) {
-    submitShaderQuads(batches, layer, submit_pass, nullptr);
+    submitShaderQuads(batches, setupQuads(batches), layer, submit_pass, nullptr);
   }
 
   void submitShader(const BatchVector<ShaderDataWrapper>& batches, const Layer& layer, int submit_pass) {
     if (!batches.empty() && !batches[0].shapes->empty())
-      submitShaderQuads(batches, layer, submit_pass, batches[0].shapes->front().data_atlas);
+      submitShaderQuads(batches, setupShaderQuads(batches), layer, submit_pass,
+                        batches[0].shapes->front().data_atlas);
   }
 
   void submitSampleRegions(const BatchVector<SampleRegion>& batches, BlendMode blend_mode,
