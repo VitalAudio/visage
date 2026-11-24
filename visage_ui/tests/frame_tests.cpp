@@ -1051,6 +1051,38 @@ TEST_CASE("Frames above an opaque frame still draw over it", "[ui]") {
   scene.parent().removeChild(&above);
 }
 
+TEST_CASE("Opaque frames with their own layer still hide what's beneath them", "[ui]") {
+  OpaqueTestScene scene;
+  scene.child().setBounds(0, 0, 50, 100);
+  scene.child().setCached(true);
+  scene.setChildDraws(false);
+  scene.draw();
+  REQUIRE(scene.sample(25, 50) == OpaqueTestScene::kRed);
+
+  scene.child().setOpaque(true);
+  scene.setParentColor(OpaqueTestScene::kGreen);
+  scene.parent().redraw();
+  scene.draw();
+  REQUIRE(scene.sample(25, 50) == OpaqueTestScene::kRed);
+  REQUIRE(scene.sample(75, 50) == OpaqueTestScene::kGreen);
+}
+
+TEST_CASE("Opaque frames with a translucent layer don't hide what's beneath them", "[ui]") {
+  OpaqueTestScene scene;
+  scene.child().setBounds(0, 0, 50, 100);
+  scene.child().setCached(true);
+  scene.child().setAlphaTransparency(0.5f);
+  scene.setChildDraws(false);
+  scene.draw();
+  REQUIRE(scene.sample(25, 50) == OpaqueTestScene::kRed);
+
+  scene.child().setOpaque(true);
+  scene.setParentColor(OpaqueTestScene::kGreen);
+  scene.parent().redraw();
+  scene.draw();
+  REQUIRE(scene.sample(25, 50) == OpaqueTestScene::kGreen);
+}
+
 TEST_CASE("Opaque frames covering a whole side of a redrawn area keep it from redrawing there",
           "[ui]") {
   OpaqueTestScene scene;

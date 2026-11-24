@@ -92,7 +92,9 @@ namespace visage {
       opaque_ = opaque;
       invalidate();
     }
-    bool isOpaque() const { return opaque_; }
+    bool isOpaque() const {
+      return opaque_ && !masked_region_ && alpha_ == 1.0f && layer_blend_mode_ == BlendMode::Alpha;
+    }
     bool containsOpaque() const { return opaque_count_ > 0; }
     bool overlaps(const Region* other) const {
       return x_ < other->x_ + other->width_ && x_ + width_ > other->x_ &&
