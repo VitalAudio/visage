@@ -122,8 +122,11 @@ namespace visage {
           if (!overlapsAny(sub_bounds, invalid_rects))
             continue;
 
-          if (sub_region->needsLayer())
+          if (sub_region->needsLayer()) {
+            if (sub_region->isOpaque())
+              occluders_.push_back({ sub_bounds, static_cast<int>(regions_.size()) });
             regions_.push_back(sub_region->intermediateRegion());
+          }
           else
             collect(sub_region, sub_x, sub_y, bounds, invalid_rects);
         }
