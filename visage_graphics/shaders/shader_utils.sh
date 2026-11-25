@@ -77,7 +77,8 @@ float bayer8(vec2 position) {
 
 vec4 dither(vec4 color) {
 #ifdef VISAGE_SHADER_TYPE_FRAGMENT
-  color.rgb += u_dither.x * (bayer8(gl_FragCoord.xy) - 63.0 / 128.0);
+  if (u_dither.x > 0.0)
+    color.rgb = floor(color.rgb * u_dither.x + bayer8(gl_FragCoord.xy) + 1.0 / 128.0) / u_dither.x;
 #endif
   return color;
 }

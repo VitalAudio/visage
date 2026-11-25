@@ -135,9 +135,9 @@ namespace visage {
   }
 
   void setDither(const Layer& layer) {
-    static constexpr float kDitherAmplitude = 1.0f / 255.0f;
+    static constexpr float kDitherLevels = 255.0f;
     bool hdr = layer.frameBufferFormat() == static_cast<int>(gpu::TextureFormat::RGBA16F);
-    setUniform<Uniforms::kDither>(layer.dithering() && !hdr ? kDitherAmplitude : 0.0f);
+    setUniform<Uniforms::kDither>(layer.dithering() && !hdr ? kDitherLevels : 0.0f);
   }
 
   inline void setColorMult(const Layer& layer) {
