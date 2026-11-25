@@ -54,7 +54,7 @@ namespace visage {
 
       region->setLayerIndex(region->needsLayer() ? layer_index_ + 1 : layer_index_);
       addOpaqueCount(region->opaque_count_);
-      invalidateBackdropCounts();
+      invalidateDrawOrder();
     }
 
     void removeRegion(Region* region);
@@ -82,7 +82,7 @@ namespace visage {
     bool isVisible() const { return visible_; }
     void setOnTop(bool on_top) {
       on_top_ = on_top;
-      invalidateBackdropCounts();
+      invalidateDrawOrder();
       invalidate();
     }
     bool isOnTop() const { return on_top_; }
@@ -107,9 +107,10 @@ namespace visage {
     int height() const { return height_; }
     float dpiScale() const;
 
+    int drawOrder() const { return draw_order_; }
     int backdropCount() const { return backdrop_count_; }
     int backdropCountChildren() const { return backdrop_count_children_; }
-    int computeBackdropCount(int current = 0);
+    int computeDrawOrder(int& draw_order, int backdrop_count = 0);
     bool shouldDraw(int backdrop_count) {
       if (intermediate_region_)
         return backdrop_count_children_ == backdrop_count;
@@ -168,7 +169,7 @@ namespace visage {
     Region* parent() const { return parent_; }
 
   private:
-    void invalidateBackdropCounts();
+    void invalidateDrawOrder();
     void addOpaqueCount(int count) {
       for (Region* region = this; region; region = region->parent_)
         region->opaque_count_ += count;
@@ -202,6 +203,7 @@ namespace visage {
     bool opaque_ = false;
     int opaque_count_ = 0;
     int layer_index_ = 0;
+    int draw_order_ = 0;
     int backdrop_count_ = 0;
     int backdrop_count_children_ = 0;
 

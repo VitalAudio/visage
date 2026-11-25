@@ -26,8 +26,6 @@
 #include "region.h"
 #include "renderer.h"
 
-#include <unordered_map>
-
 namespace visage {
   struct TemporaryFrameBuffer {
     gpu::FrameBufferHandle handle = {};
@@ -78,18 +76,8 @@ namespace visage {
       collect(region, x, y, { x, y, region->width(), region->height() }, invalid_rects);
     }
 
-    void finish() {
-      if (occluders_.empty())
-        return;
-
-      order_.reserve(regions_.size());
-      for (int i = 0; i < static_cast<int>(regions_.size()); ++i)
-        order_[regions_[i]] = i;
-    }
-
     bool trim(const Region* region, const std::vector<IBounds>& rects, std::vector<IBounds>& trimmed) const {
-      auto found = order_.find(region);
-      return found != order_.end() && trimBeneath(found->second, rects, trimmed);
+      return trimBeneath(region->drawOrder(), rects, trimmed);
     }
 
     bool trimAll(const std::vector<IBounds>& rects, std::vector<IBounds>& trimmed) const {
@@ -99,43 +87,36 @@ namespace visage {
   private:
     struct Occluder {
       IBounds bounds;
-      int order = 0;
+      int draw_order = 0;
     };
 
     void collect(const Region* region, int x, int y, const IBounds& clip,
                  const std::vector<IBounds>& invalid_rects) {
       IBounds bounds = clip.intersection({ x, y, region->width(), region->height() });
-      int order = static_cast<int>(regions_.size());
-      regions_.push_back(region);
       if (region->isOpaque() && overlapsAny(bounds, invalid_rects))
-        occluders_.push_back({ bounds, order });
+        occluders_.push_back({ bounds, region->drawOrder() });
 
-      for (bool on_top : { false, true }) {
-        for (const Region* sub_region : region->subRegions()) {
-          if (!sub_region->isVisible() || sub_region->isOnTop() != on_top)
-            continue;
+      for (const Region* sub_region : region->subRegions()) {
+        if (!sub_region->isVisible() || !sub_region->containsOpaque())
+          continue;
 
-          int sub_x = x + sub_region->x();
-          int sub_y = y + sub_region->y();
-          IBounds sub_bounds = bounds.intersection({ sub_x, sub_y, sub_region->width(),
-                                                     sub_region->height() });
-          if (!overlapsAny(sub_bounds, invalid_rects))
-            continue;
+        int sub_x = x + sub_region->x();
+        int sub_y = y + sub_region->y();
+        IBounds sub_bounds = bounds.intersection({ sub_x, sub_y, sub_region->width(),
+                                                   sub_region->height() });
+        if (!overlapsAny(sub_bounds, invalid_rects))
+          continue;
 
-          if (sub_region->needsLayer()) {
-            if (sub_region->isOpaque())
-              occluders_.push_back({ sub_bounds, static_cast<int>(regions_.size()) });
-            regions_.push_back(sub_region->intermediateRegion());
-          }
-          else
-            collect(sub_region, sub_x, sub_y, bounds, invalid_rects);
-        }
+        if (!sub_region->needsLayer())
+          collect(sub_region, sub_x, sub_y, bounds, invalid_rects);
+        else if (sub_region->isOpaque())
+          occluders_.push_back({ sub_bounds, sub_region->drawOrder() });
       }
     }
 
-    bool trimBeneath(int order, const std::vector<IBounds>& rects, std::vector<IBounds>& trimmed) const {
-      auto above = [order, &rects](const Occluder& occluder) {
-        return occluder.order > order && overlapsAny(occluder.bounds, rects);
+    bool trimBeneath(int draw_order, const std::vector<IBounds>& rects, std::vector<IBounds>& trimmed) const {
+      auto above = [draw_order, &rects](const Occluder& occluder) {
+        return occluder.draw_order > draw_order && overlapsAny(occluder.bounds, rects);
       };
       if (std::none_of(occluders_.begin(), occluders_.end(), above))
         return false;
@@ -144,7 +125,7 @@ namespace visage {
       for (IBounds rect : rects) {
         for (const Occluder& occluder : occluders_) {
           IBounds remaining;
-          if (occluder.order > order && rect.subtract(occluder.bounds, remaining))
+          if (occluder.draw_order > draw_order && rect.subtract(occluder.bounds, remaining))
             rect = remaining;
         }
         if (rect.hasArea())
@@ -153,8 +134,6 @@ namespace visage {
       return true;
     }
 
-    std::vector<const Region*> regions_;
-    std::unordered_map<const Region*, int> order_;
     std::vector<Occluder> occluders_;
   };
 
@@ -498,7 +477,6 @@ namespace visage {
         IPoint point = coordinatesForRegion(region);
         occlusion.collect(region, point.x, point.y, invalid_rects_[region]);
       }
-      occlusion.finish();
     }
 
     std::vector<RegionPosition> region_positions;
