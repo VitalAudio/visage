@@ -90,10 +90,14 @@ namespace visage {
       int draw_order = 0;
     };
 
+    static bool occludes(const Region* region) {
+      return region->isOpaque() && region->backdropCount() == 0;
+    }
+
     void collect(const Region* region, int x, int y, const IBounds& clip,
                  const std::vector<IBounds>& invalid_rects) {
       IBounds bounds = clip.intersection({ x, y, region->width(), region->height() });
-      if (region->isOpaque() && overlapsAny(bounds, invalid_rects))
+      if (occludes(region) && overlapsAny(bounds, invalid_rects))
         occluders_.push_back({ bounds, region->drawOrder() });
 
       for (const Region* sub_region : region->subRegions()) {
@@ -109,7 +113,7 @@ namespace visage {
 
         if (!sub_region->needsLayer())
           collect(sub_region, sub_x, sub_y, bounds, invalid_rects);
-        else if (sub_region->isOpaque())
+        else if (occludes(sub_region))
           occluders_.push_back({ sub_bounds, sub_region->drawOrder() });
       }
     }
@@ -472,7 +476,7 @@ namespace visage {
     checkFrameBuffer();
 
     Occlusion occlusion;
-    if (backdrop_count == 0 && !hasBackdropEffect() && containsOpaque()) {
+    if (backdrop_count == 0 && containsOpaque()) {
       for (Region* region : regions_) {
         IPoint point = coordinatesForRegion(region);
         occlusion.collect(region, point.x, point.y, invalid_rects_[region]);
