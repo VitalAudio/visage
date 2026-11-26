@@ -1083,6 +1083,27 @@ TEST_CASE("Opaque frames with a translucent layer don't hide what's beneath them
   REQUIRE(scene.sample(25, 50) == OpaqueTestScene::kGreen);
 }
 
+TEST_CASE("Frames moved on top of an opaque frame draw over it", "[ui]") {
+  OpaqueTestScene scene;
+  scene.child().setOpaque(true);
+  scene.child().setOnTop(true);
+  Frame other;
+  other.onDraw() = [](Canvas& canvas) {
+    canvas.setColor(OpaqueTestScene::kGreen);
+    canvas.fill(0, 0, 20, 20);
+  };
+  scene.parent().addChild(&other);
+  other.setBounds(30, 30, 20, 20);
+  scene.draw();
+  REQUIRE(scene.sample(40, 40) == OpaqueTestScene::kBlue);
+
+  other.setOnTop(true);
+  scene.draw();
+  REQUIRE(scene.sample(40, 40) == OpaqueTestScene::kGreen);
+  REQUIRE(scene.sample(25, 25) == OpaqueTestScene::kBlue);
+  scene.parent().removeChild(&other);
+}
+
 TEST_CASE("Opaque frames covering a whole side of a redrawn area keep it from redrawing there",
           "[ui]") {
   OpaqueTestScene scene;

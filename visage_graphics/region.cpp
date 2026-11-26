@@ -36,7 +36,7 @@ namespace visage {
     region->setCanvas(nullptr);
     sub_regions_.erase(std::find(sub_regions_.begin(), sub_regions_.end(), region));
     addOpaqueCount(-region->opaque_count_);
-    invalidateBackdropCounts();
+    invalidateDrawOrder();
   }
 
   void Region::replaceRegion(Region* region, Region* replacement) {
@@ -47,12 +47,12 @@ namespace visage {
     replacement->setCanvas(canvas_);
     replacement->setLayerIndex(replacement->needsLayer() ? layer_index_ + 1 : layer_index_);
     addOpaqueCount(replacement->opaque_count_ - region->opaque_count_);
-    invalidateBackdropCounts();
+    invalidateDrawOrder();
   }
 
-  void Region::invalidateBackdropCounts() {
+  void Region::invalidateDrawOrder() {
     if (canvas_)
-      canvas_->invalidateBackdropCounts();
+      canvas_->invalidateDrawOrder();
   }
 
   void Region::setCanvas(Canvas* canvas) {
@@ -73,25 +73,27 @@ namespace visage {
     return canvas_ ? canvas_->dpiScale() : 1.0f;
   }
 
-  int Region::computeBackdropCount(int current) {
+  int Region::computeDrawOrder(int& draw_order, int backdrop_count) {
+    draw_order_ = draw_order++;
     if (backdrop_effect_)
-      current++;
+      backdrop_count++;
 
-    backdrop_count_ = current;
+    backdrop_count_ = backdrop_count;
     for (bool on_top : { false, true }) {
       for (auto& sub_region : sub_regions_) {
         if (sub_region->isOnTop() == on_top)
-          current = sub_region->computeBackdropCount(current);
+          backdrop_count = sub_region->computeDrawOrder(draw_order, backdrop_count);
       }
     }
-    backdrop_count_children_ = current;
+    backdrop_count_children_ = backdrop_count;
 
     if (intermediate_region_) {
+      intermediate_region_->draw_order_ = draw_order_;
       intermediate_region_->backdrop_count_ = backdrop_count_;
       intermediate_region_->backdrop_count_children_ = backdrop_count_children_;
     }
 
-    return current;
+    return backdrop_count;
   }
 
   void Region::invalidateRect(IBounds rect) {
@@ -171,7 +173,7 @@ namespace visage {
       decrementLayer();
     }
 
-    invalidateBackdropCounts();
+    invalidateDrawOrder();
     invalidate();
   }
 
@@ -186,7 +188,7 @@ namespace visage {
     detachEffect(backdrop_effect_);
     backdrop_effect_ = backdrop_effect;
     attachEffect(backdrop_effect);
-    invalidateBackdropCounts();
+    invalidateDrawOrder();
   }
 
   void Region::attachEffect(PostEffect* effect) {

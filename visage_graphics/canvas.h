@@ -67,7 +67,7 @@ namespace visage {
 
     void clearDrawnShapes();
     int submit(int submit_pass = 0);
-    void invalidateBackdropCounts() { backdrop_count_ = -1; }
+    void invalidateDrawOrder() { backdrop_count_ = -1; }
 
     const Screenshot& takeScreenshot();
     const Screenshot& screenshot() const;

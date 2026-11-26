@@ -1340,6 +1340,55 @@ TEST_CASE("Backdrop counts follow region changes after a frame was submitted", "
   }
 }
 
+TEST_CASE("Opaque regions don't hide what a backdrop effect copies", "[graphics]") {
+  auto fill = [](Canvas& canvas, Region& region, unsigned int color) {
+    canvas.beginRegion(&region);
+    canvas.setColor(color);
+    canvas.fill(0, 0, region.width(), region.height());
+    canvas.endRegion();
+  };
+
+  auto settle = [](Canvas& canvas, int x) {
+    canvas.takeScreenshot();
+    return canvas.takeScreenshot().sample(x, 16).hexRed();
+  };
+
+  Canvas canvas;
+  canvas.setWindowless(160, 32);
+  BlurPostEffect blur;
+  blur.setBlurRadius(20.0f);
+  Region background;
+  Region glass;
+  Region above;
+  canvas.addRegion(&background);
+  background.setBounds(0, 0, 160, 32);
+  canvas.addRegion(&glass);
+  glass.setNeedsLayer(true);
+  glass.setBackdropEffect(&blur);
+  glass.setBounds(100, 0, 60, 32);
+  fill(canvas, background, 0xff000000);
+  canvas.beginRegion(&glass);
+  canvas.endRegion();
+
+  SECTION("An opaque region drawn after the backdrop") {
+    canvas.addRegion(&above);
+    above.setBounds(142, 0, 18, 32);
+    above.setOpaque(true);
+    fill(canvas, above, 0xffffffff);
+    REQUIRE(settle(canvas, 135) < 0x10);
+    REQUIRE(canvas.screenshot().sample(151, 16).hexRed() == 0xff);
+  }
+
+  SECTION("An opaque region with its own backdrop") {
+    glass.setOpaque(true);
+    fill(canvas, background, 0xffffffff);
+    REQUIRE(settle(canvas, 140) > 0xf0);
+
+    fill(canvas, background, 0xff000000);
+    REQUIRE(settle(canvas, 140) < 0x10);
+  }
+}
+
 TEST_CASE("Layered region with a backdrop child draws translucent content once", "[graphics]") {
   for (bool with_background : { false, true }) {
     Canvas canvas;
